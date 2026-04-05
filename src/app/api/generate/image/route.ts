@@ -117,9 +117,9 @@ export async function POST(req: NextRequest) {
         response_format: "url",
       });
 
-      imageUrls = response.data
+      imageUrls = (response.data ?? [])
         .map((img) => img.url)
-        .filter(Boolean) as string[];
+        .filter((url): url is string => Boolean(url));
 
     } catch (openaiError: unknown) {
       // Log the actual OpenAI error for debugging
