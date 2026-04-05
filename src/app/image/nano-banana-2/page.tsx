@@ -1,0 +1,4 @@
+import { ToolCreatorPage } from "@/components/ui/ToolCreatorPage";
+export default function NanaBanana2Page() {
+  return <ToolCreatorPage toolName="Nano Banana 2" category="Image" tagline="Fast & Versatile Image Generation" description="Nano Banana 2 delivers high-quality image generation at rapid speeds, perfect for rapid ideation and iterative creative workflows." color="#60A5FA" gradient="linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)" features={["HD resolution","Rapid generation","Style transfer","Creative exploration","High variety outputs"]} promptPlaceholder="Describe your image concept..." exampleOutputs={[{gradient:"linear-gradient(160deg,#0a0f1a,#1a2744,#60a5fa)",label:"Style 1"},{gradient:"linear-gradient(160deg,#091526,#162244,#3b82f6)",label:"Style 2"},{gradient:"linear-gradient(160deg,#0a1020,#1a2a50,#93c5fd)",label:"Style 3"},{gradient:"linear-gradient(160deg,#0d1828,#1a3050,#60a5fa)",label:"Style 4"}]} />;
+}
