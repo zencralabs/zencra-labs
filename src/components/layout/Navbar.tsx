@@ -323,7 +323,7 @@ export function Navbar() {
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}>
                     <Zap size={14} />
-                    Try Free
+                    Start Creating
                   </button>
                 </>
               )}
@@ -361,7 +361,7 @@ export function Navbar() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white"
                   style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", border: "none", cursor: "pointer", width: "100%" }}>
                   <Zap size={14} />
-                  Try Free
+                  Start Creating
                 </button>
               </div>
             </div>
