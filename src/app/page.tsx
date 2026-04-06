@@ -130,7 +130,7 @@ export default function HomePage() {
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
   function handleStartCreating() {
-    router.push("/studio");
+    router.push("/studio/image");
   }
 
   return (
