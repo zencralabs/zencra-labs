@@ -130,7 +130,7 @@ export default function HomePage() {
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
   function handleStartCreating() {
-    if (user) { router.push("/dashboard"); } else { setAuthModal("signup"); }
+    router.push("/studio");
   }
 
   return (

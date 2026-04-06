@@ -42,7 +42,7 @@ const navDropdowns = {
   Image: {
     color: "#2563EB",
     features: [
-      { icon: ImageIcon, label: "Create Image",       desc: "Generate AI images",       badge: null,  href: "/tools/image" },
+      { icon: ImageIcon, label: "Create Image",       desc: "Generate AI images",       badge: null,  href: "/studio?mode=image" },
       { icon: Sparkles,  label: "Enhance & Upscale",  desc: "4K resolution boost",      badge: null,  href: "#" },
       { icon: Layers,    label: "Face Swap",           desc: "Realistic face swaps",     badge: "NEW", href: "#" },
     ],
@@ -55,7 +55,7 @@ const navDropdowns = {
   Video: {
     color: "#0EA5A0",
     features: [
-      { icon: Film,  label: "Create Video", desc: "Generate AI videos",      badge: "HOT", href: "#" },
+      { icon: Film,  label: "Create Video", desc: "Generate AI videos",      badge: "HOT", href: "/studio?mode=video" },
       { icon: Wand2, label: "Edit Video",   desc: "Edit scenes & elements",  badge: null,  href: "#" },
       { icon: Mic,   label: "Lip Sync",     desc: "Sync voice to video",     badge: null,  href: "#" },
     ],
@@ -68,7 +68,7 @@ const navDropdowns = {
   Audio: {
     color: "#A855F7",
     features: [
-      { icon: Mic,   label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "#" },
+      { icon: Mic,   label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "/studio?mode=audio" },
       { icon: Music, label: "AI Music",     desc: "Create full tracks",        badge: null,  href: "#" },
       { icon: Zap,   label: "Voice Clone",  desc: "Clone any voice",           badge: null,  href: "#" },
     ],
@@ -317,14 +317,14 @@ export function Navbar() {
                     onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}>
                     Login
                   </button>
-                  <button onClick={() => setAuthModal("signup")}
+                  <Link href="/studio"
                     className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all duration-300"
-                    style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer" }}
+                    style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}>
                     <Zap size={14} />
                     Start Creating
-                  </button>
+                  </Link>
                 </>
               )}
             </div>
@@ -357,12 +357,12 @@ export function Navbar() {
                   style={{ color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer", width: "100%" }}>
                   Login
                 </button>
-                <button onClick={() => { setMobileOpen(false); setAuthModal("signup"); }}
+                <Link href="/studio" onClick={() => setMobileOpen(false)}
                   className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white"
-                  style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", border: "none", cursor: "pointer", width: "100%" }}>
+                  style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", border: "none", cursor: "pointer", width: "100%", textDecoration: "none" }}>
                   <Zap size={14} />
                   Start Creating
-                </button>
+                </Link>
               </div>
             </div>
           )}
