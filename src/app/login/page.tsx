@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [show, setShow] = useState(false);
@@ -24,13 +25,13 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="mb-8 text-center">
-          <a href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl"
               style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)" }}>
               <span className="text-sm font-black text-white">Z</span>
             </div>
             <span className="text-lg font-bold text-white">Zencra <span style={{ color: "#64748B" }}>Labs</span></span>
-          </a>
+          </Link>
         </div>
 
         {/* Card */}
@@ -99,11 +100,11 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm" style={{ color: "#475569" }}>
           Don&apos;t have an account?{" "}
-          <a href="/signup" className="font-semibold transition-colors" style={{ color: "#2563EB" }}
+          <Link href="/signup" className="font-semibold transition-colors" style={{ color: "#2563EB" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#2563EB"; }}>
             Sign up free
-          </a>
+          </Link>
         </p>
       </div>
     </div>

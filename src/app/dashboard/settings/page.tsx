@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Lock, Shield, Trash2, Moon, CheckCircle, AlertTriangle } from "lucide-react";
+import { Bell, Lock, Shield, Trash2, CheckCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────

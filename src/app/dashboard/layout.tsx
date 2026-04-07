@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, User, CreditCard, Gift, Users, Tag,
-  Zap, LogOut, ChevronRight, Sparkles, Settings
+  Zap, LogOut, ChevronRight, Settings
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 

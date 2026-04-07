@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
+import Link from "next/link";
 
 export default function SignUpPage() {
   const [show, setShow] = useState(false);
@@ -32,13 +33,13 @@ export default function SignUpPage() {
 
           {/* Left — value prop */}
           <div className="hidden lg:block">
-            <a href="/" className="mb-8 inline-flex items-center gap-2">
+            <Link href="/" className="mb-8 inline-flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl"
                 style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)" }}>
                 <span className="text-sm font-black text-white">Z</span>
               </div>
               <span className="text-lg font-bold text-white">Zencra <span style={{ color: "#64748B" }}>Labs</span></span>
-            </a>
+            </Link>
             <h2 className="mb-4 text-3xl font-bold text-white leading-tight">
               Start creating with AI — <span style={{ background: "linear-gradient(135deg, #0EA5A0, #2563EB)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>for free</span>
             </h2>
@@ -59,13 +60,13 @@ export default function SignUpPage() {
           <div>
             {/* Mobile logo */}
             <div className="mb-8 text-center lg:hidden">
-              <a href="/" className="inline-flex items-center gap-2">
+              <Link href="/" className="inline-flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl"
                   style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)" }}>
                   <span className="text-sm font-black text-white">Z</span>
                 </div>
                 <span className="text-lg font-bold text-white">Zencra <span style={{ color: "#64748B" }}>Labs</span></span>
-              </a>
+              </Link>
             </div>
 
             <div className="rounded-2xl p-8" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>

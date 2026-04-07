@@ -51,7 +51,7 @@ export default function GalleryPage() {
             Creative <span style={{ background: "linear-gradient(135deg, #0EA5A0, #A855F7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Gallery</span>
           </h1>
           <p className="text-lg" style={{ color: "#94A3B8" }}>
-            AI-generated videos, images and audio crafted using the world's most powerful creative tools.
+            AI-generated videos, images and audio crafted using the world&apos;s most powerful creative tools.
           </p>
         </div>
       </section>

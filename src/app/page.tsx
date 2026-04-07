@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Film, ImageIcon, Mic, Layers, Clapperboard, Users, Zap, Check, ChevronRight, ArrowRight } from "lucide-react";
-import { useAuth } from "@/components/auth/AuthContext";
+import { Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,7 +124,6 @@ const pricingTiers = [
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
-  const { user } = useAuth();
   const router = useRouter();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 

@@ -36,7 +36,6 @@ export default function ImageGeneratePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<string[]>([]);
-  const [creditsUsed, setCreditsUsed] = useState<number | null>(null);
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null);
 
   const creditCost = QUALITIES.find((q) => q.value === quality)?.credits ?? 2;
@@ -73,7 +72,6 @@ export default function ImageGeneratePage() {
       }
 
       setResults(data.images ?? []);
-      setCreditsUsed(data.credits_used);
       setCreditsLeft(data.credits_remaining);
     } catch {
       setError("Network error. Please check your connection.");
@@ -84,7 +82,7 @@ export default function ImageGeneratePage() {
 
   const [copied, setCopied] = useState<number | null>(null);
 
-  async function handleDownload(url: string, index: number) {
+  async function handleDownload(url: string) {
     // Open in new tab — DALL-E URLs block cross-origin fetch (CORS)
     window.open(url, "_blank");
   }
@@ -374,7 +372,7 @@ export default function ImageGeneratePage() {
                     />
                     <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
                       <button
-                        onClick={() => handleDownload(url, i)}
+                        onClick={() => handleDownload(url)}
                         style={{
                           flex: 1, padding: "8px", borderRadius: "8px", cursor: "pointer",
                           backgroundColor: "var(--page-bg-3)",

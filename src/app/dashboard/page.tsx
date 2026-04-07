@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Zap, ImageIcon, Video, TrendingUp, Gift, Users, ArrowRight, Clock, Star } from "lucide-react";
+import { Zap, ImageIcon, Video, TrendingUp, Users, ArrowRight, Clock, Star } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export default function DashboardPage() {
           Welcome back, {user.name.split(" ")[0]} 👋
         </h1>
         <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
-          Here's what's happening with your Zencra account.
+          Here&apos;s what&apos;s happening with your Zencra account.
         </p>
       </div>
 

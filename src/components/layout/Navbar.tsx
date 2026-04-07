@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronDown, ImageIcon, Video, Music, Wand2, Sparkles, Mic, Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight, Sun, Moon } from "lucide-react";
+import { Menu, X, ChevronDown, ImageIcon, Music, Wand2, Sparkles, Mic, Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Logo } from "@/components/ui/Logo";
-import { cn } from "@/lib/utils";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
 

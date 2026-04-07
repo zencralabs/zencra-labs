@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 // PROMO CODE PAGE — Redeem promo codes for credits or plan discounts
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REDEEMED_CODES: { code: string; reward: string; date: string; type: "credits" | "discount" }[] = [];
+type RedeemedCode = { code: string; reward: string; date: string; type: "credits" | "discount" };
 
 // Demo codes that can be "redeemed" in Phase 1
 const VALID_CODES: Record<string, { reward: string; credits: number; type: "credits" | "discount" }> = {
@@ -23,7 +23,7 @@ export default function PromoPage() {
   const [code, setCode]     = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "error" | "used">("idle");
   const [reward, setReward] = useState("");
-  const [redeemed, setRedeemed] = useState<typeof REDEEMED_CODES>([]);
+  const [redeemed, setRedeemed] = useState<RedeemedCode[]>([]);
 
   if (!user) return null;
 
@@ -97,7 +97,7 @@ export default function PromoPage() {
           )}
           {status === "used" && (
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#F59E0B", fontSize: "13px", fontWeight: 600, justifyContent: "center" }}>
-              <Clock size={15} /> You've already redeemed this code.
+              <Clock size={15} /> You&apos;ve already redeemed this code.
             </div>
           )}
 
