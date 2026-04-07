@@ -120,8 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, []);
 
   async function login(email: string, password: string): Promise<boolean> {
     // Mock auth fallback when Supabase not configured
