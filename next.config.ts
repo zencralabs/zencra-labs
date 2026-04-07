@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
   trailingSlash: false,
-  turbopack: {
-    root: __dirname,
-  },
 };
 
 export default nextConfig;
