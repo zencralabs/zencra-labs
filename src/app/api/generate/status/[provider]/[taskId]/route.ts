@@ -1,13 +1,18 @@
 
 import { NextResponse } from "next/server";
-import type { ProviderStatusResult } from "@/lib/ai/types";
+import type { ProviderName, ProviderStatusResult } from "@/lib/ai/types";
+
+type RouteParams = Promise<{
+  provider: string;
+  taskId: string;
+}>;
 
 export async function GET(
   _req: Request,
-  { params }: { params: { provider: string; taskId: string } }
+  context: { params: RouteParams }
 ) {
   try {
-    const { provider, taskId } = params;
+    const { provider, taskId } = await context.params;
 
     if (!provider || !taskId) {
       return NextResponse.json(
@@ -17,7 +22,7 @@ export async function GET(
     }
 
     const result: ProviderStatusResult = {
-      provider: provider as any,
+      provider: provider as ProviderName,
       taskId,
       status: "success",
       url: "https://example.com/mock-video",
