@@ -1,4 +1,8894 @@
+
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
 export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier.
+
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;git add src/lib/ai/types.ts
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     
+▲ Next.js 16.2.2 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.8s
+  Running TypeScript  ..Failed to type check.
+
+./src/lib/ai/types.ts:108:52
+Type error: Unexpected keyword or identifier
+  106 | };
+  107 |
+> 108 | export type CreditEstimateResult = CreditBreakdown;
+      |                                                    ^
+  109 | git commit -m "feat: add AI types foundation"
+  110 |
+Next.js build worker exited with code: 1 and signal: null
+jaikumarnair@Jais-MacBook-Pro zencra-labs % nano src/lib/ai/types.ts
+
+  UW PICO 5.09                              File: src/lib/ai/types.ts                               Modified  
+
+export type GenerationMode = "image" | "video" | "audio";
+export type GenerationQuality = "draft" | "cinematic" | "studio";
+
+export type GenerationStatus =
+  | "queued"
+  | "pending"
+  | "processing"
+  | "success"   
+  | "error"  
+  | "failed";
+  
+export type ProviderName =
+  | "dalle"
+  | "kling"
+  | "elevenlabs"
+  | "nano-banana"
+  | "ideogram"   
+  | "seedance"
+  | "heygen"; 
+  
+export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export type CreditBreakdown = {
+  base: number;
+  modifiers: Record<string, number>;
+  total: number;
+};
+  
+                              [ line 1 of 110 (0%), character 0 of 2495 (0%) ]                                
+^G Get Help       ^O WriteOut       ^R Read File      ^Y Prev Pg        ^K Cut Text       ^C Cur Pos        
+^X Exit           ^J Justify        ^W Where is       ^V Next Pg        ^U UnCut Text     ^T To Spell     export type GenerationMode = "image" | "video" | "audio";
 export type GenerationQuality = "draft" | "cinematic" | "studio";
 
 export type GenerationStatus =
