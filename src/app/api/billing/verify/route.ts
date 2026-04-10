@@ -25,10 +25,25 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getAuthUser } from "@/lib/supabase/server";
 import { verifyRazorpaySignature } from "@/lib/billing/providers/razorpay";
 import { fulfillOrder, markOrderFulfillmentFailed } from "@/lib/billing/fulfill";
+import { BILLING_DEMO_MODE, DEMO_RAZORPAY_SIGNATURE } from "@/lib/billing/demo";
 import type { RazorpayVerifyPayload } from "@/lib/billing/types";
 
 const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
 const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
+
+/**
+ * Returns true when signature verification should be skipped.
+ *
+ * Skipped only when ALL of these are true:
+ *   1. BILLING_DEMO_MODE=true (server-side env var)
+ *   2. The signature matches the known demo sentinel
+ *
+ * In production BILLING_DEMO_MODE is always false, so this
+ * function always returns false there — no weakening of prod path.
+ */
+function shouldSkipSignatureVerification(signature: string): boolean {
+  return BILLING_DEMO_MODE && signature === DEMO_RAZORPAY_SIGNATURE;
+}
 
 export async function POST(req: Request) {
   try {
@@ -51,8 +66,11 @@ export async function POST(req: Request) {
     }
 
     // ── 3. Verify signature ──────────────────────────────────────────────────
-    // In DEMO_MODE skip signature verification so it can be tested without real keys
-    if (!IS_DEV) {
+    // Skip only when: BILLING_DEMO_MODE=true AND sentinel signature is present.
+    // In all other cases (including all production requests) the HMAC runs.
+    const skipSig = IS_DEV || shouldSkipSignatureVerification(razorpaySignature);
+
+    if (!skipSig) {
       let signatureValid: boolean;
       try {
         signatureValid = verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
@@ -65,6 +83,8 @@ export async function POST(req: Request) {
         console.warn("[verify] Invalid signature", { orderId, razorpayOrderId });
         return NextResponse.json({ success: false, error: "Invalid payment signature" }, { status: 400 });
       }
+    } else if (BILLING_DEMO_MODE) {
+      console.log("[verify] DEMO MODE — signature verification skipped");
     }
 
     // ── 4. Load the order and confirm ownership ──────────────────────────────

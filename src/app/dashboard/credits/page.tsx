@@ -79,7 +79,11 @@ export default function CreditsPage() {
 
   const credPct = Math.min((user.credits / 100) * 100, 100);
 
-  // ── Buy flow (Razorpay) ────────────────────────────────────────────────────
+  // ── Buy flow ───────────────────────────────────────────────────────────────
+  // In demo mode (isDemo:true in order response): skips the Razorpay modal
+  // entirely and auto-calls /api/billing/demo/webhook — same fulfillment path
+  // as a real webhook, credits update identically.
+  // In production: opens Razorpay Checkout as normal.
   async function handleBuy(pack: CreditPack) {
     if (purchasing) return;
     setPurchasing(pack.id);
@@ -87,9 +91,6 @@ export default function CreditsPage() {
     setPurchaseSuccess(null);
 
     try {
-      const loaded = await loadRazorpayScript();
-      if (!loaded) throw new Error("Could not load Razorpay checkout. Please try again.");
-
       const idempotencyKey = `${user.id}-${pack.id}-${Date.now()}`;
 
       const orderRes = await fetch("/api/billing/orders", {
@@ -100,9 +101,32 @@ export default function CreditsPage() {
       const orderData = await orderRes.json();
       if (!orderRes.ok || !orderData.success) throw new Error(orderData.error ?? "Failed to create order");
 
-      const { orderId, razorpayOrderId, amount, currency } = orderData.data;
+      const { orderId, isDemo } = orderData.data;
+
+      // ── Demo path: auto-fulfill without opening any UI ───────────────────
+      if (isDemo) {
+        console.log("[credits] DEMO MODE — auto-calling demo webhook, no modal shown");
+        const demoRes = await fetch("/api/billing/demo/webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, provider: "razorpay" }),
+        });
+        const demoData = await demoRes.json();
+        if (!demoRes.ok || !demoData.success) throw new Error(demoData.error ?? "Demo fulfillment failed");
+
+        await refreshUser();
+        await loadHistory();
+        setPurchaseSuccess({ credits: pack.credits });
+        return;
+      }
+
+      // ── Production path: open Razorpay Checkout ──────────────────────────
+      const { razorpayOrderId, amount, currency } = orderData.data;
       const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!keyId) throw new Error("Razorpay is not configured. Please contact support.");
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Could not load Razorpay checkout. Please try again.");
 
       await new Promise<void>((resolve, reject) => {
         const rzp = new window.Razorpay({

@@ -15,6 +15,7 @@
  */
 import Stripe from "stripe";
 import type { BillingAdapter, CreateOrderParams, ProviderOrderResult } from "../types";
+import { BILLING_DEMO_MODE, makeDemoStripeOrder } from "../demo";
 
 // Lazy singleton — avoids instantiating on every request in serverless
 let _stripe: Stripe | null = null;
@@ -34,6 +35,13 @@ function getStripe(): Stripe {
  * the payment UI — it never leaves the server except to the authenticated user.
  */
 async function createOrder(params: CreateOrderParams): Promise<ProviderOrderResult> {
+  // ── Demo mode: return fake PaymentIntent without calling Stripe API ─────────
+  // BILLING_DEMO_MODE is server-side only — this branch never runs in production.
+  if (BILLING_DEMO_MODE) {
+    console.log("[stripe] DEMO MODE — returning fake PaymentIntent, no API call made");
+    return makeDemoStripeOrder();
+  }
+
   const stripe = getStripe();
 
   const intent = await stripe.paymentIntents.create({

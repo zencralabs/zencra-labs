@@ -16,6 +16,7 @@
  */
 import crypto from "crypto";
 import type { BillingAdapter, CreateOrderParams, ProviderOrderResult } from "../types";
+import { BILLING_DEMO_MODE, makeDemoRazorpayOrder } from "../demo";
 
 function getCredentials() {
   const keyId     = process.env.RAZORPAY_KEY_ID;
@@ -34,6 +35,13 @@ function getCredentials() {
  * to open the Checkout modal.
  */
 async function createOrder(params: CreateOrderParams): Promise<ProviderOrderResult> {
+  // ── Demo mode: return fake order without calling Razorpay API ───────────────
+  // BILLING_DEMO_MODE is server-side only — this branch never runs in production.
+  if (BILLING_DEMO_MODE) {
+    console.log("[razorpay] DEMO MODE — returning fake order, no API call made");
+    return makeDemoRazorpayOrder({ amountCents: params.amountCents, currency: params.currency });
+  }
+
   const { keyId, keySecret } = getCredentials();
 
   const body = {

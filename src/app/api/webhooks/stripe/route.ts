@@ -26,6 +26,12 @@ import type Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { constructStripeEvent } from "@/lib/billing/providers/stripe";
 import { fulfillOrder, markOrderFulfillmentFailed } from "@/lib/billing/fulfill";
+import {
+  BILLING_DEMO_MODE,
+  DEMO_STRIPE_SIGNATURE,
+  makeDemoStripeEvent,
+  demoPrefixedId,
+} from "@/lib/billing/demo";
 
 export async function POST(req: Request) {
   let rawBody = "";
@@ -38,17 +44,35 @@ export async function POST(req: Request) {
     // ── 2. Verify signature and parse event ──────────────────────────────────
     const signature = req.headers.get("stripe-signature") ?? "";
 
-    try {
-      stripeEvent = constructStripeEvent(rawBody, signature);
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "constructEvent failed";
-      console.error("[webhook/stripe] Signature verification failed:", error);
-      await logWebhookEvent({ provider: "stripe", eventId: `sig-fail-${Date.now()}`, eventType: "signature_failure", payload: {}, processed: false, error });
-      // Return 400 for invalid signatures — Stripe won't retry these
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    // Demo sentinel accepted only when BILLING_DEMO_MODE=true (server env var).
+    // In production BILLING_DEMO_MODE is always false — constructStripeEvent always runs.
+    const isDemoRequest = BILLING_DEMO_MODE && signature === DEMO_STRIPE_SIGNATURE;
+
+    if (isDemoRequest) {
+      console.log("[webhook/stripe] DEMO MODE — constructStripeEvent skipped");
+      // Parse the raw body as a demo event; the /api/billing/demo/webhook route
+      // sends a pre-shaped payload so we don't need the Stripe SDK here.
+      try {
+        const parsed = JSON.parse(rawBody) as { intentId?: string };
+        const intentId = parsed.intentId ?? demoPrefixedId("pi");
+        stripeEvent = makeDemoStripeEvent(intentId) as unknown as Stripe.Event;
+      } catch {
+        return NextResponse.json({ error: "Invalid demo payload" }, { status: 400 });
+      }
+    } else {
+      // Production path: always verify signature — constructStripeEvent unchanged
+      try {
+        stripeEvent = constructStripeEvent(rawBody, signature);
+      } catch (err) {
+        const error = err instanceof Error ? err.message : "constructEvent failed";
+        console.error("[webhook/stripe] Signature verification failed:", error);
+        await logWebhookEvent({ provider: "stripe", eventId: `sig-fail-${Date.now()}`, eventType: "signature_failure", payload: {}, processed: false, error });
+        // Return 400 for invalid signatures — Stripe won't retry these
+        return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+      }
     }
 
-    const eventId   = stripeEvent.id;       // evt_...
+    const eventId   = stripeEvent.id;
     const eventType = stripeEvent.type;
 
     // ── 3. Log the raw event ─────────────────────────────────────────────────

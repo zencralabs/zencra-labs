@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyRazorpayWebhookSignature } from "@/lib/billing/providers/razorpay";
 import { fulfillOrder, markOrderFulfillmentFailed } from "@/lib/billing/fulfill";
+import { BILLING_DEMO_MODE, DEMO_RAZORPAY_SIGNATURE } from "@/lib/billing/demo";
 
 // Razorpay webhook payload shapes
 interface RazorpayPaymentEntity {
@@ -72,19 +73,28 @@ export async function POST(req: Request) {
 
     // ── 3. Verify signature ──────────────────────────────────────────────────
     const signature = req.headers.get("x-razorpay-signature") ?? "";
-    let signatureValid = false;
 
-    try {
-      signatureValid = verifyRazorpayWebhookSignature(rawBody, signature);
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "Signature check threw";
-      await logWebhookEvent({ provider: "razorpay", eventId, eventType, payload: parsedPayload, processed: false, error });
-      return NextResponse.json({ received: true });
-    }
+    // Demo sentinel accepted only when BILLING_DEMO_MODE=true (server env var).
+    // In production BILLING_DEMO_MODE is always false — this branch never runs.
+    const isDemoRequest = BILLING_DEMO_MODE && signature === DEMO_RAZORPAY_SIGNATURE;
 
-    if (!signatureValid) {
-      await logWebhookEvent({ provider: "razorpay", eventId, eventType, payload: parsedPayload, processed: false, error: "Invalid signature" });
-      return NextResponse.json({ received: true });
+    if (!isDemoRequest) {
+      // Production path: always verify HMAC — unchanged
+      let signatureValid = false;
+      try {
+        signatureValid = verifyRazorpayWebhookSignature(rawBody, signature);
+      } catch (err) {
+        const error = err instanceof Error ? err.message : "Signature check threw";
+        await logWebhookEvent({ provider: "razorpay", eventId, eventType, payload: parsedPayload, processed: false, error });
+        return NextResponse.json({ received: true });
+      }
+
+      if (!signatureValid) {
+        await logWebhookEvent({ provider: "razorpay", eventId, eventType, payload: parsedPayload, processed: false, error: "Invalid signature" });
+        return NextResponse.json({ received: true });
+      }
+    } else {
+      console.log("[webhook/razorpay] DEMO MODE — signature verification skipped");
     }
 
     // ── 4. Log the raw event (before processing, before any DB writes) ───────
