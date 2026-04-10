@@ -9,7 +9,7 @@ import type { GenerateContentInput } from "@/lib/ai/types";
 // Used ONLY in local development when no Bearer token is present.
 // In production every request must carry a valid JWT.
 const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const IS_DEV = process.env.NODE_ENV === "development";
+const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
 
 /** Map orchestrator status values → DB CHECK constraint values */
 function toDbStatus(
