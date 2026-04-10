@@ -14,9 +14,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
 import { deductCredits, refundCredits } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuthUser } from "@/lib/supabase/server";
+import { resolveTool } from "@/lib/ai/tool-registry";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -35,21 +36,8 @@ const API_COSTS: Record<string, number> = {
 export async function POST(req: NextRequest) {
   try {
     // ── 1. Auth: verify user session ─────────────────────────
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
+    const { user, authError } = await requireAuthUser(req);
+    if (authError) return authError;
 
     // ── 2. Parse request body ─────────────────────────────────
     const body = await req.json();
@@ -88,16 +76,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Log generation record (pending) ───────────────────
-    const admin = createAdminClient();
-    const { data: genRecord } = await admin
+    // resolveTool() returns the canonical tool name from the registry.
+    // quality determines the tool key: dalle3-standard → "dalle-3"
+    const toolName = resolveTool("image", "dalle");
+
+    const { data: genRecord } = await supabaseAdmin
       .from("generations")
       .insert({
-        user_id: user.id,
-        tool: "dalle3",
+        user_id:      user.id,
+        tool:         toolName,         // "dalle-3" (from tool-registry)
         tool_category: "image",
         prompt,
-        parameters: { quality, size, style, n },
-        status: "processing",
+        parameters:   { quality, size, style, n },
+        status:       "processing",
         credits_used: creditCost,
         api_cost_usd: apiCost,
       })
@@ -134,7 +125,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (genRecord?.id) {
-        await admin
+        await supabaseAdmin
           .from("generations")
           .update({
             status: "failed",
@@ -154,12 +145,12 @@ export async function POST(req: NextRequest) {
 
     // ── 6. Mark generation as complete ───────────────────────
     if (genRecord?.id) {
-      await admin
+      await supabaseAdmin
         .from("generations")
         .update({
-          status: "completed",
-          result_url: imageUrls[0],
-          result_urls: imageUrls,
+          status:       "completed",
+          result_url:   imageUrls[0],
+          result_urls:  imageUrls,
           completed_at: new Date().toISOString(),
         })
         .eq("id", genRecord.id);

@@ -1,12 +1,15 @@
 /**
  * Auth helpers — server-side only
- * Use these in API routes and server components
+ * Use these in API routes and server components.
+ *
+ * Credit operations use Postgres RPCs (spend_credits / refund_credits)
+ * to guarantee atomicity via row-level locking — preventing the race
+ * condition where two concurrent requests both pass the balance check.
  */
-import { createAdminClient } from "./supabase";
+import { supabaseAdmin } from "./supabase/admin";
 
 export async function getUserById(userId: string) {
-  const admin = createAdminClient();
-  const { data, error } = await admin
+  const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("*")
     .eq("id", userId)
@@ -15,71 +18,59 @@ export async function getUserById(userId: string) {
   return data;
 }
 
+/**
+ * Atomically deducts credits from a user's balance.
+ * Uses the spend_credits Postgres RPC — a single locked transaction.
+ *
+ * @param generationId  Optional: links the transaction to a generation row
+ */
 export async function deductCredits(
   userId: string,
   amount: number,
   description: string,
   metadata: Record<string, unknown> = {}
 ): Promise<{ success: boolean; newBalance?: number; error?: string }> {
-  const admin = createAdminClient();
+  const generationId = metadata.generation_id as string | undefined;
 
-  // Get current balance
-  const { data: profile, error: fetchError } = await admin
-    .from("profiles")
-    .select("credits")
-    .eq("id", userId)
-    .single();
-
-  if (fetchError || !profile) return { success: false, error: "User not found" };
-  if (profile.credits < amount) return { success: false, error: "Insufficient credits" };
-
-  const newBalance = profile.credits - amount;
-
-  // Deduct credits
-  const { error: updateError } = await admin
-    .from("profiles")
-    .update({ credits: newBalance })
-    .eq("id", userId);
-
-  if (updateError) return { success: false, error: "Failed to deduct credits" };
-
-  // Log transaction
-  await admin.from("credit_transactions").insert({
-    user_id: userId,
-    type: "spend",
-    amount: -amount,
-    balance_after: newBalance,
-    description,
-    metadata,
+  const { data, error } = await supabaseAdmin.rpc("spend_credits", {
+    p_user_id:       userId,
+    p_amount:        amount,
+    p_description:   description,
+    p_generation_id: generationId ?? null,
   });
 
-  return { success: true, newBalance };
+  if (error) return { success: false, error: error.message };
+
+  const row = data?.[0];
+  if (!row?.success) {
+    return { success: false, error: row?.error_message ?? "Credit deduction failed" };
+  }
+
+  return { success: true, newBalance: row.new_balance };
 }
 
+/**
+ * Atomically refunds credits to a user's balance.
+ * Uses the refund_credits Postgres RPC — a single locked transaction.
+ *
+ * @param generationId  Optional: links the refund to the original generation
+ */
 export async function refundCredits(
   userId: string,
   amount: number,
   description: string,
   metadata: Record<string, unknown> = {}
 ): Promise<void> {
-  const admin = createAdminClient();
+  const generationId = metadata.generation_id as string | undefined;
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("credits")
-    .eq("id", userId)
-    .single();
-
-  if (!profile) return;
-  const newBalance = profile.credits + amount;
-
-  await admin.from("profiles").update({ credits: newBalance }).eq("id", userId);
-  await admin.from("credit_transactions").insert({
-    user_id: userId,
-    type: "refund",
-    amount,
-    balance_after: newBalance,
-    description,
-    metadata,
+  const { error } = await supabaseAdmin.rpc("refund_credits", {
+    p_user_id:       userId,
+    p_amount:        amount,
+    p_description:   description,
+    p_generation_id: generationId ?? null,
   });
+
+  if (error) {
+    console.error("[refundCredits] RPC failed:", error.message, { userId, amount });
+  }
 }
