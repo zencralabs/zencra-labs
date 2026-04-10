@@ -1,45 +1,170 @@
 "use client";
 
-import { useState } from "react";
-import { Zap, ImageIcon, Video, TrendingUp, TrendingDown, Clock, CheckCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ImageIcon, Video } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
+import type { CreditPack } from "@/lib/billing/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREDITS PAGE — Balance, usage history, top-up options
+// Packs and history loaded from live API. Top-up initiates billing flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TOPUP_PACKS = [
-  { credits: 100,   price: "$4.99",  label: "Starter",  color: "#2563EB", popular: false },
-  { credits: 300,   price: "$12.99", label: "Creator",  color: "#A855F7", popular: true  },
-  { credits: 750,   price: "$24.99", label: "Studio",   color: "#0EA5A0", popular: false },
-  { credits: 2000,  price: "$59.99", label: "Pro",      color: "#F59E0B", popular: false },
-];
-
 const COST_GUIDE = [
-  { action: "Generate Image (SD)",    cost: 1,   icon: ImageIcon, color: "#2563EB" },
-  { action: "Generate Image (HD)",    cost: 2,   icon: ImageIcon, color: "#2563EB" },
-  { action: "Generate Image (4K)",    cost: 4,   icon: ImageIcon, color: "#2563EB" },
-  { action: "Generate Video (15s)",   cost: 5,   icon: Video,     color: "#0EA5A0" },
-  { action: "Generate Video (30s)",   cost: 10,  icon: Video,     color: "#0EA5A0" },
-  { action: "Generate Video (60s)",   cost: 20,  icon: Video,     color: "#0EA5A0" },
+  { action: "Generate Image (Standard)",   cost: 2,  icon: ImageIcon, color: "#2563EB" },
+  { action: "Generate Image (HD)",         cost: 4,  icon: ImageIcon, color: "#2563EB" },
+  { action: "Generate Video (5s)",         cost: 11, icon: Video,     color: "#0EA5A0" },
+  { action: "Generate Video (10s)",        cost: 13, icon: Video,     color: "#0EA5A0" },
+  { action: "Generate Audio",              cost: 3,  icon: Video,     color: "#A855F7" },
 ];
 
-const HISTORY = [
-  { type: "used",  action: "Image Generated",   tool: "Nano Banana Pro", time: "Today, 10:23 AM",     amount: -2  },
-  { type: "used",  action: "Video Created",      tool: "Kling 3.0",       time: "Today, 09:05 AM",     amount: -5  },
-  { type: "added", action: "Welcome Bonus",      tool: "Zencra Labs",     time: "Account creation",    amount: +50 },
-  { type: "used",  action: "Image Generated",    tool: "Flux",            time: "Yesterday, 3:44 PM",  amount: -2  },
-  { type: "used",  action: "Video Created",      tool: "Runway ML",       time: "Yesterday, 11:12 AM", amount: -10 },
-];
+// ── Razorpay checkout ─────────────────────────────────────────────────────────
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Razorpay: any;
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload  = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 export default function CreditsPage() {
-  const { user }    = useAuth();
-  const [bought, setBought] = useState<number | null>(null);
+  const { user, refreshUser } = useAuth();
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [packs, setPacks]               = useState<CreditPack[]>([]);
+  const [packsLoading, setPacksLoading] = useState(true);
+
+  const [history, setHistory] = useState<{
+    id: string; type: string; amount: number; balance_after: number;
+    description: string; created_at: string;
+  }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const [purchasing, setPurchasing]         = useState<string | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState<{ credits: number } | null>(null);
+  const [purchaseError, setPurchaseError]   = useState<string | null>(null);
+
+  // ── Load packs ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/billing/packs")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setPacks(d.data); })
+      .catch(console.error)
+      .finally(() => setPacksLoading(false));
+  }, []);
+
+  // ── Load history ───────────────────────────────────────────────────────────
+  const loadHistory = useCallback(() => {
+    setHistoryLoading(true);
+    fetch("/api/credits/history?limit=20")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setHistory(d.data); })
+      .catch(console.error)
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
   if (!user) return null;
 
   const credPct = Math.min((user.credits / 100) * 100, 100);
-  const totalUsed = HISTORY.filter(h => h.type === "used").reduce((s, h) => s + Math.abs(h.amount), 0);
+
+  // ── Buy flow (Razorpay) ────────────────────────────────────────────────────
+  async function handleBuy(pack: CreditPack) {
+    if (purchasing) return;
+    setPurchasing(pack.id);
+    setPurchaseError(null);
+    setPurchaseSuccess(null);
+
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error("Could not load Razorpay checkout. Please try again.");
+
+      const idempotencyKey = `${user.id}-${pack.id}-${Date.now()}`;
+
+      const orderRes = await fetch("/api/billing/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: pack.id, provider: "razorpay", idempotencyKey }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.success) throw new Error(orderData.error ?? "Failed to create order");
+
+      const { orderId, razorpayOrderId, amount, currency } = orderData.data;
+      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      if (!keyId) throw new Error("Razorpay is not configured. Please contact support.");
+
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key:         keyId,
+          order_id:    razorpayOrderId,
+          amount,
+          currency,
+          name:        "Zencra Labs",
+          description: `${pack.credits} Credits — ${pack.name} Pack`,
+          prefill:     { name: user.name ?? "", email: user.email ?? "" },
+          theme:       { color: "#2563EB" },
+
+          handler: async (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id:   string;
+            razorpay_signature:  string;
+          }) => {
+            try {
+              const verifyRes = await fetch("/api/billing/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  orderId,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpayOrderId:   response.razorpay_order_id,
+                  razorpaySignature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.success) throw new Error(verifyData.error ?? "Verification failed");
+
+              await refreshUser();
+              await loadHistory();
+              setPurchaseSuccess({ credits: pack.credits });
+              resolve();
+            } catch (err) { reject(err); }
+          },
+
+          modal: { ondismiss: () => resolve() },
+        });
+        rzp.open();
+      });
+
+    } catch (err) {
+      setPurchaseError(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
+      setPurchasing(null);
+    }
+  }
+
+  // ── Styles ─────────────────────────────────────────────────────────────────
+  const card: React.CSSProperties = {
+    backgroundColor: "var(--page-bg-2)", borderRadius: "16px",
+    padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: "20px",
+  };
+  const sectionTitle: React.CSSProperties = {
+    fontSize: "15px", fontWeight: 700, color: "var(--page-text)", margin: "0 0 16px 0",
+  };
+  const label: React.CSSProperties = {
+    fontSize: "11px", fontWeight: 700, color: "#475569",
+    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px",
+  };
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px" }}>
@@ -48,109 +173,145 @@ export default function CreditsPage() {
         <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>Your balance, top-ups, and usage history</p>
       </div>
 
-      {/* Balance card */}
-      <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "20px", padding: "28px", border: "1px solid rgba(168,85,247,0.2)", marginBottom: "28px", background: "linear-gradient(135deg, #0A1122 0%, #130d22 100%)", position: "relative", overflow: "hidden" }}>
+      {/* ── Feedback banners ─────────────────────────────────────────────── */}
+      {purchaseSuccess && (
+        <div style={{ ...card, background: "rgba(16,163,127,0.1)", border: "1px solid rgba(16,163,127,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20 }}>✅</span>
+          <span style={{ fontSize: 14, color: "#10a37f", fontWeight: 600 }}>{purchaseSuccess.credits} credits added to your account!</span>
+          <button onClick={() => setPurchaseSuccess(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#10a37f", cursor: "pointer", fontSize: 18 }}>×</button>
+        </div>
+      )}
+      {purchaseError && (
+        <div style={{ ...card, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <span style={{ fontSize: 14, color: "#ef4444", fontWeight: 500 }}>{purchaseError}</span>
+          <button onClick={() => setPurchaseError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 18 }}>×</button>
+        </div>
+      )}
+
+      {/* ── Balance card ──────────────────────────────────────────────────── */}
+      <div style={{ ...card, background: "linear-gradient(135deg, #0A1122 0%, #130d22 100%)", border: "1px solid rgba(168,85,247,0.2)", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "160px", height: "160px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>Current Balance</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-              <span style={{ fontSize: "52px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</span>
-              <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>credits</span>
-            </div>
-            {/* Credit bar */}
-            <div style={{ width: "300px", height: "6px", borderRadius: "3px", backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: "16px" }}>
-              <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg,#2563EB,#A855F7)", borderRadius: "3px", transition: "width 0.5s" }} />
-            </div>
-            <div style={{ fontSize: "11px", color: "#475569", marginTop: "6px" }}>{user.credits} of 100 credits (Free plan cap)</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ display: "flex", gap: "20px" }}>
-              <div>
-                <div style={{ fontSize: "11px", color: "#475569", marginBottom: "4px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Used This Month</div>
-                <div style={{ fontSize: "22px", fontWeight: 800, color: "#EF4444", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <TrendingDown size={16} /> {totalUsed}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: "11px", color: "#475569", marginBottom: "4px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Earned</div>
-                <div style={{ fontSize: "22px", fontWeight: 800, color: "#10B981", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <TrendingUp size={16} /> 50
-                </div>
-              </div>
-            </div>
-          </div>
+        <div style={label}>Current Balance</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+          <span style={{ fontSize: "52px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</span>
+          <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>credits</span>
+        </div>
+        <div style={{ marginTop: "20px", height: "6px", background: "rgba(255,255,255,0.08)", borderRadius: "3px", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #A855F7, #2563EB)", borderRadius: "3px", transition: "width 0.4s ease" }} />
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-        {/* Top-up section */}
-        <div>
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--page-text)", marginBottom: "14px" }}>Top Up Credits</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {TOPUP_PACKS.map(pack => (
-              <div key={pack.credits}
-                style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "12px", padding: "14px 16px", border: bought === pack.credits ? `1px solid ${pack.color}60` : pack.popular ? "1px solid rgba(37,99,235,0.3)" : "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
-                {pack.popular && (
-                  <div style={{ position: "absolute", top: "-8px", right: "12px", backgroundColor: "#2563EB", color: "#fff", fontSize: "9px", fontWeight: 700, padding: "2px 8px", borderRadius: "8px", textTransform: "uppercase" }}>
-                    Best Value
-                  </div>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: `${pack.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Zap size={15} style={{ color: pack.color }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--page-text)" }}>{pack.credits} Credits</div>
-                    <div style={{ fontSize: "10px", color: "#64748B" }}>{pack.label} Pack</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span style={{ fontSize: "15px", fontWeight: 800, color: pack.color }}>{pack.price}</span>
-                  <button onClick={() => setBought(pack.credits)}
-                    style={{ padding: "7px 14px", borderRadius: "8px", border: "none", background: bought === pack.credits ? "rgba(16,185,129,0.15)" : `linear-gradient(135deg,${pack.color},${pack.color}bb)`, color: bought === pack.credits ? "#10B981" : "#fff", fontSize: "11px", fontWeight: 700, cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: "5px" }}>
-                    {bought === pack.credits ? <><CheckCircle size={11} /> Bought</> : "Buy Now"}
-                  </button>
-                </div>
-              </div>
-            ))}
+      {/* ── Top-up packs ──────────────────────────────────────────────────── */}
+      <div style={card}>
+        <h2 style={sectionTitle}>Buy Credits</h2>
+        {packsLoading ? (
+          <div style={{ display: "flex", gap: 12 }}>
+            {[1,2,3,4].map((i) => <div key={i} style={{ flex: 1, height: 120, borderRadius: 12, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />)}
           </div>
-        </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px" }}>
+            {packs.map((pack) => {
+              const meta    = pack.metadata;
+              const color   = (meta?.color as string) ?? "#2563EB";
+              const popular = Boolean(meta?.popular);
+              const isBuying = purchasing === pack.id;
+              const price   = `$${(pack.price_cents / 100).toFixed(2)}`;
 
-        {/* Cost guide + History */}
-        <div>
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--page-text)", marginBottom: "14px" }}>Credit Cost Guide</h2>
-          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden", marginBottom: "24px" }}>
-            {COST_GUIDE.map((item, i) => {
-              const Icon = item.icon;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 16px", borderBottom: i < COST_GUIDE.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                  <Icon size={13} style={{ color: item.color, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: "12px", color: "#94A3B8" }}>{item.action}</span>
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--page-text)" }}>{item.cost} cr</span>
+                <div
+                  key={pack.id}
+                  style={{
+                    position: "relative", borderRadius: "14px",
+                    border: `1px solid ${popular ? color : "rgba(255,255,255,0.08)"}`,
+                    padding: "20px 16px",
+                    background: popular ? `${color}15` : "rgba(255,255,255,0.03)",
+                    display: "flex", flexDirection: "column", gap: "8px", transition: "border-color 0.15s, transform 0.15s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = popular ? color : "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                >
+                  {popular && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: color, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                      MOST POPULAR
+                    </div>
+                  )}
+                  <div style={{ fontSize: 24, fontWeight: 900, color: "var(--page-text)" }}>{pack.credits}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>credits</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color, marginTop: 4 }}>{price}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>${((pack.price_cents / pack.credits) / 100).toFixed(3)} / credit</div>
+                  <button
+                    onClick={() => handleBuy(pack)}
+                    disabled={!!purchasing}
+                    style={{
+                      marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 13, fontWeight: 700, border: "none",
+                      background: isBuying ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${color}, ${color}cc)`,
+                      color: isBuying ? "rgba(255,255,255,0.4)" : "#fff",
+                      cursor: purchasing ? "not-allowed" : "pointer", transition: "all 0.15s",
+                    }}
+                  >
+                    {isBuying ? "Opening…" : `Buy ${pack.name}`}
+                  </button>
                 </div>
               );
             })}
           </div>
+        )}
+      </div>
 
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--page-text)", marginBottom: "14px" }}>Usage History</h2>
-          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden" }}>
-            {HISTORY.map((item, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 16px", borderBottom: i < HISTORY.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--page-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.action}</div>
-                  <div style={{ fontSize: "10px", color: "#475569", display: "flex", alignItems: "center", gap: "3px", marginTop: "2px" }}>
-                    <Clock size={9} /> {item.time}
-                  </div>
-                </div>
-                <span style={{ fontSize: "13px", fontWeight: 700, color: item.amount > 0 ? "#10B981" : "#F8FAFC", flexShrink: 0 }}>
-                  {item.amount > 0 ? `+${item.amount}` : item.amount} cr
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* ── Cost guide ────────────────────────────────────────────────────── */}
+      <div style={card}>
+        <h2 style={sectionTitle}>Credit Cost Guide</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {COST_GUIDE.map(({ action, cost, color }) => (
+            <div key={action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.03)" }}>
+              <span style={{ fontSize: 13, color: "var(--page-text)" }}>{action}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color }}>{cost} credits</span>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* ── Transaction history ───────────────────────────────────────────── */}
+      <div style={card}>
+        <h2 style={sectionTitle}>Transaction History</h2>
+        {historyLoading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[1,2,3].map((i) => <div key={i} style={{ height: 44, borderRadius: 8, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />)}
+          </div>
+        ) : history.length === 0 ? (
+          <p style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: "20px 0" }}>
+            No transactions yet. Generate something or buy credits to get started.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {history.map((tx) => {
+              const isPositive = tx.amount > 0;
+              return (
+                <div key={tx.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: tx.type === "purchase" ? "rgba(16,163,127,0.15)" : "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+                      {tx.type === "purchase" ? "💳" : tx.type === "refund" ? "↩" : "⚡"}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--page-text)" }}>{tx.description}</div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{new Date(tx.created_at).toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: isPositive ? "#10a37f" : "#6366f1" }}>
+                      {isPositive ? "+" : ""}{tx.amount}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>bal: {tx.balance_after}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
     </div>
   );
 }
