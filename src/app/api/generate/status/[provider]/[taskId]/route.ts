@@ -16,7 +16,7 @@ function toProviderStatus(
 }
 
 const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const IS_DEV           = process.env.NODE_ENV === "development";
+const IS_DEV           = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
 
 export async function GET(
   req: Request,

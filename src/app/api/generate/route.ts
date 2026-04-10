@@ -112,8 +112,18 @@ export async function POST(req: Request) {
         prompt:        body.prompt,
         status:        toDbStatus(result.status),
         result_url:    result.url ?? null,
+        // Store array of URLs for multi-image support (DALL-E returns one URL today)
+        result_urls:   result.url ? [result.url] : null,
         credits_used:  result.status === "error" ? 0 : creditCost.total,
         parameters:    result.metadata ?? {},
+        // Capture error reason when generation fails so status route can surface it
+        ...(result.status === "error" && result.error
+          ? { error_message: result.error }
+          : {}),
+        // Mark completion timestamp on synchronous success (DALL-E 3 is sync)
+        ...(result.status === "success"
+          ? { completed_at: new Date().toISOString() }
+          : {}),
       })
       .select()
       .single();
