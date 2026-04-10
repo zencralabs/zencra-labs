@@ -27,13 +27,15 @@ type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16
 type Quality = "1K" | "2K";
 type Tab = "history" | "community";
 
-// ── DALL-E 3 size mapping ─────────────────────────────────────────────────────
-function arToSize(ar: AspectRatio): "1024x1024" | "1792x1024" | "1024x1792" {
+// ── API aspect-ratio mapping ──────────────────────────────────────────────────
+// Maps the UI's aspect ratio strings to what /api/generate expects
+function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   const landscape = ["16:9", "3:2", "4:3", "21:9", "5:4"];
-  const portrait = ["9:16", "2:3", "3:4", "4:5"];
-  if (landscape.includes(ar)) return "1792x1024";
-  if (portrait.includes(ar)) return "1024x1792";
-  return "1024x1024"; // Auto, 1:1
+  const portrait  = ["9:16", "2:3", "3:4"];
+  if (landscape.includes(ar)) return "16:9";
+  if (portrait.includes(ar))  return "9:16";
+  if (ar === "4:5")            return "4:5";
+  return "1:1"; // Auto, 1:1
 }
 
 // ── Model definitions ─────────────────────────────────────────────────────────
@@ -260,7 +262,7 @@ function ImageCard({ img }: { img: GeneratedImage }) {
 // INNER PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 function ImageStudioInner() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const searchParams = useSearchParams();
 
   const [images, setImages] = useState<GeneratedImage[]>([]);
@@ -311,11 +313,12 @@ function ImageStudioInner() {
     if (!user) { setAuthModal(true); return; }
     if (!currentModel.available) return;
 
-    const size = arToSize(aspectRatio);
-    const dalleQuality = quality === "2K" ? "hd" : "standard";
-    const count = Math.min(batchSize, 4);
+    // Map quality and aspect ratio to API values
+    const apiQuality = quality === "2K" ? "studio" : "cinematic";
+    const apiAr      = mapArToApiAr(aspectRatio);
+    const count      = Math.min(batchSize, 4);
 
-    // Add placeholder(s) immediately
+    // Add placeholder(s) immediately so the grid shows shimmer
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
       id: `gen-${Date.now()}-${i}`,
       url: null,
@@ -326,26 +329,39 @@ function ImageStudioInner() {
     }));
     setImages((prev) => [...placeholders, ...prev]);
 
-    // Call API for each image (DALL-E 3 supports n=1 per request officially)
+    // DALL-E 3 only supports n=1 per request — loop for batch
     for (let i = 0; i < count; i++) {
       const placeholder = placeholders[i];
       try {
-        const res = await fetch("/api/generate/image", {
+        const res = await fetch("/api/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${user.accessToken}`,
+            ...(user.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {}),
           },
-          body: JSON.stringify({ prompt, quality: dalleQuality, size, style: "vivid", n: 1 }),
+          body: JSON.stringify({
+            mode:        "image",
+            prompt,
+            quality:     apiQuality,
+            aspectRatio: apiAr,
+          }),
         });
 
+        // 402 = not enough credits — surface a clear message
+        if (res.status === 402) {
+          const errData = await res.json();
+          const needed = errData.data?.required ?? "?";
+          const have   = errData.data?.available ?? "?";
+          throw new Error(`Not enough credits — need ${needed}, you have ${have}`);
+        }
+
         const data = await res.json();
-        if (!res.ok || !data.images?.[0]) throw new Error(data.error ?? "Generation failed");
+        if (!res.ok || !data.data?.url) throw new Error(data.error ?? "Generation failed");
 
         setImages((prev) =>
           prev.map((img) =>
             img.id === placeholder.id
-              ? { ...img, url: data.images[0], status: "done" }
+              ? { ...img, url: data.data.url as string, status: "done" }
               : img
           )
         );
@@ -359,7 +375,10 @@ function ImageStudioInner() {
         );
       }
     }
-  }, [prompt, user, currentModel, aspectRatio, quality, batchSize, model]);
+
+    // Refresh credit balance so the pill reflects the new total
+    await refreshUser();
+  }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, batchSize, model]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
@@ -448,7 +467,7 @@ function ImageStudioInner() {
           </div>
         </div>
 
-        {/* Right: Zoom slider + user */}
+        {/* Right: Zoom slider + credits + user */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {/* Zoom control */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -468,6 +487,20 @@ function ImageStudioInner() {
             />
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>⊞</span>
           </div>
+
+          {/* Credits pill — live balance, refreshed after each generation */}
+          {user && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "4px 10px", borderRadius: 20,
+              background: "rgba(37,99,235,0.15)",
+              border: "1px solid rgba(37,99,235,0.3)",
+              fontSize: 12, fontWeight: 600, color: "#60A5FA",
+              whiteSpace: "nowrap",
+            }}>
+              ⚡ {user.credits}
+            </div>
+          )}
 
           {/* User avatar / login */}
           {user ? (
@@ -737,8 +770,8 @@ function ImageStudioInner() {
                     Select quality
                   </p>
                   {[
-                    { label: "1K" as Quality, desc: "Standard · Fast", locked: false },
-                    { label: "2K" as Quality, desc: "HD · Better detail", locked: false },
+                    { label: "1K" as Quality, desc: "Standard · Fast · 2 credits", locked: false },
+                    { label: "2K" as Quality, desc: "HD · Better detail · 4 credits", locked: false },
                     { label: "4K", desc: "Ultra HD", locked: true },
                   ].map(({ label, desc, locked }) => (
                     <button
