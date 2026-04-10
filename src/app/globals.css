@@ -87,7 +87,7 @@
     color: var(--foreground);
     font-family: var(--font-body), "Familjen Grotesk", system-ui, sans-serif;
     font-size: 16px;
-    line-height: 1.6;
+    line-height: 1.65;
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
@@ -178,12 +178,14 @@
     background-clip: text;
   }
 
-  /* Glass morphism card effect */
+  /* Glass morphism card effect
+     Light mode: subtle white-glass on the light-slate background
+     Dark mode:  translucent deep-navy glass                      */
   .glass {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.55);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .dark .glass {
@@ -250,6 +252,43 @@
 
   /* Utility — used by image generator & dashboard loading spinner */
   .animate-spin-slow { animation: spin 1s linear infinite; }
+
+  /* ── UI font-size scale (Part 2 — readability pass) ────────────────────
+     Use these instead of raw text-xs / text-sm in dashboard and tool pages
+     to ensure legibility at standard display sizes.                        */
+  .text-ui-xs   { font-size: 0.8125rem;  line-height: 1.5; }   /* 13px — was 11px */
+  .text-ui-sm   { font-size: 0.875rem;   line-height: 1.55; }  /* 14px — was 12px */
+  .text-ui-base { font-size: 0.9375rem;  line-height: 1.6; }   /* 15px — was 13px */
+  .text-ui-md   { font-size: 1rem;       line-height: 1.65; }  /* 16px — was 14px */
+
+  /* ── Light-mode safe hero overlay ──────────────────────────────────────
+     Sections with full-bleed dark gradients use a light-mode-aware
+     scrim so text stays readable in both themes.                          */
+  .hero-scrim {
+    background: linear-gradient(
+      to bottom,
+      rgba(8, 14, 28, 0.80) 0%,
+      rgba(8, 14, 28, 0.65) 50%,
+      rgba(8, 14, 28, 0.90) 100%
+    );
+  }
+
+  /* In light mode the hero cards are already muted, so a slightly
+     lighter scrim keeps the cinematic feel without going pure-white. */
+  :root .hero-scrim {
+    background: linear-gradient(
+      to bottom,
+      rgba(15, 26, 50, 0.82) 0%,
+      rgba(15, 26, 50, 0.68) 50%,
+      rgba(15, 26, 50, 0.90) 100%
+    );
+  }
+
+  /* ── Dashboard full-width helper ────────────────────────────────────── */
+  .dashboard-content {
+    width: 100%;
+    padding: 40px 48px;
+  }
 }
 
 @keyframes spin {

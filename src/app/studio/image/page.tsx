@@ -38,23 +38,25 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   return "1:1"; // Auto, 1:1
 }
 
-// ── Model definitions ─────────────────────────────────────────────────────────
+// ── Model definitions ──────────────────────────────────────────────────────────
+// Display names driven by catalog.ts. The `id` here maps to the provider key
+// passed to /api/generate (not the catalog display id).
 const MODELS = [
   {
-    id: "dalle3",
-    name: "DALL·E 3",
+    id: "dalle3",           // backend provider key → "dalle" → resolves to "dalle-3" in tool-registry
+    name: "GPT Image 1.5",
     provider: "OpenAI",
-    description: "State-of-the-art image generation by OpenAI",
+    description: "OpenAI's advanced image generation model",
     badge: null,
     badgeColor: null,
     available: true,
     icon: "openai",
   },
   {
-    id: "nano-banana-2",
-    name: "Nano Banana 2",
-    provider: "Google",
-    description: "High-quality, fast & cost-effective",
+    id: "nano-banana",
+    name: "Nano Banana",
+    provider: "Google DeepMind",
+    description: "Fast, high-quality 4K image generation",
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
@@ -63,32 +65,32 @@ const MODELS = [
   {
     id: "nano-banana-pro",
     name: "Nano Banana Pro",
-    provider: "Google",
-    description: "Google's flagship generation model",
+    provider: "Google DeepMind",
+    description: "Flagship 4K+ model — best image quality",
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
     icon: "google",
   },
   {
-    id: "playground",
-    name: "Playground v3",
-    provider: "Playground AI",
-    description: "Creative, expressive image generation",
+    id: "midjourney-v7",
+    name: "Midjourney v7",
+    provider: "Midjourney",
+    description: "Industry-leading artistic AI images",
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "playground",
+    icon: "midjourney",
   },
   {
-    id: "ideogram",
-    name: "Ideogram 2.0",
-    provider: "Ideogram",
-    description: "Superior text rendering in images",
+    id: "flux-pro",
+    name: "FLUX Pro",
+    provider: "Black Forest Labs",
+    description: "Speed-optimised, fine detail generation",
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "ideogram",
+    icon: "flux",
   },
 ] as const;
 
