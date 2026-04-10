@@ -2,23 +2,31 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Menu, X, ChevronDown, ImageIcon, Music, Wand2, Sparkles, Mic, Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight, Sun, Moon } from "lucide-react";
+import { Menu, X, ChevronDown, ImageIcon, Music, Wand2, Sparkles, Mic, Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight, Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
+import { getNavModels, getToolsByCategory } from "@/lib/tools/catalog";
 
-// ── Theme Toggle Button ────────────────────────────────────────────────────
+// ── Theme Toggle — 3-way: Light → Dark → System ───────────────────────────
 function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return <div style={{ width: "36px", height: "36px" }} />;
-  const isDark = resolvedTheme === "dark";
+
+  const cycle: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
+  const current = (cycle.includes(theme as "light" | "dark" | "system") ? theme : "system") as "light" | "dark" | "system";
+  const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+  const icons = { light: Sun, dark: Moon, system: Monitor } as const;
+  const labels = { light: "Light", dark: "Dark", system: "System" } as const;
+  const Icon = icons[current];
+
   return (
     <button
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(next)}
+      title={`Theme: ${labels[current]} — click for ${labels[next]}`}
       style={{
         width: "36px", height: "36px", borderRadius: "10px", border: "1px solid var(--border-subtle)",
         background: "var(--page-bg-2)", cursor: "pointer", display: "flex", alignItems: "center",
@@ -27,7 +35,7 @@ function ThemeToggle() {
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--page-text)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-medium)"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--page-text-2)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)"; }}
     >
-      {isDark ? <Sun size={15} /> : <Moon size={15} />}
+      <Icon size={15} />
     </button>
   );
 }
@@ -37,32 +45,27 @@ function ThemeToggle() {
 // Once logged in: shows Credits pill + Dashboard + Avatar dropdown
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Build nav dropdowns from the catalog ─────────────────────────────────────
+// Models are pulled live from catalog.ts — no duplicated lists here.
+
 const navDropdowns = {
   Image: {
     color: "#2563EB",
     features: [
-      { icon: ImageIcon, label: "Create Image",       desc: "Generate AI images",       badge: null,  href: "/studio/image" },
-      { icon: Sparkles,  label: "Enhance & Upscale",  desc: "4K resolution boost",      badge: null,  href: "#" },
-      { icon: Layers,    label: "Face Swap",           desc: "Realistic face swaps",     badge: "NEW", href: "#" },
+      { icon: ImageIcon, label: "Create Image",      desc: "Generate AI images",      badge: null,  href: "/studio/image" },
+      { icon: Sparkles,  label: "Enhance & Upscale", desc: "4K resolution boost",     badge: null,  href: "#" },
+      { icon: Layers,    label: "Face Swap",          desc: "Realistic face swaps",    badge: "NEW", href: "#" },
     ],
-    models: [
-      { label: "Nano Banana Pro", desc: "Best 4K image model"              },
-      { label: "Flux",            desc: "Speed-optimised detail"           },
-      { label: "Seedream",        desc: "Intelligent visual reasoning"     },
-    ],
+    models: getNavModels("image", 3),
   },
   Video: {
     color: "#0EA5A0",
     features: [
-      { icon: Film,  label: "Create Video", desc: "Generate AI videos",      badge: "HOT", href: "/studio/video" },
-      { icon: Wand2, label: "Edit Video",   desc: "Edit scenes & elements",  badge: null,  href: "#" },
-      { icon: Mic,   label: "Lip Sync",     desc: "Sync voice to video",     badge: null,  href: "#" },
+      { icon: Film,  label: "Create Video", desc: "Generate AI videos",     badge: "HOT", href: "/studio/video" },
+      { icon: Wand2, label: "Edit Video",   desc: "Edit scenes & elements", badge: null,  href: "#" },
+      { icon: Mic,   label: "Lip Sync",     desc: "Sync voice to video",    badge: null,  href: "#" },
     ],
-    models: [
-      { label: "Kling 3.0",   desc: "Cinematic videos with audio"  },
-      { label: "Runway ML",   desc: "Gen-3 Alpha Turbo"            },
-      { label: "Google Veo",  desc: "Advanced AI video with sound" },
-    ],
+    models: getNavModels("video", 3),
   },
   Audio: {
     color: "#A855F7",
@@ -71,11 +74,7 @@ const navDropdowns = {
       { icon: Music, label: "AI Music",     desc: "Create full tracks",        badge: null,  href: "#" },
       { icon: Zap,   label: "Voice Clone",  desc: "Clone any voice",           badge: null,  href: "#" },
     ],
-    models: [
-      { label: "ElevenLabs", desc: "Expressive AI voice"    },
-      { label: "Suno AI",    desc: "Full music generation"  },
-      { label: "Kits AI",    desc: "Voice transformation"   },
-    ],
+    models: getNavModels("audio", 3),
   },
 } as const;
 
@@ -126,18 +125,36 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
         <div className="p-4">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: `${data.color}80` }}>AI Models</p>
           <div className="flex flex-col gap-1">
-            {data.models.map((model) => (
-              <Link key={model.label} href="#" onClick={onClose}
-                className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200"
-                onMouseEnter={e => (e.currentTarget.style.background = `${data.color}10`)}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                <div className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: data.color, boxShadow: `0 0 6px ${data.color}` }} />
-                <div>
-                  <p className="text-sm font-medium text-white">{model.label}</p>
-                  <p className="text-xs" style={{ color: "#64748B" }}>{model.desc}</p>
-                </div>
-              </Link>
-            ))}
+            {data.models.map((model) => {
+              const isSoon = model.status === "coming_soon";
+              return (
+                <Link key={model.id} href="#" onClick={onClose}
+                  className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200"
+                  onMouseEnter={e => (e.currentTarget.style.background = `${data.color}10`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                  <div className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: isSoon ? "#374151" : data.color, boxShadow: isSoon ? "none" : `0 0 6px ${data.color}` }} />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white">{model.displayName}</p>
+                      {isSoon && (
+                        <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide"
+                          style={{ background: "rgba(55,65,81,0.8)", color: "#6B7280" }}>
+                          SOON
+                        </span>
+                      )}
+                      {model.badge && !isSoon && (
+                        <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase"
+                          style={{ background: `${data.color}20`, color: data.color }}>
+                          {model.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs" style={{ color: "#64748B" }}>{model.description}</p>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

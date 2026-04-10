@@ -69,7 +69,7 @@ const plans = [
     name: "Studio",
     price: "99",
     period: "per month",
-    description: "For agencies, studios and power users who need unlimited creative firepower.",
+    description: "For agencies, studios and power users who need serious creative volume at a professional level.",
     color: "#0EA5A0",
     glow: "rgba(14,165,160,0.4)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #0d2626 40%, #0f4038 100%)",
@@ -79,7 +79,7 @@ const plans = [
     badge: "BEST VALUE",
     badgeBg: "linear-gradient(135deg, #0EA5A0, #2563EB)",
     features: [
-      "Unlimited AI image generations",
+      "500 AI image generations / month",
       "150 AI video generations / month",
       "100 AI audio / voiceover credits",
       "8K quality output",
@@ -98,7 +98,7 @@ const plans = [
     name: "Agency",
     price: "—",
     period: "coming soon",
-    description: "Multi-seat access for agencies. Multiple team members share one account and generate together simultaneously.",
+    description: "Multi-seat access for growing teams. Multiple members share one workspace and generate simultaneously.",
     color: "#A855F7",
     glow: "rgba(168,85,247,0.3)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #1a0d2e 40%, #3b0764 100%)",
@@ -313,8 +313,11 @@ export default function PricingPage() {
 
         {/* Footer note */}
         <p className="mt-12 text-center text-sm" style={{ color: "#475569" }}>
-          All plans allow 1 user login per account. Agency plan will support multiple seats simultaneously.
-          Prices in USD. Cancel anytime.
+          All plans include a monthly generation allowance. Need more?{" "}
+          <a href="/dashboard/credits" style={{ color: "#60A5FA", textDecoration: "none" }}>
+            Top up with credit packs
+          </a>{" "}
+          — from $4.99 for 100 credits. Prices in USD. Cancel subscriptions anytime.
         </p>
       </section>
 

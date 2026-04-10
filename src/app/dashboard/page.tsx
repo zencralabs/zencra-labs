@@ -26,7 +26,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
   Free:    ["50 welcome credits", "Basic image generation", "720p video output"],
   Creator: ["500 credits/month", "HD image generation", "1080p video output", "Priority queue"],
   Studio:  ["2000 credits/month", "4K image generation", "4K video output", "Priority queue", "API access"],
-  Agency:  ["Unlimited credits", "All tools", "White-label exports", "Dedicated support", "API access"],
+  Agency:  ["High-volume credit pool", "All tools", "White-label exports", "Dedicated support", "API access"],
 };
 
 export default function DashboardPage() {
@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const credPct     = Math.min((user.credits / 100) * 100, 100);
 
   return (
-    <div style={{ padding: "40px", maxWidth: "1100px" }}>
+    <div className="dashboard-content" style={{ maxWidth: "none" }}>
 
       {/* ── WELCOME HEADER ─────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "36px" }}>
@@ -50,10 +50,10 @@ export default function DashboardPage() {
             Member since {joinDate}
           </span>
         </div>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>
+        <h1 style={{ fontSize: "30px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>
           Welcome back, {user.name.split(" ")[0]} 👋
         </h1>
-        <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>
+        <p style={{ fontSize: "15px", color: "#64748B", marginTop: "6px" }}>
           Here&apos;s what&apos;s happening with your Zencra account.
         </p>
       </div>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
 
       {/* ── QUICK ACTIONS ──────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "32px" }}>
-        <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--page-text)", marginBottom: "14px" }}>Quick Actions</h2>
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--page-text)", marginBottom: "14px" }}>Quick Actions</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
           {QUICK_ACTIONS.map(({ label, icon: Icon, color, bg, href }) => (
             <button key={label} onClick={() => router.push(href)}
@@ -126,7 +126,7 @@ export default function DashboardPage() {
               <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "10px" }}>
                 <Icon size={16} style={{ color }} />
               </div>
-              <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--page-text)" }}>{label}</div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--page-text)" }}>{label}</div>
             </button>
           ))}
         </div>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       {/* ── RECENT ACTIVITY ────────────────────────────────────────────────── */}
       <div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--page-text)", margin: 0 }}>Recent Activity</h2>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--page-text)", margin: 0 }}>Recent Activity</h2>
           <button onClick={() => router.push("/dashboard/credits")}
             style={{ fontSize: "12px", color: "#60A5FA", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
             View all <ArrowRight size={12} />
@@ -150,15 +150,15 @@ export default function DashboardPage() {
                   <Icon size={15} style={{ color: item.color }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--page-text)" }}>{item.action}</div>
-                  <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>{item.tool}</div>
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--page-text)" }}>{item.action}</div>
+                  <div style={{ fontSize: "12px", color: "#475569", marginTop: "2px" }}>{item.tool}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: item.credits > 0 ? "#10B981" : "#F8FAFC" }}>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: item.credits > 0 ? "#10B981" : "#F8FAFC" }}>
                     {item.credits > 0 ? `+${item.credits}` : item.credits} cr
                   </div>
-                  <div style={{ fontSize: "10px", color: "#334155", display: "flex", alignItems: "center", gap: "3px", marginTop: "2px" }}>
-                    <Clock size={9} /> {item.time}
+                  <div style={{ fontSize: "11px", color: "#334155", display: "flex", alignItems: "center", gap: "3px", marginTop: "2px" }}>
+                    <Clock size={10} /> {item.time}
                   </div>
                 </div>
               </div>
