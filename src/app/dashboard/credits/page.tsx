@@ -85,7 +85,7 @@ export default function CreditsPage() {
   // as a real webhook, credits update identically.
   // In production: opens Razorpay Checkout as normal.
   async function handleBuy(pack: CreditPack) {
-    if (purchasing) return;
+    if (purchasing || !user) return;
     setPurchasing(pack.id);
     setPurchaseError(null);
     setPurchaseSuccess(null);

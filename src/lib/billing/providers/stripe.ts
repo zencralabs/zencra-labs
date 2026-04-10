@@ -24,7 +24,7 @@ function getStripe(): Stripe {
   if (!_stripe) {
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) throw new Error("Missing STRIPE_SECRET_KEY env var");
-    _stripe = new Stripe(secretKey, { apiVersion: "2025-03-31.basil" });
+    _stripe = new Stripe(secretKey, { apiVersion: "2026-03-25.dahlia" });
   }
   return _stripe;
 }

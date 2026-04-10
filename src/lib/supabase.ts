@@ -13,7 +13,10 @@ export const isSupabaseConfigured =
   process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder.supabase.co";
 
 // ── Server-side admin client ───────────────────────────────────────────────────
-// Returns the singleton from supabase/admin.ts.
-// Only import this in API routes / server components — NEVER in client code.
-import { supabaseAdmin } from "./supabase/admin";
-export function createAdminClient() { return supabaseAdmin; }
+// For server-side admin access, import directly from "@/lib/supabase/admin".
+// DO NOT import supabaseAdmin here — this file is bundled into client code
+// (AuthContext.tsx imports it), and admin.ts throws if SUPABASE_SERVICE_ROLE_KEY
+// is missing, which crashes the client bundle.
+//
+// ✅ In API routes / server components:  import { supabaseAdmin } from "@/lib/supabase/admin"
+// ❌ Never import admin client through this file.

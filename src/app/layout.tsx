@@ -98,7 +98,7 @@ export default function RootLayout({
         suppressHydrationWarning is REQUIRED for next-themes to work correctly.
         It suppresses the mismatch warning caused by theme injection on mount.
       */}
-      <body className={`${syne.variable} ${familjen.variable} font-body antialiased`}>
+      <body className={`${syne.variable} ${familjen.variable} font-body antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
             {/* Main site wrapper */}
