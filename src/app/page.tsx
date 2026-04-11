@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
@@ -188,11 +188,34 @@ export default function HomePage() {
   const router = useRouter();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
-  // Carousel state
-  const [carouselIdx, setCarouselIdx] = useState(0);
+  // Carousel state — visible count is responsive (1 mobile / 2 tablet / 3 desktop)
+  const [carouselIdx,     setCarouselIdx]     = useState(0);
+  const [carouselVisible, setCarouselVisible] = useState(3);
   const carouselRef = useRef<HTMLDivElement>(null);
-  const VISIBLE = 3; // cards visible at once on desktop
-  const maxIdx = videoShowcase.length - VISIBLE;
+
+  useEffect(() => {
+    function updateVisible() {
+      const w = window.innerWidth;
+      const next = w < 640 ? 1 : w < 1024 ? 2 : 3;
+      setCarouselVisible(v => {
+        if (v !== next) setCarouselIdx(0); // reset position on breakpoint change
+        return next;
+      });
+    }
+    updateVisible();
+    window.addEventListener("resize", updateVisible);
+    return () => window.removeEventListener("resize", updateVisible);
+  }, []);
+
+  const maxIdx = Math.max(0, videoShowcase.length - carouselVisible);
+
+  // Card width formula keyed to visible count — matches the CSS `width` on each card
+  const cardWidthCss =
+    carouselVisible === 1
+      ? "calc(100vw - 48px)"
+      : carouselVisible === 2
+      ? "min(calc((100vw - 48px) / 2 - 10px), 520px)"
+      : "min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px)";
 
   function carouselPrev() {
     setCarouselIdx((i) => Math.max(0, i - 1));
@@ -421,9 +444,9 @@ export default function HomePage() {
             className="flex transition-transform duration-500 ease-in-out"
             style={{
               gap: "20px",
-              paddingLeft: "clamp(24px, 5vw, 80px)",
-              paddingRight: "clamp(24px, 5vw, 80px)",
-              transform: `translateX(calc(-${carouselIdx} * (min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px) + 20px)))`,
+              paddingLeft:  carouselVisible === 1 ? "24px" : "clamp(24px, 5vw, 80px)",
+              paddingRight: carouselVisible === 1 ? "24px" : "clamp(24px, 5vw, 80px)",
+              transform: `translateX(calc(-${carouselIdx} * (${cardWidthCss} + 20px)))`,
             }}
           >
             {videoShowcase.map((slide, i) => (
@@ -431,7 +454,7 @@ export default function HomePage() {
                 key={i}
                 className="relative flex-shrink-0 overflow-hidden rounded-2xl cursor-pointer group"
                 style={{
-                  width: "min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px)",
+                  width: cardWidthCss,
                   aspectRatio: "16/9",
                   background: slide.gradient,
                   border: `1px solid ${slide.color}30`,
@@ -524,7 +547,7 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Dot indicators */}
+        {/* Dot indicators — count matches maxIdx so dots == number of scrollable positions */}
         <div className="flex items-center justify-center gap-2 mt-8">
           {Array.from({ length: maxIdx + 1 }).map((_, i) => (
             <button
@@ -537,6 +560,7 @@ export default function HomePage() {
                 background: i === carouselIdx ? "#0EA5A0" : "rgba(255,255,255,0.2)",
                 border: "none",
                 cursor: "pointer",
+                flexShrink: 0,
               }}
             />
           ))}

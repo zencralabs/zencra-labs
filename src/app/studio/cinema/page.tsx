@@ -61,8 +61,9 @@ export default function CinemaStudioPage() {
     e.preventDefault();
     if (!email.trim()) return;
     setLoading(true);
-    // Placeholder — wire to your email list / Supabase when ready
-    await new Promise((r) => setTimeout(r, 800));
+    // UI-only — not wired to any backend yet.
+    // TODO: connect to Supabase waitlist table or email provider before launch.
+    await new Promise((r) => setTimeout(r, 600));
     setSubmitted(true);
     setLoading(false);
   }
@@ -190,11 +191,16 @@ export default function CinemaStudioPage() {
           >
             <span style={{ fontSize: 20 }}>🎬</span>
             <div>
-              <p style={{ fontWeight: 700, color: "#C084FC", fontSize: 14 }}>You&apos;re on the list!</p>
-              <p style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>We&apos;ll notify you as soon as Cinema Studio opens early access.</p>
+              <p style={{ fontWeight: 700, color: "#C084FC", fontSize: 14 }}>Interest registered!</p>
+              <p style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>Cinema Studio is in development. Early access sign-up coming soon.</p>
             </div>
           </div>
         )}
+
+        {/* Disclaimer — form is not yet wired to backend */}
+        <p style={{ textAlign: "center", fontSize: 11, color: "#334155", marginTop: 16 }}>
+          Preview only — no emails are stored at this stage.
+        </p>
       </section>
 
       {/* ── CINEMATIC PREVIEW CARD — 16:9 ── */}

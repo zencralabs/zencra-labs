@@ -222,7 +222,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
               className="mt-4 rounded-xl p-3"
               style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}
             >
-              <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>Soul ID — Coming Q3 2025</p>
+              <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>Soul ID — Coming Soon</p>
               <p className="mt-0.5 text-xs" style={{ color: "#64748B" }}>Build a persistent AI character with voice, face, and style memory.</p>
             </div>
           )}
