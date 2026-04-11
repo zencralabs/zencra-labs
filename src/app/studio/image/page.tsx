@@ -24,8 +24,42 @@ interface GeneratedImage {
 }
 
 type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9";
-type Quality = "1K" | "2K";
+type Quality = "1K" | "2K" | "4K";
 type Tab = "history" | "community";
+
+interface StudioModel {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  badge: string | null;
+  badgeColor: string | null;
+  available: boolean;
+  icon: string;
+  requiresImg?: boolean;   // true for image-to-image models
+  nbVariant?: string;      // nano-banana variant key
+  allowedQualities?: Quality[];  // if null/undefined, all qualities valid
+}
+
+// ── Provider routing ──────────────────────────────────────────────────────────
+type ProviderRouting = { provider: "dalle" | "nano-banana"; nbVariant?: string };
+
+const MODEL_TO_PROVIDER: Record<string, ProviderRouting> = {
+  "dalle3":               { provider: "dalle" },
+  "nano-banana-standard": { provider: "nano-banana", nbVariant: "standard" },
+  "nano-banana-edit":     { provider: "nano-banana", nbVariant: "edit" },
+  "nano-banana-pro":      { provider: "nano-banana", nbVariant: "pro" },  // "pro-4k" when quality=4K
+};
+
+// ── Credit display helper ─────────────────────────────────────────────────────
+function computeCredits(modelId: string, quality: Quality, count: number): number {
+  if (modelId.startsWith("nano-banana")) {
+    if (quality === "4K") return count * 8;
+    if (quality === "2K") return count * 4;
+    return count * 2;
+  }
+  return quality === "2K" ? count * 4 : count * 2;  // DALL-E: standard=2cr, HD=4cr
+}
 
 // ── DALL-E 3 size mapping ─────────────────────────────────────────────────────
 function arToSize(ar: AspectRatio): "1024x1024" | "1792x1024" | "1024x1792" {
@@ -37,7 +71,7 @@ function arToSize(ar: AspectRatio): "1024x1024" | "1792x1024" | "1024x1792" {
 }
 
 // ── Model definitions ─────────────────────────────────────────────────────────
-const MODELS = [
+const MODELS: StudioModel[] = [
   {
     id: "dalle3",
     name: "DALL·E 3",
@@ -47,26 +81,54 @@ const MODELS = [
     badgeColor: null,
     available: true,
     icon: "openai",
+    allowedQualities: ["1K", "2K"],
   },
   {
-    id: "nano-banana-2",
-    name: "Nano Banana 2",
-    provider: "Google",
-    description: "High-quality, fast & cost-effective",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
-    icon: "google",
+    id: "nano-banana-standard",
+    name: "Nano Banana",
+    provider: "NanoBanana",
+    description: "Fast text-to-image generation",
+    badge: "Fast",
+    badgeColor: "#065F46",
+    available: true,
+    icon: "nanobana",
+    nbVariant: "standard",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "nano-banana-edit",
+    name: "Nano Banana Edit",
+    provider: "NanoBanana",
+    description: "AI-powered image-to-image editing",
+    badge: "Edit",
+    badgeColor: "#7C2D12",
+    available: true,
+    icon: "nanobana",
+    nbVariant: "edit",
+    requiresImg: true,
+    allowedQualities: ["1K"],
   },
   {
     id: "nano-banana-pro",
     name: "Nano Banana Pro",
-    provider: "Google",
-    description: "Google's flagship generation model",
+    provider: "NanoBanana",
+    description: "High-resolution output · 1K · 2K · 4K",
+    badge: "Pro",
+    badgeColor: "#1E3A5F",
+    available: true,
+    icon: "nanobana",
+    nbVariant: "pro",
+    allowedQualities: ["1K", "2K", "4K"],
+  },
+  {
+    id: "nano-banana-2",
+    name: "Nano Banana 2",
+    provider: "NanoBanana",
+    description: "Next-generation model · Coming soon",
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "google",
+    icon: "nanobana",
   },
   {
     id: "playground",
@@ -88,7 +150,7 @@ const MODELS = [
     available: false,
     icon: "ideogram",
   },
-] as const;
+];
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
@@ -122,8 +184,20 @@ function ARIcon({ ar, size = 16, selected = false }: { ar: AspectRatio; size?: n
 
 // ── Model icon ────────────────────────────────────────────────────────────────
 function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
-  const bg = type === "google" ? "#1a73e8" : type === "openai" ? "#10a37f" : type === "playground" ? "#7c3aed" : "#374151";
-  const letter = type === "google" ? "G" : type === "openai" ? "O" : type === "playground" ? "P" : "I";
+  if (type === "nanobana") {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: "50%",
+        background: "linear-gradient(135deg, #F59E0B, #10B981)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size * 0.6, flexShrink: 0,
+      }}>
+        🍌
+      </div>
+    );
+  }
+  const bg = type === "openai" ? "#10a37f" : type === "playground" ? "#7c3aed" : "#374151";
+  const letter = type === "openai" ? "O" : type === "playground" ? "P" : "I";
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
@@ -272,6 +346,7 @@ function ImageStudioInner() {
   const [zoomLevel, setZoomLevel] = useState(3); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
   const [authModal, setAuthModal] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState("");   // source image for edit models
 
   // Dropdowns
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -280,7 +355,8 @@ function ImageStudioInner() {
   const [modelSearch, setModelSearch] = useState("");
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const currentModel = MODELS.find((m) => m.id === model)!;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentModel = MODELS.find((m) => m.id === model) ?? MODELS[0];
 
   // Grid column sizing based on zoom level
   const ZOOM_SIZES = [160, 220, 300, 400, 520];
@@ -300,6 +376,18 @@ function ImageStudioInner() {
     return () => window.removeEventListener("mousedown", handle);
   }, []);
 
+  // When model changes: reset quality if not allowed, clear edit image if not needed
+  useEffect(() => {
+    const cm = MODELS.find((m) => m.id === model);
+    if (!cm) return;
+    if (cm.allowedQualities && !cm.allowedQualities.includes(quality)) {
+      setQuality(cm.allowedQualities[0]);
+    }
+    if (!cm.requiresImg) setEditImageUrl("");
+    if (cm.requiresImg) setBatchSize(1);  // edit models: 1 at a time
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model]);
+
   const filteredModels = MODELS.filter(
     (m) => m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
       m.provider.toLowerCase().includes(modelSearch.toLowerCase())
@@ -311,9 +399,16 @@ function ImageStudioInner() {
     if (!user) { setAuthModal(true); return; }
     if (!currentModel.available) return;
 
-    const size = arToSize(aspectRatio);
-    const dalleQuality = quality === "2K" ? "hd" : "standard";
-    const count = Math.min(batchSize, 4);
+    const routing = MODEL_TO_PROVIDER[model] ?? { provider: "dalle" as const };
+    const isNB    = routing.provider === "nano-banana";
+
+    // NB models: 1 at a time (async/slow); DALL-E: up to 4
+    const count = isNB ? 1 : Math.min(batchSize, 4);
+
+    // For NB Pro + 4K quality → use pro-4k variant
+    const nbVariant = routing.nbVariant === "pro" && quality === "4K"
+      ? "pro-4k"
+      : routing.nbVariant;
 
     // Add placeholder(s) immediately
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
@@ -322,44 +417,76 @@ function ImageStudioInner() {
       prompt,
       model,
       aspectRatio,
-      status: "generating",
+      status: "generating" as const,
     }));
     setImages((prev) => [...placeholders, ...prev]);
 
-    // Call API for each image (DALL-E 3 supports n=1 per request officially)
     for (let i = 0; i < count; i++) {
-      const placeholder = placeholders[i];
+      const ph = placeholders[i];
       try {
-        const res = await fetch("/api/generate/image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${user.accessToken}`,
-          },
-          body: JSON.stringify({ prompt, quality: dalleQuality, size, style: "vivid", n: 1 }),
-        });
+        let imageUrl: string;
 
-        const data = await res.json();
-        if (!res.ok || !data.images?.[0]) throw new Error(data.error ?? "Generation failed");
+        if (!isNB) {
+          // ── DALL-E 3 via /api/generate/image ────────────────────────────────
+          const size = arToSize(aspectRatio);
+          const dalleQuality = quality === "2K" ? "hd" : "standard";
+          const res = await fetch("/api/generate/image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${user.accessToken ?? ""}`,
+            },
+            body: JSON.stringify({ prompt, quality: dalleQuality, size, style: "vivid", n: 1 }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.images?.[0]) throw new Error(data.error ?? "Generation failed");
+          imageUrl = data.images[0];
+
+        } else {
+          // ── Nano Banana via /api/generate (orchestrator) ─────────────────────
+          // Map UI quality → orchestrator quality string
+          const apiQuality = quality === "2K" ? "studio" : "cinematic";
+          const body: Record<string, unknown> = {
+            mode:        "image",
+            provider:    "nano-banana",
+            prompt,
+            quality:     apiQuality,
+            aspectRatio: aspectRatio === "Auto" ? undefined : aspectRatio,
+            metadata:    { nbVariant },
+          };
+          if (currentModel.requiresImg && editImageUrl) body.imageUrl = editImageUrl;
+
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${user.accessToken ?? ""}`,
+            },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.data?.url) {
+            throw new Error(data.error ?? data.data?.error ?? "Generation failed");
+          }
+          imageUrl = data.data.url;
+        }
 
         setImages((prev) =>
           prev.map((img) =>
-            img.id === placeholder.id
-              ? { ...img, url: data.images[0], status: "done" }
-              : img
+            img.id === ph.id ? { ...img, url: imageUrl, status: "done" } : img
           )
         );
       } catch (err) {
         setImages((prev) =>
           prev.map((img) =>
-            img.id === placeholder.id
+            img.id === ph.id
               ? { ...img, status: "error", error: err instanceof Error ? err.message : "Failed" }
               : img
           )
         );
       }
     }
-  }, [prompt, user, currentModel, aspectRatio, quality, batchSize, model]);
+  }, [prompt, user, currentModel, aspectRatio, quality, batchSize, model, editImageUrl]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
@@ -720,48 +847,79 @@ function ImageStudioInner() {
               )}
             </div>
 
-            {/* Quality */}
-            <div data-dd style={{ position: "relative" }}>
-              <button onClick={() => { closeDropdowns(); setShowQualityPicker((v) => !v); }} style={ctrlBtn(showQualityPicker)}>
-                ♡ {quality}
-              </button>
+            {/* Quality — hidden for fixed-quality models */}
+            {(currentModel.allowedQualities?.length ?? 0) > 1 && (
+              <div data-dd style={{ position: "relative" }}>
+                <button onClick={() => { closeDropdowns(); setShowQualityPicker((v) => !v); }} style={ctrlBtn(showQualityPicker)}>
+                  ♡ {quality}
+                </button>
 
-              {showQualityPicker && (
-                <div style={{
-                  position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-                  background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 14, padding: 8, zIndex: 200, minWidth: 180,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
-                }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 8px" }}>
-                    Select quality
-                  </p>
-                  {[
-                    { label: "1K" as Quality, desc: "Standard · Fast", locked: false },
-                    { label: "2K" as Quality, desc: "HD · Better detail", locked: false },
-                    { label: "4K", desc: "Ultra HD", locked: true },
-                  ].map(({ label, desc, locked }) => (
-                    <button
-                      key={label}
-                      disabled={locked}
-                      onClick={() => { if (!locked) { setQuality(label as Quality); closeDropdowns(); } }}
-                      style={{ ...ddItem(quality === label, locked) }}
-                      onMouseEnter={(e) => { if (!locked) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = quality === label ? "rgba(255,255,255,0.1)" : "transparent"; }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, color: "#fff" }}>{label}</span>
-                          {locked && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "#7C3AED", color: "#fff" }}>Premium</span>}
-                        </div>
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>{desc}</div>
-                      </div>
-                      {quality === label && !locked && <span style={{ color: "#60A5FA", fontSize: 13 }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {showQualityPicker && (
+                  <div style={{
+                    position: "absolute", bottom: "calc(100% + 8px)", left: 0,
+                    background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 14, padding: 8, zIndex: 200, minWidth: 180,
+                    boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
+                  }}>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 8px" }}>
+                      Select quality
+                    </p>
+                    {([
+                      { label: "1K" as Quality, desc: "Standard · Fast" },
+                      { label: "2K" as Quality, desc: "HD · Better detail" },
+                      { label: "4K" as Quality, desc: "Ultra HD · Pro only" },
+                    ] as { label: Quality; desc: string }[])
+                      .filter(({ label }) => currentModel.allowedQualities?.includes(label))
+                      .map(({ label, desc }) => (
+                        <button
+                          key={label}
+                          onClick={() => { setQuality(label); closeDropdowns(); }}
+                          style={{ ...ddItem(quality === label) }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = quality === label ? "rgba(255,255,255,0.1)" : "transparent"; }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 13, color: "#fff" }}>{label}</span>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>{desc}</div>
+                          </div>
+                          {quality === label && <span style={{ color: "#60A5FA", fontSize: 13 }}>✓</span>}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Edit image input — shown when model requires a source image */}
+            {currentModel.requiresImg && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Revoke previous blob URL if any
+                      if (editImageUrl.startsWith("blob:")) URL.revokeObjectURL(editImageUrl);
+                      setEditImageUrl(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    ...ctrlBtn(!!editImageUrl),
+                    border: editImageUrl ? "1px solid rgba(245,158,11,0.5)" : "1px solid transparent",
+                    maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                  title={editImageUrl ? "Change source image" : "Upload source image"}
+                >
+                  {editImageUrl ? "📎 Image set" : "📎 Upload image"}
+                </button>
+              </>
+            )}
 
             {/* Batch size */}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -802,17 +960,21 @@ function ImageStudioInner() {
             {/* Generate button */}
             <button
               onClick={generate}
-              disabled={!prompt.trim() || (!currentModel.available)}
+              disabled={!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl)}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "9px 22px", borderRadius: 11, fontSize: 14, fontWeight: 700,
-                border: "none", cursor: (!prompt.trim() || !currentModel.available) ? "not-allowed" : "pointer",
-                background: (!prompt.trim() || !currentModel.available)
+                border: "none",
+                cursor: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
+                  ? "not-allowed" : "pointer",
+                background: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
                   ? "rgba(255,255,255,0.08)"
                   : "linear-gradient(135deg, #2563EB, #7C3AED)",
-                color: (!prompt.trim() || !currentModel.available) ? "rgba(255,255,255,0.25)" : "#fff",
+                color: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
+                  ? "rgba(255,255,255,0.25)" : "#fff",
                 transition: "all 0.2s", letterSpacing: "0.01em",
-                boxShadow: (!prompt.trim() || !currentModel.available) ? "none" : "0 0 20px rgba(37,99,235,0.35)",
+                boxShadow: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
+                  ? "none" : "0 0 20px rgba(37,99,235,0.35)",
               }}
             >
               Generate
@@ -821,17 +983,22 @@ function ImageStudioInner() {
                   fontSize: 11, fontWeight: 600, opacity: 0.8,
                   background: "rgba(0,0,0,0.2)", padding: "1px 6px", borderRadius: 5,
                 }}>
-                  ✦ {quality === "2K" ? batchSize * 4 : batchSize * 2}
+                  ✦ {computeCredits(model, quality, MODEL_TO_PROVIDER[model]?.provider === "nano-banana" ? 1 : Math.min(batchSize, 4))} cr
                 </span>
               )}
             </button>
           </div>
         </div>
 
-        {/* Unsupported model notice */}
+        {/* Notices */}
         {!currentModel.available && (
           <p style={{ textAlign: "center", fontSize: 11, color: "rgba(255,165,0,0.7)", marginTop: 8 }}>
-            {currentModel.name} is coming soon — switch to DALL·E 3 to generate now
+            {currentModel.name} is coming soon — try DALL·E 3 or Nano Banana
+          </p>
+        )}
+        {currentModel.requiresImg && !editImageUrl && (
+          <p style={{ textAlign: "center", fontSize: 11, color: "rgba(245,158,11,0.8)", marginTop: 8 }}>
+            Upload a source image to use {currentModel.name}
           </p>
         )}
       </div>

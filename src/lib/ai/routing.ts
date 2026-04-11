@@ -9,7 +9,7 @@ const DEFAULT_PROVIDER_BY_MODE: Record<GenerationMode, ProviderName> = {
 const ALLOWED_PROVIDERS_BY_MODE: Record<GenerationMode, ProviderName[]> = {
   image: ["dalle", "nano-banana", "ideogram"],
   video: ["kling", "seedance", "heygen"],
-  audio: ["elevenlabs"],
+  audio: ["elevenlabs", "kits"],
 };
 
 export function getDefaultProvider(mode: GenerationMode): ProviderName {

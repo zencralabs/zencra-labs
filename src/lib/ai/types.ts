@@ -13,6 +13,7 @@ export type ProviderName =
   | "dalle"
   | "kling"
   | "elevenlabs"
+  | "kits"
   | "nano-banana"
   | "ideogram"
   | "seedance"
@@ -34,6 +35,7 @@ export type GenerateContentInput = {
   aspectRatio?: AspectRatio;
   durationSeconds?: number;
   imageUrl?: string;
+  audioUrl?: string;
   voiceId?: string;
   metadata?: Record<string, unknown>;
 };
@@ -53,6 +55,7 @@ export type ProviderGenerateInput = {
   aspectRatio?: AspectRatio;
   durationSeconds?: number;
   imageUrl?: string;
+  audioUrl?: string;
   voiceId?: string;
   metadata?: Record<string, unknown>;
 };

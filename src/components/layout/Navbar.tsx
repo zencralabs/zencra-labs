@@ -83,7 +83,7 @@ type DropdownKey = keyof typeof navDropdowns;
 
 const navLinks = [
   { label: "Explore",  href: "/",              hasDropdown: false },
-  { label: "Image",    href: "/tools/image",   hasDropdown: true  },
+  { label: "Image",    href: "/studio/image",  hasDropdown: true  },
   { label: "Video",    href: "/video",         hasDropdown: true  },
   { label: "Audio",    href: "/audio",         hasDropdown: true  },
   { label: "Gallery",  href: "/gallery",       hasDropdown: false },
