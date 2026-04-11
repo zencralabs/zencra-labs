@@ -173,10 +173,19 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
           <div className="flex flex-col gap-1">
             {data.models.map((model) => {
               const isSoon = model.status !== "active";
+              const studioHref = !isSoon
+                ? (category === "Image"
+                    ? `/studio/image?model=${model.id}`
+                    : category === "Video"
+                    ? `/studio/video?model=${model.id}`
+                    : category === "Audio"
+                    ? `/studio/audio?model=${model.id}`
+                    : "#")
+                : "#";
               return (
                 <Link
                   key={model.id}
-                  href="#"
+                  href={studioHref}
                   onClick={onClose}
                   className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200"
                   onMouseEnter={e => (e.currentTarget.style.background = `${data.color}10`)}

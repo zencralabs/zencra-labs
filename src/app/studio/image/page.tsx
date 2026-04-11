@@ -320,9 +320,18 @@ function ImageStudioInner() {
   const { user, refreshUser } = useAuth();
   const searchParams = useSearchParams();
 
+  // Map catalog IDs (from navbar ?model= param) to internal studio model IDs
+  const CATALOG_TO_STUDIO_MODEL: Record<string, string> = {
+    "gpt-image-15":    "dalle3",
+    "nano-banana":     "nano-banana-standard",
+    "nano-banana-pro": "nano-banana-pro",
+  };
+  const modelParam = searchParams.get("model") ?? "";
+  const initialModel = CATALOG_TO_STUDIO_MODEL[modelParam] ?? "dalle3";
+
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [prompt, setPrompt] = useState(searchParams.get("prompt") ?? "");
-  const [model, setModel] = useState("dalle3");
+  const [model, setModel] = useState(initialModel);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [quality, setQuality] = useState<Quality>("1K");
   const [batchSize, setBatchSize] = useState(1);

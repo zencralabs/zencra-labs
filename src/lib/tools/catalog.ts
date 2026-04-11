@@ -59,15 +59,15 @@ export const TOOL_CATALOG: CatalogTool[] = [
     sortOrder: 10,
   },
 
-  // ── IMAGE — coming soon ─────────────────────────────────────────────────────
+  // ── IMAGE — Nano Banana (active) ───────────────────────────────────────────
   {
     id: "nano-banana",
     provider: "nano-banana",
     displayName: "Nano Banana",
     category: "image",
-    status: "coming_soon",
-    description: "Fast, high-quality 4K image generation",
-    badge: "SOON",
+    status: "active",
+    description: "Fast AI image generation",
+    badge: "FAST",
     sortOrder: 20,
   },
   {
@@ -75,9 +75,9 @@ export const TOOL_CATALOG: CatalogTool[] = [
     provider: "nano-banana",
     displayName: "Nano Banana Pro",
     category: "image",
-    status: "coming_soon",
-    description: "Flagship 4K+ model — best image quality",
-    badge: "SOON",
+    status: "active",
+    description: "High-res Pro model — 1K & 2K output",
+    badge: "PRO",
     premium: true,
     sortOrder: 30,
   },
