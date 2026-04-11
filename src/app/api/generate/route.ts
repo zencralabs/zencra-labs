@@ -194,6 +194,16 @@ export async function POST(req: Request) {
       { status: result.status === "error" ? 400 : 200 }
     );
   } catch (error) {
+    // Provider not configured (e.g. missing API key) → 503 Service Unavailable
+    if (
+      error instanceof Error &&
+      (error as Error & { code?: string }).code === "PROVIDER_NOT_CONFIGURED"
+    ) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       {
         success: false,

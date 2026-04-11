@@ -259,13 +259,19 @@ export const nanoBananaProvider: AiProvider = {
 
     // ── 1. Env vars ──────────────────────────────────────────────────────────
     const apiKey      = process.env.NANO_BANANA_API_KEY;
+    // Base URL is a known constant — env var is optional override only
     const apiBase     = process.env.NANO_BANANA_API_BASE_URL
-                     ?? process.env.NANO_BANANA_API_URL; // legacy alias
+                     ?? process.env.NANO_BANANA_API_URL   // legacy alias
+                     ?? "https://api.nanobananaapi.ai";
     const callbackUrl = process.env.NANO_BANANA_CALLBACK_URL
                      ?? `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://zencralabs.com"}/api/nb-callback`;
 
-    if (!apiKey)  throw new Error("NANO_BANANA_API_KEY is not configured.");
-    if (!apiBase) throw new Error("NANO_BANANA_API_BASE_URL is not configured.");
+    if (!apiKey) {
+      throw Object.assign(
+        new Error("Nano Banana is not available right now. Please try another model."),
+        { code: "PROVIDER_NOT_CONFIGURED" }
+      );
+    }
 
     // ── 2. Variant config ────────────────────────────────────────────────────
     const variant = (input.metadata?.nbVariant as NbVariant | undefined) ?? "standard";
