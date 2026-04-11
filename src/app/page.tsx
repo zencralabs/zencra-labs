@@ -50,7 +50,8 @@ const workflowSteps = [
 ];
 
 // ── Video Showcase Carousel — 6 VIDEO-only slides ────────────────────────────
-// No image tool names, no LTX
+// videoSrc: drop the matching file into /public/ to activate real video playback.
+// While the file is absent the gradient placeholder renders automatically.
 const videoShowcase = [
   {
     gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 50%, #1d4ed8 100%)",
@@ -58,6 +59,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "AI-directed urban scene with natural motion blur",
     tool: "Kling 2.6",
+    videoSrc: "/showcase/showcase-kling-26.mp4",   // → public/showcase/showcase-kling-26.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)",
@@ -65,6 +67,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Forest timelapse with AI-driven light simulation",
     tool: "Kling 3.0",
+    videoSrc: "/showcase/showcase-kling-30.mp4",   // → public/showcase/showcase-kling-30.mp4
   },
   {
     gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 50%, #dc2626 100%)",
@@ -72,6 +75,7 @@ const videoShowcase = [
     label: "AI Scene",
     caption: "Emotional narrative with dynamic camera movement",
     tool: "Seedance 2.0",
+    videoSrc: "/showcase/showcase-seedance.mp4",   // → public/showcase/showcase-seedance.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)",
@@ -79,6 +83,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Stylised slow-motion with cinematic grade",
     tool: "Runway ML",
+    videoSrc: "/showcase/showcase-runway.mp4",     // → public/showcase/showcase-runway.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)",
@@ -86,6 +91,7 @@ const videoShowcase = [
     label: "Talking Avatar",
     caption: "Lip-synced presenter from any voice recording",
     tool: "HeyGen",
+    videoSrc: "/showcase/showcase-heygen.mp4",     // → public/showcase/showcase-heygen.mp4
   },
   {
     gradient: "linear-gradient(160deg, #1a1206 0%, #422006 50%, #f59e0b 100%)",
@@ -93,6 +99,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Desert dune flyover with AI motion design",
     tool: "Google Veo",
+    videoSrc: "/showcase/showcase-veo.mp4",        // → public/showcase/showcase-veo.mp4
   },
 ];
 
@@ -240,6 +247,8 @@ export default function HomePage() {
         {/* Video background */}
         <video
           autoPlay muted loop playsInline
+          preload="auto"
+          poster="/hero-poster.jpg"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           style={{ opacity: 0.55 }}
         >
@@ -274,12 +283,13 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="max-w-5xl leading-[1.05] tracking-tight"
+            className="max-w-5xl leading-[1.1] tracking-tight"
             style={{ fontSize: "clamp(2.6rem, 7vw, 5.5rem)", fontWeight: 800 }}
           >
-            Create Cinematic AI Videos —{" "}
+            <span style={{ display: "block" }}>Create Cinematic AI Videos</span>
             <span
               style={{
+                display: "block",
                 background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 50%, #A855F7 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -470,6 +480,19 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`;
                 }}
               >
+                {/* Real video — plays silently on hover; gradient shows while absent */}
+                {slide.videoSrc && (
+                  <video
+                    className="absolute inset-0 h-full w-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    src={slide.videoSrc}
+                    muted
+                    loop
+                    playsInline
+                    preload="none"
+                    onMouseEnter={e => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                    onMouseLeave={e => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                  />
+                )}
                 {/* Inner shimmer */}
                 <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.1) 0%, transparent 55%)" }} />
                 {/* Cinematic grain */}
