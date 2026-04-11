@@ -487,7 +487,7 @@ function ImageStudioInner() {
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 100,
+      position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 40,
       background: "#0A0A0A",
       display: "flex", flexDirection: "column",
       fontFamily: "var(--font-body, system-ui, sans-serif)",
@@ -1073,7 +1073,7 @@ function ImageStudioInner() {
 export default function ImageStudioPage() {
   return (
     <Suspense fallback={
-      <div style={{ position: "fixed", inset: 0, background: "#0A0A0A", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+      <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, background: "#0A0A0A", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 40 }}>
         <div style={{ width: 32, height: 32, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.06)", borderTop: "3px solid #2563EB", animation: "spin 0.8s linear infinite" }} />
         <style>{`@keyframes spin { to{transform:rotate(360deg)} }`}</style>
       </div>

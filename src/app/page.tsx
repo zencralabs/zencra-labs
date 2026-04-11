@@ -274,8 +274,8 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="max-w-5xl font-bold leading-[1.05] tracking-tight"
-            style={{ fontSize: "clamp(2.6rem, 7vw, 5.5rem)" }}
+            className="max-w-5xl leading-[1.05] tracking-tight"
+            style={{ fontSize: "clamp(2.6rem, 7vw, 5.5rem)", fontWeight: 800 }}
           >
             Create Cinematic AI Videos —{" "}
             <span
@@ -365,7 +365,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>The Workflow</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
+            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               How Zencra Works
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -423,7 +423,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-12">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Video Showcase</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
+            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               What You Can Create
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -606,8 +606,8 @@ export default function HomePage() {
 
               {/* Headline */}
               <h2
-                className="max-w-3xl font-bold leading-tight tracking-tight"
-                style={{ fontSize: "clamp(2rem, 5vw, 4rem)", color: "#F8FAFC" }}
+                className="max-w-3xl leading-tight tracking-tight"
+                style={{ fontSize: "clamp(2rem, 5vw, 4rem)", fontWeight: 800, color: "#F8FAFC" }}
               >
                 Direct AI Films.{" "}
                 <span
@@ -683,7 +683,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
+            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               Built for Creators, Filmmakers,<br className="hidden md:block" /> and Agencies
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-lg" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -758,7 +758,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Simple Pricing</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
+            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               Start Free. Scale as You Create.
             </h2>
             <p className="mt-4" style={{ color: "#64748B" }}>
@@ -851,7 +851,7 @@ export default function HomePage() {
         }}
       >
         <div className="container-site flex flex-col items-center gap-6 text-center">
-          <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", color: "var(--page-text)" }}>
+          <h2 className="tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 800, color: "var(--page-text)" }}>
             Ready to Create Something Cinematic?
           </h2>
           <p className="max-w-md" style={{ color: "#64748B", lineHeight: 1.7 }}>
