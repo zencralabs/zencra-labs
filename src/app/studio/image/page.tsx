@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import MediaCard from "@/components/media/MediaCard";
+import type { PublicAsset } from "@/lib/types/generation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -174,10 +176,35 @@ function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
 }
 
 // ── Image card ────────────────────────────────────────────────────────────────
-function ImageCard({ img }: { img: GeneratedImage }) {
-  const [hovered, setHovered] = useState(false);
+// Adapts local GeneratedImage to PublicAsset shape for MediaCard
+function toPublicAsset(img: GeneratedImage): PublicAsset {
+  return {
+    id:            img.id,
+    tool:          img.model,
+    tool_category: "image",
+    prompt:        img.prompt,
+    result_url:    img.url,
+    result_urls:   img.url ? [img.url] : null,
+    visibility:    "project",   // newly generated → in user's project by default
+    project_id:    null,
+    credits_used:  0,
+    created_at:    new Date().toISOString(),
+  };
+}
 
-  if (img.status === "generating") return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} />;
+function ImageCard({
+  img,
+  onRegenerate,
+  onReusePrompt,
+}: {
+  img: GeneratedImage;
+  onRegenerate?: (prompt: string, model: string, ar: string) => void;
+  onReusePrompt?: (prompt: string) => void;
+}) {
+  if (img.status === "generating") {
+    return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} />;
+  }
+
   if (img.status === "error") {
     return (
       <div style={{
@@ -194,68 +221,23 @@ function ImageCard({ img }: { img: GeneratedImage }) {
     );
   }
 
+  // Done — render full MediaCard with owner actions
   return (
-    <div
-      style={{ position: "relative", borderRadius: 10, overflow: "hidden", cursor: "pointer", animation: "fadeIn 0.3s ease" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={img.url!}
-        alt={img.prompt}
-        style={{ width: "100%", display: "block", borderRadius: 10 }}
-        loading="lazy"
+    <div style={{ animation: "fadeIn 0.3s ease" }}>
+      <MediaCard
+        asset={toPublicAsset(img)}
+        isOwner
+        onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
+        onReusePrompt={onReusePrompt}
+        onEnhance={() => {
+          // Topaz enhance — coming soon; show tooltip via alert for now
+          alert("✨ Topaz enhancement is coming soon!");
+        }}
+        onAnimate={() => {
+          // Animate → route to video studio with prompt pre-filled
+          window.location.href = `/studio/cinema?prompt=${encodeURIComponent(img.prompt)}`;
+        }}
       />
-
-      {/* Hover overlay */}
-      {hovered && (
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: 10,
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.5) 100%)",
-          animation: "fadeIn 0.15s ease",
-        }}>
-          {/* Top left: select */}
-          <div style={{ position: "absolute", top: 10, left: 10 }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: 6, border: "1.5px solid rgba(255,255,255,0.7)",
-              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(4px)", cursor: "pointer",
-            }} />
-          </div>
-          {/* Top right: actions */}
-          <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 6 }}>
-            {[
-              { emoji: "♡", title: "Like" },
-              { emoji: "↓", title: "Download", action: () => { const a = document.createElement("a"); a.href = img.url!; a.download = `zencra-${img.id}.png`; a.target = "_blank"; a.click(); } },
-              { emoji: "⋯", title: "More" },
-            ].map((btn) => (
-              <button
-                key={btn.title}
-                title={btn.title}
-                onClick={btn.action}
-                style={{
-                  width: 30, height: 30, borderRadius: 8,
-                  background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  color: "rgba(255,255,255,0.9)", cursor: "pointer",
-                  fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                {btn.emoji}
-              </button>
-            ))}
-          </div>
-          {/* Bottom: prompt snippet */}
-          <div style={{ position: "absolute", bottom: 10, left: 10, right: 10 }}>
-            <p style={{
-              fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.4,
-              overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-            }}>
-              {img.prompt}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -618,7 +600,18 @@ function ImageStudioInner() {
             transition: "grid-template-columns 0.3s ease",
           }}>
             {images.map((img) => (
-              <ImageCard key={img.id} img={img} />
+              <ImageCard
+                key={img.id}
+                img={img}
+                onRegenerate={(_prompt, _model, _ar) => {
+                  // Re-trigger generate with same params
+                  generate();
+                }}
+                onReusePrompt={(p) => {
+                  setPrompt(p);
+                  promptRef.current?.focus();
+                }}
+              />
             ))}
           </div>
         )}

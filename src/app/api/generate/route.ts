@@ -38,7 +38,10 @@ export async function POST(req: Request) {
     const userId = authUser?.id ?? DEV_DEMO_USER_ID;
 
     // ── 2. Validate input ──────────────────────────────────────────────────
-    const body = (await req.json()) as Partial<GenerateContentInput>;
+    const body = (await req.json()) as Partial<GenerateContentInput> & {
+      visibility?: "project" | "private" | "public";
+      project_id?: string | null;
+    };
 
     if (!body.mode || !["image", "video", "audio"].includes(body.mode)) {
       return NextResponse.json(
@@ -103,6 +106,26 @@ export async function POST(req: Request) {
     // ── 6. Persist generation record ───────────────────────────────────────
     const toolName = resolveTool(body.mode, result.provider);
 
+    // ── Resolve visibility + project_id defaults ───────────────────────────
+    // Validate visibility value if supplied
+    const rawVisibility = body.visibility;
+    const visibility = rawVisibility && ["project", "private", "public"].includes(rawVisibility)
+      ? rawVisibility
+      : "project"; // default: group in the user's default project
+
+    // If visibility is "project", look up user's default project (first one created)
+    let projectId: string | null = body.project_id ?? null;
+    if (visibility === "project" && !projectId) {
+      const { data: defaultProject } = await supabaseAdmin
+        .from("projects")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+      projectId = defaultProject?.id ?? null;
+    }
+
     const { data: generationRow, error: generationError } = await supabaseAdmin
       .from("generations")
       .insert({
@@ -116,6 +139,9 @@ export async function POST(req: Request) {
         result_urls:   result.url ? [result.url] : null,
         credits_used:  result.status === "error" ? 0 : creditCost.total,
         parameters:    result.metadata ?? {},
+        // Visibility system — defaults to "project"
+        visibility,
+        project_id:    projectId,
         // Capture error reason when generation fails so status route can surface it
         ...(result.status === "error" && result.error
           ? { error_message: result.error }

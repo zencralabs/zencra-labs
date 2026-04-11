@@ -1,121 +1,456 @@
 "use client";
 
-import { useState } from "react";
-import { Play, ImageIcon, Music } from "lucide-react";
+/**
+ * Gallery Page — /gallery
+ *
+ * Shows all public generations from the DB.
+ * Filters: All / Video / Image / Audio
+ * Sort:    Latest / Trending
+ * Layout:  CSS columns masonry (3-col desktop, 2-col tablet, 1-col mobile)
+ */
 
-const filters = ["All", "Video", "Image", "Audio"];
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Play, ImageIcon, Music, TrendingUp, Clock, SlidersHorizontal } from "lucide-react";
+import MediaCard from "@/components/media/MediaCard";
+import type { PublicAsset } from "@/lib/types/generation";
 
-const galleryItems = [
-  { id: 1, type: "Video", tool: "Kling 3.0", title: "Neon City Chase", height: 320, gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 50%, #1d4ed8 100%)", accent: "#2563EB" },
-  { id: 2, type: "Image", tool: "Nano Banana Pro", title: "Cyberpunk Portrait", height: 240, gradient: "linear-gradient(160deg, #0d0d1a 0%, #1a0d2e 50%, #7c3aed 100%)", accent: "#A855F7" },
-  { id: 3, type: "Video", tool: "Runway ML", title: "Ocean Drift", height: 280, gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)", accent: "#0EA5A0" },
-  { id: 4, type: "Image", tool: "Flux", title: "Fire Abstract", height: 200, gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 50%, #dc2626 100%)", accent: "#EF4444" },
-  { id: 5, type: "Video", tool: "Veo 3", title: "Urban Storm", height: 360, gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)", accent: "#60A5FA" },
-  { id: 6, type: "Audio", tool: "Suno AI", title: "Deep Frequency", height: 180, gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)", accent: "#A855F7" },
-  { id: 7, type: "Image", tool: "Seedream", title: "Forest Spirit", height: 260, gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 50%, #10b981 100%)", accent: "#10B981" },
-  { id: 8, type: "Video", tool: "LTX-2", title: "Golden Hour", height: 210, gradient: "linear-gradient(160deg, #1a1206 0%, #422006 50%, #f59e0b 100%)", accent: "#F59E0B" },
-  { id: 9, type: "Video", tool: "HeyGen", title: "Avatar Dance", height: 300, gradient: "linear-gradient(160deg, #0f1a32 0%, #1e3a5f 50%, #0ea5a0 100%)", accent: "#0EA5A0" },
-  { id: 10, type: "Image", tool: "Seedream", title: "Galactic Dream", height: 220, gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 50%, #c084fc 100%)", accent: "#C084FC" },
-  { id: 11, type: "Audio", tool: "ElevenLabs", title: "Voice Clone Demo", height: 170, gradient: "linear-gradient(160deg, #0a1020 0%, #162040 50%, #2563eb 100%)", accent: "#2563EB" },
-  { id: 12, type: "Video", tool: "Kling 3.0", title: "Underwater City", height: 310, gradient: "linear-gradient(160deg, #0a1020 0%, #162040 50%, #1d4ed8 100%)", accent: "#2563EB" },
-  { id: 13, type: "Audio", tool: "Kits AI", title: "Voice Morph", height: 190, gradient: "linear-gradient(160deg, #1a0a10 0%, #5a0a20 50%, #f43f5e 100%)", accent: "#F43F5E" },
-  { id: 14, type: "Image", tool: "Nano Banana Pro", title: "Neon Goddess", height: 270, gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #a855f7 100%)", accent: "#A855F7" },
-  { id: 15, type: "Video", tool: "Seedance", title: "Dance Loop", height: 230, gradient: "linear-gradient(160deg, #1a0f0a 0%, #451a03 50%, #f59e0b 100%)", accent: "#F59E0B" },
-  { id: 16, type: "Image", tool: "Flux", title: "Crystal Bloom", height: 190, gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 50%, #10b981 100%)", accent: "#10B981" },
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type CategoryFilter = "all" | "image" | "video" | "audio";
+type SortMode       = "latest" | "trending";
+
+const CATEGORY_TABS: { label: string; value: CategoryFilter; icon: React.ReactNode }[] = [
+  { label: "All",   value: "all",   icon: <SlidersHorizontal size={13} /> },
+  { label: "Video", value: "video", icon: <Play size={13} />              },
+  { label: "Image", value: "image", icon: <ImageIcon size={13} />         },
+  { label: "Audio", value: "audio", icon: <Music size={13} />             },
 ];
 
-const typeIcon = (type: string) => {
-  if (type === "Video") return Play;
-  if (type === "Audio") return Music;
-  return ImageIcon;
-};
+const PAGE_SIZE = 24;
+
+// ── Skeleton card ──────────────────────────────────────────────────────────────
+
+function SkeletonCard({ tall }: { tall?: boolean }) {
+  return (
+    <div
+      style={{
+        borderRadius:    14,
+        background:      "rgba(255,255,255,0.03)",
+        border:          "1px solid rgba(255,255,255,0.06)",
+        overflow:        "hidden",
+        marginBottom:    16,
+        animation:       "pulse 1.5s ease-in-out infinite",
+        breakInside:     "avoid",
+      }}
+    >
+      <div
+        style={{
+          height:     tall ? 280 : 200,
+          background: "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%)",
+          backgroundSize: "200% 100%",
+          animation:  "shimmer 1.5s infinite",
+        }}
+      />
+      <div style={{ padding: "10px 12px 12px" }}>
+        <div style={{ height: 10, borderRadius: 4, background: "rgba(255,255,255,0.06)", marginBottom: 6 }} />
+        <div style={{ height: 10, borderRadius: 4, background: "rgba(255,255,255,0.04)", width: "60%" }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+
+function EmptyGallery({ category }: { category: CategoryFilter }) {
+  const label = category === "all" ? "public creations" : category + " content";
+  return (
+    <div
+      style={{
+        gridColumn:     "1 / -1",
+        textAlign:      "center",
+        padding:        "80px 24px",
+        color:          "rgba(255,255,255,0.4)",
+      }}
+    >
+      <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>🌐</div>
+      <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "rgba(255,255,255,0.6)" }}>
+        No {label} yet
+      </p>
+      <p style={{ fontSize: 14 }}>
+        Be the first to publish your AI creation to the gallery.
+      </p>
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function GalleryPage() {
-  const [active, setActive] = useState("All");
-  const filtered = active === "All" ? galleryItems : galleryItems.filter(i => i.type === active);
+  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [sort,     setSort]     = useState<SortMode>("latest");
+  const [assets,   setAssets]   = useState<PublicAsset[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [hasMore,  setHasMore]  = useState(false);
+  const [total,    setTotal]    = useState(0);
+
+  const loaderRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+
+  const fetchAssets = useCallback(async (
+    cat: CategoryFilter,
+    sortMode: SortMode,
+    pageNum: number,
+    append: boolean
+  ) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page:     String(pageNum),
+        pageSize: String(PAGE_SIZE),
+        sort:     sortMode,
+      });
+      if (cat !== "all") params.set("category", cat);
+
+      const res  = await fetch(`/api/generations/public?${params.toString()}`);
+      const json = await res.json();
+
+      if (json.success) {
+        setAssets(prev => append ? [...prev, ...json.data] : json.data);
+        setHasMore(json.hasMore);
+        setTotal(json.total);
+      }
+    } catch (err) {
+      console.error("[Gallery] fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Reset + reload on filter/sort change
+  useEffect(() => {
+    setPage(1);
+    fetchAssets(category, sort, 1, false);
+  }, [category, sort, fetchAssets]);
+
+  // Infinite scroll — load next page when loader div enters viewport
+  useEffect(() => {
+    if (!loaderRef.current || !hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          fetchAssets(category, sort, nextPage, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loading, page, category, sort, fetchAssets]);
+
+  // ── Action handlers ──────────────────────────────────────────────────────────
+
+  function handleVisibilityChange(id: string) {
+    // Remove from gallery if visibility changed away from public
+    setAssets(prev => prev.filter(a => a.id !== id));
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ backgroundColor: "#080E1C", color: "#F8FAFC", minHeight: "100vh" }}>
 
-      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <section className="relative flex flex-col items-center justify-center overflow-hidden pt-32 pb-12 text-center">
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true"
-          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(14,165,160,0.12) 0%, transparent 70%)" }} />
-        <div className="relative z-10 mx-auto max-w-2xl px-6">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]"
-            style={{ background: "rgba(14,165,160,0.12)", border: "1px solid rgba(14,165,160,0.3)", color: "#2DD4BF" }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#0EA5A0", boxShadow: "0 0 6px #0EA5A0" }} />
+      {/* ── Shimmer keyframes ─────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.7; }
+        }
+      `}</style>
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <section
+        style={{
+          position:       "relative",
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+          justifyContent: "center",
+          overflow:       "hidden",
+          paddingTop:     128,
+          paddingBottom:  48,
+          textAlign:      "center",
+        }}
+      >
+        {/* Glow */}
+        <div
+          aria-hidden
+          style={{
+            position:   "absolute",
+            inset:      0,
+            background: "radial-gradient(ellipse at 50% 0%, rgba(14,165,160,0.12) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 640, padding: "0 24px" }}>
+          {/* Badge */}
+          <div
+            style={{
+              display:       "inline-flex",
+              alignItems:    "center",
+              gap:           8,
+              borderRadius:  999,
+              padding:       "6px 16px",
+              marginBottom:  16,
+              background:    "rgba(14,165,160,0.12)",
+              border:        "1px solid rgba(14,165,160,0.3)",
+              color:         "#2DD4BF",
+              fontSize:      11,
+              fontWeight:    700,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+            }}
+          >
+            <span style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: "#0EA5A0", boxShadow: "0 0 6px #0EA5A0"
+            }} />
             Made with Zencra
           </div>
-          <h1 className="mb-4 font-bold text-white" style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)" }}>
-            Creative <span style={{ background: "linear-gradient(135deg, #0EA5A0, #A855F7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Gallery</span>
+
+          <h1
+            style={{
+              fontWeight:  800,
+              fontSize:    "clamp(2.5rem, 6vw, 4rem)",
+              lineHeight:  1.1,
+              marginBottom: 16,
+              color:       "#fff",
+            }}
+          >
+            Creative{" "}
+            <span
+              style={{
+                background:           "linear-gradient(135deg, #0EA5A0, #A855F7)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor:  "transparent",
+                backgroundClip:       "text",
+              }}
+            >
+              Gallery
+            </span>
           </h1>
-          <p className="text-lg" style={{ color: "#94A3B8" }}>
-            AI-generated videos, images and audio crafted using the world&apos;s most powerful creative tools.
+
+          <p style={{ fontSize: 17, color: "#94A3B8", lineHeight: 1.6 }}>
+            AI‑generated videos, images and audio crafted using the world&apos;s
+            most powerful creative tools.
           </p>
+
+          {total > 0 && (
+            <p style={{ marginTop: 12, fontSize: 13, color: "rgba(255,255,255,0.35)" }}>
+              {total.toLocaleString()} public creations
+            </p>
+          )}
         </div>
       </section>
 
-      {/* ── FILTER TABS ────────────────────────────────────────────────────── */}
-      <div className="flex justify-center gap-2 pb-10 px-6">
-        {filters.map(f => (
-          <button key={f} onClick={() => setActive(f)}
-            className="rounded-full px-5 py-2 text-sm font-semibold transition-all duration-200"
-            style={active === f
-              ? { background: "linear-gradient(135deg, #2563EB, #0EA5A0)", color: "#fff", boxShadow: "0 0 20px rgba(37,99,235,0.4)" }
-              : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}>
-            {f}
-          </button>
-        ))}
+      {/* ── FILTER + SORT BAR ───────────────────────────────────────────────── */}
+      <div
+        style={{
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          flexWrap:       "wrap",
+          gap:            12,
+          paddingBottom:  36,
+          paddingLeft:    24,
+          paddingRight:   24,
+        }}
+      >
+        {/* Category tabs */}
+        <div
+          style={{
+            display:      "flex",
+            gap:          4,
+            background:   "rgba(255,255,255,0.04)",
+            border:       "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            padding:      4,
+          }}
+        >
+          {CATEGORY_TABS.map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => setCategory(tab.value)}
+              style={{
+                display:      "inline-flex",
+                alignItems:   "center",
+                gap:          6,
+                padding:      "7px 16px",
+                borderRadius: 9,
+                border:       "none",
+                background:   category === tab.value
+                  ? "rgba(255,255,255,0.10)"
+                  : "transparent",
+                color:        category === tab.value
+                  ? "#fff"
+                  : "rgba(255,255,255,0.45)",
+                fontSize:     13,
+                fontWeight:   600,
+                cursor:       "pointer",
+                transition:   "all 0.15s",
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort toggle */}
+        <div
+          style={{
+            display:      "flex",
+            gap:          4,
+            background:   "rgba(255,255,255,0.04)",
+            border:       "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12,
+            padding:      4,
+          }}
+        >
+          {([
+            { value: "latest",   label: "Latest",   icon: <Clock size={12} /> },
+            { value: "trending", label: "Trending", icon: <TrendingUp size={12} /> },
+          ] as { value: SortMode; label: string; icon: React.ReactNode }[]).map(s => (
+            <button
+              key={s.value}
+              onClick={() => setSort(s.value)}
+              style={{
+                display:      "inline-flex",
+                alignItems:   "center",
+                gap:          6,
+                padding:      "7px 14px",
+                borderRadius: 9,
+                border:       "none",
+                background:   sort === s.value
+                  ? "rgba(14,165,160,0.15)"
+                  : "transparent",
+                color:        sort === s.value
+                  ? "#2DD4BF"
+                  : "rgba(255,255,255,0.45)",
+                fontSize:     12,
+                fontWeight:   600,
+                cursor:       "pointer",
+                transition:   "all 0.15s",
+              }}
+            >
+              {s.icon}
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ── MASONRY GRID ───────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-7xl px-6 pb-24">
-        <div style={{ columns: "4", columnGap: "12px" }}>
-          {filtered.map(item => {
-            const Icon = typeIcon(item.type);
-            return (
-              <div key={item.id}
-                className="group relative mb-3 cursor-pointer overflow-hidden rounded-xl transition-all duration-300"
-                style={{ breakInside: "avoid", height: `${item.height}px`, background: item.gradient, border: "1px solid rgba(255,255,255,0.04)" }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "scale(1.02)";
-                  (e.currentTarget as HTMLElement).style.zIndex = "10";
-                  (e.currentTarget as HTMLElement).style.borderColor = `${item.accent}60`;
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 0 30px ${item.accent}30`;
+      {/* ── MASONRY GRID ────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          maxWidth:       1400,
+          margin:         "0 auto",
+          padding:        "0 clamp(16px, 4vw, 60px) 80px",
+        }}
+      >
+        {loading && assets.length === 0 ? (
+          /* Skeleton loading state */
+          <div
+            style={{
+              columns:     "3 300px",
+              columnGap:   16,
+            }}
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <SkeletonCard key={i} tall={i % 3 === 1} />
+            ))}
+          </div>
+        ) : assets.length === 0 ? (
+          <EmptyGallery category={category} />
+        ) : (
+          <div
+            style={{
+              columns:   "3 300px",
+              columnGap: 16,
+            }}
+          >
+            {assets.map(asset => (
+              <div
+                key={asset.id}
+                style={{
+                  breakInside: "avoid",
+                  marginBottom: 16,
                 }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "none";
-                  (e.currentTarget as HTMLElement).style.zIndex = "auto";
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.04)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = "none";
-                }}>
-
-                {/* Bottom overlay on hover */}
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-28 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                  style={{ background: "linear-gradient(to top, rgba(8,14,28,0.95), transparent)" }} />
-
-                {/* Content on hover */}
-                <div className="absolute inset-x-0 bottom-0 translate-y-2 p-3 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                  <p className="text-xs font-bold text-white leading-tight">{item.title}</p>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                      style={{ background: `${item.accent}25`, color: item.accent, border: `1px solid ${item.accent}35` }}>
-                      {item.type}
-                    </span>
-                    <span className="text-[10px]" style={{ color: "#64748B" }}>{item.tool}</span>
-                  </div>
-                </div>
-
-                {/* Type icon + dot */}
-                <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
-                  <Icon size={10} style={{ color: item.accent }} />
-                  <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.accent, boxShadow: `0 0 6px ${item.accent}` }} />
-                </div>
+              >
+                <MediaCard
+                  asset={asset}
+                  isOwner={false}
+                  compact={false}
+                  onVisibilityChange={id => handleVisibilityChange(id)}
+                />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Infinite scroll loader */}
+        {hasMore && (
+          <div
+            ref={loaderRef}
+            style={{
+              display:        "flex",
+              justifyContent: "center",
+              padding:        "32px 0",
+            }}
+          >
+            {loading ? (
+              <div
+                style={{
+                  width:        32,
+                  height:       32,
+                  borderRadius: "50%",
+                  border:       "2px solid rgba(255,255,255,0.1)",
+                  borderTopColor: "#0EA5A0",
+                  animation:    "spin 0.7s linear infinite",
+                }}
+              />
+            ) : null}
+          </div>
+        )}
+
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+
+        {/* End of results */}
+        {!hasMore && assets.length > 0 && (
+          <p
+            style={{
+              textAlign:   "center",
+              fontSize:    13,
+              color:       "rgba(255,255,255,0.2)",
+              paddingTop:  32,
+            }}
+          >
+            You&apos;ve seen it all — {total.toLocaleString()} creations
+          </p>
+        )}
       </div>
     </div>
   );
