@@ -1,94 +1,130 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight } from "lucide-react";
+import {
+  Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
+  ChevronLeft, ChevronRight,
+} from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA LABS — Cinematic AI Creation Studio
-// Structure: Hero → How It Works → Output Showcase → Cinema Studio →
-//            Target Audience → Pricing Preview → Footer CTA
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Output Showcase Cards ────────────────────────────────────────────────────
-const showcaseItems = [
+// ── Hero tool chip badge data ─────────────────────────────────────────────────
+const heroTools = ["Kling 3.0", "Runway ML", "Veo", "FLUX Pro", "Suno AI", "ElevenLabs", "HeyGen"];
+
+// ── How Zencra Works — 3-step cards ─────────────────────────────────────────
+const workflowSteps = [
   {
-    id: 1,
+    icon: ImageIcon,
+    num: "01",
+    color: "#2563EB",
+    title: "Generate Visuals",
+    desc: "Create high-quality AI images for any concept — characters, scenes, products, or worlds — in seconds.",
+    gradient: "linear-gradient(135deg, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 100%)",
+    border: "rgba(37,99,235,0.20)",
+    sample: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)",
+  },
+  {
+    icon: Film,
+    num: "02",
+    color: "#0EA5A0",
+    title: "Animate to Video",
+    desc: "Turn images into cinematic motion with consistent characters. Direct movement, camera angles, and pacing.",
+    gradient: "linear-gradient(135deg, rgba(14,165,160,0.10) 0%, rgba(14,165,160,0.04) 100%)",
+    border: "rgba(14,165,160,0.20)",
+    sample: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #0ea5a0 100%)",
+  },
+  {
+    icon: Mic,
+    num: "03",
+    color: "#A855F7",
+    title: "Add Voice & Lip Sync",
+    desc: "Bring content to life with realistic AI voices. Perfect lip-sync. Natural emotion. Any language.",
+    gradient: "linear-gradient(135deg, rgba(168,85,247,0.10) 0%, rgba(168,85,247,0.04) 100%)",
+    border: "rgba(168,85,247,0.20)",
+    sample: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 60%, #a855f7 100%)",
+  },
+];
+
+// ── Video Showcase Carousel — 6 VIDEO-only slides ────────────────────────────
+// No image tool names, no LTX
+const videoShowcase = [
+  {
     gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 50%, #1d4ed8 100%)",
-    accentColor: "#2563EB",
+    color: "#2563EB",
     label: "Cinematic Video",
-    caption: "AI video scene with natural motion",
+    caption: "AI-directed urban scene with natural motion blur",
+    tool: "Kling 2.6",
+  },
+  {
+    gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)",
+    color: "#0EA5A0",
+    label: "Cinematic Video",
+    caption: "Forest timelapse with AI-driven light simulation",
     tool: "Kling 3.0",
   },
   {
-    id: 2,
-    gradient: "linear-gradient(160deg, #0d0d1a 0%, #1a0d2e 50%, #7c3aed 100%)",
-    accentColor: "#A855F7",
-    label: "AI Image",
-    caption: "High-resolution character portrait",
-    tool: "Nano Banana Pro",
-  },
-  {
-    id: 3,
-    gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)",
-    accentColor: "#0EA5A0",
-    label: "Talking Avatar",
-    caption: "Lip-synced avatar from any voice",
-    tool: "HeyGen",
-  },
-  {
-    id: 4,
     gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 50%, #dc2626 100%)",
-    accentColor: "#EF4444",
+    color: "#EF4444",
     label: "AI Scene",
-    caption: "Cinematic landscape with depth",
+    caption: "Emotional narrative with dynamic camera movement",
+    tool: "Seedance 2.0",
+  },
+  {
+    gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)",
+    color: "#60A5FA",
+    label: "Cinematic Video",
+    caption: "Stylised slow-motion with cinematic grade",
     tool: "Runway ML",
   },
   {
-    id: 5,
-    gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)",
-    accentColor: "#60A5FA",
-    label: "Cinematic Video",
-    caption: "Stylised urban slow-motion shot",
-    tool: "Google Veo",
+    gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)",
+    color: "#A855F7",
+    label: "Talking Avatar",
+    caption: "Lip-synced presenter from any voice recording",
+    tool: "HeyGen",
   },
   {
-    id: 6,
-    gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)",
-    accentColor: "#A855F7",
-    label: "AI Music",
-    caption: "Full cinematic track from a prompt",
-    tool: "Suno AI",
+    gradient: "linear-gradient(160deg, #1a1206 0%, #422006 50%, #f59e0b 100%)",
+    color: "#F59E0B",
+    label: "Cinematic Video",
+    caption: "Desert dune flyover with AI motion design",
+    tool: "Google Veo",
   },
 ];
 
-// Slider data — row 1
-const sliderRow1 = [
-  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0", color: "#2563EB" },
-  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #2d1b69 60%, #8b5cf6 100%)", label: "AI Image",        tool: "Nano Banana Pro", color: "#A855F7" },
-  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",  color: "#0EA5A0" },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "AI Scene",        tool: "Flux",        color: "#EF4444" },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "Cinematic Video", tool: "Google Veo",  color: "#60A5FA" },
-  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",      color: "#C084FC" },
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "AI Image",        tool: "Seedream",    color: "#10B981" },
-  { gradient: "linear-gradient(160deg, #1a1206 0%, #422006 60%, #f59e0b 100%)", label: "Cinematic Video", tool: "Seedance",    color: "#F59E0B" },
+// ── Audience cards ────────────────────────────────────────────────────────────
+const audienceCards = [
+  {
+    icon: Film,
+    title: "Filmmakers",
+    desc: "Turn story ideas into full visual sequences — without a production crew, camera equipment, or post-production budget.",
+    color: "#2563EB",
+    gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 55%, #2563EB 100%)",
+    stat: "10× faster than traditional production",
+  },
+  {
+    icon: Users,
+    title: "Content Creators",
+    desc: "Build a consistent, cinematic presence on Instagram, TikTok, and YouTube using AI that matches your creative vision.",
+    color: "#0EA5A0",
+    gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 55%, #0EA5A0 100%)",
+    stat: "For Instagram, TikTok & YouTube",
+  },
+  {
+    icon: Layers,
+    title: "Agencies",
+    desc: "Deliver premium AI-generated media at scale. Faster briefs, faster delivery, higher creative output for every client.",
+    color: "#A855F7",
+    gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 55%, #A855F7 100%)",
+    stat: "Agency-grade volume & API access",
+  },
 ];
-const sliderRow1Doubled = [...sliderRow1, ...sliderRow1];
 
-const sliderRow2 = [
-  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #1a0d2e 60%, #7c3aed 100%)", label: "AI Scene",        tool: "Flux",           color: "#7c3aed" },
-  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "LTX-2",          color: "#2563EB" },
-  { gradient: "linear-gradient(160deg, #0f1a32 0%, #1e3a5f 60%, #0ea5a0 100%)", label: "Talking Avatar",  tool: "Kling 3.0",      color: "#0EA5A0" },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #2d1020 60%, #e11d48 100%)", label: "Cinematic Video", tool: "Runway ML",      color: "#E11D48" },
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #052e16 60%, #22c55e 100%)", label: "AI Image",        tool: "Nano Banana Pro",color: "#22C55E" },
-  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "Seedance",       color: "#818CF8" },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #38bdf8 100%)", label: "Cinematic Video", tool: "Google Veo",     color: "#38BDF8" },
-  { gradient: "linear-gradient(160deg, #1a0f00 0%, #3d2500 60%, #f59e0b 100%)", label: "AI Image",        tool: "Flux",           color: "#F59E0B" },
-];
-const sliderRow2Doubled = [...sliderRow2, ...sliderRow2];
-
-// ── Pricing Tiers ────────────────────────────────────────────────────────────
+// ── Pricing tiers ─────────────────────────────────────────────────────────────
 const pricingTiers = [
   {
     name: "Free",
@@ -122,10 +158,48 @@ const pricingTiers = [
   },
 ];
 
+// ── Auto-scroll slider (hero area) ───────────────────────────────────────────
+const sliderRow1 = [
+  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",       color: "#2563EB" },
+  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#0EA5A0" },
+  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "AI Scene",        tool: "Seedance 2.0",     color: "#EF4444" },
+  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#60A5FA" },
+  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",           color: "#C084FC" },
+  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",        color: "#10B981" },
+  { gradient: "linear-gradient(160deg, #1a1206 0%, #422006 60%, #f59e0b 100%)", label: "Cinematic Video", tool: "Seedance 2.0",     color: "#F59E0B" },
+  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #2d1b69 60%, #8b5cf6 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#A855F7" },
+];
+const sliderRow1Doubled = [...sliderRow1, ...sliderRow1];
+
+const sliderRow2 = [
+  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",        color: "#2563EB" },
+  { gradient: "linear-gradient(160deg, #0f1a32 0%, #1e3a5f 60%, #0ea5a0 100%)", label: "Talking Avatar",  tool: "HeyGen",           color: "#0EA5A0" },
+  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #2d1020 60%, #e11d48 100%)", label: "Cinematic Video", tool: "Seedance 2.0",     color: "#E11D48" },
+  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#818CF8" },
+  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #38bdf8 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#38BDF8" },
+  { gradient: "linear-gradient(160deg, #1a0f00 0%, #3d2500 60%, #f59e0b 100%)", label: "Cinematic Video", tool: "Kling 2.6",        color: "#F59E0B" },
+  { gradient: "linear-gradient(160deg, #0d1a14 0%, #052e16 60%, #22c55e 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#22C55E" },
+  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #1a0d2e 60%, #7c3aed 100%)", label: "AI Scene",        tool: "Runway ML",        color: "#7c3aed" },
+];
+const sliderRow2Doubled = [...sliderRow2, ...sliderRow2];
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+
+  // Carousel state
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const VISIBLE = 3; // cards visible at once on desktop
+  const maxIdx = videoShowcase.length - VISIBLE;
+
+  function carouselPrev() {
+    setCarouselIdx((i) => Math.max(0, i - 1));
+  }
+  function carouselNext() {
+    setCarouselIdx((i) => Math.min(maxIdx, i + 1));
+  }
 
   function handleStartCreating() {
     router.push("/studio/image");
@@ -166,7 +240,6 @@ export default function HomePage() {
 
         {/* Hero content */}
         <div className="container-site relative z-10 flex flex-col items-center gap-8 pt-32 pb-16 text-center">
-
           {/* Eyebrow */}
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]"
@@ -202,9 +275,9 @@ export default function HomePage() {
             Generate images, animate them into videos, and add voice with perfect lip-sync — all in one unified AI workflow.
           </p>
 
-          {/* Tool badges — no CTAs here */}
+          {/* Tool badges */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            {["Kling", "Runway ML", "Veo", "Flux", "Suno AI", "ElevenLabs", "HeyGen"].map((tool) => (
+            {heroTools.map((tool) => (
               <span
                 key={tool}
                 className="rounded-full px-3 py-1 text-xs font-medium"
@@ -217,15 +290,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Top fade — uses CSS var so it respects light/dark mode */}
+        {/* Fades */}
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-24" style={{ background: "linear-gradient(to bottom, var(--page-bg), transparent)" }} aria-hidden="true" />
-        {/* Bottom fade */}
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
       </section>
 
-      {/* ── SHOWCASE SLIDER (below hero) ─────────────────────────────────────── */}
+      {/* ── AUTO-SCROLL SHOWCASE STRIP ──────────────────────────────────────── */}
       <section style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
-        {/* Left / right fades */}
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} aria-hidden="true" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} aria-hidden="true" />
 
@@ -266,10 +337,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 2. HOW ZENCRA WORKS ─────────────────────────────────────────────── */}
+      {/* ── 2. HOW ZENCRA WORKS — full-width 3-step ─────────────────────────── */}
       <section style={{ padding: "100px 0 80px" }}>
         <div className="container-site">
-          {/* Section header */}
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>The Workflow</p>
             <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
@@ -280,198 +350,312 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Steps */}
+          {/* Steps — 16:9 visual preview per card */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* Step 1 */}
-            <div
-              className="relative rounded-2xl p-8"
-              style={{ background: "linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(37,99,235,0.03) 100%)", border: "1px solid rgba(37,99,235,0.18)" }}
-            >
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)" }}>
-                <ImageIcon size={24} style={{ color: "#2563EB" }} />
-              </div>
-              <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(37,99,235,0.08)", lineHeight: 1 }}>01</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Generate Visuals</h3>
-              <p style={{ color: "#64748B", lineHeight: 1.7 }}>
-                Create high-quality AI images for any concept — characters, scenes, products, or worlds — in seconds.
-              </p>
-            </div>
+            {workflowSteps.map((step) => {
+              const Icon = step.icon;
+              return (
+                <div
+                  key={step.num}
+                  className="relative rounded-2xl overflow-hidden"
+                  style={{ background: step.gradient, border: `1px solid ${step.border}` }}
+                >
+                  {/* 16:9 sample visual at top */}
+                  <div
+                    className="w-full relative"
+                    style={{ paddingBottom: "42%", background: step.sample, overflow: "hidden" }}
+                  >
+                    <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
+                    {/* Step number watermark */}
+                    <div
+                      className="absolute bottom-3 right-4 text-6xl font-black"
+                      style={{ color: `${step.color}20`, lineHeight: 1 }}
+                    >
+                      {step.num}
+                    </div>
+                    {/* Icon badge */}
+                    <div
+                      className="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{ background: `${step.color}25`, border: `1px solid ${step.color}40`, backdropFilter: "blur(8px)" }}
+                    >
+                      <Icon size={20} style={{ color: step.color }} />
+                    </div>
+                  </div>
 
-            {/* Step 2 */}
-            <div
-              className="relative rounded-2xl p-8"
-              style={{ background: "linear-gradient(135deg, rgba(14,165,160,0.08) 0%, rgba(14,165,160,0.03) 100%)", border: "1px solid rgba(14,165,160,0.18)" }}
-            >
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(14,165,160,0.15)", border: "1px solid rgba(14,165,160,0.3)" }}>
-                <Film size={24} style={{ color: "#0EA5A0" }} />
-              </div>
-              <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(14,165,160,0.08)", lineHeight: 1 }}>02</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Animate to Video</h3>
-              <p style={{ color: "#64748B", lineHeight: 1.7 }}>
-                Turn images into cinematic motion with consistent characters. Direct movement, camera angles, and pacing.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div
-              className="relative rounded-2xl p-8"
-              style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.08) 0%, rgba(168,85,247,0.03) 100%)", border: "1px solid rgba(168,85,247,0.18)" }}
-            >
-              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)" }}>
-                <Mic size={24} style={{ color: "#A855F7" }} />
-              </div>
-              <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(168,85,247,0.08)", lineHeight: 1 }}>03</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Add Voice &amp; Lip Sync</h3>
-              <p style={{ color: "#64748B", lineHeight: 1.7 }}>
-                Bring your content to life with realistic AI voices. Perfect lip-sync. Natural emotion. Any language.
-              </p>
-            </div>
+                  {/* Text content */}
+                  <div className="p-7">
+                    <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>{step.title}</h3>
+                    <p style={{ color: "#64748B", lineHeight: 1.7, fontSize: "0.95rem" }}>{step.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ── 3. WHAT YOU CAN CREATE ──────────────────────────────────────────── */}
+      {/* ── 3. WHAT YOU CAN CREATE — single-row video carousel ──────────────── */}
       <section style={{ padding: "80px 0" }}>
+        {/* Section header inside container */}
         <div className="container-site">
-          {/* Section header */}
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Output Showcase</p>
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Video Showcase</p>
             <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
               What You Can Create
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Every output below was created using AI tools available inside Zencra Labs.
+              Every output below represents real AI video you can generate inside Zencra Labs.
             </p>
           </div>
+        </div>
 
-          {/* Showcase grid */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {showcaseItems.map((item) => (
+        {/* Carousel — full-width with controlled scroll */}
+        <div className="relative" style={{ overflow: "hidden" }}>
+          {/* Fade edges */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "80px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "80px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} />
+
+          {/* Track */}
+          <div
+            ref={carouselRef}
+            className="flex transition-transform duration-500 ease-in-out"
+            style={{
+              gap: "20px",
+              paddingLeft: "clamp(24px, 5vw, 80px)",
+              paddingRight: "clamp(24px, 5vw, 80px)",
+              transform: `translateX(calc(-${carouselIdx} * (min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px) + 20px)))`,
+            }}
+          >
+            {videoShowcase.map((slide, i) => (
               <div
-                key={item.id}
-                className="group relative overflow-hidden rounded-2xl cursor-pointer"
+                key={i}
+                className="relative flex-shrink-0 overflow-hidden rounded-2xl cursor-pointer group"
                 style={{
-                  height: "260px",
-                  background: item.gradient,
-                  border: `1px solid ${item.accentColor}25`,
-                  boxShadow: `0 6px 30px rgba(0,0,0,0.4), inset 0 1px 0 ${item.accentColor}10`,
+                  width: "min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px)",
+                  aspectRatio: "16/9",
+                  background: slide.gradient,
+                  border: `1px solid ${slide.color}30`,
+                  boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`,
                   transition: "transform 0.3s ease, box-shadow 0.3s ease",
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.5), 0 0 40px ${item.accentColor}30`;
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(-6px) scale(1.01)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.6), 0 0 50px ${slide.color}30`;
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 30px rgba(0,0,0,0.4), inset 0 1px 0 ${item.accentColor}10`;
+                  (e.currentTarget as HTMLElement).style.transform = "translateY(0) scale(1)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`;
                 }}
               >
                 {/* Inner shimmer */}
-                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
+                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.1) 0%, transparent 55%)" }} />
+                {/* Cinematic grain */}
+                <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }} />
 
-                {/* Badge top-left */}
+                {/* Label badge top-left */}
                 <div className="absolute top-4 left-4">
-                  <span className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase" style={{ background: `${item.accentColor}20`, color: item.accentColor, border: `1px solid ${item.accentColor}40` }}>
-                    {item.label}
+                  <span
+                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
+                    style={{ background: `${slide.color}20`, color: slide.color, border: `1px solid ${slide.color}40`, backdropFilter: "blur(8px)" }}
+                  >
+                    {slide.label}
                   </span>
                 </div>
 
-                {/* Tool top-right */}
-                <div className="absolute top-4 right-4">
-                  <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{item.tool}</span>
+                {/* Play icon (appears on hover) */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                >
+                  <div
+                    className="flex h-14 w-14 items-center justify-center rounded-full"
+                    style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
+                  >
+                    <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
+                  </div>
                 </div>
 
-                {/* Caption bottom */}
-                <div className="absolute bottom-0 left-0 right-0 p-5" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.accentColor, boxShadow: `0 0 8px ${item.accentColor}` }} />
-                    <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{item.caption}</p>
+                {/* Bottom gradient + info */}
+                <div
+                  className="absolute bottom-0 left-0 right-0 p-5"
+                  style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: slide.color, boxShadow: `0 0 8px ${slide.color}` }} />
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{slide.tool}</p>
+                    </div>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "55%", textAlign: "right" }}>{slide.caption}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Prev / Next controls */}
+          <button
+            onClick={carouselPrev}
+            disabled={carouselIdx === 0}
+            className="absolute left-4 top-1/2 z-20 flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200"
+            style={{
+              transform: "translateY(-50%)",
+              background: carouselIdx === 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              backdropFilter: "blur(12px)",
+              color: carouselIdx === 0 ? "rgba(255,255,255,0.2)" : "#fff",
+              cursor: carouselIdx === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={carouselNext}
+            disabled={carouselIdx >= maxIdx}
+            className="absolute right-4 top-1/2 z-20 flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200"
+            style={{
+              transform: "translateY(-50%)",
+              background: carouselIdx >= maxIdx ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              backdropFilter: "blur(12px)",
+              color: carouselIdx >= maxIdx ? "rgba(255,255,255,0.2)" : "#fff",
+              cursor: carouselIdx >= maxIdx ? "not-allowed" : "pointer",
+            }}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        {/* Dot indicators */}
+        <div className="flex items-center justify-center gap-2 mt-8">
+          {Array.from({ length: maxIdx + 1 }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCarouselIdx(i)}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === carouselIdx ? "24px" : "8px",
+                height: "8px",
+                background: i === carouselIdx ? "#0EA5A0" : "rgba(255,255,255,0.2)",
+                border: "none",
+                cursor: "pointer",
+              }}
+            />
+          ))}
         </div>
       </section>
 
-      {/* ── 4. CINEMA STUDIO — COMING SOON ──────────────────────────────────── */}
-      <section style={{ padding: "80px 0" }}>
+      {/* ── 4. FUTURE CINEMA STUDIO — full-width 16:9 coming-soon card ──────── */}
+      <section style={{ padding: "60px 0 80px" }}>
         <div className="container-site">
+          {/* Full 16:9 card */}
           <div
-            className="relative overflow-hidden rounded-3xl"
+            className="relative w-full overflow-hidden rounded-3xl"
             style={{
-              background: "linear-gradient(135deg, #0a0f1a 0%, #0d1a32 40%, #1a0d2e 100%)",
-              border: "1px solid rgba(168,85,247,0.2)",
-              boxShadow: "0 0 80px rgba(168,85,247,0.08), 0 20px 60px rgba(0,0,0,0.4)",
-              padding: "clamp(40px, 6vw, 80px)",
+              aspectRatio: "16/9",
+              background: "linear-gradient(135deg, #050a14 0%, #0a0f1e 30%, #120a26 60%, #1a0d3a 100%)",
+              border: "1px solid rgba(168,85,247,0.25)",
+              boxShadow: "0 0 100px rgba(168,85,247,0.10), 0 30px 80px rgba(0,0,0,0.5)",
             }}
           >
-            {/* Ambient glow */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-              <div style={{ position: "absolute", width: "500px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(60px)" }} />
-              <div style={{ position: "absolute", width: "300px", height: "300px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.1) 0%, transparent 70%)", bottom: "-10%", left: "10%", filter: "blur(50px)" }} />
+            {/* Background glows */}
+            <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+              <div style={{ position: "absolute", width: "60%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
+              <div style={{ position: "absolute", width: "40%", height: "60%", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)", bottom: "-15%", left: "5%", filter: "blur(60px)" }} />
+              <div style={{ position: "absolute", width: "30%", height: "40%", borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,160,0.08) 0%, transparent 70%)", top: "30%", left: "20%", filter: "blur(50px)" }} />
             </div>
 
-            <div className="relative z-10 flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
-              {/* Left — text */}
-              <div className="max-w-xl">
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em]" style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.3)", color: "#C084FC" }}>
-                  <Clapperboard size={12} />
-                  Coming Soon
-                </div>
-                <h2 className="mb-4 font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)", color: "#F8FAFC" }}>
-                  Cinema Studio
-                </h2>
-                {/* Note: Cinema Studio card has an explicitly dark gradient background — white text is intentional here */}
-                <p className="mb-8 text-base leading-relaxed" style={{ color: "#64748B" }}>
-                  Move beyond clips. Direct full AI films with scene control, character continuity, and cinematic storytelling tools. Your complete filmmaking environment.
-                </p>
+            {/* Subtle film-grain overlay */}
+            <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }} aria-hidden="true" />
 
-                {/* Feature pills */}
-                <div className="flex flex-wrap gap-3">
-                  {["Scene-based editing", "Storyboard workflow", "Character consistency"].map((feat) => (
-                    <div
-                      key={feat}
-                      className="flex items-center gap-2 rounded-xl px-4 py-2.5"
-                      style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.15)" }}
-                    >
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#A855F7", boxShadow: "0 0 6px #A855F7" }} />
-                      <span className="text-sm font-medium" style={{ color: "#C084FC" }}>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Grid lines */}
+            <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(168,85,247,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} aria-hidden="true" />
 
-              {/* Right — visual placeholder */}
+            {/* Content */}
+            <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 px-8 text-center">
+              {/* Badge */}
               <div
-                className="relative flex-shrink-0 overflow-hidden rounded-2xl"
-                style={{
-                  width: "clamp(280px, 35vw, 420px)",
-                  height: "260px",
-                  background: "linear-gradient(135deg, #0d0d1a 0%, #2d1b69 60%, #7c3aed 100%)",
-                  border: "1px solid rgba(168,85,247,0.25)",
-                }}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]"
+                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", color: "#C084FC", backdropFilter: "blur(8px)" }}
               >
-                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 25%, rgba(255,255,255,0.07) 0%, transparent 60%)" }} />
-                {/* Film reel icon centre */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <Clapperboard size={48} style={{ color: "rgba(168,85,247,0.5)" }} />
-                  <p className="text-sm font-semibold" style={{ color: "rgba(168,85,247,0.6)" }}>Coming Soon</p>
-                </div>
-                {/* Fake timeline strip at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-10 flex items-center gap-1 px-4" style={{ background: "rgba(0,0,0,0.4)", borderTop: "1px solid rgba(168,85,247,0.15)" }}>
-                  {Array.from({ length: 14 }).map((_, i) => (
-                    <div key={i} className="flex-1 rounded-sm" style={{ height: "18px", background: i % 3 === 0 ? "rgba(168,85,247,0.4)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(168,85,247,0.1)" }} />
-                  ))}
-                </div>
+                <Clapperboard size={13} />
+                Future Cinema Studio · Coming Soon
               </div>
+
+              {/* Headline */}
+              <h2
+                className="max-w-3xl font-bold leading-tight tracking-tight"
+                style={{ fontSize: "clamp(2rem, 5vw, 4rem)", color: "#F8FAFC" }}
+              >
+                Direct AI Films.{" "}
+                <span
+                  style={{
+                    background: "linear-gradient(135deg, #A855F7 0%, #60A5FA 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  Scene by Scene.
+                </span>
+              </h2>
+
+              {/* Subline */}
+              <p className="max-w-xl text-base leading-relaxed" style={{ color: "#94A3B8" }}>
+                Move beyond clips. Direct full AI films with scene control, character continuity, and cinematic storytelling tools — your complete filmmaking environment.
+              </p>
+
+              {/* Feature pills */}
+              <div className="flex flex-wrap justify-center gap-3">
+                {["Scene-based editing", "Storyboard workflow", "Character consistency", "Shot sequencing"].map((feat) => (
+                  <div
+                    key={feat}
+                    className="flex items-center gap-2 rounded-xl px-4 py-2"
+                    style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.18)", backdropFilter: "blur(8px)" }}
+                  >
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#A855F7", boxShadow: "0 0 6px #A855F7" }} />
+                    <span className="text-sm font-medium" style={{ color: "#C084FC" }}>{feat}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <div className="flex items-center gap-4 mt-2">
+                <button
+                  onClick={() => router.push("/studio/cinema")}
+                  className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-semibold transition-all duration-300"
+                  style={{ background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 0 30px rgba(168,85,247,0.35)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 50px rgba(168,85,247,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 30px rgba(168,85,247,0.35)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                >
+                  Join the Waitlist
+                  <ArrowRight size={15} />
+                </button>
+                <span className="text-xs" style={{ color: "#64748B" }}>No credit card required</span>
+              </div>
+            </div>
+
+            {/* Bottom timeline strip */}
+            <div
+              className="absolute bottom-0 left-0 right-0 flex items-center gap-1 px-6 py-3"
+              style={{ background: "linear-gradient(to top, rgba(5,10,20,0.9), transparent)" }}
+            >
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-sm"
+                  style={{
+                    height: "14px",
+                    background: i % 4 === 0 ? "rgba(168,85,247,0.5)" : i % 7 === 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(168,85,247,0.08)",
+                  }}
+                />
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 5. TARGET AUDIENCE ──────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 0" }}>
+      {/* ── 5. TARGET AUDIENCE — full-width 16:9 cards ──────────────────────── */}
+      <section style={{ padding: "60px 0 80px" }}>
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
@@ -483,40 +667,61 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Audience cards */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {[
-              {
-                icon: Film,
-                title: "Filmmakers",
-                desc: "Turn story ideas into full visual sequences — without a production crew, camera equipment, or post-production budget.",
-                color: "#2563EB",
-              },
-              {
-                icon: Users,
-                title: "Content Creators",
-                desc: "Build a consistent, cinematic presence on Instagram, TikTok, and YouTube using AI that matches your creative vision.",
-                color: "#0EA5A0",
-              },
-              {
-                icon: Layers,
-                title: "Agencies",
-                desc: "Deliver premium AI-generated media at scale. Faster briefs, faster delivery, and higher creative output for every client.",
-                color: "#A855F7",
-              },
-            ].map((card) => {
+          {/* Audience cards — 16:9 visual style */}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {audienceCards.map((card) => {
               const Icon = card.icon;
               return (
                 <div
                   key={card.title}
-                  className="rounded-2xl p-8"
-                  style={{ background: `linear-gradient(135deg, ${card.color}08 0%, ${card.color}03 100%)`, border: `1px solid ${card.color}18` }}
+                  className="relative overflow-hidden rounded-2xl group cursor-pointer"
+                  style={{
+                    aspectRatio: "4/3",
+                    background: card.gradient,
+                    border: `1px solid ${card.color}25`,
+                    boxShadow: `0 8px 40px rgba(0,0,0,0.4)`,
+                    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
+                    (e.currentTarget as HTMLElement).style.boxShadow = `0 24px 70px rgba(0,0,0,0.55), 0 0 50px ${card.color}25`;
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                    (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.4)`;
+                  }}
                 >
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: `${card.color}15`, border: `1px solid ${card.color}30` }}>
-                    <Icon size={22} style={{ color: card.color }} />
+                  {/* Shimmer */}
+                  <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
+
+                  {/* Icon top-left */}
+                  <div className="absolute top-6 left-6">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-2xl"
+                      style={{ background: `${card.color}20`, border: `1px solid ${card.color}35`, backdropFilter: "blur(8px)" }}
+                    >
+                      <Icon size={24} style={{ color: card.color }} />
+                    </div>
                   </div>
-                  <h3 className="mb-3 text-lg font-bold" style={{ color: "var(--page-text)" }}>{card.title}</h3>
-                  <p style={{ color: "#64748B", lineHeight: 1.7, fontSize: "0.9rem" }}>{card.desc}</p>
+
+                  {/* Stat badge top-right */}
+                  <div className="absolute top-6 right-6">
+                    <span
+                      className="rounded-full px-3 py-1 text-[10px] font-semibold"
+                      style={{ background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)" }}
+                    >
+                      {card.stat}
+                    </span>
+                  </div>
+
+                  {/* Bottom content */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 p-6"
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
+                  >
+                    <h3 className="mb-2 text-xl font-bold" style={{ color: "#F8FAFC" }}>{card.title}</h3>
+                    <p style={{ color: "rgba(255,255,255,0.65)", lineHeight: 1.65, fontSize: "0.875rem" }}>{card.desc}</p>
+                  </div>
                 </div>
               );
             })}
@@ -525,7 +730,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 6. PRICING PREVIEW ──────────────────────────────────────────────── */}
-      <section style={{ padding: "80px 0 100px" }}>
+      <section style={{ padding: "60px 0 100px" }}>
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Simple Pricing</p>
@@ -551,7 +756,6 @@ export default function HomePage() {
                   boxShadow: tier.highlight ? `0 0 60px ${tier.color}15` : "none",
                 }}
               >
-                {/* Most popular badge */}
                 {tier.highlight && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="rounded-full px-4 py-1 text-xs font-bold uppercase tracking-wide" style={{ background: `linear-gradient(135deg, ${tier.color}, #0EA5A0)`, color: "#fff" }}>
@@ -560,7 +764,6 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {/* Tier name & price */}
                 <div className="mb-6">
                   <p className="mb-2 text-sm font-bold uppercase tracking-[0.15em]" style={{ color: tier.color }}>{tier.name}</p>
                   <div className="flex items-end gap-1">
@@ -570,7 +773,6 @@ export default function HomePage() {
                   <p className="mt-2 text-sm leading-relaxed" style={{ color: "#64748B" }}>{tier.description}</p>
                 </div>
 
-                {/* Features */}
                 <ul className="mb-8 flex flex-col gap-2.5">
                   {tier.features.map((feat) => (
                     <li key={feat} className="flex items-center gap-3 text-sm" style={{ color: "#94A3B8" }}>
@@ -580,7 +782,6 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                {/* CTA */}
                 <div className="mt-auto">
                   <button
                     onClick={handleStartCreating}
@@ -648,15 +849,16 @@ export default function HomePage() {
             Start Creating
             <ArrowRight size={16} />
           </button>
-          <p className="text-xs" style={{ color: "#334155" }}>Free plan · No credit card · Cancel anytime</p>
         </div>
       </section>
 
     </div>
 
-    {/* Auth Modal */}
     {authModal && (
-      <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />
+      <AuthModal
+        defaultTab={authModal}
+        onClose={() => setAuthModal(null)}
+      />
     )}
     </>
   );

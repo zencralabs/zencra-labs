@@ -418,34 +418,34 @@ function ImageStudioInner() {
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 20px", height: 48, minHeight: 48,
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(10,10,10,0.9)", backdropFilter: "blur(12px)",
+        padding: "0 24px", height: 58, minHeight: 58,
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
         zIndex: 10,
       }}>
         {/* Left: Logo + tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
             {/* Z icon */}
-            <svg width="26" height="26" viewBox="0 0 36 36" fill="none">
+            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
               <defs>
                 <linearGradient id="zg2" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#2563EB" />
                   <stop offset="100%" stopColor="#0EA5A0" />
                 </linearGradient>
               </defs>
-              <rect width="36" height="36" rx="8" fill="url(#zg2)" opacity="0.15" />
+              <rect width="36" height="36" rx="8" fill="url(#zg2)" opacity="0.18" />
               <path d="M9 10h18l-14 16h14" stroke="url(#zg2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span style={{
-              fontSize: 14, fontWeight: 700,
+              fontSize: 15, fontWeight: 700,
               background: "linear-gradient(135deg, #2563EB, #0EA5A0)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>Zencra</span>
           </Link>
 
           {/* Divider */}
-          <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)" }} />
+          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.12)" }} />
 
           {/* History / Community tabs */}
           <div style={{ display: "flex", gap: 4 }}>
@@ -455,10 +455,10 @@ function ImageStudioInner() {
                 onClick={() => setActiveTab(tab)}
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
-                  padding: "4px 12px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                  padding: "6px 14px", borderRadius: 9, fontSize: 13, fontWeight: 500,
                   cursor: "pointer", border: "none",
-                  background: activeTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
-                  color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.45)",
+                  background: activeTab === tab ? "rgba(255,255,255,0.12)" : "transparent",
+                  color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.4)",
                   transition: "all 0.15s",
                 }}
               >
@@ -471,23 +471,43 @@ function ImageStudioInner() {
 
         {/* Right: Zoom slider + credits + user */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Zoom control */}
+          {/* Zoom control with % display */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>⊟</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={zoomLevel}
-              onChange={(e) => setZoomLevel(Number(e.target.value))}
-              style={{
-                width: 80, height: 4, appearance: "none", borderRadius: 4,
-                background: `linear-gradient(to right, #2563EB ${(zoomLevel - 1) * 25}%, rgba(255,255,255,0.15) ${(zoomLevel - 1) * 25}%)`,
-                cursor: "pointer", outline: "none", border: "none",
-              }}
-            />
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>⊞</span>
+            <button
+              onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+              title="Zoom out"
+            >−</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={zoomLevel}
+                onChange={(e) => setZoomLevel(Number(e.target.value))}
+                style={{
+                  width: 90, height: 4, appearance: "none", borderRadius: 4,
+                  background: `linear-gradient(to right, #2563EB ${(zoomLevel - 1) * 25}%, rgba(255,255,255,0.15) ${(zoomLevel - 1) * 25}%)`,
+                  cursor: "pointer", outline: "none", border: "none",
+                }}
+              />
+              <span style={{
+                fontSize: 11, fontWeight: 600, minWidth: 32, textAlign: "center",
+                color: "#60A5FA", letterSpacing: "0.02em",
+              }}>
+                {zoomLevel * 20}%
+              </span>
+            </div>
+            <button
+              onClick={() => setZoomLevel(Math.min(5, zoomLevel + 1))}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+              title="Zoom in"
+            >+</button>
           </div>
 
           {/* Credits pill — live balance, refreshed after each generation */}
@@ -527,48 +547,60 @@ function ImageStudioInner() {
       </div>
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: hasImages ? "20px 20px 180px" : "0" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: hasImages ? "24px 24px 200px" : "0" }}>
         {!hasImages ? (
-          /* Empty state */
+          /* Empty state — premium, spacious */
           <div style={{
             height: "100%", display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 12,
-            minHeight: "calc(100vh - 48px - 140px)",
+            alignItems: "center", justifyContent: "center", gap: 16,
+            minHeight: "calc(100vh - 58px - 160px)",
+            padding: "40px 24px",
           }}>
+            {/* Icon */}
             <div style={{
-              width: 56, height: 56, borderRadius: 16,
-              background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(14,165,160,0.2))",
-              border: "1px solid rgba(37,99,235,0.3)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
+              width: 72, height: 72, borderRadius: 20,
+              background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(14,165,160,0.15))",
+              border: "1px solid rgba(37,99,235,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
+              boxShadow: "0 0 40px rgba(37,99,235,0.15)",
             }}>🎨</div>
-            <p style={{ fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
-              Describe what you want to create
-            </p>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", textAlign: "center", maxWidth: 360 }}>
-              Your generated images will appear here. Type a prompt below and hit Generate.
-            </p>
+
+            {/* Heading */}
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 8 }}>
+                Describe what you want to create
+              </p>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.6 }}>
+                Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
+              </p>
+            </div>
+
             {/* Quick prompts */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 8, maxWidth: 500 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4, maxWidth: 560 }}>
               {[
-                "Cinematic portrait of a woman in golden hour light",
-                "Futuristic city at night with neon reflections",
-                "Abstract liquid chrome in iridescent colors",
-                "A lone figure on a cliff overlooking a stormy sea",
+                "Cinematic portrait in golden hour light",
+                "Futuristic city at night, neon reflections",
+                "Abstract liquid chrome, iridescent colors",
+                "Lone figure on a cliff overlooking a stormy sea",
+                "A cyberpunk street market at dusk",
               ].map((p) => (
                 <button
                   key={p}
                   onClick={() => { setPrompt(p); promptRef.current?.focus(); }}
                   style={{
-                    padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+                    padding: "8px 16px", borderRadius: 24, fontSize: 12, fontWeight: 500,
                     border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
                     color: "rgba(255,255,255,0.6)", cursor: "pointer", transition: "all 0.15s",
+                    letterSpacing: "0.01em",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.35)";
                     (e.currentTarget as HTMLElement).style.color = "#fff";
                   }}
                   onMouseLeave={(e) => {
                     (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
                     (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
                   }}
                 >
@@ -594,27 +626,32 @@ function ImageStudioInner() {
 
       {/* ── BOTTOM PROMPT BAR ─────────────────────────────────────────────── */}
       <div style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "rgba(10,10,10,0.96)", backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
-        padding: "12px 20px 16px",
+        position: "fixed", bottom: 16, left: 0, right: 0,
+        padding: "0 20px",
         zIndex: 50,
+        pointerEvents: "none",
       }}>
         <div style={{
-          maxWidth: 900, margin: "0 auto",
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 16, overflow: "visible",
+          maxWidth: 960, margin: "0 auto",
+          background: "rgba(12,12,18,0.97)", backdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 20,
+          boxShadow: "0 8px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+          overflow: "visible",
+          pointerEvents: "all",
         }}>
           {/* Prompt row */}
-          <div style={{ display: "flex", alignItems: "flex-start", padding: "12px 14px 0" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0" }}>
             {/* Add reference button */}
             <button style={{
-              width: 32, height: 32, borderRadius: 8, flexShrink: 0, marginTop: 2,
-              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 18,
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }} title="Add reference image">
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0, marginTop: 2,
+              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: 20,
+              display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+            title="Add reference image">
               +
             </button>
 
@@ -625,16 +662,16 @@ function ImageStudioInner() {
               onChange={(e) => {
                 setPrompt(e.target.value);
                 e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Describe the scene you imagine"
+              placeholder="Describe the scene you imagine…"
               rows={1}
               style={{
                 flex: 1, background: "transparent", border: "none", outline: "none",
-                color: "#fff", fontSize: 15, lineHeight: 1.5, resize: "none",
-                padding: "4px 12px", fontFamily: "var(--font-body, system-ui)",
-                minHeight: 32, maxHeight: 120, boxSizing: "border-box",
+                color: "#fff", fontSize: 15, lineHeight: 1.6, resize: "none",
+                padding: "6px 14px", fontFamily: "var(--font-body, system-ui)",
+                minHeight: 36, maxHeight: 140, boxSizing: "border-box",
               }}
             />
           </div>
@@ -642,7 +679,7 @@ function ImageStudioInner() {
           {/* Controls row */}
           <div style={{
             display: "flex", alignItems: "center", gap: 6,
-            padding: "10px 12px 12px", flexWrap: "wrap",
+            padding: "10px 14px 14px", flexWrap: "wrap",
           }}>
             {/* Model selector */}
             <div data-dd style={{ position: "relative" }}>
@@ -840,23 +877,26 @@ function ImageStudioInner() {
               disabled={!prompt.trim() || (!currentModel.available)}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
-                padding: "9px 22px", borderRadius: 11, fontSize: 14, fontWeight: 700,
+                padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
                 border: "none", cursor: (!prompt.trim() || !currentModel.available) ? "not-allowed" : "pointer",
                 background: (!prompt.trim() || !currentModel.available)
-                  ? "rgba(255,255,255,0.08)"
-                  : "linear-gradient(135deg, #2563EB, #7C3AED)",
-                color: (!prompt.trim() || !currentModel.available) ? "rgba(255,255,255,0.25)" : "#fff",
-                transition: "all 0.2s", letterSpacing: "0.01em",
-                boxShadow: (!prompt.trim() || !currentModel.available) ? "none" : "0 0 20px rgba(37,99,235,0.35)",
+                  ? "rgba(255,255,255,0.07)"
+                  : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                color: (!prompt.trim() || !currentModel.available) ? "rgba(255,255,255,0.2)" : "#fff",
+                transition: "all 0.2s", letterSpacing: "0.02em",
+                boxShadow: (!prompt.trim() || !currentModel.available) ? "none" : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
+                minWidth: 140,
               }}
+              onMouseEnter={e => { if (prompt.trim() && currentModel.available) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = prompt.trim() && currentModel.available ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "none"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
             >
-              Generate
+              ⚡ Generate
               {currentModel.available && (
                 <span style={{
                   fontSize: 11, fontWeight: 600, opacity: 0.8,
-                  background: "rgba(0,0,0,0.2)", padding: "1px 6px", borderRadius: 5,
+                  background: "rgba(0,0,0,0.25)", padding: "2px 7px", borderRadius: 6,
                 }}>
-                  ✦ {quality === "2K" ? batchSize * 4 : batchSize * 2}
+                  {quality === "2K" ? batchSize * 4 : batchSize * 2} cr
                 </span>
               )}
             </button>
@@ -866,7 +906,7 @@ function ImageStudioInner() {
         {/* Unsupported model notice */}
         {!currentModel.available && (
           <p style={{ textAlign: "center", fontSize: 11, color: "rgba(255,165,0,0.7)", marginTop: 8 }}>
-            {currentModel.name} is coming soon — switch to DALL·E 3 to generate now
+            {currentModel.name} is coming soon — switch to GPT Image 1.5 to generate now
           </p>
         )}
       </div>

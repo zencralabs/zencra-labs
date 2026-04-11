@@ -8,8 +8,7 @@
  *  - Do NOT import from this file inside /api routes or server actions.
  *  - The `provider` field must map to a valid ProviderName in types.ts for
  *    active tools (so the studio pages can pass it to the API). For
- *    coming_soon tools the provider may be a future string — it is never
- *    sent to the API.
+ *    coming_soon / planned tools the provider may be a future string.
  *  - Backend canonical IDs live in src/lib/ai/tool-registry.ts (unchanged).
  *  - Cinema tools (LTX / Future Cinema Studio) are kept completely separate
  *    and are NOT listed here.
@@ -17,8 +16,8 @@
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type ToolStatus   = "active" | "coming_soon";
-export type ToolCategory = "image" | "video" | "audio";
+export type ToolStatus   = "active" | "coming_soon" | "planned";
+export type ToolCategory = "image" | "video" | "audio" | "character" | "enhance";
 
 export interface CatalogTool {
   /** Unique display ID — NOT the backend tool ID */
@@ -26,7 +25,7 @@ export interface CatalogTool {
   /**
    * Backend provider key.
    * For active tools this must match a ProviderName in src/lib/ai/types.ts.
-   * For coming_soon tools this is informational only.
+   * For coming_soon / planned tools this is informational only.
    */
   provider: string;
   /** User-facing display name shown in the UI */
@@ -35,7 +34,7 @@ export interface CatalogTool {
   status: ToolStatus;
   /** Short subtitle shown in dropdowns and cards */
   description: string;
-  /** Optional badge text e.g. "HOT", "NEW", "SOON" */
+  /** Optional badge text e.g. "HOT", "NEW", "SOON", "BETA" */
   badge?: string;
   /** Hex badge colour (defaults to category accent if omitted) */
   badgeColor?: string;
@@ -48,6 +47,7 @@ export interface CatalogTool {
 // ── Catalog ────────────────────────────────────────────────────────────────────
 
 export const TOOL_CATALOG: CatalogTool[] = [
+
   // ── IMAGE — active ──────────────────────────────────────────────────────────
   {
     id: "gpt-image-15",
@@ -205,6 +205,120 @@ export const TOOL_CATALOG: CatalogTool[] = [
     badge: "SOON",
     sortOrder: 150,
   },
+
+  // ── CHARACTER — planned / coming soon ───────────────────────────────────────
+  {
+    id: "ai-influencer",
+    provider: "character",
+    displayName: "AI Influencer",
+    category: "character",
+    status: "coming_soon",
+    description: "Create a consistent AI persona for social media",
+    badge: "SOON",
+    sortOrder: 200,
+  },
+  {
+    id: "face-swap",
+    provider: "character",
+    displayName: "Face Swap",
+    category: "character",
+    status: "coming_soon",
+    description: "Seamless realistic face swap in images",
+    badge: "SOON",
+    sortOrder: 210,
+  },
+  {
+    id: "character-swap",
+    provider: "character",
+    displayName: "Character Swap",
+    category: "character",
+    status: "coming_soon",
+    description: "Replace characters across scenes consistently",
+    badge: "SOON",
+    sortOrder: 220,
+  },
+  {
+    id: "video-face-swap",
+    provider: "character",
+    displayName: "Video Face Swap",
+    category: "character",
+    status: "coming_soon",
+    description: "Live face swap in video with motion tracking",
+    badge: "SOON",
+    sortOrder: 230,
+  },
+  {
+    id: "ai-stylist",
+    provider: "character",
+    displayName: "AI Stylist",
+    category: "character",
+    status: "planned",
+    description: "AI-driven wardrobe and look transformation",
+    badge: "PLANNED",
+    sortOrder: 240,
+  },
+  {
+    id: "recast-studio",
+    provider: "character",
+    displayName: "Recast Studio",
+    category: "character",
+    status: "planned",
+    description: "Recast any video with a different character",
+    badge: "PLANNED",
+    sortOrder: 250,
+  },
+  {
+    id: "soul-id",
+    provider: "character",
+    displayName: "Soul ID Character",
+    category: "character",
+    status: "planned",
+    description: "Build a persistent AI character identity",
+    badge: "PLANNED",
+    sortOrder: 260,
+  },
+
+  // ── ENHANCE — Topaz-backed image & video enhancement (coming soon) ──────────
+  {
+    id: "topaz-image-enhance",
+    provider: "topaz",
+    displayName: "Image Enhance",
+    category: "enhance",
+    status: "coming_soon",
+    description: "AI-powered sharpening, denoising, and restoration",
+    badge: "BETA",
+    sortOrder: 300,
+  },
+  {
+    id: "topaz-image-upscale",
+    provider: "topaz",
+    displayName: "Image Upscale",
+    category: "enhance",
+    status: "coming_soon",
+    description: "Up to 6× upscale with detail recovery",
+    badge: "BETA",
+    sortOrder: 310,
+  },
+  {
+    id: "topaz-video-enhance",
+    provider: "topaz",
+    displayName: "Video Enhance",
+    category: "enhance",
+    status: "coming_soon",
+    description: "Frame interpolation and motion-aware enhancement",
+    badge: "BETA",
+    sortOrder: 320,
+  },
+  {
+    id: "topaz-video-upscale",
+    provider: "topaz",
+    displayName: "Video Upscale",
+    category: "enhance",
+    status: "coming_soon",
+    description: "Up to 4K upscale with temporal consistency",
+    badge: "BETA",
+    sortOrder: 330,
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -225,7 +339,7 @@ export function getActiveTools(category?: ToolCategory): CatalogTool[] {
 
 /**
  * Returns the top N tools for a given category — used in Navbar dropdowns.
- * Active tools are shown first; coming_soon tools are clearly labelled.
+ * Active tools are shown first; coming_soon / planned tools are clearly labelled.
  */
 export function getNavModels(category: ToolCategory, limit = 3): CatalogTool[] {
   return getToolsByCategory(category).slice(0, limit);
