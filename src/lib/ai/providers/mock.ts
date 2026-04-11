@@ -9,8 +9,6 @@
  * Rules:
  *   - Do NOT remove this until the real provider is wired up and tested.
  *   - The `isPlaceholder: true` flag lets callers detect mock responses.
- *   - Provider name in the result is set dynamically from the resolved
- *     provider passed via metadata._resolvedProvider (set by orchestrator).
  */
 
 import type {
@@ -21,15 +19,11 @@ import type {
 } from "../types";
 
 export const mockProvider: AiProvider = {
-  // `name` here is a nominal label. The actual provider name returned in
-  // results is set from metadata._resolvedProvider (injected by orchestrator).
   name:           "kling",
   supportedModes: ["video", "audio"],
   isPlaceholder:  true,
 
   async generate(input: ProviderGenerateInput): Promise<ProviderGenerateResult> {
-    // The orchestrator stamps the resolved provider name onto metadata so the
-    // mock can return the correct `provider` field without hard-coding it here.
     const resolvedProvider =
       (input.metadata?._resolvedProvider as ProviderName | undefined) ??
       (input.mode === "audio" ? "elevenlabs" : "kling");
@@ -38,7 +32,7 @@ export const mockProvider: AiProvider = {
       provider: resolvedProvider,
       mode:     input.mode,
       status:   "success",
-      url:      `https://example.com/mock-${input.mode}-output`,
+      url:      "https://placehold.co/1024x1024/1a1a2e/60A5FA?text=Mock+Output",
       metadata: {
         note:             `Mock response — ${resolvedProvider} provider not yet connected`,
         normalizedPrompt: input.normalizedPrompt.transformed,

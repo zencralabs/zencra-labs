@@ -18,7 +18,7 @@ import type { GenerationMode, ProviderName } from "./types";
 const TOOL_REGISTRY: Record<GenerationMode, Partial<Record<ProviderName, string>>> = {
   image: {
     "dalle":        "dalle-3",
-    "nano-banana":  "nano-banana-pro",
+    "nano-banana":  "nano-banana",
     "ideogram":     "ideogram-v2",
   },
   video: {
@@ -28,6 +28,7 @@ const TOOL_REGISTRY: Record<GenerationMode, Partial<Record<ProviderName, string>
   },
   audio: {
     "elevenlabs": "elevenlabs-turbo-v2",
+    "kits":        "kits-ai-rvc-v1",
   },
 };
 
