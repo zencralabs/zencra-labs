@@ -1,4 +1,6 @@
-import { ToolCreatorPage } from "@/components/ui/ToolCreatorPage";
+import { redirect } from "next/navigation";
+
+// /video/kling → redirect to the real video studio with Kling 3.0 pre-selected
 export default function KlingPage() {
-  return <ToolCreatorPage toolName="Kling 3.0" category="Video" tagline="Cinematic AI Video with Native Audio" description="Kling 3.0 is the world's most advanced AI video generation model. It produces cinematic-quality videos up to 2 minutes long with native audio generation, realistic motion physics, and exceptional character consistency." color="#0EA5A0" gradient="linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #0ea5a0 100%)" badge="HOT" features={["Up to 2-min videos","Native audio generation","Cinematic 4K output","Realistic motion physics","Character consistency"]} promptPlaceholder="Slow dolly push into a woman walking through a misty forest at dawn, golden light filtering through the trees, cinematic mood, film grain..." exampleOutputs={[{gradient:"linear-gradient(160deg,#0d1a1a,#0f3030,#0ea5a0)",label:"Cinematic"},{gradient:"linear-gradient(160deg,#0d1a18,#0d3028,#14b8a6)",label:"Nature"},{gradient:"linear-gradient(160deg,#0a1a18,#0b2828,#0ea5a0)",label:"Portrait"},{gradient:"linear-gradient(160deg,#0d2020,#0f3535,#2dd4bf)",label:"Urban"}]} />;
+  redirect("/studio/video?model=kling-30");
 }

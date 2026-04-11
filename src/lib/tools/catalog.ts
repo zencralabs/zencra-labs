@@ -102,14 +102,15 @@ export const TOOL_CATALOG: CatalogTool[] = [
     sortOrder: 50,
   },
 
-  // ── VIDEO — active (wired via mock/real provider) ───────────────────────────
+  // ── VIDEO — active (real Kling provider wired) ─────────────────────────────
   {
-    id: "kling-25",
+    id: "kling-30",
     provider: "kling",
-    displayName: "Kling 2.5",
+    displayName: "Kling 3.0",
     category: "video",
     status: "active",
-    description: "High-quality cinematic video generation",
+    description: "Flagship model — cinematic quality, best motion",
+    badge: "HOT",
     sortOrder: 60,
   },
   {
@@ -122,22 +123,24 @@ export const TOOL_CATALOG: CatalogTool[] = [
     sortOrder: 70,
   },
   {
-    id: "kling-30",
+    id: "kling-25",
     provider: "kling",
-    displayName: "Kling 3.0",
+    displayName: "Kling 2.5",
     category: "video",
     status: "active",
-    description: "Cinematic video with AI audio sync",
-    badge: "HOT",
+    description: "Fast, reliable cinematic generation",
     sortOrder: 80,
   },
+
+  // ── VIDEO — coming soon ─────────────────────────────────────────────────────
   {
     id: "seedance-20",
     provider: "seedance",
     displayName: "Seedance 2.0",
     category: "video",
-    status: "active",
-    description: "Intelligent visual story generation",
+    status: "coming_soon",
+    description: "Specialist in human motion and dance",
+    badge: "SOON",
     sortOrder: 90,
   },
 

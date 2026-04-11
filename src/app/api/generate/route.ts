@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+
+// Raise timeout to 300 s for long-running video generation (Kling ~2–5 min)
+export const maxDuration = 300;
 import { generateContent } from "@/lib/ai/orchestrator";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getAuthUser } from "@/lib/supabase/server";
@@ -99,6 +102,7 @@ export async function POST(req: Request) {
       aspectRatio:     body.aspectRatio,
       durationSeconds: body.durationSeconds,
       imageUrl:        body.imageUrl,
+      audioUrl:        body.audioUrl,   // was silently dropped — now forwarded
       voiceId:         body.voiceId,
       metadata:        body.metadata,
     });

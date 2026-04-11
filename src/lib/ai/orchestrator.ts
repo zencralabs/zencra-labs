@@ -26,6 +26,7 @@ import { dalleProvider }      from "./providers/dalle";
 import { elevenLabsProvider } from "./providers/elevenlabs";
 import { kitsProvider }       from "./providers/kits";
 import { nanoBananaProvider } from "./providers/nano-banana";
+import { klingProvider }      from "./providers/kling";
 import { mockProvider }       from "./providers/mock";
 import type {
   AiProvider,
@@ -35,10 +36,18 @@ import type {
 } from "./types";
 
 // ── Provider dispatch ─────────────────────────────────────────────────────────
+//
+//   image  + dalle        → dalleProvider        (REAL – OpenAI DALL-E 3)
+//   image  + nano-banana  → nanoBananaProvider   (REAL – async/poll)
+//   video  + kling        → klingProvider        (REAL – JWT auth, async/poll)
+//   audio  + elevenlabs   → elevenLabsProvider   (REAL – TTS)
+//   audio  + kits         → kitsProvider         (REAL – voice conversion)
+//   *      + *            → mockProvider         (PLACEHOLDER)
 
 function getProvider(mode: string, providerName: ProviderName): AiProvider {
   if (mode === "image" && providerName === "dalle")        return dalleProvider;
   if (mode === "image" && providerName === "nano-banana")  return nanoBananaProvider;
+  if (mode === "video" && providerName === "kling")        return klingProvider;
   if (mode === "audio" && providerName === "elevenlabs")   return elevenLabsProvider;
   if (mode === "audio" && providerName === "kits")         return kitsProvider;
   return mockProvider;
