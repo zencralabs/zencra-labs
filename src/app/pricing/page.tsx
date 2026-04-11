@@ -208,7 +208,7 @@ export default function PricingPage() {
       </section>
 
       {/* ── PRICING CARDS ──────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-6 pb-24 pt-8">
+      <section className="mx-auto max-w-7xl px-6 pb-36 pt-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {plans.map(plan => {
             const Icon = plan.icon;
@@ -218,7 +218,7 @@ export default function PricingPage() {
 
             return (
               /* Outer wrapper — NOT overflow-hidden so badge stays visible */
-              <div key={plan.id} className="relative pt-4">
+              <div key={plan.id} className="relative pt-4 h-full">
 
                 {/* Badge — sits above the card */}
                 {plan.badge && (

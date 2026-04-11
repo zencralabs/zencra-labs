@@ -116,7 +116,7 @@ const pricingTiers = [
     period: "/ month",
     description: "Full cinematic workflows for professionals and agencies.",
     color: "#A855F7",
-    features: ["Unlimited credits", "Cinema Studio access", "Scene-based editing", "Character consistency", "API access", "Dedicated support"],
+    features: ["High-volume credit pool", "Cinema Studio access", "Scene-based editing", "Character consistency", "API access", "Dedicated support"],
     cta: "Go Studio",
     highlight: false,
   },
@@ -208,7 +208,7 @@ export default function HomePage() {
               <span
                 key={tool}
                 className="rounded-full px-3 py-1 text-xs font-medium"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748B" }}
+                style={{ background: "var(--page-bg-2)", border: "1px solid var(--border-subtle)", color: "var(--page-text-2)" }}
               >
                 {tool}
               </span>
@@ -217,10 +217,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Top fade */}
-        <div className="pointer-events-none absolute top-0 left-0 right-0 h-24" style={{ background: "linear-gradient(to bottom, #080E1C, transparent)" }} aria-hidden="true" />
+        {/* Top fade — uses CSS var so it respects light/dark mode */}
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-24" style={{ background: "linear-gradient(to bottom, var(--page-bg), transparent)" }} aria-hidden="true" />
         {/* Bottom fade */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, #080E1C)" }} aria-hidden="true" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
       </section>
 
       {/* ── SHOWCASE SLIDER (below hero) ─────────────────────────────────────── */}
@@ -272,7 +272,7 @@ export default function HomePage() {
           {/* Section header */}
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>The Workflow</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "#F8FAFC" }}>
+            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
               How Zencra Works
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -291,7 +291,7 @@ export default function HomePage() {
                 <ImageIcon size={24} style={{ color: "#2563EB" }} />
               </div>
               <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(37,99,235,0.08)", lineHeight: 1 }}>01</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "#F8FAFC" }}>Generate Visuals</h3>
+              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Generate Visuals</h3>
               <p style={{ color: "#64748B", lineHeight: 1.7 }}>
                 Create high-quality AI images for any concept — characters, scenes, products, or worlds — in seconds.
               </p>
@@ -306,7 +306,7 @@ export default function HomePage() {
                 <Film size={24} style={{ color: "#0EA5A0" }} />
               </div>
               <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(14,165,160,0.08)", lineHeight: 1 }}>02</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "#F8FAFC" }}>Animate to Video</h3>
+              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Animate to Video</h3>
               <p style={{ color: "#64748B", lineHeight: 1.7 }}>
                 Turn images into cinematic motion with consistent characters. Direct movement, camera angles, and pacing.
               </p>
@@ -321,7 +321,7 @@ export default function HomePage() {
                 <Mic size={24} style={{ color: "#A855F7" }} />
               </div>
               <div className="absolute top-8 right-8 text-5xl font-black" style={{ color: "rgba(168,85,247,0.08)", lineHeight: 1 }}>03</div>
-              <h3 className="mb-3 text-xl font-bold" style={{ color: "#F8FAFC" }}>Add Voice &amp; Lip Sync</h3>
+              <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>Add Voice &amp; Lip Sync</h3>
               <p style={{ color: "#64748B", lineHeight: 1.7 }}>
                 Bring your content to life with realistic AI voices. Perfect lip-sync. Natural emotion. Any language.
               </p>
@@ -336,7 +336,7 @@ export default function HomePage() {
           {/* Section header */}
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Output Showcase</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "#F8FAFC" }}>
+            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
               What You Can Create
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -422,6 +422,7 @@ export default function HomePage() {
                 <h2 className="mb-4 font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 3.5vw, 2.8rem)", color: "#F8FAFC" }}>
                   Cinema Studio
                 </h2>
+                {/* Note: Cinema Studio card has an explicitly dark gradient background — white text is intentional here */}
                 <p className="mb-8 text-base leading-relaxed" style={{ color: "#64748B" }}>
                   Move beyond clips. Direct full AI films with scene control, character continuity, and cinematic storytelling tools. Your complete filmmaking environment.
                 </p>
@@ -474,7 +475,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "#F8FAFC" }}>
+            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
               Built for Creators, Filmmakers,<br className="hidden md:block" /> and Agencies
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-lg" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -514,7 +515,7 @@ export default function HomePage() {
                   <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: `${card.color}15`, border: `1px solid ${card.color}30` }}>
                     <Icon size={22} style={{ color: card.color }} />
                   </div>
-                  <h3 className="mb-3 text-lg font-bold" style={{ color: "#F8FAFC" }}>{card.title}</h3>
+                  <h3 className="mb-3 text-lg font-bold" style={{ color: "var(--page-text)" }}>{card.title}</h3>
                   <p style={{ color: "#64748B", lineHeight: 1.7, fontSize: "0.9rem" }}>{card.desc}</p>
                 </div>
               );
@@ -528,7 +529,7 @@ export default function HomePage() {
         <div className="container-site">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Simple Pricing</p>
-            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "#F8FAFC" }}>
+            <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--page-text)" }}>
               Start Free. Scale as You Create.
             </h2>
             <p className="mt-4" style={{ color: "#64748B" }}>
@@ -545,7 +546,7 @@ export default function HomePage() {
                 style={{
                   background: tier.highlight
                     ? `linear-gradient(135deg, ${tier.color}12 0%, ${tier.color}06 100%)`
-                    : "rgba(255,255,255,0.02)",
+                    : "var(--page-bg-2)",
                   border: tier.highlight ? `1px solid ${tier.color}40` : "1px solid rgba(255,255,255,0.06)",
                   boxShadow: tier.highlight ? `0 0 60px ${tier.color}15` : "none",
                 }}
@@ -563,7 +564,7 @@ export default function HomePage() {
                 <div className="mb-6">
                   <p className="mb-2 text-sm font-bold uppercase tracking-[0.15em]" style={{ color: tier.color }}>{tier.name}</p>
                   <div className="flex items-end gap-1">
-                    <span className="text-4xl font-black" style={{ color: "#F8FAFC" }}>{tier.price}</span>
+                    <span className="text-4xl font-black" style={{ color: "var(--page-text)" }}>{tier.price}</span>
                     <span className="mb-1.5 text-sm" style={{ color: "#64748B" }}>{tier.period}</span>
                   </div>
                   <p className="mt-2 text-sm leading-relaxed" style={{ color: "#64748B" }}>{tier.description}</p>
@@ -585,23 +586,23 @@ export default function HomePage() {
                     onClick={handleStartCreating}
                     className="w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200"
                     style={{
-                      background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #0EA5A0)` : "rgba(255,255,255,0.05)",
-                      border: tier.highlight ? "none" : "1px solid rgba(255,255,255,0.1)",
-                      color: tier.highlight ? "#fff" : "#94A3B8",
+                      background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #0EA5A0)` : "var(--page-bg-3)",
+                      border: tier.highlight ? "none" : "1px solid var(--border-medium)",
+                      color: tier.highlight ? "#fff" : "var(--page-text-2)",
                       cursor: "pointer",
                     }}
                     onMouseEnter={e => {
                       if (!tier.highlight) {
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
-                        (e.currentTarget as HTMLElement).style.color = "#F8FAFC";
+                        (e.currentTarget as HTMLElement).style.background = "var(--page-bg-2)";
+                        (e.currentTarget as HTMLElement).style.color = "var(--page-text)";
                       } else {
                         (e.currentTarget as HTMLElement).style.opacity = "0.9";
                       }
                     }}
                     onMouseLeave={e => {
                       if (!tier.highlight) {
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                        (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+                        (e.currentTarget as HTMLElement).style.background = "var(--page-bg-3)";
+                        (e.currentTarget as HTMLElement).style.color = "var(--page-text-2)";
                       } else {
                         (e.currentTarget as HTMLElement).style.opacity = "1";
                       }
@@ -621,11 +622,11 @@ export default function HomePage() {
         style={{
           padding: "80px 0",
           background: "linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(14,165,160,0.04) 50%, rgba(168,85,247,0.06) 100%)",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
+          borderTop: "1px solid var(--border-subtle)",
         }}
       >
         <div className="container-site flex flex-col items-center gap-6 text-center">
-          <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", color: "#F8FAFC" }}>
+          <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", color: "var(--page-text)" }}>
             Ready to Create Something Cinematic?
           </h2>
           <p className="max-w-md" style={{ color: "#64748B", lineHeight: 1.7 }}>
