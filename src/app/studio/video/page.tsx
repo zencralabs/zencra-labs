@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import {
@@ -470,22 +469,7 @@ function VideoStudioContent() {
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-
-      {/* ── Nav ───────────────────────────────────────────────────────── */}
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(5,5,5,0.7)" }}>
-        <Link href="/studio" style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-          ← Studio
-        </Link>
-        <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>Video Generator</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {user && (
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-              {(user as { credits?: number }).credits ?? 0} cr
-            </span>
-          )}
-        </div>
-      </div>
+    <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", paddingTop: 64 }}>
 
       <div className="studio-layout" style={{ display: "flex", padding: "0 20px", gap: 20, paddingBottom: 120 }}>
 
