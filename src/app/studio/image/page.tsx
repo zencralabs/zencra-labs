@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import MediaCard from "@/components/media/MediaCard";
@@ -502,29 +501,8 @@ function ImageStudioInner() {
         background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
         zIndex: 10,
       }}>
-        {/* Left: Logo + tabs */}
+        {/* Left: tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            {/* Z icon */}
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <defs>
-                <linearGradient id="zg2" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#2563EB" />
-                  <stop offset="100%" stopColor="#0EA5A0" />
-                </linearGradient>
-              </defs>
-              <rect width="36" height="36" rx="8" fill="url(#zg2)" opacity="0.18" />
-              <path d="M9 10h18l-14 16h14" stroke="url(#zg2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span style={{
-              fontSize: 15, fontWeight: 700,
-              background: "linear-gradient(135deg, #2563EB, #0EA5A0)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>Zencra</span>
-          </Link>
-
-          {/* Divider */}
-          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.12)" }} />
 
           {/* History / Community tabs */}
           <div style={{ display: "flex", gap: 4 }}>

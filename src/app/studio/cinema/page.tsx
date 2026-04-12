@@ -122,8 +122,8 @@ export default function CinemaStudioPage() {
 
         {/* Headline */}
         <h1
-          className="mx-auto max-w-4xl font-bold leading-tight tracking-tight"
-          style={{ fontSize: "clamp(2.4rem, 6vw, 5rem)", marginBottom: "24px" }}
+          className="mx-auto max-w-4xl leading-tight tracking-tight"
+          style={{ fontSize: "clamp(2.4rem, 6vw, 5rem)", fontWeight: 800, marginBottom: "24px" }}
         >
           The AI Filmmaking{" "}
           <span
@@ -261,7 +261,7 @@ export default function CinemaStudioPage() {
       <section className="container-site" style={{ paddingBottom: "100px" }}>
         <div className="text-center" style={{ marginBottom: "60px" }}>
           <p className="text-xs font-bold uppercase tracking-[0.25em]" style={{ color: "#A855F7", marginBottom: "16px" }}>What&apos;s Coming</p>
-          <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", color: "#F8FAFC" }}>
+          <h2 className="tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 800, color: "#F8FAFC" }}>
             Designed for Real Filmmakers
           </h2>
           <p className="mx-auto mt-4 max-w-xl" style={{ color: "#64748B", lineHeight: 1.7 }}>
@@ -307,7 +307,7 @@ export default function CinemaStudioPage() {
         }}
       >
         <div className="container-site flex flex-col items-center gap-5">
-          <h2 className="font-bold tracking-tight" style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)", color: "#F8FAFC" }}>
+          <h2 className="tracking-tight" style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)", fontWeight: 800, color: "#F8FAFC" }}>
             Ready to direct the future?
           </h2>
           <p style={{ color: "#64748B", maxWidth: 400, lineHeight: 1.7 }}>

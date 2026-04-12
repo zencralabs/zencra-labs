@@ -51,28 +51,33 @@ const navDropdowns = {
     color: "#2563EB",
     features: [
       { icon: ImageIcon, label: "Create Image",      desc: "Generate AI images",           badge: null,    href: "/studio/image" },
-      { icon: Sparkles,  label: "Enhance & Upscale", desc: "Topaz-powered 4K boost",       badge: "BETA",  href: "#enhance" },
+      { icon: Sparkles,  label: "Enhance & Upscale", desc: "Topaz-powered 4K boost",       badge: "SOON",  href: "#" },
       { icon: Layers,    label: "Face Swap",          desc: "Realistic face swaps",         badge: "SOON",  href: "#" },
+      { icon: Wand2,     label: "Background Remove",  desc: "AI background removal",        badge: "SOON",  href: "#" },
+      { icon: Sparkles,  label: "Image to 3D",        desc: "Convert images to 3D models",  badge: "SOON",  href: "#" },
     ],
-    models: getNavModels("image", 3),
+    models: getNavModels("image", 6),
   },
   Video: {
     color: "#0EA5A0",
     features: [
       { icon: Film,         label: "Create Video",         desc: "Generate AI videos",           badge: "HOT",  href: "/studio/video" },
-      { icon: Wand2,        label: "Enhance Video",        desc: "Topaz upscale & frame boost",  badge: "BETA", href: "#enhance" },
-      { icon: Mic,          label: "Lip Sync",             desc: "Sync voice to video",          badge: null,   href: "#" },
+      { icon: Wand2,        label: "Enhance Video",        desc: "Topaz upscale & frame boost",  badge: "SOON", href: "#" },
+      { icon: Mic,          label: "Lip Sync",             desc: "Sync voice to video",          badge: "SOON", href: "#" },
+      { icon: Sparkles,     label: "Video to Video",       desc: "Style transfer & re-render",   badge: "SOON", href: "#" },
+      { icon: Film,         label: "Text to Short Film",   desc: "Script to full short film",    badge: "SOON", href: "#" },
     ],
-    models: getNavModels("video", 3),
+    models: getNavModels("video", 6),
   },
   Audio: {
     color: "#A855F7",
     features: [
-      { icon: Mic,   label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "/studio?mode=audio" },
-      { icon: Music, label: "AI Music",     desc: "Create full tracks",        badge: null,  href: "#" },
-      { icon: Zap,   label: "Voice Clone",  desc: "Clone any voice",           badge: null,  href: "#" },
+      { icon: Mic,   label: "AI Voiceover",  desc: "Generate speech from text",  badge: "NEW",  href: "/studio?mode=audio" },
+      { icon: Music, label: "AI Music",      desc: "Create full tracks",         badge: "SOON", href: "#" },
+      { icon: Zap,   label: "Voice Clone",   desc: "Clone any voice",            badge: "SOON", href: "#" },
+      { icon: Music, label: "Sound Effects", desc: "Generate custom SFX",        badge: "SOON", href: "#" },
     ],
-    models: getNavModels("audio", 3),
+    models: getNavModels("audio", 4),
   },
   Character: {
     color: "#F59E0B",
@@ -93,8 +98,8 @@ type DropdownKey = keyof typeof navDropdowns;
 const navLinks = [
   { label: "Explore",    href: "/",             hasDropdown: false },
   { label: "Image",      href: "/studio/image", hasDropdown: true  },
-  { label: "Video",      href: "/video",        hasDropdown: true  },
-  { label: "Audio",      href: "/audio",        hasDropdown: true  },
+  { label: "Video",      href: "/studio/video", hasDropdown: true  },
+  { label: "Audio",      href: "/studio/audio", hasDropdown: true  },
   { label: "Character",  href: "#",             hasDropdown: true  },
   { label: "Gallery",    href: "/gallery",      hasDropdown: false },
   { label: "Pricing",    href: "/pricing",      hasDropdown: false },
@@ -439,7 +444,7 @@ export function Navbar() {
                   onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                 >
                   <Clapperboard size={13} style={{ color: "#A855F7" }} />
-                  Cinema Studio
+                  Future Cinema Studio
                   <span
                     className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide"
                     style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.25)" }}

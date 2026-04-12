@@ -47,7 +47,7 @@ const MODELS: VideoModel[] = [
     name: "Kling 3.0",
     description: "Flagship model — cinematic quality, best motion",
     badge: "HOT",
-    badgeColor: "#0d9488",
+    badgeColor: "#DC2626",
     available: true,
     apiModelId: "kling-v3",
   },
@@ -322,28 +322,8 @@ function VideoStudioInner() {
         background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
         zIndex: 10,
       }}>
-        {/* Left: Logo + mode tabs */}
+        {/* Left: mode tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-              <defs>
-                <linearGradient id="zvg" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#2563EB" />
-                  <stop offset="100%" stopColor="#0EA5A0" />
-                </linearGradient>
-              </defs>
-              <rect width="36" height="36" rx="8" fill="url(#zvg)" opacity="0.18" />
-              <path d="M9 10h18l-14 16h14" stroke="url(#zvg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span style={{
-              fontSize: 15, fontWeight: 700,
-              background: "linear-gradient(135deg, #2563EB, #0EA5A0)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>Zencra</span>
-          </Link>
-
-          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.12)" }} />
-
           {/* Studio tabs */}
           {[
             { label: "Image", href: "/studio/image" },
