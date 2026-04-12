@@ -59,7 +59,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "AI-directed urban scene with natural motion blur",
     tool: "Kling 2.6",
-    videoSrc: "/showcase/showcase-kling-26.mp4",   // → public/showcase/showcase-kling-26.mp4
+    videoSrc: "/Showcase/showcase-kling-26.mp4",   // → public/Showcase/showcase-kling-26.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)",
@@ -67,7 +67,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Forest timelapse with AI-driven light simulation",
     tool: "Kling 3.0",
-    videoSrc: "/showcase/showcase-kling-30.mp4",   // → public/showcase/showcase-kling-30.mp4
+    videoSrc: "/Showcase/showcase-kling-30.mp4",   // → public/Showcase/showcase-kling-30.mp4
   },
   {
     gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 50%, #dc2626 100%)",
@@ -75,7 +75,7 @@ const videoShowcase = [
     label: "AI Scene",
     caption: "Emotional narrative with dynamic camera movement",
     tool: "Seedance 2.0",
-    videoSrc: "/showcase/showcase-seedance.mp4",   // → public/showcase/showcase-seedance.mp4
+    videoSrc: "/Showcase/showcase-seedance.mp4",   // → public/Showcase/showcase-seedance.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)",
@@ -83,7 +83,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Stylised slow-motion with cinematic grade",
     tool: "Runway ML",
-    videoSrc: "/showcase/showcase-runway.mp4",     // → public/showcase/showcase-runway.mp4
+    videoSrc: "/Showcase/showcase-runway.mp4",     // → public/Showcase/showcase-runway.mp4
   },
   {
     gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)",
@@ -91,7 +91,7 @@ const videoShowcase = [
     label: "Talking Avatar",
     caption: "Lip-synced presenter from any voice recording",
     tool: "HeyGen",
-    videoSrc: "/showcase/showcase-heygen.mp4",     // → public/showcase/showcase-heygen.mp4
+    videoSrc: "/Showcase/showcase-heygen.mp4",     // → public/Showcase/showcase-heygen.mp4
   },
   {
     gradient: "linear-gradient(160deg, #1a1206 0%, #422006 50%, #f59e0b 100%)",
@@ -99,7 +99,7 @@ const videoShowcase = [
     label: "Cinematic Video",
     caption: "Desert dune flyover with AI motion design",
     tool: "Google Veo",
-    videoSrc: "/showcase/showcase-veo.mp4",        // → public/showcase/showcase-veo.mp4
+    videoSrc: "/Showcase/showcase-veo.mp4",        // → public/Showcase/showcase-veo.mp4
   },
 ];
 
