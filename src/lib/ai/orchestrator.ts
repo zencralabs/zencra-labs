@@ -1,23 +1,15 @@
 /**
  * AI Orchestrator
  *
- * Single entry point for all generation requests. Responsibilities:
- *   1. Validate prompt
- *   2. Resolve provider (mode + optional caller override)
- *   3. Normalize and transform the prompt via prompt-transform
- *   4. Dispatch to the correct provider implementation
- *   5. Return a ProviderGenerateResult (caller handles DB + credits)
+ * Single entry point for all generation requests.
  *
  * Provider dispatch table:
- *   image  + dalle        → dalleProvider        (REAL – OpenAI DALL-E 3)
- *   image  + nano-banana  → nanoBananaProvider   (REAL – async/poll)
- *   audio  + elevenlabs   → elevenLabsProvider   (REAL – TTS)
- *   audio  + kits         → kitsProvider         (REAL – voice conversion)
- *   video  + *            → mockProvider         (PLACEHOLDER)
- *   *      + *            → mockProvider         (PLACEHOLDER)
- *
- * Credit deduction and DB persistence are NOT done here.
- * They live in /api/generate/route.ts so they stay transactional with auth.
+ *   image  + dalle        → dalleProvider
+ *   image  + nano-banana  → nanoBananaProvider
+ *   video  + kling        → klingProvider (full operation support)
+ *   audio  + elevenlabs   → elevenLabsProvider
+ *   audio  + kits         → kitsProvider
+ *   *      + *            → mockProvider
  */
 
 import { normalizePrompt }    from "./prompt-transform";
@@ -35,15 +27,6 @@ import type {
   ProviderName,
 } from "./types";
 
-// ── Provider dispatch ─────────────────────────────────────────────────────────
-//
-//   image  + dalle        → dalleProvider        (REAL – OpenAI DALL-E 3)
-//   image  + nano-banana  → nanoBananaProvider   (REAL – async/poll)
-//   video  + kling        → klingProvider        (REAL – JWT auth, async/poll)
-//   audio  + elevenlabs   → elevenLabsProvider   (REAL – TTS)
-//   audio  + kits         → kitsProvider         (REAL – voice conversion)
-//   *      + *            → mockProvider         (PLACEHOLDER)
-
 function getProvider(mode: string, providerName: ProviderName): AiProvider {
   if (mode === "image" && providerName === "dalle")        return dalleProvider;
   if (mode === "image" && providerName === "nano-banana")  return nanoBananaProvider;
@@ -52,8 +35,6 @@ function getProvider(mode: string, providerName: ProviderName): AiProvider {
   if (mode === "audio" && providerName === "kits")         return kitsProvider;
   return mockProvider;
 }
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function generateContent(
   input: GenerateContentInput
@@ -68,16 +49,28 @@ export async function generateContent(
     const provider         = getProvider(input.mode, providerName);
 
     const result = await provider.generate({
-      prompt:          normalizedPrompt.transformed,
-      mode:            input.mode,
+      prompt:             normalizedPrompt.transformed,
+      mode:               input.mode,
       normalizedPrompt,
-      quality:         input.quality ?? "cinematic",
-      aspectRatio:     input.aspectRatio,
-      durationSeconds: input.durationSeconds,
-      imageUrl:        input.imageUrl,
-      audioUrl:        input.audioUrl,
-      voiceId:         input.voiceId,
-      metadata:        { ...input.metadata, _resolvedProvider: providerName },
+      quality:            input.quality ?? "cinematic",
+      aspectRatio:        input.aspectRatio,
+      durationSeconds:    input.durationSeconds,
+      // Image inputs
+      imageUrl:           input.imageUrl,
+      endImageUrl:        input.endImageUrl,
+      // Video inputs
+      sourceVideoId:      input.sourceVideoId,
+      sourceVideoUrl:     input.sourceVideoUrl,
+      // Motion/reference
+      referenceVideoUrl:  input.referenceVideoUrl,
+      // Audio
+      audioUrl:           input.audioUrl,
+      voiceId:            input.voiceId,
+      // Provider controls
+      videoMode:          input.videoMode,
+      cameraControl:      input.cameraControl,
+      operationType:      input.operationType,
+      metadata:           { ...input.metadata, _resolvedProvider: providerName },
     });
 
     return { ...result, provider: providerName };

@@ -1,979 +1,249 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import {
+  VIDEO_MODEL_REGISTRY,
+  getVideoModel,
+  getModelsForOperation,
+  CAMERA_PRESET_LABELS,
+  type VideoModel,
+  type VideoOperationType,
+  type CameraPreset,
+} from "@/lib/ai/video-model-registry";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ZENCRA VIDEO STUDIO — Kling-powered video generation
+// TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+type StudioMode = "standard" | "directed" | "extend" | "audio";
 
-interface GeneratedVideo {
-  id: string;
-  url: string | null;
-  prompt: string;
-  model: string;
-  duration: number;
-  aspectRatio: string;
-  mode: "t2v" | "i2v";
-  status: "generating" | "done" | "error";
-  error?: string;
-  elapsedMs?: number;
-}
+type DirectedSubMode = "start_frame" | "start_end_frame";
 
 type VideoAspectRatio = "16:9" | "9:16" | "1:1";
 type VideoDuration = 5 | 10;
-type VideoMode = "t2v" | "i2v";
 
-interface VideoModel {
-  id: string;
-  name: string;
-  description: string;
-  badge: string | null;
-  badgeColor: string | null;
-  available: boolean;
-  apiModelId: string;
+interface GeneratedVideo {
+  id:          string;
+  url:         string | null;
+  prompt:      string;
+  modelId:     string;
+  duration:    number;
+  aspectRatio: string;
+  operation:   string;
+  status:      "generating" | "done" | "error";
+  error?:      string;
+  elapsedMs?:  number;
+  klingTaskId?: string;
 }
 
-// ── Model definitions ─────────────────────────────────────────────────────────
-
-const MODELS: VideoModel[] = [
-  {
-    id: "kling-30",
-    name: "Kling 3.0",
-    description: "Flagship model — cinematic quality, best motion",
-    badge: "HOT",
-    badgeColor: "#DC2626",
-    available: true,
-    apiModelId: "kling-v3",
-  },
-  {
-    id: "kling-26",
-    name: "Kling 2.6",
-    description: "Enhanced scene coherence and character fidelity",
-    badge: null,
-    badgeColor: null,
-    available: true,
-    apiModelId: "kling-v2-6",
-  },
-  {
-    id: "kling-25",
-    name: "Kling 2.5",
-    description: "Fast, reliable cinematic generation",
-    badge: null,
-    badgeColor: null,
-    available: true,
-    apiModelId: "kling-v2-5",
-  },
-  {
-    id: "seedance",
-    name: "Seedance 2.0",
-    description: "Specialist in human motion and dance",
-    badge: "SOON",
-    badgeColor: "#92400e",
-    available: false,
-    apiModelId: "seedance",
-  },
-];
-
-// ── Catalog → studio model ID map (from navbar ?model= param) ─────────────────
-
-const CATALOG_TO_STUDIO: Record<string, string> = {
-  "kling-25":  "kling-25",
-  "kling-26":  "kling-26",
-  "kling-30":  "kling-30",
-  "kling-30-omni": "kling-30",
-};
-
-// ── Credit helper ─────────────────────────────────────────────────────────────
-
-function estimateCredits(duration: VideoDuration): number {
-  return duration === 10 ? 22 : 11; // 10 + 1 per 5s block
+interface ImageSlot {
+  url:     string | null;  // base64 or remote URL
+  preview: string | null;  // object URL for <img>
+  name?:   string;
 }
 
-// ── Aspect ratio display labels ───────────────────────────────────────────────
+const EMPTY_SLOT: ImageSlot = { url: null, preview: null };
 
 const AR_OPTIONS: { value: VideoAspectRatio; label: string; icon: string }[] = [
-  { value: "16:9", label: "16:9",  icon: "▬" },
-  { value: "9:16", label: "9:16",  icon: "▮" },
-  { value: "1:1",  label: "1:1",   icon: "■" },
+  { value: "16:9", label: "16:9", icon: "▬" },
+  { value: "9:16", label: "9:16", icon: "▮" },
+  { value: "1:1",  label: "1:1",  icon: "▪" },
 ];
 
-// ── Elapsed timer ─────────────────────────────────────────────────────────────
+const DURATION_OPTIONS: VideoDuration[] = [5, 10];
 
-function useElapsedTimer(running: boolean) {
-  const [elapsed, setElapsed] = useState(0);
-  const startRef = useRef<number>(0);
-  useEffect(() => {
-    if (running) {
-      startRef.current = Date.now();
-      setElapsed(0);
-      const id = setInterval(() => setElapsed(Date.now() - startRef.current), 1000);
-      return () => clearInterval(id);
-    } else {
-      setElapsed(0);
-    }
-  }, [running]);
-  return elapsed;
+function estimateCreditCost(duration: VideoDuration, mode: "std" | "pro"): number {
+  const base = duration === 10 ? 12 : 11;
+  return mode === "pro" ? base + 5 : base;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INNER PAGE
+// IMAGE UPLOAD HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
-function VideoStudioInner() {
-  const { user, refreshUser } = useAuth();
-  const searchParams = useSearchParams();
-
-  // Read ?model= from navbar link
-  const modelParam   = searchParams.get("model") ?? "";
-  const initialModel = CATALOG_TO_STUDIO[modelParam] ?? "kling-30";
-
-  const [videos, setVideos]           = useState<GeneratedVideo[]>([]);
-  const [prompt, setPrompt]           = useState(searchParams.get("prompt") ?? "");
-  const [model, setModel]             = useState(initialModel);
-  const [mode, setMode]               = useState<VideoMode>("t2v");
-  const [aspectRatio, setAspectRatio] = useState<VideoAspectRatio>("16:9");
-  const [duration, setDuration]       = useState<VideoDuration>(5);
-  const [authModal, setAuthModal]     = useState(false);
-  const [generating, setGenerating]   = useState(false);
-  const [imageUrl, setImageUrl]       = useState("");
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  // UI pickers
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showArPicker, setShowArPicker]       = useState(false);
-
-  const promptRef   = useRef<HTMLTextAreaElement>(null);
-  const fileRef     = useRef<HTMLInputElement>(null);
-  const currentModel = MODELS.find(m => m.id === model) ?? MODELS[0];
-
-  const elapsed = useElapsedTimer(generating);
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (!(e.target as Element).closest("[data-dd]")) {
-        setShowModelPicker(false);
-        setShowArPicker(false);
-      }
-    }
-    window.addEventListener("mousedown", handle);
-    return () => window.removeEventListener("mousedown", handle);
-  }, []);
-
-  // Reset image when switching to T2V
-  useEffect(() => {
-    if (mode === "t2v") {
-      setImageUrl("");
-      setImagePreview(null);
-    }
-  }, [mode]);
-
-  // ── Image upload handler ──────────────────────────────────────────────────
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Preview
+async function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = ev => setImagePreview(ev.target?.result as string);
+    reader.onload  = () => resolve(reader.result as string);
+    reader.onerror = reject;
     reader.readAsDataURL(file);
-
-    // Upload to Supabase storage via the existing file upload endpoint
-    // For now, use a data URL directly — Kling API accepts base64 images
-    const base64Reader = new FileReader();
-    base64Reader.onload = ev => {
-      setImageUrl(ev.target?.result as string); // data:image/... base64 URI
-    };
-    base64Reader.readAsDataURL(file);
-  }
-
-  // ── Generate ──────────────────────────────────────────────────────────────
-
-  const generate = useCallback(async () => {
-    if (!prompt.trim() || generating) return;
-    if (!currentModel.available) return;
-    if (!user) { setAuthModal(true); return; }
-    if (mode === "i2v" && !imageUrl) return;
-
-    const videoId = `gen-${Date.now()}`;
-    const placeholder: GeneratedVideo = {
-      id: videoId,
-      url: null,
-      prompt,
-      model,
-      duration,
-      aspectRatio,
-      mode,
-      status: "generating",
-    };
-
-    setVideos(prev => [placeholder, ...prev]);
-    setGenerating(true);
-
-    try {
-      const body: Record<string, unknown> = {
-        mode:            "video",
-        provider:        "kling",
-        prompt,
-        quality:         "cinematic",
-        aspectRatio:     mode === "i2v" ? undefined : aspectRatio,
-        durationSeconds: duration,
-        metadata:        { klingModel: model },
-      };
-
-      if (mode === "i2v" && imageUrl) {
-        body.imageUrl = imageUrl;
-      }
-
-      const res = await fetch("/api/generate", {
-        method:  "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(user.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {}),
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (res.status === 402) {
-        const errData = await res.json();
-        const needed  = errData.data?.required ?? "?";
-        const have    = errData.data?.available ?? "?";
-        throw new Error(`Not enough credits — need ${needed}, you have ${have}`);
-      }
-
-      const data = await res.json();
-      if (!res.ok || !data.data?.url) throw new Error(data.data?.error ?? data.error ?? "Video generation failed");
-
-      setVideos(prev =>
-        prev.map(v =>
-          v.id === videoId ? { ...v, url: data.data.url as string, status: "done" } : v
-        )
-      );
-
-    } catch (err) {
-      setVideos(prev =>
-        prev.map(v =>
-          v.id === videoId
-            ? { ...v, status: "error", error: err instanceof Error ? err.message : "Failed" }
-            : v
-        )
-      );
-    } finally {
-      setGenerating(false);
-      await refreshUser();
-    }
-  }, [prompt, user, currentModel, mode, aspectRatio, duration, imageUrl, model, generating, refreshUser]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
-  };
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  const ctrlBtn = (active?: boolean): React.CSSProperties => ({
-    display: "flex", alignItems: "center", gap: 6,
-    padding: "6px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-    cursor: "pointer", border: "none",
-    background: active ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
-    color: active ? "#fff" : "rgba(255,255,255,0.75)",
-    transition: "all 0.15s", whiteSpace: "nowrap" as const,
   });
+}
 
-  const ddItem = (selected?: boolean, disabled?: boolean): React.CSSProperties => ({
-    display: "flex", alignItems: "center", gap: 10,
-    padding: "8px 10px", borderRadius: 8, width: "100%", textAlign: "left" as const,
-    cursor: disabled ? "not-allowed" : "pointer", border: "none",
-    background: selected ? "rgba(255,255,255,0.1)" : "transparent",
-    opacity: disabled ? 0.45 : 1, transition: "background 0.1s",
-  });
+function createPreviewUrl(file: File): string {
+  return URL.createObjectURL(file);
+}
 
-  const hasVideos    = videos.length > 0;
-  const isDisabled   = !prompt.trim() || !currentModel.available || generating || (mode === "i2v" && !imageUrl);
-  const estimatedCr  = estimateCredits(duration);
+// ─────────────────────────────────────────────────────────────────────────────
+// SUBCOMPONENT — IMAGE UPLOAD SLOT
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Format elapsed time for display
-  const elapsedSec   = Math.floor(elapsed / 1000);
-  const elapsedLabel = elapsed > 0
-    ? `${Math.floor(elapsedSec / 60)}:${String(elapsedSec % 60).padStart(2, "0")}`
-    : null;
+function ImageUploadSlot({
+  label,
+  hint,
+  slot,
+  onFile,
+  onClear,
+  accept = "image/jpeg,image/png,image/webp",
+}: {
+  label:   string;
+  hint?:   string;
+  slot:    ImageSlot;
+  onFile:  (file: File) => void;
+  onClear: () => void;
+  accept?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onFile(file);
+  }, [onFile]);
 
   return (
-    <div style={{
-      position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 40,
-      background: "#0A0A0A",
-      display: "flex", flexDirection: "column",
-      fontFamily: "var(--font-body, system-ui, sans-serif)",
-      color: "#fff",
-      overflow: "hidden",
-    }}>
-
-      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 24px", height: 58, minHeight: 58,
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
-        zIndex: 10,
-      }}>
-        {/* Left: mode tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          {/* Studio tabs */}
-          {[
-            { label: "Image", href: "/studio/image" },
-            { label: "Video", href: "/studio/video" },
-          ].map(tab => (
-            <Link
-              key={tab.label}
-              href={tab.href}
-              style={{
-                fontSize: 13, fontWeight: tab.label === "Video" ? 600 : 400,
-                color: tab.label === "Video" ? "#0EA5A0" : "rgba(255,255,255,0.45)",
-                textDecoration: "none",
-                paddingBottom: 2,
-                borderBottom: tab.label === "Video" ? "2px solid #0EA5A0" : "2px solid transparent",
-              }}
-            >
-              {tab.label}
-            </Link>
-          ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        {label}
+      </label>
+      {slot.preview ? (
+        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", aspectRatio: "16/9" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={slot.preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <button
+            onClick={onClear}
+            style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
+          >×</button>
         </div>
-
-        {/* Right: credit display + user */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {user && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "4px 12px", borderRadius: 20,
-              background: "rgba(14,165,160,0.1)", border: "1px solid rgba(14,165,160,0.2)",
-              fontSize: 12, fontWeight: 600, color: "#0EA5A0",
-            }}>
-              ✦ {user.credits ?? 0} credits
-            </div>
-          )}
-          {!user && (
-            <button
-              onClick={() => setAuthModal(true)}
-              style={{
-                padding: "6px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                border: "none", cursor: "pointer",
-                background: "linear-gradient(135deg, #0EA5A0, #2563EB)", color: "#fff",
-              }}
-            >
-              Sign in
-            </button>
-          )}
+      ) : (
+        <div
+          onClick={() => inputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          style={{
+            border: `1.5px dashed ${dragging ? "rgba(139,92,246,0.8)" : "rgba(255,255,255,0.12)"}`,
+            borderRadius: 10,
+            aspectRatio: "16/9",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            cursor: "pointer",
+            background: dragging ? "rgba(139,92,246,0.06)" : "rgba(255,255,255,0.02)",
+            transition: "all 0.15s",
+          }}
+        >
+          <span style={{ fontSize: 22, opacity: 0.4 }}>🖼</span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
+            {hint ?? "Drop image or click to upload"}
+          </span>
         </div>
-      </div>
-
-      {/* ── MAIN LAYOUT ─────────────────────────────────────────────────── */}
-      <div style={{
-        flex: 1, display: "flex", overflow: "hidden",
-        minHeight: 0,
-      }}>
-
-        {/* ── LEFT PANEL: controls ────────────────────────────────────────── */}
-        <div style={{
-          width: 300, minWidth: 260, maxWidth: 340,
-          borderRight: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.015)",
-          display: "flex", flexDirection: "column",
-          overflowY: "auto",
-          padding: "20px 16px",
-          gap: 20,
-        }}>
-
-          {/* Model picker */}
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-              Model
-            </p>
-            <div data-dd style={{ position: "relative" }}>
-              <button
-                style={ctrlBtn(showModelPicker)}
-                onClick={() => { setShowModelPicker(v => !v); setShowArPicker(false); }}
-              >
-                <span style={{
-                  display: "inline-block", width: 7, height: 7, borderRadius: "50%",
-                  background: currentModel.available ? "#0EA5A0" : "#374151",
-                  boxShadow: currentModel.available ? "0 0 6px #0EA5A0" : "none",
-                  flexShrink: 0,
-                }} />
-                <span style={{ flex: 1 }}>{currentModel.name}</span>
-                {currentModel.badge && (
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4,
-                    background: `${currentModel.badgeColor ?? "#374151"}30`,
-                    color: currentModel.badgeColor ?? "#9CA3AF",
-                    border: `1px solid ${currentModel.badgeColor ?? "#374151"}50`,
-                  }}>{currentModel.badge}</span>
-                )}
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>▾</span>
-              </button>
-
-              {showModelPicker && (
-                <div style={{
-                  position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
-                  background: "#161616", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 12, padding: 6, boxShadow: "0 16px 48px rgba(0,0,0,0.7)",
-                }}>
-                  {MODELS.map(m => (
-                    <button
-                      key={m.id}
-                      style={ddItem(m.id === model, !m.available)}
-                      onClick={() => {
-                        if (m.available) { setModel(m.id); setShowModelPicker(false); }
-                      }}
-                    >
-                      <span style={{
-                        display: "inline-block", width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                        background: m.available ? "#0EA5A0" : "#374151",
-                        boxShadow: m.available ? "0 0 6px #0EA5A0" : "none",
-                      }} />
-                      <div style={{ flex: 1, textAlign: "left" }}>
-                        <p style={{ fontSize: 13, fontWeight: 500, color: m.available ? "#fff" : "#6B7280" }}>{m.name}</p>
-                        <p style={{ fontSize: 11, color: "#64748B", marginTop: 1 }}>{m.description}</p>
-                      </div>
-                      {m.badge && (
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4,
-                          background: `${m.badgeColor ?? "#374151"}30`,
-                          color: m.badgeColor ?? "#6B7280",
-                        }}>{m.badge}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mode: T2V / I2V */}
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-              Mode
-            </p>
-            <div style={{ display: "flex", gap: 4 }}>
-              {([
-                { value: "t2v", label: "Text to Video" },
-                { value: "i2v", label: "Image to Video" },
-              ] as const).map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setMode(opt.value)}
-                  style={{
-                    flex: 1, padding: "7px 8px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                    cursor: "pointer", border: "none",
-                    background: mode === opt.value ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.05)",
-                    color: mode === opt.value ? "#0EA5A0" : "rgba(255,255,255,0.5)",
-                    outline: mode === opt.value ? "1px solid rgba(14,165,160,0.3)" : "none",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-              Duration
-            </p>
-            <div style={{ display: "flex", gap: 4 }}>
-              {([5, 10] as VideoDuration[]).map(d => (
-                <button
-                  key={d}
-                  onClick={() => setDuration(d)}
-                  style={{
-                    flex: 1, padding: "7px 8px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                    cursor: "pointer", border: "none",
-                    background: duration === d ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.05)",
-                    color: duration === d ? "#0EA5A0" : "rgba(255,255,255,0.5)",
-                    outline: duration === d ? "1px solid rgba(14,165,160,0.3)" : "none",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {d}s
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Aspect ratio (T2V only) */}
-          {mode === "t2v" && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-                Aspect ratio
-              </p>
-              <div data-dd style={{ position: "relative" }}>
-                <button
-                  style={ctrlBtn(showArPicker)}
-                  onClick={() => { setShowArPicker(v => !v); setShowModelPicker(false); }}
-                >
-                  <span style={{ fontSize: 14 }}>{AR_OPTIONS.find(a => a.value === aspectRatio)?.icon}</span>
-                  {aspectRatio}
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginLeft: "auto" }}>▾</span>
-                </button>
-                {showArPicker && (
-                  <div style={{
-                    position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
-                    background: "#161616", border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 10, padding: 4, boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
-                  }}>
-                    {AR_OPTIONS.map(ar => (
-                      <button
-                        key={ar.value}
-                        style={ddItem(ar.value === aspectRatio)}
-                        onClick={() => { setAspectRatio(ar.value); setShowArPicker(false); }}
-                      >
-                        <span style={{ fontSize: 14, width: 20, textAlign: "center" }}>{ar.icon}</span>
-                        <span style={{ fontSize: 13, color: "#fff" }}>{ar.label}</span>
-                        {ar.value === aspectRatio && (
-                          <span style={{ marginLeft: "auto", fontSize: 11, color: "#0EA5A0" }}>✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Image upload (I2V) */}
-          {mode === "i2v" && (
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: "rgba(255,255,255,0.3)", marginBottom: 8 }}>
-                Source image
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleImageUpload}
-              />
-              <button
-                onClick={() => fileRef.current?.click()}
-                style={{
-                  width: "100%", padding: "12px", borderRadius: 10,
-                  border: `1.5px dashed ${imagePreview ? "#0EA5A0" : "rgba(255,255,255,0.15)"}`,
-                  background: imagePreview ? "rgba(14,165,160,0.06)" : "rgba(255,255,255,0.03)",
-                  cursor: "pointer", transition: "all 0.2s",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                  overflow: "hidden",
-                }}
-              >
-                {imagePreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imagePreview}
-                    alt="Source"
-                    style={{ width: "100%", maxHeight: 120, objectFit: "cover", borderRadius: 6 }}
-                  />
-                ) : (
-                  <>
-                    <span style={{ fontSize: 20 }}>🖼️</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-                      Click to upload image
-                    </span>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
-                      JPG, PNG, WEBP
-                    </span>
-                  </>
-                )}
-              </button>
-              {imagePreview && (
-                <button
-                  onClick={() => { setImageUrl(""); setImagePreview(null); }}
-                  style={{
-                    marginTop: 6, width: "100%", padding: "5px", borderRadius: 6,
-                    fontSize: 11, color: "rgba(255,255,255,0.4)", border: "none",
-                    background: "transparent", cursor: "pointer",
-                  }}
-                >
-                  ✕ Remove image
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Credit estimate */}
-          <div style={{
-            padding: "10px 12px", borderRadius: 8,
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-          }}>
-            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 2 }}>
-              Estimated cost
-            </p>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "#0EA5A0" }}>
-              ✦ {estimatedCr} credits
-            </p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
-              {duration}s · {mode === "i2v" ? "Image-to-Video" : aspectRatio} · {currentModel.name}
-            </p>
-          </div>
-        </div>
-
-        {/* ── CENTER: prompt + generate ─────────────────────────────────────── */}
-        <div style={{
-          flex: 1, display: "flex", flexDirection: "column",
-          overflow: "hidden", minWidth: 0,
-        }}>
-
-          {/* Prompt area */}
-          <div style={{
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
-            padding: "20px 24px",
-            background: "rgba(255,255,255,0.01)",
-          }}>
-            <textarea
-              ref={promptRef}
-              rows={4}
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe your video... e.g. Slow dolly push into a misty forest at dawn, golden light filtering through trees, cinematic mood, film grain"
-              style={{
-                width: "100%", resize: "none", background: "transparent",
-                border: "none", outline: "none",
-                fontSize: 15, lineHeight: 1.6, color: "#F8FAFC",
-                fontFamily: "inherit",
-              }}
-            />
-
-            {/* Generate bar */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 12, marginTop: 12,
-            }}>
-              {/* Hint */}
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", flexShrink: 0 }}>
-                ⌘↵ to generate
-              </span>
-              <div style={{ flex: 1 }} />
-
-              {/* Elapsed timer (while generating) */}
-              {generating && elapsedLabel && (
-                <span style={{
-                  fontSize: 12, color: "rgba(14,165,160,0.8)",
-                  display: "flex", alignItems: "center", gap: 5,
-                }}>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: "#0EA5A0", animation: "pulse 1s infinite",
-                    display: "inline-block",
-                  }} />
-                  {elapsedLabel}
-                </span>
-              )}
-
-              {/* Generate button */}
-              <button
-                onClick={generate}
-                disabled={isDisabled}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
-                  border: "none",
-                  cursor: isDisabled ? "not-allowed" : "pointer",
-                  background: isDisabled
-                    ? "rgba(255,255,255,0.07)"
-                    : "linear-gradient(135deg, #0EA5A0 0%, #2563EB 100%)",
-                  color: isDisabled ? "rgba(255,255,255,0.2)" : "#fff",
-                  transition: "all 0.2s", letterSpacing: "0.02em",
-                  boxShadow: isDisabled ? "none" : "0 0 28px rgba(14,165,160,0.45), 0 4px 16px rgba(0,0,0,0.4)",
-                  minWidth: 140,
-                }}
-                onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "none"; }}
-              >
-                {generating ? (
-                  <>
-                    <div style={{
-                      width: 14, height: 14, borderRadius: "50%",
-                      border: "2px solid rgba(255,255,255,0.3)",
-                      borderTop: "2px solid #fff",
-                      animation: "spin 0.8s linear infinite",
-                      flexShrink: 0,
-                    }} />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    ⚡ Generate
-                    <span style={{
-                      fontSize: 11, fontWeight: 600, opacity: 0.8,
-                      background: "rgba(0,0,0,0.25)", padding: "2px 7px", borderRadius: 6,
-                    }}>
-                      ✦ {estimatedCr} cr
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Notices */}
-            {generating && (
-              <p style={{
-                marginTop: 8, fontSize: 11,
-                color: "rgba(14,165,160,0.7)", textAlign: "center",
-              }}>
-                Kling is rendering your video — this takes 2–4 minutes. Keep this tab open.
-              </p>
-            )}
-            {mode === "i2v" && !imageUrl && !generating && (
-              <p style={{
-                marginTop: 8, fontSize: 11,
-                color: "rgba(245,158,11,0.8)", textAlign: "center",
-              }}>
-                Upload a source image above to use Image-to-Video mode
-              </p>
-            )}
-          </div>
-
-          {/* ── Results grid ────────────────────────────────────────────────── */}
-          <div style={{
-            flex: 1, overflowY: "auto", padding: "20px 24px",
-          }}>
-            {!hasVideos && !generating && (
-              <div style={{
-                height: "100%", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 12,
-                color: "rgba(255,255,255,0.2)",
-              }}>
-                <span style={{ fontSize: 40 }}>🎬</span>
-                <p style={{ fontSize: 14, fontWeight: 500 }}>
-                  Your generated videos will appear here
-                </p>
-                <p style={{ fontSize: 12 }}>
-                  Write a prompt and click Generate to start
-                </p>
-              </div>
-            )}
-
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-              gap: 16,
-            }}>
-              {videos.map(v => (
-                <VideoCard
-                  key={v.id}
-                  video={v}
-                  onRegenerate={() => {
-                    setPrompt(v.prompt);
-                    setModel(v.model);
-                    setDuration(v.duration as VideoDuration);
-                    setAspectRatio(v.aspectRatio as VideoAspectRatio);
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
-
-      <style>{`
-        @keyframes spin    { to { transform: rotate(360deg) } }
-        @keyframes pulse   { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
-        @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
-        @keyframes fadeIn  { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform: translateY(0) } }
-      `}</style>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        style={{ display: "none" }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
+      />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VIDEO CARD
+// SUBCOMPONENT — VIDEO CARD
 // ─────────────────────────────────────────────────────────────────────────────
 
 function VideoCard({
   video,
-  onRegenerate,
+  onRetry,
+  onExtend,
 }: {
-  video: GeneratedVideo;
-  onRegenerate: () => void;
+  video:    GeneratedVideo;
+  onRetry:  () => void;
+  onExtend: (v: GeneratedVideo) => void;
 }) {
-  const [playing, setPlaying] = useState(false);
-  const vidRef = useRef<HTMLVideoElement>(null);
-
-  const ar = video.aspectRatio;
-  const paddingBottom =
-    ar === "9:16" ? "177.78%" :
-    ar === "1:1"  ? "100%"   :
-    "56.25%"; // 16:9 default
+  const modelDef = getVideoModel(video.modelId);
 
   if (video.status === "generating") {
     return (
-      <div style={{
-        borderRadius: 12, overflow: "hidden",
-        border: "1px solid rgba(14,165,160,0.2)",
-        background: "rgba(255,255,255,0.03)",
-        animation: "fadeIn 0.3s ease",
-      }}>
-        <div style={{ position: "relative", width: "100%", paddingBottom }}>
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(90deg, rgba(14,165,160,0.05) 25%, rgba(14,165,160,0.12) 50%, rgba(14,165,160,0.05) 75%)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer 2s infinite linear",
-            display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12,
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%",
-              border: "3px solid rgba(255,255,255,0.1)",
-              borderTop: "3px solid #0EA5A0",
-              animation: "spin 0.8s linear infinite",
-            }} />
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Generating video...</p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>
-              {video.duration}s · {video.aspectRatio}
-            </p>
-          </div>
+      <div style={{ borderRadius: 12, overflow: "hidden", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", aspectRatio: "16/9", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 1 }}>
+          <div style={{ width: 32, height: 32, border: "2.5px solid rgba(139,92,246,0.6)", borderTopColor: "#8b5cf6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            {video.elapsedMs ? `${Math.floor(video.elapsedMs / 1000)}s…` : "Generating…"}
+          </span>
         </div>
-        <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", lineHeight: 1.4 }}
-            className="truncate">
-            {video.prompt}
-          </p>
-        </div>
+        <style>{`@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
 
   if (video.status === "error") {
     return (
-      <div style={{
-        borderRadius: 12, overflow: "hidden",
-        border: "1px solid rgba(239,68,68,0.2)",
-        background: "rgba(239,68,68,0.04)",
-        animation: "fadeIn 0.3s ease",
-      }}>
-        <div style={{ position: "relative", width: "100%", paddingBottom }}>
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexDirection: "column", gap: 8, padding: 16,
-          }}>
-            <span style={{ fontSize: 28 }}>⚠️</span>
-            <p style={{ fontSize: 12, color: "rgba(239,68,68,0.9)", textAlign: "center" }}>
-              {video.error ?? "Generation failed"}
-            </p>
-          </div>
-        </div>
-        <div style={{
-          padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.06)",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", flex: 1 }} className="truncate">
-            {video.prompt}
-          </p>
-          <button
-            onClick={onRegenerate}
-            style={{
-              marginLeft: 8, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-              border: "none", cursor: "pointer",
-              background: "rgba(239,68,68,0.15)", color: "#EF4444",
-            }}
-          >
-            Retry
-          </button>
-        </div>
+      <div style={{ borderRadius: 12, overflow: "hidden", background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
+        <span style={{ fontSize: 24 }}>⚠️</span>
+        <p style={{ fontSize: 12, color: "rgba(239,68,68,0.9)", textAlign: "center", margin: 0 }}>
+          {video.error ?? "Generation failed"}
+        </p>
+        <button
+          onClick={onRetry}
+          style={{ fontSize: 11, color: "#fff", background: "rgba(239,68,68,0.3)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}
+        >Retry</button>
       </div>
     );
   }
 
-  // Done — render video
   return (
-    <div
-      style={{
-        borderRadius: 12, overflow: "hidden",
-        border: "1px solid rgba(14,165,160,0.2)",
-        background: "#0a0a0a",
-        animation: "fadeIn 0.4s ease",
-      }}
-    >
-      <div style={{ position: "relative", width: "100%", paddingBottom }}>
-        <video
-          ref={vidRef}
-          src={video.url ?? undefined}
-          controls
-          loop
-          playsInline
-          style={{
-            position: "absolute", inset: 0, width: "100%", height: "100%",
-            objectFit: "contain", background: "#000",
-          }}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-        />
-        {/* Play overlay if not playing */}
-        {!playing && (
-          <button
-            style={{
-              position: "absolute", inset: 0, width: "100%", height: "100%",
-              background: "transparent", border: "none", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-            onClick={() => { vidRef.current?.play(); }}
-          >
-            <div style={{
-              width: 48, height: 48, borderRadius: "50%",
-              background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              border: "2px solid rgba(255,255,255,0.3)",
-            }}>
-              <span style={{ fontSize: 18, marginLeft: 3 }}>▶</span>
-            </div>
-          </button>
+    <div style={{ borderRadius: 12, overflow: "hidden", background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ position: "relative", aspectRatio: "16/9", background: "#000" }}>
+        {video.url && (
+          <video
+            src={video.url}
+            controls
+            playsInline
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
         )}
       </div>
-
-      {/* Card footer */}
-      <div style={{
-        padding: "10px 14px", borderTop: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", alignItems: "center", gap: 8,
-      }}>
-        <p style={{
-          flex: 1, fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.4,
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
+      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {video.prompt}
         </p>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          {/* Download */}
-          <a
-            href={video.url ?? "#"}
-            download
-            style={{
-              padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-              border: "none", cursor: "pointer", textDecoration: "none",
-              background: "rgba(14,165,160,0.12)", color: "#0EA5A0",
-              display: "flex", alignItems: "center", gap: 4,
-            }}
-          >
-            ↓ Save
-          </a>
-          {/* Regenerate */}
-          <button
-            onClick={onRegenerate}
-            style={{
-              padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-              border: "none", cursor: "pointer",
-              background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.5)",
-            }}
-          >
-            ↻
-          </button>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
+            {modelDef?.displayName ?? video.modelId}
+          </span>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
+            {video.duration}s
+          </span>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
+            {video.aspectRatio}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {video.url && (
+            <a
+              href={video.url}
+              download="zencra-video.mp4"
+              style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "6px 0", cursor: "pointer", textDecoration: "none", textAlign: "center" }}
+            >↓ Download</a>
+          )}
+          {modelDef?.capabilities.extendVideo && (
+            <button
+              onClick={() => onExtend(video)}
+              style={{ flex: 1, fontSize: 11, color: "rgba(139,92,246,0.9)", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 7, padding: "6px 0", cursor: "pointer" }}
+            >⟳ Extend</button>
+          )}
         </div>
       </div>
     </div>
@@ -981,26 +251,638 @@ function VideoCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAGE EXPORT
+// MAIN STUDIO
+// ─────────────────────────────────────────────────────────────────────────────
+
+function VideoStudioContent() {
+  const searchParams = useSearchParams();
+  const { user, refreshUser } = useAuth();
+
+  // Map incoming ?model= param
+  const CATALOG_TO_STUDIO: Record<string, string> = {
+    "kling-25": "kling-25", "kling-26": "kling-26",
+    "kling-30": "kling-30", "kling-30-omni": "kling-30",
+  };
+  const modelParam   = searchParams.get("model") ?? "";
+  const initialModel = CATALOG_TO_STUDIO[modelParam] ?? "kling-30";
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [videos,        setVideos]        = useState<GeneratedVideo[]>([]);
+  const [studioMode,    setStudioMode]    = useState<StudioMode>("standard");
+  const [directedSub,   setDirectedSub]   = useState<DirectedSubMode>("start_frame");
+  const [model,         setModel]         = useState(initialModel);
+  const [prompt,        setPrompt]        = useState(searchParams.get("prompt") ?? "");
+  const [negPrompt,     setNegPrompt]     = useState("");
+  const [showNegPrompt, setShowNegPrompt] = useState(false);
+  const [aspectRatio,   setAspectRatio]   = useState<VideoAspectRatio>("16:9");
+  const [duration,      setDuration]      = useState<VideoDuration>(5);
+  const [videoMode,     setVideoMode]     = useState<"std" | "pro">("std");
+  const [startSlot,     setStartSlot]     = useState<ImageSlot>(EMPTY_SLOT);
+  const [endSlot,       setEndSlot]       = useState<ImageSlot>(EMPTY_SLOT);
+  const [sourceVideoId, setSourceVideoId] = useState<string>("");
+  const [sourceVideoUrl,setSourceVideoUrl]= useState<string>("");
+  const [cameraPreset,  setCameraPreset]  = useState<CameraPreset | "none">("none");
+  const [showCamera,    setShowCamera]    = useState(false);
+  const [generating,    setGenerating]    = useState(false);
+  const [authModal,     setAuthModal]     = useState(false);
+  const startTimeRef = useRef<number>(0);
+
+  const modelDef = getVideoModel(model);
+  const caps     = modelDef?.capabilities;
+
+  // ── Validate generate button ──────────────────────────────────────────────
+  function getBlockedReason(): string | null {
+    if (!user) return "Sign in to generate";
+    if (generating) return "Generating…";
+    if (!modelDef?.available) return "Model unavailable";
+
+    if (studioMode === "standard" || studioMode === "directed") {
+      const needsStart = studioMode === "directed";
+      if (needsStart && !startSlot.url) return "Upload a start frame image";
+      if (directedSub === "start_end_frame" && !endSlot.url) return "Upload an end frame image";
+    }
+
+    if (studioMode === "extend") {
+      if (!sourceVideoId && !sourceVideoUrl) return "Select a video to extend";
+    }
+
+    if (!prompt.trim() && studioMode !== "extend") return "Enter a prompt";
+    return null;
+  }
+
+  const blockedReason = getBlockedReason();
+  const canGenerate   = !blockedReason;
+  const creditCost    = estimateCreditCost(duration, videoMode);
+
+  // ── Determine operation type ───────────────────────────────────────────────
+  function resolveOperationType(): string {
+    if (studioMode === "extend")  return "extend_video";
+    if (studioMode === "audio")   return "lip_sync";
+    if (studioMode === "directed") {
+      if (directedSub === "start_end_frame") return "start_end_frame";
+      return "start_frame";
+    }
+    if (startSlot.url) return "image_to_video";
+    return "text_to_video";
+  }
+
+  // ── Handle image slot upload ──────────────────────────────────────────────
+  async function handleSlotFile(slot: "start" | "end", file: File) {
+    const [dataUrl, preview] = await Promise.all([
+      readFileAsDataUrl(file),
+      Promise.resolve(createPreviewUrl(file)),
+    ]);
+    if (slot === "start") setStartSlot({ url: dataUrl, preview, name: file.name });
+    else                  setEndSlot({ url: dataUrl, preview, name: file.name });
+  }
+
+  function clearSlot(slot: "start" | "end") {
+    if (slot === "start") {
+      if (startSlot.preview) URL.revokeObjectURL(startSlot.preview);
+      setStartSlot(EMPTY_SLOT);
+    } else {
+      if (endSlot.preview) URL.revokeObjectURL(endSlot.preview);
+      setEndSlot(EMPTY_SLOT);
+    }
+  }
+
+  // ── Handle Extend (from video card) ──────────────────────────────────────
+  function handleExtendVideo(v: GeneratedVideo) {
+    setStudioMode("extend");
+    setSourceVideoId(v.klingTaskId ?? "");
+    setSourceVideoUrl(v.url ?? "");
+    setModel(v.modelId);
+    setPrompt("");
+  }
+
+  // ── Generate ──────────────────────────────────────────────────────────────
+  async function handleGenerate() {
+    if (!canGenerate) {
+      if (!user) { setAuthModal(true); return; }
+      return;
+    }
+
+    const videoId    = `vid_${Date.now()}`;
+    const operation  = resolveOperationType();
+    const placeholder: GeneratedVideo = {
+      id:          videoId,
+      url:         null,
+      prompt:      prompt || "(extend)",
+      modelId:     model,
+      duration,
+      aspectRatio,
+      operation,
+      status:      "generating",
+    };
+
+    setVideos(prev => [placeholder, ...prev]);
+    setGenerating(true);
+    startTimeRef.current = Date.now();
+
+    const timer = setInterval(() => {
+      setVideos(prev => prev.map(v =>
+        v.id === videoId ? { ...v, elapsedMs: Date.now() - startTimeRef.current } : v
+      ));
+    }, 1000);
+
+    try {
+      const authHeader: Record<string, string> = (user as { accessToken?: string })?.accessToken
+        ? { Authorization: `Bearer ${(user as { accessToken?: string }).accessToken}` }
+        : {};
+
+      const body: Record<string, unknown> = {
+        mode:          "video",
+        provider:      "kling",
+        prompt:        prompt || " ",
+        quality:       "cinematic",
+        aspectRatio:   studioMode === "directed" || studioMode === "standard" && !startSlot.url ? aspectRatio : undefined,
+        durationSeconds: duration,
+        videoMode,
+        operationType: operation,
+        metadata:      { klingModel: model },
+      };
+
+      if (startSlot.url)    body.imageUrl     = startSlot.url;
+      if (endSlot.url)      body.endImageUrl   = endSlot.url;
+      if (sourceVideoId)    body.sourceVideoId = sourceVideoId;
+      if (sourceVideoUrl)   body.sourceVideoUrl= sourceVideoUrl;
+      if (negPrompt.trim()) body.metadata = { ...(body.metadata as object), negativePrompt: negPrompt };
+
+      if (cameraPreset !== "none") {
+        body.cameraControl = { type: cameraPreset };
+      }
+
+      const res = await fetch("/api/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body:    JSON.stringify(body),
+      });
+
+      if (res.status === 402) {
+        const errData = await res.json();
+        const need    = errData.data?.required ?? "?";
+        const have    = errData.data?.available ?? "?";
+        throw new Error(`Not enough credits — need ${need}, you have ${have}`);
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.data?.url) {
+        throw new Error(data.data?.error ?? data.error ?? "Video generation failed");
+      }
+
+      // Store the Kling task ID from metadata for extend/lip-sync
+      const klingTaskId = String(data.data?.metadata?.taskId ?? "");
+
+      setVideos(prev => prev.map(v =>
+        v.id === videoId
+          ? { ...v, url: data.data.url as string, status: "done", elapsedMs: Date.now() - startTimeRef.current, klingTaskId }
+          : v
+      ));
+
+    } catch (err) {
+      setVideos(prev => prev.map(v =>
+        v.id === videoId
+          ? { ...v, status: "error", error: err instanceof Error ? err.message : "Failed" }
+          : v
+      ));
+    } finally {
+      clearInterval(timer);
+      setGenerating(false);
+      refreshUser?.();
+    }
+  }
+
+  // ── Retry ─────────────────────────────────────────────────────────────────
+  function handleRetry(videoId: string) {
+    setVideos(prev => prev.filter(v => v.id !== videoId));
+    handleGenerate();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const STUDIO_MODES: { id: StudioMode; label: string; icon: string }[] = [
+    { id: "standard", label: "Standard",   icon: "✦" },
+    { id: "directed", label: "Directed",   icon: "◈" },
+    { id: "extend",   label: "Extend",     icon: "⟳" },
+    { id: "audio",    label: "Lip Sync",   icon: "🎙" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+
+      {/* ── Nav ───────────────────────────────────────────────────────── */}
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(5,5,5,0.95)", backdropFilter: "blur(12px)", position: "sticky", top: 0, zIndex: 40 }}>
+        <Link href="/studio" style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+          ← Studio
+        </Link>
+        <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em" }}>Video Generator</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {user && (
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+              {(user as { credits?: number }).credits ?? 0} cr
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", maxWidth: 1400, margin: "0 auto", padding: "0 16px", gap: 20, paddingBottom: 120 }}>
+
+        {/* ── LEFT: Controls ──────────────────────────────────────────── */}
+        <div style={{ width: 280, flexShrink: 0, paddingTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Mode Switcher */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+              {STUDIO_MODES.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setStudioMode(m.id)}
+                  style={{
+                    padding: "8px 6px",
+                    borderRadius: 8,
+                    border: studioMode === m.id ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)",
+                    background: studioMode === m.id ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.03)",
+                    color: studioMode === m.id ? "#c4b5fd" : "rgba(255,255,255,0.5)",
+                    fontSize: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <span>{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Model Picker */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Model</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {VIDEO_MODEL_REGISTRY.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => m.available && setModel(m.id)}
+                  disabled={!m.available}
+                  style={{
+                    padding: "9px 10px",
+                    borderRadius: 9,
+                    border: model === m.id ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                    background: model === m.id ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.02)",
+                    color: !m.available ? "rgba(255,255,255,0.25)" : model === m.id ? "#e9d5ff" : "rgba(255,255,255,0.7)",
+                    fontSize: 13, cursor: m.available ? "pointer" : "default",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+                    <span style={{ fontWeight: 500 }}>{m.displayName}</span>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.description.split(" — ")[0]}</span>
+                  </div>
+                  {m.badge && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: m.badgeColor ?? "#555", borderRadius: 4, padding: "2px 5px", letterSpacing: "0.06em" }}>
+                      {m.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Directed sub-mode */}
+          {studioMode === "directed" && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Direction Type</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                {[
+                  { id: "start_frame" as DirectedSubMode,     label: "Start Frame" },
+                  { id: "start_end_frame" as DirectedSubMode, label: "Start + End" },
+                ].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setDirectedSub(s.id)}
+                    disabled={s.id === "start_end_frame" && !caps?.endFrame}
+                    style={{
+                      padding: "7px 5px", borderRadius: 7, fontSize: 11, cursor: s.id === "start_end_frame" && !caps?.endFrame ? "default" : "pointer",
+                      border: directedSub === s.id ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                      background: directedSub === s.id ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.02)",
+                      color: s.id === "start_end_frame" && !caps?.endFrame ? "rgba(255,255,255,0.2)" : directedSub === s.id ? "#c4b5fd" : "rgba(255,255,255,0.5)",
+                    }}
+                  >{s.label}</button>
+                ))}
+              </div>
+              {directedSub === "start_end_frame" && !caps?.endFrame && (
+                <p style={{ fontSize: 10, color: "rgba(255,165,0,0.7)", marginTop: 4, margin: "4px 0 0" }}>
+                  End frame requires Kling 3.0 or 2.6
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Duration */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Duration</div>
+            <div style={{ display: "flex", gap: 5 }}>
+              {DURATION_OPTIONS.map(d => (
+                <button
+                  key={d}
+                  onClick={() => setDuration(d)}
+                  style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 13, cursor: "pointer", border: duration === d ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", background: duration === d ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.03)", color: duration === d ? "#c4b5fd" : "rgba(255,255,255,0.5)", fontWeight: duration === d ? 600 : 400 }}
+                >{d}s</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Aspect Ratio (T2V only) */}
+          {(studioMode === "standard" && !startSlot.url) || studioMode === "directed" ? null : studioMode === "standard" && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Aspect Ratio</div>
+              <div style={{ display: "flex", gap: 5 }}>
+                {AR_OPTIONS.map(ar => (
+                  <button
+                    key={ar.value}
+                    onClick={() => setAspectRatio(ar.value)}
+                    style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: aspectRatio === ar.value ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", background: aspectRatio === ar.value ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.03)", color: aspectRatio === ar.value ? "#c4b5fd" : "rgba(255,255,255,0.5)", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}
+                  >
+                    <span>{ar.icon}</span>
+                    <span style={{ fontSize: 10 }}>{ar.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mode: std / pro */}
+          {caps?.proMode && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Quality</div>
+              <div style={{ display: "flex", gap: 5 }}>
+                {(["std", "pro"] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setVideoMode(m)}
+                    style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: videoMode === m ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.08)", background: videoMode === m ? "rgba(139,92,246,0.15)" : "rgba(255,255,255,0.03)", color: videoMode === m ? "#c4b5fd" : "rgba(255,255,255,0.5)", fontWeight: videoMode === m ? 600 : 400 }}
+                  >{m === "std" ? "Standard" : "Pro"}</button>
+                ))}
+              </div>
+              {videoMode === "pro" && (
+                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "4px 0 0" }}>
+                  Pro uses more credits but improves motion quality
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Camera Control */}
+          {caps?.cameraControl && (studioMode === "standard" || studioMode === "directed") && (
+            <div>
+              <button
+                onClick={() => setShowCamera(!showCamera)}
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}
+              >
+                {showCamera ? "▾" : "▸"} Camera Control {cameraPreset !== "none" && `(${CAMERA_PRESET_LABELS[cameraPreset as CameraPreset]})`}
+              </button>
+              {showCamera && (
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+                  <button
+                    onClick={() => setCameraPreset("none")}
+                    style={{ padding: "6px 8px", borderRadius: 6, fontSize: 11, cursor: "pointer", border: cameraPreset === "none" ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)", background: cameraPreset === "none" ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.02)", color: cameraPreset === "none" ? "#c4b5fd" : "rgba(255,255,255,0.4)", textAlign: "left" }}
+                  >No camera movement</button>
+                  {(caps.cameraPresets as CameraPreset[]).filter(p => p !== "simple").map(preset => (
+                    <button
+                      key={preset}
+                      onClick={() => setCameraPreset(preset)}
+                      style={{ padding: "6px 8px", borderRadius: 6, fontSize: 11, cursor: "pointer", border: cameraPreset === preset ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)", background: cameraPreset === preset ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.02)", color: cameraPreset === preset ? "#c4b5fd" : "rgba(255,255,255,0.4)", textAlign: "left" }}
+                    >{CAMERA_PRESET_LABELS[preset]}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Credit estimate */}
+          <div style={{ background: "rgba(139,92,246,0.07)", border: "1px solid rgba(139,92,246,0.15)", borderRadius: 9, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Estimated Cost</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#c4b5fd" }}>
+              {creditCost} credits
+            </div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+              {duration}s · {videoMode === "pro" ? "Pro" : "Standard"} · {modelDef?.displayName}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── CENTER: Prompt + Reference Slots ────────────────────────── */}
+        <div style={{ flex: 1, paddingTop: 20, display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+
+          {/* Standard mode: optional image upload for I2V */}
+          {studioMode === "standard" && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+                Reference Image <span style={{ fontWeight: 400, textTransform: "none", color: "rgba(255,255,255,0.25)" }}>— optional, for Image-to-Video</span>
+              </div>
+              <ImageUploadSlot
+                label="Start Frame"
+                hint="Upload to animate from this image (optional)"
+                slot={startSlot}
+                onFile={f => handleSlotFile("start", f)}
+                onClear={() => clearSlot("start")}
+              />
+            </div>
+          )}
+
+          {/* Directed mode: start frame + optional end frame */}
+          {studioMode === "directed" && (
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <ImageUploadSlot
+                  label="Start Frame"
+                  hint="How the shot begins — required"
+                  slot={startSlot}
+                  onFile={f => handleSlotFile("start", f)}
+                  onClear={() => clearSlot("start")}
+                />
+              </div>
+              {directedSub === "start_end_frame" && (
+                <div style={{ flex: 1 }}>
+                  <ImageUploadSlot
+                    label="End Frame"
+                    hint="How the shot resolves — required"
+                    slot={endSlot}
+                    onFile={f => handleSlotFile("end", f)}
+                    onClear={() => clearSlot("end")}
+                  />
+                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "6px 0 0", lineHeight: 1.5 }}>
+                    The prompt describes what happens between these two frames.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Extend mode */}
+          {studioMode === "extend" && (
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Source Video</div>
+              {sourceVideoUrl ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <video src={sourceVideoUrl} controls style={{ width: "100%", borderRadius: 8, maxHeight: 200, background: "#000" }} />
+                  <button
+                    onClick={() => { setSourceVideoId(""); setSourceVideoUrl(""); }}
+                    style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", alignSelf: "flex-start" }}
+                  >Remove</button>
+                </div>
+              ) : (
+                <div style={{ padding: "20px 0", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+                  Click <strong style={{ color: "rgba(139,92,246,0.8)" }}>⟳ Extend</strong> on a generated video below to extend it here.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lip Sync mode */}
+          {studioMode === "audio" && (
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Lip Sync</div>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: "0 0 10px", lineHeight: 1.6 }}>
+                Select a source video with a visible face below using the <strong style={{ color: "#c4b5fd" }}>⟳ Extend</strong> button (also works for Lip Sync), or paste a video URL below.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Video URL</label>
+                <input
+                  type="text"
+                  placeholder="https://…"
+                  value={sourceVideoUrl}
+                  onChange={e => setSourceVideoUrl(e.target.value)}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "8px 10px", color: "#fff", fontSize: 12, outline: "none" }}
+                />
+                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Text to speak</label>
+                <textarea
+                  placeholder="The text the person will say…"
+                  rows={3}
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "8px 10px", color: "#fff", fontSize: 13, resize: "none", outline: "none", lineHeight: 1.6 }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Prompt */}
+          {studioMode !== "audio" && (
+            <div style={{ position: "relative" }}>
+              <textarea
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
+                placeholder={
+                  studioMode === "extend" ? "Optional continuation prompt…" :
+                  studioMode === "directed" && directedSub === "start_end_frame" ? "Describe what happens between the start and end frames…" :
+                  studioMode === "directed" ? "Describe what happens after the start frame…" :
+                  "Describe your video scene…"
+                }
+                rows={4}
+                style={{
+                  width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 14, resize: "vertical",
+                  outline: "none", lineHeight: 1.7, boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                <button
+                  onClick={() => setShowNegPrompt(!showNegPrompt)}
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  {showNegPrompt ? "▾" : "▸"} Negative prompt
+                </button>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>⌘↵ to generate</span>
+              </div>
+              {showNegPrompt && (
+                <textarea
+                  value={negPrompt}
+                  onChange={e => setNegPrompt(e.target.value)}
+                  placeholder="Elements to avoid (e.g. blur, watermark, text)…"
+                  rows={2}
+                  style={{
+                    width: "100%", marginTop: 6, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 8, padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontSize: 12, resize: "none",
+                    outline: "none", lineHeight: 1.6, boxSizing: "border-box",
+                  }}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button
+            onClick={handleGenerate}
+            disabled={!canGenerate && !!user}
+            style={{
+              padding: "14px 0", borderRadius: 10, border: "none", cursor: canGenerate ? "pointer" : "default",
+              background: canGenerate
+                ? "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)"
+                : "rgba(255,255,255,0.06)",
+              color: canGenerate ? "#fff" : "rgba(255,255,255,0.3)",
+              fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", transition: "all 0.2s",
+              boxShadow: canGenerate ? "0 0 24px rgba(139,92,246,0.3)" : "none",
+            }}
+          >
+            {generating
+              ? "Generating…"
+              : blockedReason
+                ? blockedReason
+                : `Generate  +${creditCost} cr`}
+          </button>
+
+          {/* Results */}
+          {videos.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+                Results
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+                {videos.map(v => (
+                  <VideoCard
+                    key={v.id}
+                    video={v}
+                    onRetry={() => handleRetry(v.id)}
+                    onExtend={handleExtendVideo}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {videos.length === 0 && !generating && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 12, color: "rgba(255,255,255,0.2)" }}>
+              <span style={{ fontSize: 48, opacity: 0.3 }}>🎬</span>
+              <p style={{ fontSize: 14, margin: 0 }}>Your generated videos will appear here</p>
+              <p style={{ fontSize: 12, margin: 0, opacity: 0.7 }}>Write a prompt and click Generate to start</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function VideoStudioPage() {
   return (
     <Suspense fallback={
-      <div style={{
-        position: "fixed", top: 64, left: 0, right: 0, bottom: 0, background: "#0A0A0A",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 40,
-      }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: "50%",
-          border: "3px solid rgba(255,255,255,0.06)",
-          borderTop: "3px solid #0EA5A0",
-          animation: "spin 0.8s linear infinite",
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+        Loading studio…
       </div>
     }>
-      <VideoStudioInner />
+      <VideoStudioContent />
     </Suspense>
   );
 }

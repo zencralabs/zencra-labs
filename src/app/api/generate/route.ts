@@ -95,16 +95,28 @@ export async function POST(req: Request) {
 
     // ── 5. Run generation ──────────────────────────────────────────────────
     const result = await generateContent({
-      mode:            body.mode,
-      prompt:          body.prompt,
-      provider:        body.provider,
-      quality:         body.quality ?? "cinematic",
-      aspectRatio:     body.aspectRatio,
-      durationSeconds: body.durationSeconds,
-      imageUrl:        body.imageUrl,
-      audioUrl:        body.audioUrl,   // was silently dropped — now forwarded
-      voiceId:         body.voiceId,
-      metadata:        body.metadata,
+      mode:              body.mode,
+      prompt:            body.prompt,
+      provider:          body.provider,
+      quality:           body.quality ?? "cinematic",
+      aspectRatio:       body.aspectRatio,
+      durationSeconds:   body.durationSeconds,
+      // Image inputs
+      imageUrl:          body.imageUrl,
+      endImageUrl:       body.endImageUrl,
+      // Video inputs
+      sourceVideoId:     body.sourceVideoId,
+      sourceVideoUrl:    body.sourceVideoUrl,
+      // Motion/reference
+      referenceVideoUrl: body.referenceVideoUrl,
+      // Audio
+      audioUrl:          body.audioUrl,
+      voiceId:           body.voiceId,
+      // Provider controls
+      videoMode:         body.videoMode,
+      cameraControl:     body.cameraControl,
+      operationType:     body.operationType,
+      metadata:          body.metadata,
     });
 
     // ── 6. Persist generation record ───────────────────────────────────────
