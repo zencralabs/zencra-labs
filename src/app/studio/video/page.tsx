@@ -561,9 +561,6 @@ function VideoStudioContent() {
                       {m.badge}
                     </span>
                   )}
-                  {!m.available && m.comingSoon && (
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#7c6b3a", borderRadius: 4, padding: "2px 5px", letterSpacing: "0.06em" }}>SOON</span>
-                  )}
                 </button>
               ))}
             </div>
