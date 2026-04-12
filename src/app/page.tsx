@@ -283,13 +283,14 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="w-full leading-[1.15] tracking-tight"
-            style={{ fontSize: "clamp(1.6rem, 3vw, 2.8rem)", fontWeight: 800 }}
+            className="leading-[1.2] tracking-tight"
+            style={{ fontSize: "clamp(1.4rem, 2.2vw, 2.4rem)", fontWeight: 800 }}
           >
-            <span style={{ display: "block" }}>Create Cinematic AI Videos</span>
+            <span style={{ display: "block", whiteSpace: "nowrap" }}>Create Cinematic AI Videos</span>
             <span
               style={{
                 display: "block",
+                whiteSpace: "nowrap",
                 background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 50%, #A855F7 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",

@@ -77,7 +77,7 @@ const navDropdowns = {
       { icon: Zap,   label: "Voice Clone",   desc: "Clone any voice",            badge: "SOON", href: "#" },
       { icon: Music, label: "Sound Effects", desc: "Generate custom SFX",        badge: "SOON", href: "#" },
     ],
-    models: getNavModels("audio", 4),
+    models: getToolsByCategory("audio").filter(t => t.id !== "suno-ai").slice(0, 3),
   },
   Character: {
     color: "#F59E0B",
@@ -95,14 +95,14 @@ const navDropdowns = {
 
 type DropdownKey = keyof typeof navDropdowns;
 
-const navLinks = [
-  { label: "Explore",    href: "/",             hasDropdown: false },
-  { label: "Image",      href: "/studio/image", hasDropdown: true  },
-  { label: "Video",      href: "/studio/video", hasDropdown: true  },
-  { label: "Audio",      href: "/studio/audio", hasDropdown: true  },
-  { label: "Character",  href: "#",             hasDropdown: true  },
-  { label: "Gallery",    href: "/gallery",      hasDropdown: false },
-  { label: "Pricing",    href: "/pricing",      hasDropdown: false },
+const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropdownKey?: DropdownKey }> = [
+  { label: "Explore",       href: "/",             hasDropdown: false },
+  { label: "Create Image",  href: "/studio/image", hasDropdown: true,  dropdownKey: "Image"     },
+  { label: "Create Video",  href: "/studio/video", hasDropdown: true,  dropdownKey: "Video"     },
+  { label: "Audio",         href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
+  { label: "Character",     href: "#",             hasDropdown: true,  dropdownKey: "Character" },
+  { label: "Gallery",       href: "/gallery",      hasDropdown: false },
+  { label: "Pricing",       href: "/pricing",      hasDropdown: false },
 ];
 
 // ── Standard Dropdown ─────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ export function Navbar() {
             <ul className="hidden items-center gap-0.5 lg:flex">
               {navLinks.map((link) => {
                 const isDropdown = link.hasDropdown;
-                const dropKey = link.label as DropdownKey;
+                const dropKey = (link.dropdownKey ?? link.label) as DropdownKey;
                 const dropData = isDropdown && dropKey in navDropdowns ? navDropdowns[dropKey] : null;
                 const isActive = activeDropdown === dropKey;
 
