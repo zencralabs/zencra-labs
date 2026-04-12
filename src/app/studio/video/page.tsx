@@ -249,7 +249,7 @@ function VideoStudioInner() {
       }
 
       const data = await res.json();
-      if (!res.ok || !data.data?.url) throw new Error(data.error ?? "Video generation failed");
+      if (!res.ok || !data.data?.url) throw new Error(data.data?.error ?? data.error ?? "Video generation failed");
 
       setVideos(prev =>
         prev.map(v =>

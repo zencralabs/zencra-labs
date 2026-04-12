@@ -490,7 +490,8 @@ function ImageStudioInner() {
         }
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Generation failed");
+        // data.data?.error holds the real provider error; data.error is a top-level fallback
+        if (!res.ok) throw new Error(data.data?.error ?? data.error ?? "Generation failed");
 
         // ── Synchronous success (DALL-E, etc.) ─────────────────────────────
         if (data.data?.url) {
@@ -512,15 +513,17 @@ function ImageStudioInner() {
             : {};
 
           const POLL_INTERVAL = 4_000;   // 4 s between polls
-          const POLL_TIMEOUT  = 180_000; // give up after 3 min
+          const POLL_TIMEOUT  = 300_000; // give up after 5 min (NB Pro can take 3–5 min)
           const deadline      = Date.now() + POLL_TIMEOUT;
 
-          let resolved = false;
+          let resolved        = false;
+          let generationErr: Error | null = null;
+
           while (Date.now() < deadline) {
             await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 
             try {
-              const statusRes = await fetch(
+              const statusRes  = await fetch(
                 `/api/generate/status/${providerKey}/${generationId}`,
                 { headers: { "Content-Type": "application/json", ...authHeader } }
               );
@@ -539,24 +542,23 @@ function ImageStudioInner() {
               }
 
               if (statusData.data?.status === "error") {
-                throw new Error(statusData.data?.error ?? "Generation failed");
+                // Terminal failure from provider — stop polling immediately
+                generationErr = new Error(statusData.data?.error ?? "Generation failed");
+                break;
               }
               // status === "pending" → keep polling
-            } catch (pollErr) {
-              if (pollErr instanceof Error && pollErr.message !== "Generation failed") {
-                // transient network error — keep retrying
-                continue;
-              }
-              throw pollErr;
+            } catch {
+              // Transient network/parse error — silently retry until deadline
             }
           }
 
+          if (generationErr) throw generationErr;
           if (!resolved) throw new Error("Generation timed out. The image may still be processing.");
           continue;
         }
 
         // ── Unexpected: no url and not pending ─────────────────────────────
-        throw new Error(data.error ?? "Generation failed — no image returned");
+        throw new Error(data.data?.error ?? data.error ?? "Generation failed — no image returned");
       } catch (err) {
         setImages((prev) =>
           prev.map((img) =>
