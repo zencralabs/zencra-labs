@@ -284,7 +284,7 @@ export default function HomePage() {
           {/* Headline */}
           <h1
             className="leading-[1.2] tracking-tight"
-            style={{ fontSize: "clamp(1.4rem, 2.2vw, 2.4rem)", fontWeight: 800 }}
+            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800 }}
           >
             <span style={{ display: "block", whiteSpace: "nowrap" }}>Create Cinematic AI Videos</span>
             <span
