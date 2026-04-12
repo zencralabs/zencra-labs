@@ -375,11 +375,15 @@ async function generateImageToVideo(
     ` endFrame=${hasEndFrame} camera=${!!input.cameraControl}`
   );
 
+  // Start+end frame uses a dedicated endpoint; start-frame-only uses image2video
+  const submitPath = hasEndFrame ? "/v1/videos/image2video-frames" : "/v1/videos/image2video";
+  const statusPath = hasEndFrame ? "/v1/videos/image2video-frames" : "/v1/videos/image2video";
+
   const resultData = await submitAndPoll({
     apiBase,
     token,
-    submitPath:   "/v1/videos/image2video",
-    statusPath:   "/v1/videos/image2video",
+    submitPath,
+    statusPath,
     payload,
     operationTag: hasEndFrame ? "I2V+EndFrame" : "I2V",
   });
@@ -421,23 +425,24 @@ async function generateVideoExtend(
 
   const duration = (input.durationSeconds ?? 5) >= 10 ? "10" : "5";
 
+  // Official Kling API: task_id is the Kling task ID from a previous generation
   const payload: Record<string, unknown> = {
-    model_name: apiModel,
-    duration,
+    task_id:  videoId || undefined,
+    cfg_scale: 0.5,
   };
-  if (videoId)  payload.video_id  = videoId;
-  if (videoUrl) payload.video_url = videoUrl;
+  if (!videoId && videoUrl) payload.video_url = videoUrl;
   if (input.normalizedPrompt.transformed) {
-    payload.prompt = input.normalizedPrompt.transformed;
+    payload.prompt          = input.normalizedPrompt.transformed;
+    payload.negative_prompt = input.normalizedPrompt.negativePrompt ?? "";
   }
 
-  console.log(`[kling] Extend: model=${apiModel} videoId=${videoId || "(url)"} duration=${duration}s`);
+  console.log(`[kling] Extend: model=${apiModel} taskId=${videoId || "(url)"} duration=${duration}s`);
 
   const resultData = await submitAndPoll({
     apiBase,
     token,
-    submitPath:   "/v1/videos/video-extend/create",
-    statusPath:   "/v1/videos/video-extend",
+    submitPath:   "/v1/videos/extend",
+    statusPath:   "/v1/videos/extend",
     payload,
     operationTag: "Extend",
   });
@@ -476,35 +481,35 @@ async function generateLipSync(
     throw new Error("A source video with a visible face is required for Lip Sync.");
   }
 
-  const audioType = input.audioUrl ? "audio_upload" : "ai_tts";
+  // Official Kling API lipsync params:
+  //   origin_task_id  — Kling task ID of the source video
+  //   video_url       — direct URL if no task ID
+  //   tts_text        — text to speak (TTS mode)
+  //   tts_timbre      — voice ID (TTS mode)
+  //   local_dubbing_url — uploaded audio URL (audio mode)
+  const payload: Record<string, unknown> = {};
 
-  const audioPayload: Record<string, unknown> = { type: audioType };
-  if (audioType === "audio_upload" && input.audioUrl) {
-    audioPayload.audio_url = input.audioUrl;
-  } else if (audioType === "ai_tts") {
-    if (input.voiceId) audioPayload.voice_id = input.voiceId;
+  if (videoId)  payload.origin_task_id = videoId;
+  if (videoUrl) payload.video_url = videoUrl;
+
+  if (input.audioUrl) {
+    // Audio file provided — use dubbing mode
+    payload.local_dubbing_url = input.audioUrl;
+  } else {
+    // TTS mode — use text + voice
     if (input.normalizedPrompt.transformed) {
-      audioPayload.voice_text = input.normalizedPrompt.transformed;
+      payload.tts_text = input.normalizedPrompt.transformed;
     }
+    if (input.voiceId) payload.tts_timbre = input.voiceId;
   }
 
-  const inputPayload: Record<string, unknown> = {};
-  if (videoId)  inputPayload.video_id  = videoId;
-  if (videoUrl) inputPayload.video_url = videoUrl;
-
-  const payload: Record<string, unknown> = {
-    model_name: apiModel,
-    input:      inputPayload,
-    audio:      audioPayload,
-  };
-
-  console.log(`[kling] LipSync: model=${apiModel} videoId=${videoId || "(url)"} audioType=${audioType}`);
+  console.log(`[kling] LipSync: videoId=${videoId || "(url)"} mode=${input.audioUrl ? "dubbing" : "tts"}`);
 
   const resultData = await submitAndPoll({
     apiBase,
     token,
-    submitPath:   "/v1/videos/lip-sync/create",
-    statusPath:   "/v1/videos/lip-sync",
+    submitPath:   "/v1/videos/lipsync",
+    statusPath:   "/v1/videos/lipsync",
     payload,
     operationTag: "LipSync",
   });
