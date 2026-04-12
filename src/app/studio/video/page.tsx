@@ -7,10 +7,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import {
   VIDEO_MODEL_REGISTRY,
   getVideoModel,
-  getModelsForOperation,
   CAMERA_PRESET_LABELS,
-  type VideoModel,
-  type VideoOperationType,
   type CameraPreset,
 } from "@/lib/ai/video-model-registry";
 
@@ -18,9 +15,7 @@ import {
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StudioMode = "standard" | "directed" | "extend" | "audio";
-
-type DirectedSubMode = "start_frame" | "start_end_frame";
+type StudioMode = "standard" | "start_frame" | "start_end" | "extend" | "audio";
 
 type VideoAspectRatio = "16:9" | "9:16" | "1:1";
 type VideoDuration = 5 | 10;
@@ -268,7 +263,6 @@ function VideoStudioContent() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [videos,        setVideos]        = useState<GeneratedVideo[]>([]);
   const [studioMode,    setStudioMode]    = useState<StudioMode>("standard");
-  const [directedSub,   setDirectedSub]   = useState<DirectedSubMode>("start_frame");
   const [model,         setModel]         = useState(initialModel);
   const [prompt,        setPrompt]        = useState(searchParams.get("prompt") ?? "");
   const [negPrompt,     setNegPrompt]     = useState("");
@@ -295,10 +289,10 @@ function VideoStudioContent() {
     if (generating) return "Generating…";
     if (!modelDef?.available) return "Model unavailable";
 
-    if (studioMode === "standard" || studioMode === "directed") {
-      const needsStart = studioMode === "directed";
-      if (needsStart && !startSlot.url) return "Upload a start frame image";
-      if (directedSub === "start_end_frame" && !endSlot.url) return "Upload an end frame image";
+    if (studioMode === "start_frame" && !startSlot.url) return "Upload a start frame image";
+    if (studioMode === "start_end") {
+      if (!startSlot.url) return "Upload a start frame image";
+      if (!endSlot.url)   return "Upload an end frame image";
     }
 
     if (studioMode === "extend") {
@@ -315,12 +309,10 @@ function VideoStudioContent() {
 
   // ── Determine operation type ───────────────────────────────────────────────
   function resolveOperationType(): string {
-    if (studioMode === "extend")  return "extend_video";
-    if (studioMode === "audio")   return "lip_sync";
-    if (studioMode === "directed") {
-      if (directedSub === "start_end_frame") return "start_end_frame";
-      return "start_frame";
-    }
+    if (studioMode === "extend")     return "extend_video";
+    if (studioMode === "audio")      return "lip_sync";
+    if (studioMode === "start_end")  return "start_end_frame";
+    if (studioMode === "start_frame") return "start_frame";
     if (startSlot.url) return "image_to_video";
     return "text_to_video";
   }
@@ -394,7 +386,7 @@ function VideoStudioContent() {
         provider:      "kling",
         prompt:        prompt || " ",
         quality:       "cinematic",
-        aspectRatio:   studioMode === "directed" || studioMode === "standard" && !startSlot.url ? aspectRatio : undefined,
+        aspectRatio:   studioMode === "standard" && !startSlot.url ? aspectRatio : undefined,
         durationSeconds: duration,
         videoMode,
         operationType: operation,
@@ -461,11 +453,12 @@ function VideoStudioContent() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
-  const STUDIO_MODES: { id: StudioMode; label: string; icon: string }[] = [
-    { id: "standard", label: "Standard",   icon: "✦" },
-    { id: "directed", label: "Directed",   icon: "◈" },
-    { id: "extend",   label: "Extend",     icon: "⟳" },
-    { id: "audio",    label: "Lip Sync",   icon: "🎙" },
+  const STUDIO_MODES: { id: StudioMode; label: string; icon: string; disabled?: boolean }[] = [
+    { id: "standard",    label: "Standard",    icon: "✦" },
+    { id: "start_frame", label: "Start Frame", icon: "▶" },
+    { id: "start_end",   label: "Start + End", icon: "⇥", disabled: !caps?.endFrame },
+    { id: "extend",      label: "Extend",      icon: "⟳" },
+    { id: "audio",       label: "Lip Sync",    icon: "🎙" },
   ];
 
   return (
@@ -476,55 +469,28 @@ function VideoStudioContent() {
         {/* ── LEFT: Controls ──────────────────────────────────────────── */}
         <div className="studio-left-panel">
 
-          {/* Direction Type — shown first when Directed mode is active */}
-          {studioMode === "directed" && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Direction Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                {[
-                  { id: "start_frame" as DirectedSubMode,     label: "Start Frame" },
-                  { id: "start_end_frame" as DirectedSubMode, label: "Start + End" },
-                ].map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => setDirectedSub(s.id)}
-                    disabled={s.id === "start_end_frame" && !caps?.endFrame}
-                    style={{
-                      padding: "7px 5px", borderRadius: 7, fontSize: 11, cursor: s.id === "start_end_frame" && !caps?.endFrame ? "default" : "pointer",
-                      border: directedSub === s.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                      background: directedSub === s.id ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)",
-                      color: s.id === "start_end_frame" && !caps?.endFrame ? "rgba(255,255,255,0.2)" : directedSub === s.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
-                    }}
-                  >{s.label}</button>
-                ))}
-              </div>
-              {directedSub === "start_end_frame" && !caps?.endFrame && (
-                <p style={{ fontSize: 10, color: "rgba(255,165,0,0.7)", marginTop: 4, margin: "4px 0 0" }}>
-                  End frame requires Kling 3.0 or 2.6
-                </p>
-              )}
-            </div>
-          )}
-
           {/* Mode Switcher */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Mode</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
               {STUDIO_MODES.map(m => (
                 <button
                   key={m.id}
-                  onClick={() => setStudioMode(m.id)}
+                  onClick={() => !m.disabled && setStudioMode(m.id)}
+                  disabled={m.disabled}
+                  title={m.disabled ? "Requires Kling 3.0 or 2.6" : undefined}
                   style={{
-                    padding: "6px 4px",
-                    borderRadius: 7,
+                    padding: "8px 6px",
+                    borderRadius: 8,
                     border: studioMode === m.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)",
                     background: studioMode === m.id ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)",
-                    color: studioMode === m.id ? "#7EDDD9" : "rgba(255,255,255,0.45)",
-                    fontSize: 11, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
+                    color: m.disabled ? "rgba(255,255,255,0.2)" : studioMode === m.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
+                    fontSize: 12, cursor: m.disabled ? "default" : "pointer",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
                   }}
                 >
-                  <span style={{ fontSize: 12 }}>{m.icon}</span>
-                  <span style={{ fontSize: 10 }}>{m.label}</span>
+                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <span>{m.label}</span>
                 </button>
               ))}
             </div>
@@ -581,7 +547,7 @@ function VideoStudioContent() {
           </div>
 
           {/* Aspect Ratio (T2V only) */}
-          {(studioMode === "standard" && !startSlot.url) || studioMode === "directed" ? null : studioMode === "standard" && (
+          {studioMode === "standard" && startSlot.url ? null : studioMode === "standard" && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Aspect Ratio</div>
               <div style={{ display: "flex", gap: 5 }}>
@@ -616,7 +582,7 @@ function VideoStudioContent() {
           )}
 
           {/* Camera Control */}
-          {caps?.cameraControl && (studioMode === "standard" || studioMode === "directed") && (
+          {caps?.cameraControl && (studioMode === "standard" || studioMode === "start_frame" || studioMode === "start_end") && (
             <div>
               <button
                 onClick={() => setShowCamera(!showCamera)}
@@ -674,8 +640,19 @@ function VideoStudioContent() {
             </div>
           )}
 
-          {/* Directed mode: start frame + optional end frame */}
-          {studioMode === "directed" && (
+          {/* Start Frame mode */}
+          {studioMode === "start_frame" && (
+            <ImageUploadSlot
+              label="Start Frame"
+              hint="How the shot begins — required"
+              slot={startSlot}
+              onFile={f => handleSlotFile("start", f)}
+              onClear={() => clearSlot("start")}
+            />
+          )}
+
+          {/* Start + End Frame mode */}
+          {studioMode === "start_end" && (
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <ImageUploadSlot
@@ -686,20 +663,15 @@ function VideoStudioContent() {
                   onClear={() => clearSlot("start")}
                 />
               </div>
-              {directedSub === "start_end_frame" && (
-                <div style={{ flex: 1 }}>
-                  <ImageUploadSlot
-                    label="End Frame"
-                    hint="How the shot resolves — required"
-                    slot={endSlot}
-                    onFile={f => handleSlotFile("end", f)}
-                    onClear={() => clearSlot("end")}
-                  />
-                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "6px 0 0", lineHeight: 1.5 }}>
-                    The prompt describes what happens between these two frames.
-                  </p>
-                </div>
-              )}
+              <div style={{ flex: 1 }}>
+                <ImageUploadSlot
+                  label="End Frame"
+                  hint="How the shot resolves — required"
+                  slot={endSlot}
+                  onFile={f => handleSlotFile("end", f)}
+                  onClear={() => clearSlot("end")}
+                />
+              </div>
             </div>
           )}
 
@@ -759,9 +731,9 @@ function VideoStudioContent() {
                 onChange={e => setPrompt(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
                 placeholder={
-                  studioMode === "extend" ? "Optional continuation prompt…" :
-                  studioMode === "directed" && directedSub === "start_end_frame" ? "Describe what happens between the start and end frames…" :
-                  studioMode === "directed" ? "Describe what happens after the start frame…" :
+                  studioMode === "extend"      ? "Optional continuation prompt…" :
+                  studioMode === "start_end"   ? "Describe what happens between the start and end frames…" :
+                  studioMode === "start_frame" ? "Describe what happens after the start frame…" :
                   "Describe your video scene…"
                 }
                 rows={4}
