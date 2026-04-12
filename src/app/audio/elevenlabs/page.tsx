@@ -1,4 +1,5 @@
-import { ToolCreatorPage } from "@/components/ui/ToolCreatorPage";
+import { redirect } from "next/navigation";
+
 export default function ElevenLabsPage() {
-  return <ToolCreatorPage toolName="ElevenLabs" category="Audio" tagline="Most Expressive AI Voice Generation" description="ElevenLabs produces the most natural and emotionally expressive AI voiceovers available. Perfect for narration, character voices, dubbing, and professional-grade audio production." color="#A855F7" gradient="linear-gradient(160deg, #0d0d1a 0%, #2d1b69 60%, #a855f7 100%)" features={["Natural voice quality","Emotional expressiveness","29+ languages","Voice cloning","Studio-quality output"]} promptPlaceholder="Type your script here and ElevenLabs will convert it to a natural, expressive voiceover..." exampleOutputs={[{gradient:"linear-gradient(160deg,#0d0d1a,#2d1b69,#a855f7)",label:"Narration"},{gradient:"linear-gradient(160deg,#0f0a1a,#3b1580,#c084fc)",label:"Character"},{gradient:"linear-gradient(160deg,#0a0a18,#251560,#8b5cf6)",label:"Commercial"},{gradient:"linear-gradient(160deg,#0d0b1a,#2a1665,#d8b4fe)",label:"Podcast"}]} />;
+  redirect("/studio/audio?tool=voiceover");
 }

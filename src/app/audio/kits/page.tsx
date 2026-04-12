@@ -1,4 +1,5 @@
-import { ToolCreatorPage } from "@/components/ui/ToolCreatorPage";
+import { redirect } from "next/navigation";
+
 export default function KitsPage() {
-  return <ToolCreatorPage toolName="Kits AI" category="Audio" tagline="AI Voice Transformation" description="Kits AI is the leading platform for voice transformation and cloning. Transform your voice into any style, clone reference voices, and produce unique vocal performances for any creative project." color="#F97316" gradient="linear-gradient(160deg, #1a1206 0%, #3d1f04 60%, #f97316 100%)" features={["Voice transformation","Voice cloning","Style transfer","Real-time processing","Custom voice models"]} promptPlaceholder="Describe the voice style or transformation you want to create..." exampleOutputs={[{gradient:"linear-gradient(160deg,#1a1206,#3d1f04,#f97316)",label:"Transform"},{gradient:"linear-gradient(160deg,#1a1006,#3a1c04,#fb923c)",label:"Clone"},{gradient:"linear-gradient(160deg,#180e04,#371a04,#f97316)",label:"Style"},{gradient:"linear-gradient(160deg,#1a1004,#3c1c04,#fdba74)",label:"Custom"}]} />;
+  redirect("/studio/audio?tool=voice-convert");
 }
