@@ -479,8 +479,8 @@ function VideoStudioContent() {
           {/* Direction Type — shown first when Directed mode is active */}
           {studioMode === "directed" && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Direction Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Direction Type</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
                 {[
                   { id: "start_frame" as DirectedSubMode,     label: "Start Frame" },
                   { id: "start_end_frame" as DirectedSubMode, label: "Start + End" },
@@ -508,23 +508,23 @@ function VideoStudioContent() {
 
           {/* Mode Switcher */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Mode</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 4 }}>
               {STUDIO_MODES.map(m => (
                 <button
                   key={m.id}
                   onClick={() => setStudioMode(m.id)}
                   style={{
-                    padding: "8px 6px",
-                    borderRadius: 8,
+                    padding: "6px 4px",
+                    borderRadius: 7,
                     border: studioMode === m.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)",
                     background: studioMode === m.id ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)",
-                    color: studioMode === m.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
-                    fontSize: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
+                    color: studioMode === m.id ? "#7EDDD9" : "rgba(255,255,255,0.45)",
+                    fontSize: 11, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>{m.icon}</span>
-                  <span>{m.label}</span>
+                  <span style={{ fontSize: 12 }}>{m.icon}</span>
+                  <span style={{ fontSize: 10 }}>{m.label}</span>
                 </button>
               ))}
             </div>
@@ -532,32 +532,37 @@ function VideoStudioContent() {
 
           {/* Model Picker */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Model</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Model</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {VIDEO_MODEL_REGISTRY.map(m => (
                 <button
                   key={m.id}
                   onClick={() => m.available && setModel(m.id)}
                   disabled={!m.available}
                   style={{
-                    padding: "9px 10px",
-                    borderRadius: 9,
+                    padding: "6px 10px",
+                    borderRadius: 8,
                     border: model === m.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)",
                     background: model === m.id ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)",
                     color: !m.available ? "rgba(255,255,255,0.25)" : model === m.id ? "#CCEFEE" : "rgba(255,255,255,0.7)",
-                    fontSize: 13, cursor: m.available ? "pointer" : "default",
+                    fontSize: 12, cursor: m.available ? "pointer" : "default",
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     transition: "all 0.15s",
                   }}
                 >
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                    <span style={{ fontWeight: 500 }}>{m.displayName}</span>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.description.split(" — ")[0]}</span>
+                    <span style={{ fontWeight: 500, fontSize: 12 }}>{m.displayName}</span>
+                    {m.available && (
+                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.description.split(" — ")[0]}</span>
+                    )}
                   </div>
                   {m.badge && (
                     <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: m.badgeColor ?? "#555", borderRadius: 4, padding: "2px 5px", letterSpacing: "0.06em" }}>
                       {m.badge}
                     </span>
+                  )}
+                  {!m.available && m.comingSoon && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: "#7c6b3a", borderRadius: 4, padding: "2px 5px", letterSpacing: "0.06em" }}>SOON</span>
                   )}
                 </button>
               ))}
@@ -566,13 +571,13 @@ function VideoStudioContent() {
 
           {/* Duration */}
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Duration</div>
-            <div style={{ display: "flex", gap: 5 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Duration</div>
+            <div style={{ display: "flex", gap: 4 }}>
               {DURATION_OPTIONS.map(d => (
                 <button
                   key={d}
                   onClick={() => setDuration(d)}
-                  style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 13, cursor: "pointer", border: duration === d ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: duration === d ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: duration === d ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: duration === d ? 600 : 400 }}
+                  style={{ flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: duration === d ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: duration === d ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: duration === d ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: duration === d ? 600 : 400 }}
                 >{d}s</button>
               ))}
             </div>
@@ -600,21 +605,16 @@ function VideoStudioContent() {
           {/* Mode: std / pro */}
           {caps?.proMode && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Quality</div>
-              <div style={{ display: "flex", gap: 5 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Quality</div>
+              <div style={{ display: "flex", gap: 4 }}>
                 {(["std", "pro"] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => setVideoMode(m)}
-                    style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: videoMode === m ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: videoMode === m ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: videoMode === m ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: videoMode === m ? 600 : 400 }}
+                    style={{ flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: videoMode === m ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: videoMode === m ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: videoMode === m ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: videoMode === m ? 600 : 400 }}
                   >{m === "std" ? "Standard" : "Pro"}</button>
                 ))}
               </div>
-              {videoMode === "pro" && (
-                <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", margin: "4px 0 0" }}>
-                  Pro uses more credits but improves motion quality
-                </p>
-              )}
             </div>
           )}
 
@@ -646,12 +646,12 @@ function VideoStudioContent() {
           )}
 
           {/* Credit estimate */}
-          <div style={{ background: "rgba(14,165,160,0.07)", border: "1px solid rgba(14,165,160,0.15)", borderRadius: 9, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Estimated Cost</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#7EDDD9" }}>
+          <div style={{ background: "rgba(14,165,160,0.07)", border: "1px solid rgba(14,165,160,0.15)", borderRadius: 9, padding: "8px 12px" }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 1 }}>Estimated Cost</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#7EDDD9" }}>
               {creditCost} credits
             </div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>
               {duration}s · {videoMode === "pro" ? "Pro" : "Standard"} · {modelDef?.displayName}
             </div>
           </div>
@@ -858,12 +858,17 @@ function VideoStudioContent() {
           box-sizing: border-box;
         }
         .studio-left-panel {
-          width: 280px;
+          width: 260px;
           flex-shrink: 0;
-          padding-top: 20px;
+          padding-top: 16px;
+          padding-bottom: 20px;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 10px;
+          max-height: calc(100vh - 80px);
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(14,165,160,0.3) transparent;
         }
         .studio-center-panel {
           flex: 1;
