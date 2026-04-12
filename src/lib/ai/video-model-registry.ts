@@ -101,7 +101,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     displayName: "Kling 3.0",
     description: "Flagship cinematic model — best motion quality and realism",
     badge:       "HOT",
-    badgeColor:  "#DC2626",
+    badgeColor:  "#0EA5A0",
     available:   true,
     comingSoon:  false,
     capabilities: {
