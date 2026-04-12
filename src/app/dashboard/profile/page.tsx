@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { User, Mail, Phone, Calendar, Camera, Save, CheckCircle, Loader2, Lock } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROFILE PAGE — Edit personal info, persists to Supabase
@@ -23,16 +24,55 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
-
-  const [name,        setName]       = useState(user?.name ?? "");
-  const [selectedGrad, setSelGrad]  = useState(user?.avatarColor ?? 0);
-  const [saveState,   setSaveState]  = useState<SaveState>("idle");
-  const [errorMsg,    setErrorMsg]   = useState("");
+  const [name,          setName]       = useState(user?.name ?? "");
+  const [selectedGrad,  setSelGrad]    = useState(user?.avatarColor ?? 0);
+  const [saveState,     setSaveState]  = useState<SaveState>("idle");
+  const [errorMsg,      setErrorMsg]   = useState("");
+  const [avatarUrl,     setAvatarUrl]  = useState<string | null>(user?.avatarUrl ?? null);
+  const [uploadingAvatar, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const authHeader = useCallback((): Record<string, string> => {
     if (!user?.accessToken) return {};
     return { Authorization: `Bearer ${user.accessToken}` };
   }, [user?.accessToken]);
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setAvatarUrl(localUrl);
+    setUploading(true);
+
+    try {
+      const ext      = file.name.split(".").pop() ?? "jpg";
+      const path     = `avatars/${user.id}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (upErr) throw upErr;
+
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      setAvatarUrl(publicUrl);
+
+      // Persist to profile
+      await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify({ avatar_url: publicUrl }),
+      });
+      await refreshUser();
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+      setAvatarUrl(user.avatarUrl ?? null);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   if (!user) return null;
 
@@ -87,14 +127,19 @@ export default function ProfilePage() {
         <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--page-text)", margin: "0 0 20px" }}>Avatar</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           {/* Current avatar */}
-          <div style={{ position: "relative" }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: AVATAR_COLORS[selectedGrad], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff" }}>
-              {initials}
-            </div>
-            <div style={{ position: "absolute", bottom: 0, right: 0, width: 22, height: 22, borderRadius: "50%", backgroundColor: "var(--page-bg-2)", border: "2px solid #080E1C", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Camera size={10} style={{ color: "#64748B" }} />
+          <div style={{ position: "relative", cursor: "pointer" }} onClick={() => fileInputRef.current?.click()}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.1)" }} />
+            ) : (
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: AVATAR_COLORS[selectedGrad], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: "#fff" }}>
+                {initials}
+              </div>
+            )}
+            <div style={{ position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: "50%", backgroundColor: "#2563EB", border: "2px solid var(--page-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {uploadingAvatar ? <Loader2 size={10} style={{ color: "#fff", animation: "spin 0.8s linear infinite" }} /> : <Camera size={10} style={{ color: "#fff" }} />}
             </div>
           </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
           {/* Color options */}
           <div>
             <p style={{ fontSize: 11, color: "#64748B", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Choose Color</p>

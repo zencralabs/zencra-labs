@@ -66,19 +66,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         display: "flex", flexDirection: "column",
         position: "sticky", top: "64px", height: "calc(100vh - 64px)", overflowY: "auto",
       }}>
-        {/* Logo */}
-        <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-            <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "linear-gradient(135deg,#2563EB,#0EA5A0)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "14px", color: "#fff", flexShrink: 0 }}>Z</div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: "13px", color: "#F8FAFC", lineHeight: 1 }}>Zencra Labs</div>
-              <div style={{ fontSize: "10px", color: "#475569", marginTop: "2px" }}>Creator Platform</div>
-            </div>
-          </Link>
-        </div>
-
         {/* User card */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#0EA5A0)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", color: "#fff", flexShrink: 0 }}>
               {initials}
@@ -122,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; (e.currentTarget as HTMLElement).style.color = "#64748B"; } }}
                 >
                   <Icon size={16} />
-                  <span style={{ fontSize: "13px" }}>{label}</span>
+                  <span style={{ fontSize: "14px" }}>{label}</span>
                   {active && <ChevronRight size={14} style={{ marginLeft: "auto" }} />}
                 </div>
               </Link>
@@ -154,7 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ── MAIN CONTENT ─────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, overflowY: "auto" }}>
+      <main style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
         <AccountCompletionBanner />
         {children}
       </main>

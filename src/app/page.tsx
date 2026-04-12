@@ -112,6 +112,7 @@ const audienceCards = [
     color: "#2563EB",
     gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 55%, #2563EB 100%)",
     stat: "10× faster than traditional production",
+    videoSrc: "/audience/filmmakers.mp4",
   },
   {
     icon: Users,
@@ -120,6 +121,7 @@ const audienceCards = [
     color: "#0EA5A0",
     gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 55%, #0EA5A0 100%)",
     stat: "For Instagram, TikTok & YouTube",
+    videoSrc: "/audience/creators.mp4",
   },
   {
     icon: Layers,
@@ -128,6 +130,7 @@ const audienceCards = [
     color: "#A855F7",
     gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 55%, #A855F7 100%)",
     stat: "Agency-grade volume & API access",
+    videoSrc: "/audience/agencies.mp4",
   },
 ];
 
@@ -150,7 +153,7 @@ const pricingTiers = [
     description: "Faster generation, higher quality, priority processing.",
     color: "#2563EB",
     features: ["500 credits / month", "4K image quality", "HD video generation", "Lip-sync & voice tools", "Priority queue"],
-    cta: "Start Creating",
+    cta: "Try Free",
     highlight: true,
   },
   {
@@ -397,8 +400,16 @@ export default function HomePage() {
                   {/* 16:9 sample visual at top */}
                   <div
                     className="w-full relative"
-                    style={{ paddingBottom: "42%", background: step.sample, overflow: "hidden" }}
+                    style={{ paddingBottom: "56.25%", background: step.sample, overflow: "hidden" }}
                   >
+                    {/* Video if available */}
+                    <video
+                      autoPlay muted loop playsInline
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+                      onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+                    >
+                      <source src={`/how-it-works/step-${step.num}.mp4`} type="video/mp4" />
+                    </video>
                     <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
                     {/* Step number watermark */}
                     <div
@@ -604,6 +615,15 @@ export default function HomePage() {
               boxShadow: "0 0 100px rgba(168,85,247,0.10), 0 30px 80px rgba(0,0,0,0.5)",
             }}
           >
+            {/* Background video (place /public/cinema/bg.mp4 to activate) */}
+            <video
+              autoPlay muted loop playsInline
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.45 }}
+              onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+            >
+              <source src="/cinema/bg.mp4" type="video/mp4" />
+            </video>
+
             {/* Background glows */}
             <div className="pointer-events-none absolute inset-0" aria-hidden="true">
               <div style={{ position: "absolute", width: "60%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
@@ -739,6 +759,16 @@ export default function HomePage() {
                     (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.4)`;
                   }}
                 >
+                  {/* Background video */}
+                  {card.videoSrc && (
+                    <video
+                      autoPlay muted loop playsInline
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.6 }}
+                      onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+                    >
+                      <source src={card.videoSrc} type="video/mp4" />
+                    </video>
+                  )}
                   {/* Shimmer */}
                   <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
 
@@ -894,7 +924,7 @@ export default function HomePage() {
               (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
             }}
           >
-            Start Creating
+            Try Free
             <ArrowRight size={16} />
           </button>
         </div>

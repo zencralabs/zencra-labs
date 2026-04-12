@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Zap, Star, Building2, Users, ArrowRight } from "lucide-react";
+import { CheckCircle, Zap, Star, Building2, Users, ArrowRight, Clapperboard } from "lucide-react";
 
 // ── Pricing hero slider — 4 clean cinematic gradient cards, no tool labels ────
 // Replace with real <video> clips (16:9, 520×300px) when ready
@@ -47,7 +47,7 @@ const plans = [
     glow: "rgba(37,99,235,0.4)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #1a1040 40%, #1e3a8a 100%)",
     border: "rgba(37,99,235,0.4)",
-    cta: "Start Creating",
+    cta: "Try Free",
     ctaStyle: "gradient",
     badge: "POPULAR",
     badgeBg: "linear-gradient(135deg, #2563EB, #0EA5A0)",
@@ -89,6 +89,33 @@ const plans = [
       "Custom AI creative workflows",
       "Dedicated account manager",
       "API access (coming soon)",
+    ],
+    notIncluded: [],
+  },
+  {
+    id: "cinema",
+    icon: Clapperboard,
+    name: "Future Cinema Studio",
+    price: "99",
+    period: "per month",
+    description: "For filmmakers and agencies who need cinematic AI tools, scene control, and advanced storytelling features.",
+    color: "#A855F7",
+    glow: "rgba(168,85,247,0.4)",
+    gradient: "linear-gradient(135deg, #0F1A32 0%, #1a0d2e 40%, #2d1060 100%)",
+    border: "rgba(168,85,247,0.35)",
+    cta: "Join Waitlist",
+    ctaStyle: "purple-outline",
+    badge: "COMING SOON",
+    badgeBg: "linear-gradient(135deg, #A855F7, #2563EB)",
+    features: [
+      "Everything in Studio",
+      "Scene-based video editing",
+      "Storyboard workflow tools",
+      "Character consistency across scenes",
+      "Shot sequencing & director tools",
+      "Full commercial licence",
+      "Priority API access",
+      "Dedicated account manager",
     ],
     notIncluded: [],
   },

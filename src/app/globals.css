@@ -17,15 +17,15 @@
     --card-hover:       #EBF1F8;
     --border:           #D1DCE9;
     --muted:            #E8EFF6;
-    --muted-foreground: #64748B;
+    --muted-foreground: #475569;
 
     /* Page-level surfaces (used in inline styles) */
     --page-bg:          #F0F4F8;
     --page-bg-2:        #FFFFFF;
     --page-bg-3:        #EBF1F8;
     --page-text:        #0F1A32;
-    --page-text-2:      #475569;
-    --page-text-muted:  #94A3B8;
+    --page-text-2:      #334155;
+    --page-text-muted:  #64748B;
     --border-subtle:    rgba(0,0,0,0.08);
     --border-medium:    rgba(0,0,0,0.12);
 
@@ -54,8 +54,8 @@
     --page-bg-2:        #0A1122;
     --page-bg-3:        #0D1526;
     --page-text:        #F8FAFC;
-    --page-text-2:      #94A3B8;
-    --page-text-muted:  #475569;
+    --page-text-2:      #CBD5E1;
+    --page-text-muted:  #94A3B8;
     --border-subtle:    rgba(255,255,255,0.06);
     --border-medium:    rgba(255,255,255,0.10);
 
@@ -86,8 +86,8 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-body), "Familjen Grotesk", system-ui, sans-serif;
-    font-size: 16px;
-    line-height: 1.65;
+    font-size: 17px;
+    line-height: 1.7;
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
@@ -256,10 +256,20 @@
   /* ── UI font-size scale (Part 2 — readability pass) ────────────────────
      Use these instead of raw text-xs / text-sm in dashboard and tool pages
      to ensure legibility at standard display sizes.                        */
-  .text-ui-xs   { font-size: 0.8125rem;  line-height: 1.5; }   /* 13px — was 11px */
-  .text-ui-sm   { font-size: 0.875rem;   line-height: 1.55; }  /* 14px — was 12px */
-  .text-ui-base { font-size: 0.9375rem;  line-height: 1.6; }   /* 15px — was 13px */
-  .text-ui-md   { font-size: 1rem;       line-height: 1.65; }  /* 16px — was 14px */
+  .text-ui-xs   { font-size: 0.8125rem;  line-height: 1.55; }  /* 13px */
+  .text-ui-sm   { font-size: 0.875rem;   line-height: 1.6; }   /* 14px */
+  .text-ui-base { font-size: 0.9375rem;  line-height: 1.65; }  /* 15px */
+  .text-ui-md   { font-size: 1rem;       line-height: 1.7; }   /* 16px */
+
+  /* ── Improved input/label readability ───────────────────────────────────── */
+  input, textarea, select {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.6;
+  }
+  label {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 500;
+  }
 
   /* ── Light-mode safe hero overlay ──────────────────────────────────────
      Sections with full-bleed dark gradients use a light-mode-aware

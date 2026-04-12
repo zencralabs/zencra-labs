@@ -112,7 +112,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
 
   return (
     <div
-      className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-2xl"
+      className="absolute top-full left-0 z-[200] mt-2 overflow-hidden rounded-2xl"
       style={{
         width: isCharacter ? "600px" : "540px",
         background: "rgba(8,14,28,0.97)",
@@ -375,7 +375,7 @@ export function Navbar() {
   return (
     <>
       <header
-        className="fixed top-0 z-50 w-full transition-all duration-300"
+        className="fixed top-0 z-[100] w-full transition-all duration-300"
         style={{
           backgroundColor: scrolled ? "var(--page-bg)" : "transparent",
           backdropFilter: scrolled ? "blur(20px)" : "none",
@@ -506,7 +506,7 @@ export function Navbar() {
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                   >
                     <Zap size={14} />
-                    Start Creating
+                    Try Free
                   </Link>
                 </>
               )}
@@ -571,7 +571,7 @@ export function Navbar() {
                   style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", border: "none", cursor: "pointer", width: "100%", textDecoration: "none" }}
                 >
                   <Zap size={14} />
-                  Start Creating
+                  Try Free
                 </Link>
               </div>
             </div>

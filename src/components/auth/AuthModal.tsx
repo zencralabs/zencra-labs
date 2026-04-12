@@ -239,8 +239,11 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     e.preventDefault();
     resetErrors();
     if (authMode === "signup") {
-      if (!name.trim())       { setError("Please enter your full name."); return; }
+      if (!name.trim()) { setError("Please enter your full name."); return; }
       if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+      if (!/[A-Z]/.test(password)) { setError("Password must contain at least one uppercase letter."); return; }
+      if (!/[0-9]/.test(password)) { setError("Password must contain at least one number."); return; }
+      if (!/[^A-Za-z0-9]/.test(password)) { setError("Password must contain at least one special character (e.g. !@#$%)."); return; }
     }
     setLoading(true);
     let ok = false;
@@ -453,6 +456,21 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                       </button>
                     }
                   />
+                  {authMode === "signup" && password.length > 0 && (
+                    <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                      {[
+                        { ok: password.length >= 8,          label: "Min 8 characters" },
+                        { ok: /[A-Z]/.test(password),        label: "One uppercase letter" },
+                        { ok: /[0-9]/.test(password),        label: "One number" },
+                        { ok: /[^A-Za-z0-9]/.test(password), label: "One special character" },
+                      ].map(r => (
+                        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                          <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.ok ? "✓" : "○"}</span>
+                          <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {error   && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
@@ -653,20 +671,6 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
               background: `radial-gradient(circle, ${slide.accent}44 0%, transparent 70%)`,
               filter: "blur(35px)",
             }} />
-
-            {/* Zencra watermark top-left */}
-            <div style={{
-              position: "absolute", top: "24px", left: "24px",
-              display: "flex", alignItems: "center", gap: "7px",
-            }}>
-              <div style={{
-                width: "26px", height: "26px", borderRadius: "6px",
-                background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 800, fontSize: "12px", color: "#fff",
-              }}>Z</div>
-              <span style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>Zencra Labs</span>
-            </div>
 
             {/* Bottom content */}
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px" }}>

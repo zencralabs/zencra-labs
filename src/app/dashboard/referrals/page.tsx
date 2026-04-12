@@ -10,7 +10,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 
 const HOW_IT_WORKS = [
   { step: "1", title: "Share your link",     desc: "Copy and share your unique referral link with friends", icon: Share2, color: "#2563EB" },
-  { step: "2", title: "Friend signs up",     desc: "They create a free account using your referral link",   icon: Users,  color: "#A855F7" },
+  { step: "2", title: "Friend signs up",     desc: "They create a free account and purchase any paid plan using your referral link", icon: Users, color: "#A855F7" },
   { step: "3", title: "Both earn credits",   desc: "You get 20 credits, they get 10 bonus welcome credits", icon: Zap,    color: "#10B981" },
 ];
 
@@ -35,8 +35,8 @@ export default function ReferralsPage() {
   return (
     <div style={{ padding: "40px", maxWidth: "820px" }}>
       <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Referrals</h1>
-        <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>Invite friends and earn free credits</p>
+        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Earn 20 credits per paid referral</h1>
+        <p style={{ fontSize: "14px", color: "#64748B", marginTop: "6px" }}>Invite friends and earn free credits every time they subscribe</p>
       </div>
 
       {/* Hero stats */}

@@ -150,7 +150,7 @@ export default function BlogPost1() {
             <p className="mb-4 font-semibold text-white">Ready to try AI video generation?</p>
             <Link href="/signup" className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white"
               style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)" }}>
-              Start Creating Free →
+              Try Free →
             </Link>
           </div>
         </div>
