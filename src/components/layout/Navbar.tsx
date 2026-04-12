@@ -4,45 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Menu, X, ChevronDown, ImageIcon, Music, Wand2, Sparkles, Mic, Zap, Film,
-  Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight, Sun, Moon,
-  Monitor, UserCircle2, Clapperboard, ArrowUpCircle,
+  Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight,
+  UserCircle2, Clapperboard, ArrowUpCircle,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
 import { getNavModels, getToolsByCategory } from "@/lib/tools/catalog";
-
-// ── Theme Toggle — 3-way: Light → Dark → System ───────────────────────────
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return <div style={{ width: "36px", height: "36px" }} />;
-
-  const cycle: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
-  const current = (cycle.includes(theme as "light" | "dark" | "system") ? theme : "system") as "light" | "dark" | "system";
-  const next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
-  const icons = { light: Sun, dark: Moon, system: Monitor } as const;
-  const labels = { light: "Light", dark: "Dark", system: "System" } as const;
-  const Icon = icons[current];
-
-  return (
-    <button
-      onClick={() => setTheme(next)}
-      title={`Theme: ${labels[current]} — click for ${labels[next]}`}
-      style={{
-        width: "36px", height: "36px", borderRadius: "10px", border: "1px solid var(--border-subtle)",
-        background: "var(--page-bg-2)", cursor: "pointer", display: "flex", alignItems: "center",
-        justifyContent: "center", color: "var(--page-text-2)", transition: "all 0.2s", flexShrink: 0,
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "var(--page-text)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-medium)"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "var(--page-text-2)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--border-subtle)"; }}
-    >
-      <Icon size={15} />
-    </button>
-  );
-}
 
 // ── Build nav dropdowns from the catalog ─────────────────────────────────────
 
@@ -457,7 +425,6 @@ export function Navbar() {
 
             {/* Desktop actions */}
             <div className="hidden items-center gap-3 lg:flex">
-              <ThemeToggle />
               {user ? (
                 <>
                   <Link

@@ -18,9 +18,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"        // Default to dark (Zencra's primary look)
-      enableSystem={true}        // Respect OS preference on first visit
-      disableTransitionOnChange  // Prevent flash on theme switch
+      forcedTheme="dark"         // Zencra is dark-only — cinematic video platform
+      enableSystem={false}       // Never inherit OS preference
+      disableTransitionOnChange
     >
       {children}
     </NextThemesProvider>

@@ -78,10 +78,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1A32" },
-  ],
+  themeColor: "#0F1A32",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,7 +90,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       {/*
         suppressHydrationWarning is REQUIRED for next-themes to work correctly.
         It suppresses the mismatch warning caused by theme injection on mount.
