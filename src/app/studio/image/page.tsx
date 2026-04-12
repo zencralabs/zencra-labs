@@ -329,6 +329,7 @@ function ImageStudioInner() {
   const initialModel = CATALOG_TO_STUDIO_MODEL[modelParam] ?? "dalle3";
 
   const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [prompt, setPrompt] = useState(searchParams.get("prompt") ?? "");
   const [model, setModel] = useState(initialModel);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
@@ -366,6 +367,57 @@ function ImageStudioInner() {
     window.addEventListener("mousedown", handle);
     return () => window.removeEventListener("mousedown", handle);
   }, []);
+
+  // ── Load user's image history on mount (once auth is ready) ─────────────────
+  useEffect(() => {
+    if (!user || historyLoaded) return;
+
+    const accessToken = user.accessToken;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/generations/mine?category=image&pageSize=50", {
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+        if (!res.ok) return;
+
+        const json = await res.json();
+        if (!json.success || !Array.isArray(json.data)) return;
+
+        // Map DB rows → GeneratedImage, skip rows without a usable URL
+        const loaded: GeneratedImage[] = (json.data as Array<{
+          id: string;
+          tool: string;
+          prompt: string;
+          result_url: string | null;
+          parameters?: { aspectRatio?: string } | null;
+        }>)
+          .filter((row) => Boolean(row.result_url))
+          .map((row) => ({
+            id:          row.id,
+            url:         row.result_url,
+            prompt:      row.prompt ?? "",
+            model:       row.tool ?? "nano-banana",
+            aspectRatio: (row.parameters?.aspectRatio ?? "1:1") as AspectRatio,
+            status:      "done" as const,
+          }));
+
+        // Prepend loaded history behind any images already generated this session
+        setImages((prev) => {
+          const existingIds = new Set(prev.map((img) => img.id));
+          const fresh = loaded.filter((img) => !existingIds.has(img.id));
+          return [...prev, ...fresh];
+        });
+      } catch {
+        // History load failure is silent — user can still generate
+      } finally {
+        setHistoryLoaded(true);
+      }
+    })();
+  }, [user, historyLoaded]);
 
   // When model changes: reset quality if not allowed, clear edit image if not needed
   useEffect(() => {
@@ -438,13 +490,73 @@ function ImageStudioInner() {
         }
 
         const data = await res.json();
-        if (!res.ok || !data.data?.url) throw new Error(data.error ?? "Generation failed");
+        if (!res.ok) throw new Error(data.error ?? "Generation failed");
 
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === ph.id ? { ...img, url: data.data.url as string, status: "done" } : img
-          )
-        );
+        // ── Synchronous success (DALL-E, etc.) ─────────────────────────────
+        if (data.data?.url) {
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === ph.id ? { ...img, url: data.data.url as string, status: "done" } : img
+            )
+          );
+          continue;
+        }
+
+        // ── Async / pending (Nano Banana) ──────────────────────────────────
+        // The job was accepted; poll the status endpoint until it resolves.
+        if (data.data?.status === "pending" && data.generation?.id) {
+          const generationId = data.generation.id as string;
+          const providerKey  = routing.provider;
+          const authHeader: Record<string, string> = user.accessToken
+            ? { Authorization: `Bearer ${user.accessToken}` }
+            : {};
+
+          const POLL_INTERVAL = 4_000;   // 4 s between polls
+          const POLL_TIMEOUT  = 180_000; // give up after 3 min
+          const deadline      = Date.now() + POLL_TIMEOUT;
+
+          let resolved = false;
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+            try {
+              const statusRes = await fetch(
+                `/api/generate/status/${providerKey}/${generationId}`,
+                { headers: { "Content-Type": "application/json", ...authHeader } }
+              );
+              const statusData = await statusRes.json();
+
+              if (statusData.data?.status === "success" && statusData.data?.url) {
+                setImages((prev) =>
+                  prev.map((img) =>
+                    img.id === ph.id
+                      ? { ...img, url: statusData.data.url as string, status: "done" }
+                      : img
+                  )
+                );
+                resolved = true;
+                break;
+              }
+
+              if (statusData.data?.status === "error") {
+                throw new Error(statusData.data?.error ?? "Generation failed");
+              }
+              // status === "pending" → keep polling
+            } catch (pollErr) {
+              if (pollErr instanceof Error && pollErr.message !== "Generation failed") {
+                // transient network error — keep retrying
+                continue;
+              }
+              throw pollErr;
+            }
+          }
+
+          if (!resolved) throw new Error("Generation timed out. The image may still be processing.");
+          continue;
+        }
+
+        // ── Unexpected: no url and not pending ─────────────────────────────
+        throw new Error(data.error ?? "Generation failed — no image returned");
       } catch (err) {
         setImages((prev) =>
           prev.map((img) =>
@@ -606,7 +718,7 @@ function ImageStudioInner() {
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", padding: hasImages ? "24px 24px 200px" : "0" }}>
         {!hasImages ? (
-          /* Empty state — premium, spacious */
+          /* Empty / loading state */
           <div style={{
             height: "100%", display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 16,
@@ -620,15 +732,26 @@ function ImageStudioInner() {
               border: "1px solid rgba(37,99,235,0.35)",
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
               boxShadow: "0 0 40px rgba(37,99,235,0.15)",
-            }}>🎨</div>
+            }}>
+              {user && !historyLoaded ? (
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%",
+                  border: "2.5px solid rgba(255,255,255,0.15)",
+                  borderTopColor: "#2563EB",
+                  animation: "spin 0.8s linear infinite",
+                }} />
+              ) : "🎨"}
+            </div>
 
             {/* Heading */}
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 8 }}>
-                Describe what you want to create
+                {user && !historyLoaded ? "Loading your creations…" : "Describe what you want to create"}
               </p>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.6 }}>
-                Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
+                {user && !historyLoaded
+                  ? "Fetching your image history"
+                  : "Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started."}
               </p>
             </div>
 

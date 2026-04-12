@@ -60,13 +60,6 @@ const EP = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POLLING CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-const POLL_INTERVAL_MS = 3_000;    // 3 s between polls
-const POLL_TIMEOUT_MS  = 120_000;  // give up after 2 min
-
-// ─────────────────────────────────────────────────────────────────────────────
 // CONFIRMED API VALUES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -181,69 +174,51 @@ function sanitizeError(raw: string, status: number): string {
   return "Generation failed. Please try again.";
 }
 
+// pollUntilDone removed — polling now done client-side via the status endpoint
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED HELPERS — used by both generate() and getStatus()
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getEnvVars() {
+  const apiKey  = process.env.NANO_BANANA_API_KEY;
+  const apiBase = process.env.NANO_BANANA_API_BASE_URL
+               ?? process.env.NANO_BANANA_API_URL
+               ?? "https://api.nanobananaapi.ai";
+  return { apiKey, apiBase };
+}
+
 /**
- * Poll record-info?taskId= until terminal state.
- *
- * taskStatus codes (confirmed from docs):
- *   0 = GENERATING   (keep polling)
- *   1 = SUCCESS      (extract imageUrl)
- *   2 = CREATE_TASK_FAILED
- *   3 = GENERATE_FAILED
+ * Check a single NB task status (one HTTP call, no polling loop).
+ * Returns the raw `data` object from record-info.
  */
-async function pollUntilDone(
+async function checkTaskOnce(
   taskId:  string,
   apiBase: string,
   apiKey:  string,
-  variant: NbVariant,
-): Promise<Record<string, unknown>> {
-  const deadline = Date.now() + POLL_TIMEOUT_MS;
-  let attempt    = 0;
+): Promise<{ taskStatus: number; imageUrl?: string; errMsg?: string }> {
+  const res = await fetch(`${apiBase}${EP.task}?taskId=${encodeURIComponent(taskId)}`, {
+    headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
+    signal:  AbortSignal.timeout(15_000),
+  });
 
-  while (Date.now() < deadline) {
-    attempt++;
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-
-    let pollRes: Response;
-    try {
-      pollRes = await fetch(`${apiBase}${EP.task}?taskId=${encodeURIComponent(taskId)}`, {
-        headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
-        signal:  AbortSignal.timeout(15_000),
-      });
-    } catch (err) {
-      console.warn(`[nano-banana] poll attempt=${attempt} task=${taskId} network:`,
-        err instanceof Error ? err.message : String(err));
-      continue;
-    }
-
-    if (!pollRes.ok) {
-      console.warn(`[nano-banana] poll attempt=${attempt} task=${taskId} HTTP ${pollRes.status}`);
-      if (pollRes.status === 404) throw new Error("Generation task not found. Please try again.");
-      continue;
-    }
-
-    let body: Record<string, unknown>;
-    try { body = (await pollRes.json()) as Record<string, unknown>; }
-    catch { console.warn(`[nano-banana] poll non-JSON attempt=${attempt} task=${taskId}`); continue; }
-
-    // taskStatus lives inside body.data
-    const data       = (body.data ?? body) as Record<string, unknown>;
-    const taskStatus = Number(data.taskStatus ?? data.status ?? -1);
-
-    if (taskStatus === TASK_STATUS.SUCCESS) {
-      console.log(`[nano-banana] task=${taskId} variant=${variant} SUCCESS after ${attempt} polls`);
-      return data;
-    }
-    if (taskStatus === TASK_STATUS.CREATE_TASK_FAILED || taskStatus === TASK_STATUS.GENERATE_FAILED) {
-      const reason = String(data.errMsg ?? data.message ?? data.error ?? "task failed");
-      console.error(`[nano-banana] task=${taskId} variant=${variant} FAILED status=${taskStatus}: ${reason.slice(0, 200)}`);
-      throw new Error(sanitizeError(reason, 400));
-    }
-
-    // status 0 = still generating; anything unrecognised → keep polling
-    console.log(`[nano-banana] task=${taskId} status=${taskStatus} attempt=${attempt} — waiting`);
+  if (!res.ok) {
+    throw new Error(`NB status check HTTP ${res.status}`);
   }
 
-  throw new Error("Generation timed out after 2 minutes. Please try again.");
+  const body = (await res.json()) as Record<string, unknown>;
+  const data = (body.data ?? body) as Record<string, unknown>;
+
+  return {
+    taskStatus: Number(data.taskStatus ?? data.status ?? -1),
+    imageUrl:   String(
+      data.imageUrl ??
+      data.image_url ??
+      (Array.isArray(data.imageUrls) ? data.imageUrls[0] : undefined) ??
+      ""
+    ) || undefined,
+    errMsg: String(data.errMsg ?? data.message ?? data.error ?? "") || undefined,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -254,15 +229,18 @@ export const nanoBananaProvider: AiProvider = {
   name:           "nano-banana",
   supportedModes: ["image"],
 
+  // ── generate() — ASYNC: submit job only, return taskId immediately ──────────
+  //
+  // Why async? Nano Banana generation takes 15–90 s. Serverless function
+  // timeouts (10 s on Vercel Hobby, 60 s on Pro) would kill the polling loop
+  // before the image is ready, causing "Generation failed" even though the
+  // image was actually created. Instead we:
+  //   1. Submit the job → get taskId (fast, <2 s)
+  //   2. Return { status: "pending", taskId } immediately
+  //   3. Let the client poll /api/generate/status/nano-banana/{generationId}
+  //      which calls getStatus() below (single check, no long loop)
   async generate(input: ProviderGenerateInput): Promise<ProviderGenerateResult> {
-    const startTime = Date.now();
-
-    // ── 1. Env vars ──────────────────────────────────────────────────────────
-    const apiKey      = process.env.NANO_BANANA_API_KEY;
-    // Base URL is a known constant — env var is optional override only
-    const apiBase     = process.env.NANO_BANANA_API_BASE_URL
-                     ?? process.env.NANO_BANANA_API_URL   // legacy alias
-                     ?? "https://api.nanobananaapi.ai";
+    const { apiKey, apiBase } = getEnvVars();
     const callbackUrl = process.env.NANO_BANANA_CALLBACK_URL
                      ?? `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://zencralabs.com"}/api/nb-callback`;
 
@@ -273,16 +251,14 @@ export const nanoBananaProvider: AiProvider = {
       );
     }
 
-    // ── 2. Variant config ────────────────────────────────────────────────────
+    // ── Variant config ───────────────────────────────────────────────────────
     const variant = (input.metadata?.nbVariant as NbVariant | undefined) ?? "standard";
     const cfg     = NB_MODEL_CONFIG[variant];
 
     if (!cfg?.enabled) throw new Error(`Nano Banana variant "${variant}" is not available.`);
-
-    // NB2 guard — must never route here
     if (String(variant).includes("2")) throw new Error("Unsupported generation variant.");
 
-    // ── 3. Input validation ──────────────────────────────────────────────────
+    // ── Input validation ─────────────────────────────────────────────────────
     const sourceImageUrl = input.imageUrl ?? (input.metadata?.nbImageUrl as string | undefined);
 
     if (cfg.requiresSourceImage && !sourceImageUrl) {
@@ -301,14 +277,14 @@ export const nanoBananaProvider: AiProvider = {
       }
     }
 
-    // ── 4. Build payload ─────────────────────────────────────────────────────
+    // ── Build payload ────────────────────────────────────────────────────────
     let endpointPath: string;
     let payload: Record<string, unknown>;
 
     if (cfg.endpoint === "standard") {
       endpointPath = EP.standard;
       payload = {
-        type:        cfg.requestType!,   // "TEXTTOIAMGE" or "IMAGETOIAMGE"
+        type:        cfg.requestType!,
         prompt:      input.normalizedPrompt.transformed,
         numImages:   1,
         callBackUrl: callbackUrl,
@@ -325,7 +301,7 @@ export const nanoBananaProvider: AiProvider = {
       if (input.aspectRatio) payload.aspectRatio = input.aspectRatio;
     }
 
-    // ── 5. Submit job ────────────────────────────────────────────────────────
+    // ── Submit job ───────────────────────────────────────────────────────────
     console.log(`[nano-banana] submit variant=${variant} endpoint=${endpointPath}` +
       (payload.type ? ` type=${payload.type}` : ` resolution=${payload.resolution}`));
 
@@ -344,10 +320,7 @@ export const nanoBananaProvider: AiProvider = {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "network error";
       console.error(`[nano-banana] submit network error variant=${variant}:`, msg);
-      if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) {
-        throw new Error("Could not reach the generation service. Please try again.");
-      }
-      throw new Error("Could not reach the generation service. Check your connection.");
+      throw new Error("Could not reach the generation service. Please try again.");
     }
 
     let submitBody: Record<string, unknown>;
@@ -363,7 +336,7 @@ export const nanoBananaProvider: AiProvider = {
       throw new Error(sanitizeError(rawMsg, submitRes.status));
     }
 
-    // ── 6. Extract taskId — lives at body.data.taskId ────────────────────────
+    // ── Extract taskId ───────────────────────────────────────────────────────
     const data   = (submitBody?.data ?? {}) as Record<string, unknown>;
     const taskId = String(data?.taskId ?? data?.task_id ?? submitBody?.taskId ?? "");
 
@@ -372,40 +345,53 @@ export const nanoBananaProvider: AiProvider = {
       throw new Error("Generation accepted but no task ID returned. Please try again.");
     }
 
-    console.log(`[nano-banana] task=${taskId} variant=${variant} polling...`);
+    console.log(`[nano-banana] task=${taskId} variant=${variant} submitted — returning pending`);
 
-    // ── 7. Poll until done ───────────────────────────────────────────────────
-    const taskData = await pollUntilDone(taskId, apiBase, apiKey, variant);
-
-    // ── 8. Extract image URL — field is `imageUrl` (singular) ────────────────
-    const imageUrl = String(
-      taskData.imageUrl  ??
-      taskData.image_url ??
-      (Array.isArray(taskData.imageUrls) ? taskData.imageUrls[0] : undefined) ??
-      ""
-    );
-
-    if (!imageUrl) {
-      console.error(`[nano-banana] task=${taskId} completed but no imageUrl:`,
-        JSON.stringify(taskData).slice(0, 400));
-      throw new Error("Generation completed but no image was returned. Please try again.");
-    }
-
-    const latencyMs = Date.now() - startTime;
-    console.log(`[nano-banana] task=${taskId} variant=${variant} done latency=${latencyMs}ms`);
-
-    // ── 9. Return ────────────────────────────────────────────────────────────
+    // ── Return pending immediately (client will poll) ────────────────────────
     return {
       provider: "nano-banana",
       mode:     "image",
-      status:   "success",
-      url:      imageUrl,
-      metadata: {
-        variant,
-        quality:  input.quality,
-        latencyMs,
-        taskId,
-      },
+      status:   "pending",
+      taskId,
+      metadata: { variant, quality: input.quality, nbTaskId: taskId },
     };
+  },
+
+  // ── getStatus() — single NB API check, called by the status route ──────────
+  async getStatus(taskId: string): Promise<import("../types").ProviderStatusResult> {
+    const { apiKey, apiBase } = getEnvVars();
+
+    if (!apiKey) {
+      return { provider: "nano-banana", taskId, status: "error", error: "Provider not configured." };
+    }
+
+    try {
+      const { taskStatus, imageUrl, errMsg } = await checkTaskOnce(taskId, apiBase, apiKey);
+
+      if (taskStatus === TASK_STATUS.SUCCESS) {
+        if (!imageUrl) {
+          return { provider: "nano-banana", taskId, status: "error",
+            error: "Generation completed but returned no image URL." };
+        }
+        console.log(`[nano-banana] getStatus task=${taskId} SUCCESS url=${imageUrl.slice(0, 80)}`);
+        return { provider: "nano-banana", taskId, status: "success", url: imageUrl };
+      }
+
+      if (taskStatus === TASK_STATUS.CREATE_TASK_FAILED || taskStatus === TASK_STATUS.GENERATE_FAILED) {
+        const reason = errMsg ?? "Generation failed";
+        console.error(`[nano-banana] getStatus task=${taskId} FAILED status=${taskStatus}: ${reason}`);
+        return { provider: "nano-banana", taskId, status: "error",
+          error: sanitizeError(reason, 400) };
+      }
+
+      // 0 = still generating (or unknown)
+      console.log(`[nano-banana] getStatus task=${taskId} status=${taskStatus} — still pending`);
+      return { provider: "nano-banana", taskId, status: "pending" };
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Status check failed";
+      console.error(`[nano-banana] getStatus task=${taskId} error:`, msg);
+      return { provider: "nano-banana", taskId, status: "error", error: msg };
+    }
   },
 };

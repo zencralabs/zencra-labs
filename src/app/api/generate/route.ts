@@ -111,13 +111,11 @@ export async function POST(req: Request) {
     const toolName = resolveTool(body.mode, result.provider);
 
     // ── Resolve visibility + project_id defaults ───────────────────────────
-    // Validate visibility value if supplied
     const rawVisibility = body.visibility;
     const visibility = rawVisibility && ["project", "private", "public"].includes(rawVisibility)
       ? rawVisibility
-      : "project"; // default: group in the user's default project
+      : "project";
 
-    // If visibility is "project", look up user's default project (first one created)
     let projectId: string | null = body.project_id ?? null;
     if (visibility === "project" && !projectId) {
       const { data: defaultProject } = await supabaseAdmin
@@ -130,6 +128,11 @@ export async function POST(req: Request) {
       projectId = defaultProject?.id ?? null;
     }
 
+    // For async providers (nano-banana) result.status === "pending" and
+    // result.taskId holds the provider's task ID.  We store it in `parameters`
+    // so the status route can forward status-check calls to the right task.
+    const isPending = result.status === "pending";
+
     const { data: generationRow, error: generationError } = await supabaseAdmin
       .from("generations")
       .insert({
@@ -139,18 +142,18 @@ export async function POST(req: Request) {
         prompt:        body.prompt,
         status:        toDbStatus(result.status),
         result_url:    result.url ?? null,
-        // Store array of URLs for multi-image support (DALL-E returns one URL today)
         result_urls:   result.url ? [result.url] : null,
+        // Merge provider metadata + nbTaskId for async providers
         credits_used:  result.status === "error" ? 0 : creditCost.total,
-        parameters:    result.metadata ?? {},
-        // Visibility system — defaults to "project"
+        parameters:    {
+          ...(result.metadata ?? {}),
+          ...(isPending && result.taskId ? { nbTaskId: result.taskId } : {}),
+        },
         visibility,
         project_id:    projectId,
-        // Capture error reason when generation fails so status route can surface it
         ...(result.status === "error" && result.error
           ? { error_message: result.error }
           : {}),
-        // Mark completion timestamp on synchronous success (DALL-E 3 is sync)
         ...(result.status === "success"
           ? { completed_at: new Date().toISOString() }
           : {}),
@@ -165,7 +168,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // ── 7. Deduct credits atomically (only on success) ─────────────────────
+    // ── 7. Deduct credits (success or pending — job was accepted) ──────────
     if (result.status !== "error" && creditCost.total > 0) {
       const { data: spendResult, error: spendError } = await supabaseAdmin
         .rpc("spend_credits", {
@@ -177,7 +180,7 @@ export async function POST(req: Request) {
 
       if (spendError || !spendResult?.[0]?.success) {
         console.error(
-          "[generate] spend_credits failed after successful generation:",
+          "[generate] spend_credits failed:",
           spendError?.message ?? spendResult?.[0]?.error_message,
           { generationId: generationRow.id, userId, cost: creditCost.total }
         );
@@ -185,6 +188,8 @@ export async function POST(req: Request) {
     }
 
     // ── 8. Respond ─────────────────────────────────────────────────────────
+    // For pending (async) providers: return generationId so the client can poll
+    // /api/generate/status/{provider}/{generationId}
     return NextResponse.json(
       {
         success:    result.status !== "error",

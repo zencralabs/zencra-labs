@@ -8,6 +8,7 @@ import {
   Zap, LogOut, ChevronRight, Settings
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
+import AccountCompletionBanner from "@/components/auth/AccountCompletionBanner";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD LAYOUT — User account area with sidebar nav
@@ -154,6 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ── MAIN CONTENT ─────────────────────────────────────────────────────── */}
       <main style={{ flex: 1, overflowY: "auto" }}>
+        <AccountCompletionBanner />
         {children}
       </main>
     </div>
