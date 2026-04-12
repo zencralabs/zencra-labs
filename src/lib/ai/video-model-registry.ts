@@ -140,7 +140,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       textToVideo:    true,
       imageToVideo:   true,
       startFrame:     true,
-      endFrame:       true,
+      endFrame:       false, // v2.6 does not support end frame ("End Frame is not available with Native Audio")
       cameraControl:  true,
       motionControl:  false,
       multiElement:   false,
@@ -162,7 +162,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     id:          "kling-25",
     provider:    "kling",
     apiModelId:  "kling-v2-5",
-    displayName: "Kling 2.5",
+    displayName: "Kling 2.5 Turbo",
     description: "Fast and reliable — great for quick iterations",
     badge:       null,
     badgeColor:  null,
@@ -172,7 +172,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       textToVideo:    true,
       imageToVideo:   true,
       startFrame:     true,
-      endFrame:       false, // v2.5 does not support end frame
+      endFrame:       true,  // v2.5 Turbo supports Start + End frame
       cameraControl:  true,
       motionControl:  false,
       multiElement:   false,
