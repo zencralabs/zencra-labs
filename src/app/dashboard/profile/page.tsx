@@ -28,7 +28,7 @@ export default function ProfilePage() {
   const [selectedGrad,  setSelGrad]    = useState(user?.avatarColor ?? 0);
   const [saveState,     setSaveState]  = useState<SaveState>("idle");
   const [errorMsg,      setErrorMsg]   = useState("");
-  const [avatarUrl,     setAvatarUrl]  = useState<string | null>(user?.avatarUrl ?? null);
+  const [avatarUrl,     setAvatarUrl]  = useState<string | null>(user?.avatar ?? null);
   const [uploadingAvatar, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,7 +68,7 @@ export default function ProfilePage() {
       await refreshUser();
     } catch (err) {
       console.error("Avatar upload failed:", err);
-      setAvatarUrl(user.avatarUrl ?? null);
+      setAvatarUrl(user.avatar ?? null);
     } finally {
       setUploading(false);
     }

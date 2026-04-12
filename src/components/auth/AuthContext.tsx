@@ -92,6 +92,7 @@ function buildAuthUser(
     plan:         PLAN_MAP[(profile?.plan as string) ?? "free"] ?? "Free",
     credits:      (profile?.credits as number) ?? 0,
     joinedAt:     (profile?.created_at as string) ?? sess.user.created_at,
+    avatar:       (profile?.avatar_url as string) || undefined,
     avatarColor:  (profile?.avatar_color as number) ?? 0,
     accessToken:  sess.access_token,
     // Verification
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(sess: Session) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color")
+      .select("full_name, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url")
       .eq("id", sess.user.id)
       .single();
 
