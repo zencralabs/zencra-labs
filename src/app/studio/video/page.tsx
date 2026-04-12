@@ -492,6 +492,36 @@ function VideoStudioContent() {
         {/* ── LEFT: Controls ──────────────────────────────────────────── */}
         <div className="studio-left-panel">
 
+          {/* Direction Type — shown first when Directed mode is active */}
+          {studioMode === "directed" && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Direction Type</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                {[
+                  { id: "start_frame" as DirectedSubMode,     label: "Start Frame" },
+                  { id: "start_end_frame" as DirectedSubMode, label: "Start + End" },
+                ].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setDirectedSub(s.id)}
+                    disabled={s.id === "start_end_frame" && !caps?.endFrame}
+                    style={{
+                      padding: "7px 5px", borderRadius: 7, fontSize: 11, cursor: s.id === "start_end_frame" && !caps?.endFrame ? "default" : "pointer",
+                      border: directedSub === s.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                      background: directedSub === s.id ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)",
+                      color: s.id === "start_end_frame" && !caps?.endFrame ? "rgba(255,255,255,0.2)" : directedSub === s.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
+                    }}
+                  >{s.label}</button>
+                ))}
+              </div>
+              {directedSub === "start_end_frame" && !caps?.endFrame && (
+                <p style={{ fontSize: 10, color: "rgba(255,165,0,0.7)", marginTop: 4, margin: "4px 0 0" }}>
+                  End frame requires Kling 3.0 or 2.6
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Mode Switcher */}
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
@@ -549,36 +579,6 @@ function VideoStudioContent() {
               ))}
             </div>
           </div>
-
-          {/* Directed sub-mode */}
-          {studioMode === "directed" && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Direction Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-                {[
-                  { id: "start_frame" as DirectedSubMode,     label: "Start Frame" },
-                  { id: "start_end_frame" as DirectedSubMode, label: "Start + End" },
-                ].map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => setDirectedSub(s.id)}
-                    disabled={s.id === "start_end_frame" && !caps?.endFrame}
-                    style={{
-                      padding: "7px 5px", borderRadius: 7, fontSize: 11, cursor: s.id === "start_end_frame" && !caps?.endFrame ? "default" : "pointer",
-                      border: directedSub === s.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                      background: directedSub === s.id ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)",
-                      color: s.id === "start_end_frame" && !caps?.endFrame ? "rgba(255,255,255,0.2)" : directedSub === s.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
-                    }}
-                  >{s.label}</button>
-                ))}
-              </div>
-              {directedSub === "start_end_frame" && !caps?.endFrame && (
-                <p style={{ fontSize: 10, color: "rgba(255,165,0,0.7)", marginTop: 4, margin: "4px 0 0" }}>
-                  End frame requires Kling 3.0 or 2.6
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Duration */}
           <div>
