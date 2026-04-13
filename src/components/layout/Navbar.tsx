@@ -1,7 +1,8 @@
 "use client";
-// v2 — two-panel dropdown + 3-level mobile accordion
+// v3 — active state + pathname highlighting
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
   Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
@@ -656,6 +657,7 @@ export function Navbar() {
   const [authModal, setAuthModal]           = useState<"login" | "signup" | null>(null);
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -719,7 +721,16 @@ export function Navbar() {
                 const isDropdown = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
                 const dropKey    = link.dropdownKey as DropdownKey;
                 const catData    = isDropdown ? navCategories[dropKey] : null;
-                const isActive   = activeDropdown === dropKey;
+                const isOpen     = activeDropdown === dropKey;
+                // Active = dropdown is open OR pathname starts with the link's href (non-root)
+                const isPathActive = link.href !== "/" && link.href !== "#"
+                  ? pathname.startsWith(link.href)
+                  : pathname === link.href;
+                // For dropdown items: active if any feature href matches current path
+                const isCatActive = isDropdown && catData
+                  ? catData.features.some(f => f.href !== "#" && pathname.startsWith(f.href))
+                  : false;
+                const isActive = isOpen || isCatActive;
 
                 return (
                   <li
@@ -731,10 +742,10 @@ export function Navbar() {
                     {/* Wrap in button for dropdown items so click also opens (touch laptops) */}
                     {isDropdown ? (
                       <button
-                        onClick={() => isActive ? setActiveDropdown(null) : openDropdown(dropKey)}
+                        onClick={() => isOpen ? setActiveDropdown(null) : openDropdown(dropKey)}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
                         style={{
-                          background: "none",
+                          background: isActive && catData ? `${catData.color}12` : "none",
                           border: "none",
                           cursor: "pointer",
                           color: isActive && catData ? catData.color : "#94A3B8",
@@ -745,22 +756,26 @@ export function Navbar() {
                         <ChevronDown
                           size={12}
                           className="transition-transform duration-200"
-                          style={{ transform: isActive ? "rotate(180deg)" : "none" }}
+                          style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
                         />
                       </button>
                     ) : (
                       <Link
                         href={link.href}
                         className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-                        style={{ color: "#94A3B8" }}
-                        onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                        onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                        style={{
+                          color: isPathActive ? "#F8FAFC" : "#94A3B8",
+                          background: isPathActive ? "rgba(255,255,255,0.06)" : "transparent",
+                          borderRadius: 8,
+                        }}
+                        onMouseEnter={e => { if (!isPathActive) (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; }}
+                        onMouseLeave={e => { if (!isPathActive) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
                       >
                         {link.label}
                       </Link>
                     )}
 
-                    {isDropdown && isActive && catData && (
+                    {isDropdown && isOpen && catData && (
                       <div
                         onMouseEnter={cancelClose}
                         onMouseLeave={closeDropdownDelayed}
