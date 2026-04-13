@@ -1,67 +1,153 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Menu, X, ChevronDown, ImageIcon, Music, Wand2, Sparkles, Mic, Zap, Film,
-  Layers, LayoutDashboard, User, CreditCard, LogOut, ChevronRight,
-  UserCircle2, Clapperboard, ArrowUpCircle,
+  Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
+  Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
+  UserCircle2, Clapperboard, ArrowUpCircle, ArrowLeft,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
-import { getNavModels, getToolsByCategory } from "@/lib/tools/catalog";
+import { getNavModels, getToolsByCategory, type CatalogTool } from "@/lib/tools/catalog";
 
-// ── Build nav dropdowns from the catalog ─────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// NAV DATA
+// ─────────────────────────────────────────────────────────────────────────────
 
-const navDropdowns = {
+type RightPanel =
+  | { type: "models"; heading: string; models: CatalogTool[] }
+  | { type: "soon"; title: string; desc: string; bullets: string[]; badge?: string };
+
+interface NavFeature {
+  icon: React.ElementType;
+  label: string;
+  desc: string;
+  badge: string | null;
+  href: string;
+  right: RightPanel;
+}
+
+interface NavCategory {
+  color: string;
+  label: string; // left-panel header
+  features: NavFeature[];
+}
+
+const imageModels  = getNavModels("image", 6);
+const videoModels  = getNavModels("video", 6);
+const audioModels  = getToolsByCategory("audio").filter(t => t.id !== "suno-ai").slice(0, 4);
+const charModels   = getToolsByCategory("character").slice(0, 3);
+
+const navCategories: Record<string, NavCategory> = {
   Image: {
     color: "#2563EB",
+    label: "Image Tools",
     features: [
-      { icon: ImageIcon, label: "Create Image",      desc: "Generate AI images",           badge: null,    href: "/studio/image" },
-      { icon: Sparkles,  label: "Enhance & Upscale", desc: "Topaz-powered 4K boost",       badge: "SOON",  href: "#" },
-      { icon: Layers,    label: "Face Swap",          desc: "Realistic face swaps",         badge: "SOON",  href: "#" },
-      { icon: Wand2,     label: "Background Remove",  desc: "AI background removal",        badge: "SOON",  href: "#" },
-      { icon: Sparkles,  label: "Image to 3D",        desc: "Convert images to 3D models",  badge: "SOON",  href: "#" },
+      {
+        icon: ImageIcon, label: "Create Image", desc: "Generate AI images", badge: "HOT", href: "/studio/image",
+        right: { type: "models", heading: "Image Models", models: imageModels },
+      },
+      {
+        icon: Sparkles, label: "Enhance & Upscale", desc: "Topaz-powered 4K boost", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Enhance & Upscale", badge: "COMING SOON", desc: "Industry-leading Topaz AI technology to upscale, denoise, and sharpen any image to 4K+ resolution.", bullets: ["Up to 4× resolution boost", "AI noise reduction", "Face & skin recovery", "Batch processing support"] },
+      },
+      {
+        icon: Layers, label: "Face Swap", desc: "Realistic face swaps", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Face Swap", badge: "COMING SOON", desc: "Photorealistic face replacement powered by deep learning. Works on portraits, group photos, and any angle.", bullets: ["Multi-face detection", "Expression & lighting match", "HD output quality", "One-click swap"] },
+      },
+      {
+        icon: Wand2, label: "Background Remove", desc: "AI background removal", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Background Remove", badge: "COMING SOON", desc: "Precisely remove or replace any background in seconds — perfect edges, no manual masking required.", bullets: ["Hair & fine-detail edge", "Transparent PNG export", "Custom background swap", "Batch removal"] },
+      },
+      {
+        icon: Sparkles, label: "Image to 3D", desc: "Convert images to 3D models", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Image to 3D", badge: "COMING SOON", desc: "Convert any 2D image into a fully traversable 3D model or scene. Built for creators, product designers, and storytellers.", bullets: ["NeRF & mesh output", "360° preview", "GLTF / OBJ export", "Scene depth control"] },
+      },
     ],
-    models: getNavModels("image", 6),
   },
   Video: {
     color: "#0EA5A0",
+    label: "Video Tools",
     features: [
-      { icon: Film,         label: "Create Video",         desc: "Generate AI videos",           badge: "HOT",  href: "/studio/video" },
-      { icon: Wand2,        label: "Enhance Video",        desc: "Topaz upscale & frame boost",  badge: "SOON", href: "#" },
-      { icon: Mic,          label: "Lip Sync",             desc: "Sync voice to video",          badge: "SOON", href: "#" },
-      { icon: Sparkles,     label: "Video to Video",       desc: "Style transfer & re-render",   badge: "SOON", href: "#" },
-      { icon: Film,         label: "Text to Short Film",   desc: "Script to full short film",    badge: "SOON", href: "#" },
+      {
+        icon: Film, label: "Create Video", desc: "Generate AI videos", badge: "HOT", href: "/studio/video",
+        right: { type: "models", heading: "Video Models", models: videoModels },
+      },
+      {
+        icon: Wand2, label: "Enhance Video", desc: "Topaz upscale & frame boost", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Enhance Video", badge: "COMING SOON", desc: "Upscale, denoise, and boost frame rate on any video. Turn 480p footage into cinematic 4K.", bullets: ["Up to 4K upscaling", "Frame interpolation (60fps+)", "AI noise removal", "Colour grade assist"] },
+      },
+      {
+        icon: Mic, label: "Lip Sync", desc: "Sync voice to video", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Lip Sync", badge: "COMING SOON", desc: "Sync any audio or voice to any video with perfectly matched lip movement. Powered by HeyGen & ElevenLabs.", bullets: ["Any language supported", "Natural mouth physics", "Works on AI & real footage", "Export in 1080p+"] },
+      },
+      {
+        icon: Sparkles, label: "Video to Video", desc: "Style transfer & re-render", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Video to Video", badge: "COMING SOON", desc: "Re-render any video in a new visual style — anime, cinematic, oil painting, or fully custom aesthetics.", bullets: ["Frame-consistent style", "Custom style prompts", "Preserve motion & depth", "Batch clip processing"] },
+      },
+      {
+        icon: Clapperboard, label: "Text to Short Film", desc: "Script to full short film", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Text to Short Film", badge: "CINEMA STUDIO", desc: "Write a prompt or script — Zencra produces a fully sequenced short film with scenes, transitions, and audio.", bullets: ["Auto scene breakdown", "Consistent characters", "AI voiceover + music", "Cinema Studio integration"] },
+      },
     ],
-    models: getNavModels("video", 6),
   },
   Audio: {
     color: "#A855F7",
+    label: "Audio Tools",
     features: [
-      { icon: Mic,   label: "AI Voiceover",  desc: "Generate speech from text",  badge: "NEW",  href: "/studio?mode=audio" },
-      { icon: Music, label: "AI Music",      desc: "Create full tracks",         badge: "SOON", href: "#" },
-      { icon: Zap,   label: "Voice Clone",   desc: "Clone any voice",            badge: "SOON", href: "#" },
-      { icon: Music, label: "Sound Effects", desc: "Generate custom SFX",        badge: "SOON", href: "#" },
+      {
+        icon: Mic, label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "/studio?mode=audio",
+        right: { type: "models", heading: "Voice Models", models: audioModels },
+      },
+      {
+        icon: Music, label: "AI Music", desc: "Create full tracks", badge: "SOON", href: "#",
+        right: { type: "soon", title: "AI Music", badge: "COMING SOON", desc: "Generate royalty-free original music in any genre or mood. Full stems, custom lyrics, infinite variations.", bullets: ["Any genre & tempo", "Custom lyrics support", "Stem export (vocals, drums…)", "Powered by Suno AI"] },
+      },
+      {
+        icon: Zap, label: "Voice Clone", desc: "Clone any voice", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Voice Clone", badge: "COMING SOON", desc: "Clone a voice from a 30-second sample. Use it for narration, characters, and branded content.", bullets: ["30-second sample enough", "Emotion & tone control", "Multilingual output", "ElevenLabs & Kits.ai powered"] },
+      },
+      {
+        icon: Music, label: "Sound Effects", desc: "Generate custom SFX", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Sound Effects", badge: "COMING SOON", desc: "Generate precise custom sound effects from a text description. Film-ready SFX in one prompt.", bullets: ["Cinematic & ambient SFX", "Frame-accurate timing", "No rights clearance needed", "Export WAV / MP3"] },
+      },
     ],
-    models: getToolsByCategory("audio").filter(t => t.id !== "suno-ai").slice(0, 3),
   },
   Character: {
     color: "#F59E0B",
+    label: "Character Tools",
     features: [
-      { icon: UserCircle2, label: "AI Influencer",    desc: "Consistent AI persona for socials", badge: "SOON",    href: "#" },
-      { icon: Layers,      label: "Face Swap",         desc: "Seamless image face swap",          badge: "SOON",    href: "#" },
-      { icon: Wand2,       label: "Character Swap",    desc: "Replace characters across scenes",  badge: "SOON",    href: "#" },
-      { icon: Film,        label: "Video Face Swap",   desc: "Motion-tracked face swap in video", badge: "SOON",    href: "#" },
-      { icon: Sparkles,    label: "AI Stylist",        desc: "AI wardrobe transformation",        badge: "PLANNED", href: "#" },
-      { icon: Clapperboard,label: "Recast Studio",     desc: "Recast any video character",        badge: "PLANNED", href: "#" },
+      {
+        icon: UserCircle2, label: "AI Influencer", desc: "Consistent AI persona for socials", badge: "SOON", href: "#",
+        right: { type: "soon", title: "AI Influencer", badge: "COMING SOON", desc: "Build a persistent AI character that posts, speaks, and evolves — for Instagram, TikTok, and beyond.", bullets: ["Face & voice consistency", "Automated content calendar", "Platform-ready formats", "Soul ID powered"] },
+      },
+      {
+        icon: Layers, label: "Face Swap", desc: "Seamless image face swap", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Face Swap", badge: "COMING SOON", desc: "Swap faces in images with photorealistic accuracy. Single and group photos supported.", bullets: ["Multi-face swap", "Expression matching", "Lighting preservation", "HD output"] },
+      },
+      {
+        icon: Wand2, label: "Character Swap", desc: "Replace characters across scenes", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Character Swap", badge: "COMING SOON", desc: "Replace the main character across an entire video — consistent look, motion-aware, cinematic output.", bullets: ["Full-body replacement", "Motion tracking", "Scene-consistent appearance", "Works on AI & real clips"] },
+      },
+      {
+        icon: Film, label: "Video Face Swap", desc: "Motion-tracked face swap in video", badge: "SOON", href: "#",
+        right: { type: "soon", title: "Video Face Swap", badge: "COMING SOON", desc: "Frame-accurate face swap for video with natural movement, blinking, and expression transfer.", bullets: ["60fps tracking", "Occlusion handling", "Natural blink & expressions", "Export 1080p+"] },
+      },
+      {
+        icon: Sparkles, label: "AI Stylist", desc: "AI wardrobe transformation", badge: "PLANNED", href: "#",
+        right: { type: "soon", title: "AI Stylist", badge: "PLANNED", desc: "Transform any outfit or style on a person — virtual try-on, fashion shoots, and wardrobe exploration.", bullets: ["Virtual try-on", "Any garment or style", "Realistic fabric physics", "Brand campaign ready"] },
+      },
+      {
+        icon: Clapperboard, label: "Recast Studio", desc: "Recast any video character", badge: "PLANNED", href: "#",
+        right: { type: "soon", title: "Recast Studio", badge: "PLANNED", desc: "Replace any actor or character in an existing scene with your AI character — for film, ads, and content.", bullets: ["Scene-level replacement", "Voice + face sync", "Works on licensed clips", "Cinema Studio integration"] },
+      },
     ],
-    models: getToolsByCategory("character").slice(0, 3),
   },
-} as const;
+};
 
-type DropdownKey = keyof typeof navDropdowns;
+type DropdownKey = keyof typeof navCategories;
 
 const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropdownKey?: DropdownKey }> = [
   { label: "Explore",       href: "/",             hasDropdown: false },
@@ -73,148 +159,197 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Pricing",       href: "/pricing",      hasDropdown: false },
 ];
 
-// ── Standard Dropdown ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// RIGHT PANEL CONTENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RightPanelContent({ panel, color }: { panel: RightPanel; color: string }) {
+  if (panel.type === "models") {
+    return (
+      <div className="flex flex-col h-full">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: `${color}80` }}>
+          {panel.heading}
+        </p>
+        <div className="flex flex-col gap-0.5">
+          {panel.models.map((model) => {
+            const isSoon = model.status !== "active";
+            const studioBase = color === "#2563EB" ? "/studio/image" : color === "#0EA5A0" ? "/studio/video" : color === "#A855F7" ? "/studio/audio" : "#";
+            const href = !isSoon ? `${studioBase}?model=${model.id}` : "#";
+            return (
+              <Link
+                key={model.id}
+                href={href}
+                className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-150"
+                onMouseEnter={e => (e.currentTarget.style.background = `${color}12`)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <div
+                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                  style={{
+                    backgroundColor: isSoon ? "#374151" : color,
+                    boxShadow: isSoon ? "none" : `0 0 6px ${color}`,
+                  }}
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-white">{model.displayName}</p>
+                    {isSoon ? (
+                      <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: "rgba(55,65,81,0.8)", color: "#6B7280" }}>
+                        {model.status === "planned" ? "PLANNED" : "SOON"}
+                      </span>
+                    ) : model.badge ? (
+                      <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: `${color}20`, color }}>
+                        {model.badge}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-xs" style={{ color: "#64748B" }}>{model.description}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Coming soon panel
+  return (
+    <div className="flex flex-col gap-3">
+      {panel.badge && (
+        <span
+          className="inline-flex w-fit rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.15em]"
+          style={{ background: `${color}15`, color, border: `1px solid ${color}30` }}
+        >
+          {panel.badge}
+        </span>
+      )}
+      <h3 className="text-base font-bold leading-tight" style={{ color: "#F8FAFC" }}>{panel.title}</h3>
+      <p className="text-xs leading-relaxed" style={{ color: "#94A3B8" }}>{panel.desc}</p>
+      <ul className="flex flex-col gap-1.5 mt-1">
+        {panel.bullets.map(b => (
+          <li key={b} className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 5px ${color}80` }} />
+            <span className="text-xs" style={{ color: "#94A3B8" }}>{b}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DESKTOP DROPDOWN — two-panel with active-feature state
+// ─────────────────────────────────────────────────────────────────────────────
+
 function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: () => void }) {
-  const data = navDropdowns[category];
-  const isCharacter = category === "Character";
+  const data      = navCategories[category];
+  const [activeIdx, setActiveIdx] = useState<number>(0); // default to first item
+  const activeFeat = data.features[activeIdx];
 
   return (
     <div
       className="absolute top-full left-0 z-[200] mt-2 overflow-hidden rounded-2xl"
       style={{
-        width: isCharacter ? "600px" : "540px",
+        width: "580px",
         background: "rgba(8,14,28,0.97)",
-        border: `1px solid ${data.color}25`,
+        border: `1px solid ${data.color}20`,
         backdropFilter: "blur(20px)",
-        boxShadow: `0 20px 60px rgba(0,0,0,0.7), 0 0 40px ${data.color}15`,
+        boxShadow: `0 24px 64px rgba(0,0,0,0.75), 0 0 40px ${data.color}12`,
       }}
     >
-      <div className={`grid gap-0 ${isCharacter ? "grid-cols-2" : "grid-cols-2"}`}>
-        {/* Features column */}
-        <div className="border-r p-4" style={{ borderColor: `${data.color}15` }}>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: `${data.color}80` }}>
-            {isCharacter ? "Character Tools" : "Features"}
+      <div className="grid grid-cols-[220px_1fr]">
+
+        {/* ── LEFT PANEL — features ────────────────────────────────────── */}
+        <div className="border-r p-3" style={{ borderColor: `${data.color}12` }}>
+          <p className="mb-2.5 px-2 text-[9px] font-bold uppercase tracking-[0.25em]" style={{ color: `${data.color}60` }}>
+            {data.label}
           </p>
-          <div className="flex flex-col gap-1">
-            {data.features.map((feat) => {
-              const Icon = feat.icon;
-              const isSoon = feat.badge === "SOON" || feat.badge === "PLANNED";
+          <div className="flex flex-col gap-0.5">
+            {data.features.map((feat, idx) => {
+              const Icon    = feat.icon;
+              const isActive  = idx === activeIdx;
+              const isSoon   = feat.badge === "SOON" || feat.badge === "PLANNED";
               return (
                 <Link
                   key={feat.label}
                   href={feat.href}
                   onClick={onClose}
-                  className="group flex items-start gap-3 rounded-xl px-3 py-2 transition-all duration-200"
-                  style={{ color: "#F8FAFC", opacity: isSoon ? 0.7 : 1 }}
-                  onMouseEnter={e => (e.currentTarget.style.background = `${data.color}10`)}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  onMouseEnter={() => setActiveIdx(idx)}
+                  className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-all duration-150"
+                  style={{
+                    background: isActive ? `${data.color}14` : "transparent",
+                    color: isActive ? "#F8FAFC" : "#94A3B8",
+                    opacity: isSoon && !isActive ? 0.75 : 1,
+                  }}
                 >
+                  {/* Icon */}
                   <div
-                    className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: `${data.color}15`, border: `1px solid ${data.color}25` }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-150"
+                    style={{
+                      background: isActive ? `${data.color}20` : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${isActive ? data.color + "30" : "rgba(255,255,255,0.06)"}`,
+                    }}
                   >
-                    <Icon size={13} style={{ color: data.color }} />
+                    <Icon size={13} style={{ color: isActive ? data.color : "#64748B" }} />
                   </div>
+
+                  {/* Label + desc */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">{feat.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-medium leading-none">{feat.label}</span>
                       {feat.badge && (
                         <span
-                          className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase"
+                          className="rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase"
                           style={{
-                            background: isSoon ? "rgba(75,85,99,0.6)" : `${data.color}20`,
-                            color: isSoon ? "#9CA3AF" : data.color,
+                            background: isSoon ? "rgba(55,65,81,0.7)" : `${data.color}22`,
+                            color:      isSoon ? "#6B7280" : data.color,
                           }}
                         >
                           {feat.badge}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs" style={{ color: "#64748B" }}>{feat.desc}</span>
+                    <span className="mt-0.5 block text-[11px] leading-none" style={{ color: isActive ? `${data.color}90` : "#475569" }}>
+                      {feat.desc}
+                    </span>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Models / tools column */}
-        <div className="p-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: `${data.color}80` }}>
-            {isCharacter ? "Coming Soon" : "AI Models"}
-          </p>
-          <div className="flex flex-col gap-1">
-            {data.models.map((model) => {
-              const isSoon = model.status !== "active";
-              const studioHref = !isSoon
-                ? (category === "Image"
-                    ? `/studio/image?model=${model.id}`
-                    : category === "Video"
-                    ? `/studio/video?model=${model.id}`
-                    : category === "Audio"
-                    ? `/studio/audio?model=${model.id}`
-                    : "#")
-                : "#";
-              return (
-                <Link
-                  key={model.id}
-                  href={studioHref}
-                  onClick={onClose}
-                  className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200"
-                  onMouseEnter={e => (e.currentTarget.style.background = `${data.color}10`)}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div
-                    className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                  {/* Right affordance arrow */}
+                  <ChevronRight
+                    size={12}
+                    className="shrink-0 transition-all duration-150"
                     style={{
-                      backgroundColor: isSoon ? "#374151" : data.color,
-                      boxShadow: isSoon ? "none" : `0 0 6px ${data.color}`,
+                      color: isActive ? data.color : "transparent",
+                      transform: isActive ? "translateX(1px)" : "none",
                     }}
                   />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-white">{model.displayName}</p>
-                      {isSoon && (
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide"
-                          style={{ background: "rgba(55,65,81,0.8)", color: "#6B7280" }}
-                        >
-                          {model.status === "planned" ? "PLANNED" : "SOON"}
-                        </span>
-                      )}
-                      {model.badge && !isSoon && (
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase"
-                          style={{ background: `${data.color}20`, color: data.color }}
-                        >
-                          {model.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs" style={{ color: "#64748B" }}>{model.description}</p>
-                  </div>
                 </Link>
               );
             })}
           </div>
+        </div>
 
-          {/* Enhance/Upscale promo in Character tab */}
-          {isCharacter && (
-            <div
-              className="mt-4 rounded-xl p-3"
-              style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}
-            >
-              <p className="text-xs font-semibold" style={{ color: "#F59E0B" }}>Soul ID — Coming Soon</p>
-              <p className="mt-0.5 text-xs" style={{ color: "#64748B" }}>Build a persistent AI character with voice, face, and style memory.</p>
-            </div>
-          )}
+        {/* ── RIGHT PANEL — updates on hover ───────────────────────────── */}
+        <div
+          className="p-4"
+          style={{ minHeight: "200px" }}
+          key={activeIdx} // re-mount on change for crisp transition
+        >
+          <RightPanelContent panel={activeFeat.right} color={data.color} />
         </div>
       </div>
+
+      {/* Bottom accent line */}
+      <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${data.color}30, transparent)` }} />
     </div>
   );
 }
 
-// ── User Avatar Dropdown ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// USER AVATAR DROPDOWN (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
+
 function UserDropdown({ user, onLogout }: { user: { name: string; email: string; credits: number; plan: string }; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -255,7 +390,7 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
         <div style={{
           position: "absolute", top: "calc(100% + 8px)", right: 0, width: "220px",
           background: "rgba(8,14,28,0.98)", border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: "14px", padding: "8px", zIndex: 100,
+          borderRadius: "14px", padding: "8px", zIndex: 300,
           boxShadow: "0 20px 60px rgba(0,0,0,0.6)", backdropFilter: "blur(20px)",
         }}>
           <div style={{ padding: "10px 12px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: "6px" }}>
@@ -270,7 +405,6 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
             </div>
             <p style={{ fontSize: "10px", color: "#64748B", marginTop: "4px" }}>{user.plan} plan</p>
           </div>
-
           {[
             { icon: LayoutDashboard, label: "Dashboard",    href: "/dashboard"              },
             { icon: User,            label: "Profile",      href: "/dashboard/profile"      },
@@ -282,30 +416,19 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
                 key={item.label}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "10px",
-                  padding: "9px 12px", borderRadius: "9px", color: "#94A3B8",
-                  fontSize: "13px", textDecoration: "none", transition: "all 0.15s",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", borderRadius: "9px", color: "#94A3B8", fontSize: "13px", textDecoration: "none", transition: "all 0.15s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
               >
-                <Icon size={14} />
-                {item.label}
+                <Icon size={14} />{item.label}
                 <ChevronRight size={12} style={{ marginLeft: "auto" }} />
               </Link>
             );
           })}
-
           <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", margin: "6px 0" }} />
           <button
             onClick={() => { onLogout(); setOpen(false); }}
-            style={{
-              display: "flex", alignItems: "center", gap: "10px",
-              padding: "9px 12px", borderRadius: "9px", color: "#94A3B8",
-              fontSize: "13px", width: "100%", background: "none", border: "none",
-              cursor: "pointer", transition: "all 0.15s",
-            }}
+            style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", borderRadius: "9px", color: "#94A3B8", fontSize: "13px", width: "100%", background: "none", border: "none", cursor: "pointer", transition: "all 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; (e.currentTarget as HTMLElement).style.color = "#FCA5A5"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
           >
@@ -317,7 +440,215 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
   );
 }
 
-// ── Main Navbar ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE MENU — accordion with feature sub-panel
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MobileMenu({
+  onClose,
+  onAuthModal,
+}: {
+  onClose: () => void;
+  onAuthModal: (mode: "login" | "signup") => void;
+}) {
+  // Which section is expanded (null = top level)
+  const [section, setSection]   = useState<DropdownKey | null>(null);
+  // Which feature detail panel is open (null = feature list)
+  const [detail, setDetail]     = useState<number | null>(null);
+
+  function openSection(key: DropdownKey) {
+    setSection(key);
+    setDetail(null);
+  }
+  function back() {
+    if (detail !== null) { setDetail(null); return; }
+    setSection(null);
+  }
+
+  const sectionData = section ? navCategories[section] : null;
+
+  return (
+    <div
+      className="border-t lg:hidden"
+      style={{
+        borderColor: "var(--border-subtle)",
+        background: "rgba(8,14,28,0.98)",
+        backdropFilter: "blur(20px)",
+        maxHeight: "calc(100vh - 64px)",
+        overflowY: "auto",
+      }}
+    >
+      {/* ── Back header when inside a section ── */}
+      {section && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 border-b"
+          style={{ borderColor: `${sectionData!.color}15` }}
+        >
+          <button
+            onClick={back}
+            className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+            style={{ background: "none", border: "none", cursor: "pointer", color: sectionData!.color }}
+          >
+            <ArrowLeft size={15} />
+            {detail !== null ? sectionData!.features[detail].label : "Back"}
+          </button>
+          {detail === null && (
+            <span className="text-sm font-semibold" style={{ color: "#F8FAFC" }}>{section}</span>
+          )}
+          {detail !== null && (
+            <span className="text-sm font-semibold" style={{ color: "#F8FAFC" }}>{sectionData!.label}</span>
+          )}
+        </div>
+      )}
+
+      {/* ── LEVEL 1: top-level nav links ── */}
+      {!section && (
+        <div className="py-3 px-3">
+          <ul className="flex flex-col gap-0.5">
+            {navLinks.map((link) => {
+              const hasSection = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
+              const cat = hasSection ? navCategories[link.dropdownKey!] : null;
+              return (
+                <li key={link.href + link.label}>
+                  {hasSection ? (
+                    <button
+                      onClick={() => openSection(link.dropdownKey!)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                    >
+                      <span
+                        className="h-2 w-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: cat!.color, boxShadow: `0 0 6px ${cat!.color}` }}
+                      />
+                      <span className="flex-1 text-left">{link.label}</span>
+                      <ChevronRight size={14} style={{ color: "#475569" }} />
+                    </button>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      onClick={onClose}
+                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium"
+                      style={{ color: "#94A3B8" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
+                    >
+                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
+                      {link.label}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+
+            {/* Cinema Studio */}
+            <li>
+              <Link
+                href="/studio/cinema"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium"
+                style={{ color: "#94A3B8" }}
+              >
+                <Clapperboard size={14} style={{ color: "#A855F7", flexShrink: 0 }} />
+                <span className="flex-1">Cinema Studio</span>
+                <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7" }}>SOON</span>
+              </Link>
+            </li>
+          </ul>
+
+          {/* Auth buttons */}
+          <div className="mt-4 flex flex-col gap-2 px-1">
+            <button
+              onClick={() => { onClose(); onAuthModal("login"); }}
+              className="block text-center py-2.5 rounded-xl text-sm font-medium w-full transition-colors"
+              style={{ color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
+            >
+              Login
+            </button>
+            <Link
+              href="/studio/image"
+              onClick={onClose}
+              className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white w-full"
+              style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", textDecoration: "none" }}
+            >
+              <Zap size={14} /> Try Free
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ── LEVEL 2: feature list for a section ── */}
+      {section && detail === null && sectionData && (
+        <div className="py-3 px-3">
+          <div className="flex flex-col gap-0.5">
+            {sectionData.features.map((feat, idx) => {
+              const Icon   = feat.icon;
+              const isSoon = feat.badge === "SOON" || feat.badge === "PLANNED";
+              return (
+                <button
+                  key={feat.label}
+                  onClick={() => setDetail(idx)}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm transition-all duration-150"
+                  style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", color: isSoon ? "#64748B" : "#94A3B8" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${sectionData.color}10`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+                    style={{ background: `${sectionData.color}12`, border: `1px solid ${sectionData.color}20` }}
+                  >
+                    <Icon size={14} style={{ color: sectionData.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium" style={{ color: "#F8FAFC" }}>{feat.label}</span>
+                      {feat.badge && (
+                        <span
+                          className="rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase"
+                          style={{ background: isSoon ? "rgba(55,65,81,0.7)" : `${sectionData.color}22`, color: isSoon ? "#6B7280" : sectionData.color }}
+                        >
+                          {feat.badge}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs" style={{ color: "#475569" }}>{feat.desc}</span>
+                  </div>
+                  <ChevronRight size={14} style={{ color: "#475569", flexShrink: 0 }} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── LEVEL 3: right panel detail for a feature ── */}
+      {section && detail !== null && sectionData && (
+        <div className="py-4 px-4">
+          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} />
+
+          {/* Link to feature if it's active */}
+          {sectionData.features[detail].href !== "#" && (
+            <Link
+              href={sectionData.features[detail].href}
+              onClick={onClose}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
+              style={{ background: `linear-gradient(135deg, ${sectionData.color}, ${sectionData.color}bb)`, color: "#fff", textDecoration: "none" }}
+            >
+              Open {sectionData.features[detail].label}
+              <ChevronRight size={14} />
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN NAVBAR
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function Navbar() {
   const [scrolled, setScrolled]             = useState(false);
   const [mobileOpen, setMobileOpen]         = useState(false);
@@ -332,13 +663,25 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  function openDropdown(key: DropdownKey) {
+  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const onResize = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const openDropdown = useCallback((key: DropdownKey) => {
     if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
     setActiveDropdown(key);
-  }
-  function closeDropdownDelayed() {
-    dropdownTimeout.current = setTimeout(() => setActiveDropdown(null), 150);
-  }
+  }, []);
+
+  const closeDropdownDelayed = useCallback(() => {
+    dropdownTimeout.current = setTimeout(() => setActiveDropdown(null), 180);
+  }, []);
+
+  const cancelClose = useCallback(() => {
+    if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
+  }, []);
 
   return (
     <>
@@ -357,31 +700,31 @@ export function Navbar() {
             {/* Logo */}
             <Logo size="md" />
 
-            {/* Desktop nav */}
+            {/* ── Desktop nav ── */}
             <ul className="hidden items-center gap-0.5 lg:flex">
               {navLinks.map((link) => {
-                const isDropdown = link.hasDropdown;
-                const dropKey = (link.dropdownKey ?? link.label) as DropdownKey;
-                const dropData = isDropdown && dropKey in navDropdowns ? navDropdowns[dropKey] : null;
-                const isActive = activeDropdown === dropKey;
+                const isDropdown = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
+                const dropKey    = link.dropdownKey as DropdownKey;
+                const catData    = isDropdown ? navCategories[dropKey] : null;
+                const isActive   = activeDropdown === dropKey;
 
                 return (
                   <li
                     key={link.href + link.label}
                     className="relative"
-                    onMouseEnter={() => isDropdown && dropData && openDropdown(dropKey)}
-                    onMouseLeave={() => isDropdown && dropData && closeDropdownDelayed()}
+                    onMouseEnter={() => isDropdown && openDropdown(dropKey)}
+                    onMouseLeave={() => isDropdown && closeDropdownDelayed()}
                   >
                     <Link
                       href={link.href}
                       className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
                       style={{
-                        color: isActive && dropData ? dropData.color : "#94A3B8",
-                        textShadow: isActive && dropData ? `0 0 16px ${dropData.color}90` : "none",
+                        color: isActive && catData ? catData.color : "#94A3B8",
+                        textShadow: isActive && catData ? `0 0 16px ${catData.color}80` : "none",
                       }}
                     >
                       {link.label}
-                      {isDropdown && dropData && (
+                      {isDropdown && catData && (
                         <ChevronDown
                           size={12}
                           className="transition-transform duration-200"
@@ -390,10 +733,10 @@ export function Navbar() {
                       )}
                     </Link>
 
-                    {isDropdown && isActive && dropData && (
+                    {isDropdown && isActive && catData && (
                       <div
-                        onMouseEnter={() => openDropdown(dropKey)}
-                        onMouseLeave={() => closeDropdownDelayed()}
+                        onMouseEnter={cancelClose}
+                        onMouseLeave={closeDropdownDelayed}
                       >
                         <DropdownMenu category={dropKey} onClose={() => setActiveDropdown(null)} />
                       </div>
@@ -402,7 +745,7 @@ export function Navbar() {
                 );
               })}
 
-              {/* Future Cinema Studio — special tab with SOON badge */}
+              {/* Future Cinema Studio */}
               <li className="relative ml-1">
                 <Link
                   href="/studio/cinema"
@@ -423,18 +766,13 @@ export function Navbar() {
               </li>
             </ul>
 
-            {/* Desktop actions */}
+            {/* ── Desktop actions ── */}
             <div className="hidden items-center gap-3 lg:flex">
               {user ? (
                 <>
                   <Link
                     href="/dashboard/credits"
-                    style={{
-                      display: "flex", alignItems: "center", gap: "6px",
-                      background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)",
-                      borderRadius: "20px", padding: "5px 12px",
-                      fontSize: "12px", fontWeight: 600, color: "#60A5FA", textDecoration: "none",
-                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "5px 12px", fontSize: "12px", fontWeight: 600, color: "#60A5FA", textDecoration: "none" }}
                   >
                     <Zap size={12} />
                     {user.credits} credits
@@ -464,11 +802,7 @@ export function Navbar() {
                   <Link
                     href="/studio/image"
                     className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all duration-300"
-                    style={{
-                      background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)",
-                      boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none",
-                      cursor: "pointer", textDecoration: "none",
-                    }}
+                    style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                   >
@@ -491,57 +825,10 @@ export function Navbar() {
 
           {/* Mobile menu */}
           {mobileOpen && (
-            <div
-              className="border-t py-4 lg:hidden"
-              style={{ borderColor: "var(--border-subtle)", background: "var(--page-bg)" }}
-            >
-              <ul className="flex flex-col gap-1">
-                {navLinks.map((link) => (
-                  <li key={link.href + link.label}>
-                    <Link
-                      href={link.href}
-                      onClick={() => setMobileOpen(false)}
-                      className="block px-3 py-2.5 rounded-lg text-sm font-medium"
-                      style={{ color: "#94A3B8" }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-                <li>
-                  <Link
-                    href="/studio/cinema"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium"
-                    style={{ color: "#94A3B8" }}
-                  >
-                    <Clapperboard size={14} style={{ color: "#A855F7" }} />
-                    Cinema Studio
-                    <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7" }}>
-                      SOON
-                    </span>
-                  </Link>
-                </li>
-              </ul>
-              <div className="mt-4 px-3 flex flex-col gap-2">
-                <button
-                  onClick={() => { setMobileOpen(false); setAuthModal("login"); }}
-                  className="block text-center py-2.5 rounded-xl text-sm font-medium"
-                  style={{ color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer", width: "100%" }}
-                >
-                  Login
-                </button>
-                <Link
-                  href="/studio/image"
-                  onClick={() => setMobileOpen(false)}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white"
-                  style={{ background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", border: "none", cursor: "pointer", width: "100%", textDecoration: "none" }}
-                >
-                  <Zap size={14} />
-                  Try Free
-                </Link>
-              </div>
-            </div>
+            <MobileMenu
+              onClose={() => setMobileOpen(false)}
+              onAuthModal={(mode) => { setMobileOpen(false); setAuthModal(mode); }}
+            />
           )}
         </div>
       </header>
