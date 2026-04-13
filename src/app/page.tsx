@@ -267,7 +267,7 @@ export default function HomePage() {
         </div>
 
         {/* Hero content */}
-        <div className="container-site relative z-10 flex flex-col items-center gap-8 pt-32 pb-16 text-center">
+        <div className="container-site relative z-10 flex flex-col items-center gap-6 pt-20 pb-12 md:gap-8 md:pt-32 md:pb-16 text-center">
           {/* Eyebrow */}
           <div
             className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]"
@@ -279,14 +279,13 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="leading-[1.2] tracking-tight"
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800 }}
+            className="leading-[1.2] tracking-tight px-2"
+            style={{ fontSize: "clamp(1.75rem, 6vw, 3rem)", fontWeight: 800 }}
           >
-            <span style={{ display: "block", whiteSpace: "nowrap", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
+            <span style={{ display: "block", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
             <span
               style={{
                 display: "block",
-                whiteSpace: "nowrap",
                 background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 50%, #A855F7 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -380,9 +379,9 @@ export default function HomePage() {
       </section>
 
       {/* ── 2. HOW ZENCRA WORKS — full-width 3-step ─────────────────────────── */}
-      <section style={{ padding: "100px 0 80px" }}>
+      <section className="py-14 md:py-24">
         <div className="container-site">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>The Workflow</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               How Zencra Works
@@ -455,10 +454,10 @@ export default function HomePage() {
       </section>
 
       {/* ── 3. WHAT YOU CAN CREATE — single-row video carousel ──────────────── */}
-      <section style={{ padding: "80px 0" }}>
+      <section className="py-14 md:py-20">
         {/* Section header inside container */}
         <div className="container-site">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Video Showcase</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               What You Can Create
@@ -619,20 +618,22 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 4. FUTURE CINEMA STUDIO — full-width 16:9 coming-soon card ──────── */}
-      <section style={{ padding: "60px 0 80px" }}>
-        <div className="container-site">
-          {/* Full 16:9 card */}
+      {/* ── 4. FUTURE CINEMA STUDIO ─────────────────────────────────────────── */}
+      {/* Mobile: full-bleed 9:16 card with content-first layout             */}
+      {/* Desktop: contained 16:9 card                                       */}
+      <section className="py-10 md:py-16">
+        {/* Container only on desktop — full-bleed on mobile */}
+        <div className="md:container-site md:px-auto px-0">
           <div
-            className="relative w-full overflow-hidden rounded-3xl"
+            className="cinema-card relative w-full overflow-hidden md:rounded-3xl"
             style={{
-              aspectRatio: "16/9",
               background: "linear-gradient(135deg, #050a14 0%, #0a0f1e 30%, #120a26 60%, #1a0d3a 100%)",
               border: "1px solid rgba(168,85,247,0.25)",
               boxShadow: "0 0 100px rgba(168,85,247,0.10), 0 30px 80px rgba(0,0,0,0.5)",
             }}
           >
-            {/* Background video (place /public/cinema/bg.mp4 to activate) */}
+
+            {/* Background video */}
             <video
               autoPlay muted loop playsInline preload="none"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }}
@@ -641,25 +642,24 @@ export default function HomePage() {
               <source src="/cinema/bg.mp4" type="video/mp4" />
             </video>
 
-            {/* Background glows */}
+            {/* Glows */}
             <div className="pointer-events-none absolute inset-0" aria-hidden="true">
               <div style={{ position: "absolute", width: "60%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
               <div style={{ position: "absolute", width: "40%", height: "60%", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)", bottom: "-15%", left: "5%", filter: "blur(60px)" }} />
-              <div style={{ position: "absolute", width: "30%", height: "40%", borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,160,0.08) 0%, transparent 70%)", top: "30%", left: "20%", filter: "blur(50px)" }} />
             </div>
-
-            {/* Subtle film-grain overlay */}
-            <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }} aria-hidden="true" />
 
             {/* Grid lines */}
             <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(168,85,247,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} aria-hidden="true" />
 
-            {/* Content */}
-            <div className="relative z-10 flex h-full flex-col items-center justify-center gap-6 px-8 text-center">
+            {/* Bottom text gradient for readability */}
+            <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.45) 45%, transparent 100%)" }} />
+
+            {/* Content — bottom-anchored on mobile so text is always visible */}
+            <div className="relative z-10 flex h-full flex-col justify-end gap-4 px-6 pb-10 text-center items-center md:justify-center md:gap-6 md:px-8 md:pb-0">
               {/* Badge */}
               <div
                 className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]"
-                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", color: "#C084FC", backdropFilter: "blur(8px)" }}
+                style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)", color: "#C084FC", backdropFilter: "blur(8px)" }}
               >
                 <Clapperboard size={13} />
                 Future Cinema Studio · Coming Soon
@@ -667,46 +667,42 @@ export default function HomePage() {
 
               {/* Headline */}
               <h2
-                className="max-w-3xl leading-tight tracking-tight"
-                style={{ fontSize: "clamp(2rem, 5vw, 4rem)", fontWeight: 800, color: "#F8FAFC" }}
+                className="leading-tight tracking-tight"
+                style={{ fontSize: "clamp(1.75rem, 6vw, 4rem)", fontWeight: 800, color: "#F8FAFC", textShadow: "0 2px 20px rgba(0,0,0,0.9)" }}
               >
                 Direct AI Films.{" "}
-                <span
-                  style={{
-                    background: "linear-gradient(135deg, #A855F7 0%, #60A5FA 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
-                >
+                <span style={{
+                  background: "linear-gradient(135deg, #A855F7 0%, #60A5FA 100%)",
+                  WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+                }}>
                   Scene by Scene.
                 </span>
               </h2>
 
               {/* Subline */}
-              <p className="max-w-xl text-base leading-relaxed" style={{ color: "#94A3B8" }}>
+              <p className="max-w-sm md:max-w-xl text-sm md:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.75)", textShadow: "0 1px 12px rgba(0,0,0,0.9)" }}>
                 Move beyond clips. Direct full AI films with scene control, character continuity, and cinematic storytelling tools — your complete filmmaking environment.
               </p>
 
-              {/* Feature pills */}
-              <div className="flex flex-wrap justify-center gap-3">
+              {/* Feature pills — 2-col grid on mobile */}
+              <div className="grid grid-cols-2 gap-2 w-full max-w-xs md:flex md:flex-wrap md:justify-center md:gap-3 md:max-w-none">
                 {["Scene-based editing", "Storyboard workflow", "Character consistency", "Shot sequencing"].map((feat) => (
                   <div
                     key={feat}
-                    className="flex items-center gap-2 rounded-xl px-4 py-2"
-                    style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.18)", backdropFilter: "blur(8px)" }}
+                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 md:px-4"
+                    style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.22)", backdropFilter: "blur(8px)" }}
                   >
-                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#A855F7", boxShadow: "0 0 6px #A855F7" }} />
-                    <span className="text-sm font-medium" style={{ color: "#C084FC" }}>{feat}</span>
+                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: "#A855F7", boxShadow: "0 0 6px #A855F7" }} />
+                    <span className="text-xs font-medium" style={{ color: "#C084FC" }}>{feat}</span>
                   </div>
                 ))}
               </div>
 
               {/* CTA */}
-              <div className="flex items-center gap-4 mt-2">
+              <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4 mt-1">
                 <button
                   onClick={() => router.push("/studio/cinema")}
-                  className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-semibold transition-all duration-300"
+                  className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-semibold w-full justify-center md:w-auto"
                   style={{ background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 0 30px rgba(168,85,247,0.35)" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 50px rgba(168,85,247,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 30px rgba(168,85,247,0.35)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
@@ -714,25 +710,21 @@ export default function HomePage() {
                   Join the Waitlist
                   <ArrowRight size={15} />
                 </button>
-                <span className="text-xs" style={{ color: "#64748B" }}>No credit card required</span>
+                <span className="text-xs" style={{ color: "#94A3B8" }}>No credit card required</span>
               </div>
             </div>
 
-            {/* Bottom timeline strip */}
+            {/* Bottom timeline strip — desktop only */}
             <div
-              className="absolute bottom-0 left-0 right-0 flex items-center gap-1 px-6 py-3"
+              className="absolute bottom-0 left-0 right-0 hidden md:flex items-center gap-1 px-6 py-3"
               style={{ background: "linear-gradient(to top, rgba(5,10,20,0.9), transparent)" }}
             >
               {Array.from({ length: 24 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-sm"
-                  style={{
-                    height: "14px",
-                    background: i % 4 === 0 ? "rgba(168,85,247,0.5)" : i % 7 === 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(168,85,247,0.08)",
-                  }}
-                />
+                <div key={i} className="flex-1 rounded-sm" style={{
+                  height: "14px",
+                  background: i % 4 === 0 ? "rgba(168,85,247,0.5)" : i % 7 === 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(168,85,247,0.08)",
+                }} />
               ))}
             </div>
           </div>
@@ -740,9 +732,9 @@ export default function HomePage() {
       </section>
 
       {/* ── 5. TARGET AUDIENCE — full-width 16:9 cards ──────────────────────── */}
-      <section style={{ padding: "60px 0 80px" }}>
+      <section className="py-12 md:py-20">
         <div className="container-site">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               Built for Creators, Filmmakers,<br className="hidden md:block" /> and Agencies
@@ -823,9 +815,9 @@ export default function HomePage() {
       </section>
 
       {/* ── 6. PRICING PREVIEW ──────────────────────────────────────────────── */}
-      <section style={{ padding: "60px 0 100px" }}>
+      <section className="py-12 md:py-24">
         <div className="container-site">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Simple Pricing</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               Start Free. Scale as You Create.
@@ -840,7 +832,7 @@ export default function HomePage() {
             {pricingTiers.map((tier) => (
               <div
                 key={tier.name}
-                className="relative flex flex-col rounded-2xl p-8"
+                className="relative flex flex-col rounded-2xl p-6 md:p-8"
                 style={{
                   background: tier.highlight
                     ? `linear-gradient(135deg, ${tier.color}12 0%, ${tier.color}06 100%)`
@@ -913,13 +905,13 @@ export default function HomePage() {
 
       {/* ── FOOTER CTA BAND ─────────────────────────────────────────────────── */}
       <section
+        className="py-14 md:py-20"
         style={{
-          padding: "80px 0",
           background: "linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(14,165,160,0.04) 50%, rgba(168,85,247,0.06) 100%)",
           borderTop: "1px solid var(--border-subtle)",
         }}
       >
-        <div className="container-site flex flex-col items-center gap-6 text-center">
+        <div className="container-site flex flex-col items-center gap-6 text-center px-6 md:px-0">
           <h2 className="tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 800, color: "var(--page-text)" }}>
             Ready to Create Something Cinematic?
           </h2>
@@ -952,6 +944,9 @@ export default function HomePage() {
         0%   { background-position: 200% 0; }
         100% { background-position: -200% 0; }
       }
+      /* Cinema Studio card: 9:16 on mobile → 16:9 on desktop */
+      .cinema-card { aspect-ratio: 9/16; }
+      @media (min-width: 768px) { .cinema-card { aspect-ratio: 16/9; } }
     `}</style>
 
     {authModal && (
