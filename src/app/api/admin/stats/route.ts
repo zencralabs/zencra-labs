@@ -50,7 +50,7 @@ export async function GET(req: Request) {
     ]);
 
     // Plan distribution
-    const plans: Record<string, number> = { free: 0, starter: 0, pro: 0, creator: 0, studio: 0, agency: 0 };
+    const plans: Record<string, number> = { free: 0, starter: 0, pro: 0, creator: 0 };
     (planBreakdown.data ?? []).forEach((p: { plan: string }) => {
       const key = (p.plan ?? "free").toLowerCase();
       plans[key] = (plans[key] ?? 0) + 1;

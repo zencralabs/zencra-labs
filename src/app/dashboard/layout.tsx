@@ -25,10 +25,10 @@ const NAV = [
 ];
 
 const PLAN_COLORS: Record<string, string> = {
-  Free:    "#64748B",
-  Creator: "#2563EB",
-  Studio:  "#A855F7",
-  Agency:  "#F59E0B",
+  free:    "#64748B",
+  starter: "#2563EB",
+  pro:     "#0EA5A0",
+  creator: "#A855F7",
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

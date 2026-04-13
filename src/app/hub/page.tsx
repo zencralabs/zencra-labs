@@ -42,12 +42,10 @@ type ContentData = Record<string, string>;
 
 const GRADIENT_COLORS = ["#2563EB", "#0EA5A0", "#A855F7", "#F59E0B", "#10B981", "#EF4444", "#4F46E5", "#EC4899"];
 const PLAN_COLORS: Record<string, string> = {
-  Free: "#64748B",
-  Starter: "#2563EB",
-  Pro: "#0EA5A0",
-  Creator: "#A855F7",
-  Studio: "#F59E0B",
-  Agency: "#EF4444",
+  free:    "#64748B",
+  starter: "#2563EB",
+  pro:     "#0EA5A0",
+  creator: "#A855F7",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {

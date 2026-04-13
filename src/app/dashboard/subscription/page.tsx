@@ -108,7 +108,7 @@ export default function SubscriptionPage() {
           <div style={{ fontSize: "20px", fontWeight: 800, color: "#60A5FA" }}>{user.plan} Plan</div>
           <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>{user.credits} credits remaining</div>
         </div>
-        {user.plan !== "Agency" && (
+        {user.plan !== "creator" && (
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "8px" }}>Upgrade for more power</div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#60A5FA", fontWeight: 600 }}>
