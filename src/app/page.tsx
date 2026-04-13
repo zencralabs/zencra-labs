@@ -247,19 +247,18 @@ export default function HomePage() {
         className="relative flex flex-col items-center justify-center overflow-hidden"
         style={{ minHeight: "calc(100vh - 64px)" }}
       >
-        {/* Video background — full opacity, no overlay */}
+        {/* Video background — full on desktop, slightly reduced on mobile for text readability */}
         <video
           autoPlay muted loop playsInline
           preload="auto"
           poster="/hero-poster.jpg"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 1 }}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
         >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
 
-        {/* Animated orbs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        {/* Animated orbs — desktop only (blur+animation is GPU-heavy on mobile) */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden hidden md:block" aria-hidden="true">
           <div className="animate-orb-1 absolute" style={{ width: "600px", height: "600px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)", top: "-10%", left: "20%", filter: "blur(40px)" }} />
           <div className="animate-orb-2 absolute" style={{ width: "500px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,160,0.25) 0%, transparent 70%)", bottom: "0%", right: "15%", filter: "blur(50px)" }} />
           <div className="animate-orb-3 absolute" style={{ width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%)", top: "40%", left: "-5%", filter: "blur(60px)" }} />
@@ -279,8 +278,8 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="leading-[1.2] tracking-tight px-2"
-            style={{ fontSize: "clamp(1.75rem, 6vw, 3rem)", fontWeight: 800 }}
+            className="leading-[1.2] tracking-tight w-full"
+            style={{ fontSize: "clamp(1.5rem, 8vw, 3rem)", fontWeight: 800 }}
           >
             <span style={{ display: "block", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
             <span
@@ -324,8 +323,8 @@ export default function HomePage() {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
       </section>
 
-      {/* ── AUTO-SCROLL SHOWCASE STRIP ──────────────────────────────────────── */}
-      <section style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
+      {/* ── AUTO-SCROLL SHOWCASE STRIP — desktop only (too heavy for mobile) ── */}
+      <section className="hidden md:block" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} aria-hidden="true" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} aria-hidden="true" />
 
@@ -470,9 +469,9 @@ export default function HomePage() {
 
         {/* Carousel — full-width with controlled scroll */}
         <div className="relative" style={{ overflow: "hidden" }}>
-          {/* Fade edges */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "80px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "80px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} />
+          {/* Fade edges — hidden on mobile, visible on desktop */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 hidden md:block" style={{ width: "80px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 hidden md:block" style={{ width: "80px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} />
 
           {/* Track */}
           <div
@@ -622,8 +621,8 @@ export default function HomePage() {
       {/* Mobile: full-bleed 9:16 card with content-first layout             */}
       {/* Desktop: contained 16:9 card                                       */}
       <section className="py-10 md:py-16">
-        {/* Container only on desktop — full-bleed on mobile */}
-        <div className="md:container-site md:px-auto px-0">
+        {/* Full-bleed on mobile, contained on desktop */}
+        <div className="px-0 md:px-12 lg:px-20 xl:px-28">
           <div
             className="cinema-card relative w-full overflow-hidden md:rounded-3xl"
             style={{
