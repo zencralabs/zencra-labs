@@ -84,19 +84,18 @@ function toolDisplayName(id: string | undefined): string {
   return TOOL_NAME[id] ?? id.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// Skeleton cards shown while showcase is loading
-const SHOWCASE_SKELETONS = Array.from({ length: 6 }, (_, i) => ({
-  id:        `skel-${i}`,
-  gradient:  [
-    "linear-gradient(160deg,#0F1A32 0%,#1e3a8a 50%,#1d4ed8 100%)",
-    "linear-gradient(160deg,#0d1a1a 0%,#0f3030 50%,#0ea5a0 100%)",
-    "linear-gradient(160deg,#1a0a0a 0%,#3b1010 50%,#dc2626 100%)",
-    "linear-gradient(160deg,#0a0f1a 0%,#1a2744 50%,#2563eb 100%)",
-    "linear-gradient(160deg,#0f0a1a 0%,#2d1b69 50%,#7c3aed 100%)",
-    "linear-gradient(160deg,#1a1206 0%,#422006 50%,#f59e0b 100%)",
-  ][i],
-  color: ["#2563EB","#0EA5A0","#EF4444","#60A5FA","#A855F7","#F59E0B"][i],
-}));
+// ── Showcase — curated static videos ─────────────────────────────────────────
+// Upload your videos to public/showcase/ with these exact filenames.
+const SHOWCASE_STATIC: PublicAsset[] = [
+  { id: "sc1", tool: "kling-30",    tool_category: "video", prompt: "Cinematic chase through neon city streets at night",         result_url: "/showcase/showcase-kling-30.mp4",  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc2", tool: "kling-26",    tool_category: "video", prompt: "Character walks through misty forest, depth of field",       result_url: "/showcase/showcase-kling-26.mp4",  result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc3", tool: "runway-gen4", tool_category: "video", prompt: "Aerial drone shot over mountains at golden hour",             result_url: "/showcase/showcase-runway.mp4",    result_urls: null, credits_used: 12, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc4", tool: "veo2",        tool_category: "video", prompt: "Ocean waves crash in slow motion, cinematic grade",          result_url: "/showcase/showcase-veo.mp4",       result_urls: null, credits_used: 15, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc5", tool: "seedance",    tool_category: "video", prompt: "Epic warrior portrait, dramatic rim lighting",               result_url: "/showcase/showcase-seedance.mp4",  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc6", tool: "heygen",      tool_category: "video", prompt: "AI presenter delivers pitch with perfect lip sync",          result_url: "/showcase/showcase-heygen.mp4",    result_urls: null, credits_used: 20, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc7", tool: "ltx-video",   tool_category: "video", prompt: "Luxury product reveal, studio lighting, slow rotate",       result_url: "/showcase/showcase-ltx.mp4",       result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc8", tool: "kling-30",    tool_category: "video", prompt: "Sci-fi battle sequence, laser effects, epic scale",         result_url: "/showcase/showcase-kling-30b.mp4", result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+];
 
 // ── Audience cards ────────────────────────────────────────────────────────────
 const audienceCards = [
@@ -212,20 +211,8 @@ export default function HomePage() {
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
 
-  // Showcase — fetched live from gallery
-  const [showcaseAssets,  setShowcaseAssets]  = useState<PublicAsset[]>([]);
-  const [showcaseLoaded,  setShowcaseLoaded]  = useState(false);
-
-  useEffect(() => {
-    fetch("/api/generations/showcase")
-      .then(r => r.json())
-      .then(json => { if (json.success) setShowcaseAssets(json.data ?? []); })
-      .catch(() => {/* silently fall back to skeletons */})
-      .finally(() => setShowcaseLoaded(true));
-  }, []);
-
-  // Carousel slots — real assets when loaded, skeletons while loading
-  const showcaseSlides = showcaseLoaded ? showcaseAssets : SHOWCASE_SKELETONS as unknown as PublicAsset[];
+  // Showcase — static curated videos (see SHOWCASE_STATIC above)
+  const showcaseSlides = SHOWCASE_STATIC;
 
   const maxIdx = Math.max(0, showcaseSlides.length - carouselVisible);
 
@@ -493,17 +480,13 @@ export default function HomePage() {
             }}
           >
             {showcaseSlides.map((asset, i) => {
-              // Derive display values from the real asset (or skeleton)
-              const isSkeleton = !showcaseLoaded;
               const color      = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
-              const gradient   = SHOWCASE_SKELETONS[i % SHOWCASE_SKELETONS.length]?.gradient
-                                 ?? "linear-gradient(160deg,#0F1A32 0%,#1e3a8a 50%,#1d4ed8 100%)";
               const toolLabel  = toolDisplayName(asset.tool);
               const caption    = asset.prompt
-                ? asset.prompt.length > 60
-                  ? asset.prompt.slice(0, 57) + "…"
-                  : asset.prompt
+                ? asset.prompt.length > 60 ? asset.prompt.slice(0, 57) + "…" : asset.prompt
                 : "";
+              const categoryLabel = asset.tool === "heygen" ? "Talking Avatar"
+                : asset.tool_category === "video" ? "Cinematic Video" : "AI Scene";
 
               return (
               <div
@@ -512,7 +495,7 @@ export default function HomePage() {
                 style={{
                   width: cardWidthCss,
                   aspectRatio: "16/9",
-                  background: gradient,
+                  background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
                   border: `1px solid ${color}30`,
                   boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`,
                   transition: "transform 0.3s ease, box-shadow 0.3s ease",
@@ -526,62 +509,39 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`;
                 }}
               >
-                {/* Real member video — autoplays, hidden while skeleton */}
-                {!isSkeleton && asset.result_url && (
+                {/* Video */}
+                {asset.result_url && (
                   <video
                     className="absolute inset-0 h-full w-full object-cover"
-                    style={{ opacity: 0.92 }}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
+                    style={{ opacity: 0.95 }}
+                    autoPlay muted loop playsInline preload="metadata"
                     onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                   >
                     <source src={asset.result_url} type="video/mp4" />
                   </video>
                 )}
-                {/* Skeleton shimmer overlay (loading state) */}
-                {isSkeleton && (
+
+                {/* Label badge top-right */}
+                <div className="absolute top-4 right-4">
+                  <span
+                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
+                    style={{ background: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
+                  >
+                    {categoryLabel}
+                  </span>
+                </div>
+
+                {/* Play icon on hover */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <div
-                    className="absolute inset-0"
-                    style={{
-                      background: "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%)",
-                      backgroundSize: "200% 100%",
-                      animation: "shimmer 1.8s infinite",
-                    }}
-                  />
-                )}
-                {/* Inner shimmer */}
-                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.1) 0%, transparent 55%)" }} />
-                {/* Cinematic grain */}
-                <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }} />
-
-                {/* Label badge top-left */}
-                {!isSkeleton && (
-                  <div className="absolute top-4 left-4">
-                    <span
-                      className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
-                      style={{ background: `${color}20`, color, border: `1px solid ${color}40`, backdropFilter: "blur(8px)" }}
-                    >
-                      Cinematic Video
-                    </span>
+                    className="flex h-14 w-14 items-center justify-center rounded-full"
+                    style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
+                  >
+                    <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
                   </div>
-                )}
+                </div>
 
-                {/* Play icon (appears on hover) */}
-                {!isSkeleton && (
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div
-                      className="flex h-14 w-14 items-center justify-center rounded-full"
-                      style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
-                    >
-                      <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Bottom gradient + info */}
+                {/* Bottom gradient + tool name + caption */}
                 <div
                   className="absolute bottom-0 left-0 right-0 p-5"
                   style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
@@ -589,9 +549,9 @@ export default function HomePage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
-                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{isSkeleton ? "" : toolLabel}</p>
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{toolLabel}</p>
                     </div>
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "55%", textAlign: "right" }}>{isSkeleton ? "" : caption}</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.55)", maxWidth: "55%", textAlign: "right" }}>{caption}</p>
                   </div>
                 </div>
               </div>
@@ -809,18 +769,16 @@ export default function HomePage() {
                     (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.4)`;
                   }}
                 >
-                  {/* Background video */}
+                  {/* Background video — full opacity, no overlay */}
                   {card.videoSrc && (
                     <video
                       autoPlay muted loop playsInline preload="metadata"
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.6 }}
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
                       onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                     >
                       <source src={card.videoSrc} type="video/mp4" />
                     </video>
                   )}
-                  {/* Shimmer */}
-                  <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
 
                   {/* Icon top-left */}
                   <div className="absolute top-6 left-6">
@@ -842,13 +800,13 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  {/* Bottom content */}
+                  {/* Bottom content — subtle gradient + text shadows for readability */}
                   <div
                     className="absolute bottom-0 left-0 right-0 p-6"
-                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)" }}
                   >
-                    <h3 className="mb-2 text-xl font-bold" style={{ color: "#F8FAFC" }}>{card.title}</h3>
-                    <p style={{ color: "rgba(255,255,255,0.65)", lineHeight: 1.65, fontSize: "0.875rem" }}>{card.desc}</p>
+                    <h3 className="mb-2 text-xl font-bold" style={{ color: "#F8FAFC", textShadow: "0 2px 12px rgba(0,0,0,0.9)" }}>{card.title}</h3>
+                    <p style={{ color: "rgba(255,255,255,0.85)", lineHeight: 1.65, fontSize: "0.875rem", textShadow: "0 1px 8px rgba(0,0,0,0.85)" }}>{card.desc}</p>
                   </div>
                 </div>
               );
