@@ -26,6 +26,7 @@ const workflowSteps = [
     gradient: "linear-gradient(135deg, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 100%)",
     border: "rgba(37,99,235,0.20)",
     sample: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)",
+    imageSrc: "/how-it-works/step-1.jpg",  // image — drop step-1.jpg into public/how-it-works/
   },
   {
     icon: Film,
@@ -402,14 +403,23 @@ export default function HomePage() {
                     className="w-full relative"
                     style={{ paddingBottom: "56.25%", background: step.sample, overflow: "hidden" }}
                   >
-                    {/* Video if available */}
-                    <video
-                      autoPlay muted loop playsInline preload="metadata"
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
-                      onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-                    >
-                      <source src={`/how-it-works/step-${parseInt(step.num)}.mp4`} type="video/mp4" />
-                    </video>
+                    {/* Image or video depending on step */}
+                    {"imageSrc" in step && step.imageSrc ? (
+                      <img
+                        src={step.imageSrc}
+                        alt={step.title}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.9 }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      <video
+                        autoPlay muted loop playsInline preload="metadata"
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+                        onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+                      >
+                        <source src={`/how-it-works/step-${parseInt(step.num)}.mp4`} type="video/mp4" />
+                      </video>
+                    )}
                     <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
                     {/* Step number watermark */}
                     <div
