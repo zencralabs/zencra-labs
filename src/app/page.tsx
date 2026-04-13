@@ -6,6 +6,7 @@ import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
+import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
 import type { PublicAsset } from "@/lib/types/generation";
 
@@ -407,16 +408,18 @@ export default function HomePage() {
                 >
                   {/* 16:9 sample visual at top */}
                   <div
-                    className="w-full relative"
-                    style={{ paddingBottom: "56.25%", background: step.sample, overflow: "hidden" }}
+                    className="w-full relative aspect-video"
+                    style={{ background: step.sample, overflow: "hidden" }}
                   >
                     {/* Image or video depending on step */}
                     {"imageSrc" in step && step.imageSrc ? (
-                      <img
+                      <Image
                         src={step.imageSrc}
                         alt={step.title}
-                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.9 }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        style={{ objectFit: "cover", opacity: 0.9 }}
+                        priority
                       />
                     ) : (
                       <video
