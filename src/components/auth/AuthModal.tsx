@@ -322,7 +322,18 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       }
     }
     setLoading(false);
-    if (ok) { onClose(); router.push("/dashboard"); }
+    if (ok) {
+      onClose();
+      // Wait briefly for onAuthStateChange to populate user with role
+      setTimeout(async () => {
+        const { data: { session } } = await import("@/lib/supabase").then(m => m.supabase.auth.getSession());
+        if (!session) { router.push("/dashboard"); return; }
+        const { data: profile } = await import("@/lib/supabase").then(m =>
+          m.supabase.from("profiles").select("role").eq("id", session.user.id).single()
+        );
+        router.push(profile?.role === "admin" ? "/hub" : "/dashboard");
+      }, 300);
+    }
   }
 
   // ── Send Phone OTP ─────────────────────────────────────────────────────────

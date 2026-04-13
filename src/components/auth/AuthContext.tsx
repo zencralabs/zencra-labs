@@ -15,7 +15,8 @@ export interface AuthUser {
   name: string;
   email: string;
   phone?: string;
-  plan: "Free" | "Creator" | "Studio" | "Agency";
+  role: "user" | "admin" | string;
+  plan: "free" | "starter" | "pro" | "creator" | string;
   credits: number;
   avatar?: string;
   avatarColor?: number;
@@ -59,11 +60,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Plan values stored in DB are already lowercase — pass through as-is
 const PLAN_MAP: Record<string, AuthUser["plan"]> = {
-  free:    "Free",
-  starter: "Creator",
-  pro:     "Studio",
-  creator: "Agency",
+  free:    "free",
+  starter: "starter",
+  pro:     "pro",
+  creator: "creator",
 };
 
 const EMAIL_LOCK_HOURS = parseInt(process.env.NEXT_PUBLIC_EMAIL_LOCK_WINDOW_HOURS ?? "2", 10);
@@ -89,7 +91,8 @@ function buildAuthUser(
     email:        sess.user.email ?? "",
     phone:        (sess.user.phone ?? profile?.phone as string) || undefined,
     name:         (profile?.full_name as string) || (sess.user.user_metadata?.full_name as string) || (sess.user.email?.split("@")[0] ?? "User"),
-    plan:         PLAN_MAP[(profile?.plan as string) ?? "free"] ?? "Free",
+    role:         (profile?.role as string) ?? "user",
+    plan:         PLAN_MAP[(profile?.plan as string) ?? "free"] ?? "free",
     credits:      (profile?.credits as number) ?? 0,
     joinedAt:     (profile?.created_at as string) ?? sess.user.created_at,
     avatar:       (profile?.avatar_url as string) || undefined,
@@ -123,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(sess: Session) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url")
+      .select("full_name, role, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url")
       .eq("id", sess.user.id)
       .single();
 
@@ -166,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mock: AuthUser = {
         id: "usr_" + Math.random().toString(36).slice(2, 10),
         name: email.split("@")[0], email, phone: undefined,
-        plan: "Free", credits: 42, joinedAt: new Date().toISOString(),
+        role: "user", plan: "free", credits: 42, joinedAt: new Date().toISOString(),
         emailVerified: true, phoneVerified: false,
         needsEmailVerification: false, needsPhone: true, needsEmail: false,
         emailLocked: false, totpEnabled: false, passkeyRegistered: false,
@@ -187,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mock: AuthUser = {
         id: "usr_" + Math.random().toString(36).slice(2, 10),
         name, email, phone: undefined,
-        plan: "Free", credits: 50, joinedAt: new Date().toISOString(),
+        role: "user", plan: "free", credits: 50, joinedAt: new Date().toISOString(),
         emailVerified: false, phoneVerified: false,
         needsEmailVerification: true, needsPhone: true, needsEmail: false,
         emailLocked: false, totpEnabled: false, passkeyRegistered: false,
@@ -240,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const mock: AuthUser = {
         id: "usr_" + Math.random().toString(36).slice(2, 10),
         name: "Phone User", email: "", phone,
-        plan: "Free", credits: 50, joinedAt: new Date().toISOString(),
+        role: "user", plan: "free", credits: 50, joinedAt: new Date().toISOString(),
         emailVerified: false, phoneVerified: true,
         needsEmailVerification: false, needsPhone: false, needsEmail: true,
         emailLocked: false, totpEnabled: false, passkeyRegistered: false,

@@ -4,11 +4,14 @@ import type { NextRequest } from "next/server";
 /**
  * Route protection middleware.
  *
- * /hub  — Admin control hub.  Requires a valid session with role='admin'.
- *         Unauthenticated → redirect to /?auth=login
- *         Authenticated but not admin → redirect to /dashboard
+ * /admin/*    → redirect to /hub (old alias)
+ * /hub/*      → auth + role=admin check happens in layout.tsx
+ * /studio/*   → must be authenticated; unauthenticated → login modal
+ * /dashboard/*→ must be authenticated; unauthenticated → login modal
  *
- * /admin → Permanently redirect to /hub (old route alias)
+ * Note: full JWT/role checks are done in layout.tsx because Edge middleware
+ * can't easily decode Supabase JWTs without supabase-ssr. Middleware handles
+ * redirects for clearly public vs protected routes only.
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,12 +22,36 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(`/hub${rest}`, req.url));
   }
 
-  // /hub is protected — but we do role-check inside the layout
-  // (JWT decode is not available in Edge middleware without supabase-ssr;
-  // the layout component does the real auth guard using the AuthContext)
+  // Protected routes — check for Supabase session cookie
+  const isProtected =
+    pathname.startsWith("/studio/") ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/dashboard";
+
+  if (isProtected) {
+    // Supabase stores session in sb-<project>-auth-token cookie
+    // We check for any sb-*-auth-token cookie as a quick gate
+    const hasCookie = [...req.cookies.getAll()].some(
+      c => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+    );
+
+    if (!hasCookie) {
+      const loginUrl = new URL("/", req.url);
+      loginUrl.searchParams.set("auth", "login");
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/hub/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/hub/:path*",
+    "/studio/:path*",
+    "/dashboard",
+    "/dashboard/:path*",
+  ],
 };
