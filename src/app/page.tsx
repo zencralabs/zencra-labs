@@ -6,7 +6,8 @@ import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { AuthModal } from "@/components/auth/AuthModal";
+import { AuthModal }   from "@/components/auth/AuthModal";
+import type { PublicAsset } from "@/lib/types/generation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA LABS — Cinematic AI Creation Studio
@@ -50,59 +51,50 @@ const workflowSteps = [
   },
 ];
 
-// ── Video Showcase Carousel — 6 VIDEO-only slides ────────────────────────────
-// videoSrc: drop the matching file into /public/ to activate real video playback.
-// While the file is absent the gradient placeholder renders automatically.
-const videoShowcase = [
-  {
-    gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 50%, #1d4ed8 100%)",
-    color: "#2563EB",
-    label: "Cinematic Video",
-    caption: "AI-directed urban scene with natural motion blur",
-    tool: "Kling 2.6",
-    videoSrc: "/Showcase/showcase-kling-26.mp4",
-  },
-  {
-    gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 50%, #0ea5a0 100%)",
-    color: "#0EA5A0",
-    label: "Cinematic Video",
-    caption: "Forest timelapse with AI-driven light simulation",
-    tool: "Kling 3.0",
-    videoSrc: "/Showcase/showcase-kling-30.mp4",
-  },
-  {
-    gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 50%, #dc2626 100%)",
-    color: "#EF4444",
-    label: "AI Scene",
-    caption: "Emotional narrative with dynamic camera movement",
-    tool: "Seedance 2.0",
-    videoSrc: "/Showcase/showcase-seedance.mp4",
-  },
-  {
-    gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 50%, #2563eb 100%)",
-    color: "#60A5FA",
-    label: "Cinematic Video",
-    caption: "Stylised slow-motion with cinematic grade",
-    tool: "Runway ML",
-    videoSrc: "/Showcase/showcase-runway.mp4",
-  },
-  {
-    gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 50%, #7c3aed 100%)",
-    color: "#A855F7",
-    label: "Talking Avatar",
-    caption: "Lip-synced presenter from any voice recording",
-    tool: "HeyGen",
-    videoSrc: "/Showcase/showcase-heygen.mp4",
-  },
-  {
-    gradient: "linear-gradient(160deg, #1a1206 0%, #422006 50%, #f59e0b 100%)",
-    color: "#F59E0B",
-    label: "Cinematic Video",
-    caption: "Desert dune flyover with AI motion design",
-    tool: "Google Veo",
-    videoSrc: "/Showcase/showcase-veo.mp4",
-  },
-];
+// ── Showcase carousel — tool colour + display name helpers ───────────────────
+const TOOL_COLOR: Record<string, string> = {
+  "kling-30":       "#2563EB",
+  "kling-26":       "#0EA5A0",
+  "kling-25":       "#0EA5A0",
+  "runway-gen4":    "#EF4444",
+  "runway-gen3":    "#EF4444",
+  "seedance":       "#F59E0B",
+  "veo2":           "#A855F7",
+  "veo3":           "#A855F7",
+  "ltx-video":      "#6366F1",
+  "heygen":         "#EC4899",
+};
+const DEFAULT_TOOL_COLOR = "#0EA5A0";
+
+const TOOL_NAME: Record<string, string> = {
+  "kling-30":    "Kling 3.0",
+  "kling-26":    "Kling 2.6",
+  "kling-25":    "Kling 2.5 Turbo",
+  "runway-gen4": "Runway Gen-4",
+  "runway-gen3": "Runway Gen-3",
+  "seedance":    "Seedance",
+  "veo2":        "Google Veo 2",
+  "veo3":        "Google Veo 3",
+  "ltx-video":   "LTX Video",
+  "heygen":      "HeyGen",
+};
+function toolDisplayName(id: string) {
+  return TOOL_NAME[id] ?? id.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Skeleton cards shown while showcase is loading
+const SHOWCASE_SKELETONS = Array.from({ length: 6 }, (_, i) => ({
+  id:        `skel-${i}`,
+  gradient:  [
+    "linear-gradient(160deg,#0F1A32 0%,#1e3a8a 50%,#1d4ed8 100%)",
+    "linear-gradient(160deg,#0d1a1a 0%,#0f3030 50%,#0ea5a0 100%)",
+    "linear-gradient(160deg,#1a0a0a 0%,#3b1010 50%,#dc2626 100%)",
+    "linear-gradient(160deg,#0a0f1a 0%,#1a2744 50%,#2563eb 100%)",
+    "linear-gradient(160deg,#0f0a1a 0%,#2d1b69 50%,#7c3aed 100%)",
+    "linear-gradient(160deg,#1a1206 0%,#422006 50%,#f59e0b 100%)",
+  ][i],
+  color: ["#2563EB","#0EA5A0","#EF4444","#60A5FA","#A855F7","#F59E0B"][i],
+}));
 
 // ── Audience cards ────────────────────────────────────────────────────────────
 const audienceCards = [
@@ -218,7 +210,22 @@ export default function HomePage() {
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
 
-  const maxIdx = Math.max(0, videoShowcase.length - carouselVisible);
+  // Showcase — fetched live from gallery
+  const [showcaseAssets,  setShowcaseAssets]  = useState<PublicAsset[]>([]);
+  const [showcaseLoaded,  setShowcaseLoaded]  = useState(false);
+
+  useEffect(() => {
+    fetch("/api/generations/showcase")
+      .then(r => r.json())
+      .then(json => { if (json.success) setShowcaseAssets(json.data ?? []); })
+      .catch(() => {/* silently fall back to skeletons */})
+      .finally(() => setShowcaseLoaded(true));
+  }, []);
+
+  // Carousel slots — real assets when loaded, skeletons while loading
+  const showcaseSlides = showcaseLoaded ? showcaseAssets : SHOWCASE_SKELETONS as unknown as PublicAsset[];
+
+  const maxIdx = Math.max(0, showcaseSlides.length - carouselVisible);
 
   // Card width formula keyed to visible count — matches the CSS `width` on each card
   const cardWidthCss =
@@ -481,29 +488,42 @@ export default function HomePage() {
               transform: `translateX(calc(-${carouselIdx} * (${cardWidthCss} + 20px)))`,
             }}
           >
-            {videoShowcase.map((slide, i) => (
+            {showcaseSlides.map((asset, i) => {
+              // Derive display values from the real asset (or skeleton)
+              const isSkeleton = !showcaseLoaded;
+              const color      = TOOL_COLOR[asset.tool] ?? DEFAULT_TOOL_COLOR;
+              const gradient   = SHOWCASE_SKELETONS[i % SHOWCASE_SKELETONS.length]?.gradient
+                                 ?? "linear-gradient(160deg,#0F1A32 0%,#1e3a8a 50%,#1d4ed8 100%)";
+              const toolLabel  = toolDisplayName(asset.tool);
+              const caption    = asset.prompt
+                ? asset.prompt.length > 60
+                  ? asset.prompt.slice(0, 57) + "…"
+                  : asset.prompt
+                : "";
+
+              return (
               <div
-                key={i}
+                key={asset.id ?? i}
                 className="relative flex-shrink-0 overflow-hidden rounded-2xl cursor-pointer group"
                 style={{
                   width: cardWidthCss,
                   aspectRatio: "16/9",
-                  background: slide.gradient,
-                  border: `1px solid ${slide.color}30`,
-                  boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`,
+                  background: gradient,
+                  border: `1px solid ${color}30`,
+                  boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`,
                   transition: "transform 0.3s ease, box-shadow 0.3s ease",
                 }}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLElement).style.transform = "translateY(-6px) scale(1.01)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.6), 0 0 50px ${slide.color}30`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.6), 0 0 50px ${color}30`;
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.transform = "translateY(0) scale(1)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`;
+                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`;
                 }}
               >
-                {/* Background video — autoplays always */}
-                {slide.videoSrc && (
+                {/* Real member video — autoplays, hidden while skeleton */}
+                {!isSkeleton && asset.result_url && (
                   <video
                     className="absolute inset-0 h-full w-full object-cover"
                     style={{ opacity: 0.92 }}
@@ -512,9 +532,21 @@ export default function HomePage() {
                     loop
                     playsInline
                     preload="metadata"
+                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                   >
-                    <source src={slide.videoSrc} type="video/mp4" />
+                    <source src={asset.result_url} type="video/mp4" />
                   </video>
+                )}
+                {/* Skeleton shimmer overlay (loading state) */}
+                {isSkeleton && (
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%)",
+                      backgroundSize: "200% 100%",
+                      animation: "shimmer 1.8s infinite",
+                    }}
+                  />
                 )}
                 {/* Inner shimmer */}
                 <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.1) 0%, transparent 55%)" }} />
@@ -522,26 +554,28 @@ export default function HomePage() {
                 <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")" }} />
 
                 {/* Label badge top-left */}
-                <div className="absolute top-4 left-4">
-                  <span
-                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
-                    style={{ background: `${slide.color}20`, color: slide.color, border: `1px solid ${slide.color}40`, backdropFilter: "blur(8px)" }}
-                  >
-                    {slide.label}
-                  </span>
-                </div>
+                {!isSkeleton && (
+                  <div className="absolute top-4 left-4">
+                    <span
+                      className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
+                      style={{ background: `${color}20`, color, border: `1px solid ${color}40`, backdropFilter: "blur(8px)" }}
+                    >
+                      Cinematic Video
+                    </span>
+                  </div>
+                )}
 
                 {/* Play icon (appears on hover) */}
-                <div
-                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                >
-                  <div
-                    className="flex h-14 w-14 items-center justify-center rounded-full"
-                    style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
-                  >
-                    <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
+                {!isSkeleton && (
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div
+                      className="flex h-14 w-14 items-center justify-center rounded-full"
+                      style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
+                    >
+                      <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Bottom gradient + info */}
                 <div
@@ -550,14 +584,15 @@ export default function HomePage() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: slide.color, boxShadow: `0 0 8px ${slide.color}` }} />
-                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{slide.tool}</p>
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{isSkeleton ? "" : toolLabel}</p>
                     </div>
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "55%", textAlign: "right" }}>{slide.caption}</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "55%", textAlign: "right" }}>{isSkeleton ? "" : caption}</p>
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
 
           {/* Prev / Next controls */}
@@ -942,6 +977,13 @@ export default function HomePage() {
       </section>
 
     </div>
+
+    <style>{`
+      @keyframes shimmer {
+        0%   { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    `}</style>
 
     {authModal && (
       <AuthModal
