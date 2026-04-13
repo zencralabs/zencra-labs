@@ -79,7 +79,8 @@ const TOOL_NAME: Record<string, string> = {
   "ltx-video":   "LTX Video",
   "heygen":      "HeyGen",
 };
-function toolDisplayName(id: string) {
+function toolDisplayName(id: string | undefined): string {
+  if (!id) return "";
   return TOOL_NAME[id] ?? id.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
@@ -494,7 +495,7 @@ export default function HomePage() {
             {showcaseSlides.map((asset, i) => {
               // Derive display values from the real asset (or skeleton)
               const isSkeleton = !showcaseLoaded;
-              const color      = TOOL_COLOR[asset.tool] ?? DEFAULT_TOOL_COLOR;
+              const color      = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
               const gradient   = SHOWCASE_SKELETONS[i % SHOWCASE_SKELETONS.length]?.gradient
                                  ?? "linear-gradient(160deg,#0F1A32 0%,#1e3a8a 50%,#1d4ed8 100%)";
               const toolLabel  = toolDisplayName(asset.tool);
