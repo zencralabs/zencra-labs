@@ -247,23 +247,16 @@ export default function HomePage() {
         className="relative flex flex-col items-center justify-center overflow-hidden"
         style={{ minHeight: "calc(100vh - 64px)" }}
       >
-        {/* Video background */}
+        {/* Video background — full opacity, no overlay */}
         <video
           autoPlay muted loop playsInline
           preload="auto"
           poster="/hero-poster.jpg"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.55 }}
+          style={{ opacity: 1 }}
         >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
-
-        {/* Cinematic overlay */}
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(8,14,28,0.55) 0%, rgba(8,14,28,0.25) 40%, rgba(8,14,28,0.85) 100%)" }}
-          aria-hidden="true"
-        />
 
         {/* Animated orbs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -287,7 +280,7 @@ export default function HomePage() {
           {/* Headline */}
           <h1
             className="leading-[1.2] tracking-tight"
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800 }}
+            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}
           >
             <span style={{ display: "block", whiteSpace: "nowrap" }}>Create Cinematic AI Videos</span>
             <span
@@ -307,7 +300,7 @@ export default function HomePage() {
           {/* Subheadline */}
           <p
             className="max-w-2xl text-lg leading-relaxed md:text-xl"
-            style={{ color: "#94A3B8" }}
+            style={{ color: "#94A3B8", textShadow: "0 1px 12px rgba(0,0,0,0.95)" }}
           >
             Generate images, animate them into videos, and add voice with perfect lip-sync — all in one unified AI workflow.
           </p>
@@ -343,8 +336,8 @@ export default function HomePage() {
             {sliderRow1Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "230px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
                 {card.videoSrc && (
-                  <video autoPlay muted loop playsInline preload="metadata"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }}
+                  <video autoPlay muted loop playsInline preload="none"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
                     onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
                     <source src={card.videoSrc} type="video/mp4" />
                   </video>
@@ -367,8 +360,8 @@ export default function HomePage() {
             {sliderRow2Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "210px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
                 {card.videoSrc && (
-                  <video autoPlay muted loop playsInline preload="metadata"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }}
+                  <video autoPlay muted loop playsInline preload="none"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
                     onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
                     <source src={card.videoSrc} type="video/mp4" />
                   </video>
@@ -421,19 +414,18 @@ export default function HomePage() {
                         alt={step.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        style={{ objectFit: "cover", opacity: 0.9 }}
+                        style={{ objectFit: "cover", opacity: 1 }}
                         priority
                       />
                     ) : (
                       <video
                         autoPlay muted loop playsInline preload="metadata"
-                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
                         onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                       >
                         <source src={`/how-it-works/step-${parseInt(step.num)}.mp4`} type="video/mp4" />
                       </video>
                     )}
-                    <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%)" }} />
                     {/* Step number watermark */}
                     <div
                       className="absolute bottom-3 right-4 text-6xl font-black"
@@ -528,8 +520,8 @@ export default function HomePage() {
                 {asset.result_url && (
                   <video
                     className="absolute inset-0 h-full w-full object-cover"
-                    style={{ opacity: 0.95 }}
-                    autoPlay muted loop playsInline preload="metadata"
+                    style={{ opacity: 1 }}
+                    autoPlay muted loop playsInline preload="none"
                     onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                   >
                     <source src={asset.result_url} type="video/mp4" />
@@ -642,8 +634,8 @@ export default function HomePage() {
           >
             {/* Background video (place /public/cinema/bg.mp4 to activate) */}
             <video
-              autoPlay muted loop playsInline
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.45 }}
+              autoPlay muted loop playsInline preload="none"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }}
               onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
             >
               <source src="/cinema/bg.mp4" type="video/mp4" />

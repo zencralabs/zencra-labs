@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { X, Mail, Eye, EyeOff, Zap, Phone, ChevronDown, Fingerprint, ArrowLeft } from "lucide-react";
+import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { AUTH_SLIDES } from "@/config/auth-modal-slides";
 
@@ -166,6 +166,67 @@ function InputField({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RIGHT PANEL — memoized so form keystrokes don't re-render it
+// ─────────────────────────────────────────────────────────────────────────────
+const RightPanel = memo(function RightPanel({
+  slideIdx, setSlideIdx,
+}: { slideIdx: number; setSlideIdx: (i: number) => void }) {
+  const slide = AUTH_SLIDES[slideIdx];
+  return (
+    <div style={{
+      width: "420px", flexShrink: 0, position: "relative",
+      overflow: "hidden", background: slide.gradient, transition: "background 0.9s ease",
+    }}>
+      {slide.imageSrc && (
+        <div style={{
+          position: "absolute", inset: 0,
+          backgroundImage: `url(${slide.imageSrc})`,
+          backgroundSize: "cover", backgroundPosition: "center",
+          opacity: 0.7,
+        }} />
+      )}
+      {slide.videoSrc && (
+        <video
+          key={slide.videoSrc}
+          autoPlay muted loop playsInline preload="none"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
+        >
+          <source src={slide.videoSrc} type="video/mp4" />
+        </video>
+      )}
+      {/* Bottom gradient for text readability — no dark overlay on the video */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
+      {/* Accent glow */}
+      <div style={{
+        position: "absolute", bottom: "32%", left: "50%", transform: "translateX(-50%)",
+        width: "220px", height: "220px", borderRadius: "50%",
+        background: `radial-gradient(circle, ${slide.accent}44 0%, transparent 70%)`,
+        filter: "blur(35px)",
+      }} />
+      {/* Bottom content */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+          <div style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: slide.accent, boxShadow: `0 0 10px ${slide.accent}` }} />
+          <span style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em", textTransform: "uppercase", textShadow: "0 1px 8px rgba(0,0,0,0.9)" }}>{slide.tool}</span>
+        </div>
+        <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#fff", margin: "0 0 8px", lineHeight: 1.15, textShadow: "0 2px 16px rgba(0,0,0,0.95)" }}>{slide.title}</h3>
+        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px", lineHeight: 1.6, textShadow: "0 1px 8px rgba(0,0,0,0.9)" }}>{slide.desc}</p>
+        <div style={{ display: "flex", gap: "6px" }}>
+          {AUTH_SLIDES.map((_, i) => (
+            <button key={i} onClick={() => setSlideIdx(i)} style={{
+              width: i === slideIdx ? "22px" : "6px", height: "6px",
+              borderRadius: "10px",
+              background: i === slideIdx ? slide.accent : "rgba(255,255,255,0.2)",
+              border: "none", cursor: "pointer", transition: "all 0.3s ease", padding: 0,
+            }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -199,6 +260,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
   const [slideIdx, setSlideIdx] = useState(0);
+  const handleSlideIdx = useCallback((i: number) => setSlideIdx(i), []);
   const [isMobile, setIsMobile] = useState(false);
 
   const { login, signup, loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey } = useAuth();
@@ -307,8 +369,6 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     else    setError("Passkey authentication failed or not set up.");
   }
 
-  const slide = AUTH_SLIDES[slideIdx];
-
   // ── Styles ─────────────────────────────────────────────────────────────────
   const labelStyle: React.CSSProperties = {
     fontSize: "12px", fontWeight: 700, color: "#64748B",
@@ -332,7 +392,8 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
         position: "fixed", inset: 0, zIndex: 1000,
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: isMobile ? "0" : "20px",
-        backgroundColor: "rgba(0,0,0,0.78)", backdropFilter: "blur(6px)",
+        backgroundColor: "rgba(0,0,0,0.78)", backdropFilter: "blur(4px)",
+        willChange: "transform", // promote to own compositor layer — prevents bg video paint from lagging this
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -345,6 +406,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
         overflow: "hidden",
         boxShadow: "0 40px 120px rgba(0,0,0,0.75)",
         position: "relative",
+        willChange: "transform",
       }}>
 
         {/* ── LEFT PANEL: Form ────────────────────────────────────────────── */}
@@ -633,67 +695,9 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
           </p>
         </div>
 
-        {/* ── RIGHT PANEL: Configurable slide showcase ─────────────────────── */}
+        {/* ── RIGHT PANEL: memoized slide showcase — doesn't re-render on keystrokes */}
         {!isMobile && (
-          <div style={{
-            width: "420px", flexShrink: 0, position: "relative",
-            overflow: "hidden", background: slide.gradient, transition: "background 0.9s ease",
-          }}>
-            {/* Background image if configured */}
-            {slide.imageSrc && (
-              <div style={{
-                position: "absolute", inset: 0,
-                backgroundImage: `url(${slide.imageSrc})`,
-                backgroundSize: "cover", backgroundPosition: "center",
-                opacity: 0.7,
-              }} />
-            )}
-
-            {/* Background video if configured */}
-            {slide.videoSrc && (
-              <video
-                key={slide.videoSrc}
-                autoPlay muted loop playsInline
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65 }}
-              >
-                <source src={slide.videoSrc} type="video/mp4" />
-              </video>
-            )}
-
-            {/* Overlays */}
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.07) 0%, transparent 60%)" }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 100%)" }} />
-
-            {/* Accent glow */}
-            <div style={{
-              position: "absolute", bottom: "32%", left: "50%", transform: "translateX(-50%)",
-              width: "220px", height: "220px", borderRadius: "50%",
-              background: `radial-gradient(circle, ${slide.accent}44 0%, transparent 70%)`,
-              filter: "blur(35px)",
-            }} />
-
-            {/* Bottom content */}
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-                <div style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: slide.accent, boxShadow: `0 0 10px ${slide.accent}` }} />
-                <span style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.12em", textTransform: "uppercase" }}>{slide.tool}</span>
-              </div>
-              <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#fff", margin: "0 0 8px", lineHeight: 1.15 }}>{slide.title}</h3>
-              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: "0 0 20px", lineHeight: 1.6 }}>{slide.desc}</p>
-
-              {/* Slide dots */}
-              <div style={{ display: "flex", gap: "6px" }}>
-                {AUTH_SLIDES.map((_, i) => (
-                  <button key={i} onClick={() => setSlideIdx(i)} style={{
-                    width: i === slideIdx ? "22px" : "6px", height: "6px",
-                    borderRadius: "10px",
-                    background: i === slideIdx ? slide.accent : "rgba(255,255,255,0.2)",
-                    border: "none", cursor: "pointer", transition: "all 0.3s ease", padding: 0,
-                  }} />
-                ))}
-              </div>
-            </div>
-          </div>
+          <RightPanel slideIdx={slideIdx} setSlideIdx={handleSlideIdx} />
         )}
       </div>
     </div>
