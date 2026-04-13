@@ -280,9 +280,9 @@ export default function HomePage() {
           {/* Headline */}
           <h1
             className="leading-[1.2] tracking-tight"
-            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}
+            style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800 }}
           >
-            <span style={{ display: "block", whiteSpace: "nowrap" }}>Create Cinematic AI Videos</span>
+            <span style={{ display: "block", whiteSpace: "nowrap", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
             <span
               style={{
                 display: "block",
