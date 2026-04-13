@@ -162,30 +162,22 @@ const pricingTiers = [
   },
 ];
 
-// ── Auto-scroll slider (hero area) ───────────────────────────────────────────
+// ── Auto-scroll slider (hero area) — your 8 uploaded showcase videos ─────────
 const sliderRow1 = [
-  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",       color: "#2563EB" },
-  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#0EA5A0" },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "AI Scene",        tool: "Seedance 2.0",     color: "#EF4444" },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#60A5FA" },
-  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",           color: "#C084FC" },
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",        color: "#10B981" },
-  { gradient: "linear-gradient(160deg, #1a1206 0%, #422006 60%, #f59e0b 100%)", label: "Cinematic Video", tool: "Seedance 2.0",     color: "#F59E0B" },
-  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #2d1b69 60%, #8b5cf6 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#A855F7" },
+  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",    color: "#2563EB", videoSrc: "/showcase/showcase-kling-30.mp4" },
+  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",    color: "#0EA5A0", videoSrc: "/showcase/showcase-runway.mp4" },
+  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "AI Scene",        tool: "Google Veo",  color: "#60A5FA", videoSrc: "/showcase/showcase-veo.mp4" },
+  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "Cinematic Video", tool: "Seedance 2.0", color: "#EF4444", videoSrc: "/showcase/showcase-seedance.mp4" },
 ];
-const sliderRow1Doubled = [...sliderRow1, ...sliderRow1];
+const sliderRow1Doubled = [...sliderRow1, ...sliderRow1, ...sliderRow1];
 
 const sliderRow2 = [
-  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",        color: "#2563EB" },
-  { gradient: "linear-gradient(160deg, #0f1a32 0%, #1e3a5f 60%, #0ea5a0 100%)", label: "Talking Avatar",  tool: "HeyGen",           color: "#0EA5A0" },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #2d1020 60%, #e11d48 100%)", label: "Cinematic Video", tool: "Seedance 2.0",     color: "#E11D48" },
-  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "Runway ML",        color: "#818CF8" },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #38bdf8 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#38BDF8" },
-  { gradient: "linear-gradient(160deg, #1a0f00 0%, #3d2500 60%, #f59e0b 100%)", label: "Cinematic Video", tool: "Kling 2.6",        color: "#F59E0B" },
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #052e16 60%, #22c55e 100%)", label: "Cinematic Video", tool: "Google Veo",       color: "#22C55E" },
-  { gradient: "linear-gradient(160deg, #0d0d1a 0%, #1a0d2e 60%, #7c3aed 100%)", label: "AI Scene",        tool: "Runway ML",        color: "#7c3aed" },
+  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",   color: "#10B981", videoSrc: "/showcase/showcase-kling-26.mp4" },
+  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",      color: "#C084FC", videoSrc: "/showcase/showcase-heygen.mp4" },
+  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "LTX Video",   color: "#818CF8", videoSrc: "/showcase/showcase-ltx.mp4" },
+  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",   color: "#2563EB", videoSrc: "/showcase/showcase-kling-30b.mp4" },
 ];
-const sliderRow2Doubled = [...sliderRow2, ...sliderRow2];
+const sliderRow2Doubled = [...sliderRow2, ...sliderRow2, ...sliderRow2];
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
@@ -211,8 +203,19 @@ export default function HomePage() {
     return () => window.removeEventListener("resize", updateVisible);
   }, []);
 
-  // Showcase — static curated videos (see SHOWCASE_STATIC above)
-  const showcaseSlides = SHOWCASE_STATIC;
+  // Showcase — member public gallery (falls back to SHOWCASE_STATIC when empty)
+  const [showcaseAssets,  setShowcaseAssets]  = useState<PublicAsset[]>([]);
+  const [showcaseLoaded,  setShowcaseLoaded]  = useState(false);
+  useEffect(() => {
+    fetch("/api/generations/showcase")
+      .then(r => r.json())
+      .then(json => { if (json.success) setShowcaseAssets(json.data ?? []); })
+      .catch(() => {})
+      .finally(() => setShowcaseLoaded(true));
+  }, []);
+  const showcaseSlides = showcaseLoaded
+    ? (showcaseAssets.length > 0 ? showcaseAssets : SHOWCASE_STATIC)
+    : SHOWCASE_STATIC;
 
   const maxIdx = Math.max(0, showcaseSlides.length - carouselVisible);
 
@@ -339,12 +342,18 @@ export default function HomePage() {
           <div className="flex" style={{ gap: "16px", animation: "slide-left 38s linear infinite", width: "max-content", paddingLeft: "16px" }}>
             {sliderRow1Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "230px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
-                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.07) 0%, transparent 55%)" }} />
+                {card.videoSrc && (
+                  <video autoPlay muted loop playsInline preload="metadata"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }}
+                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
+                    <source src={card.videoSrc} type="video/mp4" />
+                  </video>
+                )}
                 <div className="absolute bottom-4 left-4 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
-                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.85)" }}>{card.tool}</span>
+                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
                 </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${card.color}20`, color: card.color, border: `1px solid ${card.color}40` }}>
+                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
                   {card.label}
                 </div>
               </div>
@@ -357,12 +366,18 @@ export default function HomePage() {
           <div className="flex" style={{ gap: "16px", animation: "slide-right 42s linear infinite", width: "max-content", paddingLeft: "16px" }}>
             {sliderRow2Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "210px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
-                <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.07) 0%, transparent 55%)" }} />
+                {card.videoSrc && (
+                  <video autoPlay muted loop playsInline preload="metadata"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }}
+                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
+                    <source src={card.videoSrc} type="video/mp4" />
+                  </video>
+                )}
                 <div className="absolute bottom-4 left-4 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
-                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.85)" }}>{card.tool}</span>
+                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
                 </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: `${card.color}20`, color: card.color, border: `1px solid ${card.color}40` }}>
+                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
                   {card.label}
                 </div>
               </div>
