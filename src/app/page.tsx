@@ -404,7 +404,7 @@ export default function HomePage() {
                   >
                     {/* Video if available */}
                     <video
-                      autoPlay muted loop playsInline
+                      autoPlay muted loop playsInline preload="metadata"
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
                       onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                     >
@@ -492,18 +492,19 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${slide.color}15`;
                 }}
               >
-                {/* Real video — plays silently on hover; gradient shows while absent */}
+                {/* Background video — autoplays always */}
                 {slide.videoSrc && (
                   <video
-                    className="absolute inset-0 h-full w-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    src={slide.videoSrc}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{ opacity: 0.92 }}
+                    autoPlay
                     muted
                     loop
                     playsInline
-                    preload="none"
-                    onMouseEnter={e => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-                    onMouseLeave={e => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
-                  />
+                    preload="metadata"
+                  >
+                    <source src={slide.videoSrc} type="video/mp4" />
+                  </video>
                 )}
                 {/* Inner shimmer */}
                 <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(255,255,255,0.1) 0%, transparent 55%)" }} />
@@ -762,7 +763,7 @@ export default function HomePage() {
                   {/* Background video */}
                   {card.videoSrc && (
                     <video
-                      autoPlay muted loop playsInline
+                      autoPlay muted loop playsInline preload="metadata"
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.6 }}
                       onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
                     >
