@@ -243,12 +243,23 @@
     animation: shimmer 3s linear infinite;
   }
 
-  /* Orb animation utility classes */
-  .animate-orb-1 { animation: orb-float-1 12s ease-in-out infinite; }
-  .animate-orb-2 { animation: orb-float-2 15s ease-in-out infinite; }
-  .animate-orb-3 { animation: orb-float-3 18s ease-in-out infinite; }
+  /* Orb animation utility classes — will-change promotes to GPU layer so blur
+     does NOT repaint the rest of the page during scroll (eliminates jank)    */
+  .animate-orb-1 { animation: orb-float-1 12s ease-in-out infinite; will-change: transform, opacity; }
+  .animate-orb-2 { animation: orb-float-2 15s ease-in-out infinite; will-change: transform, opacity; }
+  .animate-orb-3 { animation: orb-float-3 18s ease-in-out infinite; will-change: transform, opacity; }
   .animate-glow  { animation: glow-pulse 3s ease-in-out infinite; }
   .animate-glow-teal { animation: glow-pulse-teal 3s ease-in-out infinite; }
+
+  /* Strip slide animations — GPU layer prevents repaints during page scroll */
+  .strip-slide-left  { will-change: transform; }
+  .strip-slide-right { will-change: transform; }
+
+  /* Reduced-motion: pause all decorative animations for accessibility + perf */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-orb-1, .animate-orb-2, .animate-orb-3 { animation: none !important; }
+    .animate-glow, .animate-glow-teal { animation: none !important; }
+  }
 
   /* Utility — used by image generator & dashboard loading spinner */
   .animate-spin-slow { animation: spin 1s linear infinite; }

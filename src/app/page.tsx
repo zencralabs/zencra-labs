@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Volume2, VolumeX,
 } from "lucide-react";
 import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
@@ -179,6 +179,105 @@ const sliderRow2 = [
 ];
 const sliderRow2Doubled = [...sliderRow2, ...sliderRow2, ...sliderRow2];
 
+// ── VideoMuted — drop-in video replacement with premium mute toggle ──────────
+// Renders <video autoPlay muted loop> + an absolute-positioned mute button.
+// Parent container MUST have position:relative (or be absolute-stretched).
+function VideoMuted({
+  src,
+  style,
+  className,
+  preload = "none",
+  poster,
+  btnPos = { bottom: "10px", right: "10px" },
+}: {
+  src: string;
+  style?: React.CSSProperties;
+  className?: string;
+  preload?: "none" | "metadata" | "auto";
+  poster?: string;
+  btnPos?: { top?: string; bottom?: string; left?: string; right?: string };
+}) {
+  const [muted, setMuted] = useState(true);
+  const ref = useRef<HTMLVideoElement>(null);
+
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    const next = !muted;
+    if (ref.current) ref.current.muted = next;
+    setMuted(next);
+  }
+
+  return (
+    <>
+      <video
+        ref={ref}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload={preload}
+        poster={poster}
+        style={style}
+        className={className}
+        onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+      >
+        <source src={src} type="video/mp4" />
+      </video>
+
+      {/* Premium mute toggle — frosted glass circle, cinema-grade */}
+      <button
+        onClick={toggle}
+        aria-label={muted ? "Unmute video" : "Mute video"}
+        style={{
+          position: "absolute",
+          top:    btnPos.top,
+          bottom: btnPos.bottom,
+          left:   btnPos.left,
+          right:  btnPos.right,
+          zIndex: 25,
+          width: "30px",
+          height: "30px",
+          borderRadius: "50%",
+          background: muted
+            ? "rgba(0,0,0,0.55)"
+            : "rgba(14,165,160,0.30)",
+          border: `1px solid ${muted ? "rgba(255,255,255,0.18)" : "rgba(14,165,160,0.65)"}`,
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          boxShadow: muted
+            ? "0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)"
+            : "0 0 18px rgba(14,165,160,0.50), inset 0 1px 0 rgba(255,255,255,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          color: muted ? "rgba(255,255,255,0.75)" : "#5EEAD4",
+          transition: "all 0.2s ease",
+          flexShrink: 0,
+          pointerEvents: "auto",
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.transform = "scale(1.12)";
+          el.style.background = muted ? "rgba(255,255,255,0.14)" : "rgba(14,165,160,0.45)";
+          el.style.borderColor = muted ? "rgba(255,255,255,0.35)" : "rgba(14,165,160,0.9)";
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.transform = "scale(1)";
+          el.style.background = muted ? "rgba(0,0,0,0.55)" : "rgba(14,165,160,0.30)";
+          el.style.borderColor = muted ? "rgba(255,255,255,0.18)" : "rgba(14,165,160,0.65)";
+        }}
+      >
+        {muted
+          ? <VolumeX size={12} />
+          : <Volume2 size={12} />
+        }
+      </button>
+    </>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
@@ -248,14 +347,13 @@ export default function HomePage() {
         style={{ minHeight: "calc(100vh - 64px)" }}
       >
         {/* Video background — full on desktop, slightly reduced on mobile for text readability */}
-        <video
-          autoPlay muted loop playsInline
+        <VideoMuted
+          src="/hero-video.mp4"
           preload="auto"
           poster="/hero-poster.jpg"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
-        >
-          <source src="/hero-video.mp4" type="video/mp4" />
-        </video>
+          btnPos={{ bottom: "52px", right: "20px" }}
+        />
 
         {/* Animated orbs — desktop only (blur+animation is GPU-heavy on mobile) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden hidden md:block" aria-hidden="true">
@@ -324,13 +422,13 @@ export default function HomePage() {
       </section>
 
       {/* ── AUTO-SCROLL SHOWCASE STRIP — desktop only (too heavy for mobile) ── */}
-      <section className="hidden md:block" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
+      <section className="hidden md:block strip-section" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} aria-hidden="true" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} aria-hidden="true" />
 
         {/* Row 1 — slides left */}
         <div style={{ overflow: "hidden", marginBottom: "12px" }}>
-          <div className="flex" style={{ gap: "16px", animation: "slide-left 38s linear infinite", width: "max-content", paddingLeft: "16px" }}>
+          <div className="flex strip-slide-left" style={{ gap: "16px", animation: "slide-left 38s linear infinite", width: "max-content", paddingLeft: "16px" }}>
             {sliderRow1Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "230px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
                 {card.videoSrc && (
@@ -354,7 +452,7 @@ export default function HomePage() {
 
         {/* Row 2 — slides right */}
         <div style={{ overflow: "hidden", paddingBottom: "0" }}>
-          <div className="flex" style={{ gap: "16px", animation: "slide-right 42s linear infinite", width: "max-content", paddingLeft: "16px" }}>
+          <div className="flex strip-slide-right" style={{ gap: "16px", animation: "slide-right 42s linear infinite", width: "max-content", paddingLeft: "16px" }}>
             {sliderRow2Doubled.map((card, i) => (
               <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "210px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
                 {card.videoSrc && (
@@ -416,13 +514,12 @@ export default function HomePage() {
                         priority
                       />
                     ) : (
-                      <video
-                        autoPlay muted loop playsInline preload="metadata"
+                      <VideoMuted
+                        src={`/how-it-works/step-${parseInt(step.num)}.mp4`}
+                        preload="none"
                         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                        onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-                      >
-                        <source src={`/how-it-works/step-${parseInt(step.num)}.mp4`} type="video/mp4" />
-                      </video>
+                        btnPos={{ bottom: "8px", right: "8px" }}
+                      />
                     )}
                     {/* Step number watermark */}
                     <div
@@ -514,16 +611,15 @@ export default function HomePage() {
                   (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`;
                 }}
               >
-                {/* Video */}
+                {/* Video + mute toggle */}
                 {asset.result_url && (
-                  <video
+                  <VideoMuted
+                    src={asset.result_url}
+                    preload="none"
                     className="absolute inset-0 h-full w-full object-cover"
                     style={{ opacity: 1 }}
-                    autoPlay muted loop playsInline preload="none"
-                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-                  >
-                    <source src={asset.result_url} type="video/mp4" />
-                  </video>
+                    btnPos={{ bottom: "52px", right: "10px" }}
+                  />
                 )}
 
                 {/* Label badge top-right */}
@@ -633,13 +729,12 @@ export default function HomePage() {
           >
 
             {/* Background video */}
-            <video
-              autoPlay muted loop playsInline preload="none"
+            <VideoMuted
+              src="/cinema/bg.mp4"
+              preload="none"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }}
-              onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-            >
-              <source src="/cinema/bg.mp4" type="video/mp4" />
-            </video>
+              btnPos={{ top: "16px", right: "16px" }}
+            />
 
             {/* Glows */}
             <div className="pointer-events-none absolute inset-0" aria-hidden="true">
@@ -769,13 +864,12 @@ export default function HomePage() {
                 >
                   {/* Background video — full opacity, no overlay */}
                   {card.videoSrc && (
-                    <video
-                      autoPlay muted loop playsInline preload="metadata"
+                    <VideoMuted
+                      src={card.videoSrc}
+                      preload="none"
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                      onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
-                    >
-                      <source src={card.videoSrc} type="video/mp4" />
-                    </video>
+                      btnPos={{ bottom: "8px", right: "8px" }}
+                    />
                   )}
 
                   {/* Icon top-left */}
@@ -946,6 +1040,20 @@ export default function HomePage() {
       /* Cinema Studio card: 9:16 on mobile → 16:9 on desktop */
       .cinema-card { aspect-ratio: 9/16; }
       @media (min-width: 768px) { .cinema-card { aspect-ratio: 16/9; } }
+
+      /* ── Scroll performance ─────────────────────────────────────────── */
+      /* Carousel card hover lift uses transform — promote to GPU layer    */
+      .carousel-card { will-change: transform; }
+
+      /* Mobile: strip is hidden, so no cost. On desktop, isolate the strip
+         section to avoid triggering full-page repaints during animation.   */
+      @media (min-width: 768px) {
+        .strip-section { contain: layout style; }
+      }
+
+      /* Mute button hover fix — keep hover state in sync with React state */
+      button[aria-label="Unmute video"]:hover { opacity: 1 !important; }
+      button[aria-label="Mute video"]:hover   { opacity: 1 !important; }
     `}</style>
 
     {authModal && (
