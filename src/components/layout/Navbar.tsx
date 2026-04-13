@@ -1,5 +1,5 @@
 "use client";
-
+// v2 — two-panel dropdown + 3-level mobile accordion
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -683,9 +683,22 @@ export function Navbar() {
     if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
   }, []);
 
+  // Close dropdown on click outside
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setActiveDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   return (
     <>
       <header
+        ref={navRef}
         className="fixed top-0 z-[100] w-full transition-all duration-300"
         style={{
           backgroundColor: scrolled ? "var(--page-bg)" : "transparent",
@@ -715,23 +728,37 @@ export function Navbar() {
                     onMouseEnter={() => isDropdown && openDropdown(dropKey)}
                     onMouseLeave={() => isDropdown && closeDropdownDelayed()}
                   >
-                    <Link
-                      href={link.href}
-                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-                      style={{
-                        color: isActive && catData ? catData.color : "#94A3B8",
-                        textShadow: isActive && catData ? `0 0 16px ${catData.color}80` : "none",
-                      }}
-                    >
-                      {link.label}
-                      {isDropdown && catData && (
+                    {/* Wrap in button for dropdown items so click also opens (touch laptops) */}
+                    {isDropdown ? (
+                      <button
+                        onClick={() => isActive ? setActiveDropdown(null) : openDropdown(dropKey)}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: isActive && catData ? catData.color : "#94A3B8",
+                          textShadow: isActive && catData ? `0 0 16px ${catData.color}80` : "none",
+                        }}
+                      >
+                        {link.label}
                         <ChevronDown
                           size={12}
                           className="transition-transform duration-200"
                           style={{ transform: isActive ? "rotate(180deg)" : "none" }}
                         />
-                      )}
-                    </Link>
+                      </button>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                        style={{ color: "#94A3B8" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                      >
+                        {link.label}
+                      </Link>
+                    )}
 
                     {isDropdown && isActive && catData && (
                       <div
