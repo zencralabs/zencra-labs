@@ -1,9 +1,11 @@
 /**
- * seed-admins.ts
- * ──────────────
- * Creates (or updates) the two admin accounts for Zencra Labs.
+ * seed-accounts.ts
+ * ─────────────────
+ * Sets up Zencra Labs accounts with correct roles:
+ *   zencralabs@gmail.com  → admin  (hub dashboard)
+ *   iamjuzjai@gmail.com   → user   (member/test account)
  *
- * Run once from your terminal after deploying:
+ * Run once from your terminal:
  *   npx tsx scripts/seed-admins.ts
  *
  * Requires .env.local with:
@@ -44,12 +46,12 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const ADMINS = [
-  { email: "zencralabs@gmail.com",  password: "12345678", full_name: "Zencra Labs"  },
-  { email: "iamjuzjai@gmail.com",   password: "12345678", full_name: "Jai (Admin)"  },
+const ACCOUNTS = [
+  { email: "zencralabs@gmail.com", password: "12345678", full_name: "Zencra Labs", role: "admin",  plan: "pro",  credits: 99999 },
+  { email: "iamjuzjai@gmail.com",  password: "12345678", full_name: "Jai",          role: "user",   plan: "pro",  credits: 500   },
 ];
 
-async function upsertAdmin({ email, password, full_name }: { email: string; password: string; full_name: string }) {
+async function upsertAdmin({ email, password, full_name, role, plan, credits }: typeof ACCOUNTS[0]) {
   // 1. Check if user already exists in auth
   const { data: existing } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   const found = existing?.users?.find(u => u.email === email);
@@ -76,16 +78,16 @@ async function upsertAdmin({ email, password, full_name }: { email: string; pass
     console.log(`🆕  Created auth user: ${email} (${userId})`);
   }
 
-  // 2. Upsert profile with role = 'admin'
+  // 2. Upsert profile with correct role
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert(
       {
         id:         userId,
         full_name,
-        role:       "admin",
-        plan:       "Agency",
-        credits:    99999,
+        role,
+        plan,
+        credits,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -94,17 +96,18 @@ async function upsertAdmin({ email, password, full_name }: { email: string; pass
   if (profileError) {
     console.error(`❌  Failed to upsert profile for ${email}:`, profileError.message);
   } else {
-    console.log(`✅  Profile set to admin for ${email}`);
+    console.log(`✅  Profile set → role: ${role}, plan: ${plan} for ${email}`);
   }
 }
 
 async function main() {
-  console.log("\n🚀  Seeding admin accounts…\n");
-  for (const admin of ADMINS) {
-    await upsertAdmin(admin);
+  console.log("\n🚀  Seeding Zencra Labs accounts…\n");
+  for (const account of ACCOUNTS) {
+    await upsertAdmin(account);
   }
-  console.log("\n✅  Done! Both admin accounts are ready.\n");
-  console.log("   Login at:  https://zencralabs.com/?auth=login");
+  console.log("\n✅  Done!\n");
+  console.log("   Admin login:   https://zencralabs.com/?auth=login → goes to /hub");
+  console.log("   Member login:  https://zencralabs.com/?auth=login → goes to /dashboard");
   console.log("   Dashboard: https://zencralabs.com/hub\n");
 }
 
