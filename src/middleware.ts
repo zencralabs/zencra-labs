@@ -29,10 +29,11 @@ export function middleware(req: NextRequest) {
     pathname === "/dashboard";
 
   if (isProtected) {
-    // Supabase stores session in sb-<project>-auth-token cookie
-    // We check for any sb-*-auth-token cookie as a quick gate
+    // Supabase stores session in sb-<project>-auth-token cookie.
+    // v2+ uses chunked cookies (sb-xxx-auth-token.0, .1 etc.) so we
+    // use includes() instead of endsWith() to match all variants.
     const hasCookie = [...req.cookies.getAll()].some(
-      c => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+      c => c.name.startsWith("sb-") && c.name.includes("-auth-token")
     );
 
     if (!hasCookie) {

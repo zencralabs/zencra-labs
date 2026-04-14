@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
+import { useAuth }     from "@/components/auth/AuthContext";
 import type { PublicAsset } from "@/lib/types/generation";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,7 +282,27 @@ function VideoMuted({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+
+  // Open auth modal if middleware redirected here with ?auth=login|signup
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authParam = params.get("auth");
+    if (authParam === "login" || authParam === "signup") {
+      setAuthModal(authParam);
+    }
+  }, []);
+
+  // After successful login, redirect to the ?next URL
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next) {
+      router.push(decodeURIComponent(next));
+    }
+  }, [user, router]);
 
   // Carousel state — visible count is responsive (1 mobile / 2 tablet / 3 desktop)
   const [carouselIdx,     setCarouselIdx]     = useState(0);
