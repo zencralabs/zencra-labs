@@ -1,243 +1,204 @@
 "use client";
 
-import { useState, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/components/auth/AuthContext";
-import { AuthModal } from "@/components/auth/AuthModal";
+/**
+ * Zencra Labs — Cinematic Video Studio
+ * Premium 4-zone pro-editor layout:
+ *   [Left Rail] [Central Canvas] [Prompt Panel] [Meta Panel]
+ *   [Bottom Video Library Strip]
+ *
+ * Tool selection via ?tool=kling-30 (defaults to kling-30)
+ * Capabilities driven by video-model-registry.ts — no hardcoded chaos.
+ */
+
+import { Suspense, useState, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  VIDEO_MODEL_REGISTRY,
-  getVideoModel,
-  CAMERA_PRESET_LABELS,
-  type CameraPreset,
-} from "@/lib/ai/video-model-registry";
+  Upload, X, Play, Pause, Download, Copy, Check,
+  ChevronDown, ChevronUp, Zap, Film, Maximize2, Minimize2,
+  Settings2, SlidersHorizontal, Camera,
+  RotateCcw, Plus, Minus, ImagePlus,
+} from "lucide-react";
+import { useAuth } from "@/components/auth/AuthContext";
+import { getVideoModel } from "@/lib/ai/video-model-registry";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StudioMode = "standard" | "start_frame" | "start_end" | "extend" | "audio";
+type FrameMode = "text_to_video" | "start_frame" | "start_end" | "extend" | "lip_sync";
+type VideoAR   = "16:9" | "9:16" | "1:1";
+type Quality   = "std" | "pro";
+type CamPreset = "none" | "down_back" | "forward_up" | "right_turn_forward" | "left_turn_forward";
 
-type VideoAspectRatio = "16:9" | "9:16" | "1:1";
-type VideoDuration = 5 | 10;
-
-interface GeneratedVideo {
-  id:          string;
-  url:         string | null;
-  prompt:      string;
-  modelId:     string;
-  duration:    number;
-  aspectRatio: string;
-  operation:   string;
-  status:      "generating" | "done" | "error";
-  error?:      string;
-  elapsedMs?:  number;
-  klingTaskId?: string;
-}
-
-interface ImageSlot {
-  url:     string | null;  // base64 or remote URL
-  preview: string | null;  // object URL for <img>
-  name?:   string;
-}
-
+interface ImageSlot { url: string | null; preview: string | null; name?: string; }
 const EMPTY_SLOT: ImageSlot = { url: null, preview: null };
 
-const AR_OPTIONS: { value: VideoAspectRatio; label: string; icon: string }[] = [
-  { value: "16:9", label: "16:9", icon: "▬" },
-  { value: "9:16", label: "9:16", icon: "▮" },
-  { value: "1:1",  label: "1:1",  icon: "▪" },
-];
-
-const DURATION_OPTIONS: VideoDuration[] = [5, 10];
-
-function estimateCreditCost(duration: VideoDuration, mode: "std" | "pro"): number {
-  const base = duration === 10 ? 12 : 11;
-  return mode === "pro" ? base + 5 : base;
+interface GeneratedVideo {
+  id: string; url: string | null; prompt: string; negPrompt: string;
+  modelId: string; duration: number; aspectRatio: string;
+  frameMode: FrameMode; status: "generating" | "done" | "error";
+  error?: string; klingTaskId?: string; creditsUsed: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IMAGE UPLOAD HELPER
+// Tool list for the header switcher
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+const VIDEO_TOOLS = [
+  { id: "kling-30",     label: "Kling 3.0",       badge: "HOT",  bc: "#EF4444", ok: true  },
+  { id: "kling-26",     label: "Kling 2.6",        badge: null,   bc: null,      ok: true  },
+  { id: "kling-25",     label: "Kling 2.5 Turbo",  badge: null,   bc: null,      ok: true  },
+  { id: "seedance-20",  label: "Seedance 2.0",      badge: "SOON", bc: "#8B5CF6", ok: false },
+  { id: "runway-gen45", label: "Runway ML",          badge: "SOON", bc: "#8B5CF6", ok: false },
+  { id: "veo-32",       label: "Veo 3.2",            badge: "SOON", bc: "#8B5CF6", ok: false },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function estimateCredits(duration: number, quality: Quality, mode: FrameMode) {
+  let base = duration === 10 ? 12 : 8;
+  if (quality === "pro") base += 5;
+  if (mode === "start_end") base += 2;
+  if (mode === "lip_sync")  base = 6;
+  if (mode === "extend")    base = 5;
+  return base;
+}
+
+function readFile(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });
 }
 
-function createPreviewUrl(file: File): string {
-  return URL.createObjectURL(file);
+function fmtMs(ms: number) {
+  const s = Math.floor(ms / 1000), m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SUBCOMPONENT — IMAGE UPLOAD SLOT
+// UploadSlot
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ImageUploadSlot({
-  label,
-  hint,
-  slot,
-  onFile,
-  onClear,
-  accept = "image/jpeg,image/png,image/webp",
-}: {
-  label:   string;
-  hint?:   string;
-  slot:    ImageSlot;
-  onFile:  (file: File) => void;
-  onClear: () => void;
-  accept?: string;
+function UploadSlot({ slot, label, onFile, onClear, disabled }: {
+  slot: ImageSlot; label: string; onFile: (f: File) => void;
+  onClear: () => void; disabled?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) onFile(file);
-  }, [onFile]);
+  if (slot.preview) return (
+    <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: 14, overflow: "hidden", background: "#050A14" }}>
+      <img src={slot.preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+      <button onClick={onClear} style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.7)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} /></button>
+      <div style={{ position: "absolute", bottom: 10, left: 10, fontSize: 11, color: "rgba(255,255,255,0.6)", background: "rgba(0,0,0,0.6)", padding: "2px 8px", borderRadius: 8 }}>{label}</div>
+    </div>
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        {label}
-      </label>
-      {slot.preview ? (
-        <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", aspectRatio: "16/9" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={slot.preview} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          <button
-            onClick={onClear}
-            style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
-          >×</button>
-        </div>
-      ) : (
-        <div
-          onClick={() => inputRef.current?.click()}
-          onDragOver={e => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          style={{
-            border: `1.5px dashed ${dragging ? "rgba(14,165,160,0.8)" : "rgba(255,255,255,0.12)"}`,
-            borderRadius: 10,
-            aspectRatio: "16/9",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            cursor: "pointer",
-            background: dragging ? "rgba(14,165,160,0.06)" : "rgba(255,255,255,0.02)",
-            transition: "all 0.15s",
-          }}
-        >
-          <span style={{ fontSize: 22, opacity: 0.4 }}>🖼</span>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
-            {hint ?? "Drop image or click to upload"}
-          </span>
-        </div>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        style={{ display: "none" }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
-      />
+    <div
+      onDragOver={e => { e.preventDefault(); setDrag(true); }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f?.type.startsWith("image/")) onFile(f); }}
+      onClick={() => !disabled && ref.current?.click()}
+      style={{
+        width: "100%", height: "100%", borderRadius: 14,
+        border: `2px dashed ${drag ? "#0EA5A0" : "rgba(14,165,160,0.25)"}`,
+        background: drag ? "rgba(14,165,160,0.06)" : "rgba(255,255,255,0.015)",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        cursor: disabled ? "not-allowed" : "pointer", transition: "all 0.2s", gap: 12,
+        opacity: disabled ? 0.35 : 1,
+      }}
+    >
+      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,rgba(14,165,160,0.18),rgba(37,99,235,0.18))", border: "1px solid rgba(14,165,160,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <ImagePlus size={24} color="#0EA5A0" />
+      </div>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#CBD5E1" }}>{label}</div>
+        <div style={{ fontSize: 12, color: "#3D4F6E", marginTop: 4 }}>Drag & drop or click to upload</div>
+        <div style={{ fontSize: 11, color: "#2D3748", marginTop: 2 }}>PNG, JPG, WebP supported</div>
+      </div>
+      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SUBCOMPONENT — VIDEO CARD
+// VideoCard
 // ─────────────────────────────────────────────────────────────────────────────
 
-function VideoCard({
-  video,
-  onRetry,
-  onExtend,
-}: {
-  video:    GeneratedVideo;
-  onRetry:  () => void;
-  onExtend: (v: GeneratedVideo) => void;
-}) {
-  const modelDef = getVideoModel(video.modelId);
+function VideoCard({ video, zoom, onExtend }: { video: GeneratedVideo; zoom: number; onExtend: (v: GeneratedVideo) => void; }) {
+  const [playing, setPlaying] = useState(false);
+  const [copied, setCopied]   = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const vRef = useRef<HTMLVideoElement>(null);
 
-  if (video.status === "generating") {
-    return (
-      <div style={{ borderRadius: 12, overflow: "hidden", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", aspectRatio: "16/9", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, zIndex: 1 }}>
-          <div style={{ width: 32, height: 32, border: "2.5px solid rgba(14,165,160,0.6)", borderTopColor: "#0EA5A0", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
-            {video.elapsedMs ? `${Math.floor(video.elapsedMs / 1000)}s…` : "Generating…"}
-          </span>
-        </div>
-        <style>{`@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (video.status !== "generating") return;
+    const t = setInterval(() => setElapsed(e => e + 1000), 1000);
+    return () => clearInterval(t);
+  }, [video.status]);
 
-  if (video.status === "error") {
-    return (
-      <div style={{ borderRadius: 12, overflow: "hidden", background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
-        <span style={{ fontSize: 24 }}>⚠️</span>
-        <p style={{ fontSize: 12, color: "rgba(239,68,68,0.9)", textAlign: "center", margin: 0 }}>
-          {video.error ?? "Generation failed"}
-        </p>
-        <button
-          onClick={onRetry}
-          style={{ fontSize: 11, color: "#fff", background: "rgba(239,68,68,0.3)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}
-        >Retry</button>
-      </div>
-    );
-  }
+  const W = Math.round(190 * zoom), H = Math.round(126 * zoom);
 
   return (
-    <div style={{ borderRadius: 12, overflow: "hidden", background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ position: "relative", aspectRatio: "16/9", background: "#000" }}>
-        {video.url && (
-          <video
-            src={video.url}
-            controls
-            playsInline
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          />
+    <div style={{ width: W, flexShrink: 0, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden", transition: "all 0.2s" }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.transform = "translateY(-3px)"; el.style.boxShadow = "0 8px 28px rgba(14,165,160,0.15)"; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.transform = ""; el.style.boxShadow = ""; }}
+    >
+      {/* Thumbnail */}
+      <div style={{ width: "100%", height: H, background: "#050A14", position: "relative", overflow: "hidden" }}>
+        {video.status === "generating" && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", border: "2px solid rgba(14,165,160,0.2)", borderTopColor: "#0EA5A0", animation: "spin .8s linear infinite" }} />
+            <span style={{ fontSize: 11, color: "#3D4F6E" }}>{fmtMs(elapsed)}</span>
+          </div>
         )}
-      </div>
-      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {video.prompt}
-        </p>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
-            {modelDef?.displayName ?? video.modelId}
-          </span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
-            {video.duration}s
-          </span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 6px" }}>
-            {video.aspectRatio}
-          </span>
+        {video.status === "error" && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: 10 }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(239,68,68,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={14} color="#EF4444" /></div>
+            <span style={{ fontSize: 10, color: "#EF4444", textAlign: "center", lineHeight: 1.4 }}>{video.error || "Failed"}</span>
+          </div>
+        )}
+        {video.status === "done" && video.url && (
+          <>
+            <video ref={vRef} src={video.url} style={{ width: "100%", height: "100%", objectFit: "cover" }} loop />
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity: playing ? 0 : 1, transition: "opacity 0.2s" }}>
+              <button onClick={() => { playing ? vRef.current?.pause() : vRef.current?.play(); setPlaying(!playing); }}
+                style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(14,165,160,0.9)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {playing ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 2 }} />}
+              </button>
+            </div>
+          </>
+        )}
+        <div style={{ position: "absolute", top: 6, left: 6, display: "flex", gap: 4 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, background: "rgba(14,165,160,0.75)", color: "#fff", padding: "1px 6px", borderRadius: 4 }}>{video.duration}s</span>
+          <span style={{ fontSize: 9, fontWeight: 700, background: "rgba(0,0,0,0.6)", color: "#64748B", padding: "1px 6px", borderRadius: 4 }}>{video.aspectRatio}</span>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {video.url && (
-            <a
-              href={video.url}
-              download="zencra-video.mp4"
-              style={{ flex: 1, fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "6px 0", cursor: "pointer", textDecoration: "none", textAlign: "center" }}
-            >↓ Download</a>
-          )}
-          {modelDef?.capabilities.extendVideo && (
-            <button
-              onClick={() => onExtend(video)}
-              style={{ flex: 1, fontSize: 11, color: "#0EA5A0", background: "rgba(14,165,160,0.08)", border: "1px solid rgba(14,165,160,0.25)", borderRadius: 7, padding: "6px 0", cursor: "pointer" }}
-            >⟳ Extend</button>
-          )}
+      </div>
+      {/* Footer */}
+      <div style={{ padding: "8px 10px" }}>
+        <div style={{ fontSize: 11, color: "#3D4F6E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 7 }}>{video.prompt || "—"}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 5 }}>
+            {video.status === "done" && video.url && (
+              <a href={video.url} download style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B", textDecoration: "none" }}><Download size={11} /></a>
+            )}
+            <button onClick={() => { navigator.clipboard.writeText(video.prompt); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(255,255,255,0.05)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: copied ? "#0EA5A0" : "#64748B" }}>
+              {copied ? <Check size={11} /> : <Copy size={11} />}
+            </button>
+            {video.status === "done" && (
+              <button onClick={() => onExtend(video)} style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(255,255,255,0.05)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B" }}><Plus size={11} /></button>
+            )}
+          </div>
+          <span style={{ fontSize: 10, color: "#2D3748" }}>{video.creditsUsed}cr</span>
         </div>
       </div>
     </div>
@@ -245,636 +206,604 @@ function VideoCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN STUDIO
+// Main Studio
 // ─────────────────────────────────────────────────────────────────────────────
 
 function VideoStudioContent() {
-  const searchParams = useSearchParams();
-  const { user, refreshUser } = useAuth();
+  const { user }  = useAuth();
+  const router    = useRouter();
+  const params    = useSearchParams();
+  const toolId    = params.get("tool") ?? "kling-30";
+  const model     = getVideoModel(toolId) ?? getVideoModel("kling-30")!;
+  const caps      = model.capabilities;
 
-  // Map incoming ?model= param
-  const CATALOG_TO_STUDIO: Record<string, string> = {
-    "kling-25": "kling-25", "kling-26": "kling-26",
-    "kling-30": "kling-30", "kling-30-omni": "kling-30",
-  };
-  const modelParam   = searchParams.get("model") ?? "";
-  const initialModel = CATALOG_TO_STUDIO[modelParam] ?? "kling-30";
+  // Controls
+  const [frameMode, setFrameMode] = useState<FrameMode>("text_to_video");
+  const [duration,  setDuration]  = useState<number>(caps.durations[0] ?? 5);
+  const [ar,        setAr]        = useState<VideoAR>("16:9");
+  const [quality,   setQuality]   = useState<Quality>("std");
+  const [camera,    setCamera]    = useState<CamPreset>("none");
+  const [showCam,   setShowCam]   = useState(false);
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [videos,        setVideos]        = useState<GeneratedVideo[]>([]);
-  const [studioMode,    setStudioMode]    = useState<StudioMode>("standard");
-  const [model,         setModel]         = useState(initialModel);
-  const [prompt,        setPrompt]        = useState(searchParams.get("prompt") ?? "");
-  const [negPrompt,     setNegPrompt]     = useState("");
-  const [showNegPrompt, setShowNegPrompt] = useState(false);
-  const [aspectRatio,   setAspectRatio]   = useState<VideoAspectRatio>("16:9");
-  const [duration,      setDuration]      = useState<VideoDuration>(5);
-  const [videoMode,     setVideoMode]     = useState<"std" | "pro">("std");
-  const [startSlot,     setStartSlot]     = useState<ImageSlot>(EMPTY_SLOT);
-  const [endSlot,       setEndSlot]       = useState<ImageSlot>(EMPTY_SLOT);
-  const [sourceVideoId, setSourceVideoId] = useState<string>("");
-  const [sourceVideoUrl,setSourceVideoUrl]= useState<string>("");
-  const [cameraPreset,  setCameraPreset]  = useState<CameraPreset | "none">("none");
-  const [showCamera,    setShowCamera]    = useState(false);
-  const [generating,    setGenerating]    = useState(false);
-  const [authModal,     setAuthModal]     = useState(false);
-  const startTimeRef = useRef<number>(0);
+  // Slots
+  const [startSlot, setStartSlot] = useState<ImageSlot>(EMPTY_SLOT);
+  const [endSlot,   setEndSlot]   = useState<ImageSlot>(EMPTY_SLOT);
 
-  const modelDef = getVideoModel(model);
-  const caps     = modelDef?.capabilities;
+  // Prompt
+  const [prompt,    setPrompt]    = useState("");
+  const [negPrompt, setNegPrompt] = useState("");
+  const [showNeg,   setShowNeg]   = useState(false);
 
-  // ── Validate generate button ──────────────────────────────────────────────
-  function getBlockedReason(): string | null {
-    if (!user) return "Sign in to generate";
-    if (generating) return "Generating…";
-    if (!modelDef?.available) return "Model unavailable";
+  // Generation
+  const [videos,      setVideos]      = useState<GeneratedVideo[]>([]);
+  const [generating,  setGenerating]  = useState(false);
+  const [genError,    setGenError]    = useState("");
+  const [activeVideo, setActiveVideo] = useState<GeneratedVideo | null>(null);
 
-    if (studioMode === "start_frame" && !startSlot.url) return "Upload a start frame image";
-    if (studioMode === "start_end") {
-      if (!startSlot.url) return "Upload a start frame image";
-      if (!endSlot.url)   return "Upload an end frame image";
-    }
+  // Extend
+  const [extId,  setExtId]  = useState("");
+  const [extUrl, setExtUrl] = useState("");
 
-    if (studioMode === "extend") {
-      if (!sourceVideoId && !sourceVideoUrl) return "Select a video to extend";
-    }
+  // UI
+  const [authModal,   setAuthModal]   = useState(false);
+  const [zoom,        setZoom]        = useState(1);
+  const [railClosed,  setRailClosed]  = useState(false);
+  const [metaOpen,    setMetaOpen]    = useState(true);
+  const [pCopied,     setPCopied]     = useState(false);
 
-    if (!prompt.trim() && studioMode !== "extend") return "Enter a prompt";
-    return null;
+  const credits = estimateCredits(duration, quality, frameMode);
+
+  // Fix mode when model changes
+  useEffect(() => {
+    if (frameMode === "start_end" && !caps.endFrame)   setFrameMode("start_frame");
+    if (frameMode === "start_frame" && !caps.startFrame) setFrameMode("text_to_video");
+    if (frameMode === "extend" && !caps.extendVideo)   setFrameMode("text_to_video");
+    if (frameMode === "lip_sync" && !caps.lipSync)     setFrameMode("text_to_video");
+    if (!caps.durations.includes(duration)) setDuration(caps.durations[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toolId]);
+
+  async function handleSlotFile(which: "start" | "end", file: File) {
+    const url = await readFile(file);
+    const preview = URL.createObjectURL(file);
+    const slot = { url, preview, name: file.name };
+    which === "start" ? setStartSlot(slot) : setEndSlot(slot);
   }
 
-  const blockedReason = getBlockedReason();
-  const canGenerate   = !blockedReason;
-  const creditCost    = estimateCreditCost(duration, videoMode);
-
-  // ── Determine operation type ───────────────────────────────────────────────
-  function resolveOperationType(): string {
-    if (studioMode === "extend")     return "extend_video";
-    if (studioMode === "audio")      return "lip_sync";
-    if (studioMode === "start_end")  return "start_end_frame";
-    if (studioMode === "start_frame") return "start_frame";
-    if (startSlot.url) return "image_to_video";
-    return "text_to_video";
+  function handleExtend(v: GeneratedVideo) {
+    setFrameMode("extend");
+    setExtId(v.klingTaskId ?? "");
+    setExtUrl(v.url ?? "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // ── Handle image slot upload ──────────────────────────────────────────────
-  async function handleSlotFile(slot: "start" | "end", file: File) {
-    const [dataUrl, preview] = await Promise.all([
-      readFileAsDataUrl(file),
-      Promise.resolve(createPreviewUrl(file)),
-    ]);
-    if (slot === "start") setStartSlot({ url: dataUrl, preview, name: file.name });
-    else                  setEndSlot({ url: dataUrl, preview, name: file.name });
-  }
-
-  function clearSlot(slot: "start" | "end") {
-    if (slot === "start") {
-      if (startSlot.preview) URL.revokeObjectURL(startSlot.preview);
-      setStartSlot(EMPTY_SLOT);
-    } else {
-      if (endSlot.preview) URL.revokeObjectURL(endSlot.preview);
-      setEndSlot(EMPTY_SLOT);
-    }
-  }
-
-  // ── Handle Extend (from video card) ──────────────────────────────────────
-  function handleExtendVideo(v: GeneratedVideo) {
-    setStudioMode("extend");
-    setSourceVideoId(v.klingTaskId ?? "");
-    setSourceVideoUrl(v.url ?? "");
-    setModel(v.modelId);
-    setPrompt("");
-  }
-
-  // ── Generate ──────────────────────────────────────────────────────────────
   async function handleGenerate() {
-    if (!canGenerate) {
-      if (!user) { setAuthModal(true); return; }
-      return;
-    }
+    if (!user) { setAuthModal(true); return; }
+    if (!model.available) { setGenError("This model is not yet available."); return; }
+    if (!["extend","lip_sync"].includes(frameMode) && !prompt.trim()) { setGenError("Please enter a prompt."); return; }
+    if (frameMode === "start_frame" && !startSlot.url) { setGenError("Upload a start frame image."); return; }
+    if (frameMode === "start_end" && (!startSlot.url || !endSlot.url)) { setGenError("Upload both start and end frames."); return; }
 
-    const videoId    = `vid_${Date.now()}`;
-    const operation  = resolveOperationType();
-    const placeholder: GeneratedVideo = {
-      id:          videoId,
-      url:         null,
-      prompt:      prompt || "(extend)",
-      modelId:     model,
-      duration,
-      aspectRatio,
-      operation,
-      status:      "generating",
+    setGenError(""); setGenerating(true);
+    const nv: GeneratedVideo = {
+      id: `v-${Date.now()}`, url: null, prompt, negPrompt,
+      modelId: model.id, duration, aspectRatio: ar, frameMode,
+      status: "generating", creditsUsed: credits,
     };
-
-    setVideos(prev => [placeholder, ...prev]);
-    setGenerating(true);
-    startTimeRef.current = Date.now();
-
-    const timer = setInterval(() => {
-      setVideos(prev => prev.map(v =>
-        v.id === videoId ? { ...v, elapsedMs: Date.now() - startTimeRef.current } : v
-      ));
-    }, 1000);
+    setVideos(prev => [nv, ...prev]);
+    setActiveVideo(nv);
 
     try {
-      const authHeader: Record<string, string> = (user as { accessToken?: string })?.accessToken
-        ? { Authorization: `Bearer ${(user as { accessToken?: string }).accessToken}` }
-        : {};
+      const token = (user as unknown as { access_token?: string }).access_token ?? "";
+      const op =
+        frameMode === "extend"      ? "extend_video"     :
+        frameMode === "lip_sync"    ? "lip_sync"         :
+        frameMode === "start_end"   ? "start_end_frame"  :
+        frameMode === "start_frame" ? "start_frame"      :
+        startSlot.url               ? "image_to_video"   : "text_to_video";
 
       const body: Record<string, unknown> = {
-        mode:          "video",
-        provider:      "kling",
-        prompt:        prompt || " ",
-        quality:       "cinematic",
-        aspectRatio:   studioMode === "standard" && !startSlot.url ? aspectRatio : undefined,
-        durationSeconds: duration,
-        videoMode,
-        operationType: operation,
-        metadata:      { klingModel: model },
+        mode: "video", provider: "kling",
+        prompt: prompt || " ",
+        quality: quality === "pro" ? "studio" : "cinematic",
+        aspectRatio: ar, durationSeconds: duration,
+        videoMode: quality, operationType: op,
+        metadata: { klingModel: model.id },
       };
+      if (negPrompt)     body.negativePrompt = negPrompt;
+      if (startSlot.url) body.imageUrl        = startSlot.url;
+      if (endSlot.url)   body.endImageUrl     = endSlot.url;
+      if (extId)         body.sourceVideoId   = extId;
+      if (extUrl)        body.sourceVideoUrl  = extUrl;
+      if (camera !== "none") body.cameraControl = { type: camera };
 
-      if (startSlot.url)    body.imageUrl     = startSlot.url;
-      if (endSlot.url)      body.endImageUrl   = endSlot.url;
-      if (sourceVideoId)    body.sourceVideoId = sourceVideoId;
-      if (sourceVideoUrl)   body.sourceVideoUrl= sourceVideoUrl;
-      if (negPrompt.trim()) body.metadata = { ...(body.metadata as object), negativePrompt: negPrompt };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      if (cameraPreset !== "none") {
-        body.cameraControl = { type: cameraPreset };
-      }
-
-      const res = await fetch("/api/generate", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body:    JSON.stringify(body),
-      });
-
-      if (res.status === 402) {
-        const errData = await res.json();
-        const need    = errData.data?.required ?? "?";
-        const have    = errData.data?.available ?? "?";
-        throw new Error(`Not enough credits — need ${need}, you have ${have}`);
-      }
-
+      const res  = await fetch("/api/generate", { method: "POST", headers, body: JSON.stringify(body) });
       const data = await res.json();
-      if (!res.ok || !data.data?.url) {
-        throw new Error(data.data?.error ?? data.error ?? "Video generation failed");
-      }
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`);
 
-      // Store the Kling task ID from metadata for extend/lip-sync
-      const klingTaskId = String(data.data?.metadata?.taskId ?? "");
-
-      setVideos(prev => prev.map(v =>
-        v.id === videoId
-          ? { ...v, url: data.data.url as string, status: "done", elapsedMs: Date.now() - startTimeRef.current, klingTaskId }
-          : v
-      ));
-
-    } catch (err) {
-      setVideos(prev => prev.map(v =>
-        v.id === videoId
-          ? { ...v, status: "error", error: err instanceof Error ? err.message : "Failed" }
-          : v
-      ));
-    } finally {
-      clearInterval(timer);
-      setGenerating(false);
-      refreshUser?.();
+      const url    = data.data?.url ?? null;
+      const taskId = data.data?.taskId ?? data.data?.metadata?.taskId;
+      setVideos(p => p.map(v => v.id === nv.id ? { ...v, url, klingTaskId: taskId, status: url ? "done" : "generating" } : v));
+      setActiveVideo({ ...nv, url, klingTaskId: taskId, status: url ? "done" : "generating" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Generation failed";
+      setVideos(p => p.map(v => v.id === nv.id ? { ...v, status: "error", error: msg } : v));
+      setGenError(msg);
     }
+    setGenerating(false);
   }
 
-  // ── Retry ─────────────────────────────────────────────────────────────────
-  function handleRetry(videoId: string) {
-    setVideos(prev => prev.filter(v => v.id !== videoId));
-    handleGenerate();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const STUDIO_MODES: { id: StudioMode; label: string; icon: string; disabled?: boolean }[] = [
-    { id: "standard",    label: "Standard",    icon: "✦" },
-    { id: "start_frame", label: "Start Frame", icon: "▶" },
-    { id: "start_end",   label: "Start + End", icon: "⇥", disabled: !caps?.endFrame },
-    { id: "extend",      label: "Extend",      icon: "⟳" },
-    { id: "audio",       label: "Lip Sync",    icon: "🎙" },
+  const FRAME_MODES: { id: FrameMode; label: string; ok: boolean }[] = [
+    { id: "text_to_video", label: "Text → Video",  ok: caps.textToVideo  },
+    { id: "start_frame",   label: "Start Frame",   ok: caps.startFrame   },
+    { id: "start_end",     label: "Start + End",   ok: caps.endFrame     },
+    { id: "extend",        label: "Extend",         ok: caps.extendVideo  },
+    { id: "lip_sync",      label: "Lip Sync",       ok: caps.lipSync      },
   ];
 
+  const AR_OPTS: { value: VideoAR; label: string; icon: string }[] = [
+    { value: "16:9", label: "16:9", icon: "▬" },
+    { value: "9:16", label: "9:16", icon: "▮" },
+    { value: "1:1",  label: "1:1",  icon: "▪" },
+  ];
+
+  const CAM_OPTS = [
+    { value: "none" as CamPreset,                label: "Free" },
+    { value: "down_back" as CamPreset,           label: "Pull Back" },
+    { value: "forward_up" as CamPreset,          label: "Push In" },
+    { value: "right_turn_forward" as CamPreset,  label: "Arc Right" },
+    { value: "left_turn_forward" as CamPreset,   label: "Arc Left" },
+  ];
+
+  const canGenerate = !generating;
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "system-ui, -apple-system, sans-serif", paddingTop: 64 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#060D1F", color: "#F8FAFC", overflow: "hidden", fontFamily: "var(--font-body,sans-serif)" }}>
 
-      <div className="studio-layout" style={{ display: "flex", padding: "0 20px", gap: 20, paddingBottom: 120 }}>
+      {/* ════════ HEADER BAR ════════ */}
+      <header style={{
+        height: 50, flexShrink: 0, display: "flex", alignItems: "center",
+        padding: "0 16px", gap: 10,
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: "rgba(4,9,20,0.98)", backdropFilter: "blur(12px)",
+        zIndex: 200,
+      }}>
+        {/* Back link */}
+        <Link href="/studio" style={{ display: "flex", alignItems: "center", gap: 5, textDecoration: "none", color: "#3D4F6E", fontSize: 12, flexShrink: 0 }}>
+          <Film size={13} /> Studio
+        </Link>
+        <span style={{ color: "rgba(255,255,255,0.1)", fontSize: 14 }}>/</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", flexShrink: 0 }}>Video Studio</span>
 
-        {/* ── LEFT: Controls ──────────────────────────────────────────── */}
-        <div className="studio-left-panel">
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.07)", margin: "0 4px" }} />
 
-          {/* Mode Switcher */}
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-              {STUDIO_MODES.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => !m.disabled && setStudioMode(m.id)}
-                  disabled={m.disabled}
-                  title={m.disabled ? "Requires Kling 3.0 or 2.6" : undefined}
-                  style={{
-                    padding: "8px 6px",
-                    borderRadius: 8,
-                    border: studioMode === m.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)",
-                    background: studioMode === m.id ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)",
-                    color: m.disabled ? "rgba(255,255,255,0.2)" : studioMode === m.id ? "#7EDDD9" : "rgba(255,255,255,0.5)",
-                    fontSize: 12, cursor: m.disabled ? "default" : "pointer",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "all 0.15s",
-                  }}
-                >
-                  <span style={{ fontSize: 14 }}>{m.icon}</span>
-                  <span>{m.label}</span>
+        {/* Tool switcher */}
+        <div style={{ display: "flex", gap: 4, overflowX: "auto", flexShrink: 0 }}>
+          {VIDEO_TOOLS.map(t => (
+            <button key={t.id}
+              onClick={() => t.ok && router.push(`/studio/video?tool=${t.id}`)}
+              style={{
+                padding: "4px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
+                border: `1px solid ${toolId === t.id ? "rgba(14,165,160,0.45)" : "rgba(255,255,255,0.06)"}`,
+                background: toolId === t.id ? "rgba(14,165,160,0.1)" : "transparent",
+                color: toolId === t.id ? "#0EA5A0" : t.ok ? "#475569" : "#1E293B",
+                cursor: t.ok ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", gap: 5,
+              }}>
+              {t.label}
+              {t.badge && <span style={{ fontSize: 9, fontWeight: 800, color: t.bc ?? "#64748B", background: `${t.bc ?? "#64748B"}22`, padding: "0 4px", borderRadius: 3 }}>{t.badge}</span>}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Rail toggle */}
+        <button onClick={() => setRailClosed(c => !c)}
+          title={railClosed ? "Show controls" : "Hide controls"}
+          style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#3D4F6E", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <SlidersHorizontal size={14} />
+        </button>
+      </header>
+
+      {/* ════════ 4-ZONE WORK AREA ════════ */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+
+        {/* ═══ ZONE 1: LEFT RAIL ═══ */}
+        {!railClosed && (
+          <aside style={{
+            width: 224, flexShrink: 0, overflowY: "auto",
+            background: "rgba(255,255,255,0.013)",
+            borderRight: "1px solid rgba(255,255,255,0.06)",
+            padding: "18px 14px", display: "flex", flexDirection: "column", gap: 22,
+          }}>
+
+            {/* Active model card */}
+            <div style={{ padding: "12px 14px", borderRadius: 12, background: "linear-gradient(135deg,rgba(14,165,160,0.09),rgba(37,99,235,0.07))", border: "1px solid rgba(14,165,160,0.22)" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>Active Model</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#0EA5A0" }}>{model.displayName}</div>
+              <div style={{ fontSize: 11, color: "#3D4F6E", marginTop: 3, lineHeight: 1.5 }}>{model.description}</div>
+            </div>
+
+            {/* Frame mode */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Frame Mode</div>
+              {FRAME_MODES.map(m => (
+                <button key={m.id} disabled={!m.ok} onClick={() => setFrameMode(m.id)} style={{
+                  width: "100%", marginBottom: 4, padding: "8px 12px", borderRadius: 9, textAlign: "left",
+                  border: `1px solid ${frameMode === m.id ? "rgba(14,165,160,0.4)" : "rgba(255,255,255,0.06)"}`,
+                  background: frameMode === m.id ? "rgba(14,165,160,0.1)" : "transparent",
+                  color: !m.ok ? "#1E293B" : frameMode === m.id ? "#0EA5A0" : "#475569",
+                  cursor: m.ok ? "pointer" : "not-allowed",
+                  fontSize: 12, fontWeight: frameMode === m.id ? 700 : 400, transition: "all 0.15s",
+                }}>
+                  {m.label}
+                  {!m.ok && <span style={{ marginLeft: 6, fontSize: 9, color: "#1E293B" }}>N/A</span>}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Model Picker */}
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Model</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {VIDEO_MODEL_REGISTRY.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => m.available && setModel(m.id)}
-                  disabled={!m.available}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: model === m.id ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                    background: model === m.id ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)",
-                    color: !m.available ? "rgba(255,255,255,0.25)" : model === m.id ? "#CCEFEE" : "rgba(255,255,255,0.7)",
-                    fontSize: 12, cursor: m.available ? "pointer" : "default",
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                    <span style={{ fontWeight: 500, fontSize: 12 }}>{m.displayName}</span>
-                    {m.available && (
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{m.description.split(" — ")[0]}</span>
-                    )}
-                  </div>
-                  {m.badge && (
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", background: m.badgeColor ?? "#555", borderRadius: 4, padding: "2px 5px", letterSpacing: "0.06em" }}>
-                      {m.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Duration</div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {DURATION_OPTIONS.map(d => (
-                <button
-                  key={d}
-                  onClick={() => setDuration(d)}
-                  style={{ flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: duration === d ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: duration === d ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: duration === d ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: duration === d ? 600 : 400 }}
-                >{d}s</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Aspect Ratio (T2V only) */}
-          {studioMode === "standard" && startSlot.url ? null : studioMode === "standard" && (
+            {/* Duration */}
             <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Aspect Ratio</div>
-              <div style={{ display: "flex", gap: 5 }}>
-                {AR_OPTIONS.map(ar => (
-                  <button
-                    key={ar.value}
-                    onClick={() => setAspectRatio(ar.value)}
-                    style={{ flex: 1, padding: "8px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: aspectRatio === ar.value ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: aspectRatio === ar.value ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: aspectRatio === ar.value ? "#7EDDD9" : "rgba(255,255,255,0.5)", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}
-                  >
-                    <span>{ar.icon}</span>
-                    <span style={{ fontSize: 10 }}>{ar.label}</span>
-                  </button>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Duration</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {caps.durations.map(d => (
+                  <button key={d} onClick={() => setDuration(d)} style={{
+                    flex: 1, padding: "9px 4px", borderRadius: 9,
+                    border: `1px solid ${duration === d ? "rgba(14,165,160,0.4)" : "rgba(255,255,255,0.07)"}`,
+                    background: duration === d ? "rgba(14,165,160,0.1)" : "transparent",
+                    color: duration === d ? "#0EA5A0" : "#475569",
+                    fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}>{d}s</button>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* Mode: std / pro */}
-          {caps?.proMode && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Quality</div>
-              <div style={{ display: "flex", gap: 4 }}>
-                {(["std", "pro"] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setVideoMode(m)}
-                    style={{ flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 12, cursor: "pointer", border: videoMode === m ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.08)", background: videoMode === m ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)", color: videoMode === m ? "#7EDDD9" : "rgba(255,255,255,0.5)", fontWeight: videoMode === m ? 600 : 400 }}
-                  >{m === "std" ? "Standard" : "Pro"}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Camera Control */}
-          {caps?.cameraControl && (studioMode === "standard" || studioMode === "start_frame" || studioMode === "start_end") && (
-            <div>
-              <button
-                onClick={() => setShowCamera(!showCamera)}
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}
-              >
-                {showCamera ? "▾" : "▸"} Camera Control {cameraPreset !== "none" && `(${CAMERA_PRESET_LABELS[cameraPreset as CameraPreset]})`}
-              </button>
-              {showCamera && (
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <button
-                    onClick={() => setCameraPreset("none")}
-                    style={{ padding: "6px 8px", borderRadius: 6, fontSize: 11, cursor: "pointer", border: cameraPreset === "none" ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)", background: cameraPreset === "none" ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)", color: cameraPreset === "none" ? "#7EDDD9" : "rgba(255,255,255,0.4)", textAlign: "left" }}
-                  >No camera movement</button>
-                  {(caps.cameraPresets as CameraPreset[]).filter(p => p !== "simple").map(preset => (
-                    <button
-                      key={preset}
-                      onClick={() => setCameraPreset(preset)}
-                      style={{ padding: "6px 8px", borderRadius: 6, fontSize: 11, cursor: "pointer", border: cameraPreset === preset ? "1px solid rgba(14,165,160,0.5)" : "1px solid rgba(255,255,255,0.07)", background: cameraPreset === preset ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.02)", color: cameraPreset === preset ? "#7EDDD9" : "rgba(255,255,255,0.4)", textAlign: "left" }}
-                    >{CAMERA_PRESET_LABELS[preset]}</button>
+            {/* Aspect Ratio */}
+            {frameMode !== "start_end" && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Aspect Ratio</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {AR_OPTS.filter(o => caps.aspectRatios.includes(o.value)).map(o => (
+                    <button key={o.value} onClick={() => setAr(o.value)} style={{
+                      flex: 1, padding: "8px 4px", borderRadius: 9,
+                      border: `1px solid ${ar === o.value ? "rgba(14,165,160,0.4)" : "rgba(255,255,255,0.07)"}`,
+                      background: ar === o.value ? "rgba(14,165,160,0.1)" : "transparent",
+                      color: ar === o.value ? "#0EA5A0" : "#475569",
+                      fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    }}>{o.icon} {o.label}</button>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Credit estimate */}
-          <div style={{ background: "rgba(14,165,160,0.07)", border: "1px solid rgba(14,165,160,0.15)", borderRadius: 9, padding: "8px 12px" }}>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 1 }}>Estimated Cost</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#7EDDD9" }}>
-              {creditCost} credits
+            {/* Quality */}
+            {caps.proMode && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Quality</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["std","pro"] as Quality[]).map(q => (
+                    <button key={q} onClick={() => setQuality(q)} style={{
+                      flex: 1, padding: "8px 4px", borderRadius: 9,
+                      border: `1px solid ${quality === q ? (q === "pro" ? "rgba(168,85,247,0.4)" : "rgba(14,165,160,0.4)") : "rgba(255,255,255,0.07)"}`,
+                      background: quality === q ? (q === "pro" ? "rgba(168,85,247,0.1)" : "rgba(14,165,160,0.1)") : "transparent",
+                      color: quality === q ? (q === "pro" ? "#A855F7" : "#0EA5A0") : "#475569",
+                      fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    }}>{q === "std" ? "Standard" : "Pro"}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Camera */}
+            {caps.cameraControl && (
+              <div>
+                <button onClick={() => setShowCam(c => !c)} style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: "transparent", border: "none", cursor: "pointer",
+                  color: "#3D4F6E", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "4px 0",
+                }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Camera size={12} /> Camera</span>
+                  {showCam ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+                {showCam && CAM_OPTS.map(p => (
+                  <button key={p.value} onClick={() => setCamera(p.value)} style={{
+                    width: "100%", marginBottom: 3, padding: "7px 10px", borderRadius: 8, textAlign: "left",
+                    border: `1px solid ${camera === p.value ? "rgba(37,99,235,0.4)" : "rgba(255,255,255,0.06)"}`,
+                    background: camera === p.value ? "rgba(37,99,235,0.1)" : "transparent",
+                    color: camera === p.value ? "#60A5FA" : "#475569",
+                    fontSize: 12, cursor: "pointer",
+                  }}>{p.label}</button>
+                ))}
+              </div>
+            )}
+
+            {/* Credit estimate */}
+            <div style={{ marginTop: "auto", padding: "14px", borderRadius: 12, background: "linear-gradient(135deg,rgba(37,99,235,0.09),rgba(14,165,160,0.06))", border: "1px solid rgba(37,99,235,0.2)" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Estimated Cost</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Zap size={18} color="#60A5FA" />
+                <span style={{ fontSize: 26, fontWeight: 900, color: "#60A5FA", lineHeight: 1 }}>{credits}</span>
+                <span style={{ fontSize: 12, color: "#3D4F6E" }}>credits</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#2D3748", marginTop: 6 }}>{duration}s · {quality === "pro" ? "Pro" : "Standard"} · {model.displayName}</div>
             </div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>
-              {duration}s · {videoMode === "pro" ? "Pro" : "Standard"} · {modelDef?.displayName}
-            </div>
+          </aside>
+        )}
+
+        {/* ═══ ZONE 2: CENTRAL CANVAS ═══ */}
+        <main style={{ flex: 1, display: "flex", flexDirection: "column", padding: "18px 20px", gap: 10, minWidth: 0, overflow: "hidden" }}>
+          {/* Canvas label */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#2D3748", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {frameMode === "text_to_video" ? "Reference Image — optional, for Image-to-Video"
+              : frameMode === "start_frame"  ? "Start Frame — required"
+              : frameMode === "start_end"    ? "Start + End Frames — both required"
+              : frameMode === "extend"       ? "Extend — select a generated video below"
+              : "Lip Sync — video with clear face"}
+            </span>
+            <span style={{ fontSize: 11, color: "#1E293B" }}>{model.displayName} · {ar} · {duration}s · {quality === "pro" ? "Pro" : "Standard"}</span>
           </div>
 
-        </div>
-
-        {/* ── CENTER: Prompt + Reference Slots ────────────────────────── */}
-        <div className="studio-center-panel">
-
-          {/* Standard mode: optional image upload for I2V */}
-          {studioMode === "standard" && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
-                Reference Image <span style={{ fontWeight: 400, textTransform: "none", color: "rgba(255,255,255,0.25)" }}>— optional, for Image-to-Video</span>
+          {/* Canvas body */}
+          <div style={{ flex: 1, display: "flex", gap: 14, minHeight: 0 }}>
+            {frameMode === "extend" ? (
+              <div style={{ flex: 1, borderRadius: 16, border: "2px dashed rgba(37,99,235,0.25)", background: "rgba(37,99,235,0.03)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24 }}>
+                {extUrl ? (
+                  <video src={extUrl} style={{ maxWidth: "65%", maxHeight: "75%", borderRadius: 12, objectFit: "contain" }} controls />
+                ) : (
+                  <>
+                    <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <RotateCcw size={26} color="#60A5FA" />
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#CBD5E1" }}>Extend Mode</div>
+                      <div style={{ fontSize: 13, color: "#3D4F6E", marginTop: 4 }}>Click "Extend" on any video below, or paste a URL</div>
+                    </div>
+                    <input value={extUrl} onChange={e => setExtUrl(e.target.value)} placeholder="Paste video URL to extend…"
+                      style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)", color: "#F8FAFC", fontSize: 13, outline: "none", width: 340 }} />
+                  </>
+                )}
               </div>
-              <ImageUploadSlot
-                label="Start Frame"
-                hint="Upload to animate from this image (optional)"
-                slot={startSlot}
-                onFile={f => handleSlotFile("start", f)}
-                onClear={() => clearSlot("start")}
-              />
-            </div>
-          )}
-
-          {/* Start Frame mode */}
-          {studioMode === "start_frame" && (
-            <ImageUploadSlot
-              label="Start Frame"
-              hint="How the shot begins — required"
-              slot={startSlot}
-              onFile={f => handleSlotFile("start", f)}
-              onClear={() => clearSlot("start")}
-            />
-          )}
-
-          {/* Start + End Frame mode */}
-          {studioMode === "start_end" && (
-            <div style={{ display: "flex", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <ImageUploadSlot
-                  label="Start Frame"
-                  hint="How the shot begins — required"
-                  slot={startSlot}
-                  onFile={f => handleSlotFile("start", f)}
-                  onClear={() => clearSlot("start")}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <ImageUploadSlot
-                  label="End Frame"
-                  hint="How the shot resolves — required"
-                  slot={endSlot}
-                  onFile={f => handleSlotFile("end", f)}
-                  onClear={() => clearSlot("end")}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Extend mode */}
-          {studioMode === "extend" && (
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Source Video</div>
-              {sourceVideoUrl ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  <video src={sourceVideoUrl} controls style={{ width: "100%", borderRadius: 8, maxHeight: 200, background: "#000" }} />
-                  <button
-                    onClick={() => { setSourceVideoId(""); setSourceVideoUrl(""); }}
-                    style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "4px 10px", cursor: "pointer", alignSelf: "flex-start" }}
-                  >Remove</button>
+            ) : (
+              <>
+                <div style={{ flex: 1 }}>
+                  <UploadSlot slot={startSlot}
+                    label={frameMode === "text_to_video" ? "Reference Image (optional)" : "Start Frame"}
+                    onFile={f => handleSlotFile("start", f)} onClear={() => setStartSlot(EMPTY_SLOT)} />
                 </div>
-              ) : (
-                <div style={{ padding: "20px 0", textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                  Click <strong style={{ color: "#0EA5A0" }}>⟳ Extend</strong> on a generated video below to extend it here.
-                </div>
-              )}
+                {frameMode === "start_end" && (
+                  <div style={{ flex: 1 }}>
+                    <UploadSlot slot={endSlot} label="End Frame"
+                      onFile={f => handleSlotFile("end", f)} onClear={() => setEndSlot(EMPTY_SLOT)}
+                      disabled={!caps.endFrame} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Error */}
+          {genError && (
+            <div style={{ padding: "10px 14px", borderRadius: 9, background: "rgba(239,68,68,0.09)", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+              {genError}
+              <button onClick={() => setGenError("")} style={{ background: "none", border: "none", color: "#FCA5A5", cursor: "pointer" }}><X size={14} /></button>
             </div>
           )}
+        </main>
 
-          {/* Lip Sync mode */}
-          {studioMode === "audio" && (
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 14 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Lip Sync</div>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: "0 0 10px", lineHeight: 1.6 }}>
-                Select a source video with a visible face below using the <strong style={{ color: "#7EDDD9" }}>⟳ Extend</strong> button (also works for Lip Sync), or paste a video URL below.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Video URL</label>
-                <input
-                  type="text"
-                  placeholder="https://…"
-                  value={sourceVideoUrl}
-                  onChange={e => setSourceVideoUrl(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "8px 10px", color: "#fff", fontSize: 12, outline: "none" }}
-                />
-                <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Text to speak</label>
-                <textarea
-                  placeholder="The text the person will say…"
-                  rows={3}
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "8px 10px", color: "#fff", fontSize: 13, resize: "none", outline: "none", lineHeight: 1.6 }}
-                />
-              </div>
-            </div>
-          )}
+        {/* ═══ ZONE 3: PROMPT PANEL ═══ */}
+        <aside style={{
+          width: 300, flexShrink: 0, display: "flex", flexDirection: "column",
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
+          background: "rgba(255,255,255,0.012)",
+          padding: "18px 16px", gap: 12,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#3D4F6E", textTransform: "uppercase", letterSpacing: "0.08em" }}>Prompt</div>
 
-          {/* Prompt */}
-          {studioMode !== "audio" && (
-            <div style={{ position: "relative" }}>
-              <textarea
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
-                placeholder={
-                  studioMode === "extend"      ? "Optional continuation prompt…" :
-                  studioMode === "start_end"   ? "Describe what happens between the start and end frames…" :
-                  studioMode === "start_frame" ? "Describe what happens after the start frame…" :
-                  "Describe your video scene…"
-                }
-                rows={4}
-                style={{
-                  width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 14, resize: "vertical",
-                  outline: "none", lineHeight: 1.7, boxSizing: "border-box",
-                }}
-              />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-                <button
-                  onClick={() => setShowNegPrompt(!showNegPrompt)}
-                  style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                >
-                  {showNegPrompt ? "▾" : "▸"} Negative prompt
-                </button>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>⌘↵ to generate</span>
-              </div>
-              {showNegPrompt && (
-                <textarea
-                  value={negPrompt}
-                  onChange={e => setNegPrompt(e.target.value)}
-                  placeholder="Elements to avoid (e.g. blur, watermark, text)…"
-                  rows={2}
-                  style={{
-                    width: "100%", marginTop: 6, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
-                    borderRadius: 8, padding: "8px 12px", color: "rgba(255,255,255,0.6)", fontSize: 12, resize: "none",
-                    outline: "none", lineHeight: 1.6, boxSizing: "border-box",
-                  }}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Generate button */}
-          <button
-            onClick={handleGenerate}
-            disabled={!canGenerate && !!user}
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+            placeholder={
+              frameMode === "lip_sync" ? "Enter speech for lip sync…" :
+              frameMode === "extend"   ? "Optional: additional direction…" :
+              "Describe your cinematic video scene…"
+            }
             style={{
-              padding: "14px 0", borderRadius: 10, border: "none", cursor: canGenerate ? "pointer" : "default",
-              background: canGenerate
-                ? "linear-gradient(135deg, #0D8A86 0%, #0EA5A0 100%)"
-                : "rgba(255,255,255,0.06)",
-              color: canGenerate ? "#fff" : "rgba(255,255,255,0.3)",
-              fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", transition: "all 0.2s",
-              boxShadow: canGenerate ? "0 0 24px rgba(14,165,160,0.3)" : "none",
+              flex: 1, minHeight: 200, padding: "14px", borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)",
+              color: "#F8FAFC", fontSize: 13, lineHeight: 1.7, resize: "none", outline: "none", fontFamily: "inherit",
             }}
+            onFocus={e => (e.target.style.borderColor = "rgba(14,165,160,0.4)")}
+            onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.07)")}
+          />
+
+          {caps.negativePrompt && (
+            <div>
+              <button onClick={() => setShowNeg(n => !n)} style={{ background: "none", border: "none", cursor: "pointer", color: "#3D4F6E", fontSize: 12, display: "flex", alignItems: "center", gap: 6, padding: 0 }}>
+                {showNeg ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Negative prompt
+              </button>
+              {showNeg && (
+                <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)} placeholder="What to avoid…"
+                  style={{ width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 10, minHeight: 68, border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", color: "#94A3B8", fontSize: 12, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+              )}
+            </div>
+          )}
+
+          {/* Prompt chips */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {["cinematic", "slow motion", "4K", "dramatic light", "aerial shot"].map(chip => (
+              <button key={chip} onClick={() => setPrompt(p => p ? `${p}, ${chip}` : chip)}
+                style={{ padding: "4px 9px", borderRadius: 20, fontSize: 11, border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#3D4F6E", cursor: "pointer" }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(14,165,160,0.35)"; el.style.color = "#0EA5A0"; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(255,255,255,0.07)"; el.style.color = "#3D4F6E"; }}>
+                + {chip}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Credit + balance */}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#3D4F6E" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}><Zap size={12} color="#60A5FA" />{credits} credits</span>
+            {user && <span>{user.credits?.toLocaleString()} available</span>}
+          </div>
+
+          {/* GENERATE BUTTON */}
+          <button onClick={handleGenerate} disabled={!canGenerate} style={{
+            padding: "15px", borderRadius: 12, border: "none",
+            cursor: canGenerate ? "pointer" : "not-allowed",
+            background: canGenerate ? "linear-gradient(135deg,#0EA5A0 0%,#0D9488 100%)" : "rgba(255,255,255,0.05)",
+            color: canGenerate ? "#fff" : "#2D3748",
+            fontSize: 14, fontWeight: 800, letterSpacing: "0.03em",
+            boxShadow: canGenerate ? "0 0 28px rgba(14,165,160,0.35)" : "none",
+            transition: "all 0.2s",
+          }}
+            onMouseEnter={e => canGenerate && ((e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(14,165,160,0.55)")}
+            onMouseLeave={e => canGenerate && ((e.currentTarget as HTMLElement).style.boxShadow = "0 0 28px rgba(14,165,160,0.35)")}
           >
-            {generating
-              ? "Generating…"
-              : blockedReason
-                ? blockedReason
-                : `Generate  +${creditCost} cr`}
+            {generating ? (
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin .8s linear infinite", display: "inline-block" }} />
+                Generating…
+              </span>
+            ) : user ? "⚡ Generate Video" : "Sign In to Generate"}
+          </button>
+          {!user && <p style={{ fontSize: 11, color: "#2D3748", textAlign: "center", margin: 0 }}>Free to try · No card required</p>}
+        </aside>
+
+        {/* ═══ ZONE 4: META PANEL ═══ */}
+        <aside style={{
+          width: metaOpen ? 230 : 36, flexShrink: 0, overflow: "hidden",
+          borderLeft: "1px solid rgba(255,255,255,0.05)",
+          background: "rgba(255,255,255,0.008)",
+          transition: "width 0.25s ease", display: "flex", flexDirection: "column",
+        }}>
+          <button onClick={() => setMetaOpen(m => !m)} style={{ height: 50, border: "none", background: "transparent", cursor: "pointer", color: "#2D3748", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            {metaOpen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
 
-          {/* Results */}
-          {videos.length > 0 && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
-                Results
+          {metaOpen && (
+            <div style={{ flex: 1, padding: "0 12px 16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Generation config */}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#1E293B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Config</div>
+                {[
+                  ["Model",    model.displayName],
+                  ["Mode",     frameMode.replace(/_/g, " ")],
+                  ["Duration", `${duration}s`],
+                  ["Ratio",    ar],
+                  ["Quality",  quality === "pro" ? "Pro" : "Standard"],
+                  ["Credits",  `~${credits}`],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.025)" }}>
+                    <span style={{ fontSize: 11, color: "#1E293B" }}>{k}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#334155", textTransform: "capitalize" }}>{v}</span>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
-                {videos.map(v => (
-                  <VideoCard
-                    key={v.id}
-                    video={v}
-                    onRetry={() => handleRetry(v.id)}
-                    onExtend={handleExtendVideo}
-                  />
+
+              {/* Last prompt */}
+              {activeVideo && (
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#1E293B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Last Prompt</div>
+                  <div style={{ padding: "9px", borderRadius: 8, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", fontSize: 11, color: "#334155", lineHeight: 1.6, marginBottom: 8 }}>
+                    {activeVideo.prompt || "—"}
+                  </div>
+                  <button onClick={() => { navigator.clipboard.writeText(activeVideo.prompt); setPCopied(true); setTimeout(() => setPCopied(false), 1500); }}
+                    style={{ width: "100%", padding: "6px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.06)", background: "transparent", color: pCopied ? "#0EA5A0" : "#334155", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                    {pCopied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy Prompt</>}
+                  </button>
+                </div>
+              )}
+
+              {/* Status */}
+              {activeVideo && (
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#1E293B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Status</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: activeVideo.status === "done" ? "#10B981" : activeVideo.status === "error" ? "#EF4444" : "#F59E0B", boxShadow: `0 0 6px ${activeVideo.status === "done" ? "#10B981" : activeVideo.status === "error" ? "#EF4444" : "#F59E0B"}` }} />
+                    <span style={{ fontSize: 12, color: "#334155", textTransform: "capitalize" }}>{activeVideo.status}</span>
+                  </div>
+                  {activeVideo.status === "done" && activeVideo.url && (
+                    <a href={activeVideo.url} download style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(14,165,160,0.2)", background: "rgba(14,165,160,0.07)", color: "#0EA5A0", fontSize: 11, textDecoration: "none", fontWeight: 700 }}>
+                      <Download size={11} /> Download
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Capabilities */}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#1E293B", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Model Caps</div>
+                {([
+                  ["Text→Video",    caps.textToVideo],
+                  ["Image→Video",   caps.imageToVideo],
+                  ["Start+End",     caps.endFrame],
+                  ["Extend",        caps.extendVideo],
+                  ["Lip Sync",      caps.lipSync],
+                  ["Camera Ctrl",   caps.cameraControl],
+                  ["Pro Mode",      caps.proMode],
+                ] as [string, boolean][]).map(([label, flag]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}>
+                    <span style={{ fontSize: 10, color: "#1E293B" }}>{label}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: flag ? "#0EA5A0" : "#1E293B" }}>{flag ? "✓" : "—"}</span>
+                  </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Empty state */}
-          {videos.length === 0 && !generating && (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 0", gap: 12, color: "rgba(255,255,255,0.2)" }}>
-              <span style={{ fontSize: 48, opacity: 0.3 }}>🎬</span>
-              <p style={{ fontSize: 14, margin: 0 }}>Your generated videos will appear here</p>
-              <p style={{ fontSize: 12, margin: 0, opacity: 0.7 }}>Write a prompt and click Generate to start</p>
-            </div>
-          )}
-        </div>
+        </aside>
       </div>
 
-      {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
+      {/* ════════ ZONE 5: BOTTOM VIDEO LIBRARY ════════ */}
+      {videos.length > 0 && (
+        <div style={{ flexShrink: 0, borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.008)" }}>
+          {/* Toolbar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+              Generated Videos <span style={{ color: "#2D3748", fontWeight: 400 }}>({videos.length})</span>
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(1)))} style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#475569", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={12} /></button>
+              <span style={{ fontSize: 11, color: "#334155", minWidth: 38, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+              <input type="range" min={50} max={150} value={Math.round(zoom * 100)} onChange={e => setZoom(+e.target.value / 100)} style={{ width: 80, accentColor: "#0EA5A0", cursor: "pointer" }} />
+              <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))} style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid rgba(255,255,255,0.07)", background: "transparent", color: "#475569", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={12} /></button>
+            </div>
+          </div>
+          {/* Strip */}
+          <div style={{ display: "flex", gap: 12, padding: "14px 20px", overflowX: "auto" }}>
+            {videos.map(v => <VideoCard key={v.id} video={v} zoom={zoom} onExtend={handleExtend} />)}
+          </div>
+        </div>
+      )}
 
-      <style>{`
-        .studio-layout {
-          width: 100%;
-          box-sizing: border-box;
-        }
-        .studio-left-panel {
-          width: 260px;
-          flex-shrink: 0;
-          padding-top: 16px;
-          padding-bottom: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          max-height: calc(100vh - 80px);
-          overflow-y: auto;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(14,165,160,0.3) transparent;
-        }
-        .studio-center-panel {
-          flex: 1;
-          padding-top: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          min-width: 0;
-        }
-        @media (max-width: 768px) {
-          .studio-layout {
-            flex-direction: column;
-            padding: 0 12px;
-            gap: 12px;
-          }
-          .studio-left-panel {
-            width: 100%;
-            padding-top: 12px;
-          }
-          .studio-center-panel {
-            padding-top: 0;
-          }
-        }
-      `}</style>
+      {/* Auth modal */}
+      {authModal && (
+        <Suspense fallback={null}>
+          <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+        </Suspense>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXPORT
+// Page export — Suspense required for useSearchParams
 // ─────────────────────────────────────────────────────────────────────────────
-
 export default function VideoStudioPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
-        Loading studio…
+      <div style={{ minHeight: "100vh", background: "#060D1F", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid rgba(14,165,160,0.2)", borderTopColor: "#0EA5A0", animation: "spin .8s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     }>
       <VideoStudioContent />
