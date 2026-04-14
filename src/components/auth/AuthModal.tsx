@@ -263,8 +263,20 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const handleSlideIdx = useCallback((i: number) => setSlideIdx(i), []);
   const [isMobile, setIsMobile] = useState(false);
 
-  const { login, signup, loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey } = useAuth();
+  const { user, login, signup, loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey } = useAuth();
   const router = useRouter();
+
+  // ── Event-driven post-login redirect ──────────────────────────────────────
+  // Instead of setTimeout, we set this flag after login succeeds and let the
+  // useEffect below fire once AuthContext has populated user with their role.
+  const [pendingRedirect, setPendingRedirect] = useState(false);
+
+  useEffect(() => {
+    if (!pendingRedirect || !user) return;
+    setPendingRedirect(false);
+    onClose();
+    router.push(user.role === "admin" ? "/hub" : "/dashboard");
+  }, [user, pendingRedirect, onClose, router]);
 
   // Slideshow
   useEffect(() => {
@@ -323,16 +335,8 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     }
     setLoading(false);
     if (ok) {
-      onClose();
-      // Wait briefly for onAuthStateChange to populate user with role
-      setTimeout(async () => {
-        const { data: { session } } = await import("@/lib/supabase").then(m => m.supabase.auth.getSession());
-        if (!session) { router.push("/dashboard"); return; }
-        const { data: profile } = await import("@/lib/supabase").then(m =>
-          m.supabase.from("profiles").select("role").eq("id", session.user.id).single()
-        );
-        router.push(profile?.role === "admin" ? "/hub" : "/dashboard");
-      }, 300);
+      // Signal the useEffect above to redirect once AuthContext has user+role
+      setPendingRedirect(true);
     }
   }
 
