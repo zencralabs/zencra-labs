@@ -351,7 +351,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
 // USER AVATAR DROPDOWN (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function UserDropdown({ user, onLogout }: { user: { name: string; email: string; credits: number; plan: string }; onLogout: () => void }) {
+function UserDropdown({ user, onLogout }: { user: { name: string; email: string; credits: number; plan: string; role?: string }; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -407,7 +407,7 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
             <p style={{ fontSize: "10px", color: "#64748B", marginTop: "4px" }}>{user.plan} plan</p>
           </div>
           {[
-            { icon: LayoutDashboard, label: "Dashboard",    href: "/dashboard"              },
+            { icon: LayoutDashboard, label: user.role === "admin" ? "Admin Hub" : "Dashboard", href: user.role === "admin" ? "/hub" : "/dashboard" },
             { icon: User,            label: "Profile",      href: "/dashboard/profile"      },
             { icon: CreditCard,      label: "Subscription", href: "/dashboard/subscription" },
           ].map(item => {
@@ -813,20 +813,20 @@ export function Navbar() {
               {user ? (
                 <>
                   <Link
-                    href="/dashboard/credits"
+                    href={user.role === "admin" ? "/hub/credits" : "/dashboard/credits"}
                     style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "5px 12px", fontSize: "12px", fontWeight: 600, color: "#60A5FA", textDecoration: "none" }}
                   >
                     <Zap size={12} />
                     {user.credits} credits
                   </Link>
                   <Link
-                    href="/dashboard"
+                    href={user.role === "admin" ? "/hub" : "/dashboard"}
                     className="text-sm font-medium transition-all duration-200"
-                    style={{ color: "#94A3B8" }}
+                    style={{ color: user.role === "admin" ? "#2563EB" : "#94A3B8" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                    onMouseLeave={e => (e.currentTarget.style.color = user.role === "admin" ? "#2563EB" : "#94A3B8")}
                   >
-                    Dashboard
+                    {user.role === "admin" ? "Admin Hub" : "Dashboard"}
                   </Link>
                   <UserDropdown user={user} onLogout={logout} />
                 </>
