@@ -18,13 +18,13 @@ const imageTools = [
 ];
 
 const videoTools = [
-  { label: "Kling 3.0", href: "/video/kling", badge: "HOT" },
-  { label: "Google Veo", href: "/video/veo", badge: "NEW" },
-  { label: "Runway ML", href: "/video/runway", badge: null },
-  { label: "Seedance", href: "/video/seedance", badge: null },
-  { label: "LTX-2", href: "/video/ltx", badge: null },
-  { label: "HeyGen", href: "/video/heygen", badge: null },
-  { label: "Luma AI", href: "/video/luma", badge: "SOON" },
+  { label: "Kling 3.0",  href: "/studio/video?tool=kling-30",      badge: "HOT"  },
+  { label: "Google Veo", href: "/studio/video?tool=veo-32",         badge: "NEW"  },
+  { label: "Runway ML",  href: "/studio/video?tool=runway-gen45",   badge: null   },
+  { label: "Seedance",   href: "/studio/video?tool=seedance-20",    badge: null   },
+  { label: "LTX-2",      href: "/studio/video?tool=ltx-2",          badge: null   },
+  { label: "HeyGen",     href: "/studio/video?tool=heygen",         badge: null   },
+  { label: "Luma AI",    href: "/studio/video?tool=luma",           badge: "SOON" },
 ];
 
 const audioTools = [

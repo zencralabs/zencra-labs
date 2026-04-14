@@ -175,7 +175,8 @@ function RightPanelContent({ panel, color }: { panel: RightPanel; color: string 
           {panel.models.map((model) => {
             const isSoon = model.status !== "active";
             const studioBase = color === "#2563EB" ? "/studio/image" : color === "#0EA5A0" ? "/studio/video" : color === "#A855F7" ? "/studio/audio" : "#";
-            const href = !isSoon ? `${studioBase}?model=${model.id}` : "#";
+            const paramName = color === "#0EA5A0" ? "tool" : "model";
+            const href = !isSoon ? `${studioBase}?${paramName}=${model.id}` : "#";
             return (
               <Link
                 key={model.id}
