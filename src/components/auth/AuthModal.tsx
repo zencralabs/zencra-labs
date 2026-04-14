@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, memo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { AUTH_SLIDES } from "@/config/auth-modal-slides";
@@ -264,19 +264,23 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const [isMobile, setIsMobile] = useState(false);
 
   const { user, login, signup, loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey } = useAuth();
-  const router = useRouter();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
 
   // ── Event-driven post-login redirect ──────────────────────────────────────
-  // Instead of setTimeout, we set this flag after login succeeds and let the
-  // useEffect below fire once AuthContext has populated user with their role.
+  // After login succeeds, wait for AuthContext to populate user with role,
+  // then redirect: ?next param takes priority, else role-based (admin→/hub).
   const [pendingRedirect, setPendingRedirect] = useState(false);
 
   useEffect(() => {
     if (!pendingRedirect || !user) return;
     setPendingRedirect(false);
+    // ?next param (set by middleware when unauthenticated user hits protected route)
+    const next = searchParams.get("next");
+    const dest = next || (user.role === "admin" ? "/hub" : "/dashboard");
     onClose();
-    router.push(user.role === "admin" ? "/hub" : "/dashboard");
-  }, [user, pendingRedirect, onClose, router]);
+    router.push(dest);
+  }, [user, pendingRedirect, onClose, router, searchParams]);
 
   // Slideshow
   useEffect(() => {

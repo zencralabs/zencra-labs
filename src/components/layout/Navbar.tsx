@@ -1,6 +1,6 @@
 "use client";
 // v3 — active state + pathname highlighting
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -399,10 +399,10 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
             <p style={{ fontSize: "11px", color: "#64748B", margin: "0 0 10px" }}>{user.email}</p>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
               <span style={{ fontSize: "10px", color: "#64748B" }}>Credits</span>
-              <span style={{ fontSize: "10px", fontWeight: 600, color: pct > 20 ? "#60A5FA" : "#FCA5A5" }}>{user.credits} / 100</span>
+              <span style={{ fontSize: "10px", fontWeight: 600, color: "#60A5FA" }}>{user.credits.toLocaleString()}</span>
             </div>
-            <div style={{ height: "4px", borderRadius: "10px", background: "rgba(255,255,255,0.08)" }}>
-              <div style={{ height: "100%", width: `${pct}%`, borderRadius: "10px", background: pct > 20 ? "linear-gradient(90deg,#2563EB,#0EA5A0)" : "#EF4444", transition: "width 0.4s" }} />
+            <div style={{ height: "4px", borderRadius: "10px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, borderRadius: "10px", background: "linear-gradient(90deg,#2563EB,#0EA5A0)", transition: "width 0.4s" }} />
             </div>
             <p style={{ fontSize: "10px", color: "#64748B", marginTop: "4px" }}>{user.plan} plan</p>
           </div>
@@ -876,10 +876,12 @@ export function Navbar() {
       </header>
 
       {authModal && (
-        <AuthModal
-          defaultTab={authModal}
-          onClose={() => setAuthModal(null)}
-        />
+        <Suspense fallback={null}>
+          <AuthModal
+            defaultTab={authModal}
+            onClose={() => setAuthModal(null)}
+          />
+        </Suspense>
       )}
     </>
   );

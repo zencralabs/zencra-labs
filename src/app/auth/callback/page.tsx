@@ -8,14 +8,20 @@
  *     → exchange token → load profile → redirect based on role
  *  2. OAuth redirect      — access_token in URL hash or ?code=xxx
  *     → onAuthStateChange picks it up automatically
+ *
+ * useSearchParams() MUST be inside a <Suspense> boundary to avoid
+ * Next.js static-build bailout errors.
  */
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth/AuthContext";
 
-export default function AuthCallbackPage() {
+// ─────────────────────────────────────────────────────────────────────────────
+// Inner component — uses useSearchParams, must be wrapped in <Suspense>
+// ─────────────────────────────────────────────────────────────────────────────
+function AuthCallbackContent() {
   const { user, loading, refreshUser } = useAuth();
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -125,5 +131,29 @@ export default function AuthCallbackPage() {
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page shell — wraps content in <Suspense> as required by Next.js
+// ─────────────────────────────────────────────────────────────────────────────
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#060D1F",
+      }}>
+        <div style={{
+          width: "44px", height: "44px", borderRadius: "50%",
+          border: "3px solid rgba(255,255,255,0.08)",
+          borderTopColor: "#2563EB",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
