@@ -145,17 +145,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      if (sess) loadProfile(sess).finally(() => setLoading(false));
-      else      setLoading(false);
-    });
+    // getSession can fail when the Supabase auth lock is stolen by another tab.
+    // Always call setLoading(false) via .catch() so the app never hangs.
+    supabase.auth.getSession()
+      .then(({ data: { session: sess } }) => {
+        setSession(sess);
+        if (sess) loadProfile(sess).finally(() => setLoading(false));
+        else      setLoading(false);
+      })
+      .catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, sess) => {
         setSession(sess);
         if (sess) await loadProfile(sess);
         else      setUser(null);
+        // Ensure loading is always cleared on any auth state change
+        setLoading(false);
       }
     );
 
