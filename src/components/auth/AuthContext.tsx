@@ -96,7 +96,8 @@ function buildAuthUser(
     credits:      (profile?.credits as number) ?? 0,
     joinedAt:     (profile?.created_at as string) ?? sess.user.created_at,
     avatar:       (profile?.avatar_url as string) || undefined,
-    avatarColor:  (profile?.avatar_color as number) ?? 0,
+    // avatar_color is stored as text in DB (e.g. "gradient-1") — keep as-is
+    avatarColor:  (profile?.avatar_color as unknown as number) ?? 0,
     accessToken:  sess.access_token,
     // Verification
     emailVerified:          emailConf,

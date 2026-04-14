@@ -121,7 +121,8 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || !user || user.role !== "admin") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#060D1F" }}>
+      // Fixed overlay — covers the public navbar/footer from root layout
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "#060D1F" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", border: "3px solid rgba(255,255,255,0.08)", borderTopColor: "#2563EB", animation: "spin 0.8s linear infinite" }} />
           <p style={{ color: "#475569", fontSize: 13 }}>Verifying admin access…</p>
@@ -144,14 +145,15 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#060D1F", color: "#F8FAFC" }}>
+    // Fixed full-screen overlay — completely replaces root layout's navbar/footer for admin
+    <div style={{ position: "fixed", inset: 0, zIndex: 9000, display: "flex", background: "#060D1F", color: "#F8FAFC", overflow: "hidden" }}>
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside style={{
-        width: sidebarWidth, minHeight: "100vh",
+        width: sidebarWidth, height: "100%",
         background: "#0A1628",
         borderRight: "1px solid rgba(255,255,255,0.06)",
         display: "flex", flexDirection: "column",
-        position: "fixed", top: 0, left: 0, bottom: 0,
+        flexShrink: 0,
         zIndex: 50,
         transition: "width 0.22s cubic-bezier(.4,0,.2,1)",
         overflow: "hidden",
@@ -229,7 +231,7 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main area ─────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, marginLeft: sidebarWidth, display: "flex", flexDirection: "column", minHeight: "100vh", transition: "margin-left 0.22s cubic-bezier(.4,0,.2,1)" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", transition: "all 0.22s cubic-bezier(.4,0,.2,1)" }}>
         {/* Top bar */}
         <header style={{ height: TOPBAR_H, background: "#0A1628", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 40, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

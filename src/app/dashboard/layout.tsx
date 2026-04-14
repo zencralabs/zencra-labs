@@ -131,7 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </Link>
           <div
-            onClick={logout}
+            onClick={async () => { await logout(); router.push("/"); }}
             style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", borderRadius: "10px", color: "#EF4444", cursor: "pointer" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(239,68,68,0.08)"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
