@@ -81,7 +81,7 @@ export type VideoModelCapabilities = {
 
 export type VideoModel = {
   id:             string; // catalog ID, e.g. "kling-30"
-  provider:       "kling" | "seedance" | "runway" | "heygen" | "veo" | "ltx" | "luma";
+  provider:       "kling" | "seedance" | "runway" | "heygen" | "veo" | "sora" | "luma";
   apiModelId:     string; // value sent to provider API, e.g. "kling-v3"
   displayName:    string;
   description:    string;
@@ -314,17 +314,18 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
-  // ── LTX-2 (Coming Soon) ──────────────────────────────────────────────────
+  // ── Sora 2 (Coming Soon) ─────────────────────────────────────────────────
   {
-    id:          "ltx-2",
-    provider:    "ltx",
-    apiModelId:  "ltx-video-2",
-    displayName: "LTX-2",
-    description: "Fast real-time video generation for rapid iteration",
+    id:          "sora-2",
+    provider:    "sora",
+    apiModelId:  "sora-2",
+    displayName: "Sora 2",
+    description: "OpenAI's next-generation world-simulation video model",
     badge:       "SOON",
-    badgeColor:  "#6366F1",
+    badgeColor:  "#8B5CF6",
     available:   false,
     comingSoon:  true,
+    promptChips: ["photorealistic", "consistent physics", "world simulation", "cinematic motion", "character animation"],
     capabilities: {
       textToVideo:    true,
       imageToVideo:   true,
@@ -339,11 +340,11 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       audioEnabled:   false,
       videoInput:     false,
       nativeAudio:    false,
-      negativePrompt: true,
+      negativePrompt: false,
       proMode:        false,
       seedControl:    false,
-      durations:      [5],
-      maxDuration:    5,
+      durations:      [5, 10, 20],
+      maxDuration:    20,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  [],
     },

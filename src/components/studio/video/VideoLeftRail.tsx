@@ -1,38 +1,94 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoLeftRail — Left sidebar: tool switcher, frame mode, settings, credits
+// VideoLeftRail — Controls only (no tool switcher — moved to header bar)
+// Width: 220px | Compact spacing | Collapsible Camera
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { VIDEO_MODEL_REGISTRY, type VideoModel, CAMERA_PRESET_LABELS, type CameraPreset } from "@/lib/ai/video-model-registry";
+import { useState } from "react";
+import { CAMERA_PRESET_LABELS, type VideoModel, type CameraPreset } from "@/lib/ai/video-model-registry";
 import type { FrameMode, VideoAR, Quality } from "./types";
 
-// ── Section wrapper ───────────────────────────────────────────────────────────
+// ── Section label ─────────────────────────────────────────────────────────────
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          color: "#334155",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          paddingBottom: 4,
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-        }}
-      >
-        {label}
-      </div>
+    <div
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        color: "#475569",
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        marginBottom: 5,
+      }}
+    >
       {children}
     </div>
   );
 }
 
-// ── Pill row selector ─────────────────────────────────────────────────────────
+// ── Collapsible section ───────────────────────────────────────────────────────
 
-function PillRow<T extends string>({
+function Collapsible({
+  label,
+  defaultOpen = true,
+  children,
+}: { label: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "0 0 5px",
+          marginBottom: 2,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#475569",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </span>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#475569"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s",
+            flexShrink: 0,
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+// ── Pill row ──────────────────────────────────────────────────────────────────
+
+function PillRow<T extends string | number>({
   options,
   value,
   onChange,
@@ -51,25 +107,27 @@ function PillRow<T extends string>({
         const active = opt === value;
         return (
           <button
-            key={opt}
+            key={String(opt)}
             onClick={() => !disabled && onChange(opt)}
             style={{
               flex: 1,
               padding: "6px 4px",
-              borderRadius: 8,
+              borderRadius: 7,
               border: active
                 ? "1px solid rgba(14,165,160,0.5)"
                 : "1px solid rgba(255,255,255,0.06)",
-              background: active ? "rgba(14,165,160,0.14)" : "rgba(255,255,255,0.025)",
-              color: active ? "#0EA5A0" : "#475569",
-              fontSize: 12,
+              background: active
+                ? "rgba(14,165,160,0.14)"
+                : "rgba(255,255,255,0.02)",
+              color: active ? "#22D3EE" : "#64748B",
+              fontSize: 11,
               fontWeight: active ? 700 : 500,
               cursor: disabled ? "not-allowed" : "pointer",
               transition: "all 0.15s",
               opacity: disabled ? 0.4 : 1,
             }}
           >
-            {getLabel ? getLabel(opt) : opt}
+            {getLabel ? getLabel(opt) : String(opt)}
           </button>
         );
       })}
@@ -77,7 +135,23 @@ function PillRow<T extends string>({
   );
 }
 
-// ── Camera preset selector ────────────────────────────────────────────────────
+// ── Frame mode options ────────────────────────────────────────────────────────
+
+interface FrameModeOption {
+  value: FrameMode;
+  label: string;
+  requiresCap?: keyof import("@/lib/ai/video-model-registry").VideoModelCapabilities;
+}
+
+const FRAME_MODES: FrameModeOption[] = [
+  { value: "text_to_video", label: "Text to Video",  requiresCap: "textToVideo"  },
+  { value: "start_frame",   label: "Start Frame",    requiresCap: "startFrame"   },
+  { value: "start_end",     label: "Start + End",    requiresCap: "endFrame"     },
+  { value: "extend",        label: "Extend Video",   requiresCap: "extendVideo"  },
+  { value: "lip_sync",      label: "Lip Sync",       requiresCap: "lipSync"      },
+];
+
+// ── Camera preset list ────────────────────────────────────────────────────────
 
 function CameraPresetPicker({
   presets,
@@ -88,11 +162,10 @@ function CameraPresetPicker({
   value: CameraPreset | null;
   onChange: (v: CameraPreset | null) => void;
 }) {
-  const allPresets: Array<CameraPreset | null> = [null, ...presets];
-
+  const options: Array<CameraPreset | null> = [null, ...presets];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {allPresets.map(p => {
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {options.map(p => {
         const label = p ? CAMERA_PRESET_LABELS[p] : "None";
         const active = value === p;
         return (
@@ -100,14 +173,16 @@ function CameraPresetPicker({
             key={p ?? "none"}
             onClick={() => onChange(p)}
             style={{
-              padding: "7px 10px",
-              borderRadius: 8,
+              padding: "6px 10px",
+              borderRadius: 7,
               border: active
-                ? "1px solid rgba(14,165,160,0.4)"
-                : "1px solid rgba(255,255,255,0.05)",
-              background: active ? "rgba(14,165,160,0.1)" : "rgba(255,255,255,0.02)",
-              color: active ? "#0EA5A0" : "#475569",
-              fontSize: 12,
+                ? "1px solid rgba(14,165,160,0.35)"
+                : "1px solid transparent",
+              background: active
+                ? "rgba(14,165,160,0.1)"
+                : "transparent",
+              color: active ? "#22D3EE" : "#64748B",
+              fontSize: 11,
               fontWeight: active ? 600 : 400,
               textAlign: "left",
               cursor: "pointer",
@@ -116,9 +191,15 @@ function CameraPresetPicker({
               alignItems: "center",
               gap: 6,
             }}
+            onMouseEnter={e => {
+              if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+            }}
+            onMouseLeave={e => {
+              if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B";
+            }}
           >
             {active && (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             )}
@@ -130,205 +211,20 @@ function CameraPresetPicker({
   );
 }
 
-// ── Tool switcher ─────────────────────────────────────────────────────────────
+// ── Divider ───────────────────────────────────────────────────────────────────
 
-function ToolSwitcher({
-  selectedId,
-  onSelect,
-}: {
-  selectedId: string;
-  onSelect: (id: string) => void;
-}) {
-  const models = VIDEO_MODEL_REGISTRY;
+const Divider = () => (
+  <div style={{ height: 1, background: "rgba(255,255,255,0.04)", margin: "4px 0" }} />
+);
 
-  const providerGroups = [
-    { key: "kling",     label: "Kling",    color: "#0EA5A0" },
-    { key: "seedance",  label: "Seedance", color: "#A855F7" },
-    { key: "runway",    label: "Runway",   color: "#F59E0B" },
-    { key: "veo",       label: "Veo",      color: "#10B981" },
-    { key: "ltx",       label: "LTX",      color: "#6366F1" },
-    { key: "heygen",    label: "HeyGen",   color: "#EC4899" },
-    { key: "luma",      label: "Luma",     color: "#64748B" },
-  ];
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {providerGroups.map(({ key, label, color }) => {
-        const groupModels = models.filter(m => m.provider === key);
-        if (groupModels.length === 0) return null;
-
-        return (
-          <div key={key}>
-            {/* Provider label */}
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#334155",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                padding: "6px 2px 4px",
-              }}
-            >
-              {label}
-            </div>
-
-            {/* Model buttons */}
-            {groupModels.map(model => {
-              const active = model.id === selectedId;
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => onSelect(model.id)}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    borderRadius: 10,
-                    border: active
-                      ? `1px solid ${color}55`
-                      : "1px solid transparent",
-                    background: active
-                      ? `${color}18`
-                      : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                    marginBottom: 2,
-                  }}
-                  onMouseEnter={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                      (e.currentTarget as HTMLElement).style.borderColor = "transparent";
-                    }
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: active ? 700 : 500,
-                        color: active ? color : "#94A3B8",
-                      }}
-                    >
-                      {model.displayName}
-                    </span>
-                    {active && (
-                      <span style={{ fontSize: 10, color: "#475569", lineHeight: 1.3 }}>
-                        {model.description.length > 38
-                          ? model.description.slice(0, 38) + "…"
-                          : model.description}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Badge */}
-                  {model.badge && (
-                    <span
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 800,
-                        letterSpacing: "0.08em",
-                        color: model.badgeColor ?? color,
-                        background: `${model.badgeColor ?? color}22`,
-                        border: `1px solid ${model.badgeColor ?? color}44`,
-                        borderRadius: 4,
-                        padding: "2px 5px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {model.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Frame mode option ─────────────────────────────────────────────────────────
-
-interface FrameModeOption {
-  value: FrameMode;
-  label: string;
-  icon: React.ReactNode;
-  requiresCap?: keyof import("@/lib/ai/video-model-registry").VideoModelCapabilities;
-}
-
-const FRAME_MODE_OPTIONS: FrameModeOption[] = [
-  {
-    value: "text_to_video",
-    label: "Text to Video",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="21" y1="14" x2="3" y2="14" /><line x1="17" y1="18" x2="3" y2="18" />
-      </svg>
-    ),
-    requiresCap: "textToVideo",
-  },
-  {
-    value: "start_frame",
-    label: "Start Frame",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-      </svg>
-    ),
-    requiresCap: "startFrame",
-  },
-  {
-    value: "start_end",
-    label: "Start + End",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="9" height="9" rx="1" /><rect x="13" y="3" width="9" height="9" rx="1" /><line x1="6.5" y1="12" x2="6.5" y2="21" /><line x1="17.5" y1="12" x2="17.5" y2="21" /><line x1="6.5" y1="17" x2="17.5" y2="17" />
-      </svg>
-    ),
-    requiresCap: "endFrame",
-  },
-  {
-    value: "extend",
-    label: "Extend",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="5 12 19 12" /><polyline points="15 8 19 12 15 16" />
-      </svg>
-    ),
-    requiresCap: "extendVideo",
-  },
-  {
-    value: "lip_sync",
-    label: "Lip Sync",
-    icon: (
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      </svg>
-    ),
-    requiresCap: "lipSync",
-  },
-];
-
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 interface Props {
-  selectedModelId: string;
   frameMode: FrameMode;
   aspectRatio: VideoAR;
   quality: Quality;
   duration: number;
   cameraPreset: CameraPreset | null;
-  onModelSelect: (id: string) => void;
   onFrameMode: (m: FrameMode) => void;
   onAspectRatio: (ar: VideoAR) => void;
   onQuality: (q: Quality) => void;
@@ -340,13 +236,11 @@ interface Props {
 }
 
 export default function VideoLeftRail({
-  selectedModelId,
   frameMode,
   aspectRatio,
   quality,
   duration,
   cameraPreset,
-  onModelSelect,
   onFrameMode,
   onAspectRatio,
   onQuality,
@@ -356,89 +250,68 @@ export default function VideoLeftRail({
   userCredits,
   creditEstimate,
 }: Props) {
-
   const caps = model?.capabilities;
-
-  const availableFrameModes = FRAME_MODE_OPTIONS.filter(opt => {
-    if (!opt.requiresCap) return true;
-    return caps ? (caps[opt.requiresCap] as boolean) : false;
-  });
-
-  const availableDurations = caps?.durations ?? [5];
-  const availableARs: VideoAR[] = (caps?.aspectRatios as VideoAR[]) ?? ["16:9"];
-  const hasCamera = caps?.cameraControl && (caps?.cameraPresets?.length ?? 0) > 1;
-  const hasPro = caps?.proMode;
+  const availableARs  = (caps?.aspectRatios as VideoAR[]) ?? ["16:9"];
+  const availableDurs = caps?.durations ?? [5];
+  const hasPro        = caps?.proMode ?? false;
+  const hasCamera     = (caps?.cameraControl && (caps?.cameraPresets?.length ?? 0) > 1) ?? false;
+  const insufficient  = userCredits < creditEstimate && !(model?.comingSoon);
 
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 20,
+        gap: 14,
         height: "100%",
         overflowY: "auto",
-        paddingRight: 2,
-        // Custom scrollbar
         scrollbarWidth: "thin",
-        scrollbarColor: "rgba(255,255,255,0.08) transparent",
+        scrollbarColor: "rgba(255,255,255,0.06) transparent",
       }}
     >
-
-      {/* ── 1. Tool Switcher ─────────────────────────────────────────────── */}
-      <Section label="Model">
-        <ToolSwitcher selectedId={selectedModelId} onSelect={onModelSelect} />
-      </Section>
-
-      {/* Divider */}
-      <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
-
-      {/* ── 2. Frame Mode ────────────────────────────────────────────────── */}
-      <Section label="Mode">
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          {FRAME_MODE_OPTIONS.map(opt => {
-            const available = availableFrameModes.some(a => a.value === opt.value);
+      {/* ── Mode ─────────────────────────────────────────────────── */}
+      <div>
+        <SectionLabel>Mode</SectionLabel>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {FRAME_MODES.map(opt => {
+            const supported = opt.requiresCap
+              ? (caps?.[opt.requiresCap] as boolean) ?? false
+              : true;
             const active = frameMode === opt.value;
-
             return (
               <button
                 key={opt.value}
-                onClick={() => available && onFrameMode(opt.value)}
-                title={available ? undefined : `${opt.label} not supported by ${model?.displayName}`}
+                onClick={() => supported && onFrameMode(opt.value)}
                 style={{
                   width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: 8,
+                  padding: "7px 9px",
+                  borderRadius: 7,
                   border: active
-                    ? "1px solid rgba(14,165,160,0.4)"
+                    ? "1px solid rgba(14,165,160,0.35)"
                     : "1px solid transparent",
                   background: active ? "rgba(14,165,160,0.1)" : "transparent",
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
-                  cursor: available ? "pointer" : "not-allowed",
-                  opacity: available ? 1 : 0.3,
+                  justifyContent: "space-between",
+                  cursor: supported ? "pointer" : "not-allowed",
+                  opacity: supported ? 1 : 0.3,
                   transition: "all 0.15s",
-                  color: active ? "#0EA5A0" : "#64748B",
-                  fontSize: 13,
+                  color: active ? "#22D3EE" : "#64748B",
+                  fontSize: 12,
                   fontWeight: active ? 600 : 400,
                 }}
                 onMouseEnter={e => {
-                  if (available && !active) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+                  if (supported && !active)
                     (e.currentTarget as HTMLElement).style.color = "#94A3B8";
-                  }
                 }}
                 onMouseLeave={e => {
-                  if (available && !active) {
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                  if (supported && !active)
                     (e.currentTarget as HTMLElement).style.color = "#64748B";
-                  }
                 }}
               >
-                {opt.icon}
                 {opt.label}
-                {!available && (
-                  <span style={{ marginLeft: "auto", fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: "0.05em" }}>
+                {!supported && (
+                  <span style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: "0.05em" }}>
                     N/A
                   </span>
                 )}
@@ -446,103 +319,113 @@ export default function VideoLeftRail({
             );
           })}
         </div>
-      </Section>
+      </div>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
+      <Divider />
 
-      {/* ── 3. Duration ──────────────────────────────────────────────────── */}
-      <Section label="Duration">
+      {/* ── Duration ─────────────────────────────────────────────── */}
+      <div>
+        <SectionLabel>Duration</SectionLabel>
         <PillRow
-          options={availableDurations as unknown as string[]}
-          value={String(duration)}
-          onChange={v => onDuration(Number(v))}
+          options={availableDurs}
+          value={duration}
+          onChange={onDuration}
           getLabel={v => `${v}s`}
         />
-      </Section>
+      </div>
 
-      {/* ── 4. Aspect Ratio ──────────────────────────────────────────────── */}
-      <Section label="Aspect Ratio">
+      {/* ── Aspect Ratio ─────────────────────────────────────────── */}
+      <div>
+        <SectionLabel>Aspect Ratio</SectionLabel>
         <PillRow
           options={availableARs}
           value={aspectRatio}
           onChange={onAspectRatio}
         />
-      </Section>
+      </div>
 
-      {/* ── 5. Quality ───────────────────────────────────────────────────── */}
+      {/* ── Quality ──────────────────────────────────────────────── */}
       {hasPro && (
-        <Section label="Quality">
+        <div>
+          <SectionLabel>Quality</SectionLabel>
           <PillRow
             options={["std", "pro"] as Quality[]}
             value={quality}
             onChange={onQuality}
             getLabel={v => v === "std" ? "Standard" : "Pro"}
           />
-        </Section>
+        </div>
       )}
 
-      {/* ── 6. Camera presets ────────────────────────────────────────────── */}
+      {/* ── Camera Motion (collapsible) ───────────────────────────── */}
       {hasCamera && caps?.cameraPresets && (
         <>
-          <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
-          <Section label="Camera Motion">
+          <Divider />
+          <Collapsible label="Camera Motion" defaultOpen={false}>
             <CameraPresetPicker
               presets={caps.cameraPresets.filter(p => p !== "simple") as CameraPreset[]}
               value={cameraPreset}
               onChange={onCameraPreset}
             />
-          </Section>
+          </Collapsible>
         </>
       )}
 
-      {/* ── 7. Credit estimate card ──────────────────────────────────────── */}
-      <div style={{ marginTop: "auto", paddingTop: 12 }}>
+      {/* ── Spacer ───────────────────────────────────────────────── */}
+      <div style={{ flex: 1 }} />
+
+      {/* ── Credit summary ───────────────────────────────────────── */}
+      <div
+        style={{
+          padding: "11px 13px",
+          borderRadius: 10,
+          background: insufficient
+            ? "rgba(239,68,68,0.05)"
+            : "rgba(14,165,160,0.05)",
+          border: `1px solid ${insufficient ? "rgba(239,68,68,0.18)" : "rgba(14,165,160,0.12)"}`,
+        }}
+      >
         <div
           style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            background: "rgba(14,165,160,0.04)",
-            border: "1px solid rgba(14,165,160,0.12)",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#475569",
+            letterSpacing: "0.07em",
+            textTransform: "uppercase",
+            marginBottom: 8,
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#334155", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
-            Credits
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-            <span style={{ fontSize: 12, color: "#475569" }}>This generation</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#0EA5A0" }}>~{creditEstimate}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: "#475569" }}>Your balance</span>
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: userCredits < creditEstimate ? "#EF4444" : "#94A3B8",
-              }}
-            >
-              {userCredits}
-            </span>
-          </div>
-          {userCredits < creditEstimate && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: "6px 10px",
-                borderRadius: 7,
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
-                fontSize: 11,
-                color: "#EF4444",
-                textAlign: "center",
-                fontWeight: 600,
-              }}
-            >
-              Insufficient — top up to generate
-            </div>
-          )}
+          Credits
         </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontSize: 11, color: "#64748B" }}>This generation</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#0EA5A0" }}>~{creditEstimate}</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 11, color: "#64748B" }}>Balance</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: insufficient ? "#EF4444" : "#94A3B8" }}>
+            {userCredits}
+          </span>
+        </div>
+
+        {insufficient && (
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 10,
+              color: "#EF4444",
+              fontWeight: 600,
+              textAlign: "center",
+              padding: "5px 8px",
+              borderRadius: 6,
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.18)",
+            }}
+          >
+            Insufficient — top up to continue
+          </div>
+        )}
       </div>
     </div>
   );
