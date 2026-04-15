@@ -344,13 +344,33 @@ function AudioPlayer({ audio, onRemove }: { audio: AudioSlot; onRemove: () => vo
 function AudioUploadZone({ audio, onAudio }: { audio: AudioSlot; onAudio: (a: AudioSlot) => void }) {
   const [dragging, setDragging] = useState(false);
   const [waveform, setWaveform] = useState<number[]>([]);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function processAudio(file: File) {
+    setAudioError(null);
+    // Accept only mp3/wav
+    const allowed = ["audio/mpeg", "audio/wav", "audio/wave", "audio/x-wav"];
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!allowed.includes(file.type) && ext !== "mp3" && ext !== "wav") {
+      setAudioError("Only MP3 and WAV files are supported");
+      return;
+    }
     const url = URL.createObjectURL(file);
     const a = new Audio(url);
     a.onloadedmetadata = () => {
+      if (a.duration < 3) {
+        setAudioError("Audio must be at least 3 seconds");
+        URL.revokeObjectURL(url);
+        return;
+      }
+      if (a.duration > 30) {
+        setAudioError("Audio must be 30 seconds or shorter");
+        URL.revokeObjectURL(url);
+        return;
+      }
       onAudio({ url, name: file.name, duration: a.duration });
+      // Generate waveform
       file.arrayBuffer().then(buf => {
         const ctx = new AudioContext();
         ctx.decodeAudioData(buf).then(decoded => {
@@ -367,42 +387,69 @@ function AudioUploadZone({ audio, onAudio }: { audio: AudioSlot; onAudio: (a: Au
         }).catch(() => {});
       }).catch(() => {});
     };
+    a.onerror = () => {
+      setAudioError("Could not read audio file");
+      URL.revokeObjectURL(url);
+    };
   }
 
   if (audio.url) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {waveform.length > 0 && <WaveformBars bars={waveform} />}
-        <AudioPlayer audio={audio} onRemove={() => { onAudio({ url: null }); setWaveform([]); }} />
+        <AudioPlayer audio={audio} onRemove={() => { onAudio({ url: null }); setWaveform([]); setAudioError(null); }} />
       </div>
     );
   }
 
   return (
-    <div
-      onClick={() => inputRef.current?.click()}
-      onDragOver={e => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={e => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) processAudio(f); }}
-      style={{
-        borderRadius: 10,
-        border: dragging ? "1.5px dashed rgba(34,211,238,0.6)" : "1.5px dashed rgba(255,255,255,0.1)",
-        background: dragging ? "rgba(14,165,160,0.06)" : "rgba(255,255,255,0.015)",
-        padding: "20px 16px",
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-        cursor: "pointer", transition: "all 0.2s",
-      }}
-    >
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="22"/>
-      </svg>
-      <div style={{ fontSize: 12, color: "#475569", textAlign: "center", lineHeight: 1.4 }}>
-        Drop audio or click to upload<br/>
-        <span style={{ fontSize: 10, color: "#334155" }}>MP3 · WAV · M4A</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => {
+          e.preventDefault(); setDragging(false);
+          const f = e.dataTransfer.files[0];
+          if (f) processAudio(f);
+        }}
+        style={{
+          borderRadius: 10,
+          border: dragging
+            ? "1.5px dashed rgba(34,211,238,0.6)"
+            : audioError
+            ? "1.5px dashed rgba(239,68,68,0.4)"
+            : "1.5px dashed rgba(255,255,255,0.1)",
+          background: dragging ? "rgba(14,165,160,0.06)" : "rgba(255,255,255,0.015)",
+          padding: "18px 16px",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 7,
+          cursor: "pointer", transition: "all 0.2s",
+        }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+        </svg>
+        <div style={{ fontSize: 12, color: "#475569", textAlign: "center", lineHeight: 1.4 }}>
+          Drop audio or click to upload<br/>
+          <span style={{ fontSize: 10, color: "#334155" }}>MP3 · WAV &nbsp;·&nbsp; 3–30 seconds</span>
+        </div>
+        <input
+          ref={inputRef} type="file"
+          accept=".mp3,.wav,audio/mpeg,audio/wav"
+          onChange={e => { const f = e.target.files?.[0]; if (f) processAudio(f); }}
+          style={{ display: "none" }}
+        />
       </div>
-      <input ref={inputRef} type="file" accept="audio/*" onChange={e => { const f = e.target.files?.[0]; if (f) processAudio(f); }} style={{ display: "none" }} />
+      {audioError && (
+        <div style={{ fontSize: 11, color: "#EF4444", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+          </svg>
+          {audioError}
+        </div>
+      )}
     </div>
   );
 }
@@ -506,7 +553,7 @@ export default function VideoCanvas({
 
       case "text_to_video":
         return (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minHeight: 280 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", flex: 1 }}>
             <VideoEmptyStateMascot />
           </div>
         );
@@ -535,32 +582,54 @@ export default function VideoCanvas({
 
       case "extend":
         return (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minHeight: 280 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", flex: 1 }}>
             <ExtendInstructions />
           </div>
         );
 
       case "lip_sync":
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 32px", width: "100%" }}>
-            <div style={{ maxWidth: arMaxW(aspectRatio), width: "100%", alignSelf: "center" }}>
-              <UploadZone slot={startSlot} label="Character Image" aspectRatio={aspectRatio} onUpload={onStartSlot} hint="Upload a face / portrait image" />
+          <div style={{
+            display: "flex", flexDirection: "column",
+            width: "100%", height: "100%",
+            overflow: "hidden",
+          }}>
+            {/* TOP — Character image: full width, fills upper portion */}
+            <div style={{
+              flex: "1 1 0", minHeight: 0,
+              padding: "12px 24px 8px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{ maxWidth: arMaxW(aspectRatio), width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+                <UploadZone
+                  slot={startSlot}
+                  label="Character Image"
+                  aspectRatio={aspectRatio}
+                  onUpload={onStartSlot}
+                  hint="Upload a clear face / portrait image"
+                />
+              </div>
             </div>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, textAlign: "center" }}>
-                Audio Track
+
+            {/* DIVIDER */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0 16px", flexShrink: 0 }} />
+
+            {/* BOTTOM — Audio control layer */}
+            <div style={{
+              flexShrink: 0,
+              padding: "10px 24px 14px",
+              display: "flex", flexDirection: "column", gap: 8,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#5A6F88", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Audio Track
+                </div>
+                <div style={{ fontSize: 10, color: "#4E6275", marginLeft: 4 }}>
+                  — Audio drives facial motion &amp; timing
+                </div>
               </div>
               <AudioUploadZone audio={audioSlot} onAudio={onAudioSlot} />
             </div>
-            {!startSlot.preview && (
-              <div style={{
-                padding: "10px 14px", borderRadius: 8,
-                background: "rgba(14,165,160,0.05)", border: "1px solid rgba(34,211,238,0.1)",
-                fontSize: 11, color: "#64748B", lineHeight: 1.6, textAlign: "center",
-              }}>
-                Upload a clear face image and an audio clip to generate a lip-synced video.
-              </div>
-            )}
           </div>
         );
 
@@ -593,23 +662,30 @@ export default function VideoCanvas({
   return (
     <div style={{
       position: "relative",
+      width: "100%",
+      aspectRatio: "16 / 9",
       borderRadius: 16,
-      border: "1px solid rgba(14,165,160,0.12)",
-      background: "rgba(255,255,255,0.012)",
-      boxShadow: "0 0 30px rgba(14,165,160,0.06), 0 8px 40px rgba(0,0,0,0.6)",
+      border: "1px solid rgba(14,165,160,0.15)",
+      background: "rgba(255,255,255,0.018)",
+      boxShadow: [
+        "0 0 0 1px rgba(14,165,160,0.06)",
+        "0 0 40px rgba(14,165,160,0.12)",
+        "0 0 80px rgba(14,165,160,0.05)",
+        "0 16px 64px rgba(0,0,0,0.7)",
+      ].join(", "),
       display: "flex", flexDirection: "column",
-      minHeight: 320,
+      overflow: "hidden",
     }}>
       {/* Inner cinematic frame border */}
       <div style={{
         position: "absolute", inset: 6, borderRadius: 12,
-        border: "1px solid rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.055)",
         pointerEvents: "none", zIndex: 1,
       }} />
 
       <CornerAccents />
 
-      <div style={{ flex: 1, display: "flex", alignItems: "stretch", justifyContent: "center", position: "relative" }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "stretch", justifyContent: "center", position: "relative", minHeight: 0 }}>
         {renderContent()}
         {generating && <GeneratingOverlay />}
       </div>

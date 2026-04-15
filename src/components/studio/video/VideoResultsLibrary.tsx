@@ -192,12 +192,12 @@ function VideoCard({ video, onReuse, onDelete }: {
       {/* Card body */}
       <div style={{ padding: "10px 12px 12px" }}>
         {/* Prompt */}
-        <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {video.prompt || <span style={{ color: "#334155", fontStyle: "italic" }}>No prompt</span>}
+        <div style={{ fontSize: 12, color: "#B0C0D4", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          {video.prompt || <span style={{ color: "#4E6275", fontStyle: "italic" }}>No prompt</span>}
         </div>
 
         {/* Timestamp */}
-        <div style={{ fontSize: 10, color: "#334155", marginBottom: 10 }}>{timeAgo(video.createdAt)}</div>
+        <div style={{ fontSize: 10, color: "#4E6275", marginBottom: 10 }}>{timeAgo(video.createdAt)}</div>
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -216,19 +216,19 @@ function VideoCard({ video, onReuse, onDelete }: {
                 padding: "5px 9px", borderRadius: 7, fontSize: 11, fontWeight: 600,
                 border: (btn as { danger?: boolean }).danger ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(255,255,255,0.08)",
                 background: (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.04)",
-                color: btn.disabled ? "#334155" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#94A3B8",
+                color: btn.disabled ? "#3A4F62" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#B0C0D4",
                 cursor: btn.disabled ? "not-allowed" : "pointer",
                 transition: "all 0.15s",
               }}
               onMouseEnter={e => {
                 if (!btn.disabled) {
                   (e.currentTarget as HTMLElement).style.background = (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.08)";
-                  (e.currentTarget as HTMLElement).style.color = (btn as { danger?: boolean }).danger ? "#F87171" : "#CBD5E1";
+                  (e.currentTarget as HTMLElement).style.color = (btn as { danger?: boolean }).danger ? "#F87171" : "#D8E3EE";
                 }
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLElement).style.background = (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.04)";
-                (e.currentTarget as HTMLElement).style.color = btn.disabled ? "#334155" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#94A3B8";
+                (e.currentTarget as HTMLElement).style.color = btn.disabled ? "#3A4F62" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#B0C0D4";
               }}
             >
               {btn.icon}{btn.label}
@@ -302,19 +302,22 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
     return (
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: 12, padding: "48px 24px", textAlign: "center",
+        gap: 14, padding: "48px 24px", textAlign: "center",
+        borderRadius: 14,
+        border: "1px dashed rgba(255,255,255,0.07)",
+        background: "rgba(255,255,255,0.012)",
       }}>
         <div style={{
           width: 52, height: 52, borderRadius: 14,
-          border: "1px solid rgba(34,211,238,0.15)", background: "rgba(14,165,160,0.04)",
+          border: "1px solid rgba(34,211,238,0.15)", background: "rgba(14,165,160,0.05)",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(122,144,168,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="3" width="20" height="18" rx="3"/><path d="M9 8l7 4-7 4V8z"/>
           </svg>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#475569" }}>No videos yet</div>
-        <div style={{ fontSize: 12, color: "#334155", maxWidth: 240, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#7A90A8" }}>No videos yet</div>
+        <div style={{ fontSize: 12, color: "#4E6275", maxWidth: 260, lineHeight: 1.65 }}>
           Generate your first video above — it will appear here instantly.
         </div>
         <style>{`@keyframes libPulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
@@ -345,12 +348,12 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
                   padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: active ? 700 : 500,
                   border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
                   background: active ? "rgba(14,165,160,0.12)" : "transparent",
-                  color: active ? "#22D3EE" : "#64748B",
+                  color: active ? "#22D3EE" : "#7A90A8",
                   cursor: "pointer", transition: "all 0.15s",
                   display: "flex", alignItems: "center", gap: 5,
                 }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
               >
                 {t.label}
                 <span style={{
@@ -404,7 +407,7 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
       </div>
 
       {/* ── Count line ──────────────────────────────────────────────── */}
-      <div style={{ fontSize: 11, color: "#334155", marginBottom: 14 }}>
+      <div style={{ fontSize: 11, color: "#4E6275", marginBottom: 14 }}>
         {filtered.length} video{filtered.length !== 1 ? "s" : ""}
       </div>
 
@@ -414,7 +417,7 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
           No videos in this filter.
         </div>
       ) : (
-        <div style={{ columns: "280px 3", columnGap: 14 }}>
+        <div style={{ columns: "280px", columnGap: 16 }}>
           {filtered.map(v => (
             <VideoCard
               key={v.id}

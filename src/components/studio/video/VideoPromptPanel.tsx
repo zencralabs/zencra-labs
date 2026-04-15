@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import type { VideoModel } from "@/lib/ai/video-model-registry";
+import type { FrameMode } from "./types";
 
 // ── Credit estimation ─────────────────────────────────────────────────────────
 
@@ -80,12 +81,12 @@ function ChipStrip({ chips, prompt, setPrompt }: { chips: string[]; prompt: stri
               padding: "4px 10px", borderRadius: 20,
               border: on ? "1px solid rgba(34,211,238,0.45)" : "1px solid rgba(255,255,255,0.08)",
               background: on ? "rgba(14,165,160,0.14)" : "rgba(255,255,255,0.03)",
-              color: on ? "#22D3EE" : "#64748B",
+              color: on ? "#22D3EE" : "#7A90A8",
               fontSize: 11, fontWeight: on ? 600 : 400,
               cursor: on ? "default" : "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
             }}
-            onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-            onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+            onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
+            onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
           >
             {chip}
           </button>
@@ -135,10 +136,10 @@ function CreditsGenerateCard({
 
       {/* Balance row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
-        <span style={{ fontSize: 13, color: "#94A3B8" }}>Your balance</span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: low ? "#EF4444" : "#CBD5E1" }}>
+        <span style={{ fontSize: 13, color: "#B0C0D4" }}>Your balance</span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: low ? "#EF4444" : "#D8E3EE" }}>
           {balance}
-          <span style={{ fontSize: 11, fontWeight: 500, color: "#64748B", marginLeft: 4 }}>credits</span>
+          <span style={{ fontSize: 11, fontWeight: 500, color: "#7A90A8", marginLeft: 4 }}>credits</span>
         </span>
       </div>
 
@@ -225,6 +226,110 @@ function CreditsGenerateCard({
   );
 }
 
+// ── Lip Sync Card ─────────────────────────────────────────────────────────────
+// Shown in the right panel whenever frameMode === "lip_sync".
+// Purple-accented, "Coming Soon" button (not disabled — still styled as CTA).
+
+function LipSyncCard({ provider }: { provider: string | null }) {
+  const hasProvider = !!provider;
+  return (
+    <div style={{
+      borderRadius: 14,
+      border: "1px solid rgba(139,92,246,0.28)",
+      background: "rgba(139,92,246,0.06)",
+      overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px",
+        borderBottom: "1px solid rgba(139,92,246,0.12)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#C4B5FD" }}>Lip Sync</span>
+          <span style={{
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+            color: "#A78BFA",
+            background: "rgba(139,92,246,0.18)", borderRadius: 4, padding: "2px 6px",
+          }}>
+            BETA
+          </span>
+        </div>
+        {hasProvider && (
+          <span style={{ fontSize: 11, color: "#6D4FC9" }}>{provider}</span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: "10px 14px" }}>
+        <p style={{ fontSize: 12, color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
+          {hasProvider
+            ? `Audio-driven facial animation via ${provider}.`
+            : "Powered by a dedicated audio engine. Upload a portrait image and an audio clip — the engine will animate the lips to match."}
+        </p>
+      </div>
+
+      {/* Provider info */}
+      {!hasProvider && (
+        <div style={{
+          padding: "8px 14px",
+          background: "rgba(139,92,246,0.06)",
+          borderTop: "1px solid rgba(139,92,246,0.1)",
+          fontSize: 11, color: "#6D4FC9",
+          display: "flex", alignItems: "center", gap: 5,
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+          </svg>
+          Provider coming soon — HeyGen / ElevenLabs integration in progress
+        </div>
+      )}
+
+      {/* CTA Button */}
+      <div style={{ padding: "10px 10px 10px" }}>
+        <button
+          onClick={() => {}}
+          style={{
+            width: "100%", height: 50, borderRadius: 10,
+            border: "1px solid rgba(139,92,246,0.45)",
+            background: hasProvider
+              ? "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)"
+              : "rgba(139,92,246,0.1)",
+            color: hasProvider ? "#fff" : "#A78BFA",
+            fontSize: 15, fontWeight: 700,
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+            transition: "all 0.2s", letterSpacing: "-0.01em",
+            boxShadow: hasProvider ? "0 0 20px rgba(139,92,246,0.35)" : "none",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.7)";
+            (e.currentTarget as HTMLElement).style.background = hasProvider
+              ? "linear-gradient(135deg, #6D28D9 0%, #8B5CF6 100%)"
+              : "rgba(139,92,246,0.18)";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.45)";
+            (e.currentTarget as HTMLElement).style.background = hasProvider
+              ? "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)"
+              : "rgba(139,92,246,0.1)";
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          {hasProvider ? "Generate Lip Sync" : "Coming Soon"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -237,6 +342,8 @@ interface Props {
   duration: number;
   generating: boolean;
   userCredits: number;
+  frameMode: FrameMode;
+  lipSyncProvider: string | null;
   onGenerate: () => void;
 }
 
@@ -244,9 +351,11 @@ interface Props {
 
 export default function VideoPromptPanel({
   model, prompt, setPrompt, negPrompt, setNegPrompt,
-  quality, duration, generating, userCredits, onGenerate,
+  quality, duration, generating, userCredits,
+  frameMode, lipSyncProvider,
+  onGenerate,
 }: Props) {
-  const [showNeg, setShowNeg]         = useState(false);
+  const [showNeg, setShowNeg]         = useState(true); // open by default
   const [showPresets, setShowPresets] = useState(false);
 
   const chips = model?.promptChips ?? [
@@ -271,7 +380,7 @@ export default function VideoPromptPanel({
 
         {/* Prompt header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#64748B", letterSpacing: "0.07em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#7A90A8", letterSpacing: "0.07em", textTransform: "uppercase" }}>
             Prompt
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -346,10 +455,10 @@ export default function VideoPromptPanel({
           rows={5}
           style={{
             width: "100%",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.09)",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.11)",
             borderRadius: 12, padding: "12px 14px",
-            fontSize: 14, color: "#E2E8F0",
+            fontSize: 14, color: "#ECF2F8",
             resize: "vertical", outline: "none", lineHeight: 1.65,
             fontFamily: "inherit", transition: "border-color 0.15s, box-shadow 0.15s",
             boxSizing: "border-box",
@@ -400,8 +509,10 @@ export default function VideoPromptPanel({
           </div>
         )}
 
-        {/* Unified Credits + Generate Card */}
-        {model && (
+        {/* Bottom action card — Lip Sync OR Credits+Generate */}
+        {frameMode === "lip_sync" ? (
+          <LipSyncCard provider={lipSyncProvider} />
+        ) : model ? (
           <CreditsGenerateCard
             estimate={estimate}
             balance={userCredits}
@@ -411,7 +522,7 @@ export default function VideoPromptPanel({
             comingSoon={!!isComingSoon}
             onClick={onGenerate}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

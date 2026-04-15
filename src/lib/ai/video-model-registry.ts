@@ -87,6 +87,7 @@ export type VideoModel = {
   description:    string;
   badge?:         string | null;
   badgeColor?:    string | null;
+  lipSyncProvider?: string | null; // null = Coming Soon; set to "heygen" | "elevenlabs" when wired
   available:      boolean;
   comingSoon:     boolean;
   capabilities:   VideoModelCapabilities;
@@ -119,7 +120,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       motionControl:  true,
       multiElement:   false,
       extendVideo:    true,
-      lipSync:        true,
+      lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
@@ -152,10 +153,10 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       startFrame:     true,
       endFrame:       false, // v2.6 does not support end frame
       cameraControl:  true,
-      motionControl:  true,
+      motionControl:  false, // Motion Control requires Kling 3.0
       multiElement:   false,
       extendVideo:    true,
-      lipSync:        true,
+      lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,

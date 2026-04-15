@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VideoLeftRail — Controls: Mode, Duration, AR, Quality, Camera, Motion
-// Width 240px. No tool switcher. No credits (lives in right panel only).
+// Width 260px. No tool switcher. No credits (lives in right panel only).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from "react";
@@ -104,7 +104,7 @@ const CAMERA_ICONS: Record<CameraPreset | "none", React.ReactNode> = {
 
 function SLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: "#5A6F88", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 7 }}>
       {children}
     </div>
   );
@@ -131,12 +131,12 @@ function PillRow<T extends string | number>({
               borderRadius: 7,
               border: active ? "1px solid rgba(34,211,238,0.45)" : "1px solid rgba(255,255,255,0.07)",
               background: active ? "rgba(14,165,160,0.14)" : "rgba(255,255,255,0.02)",
-              color: active ? "#22D3EE" : "#64748B",
+              color: active ? "#22D3EE" : "#7A90A8",
               fontSize: 12, fontWeight: active ? 700 : 500,
               cursor: "pointer", transition: "all 0.15s",
             }}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
+            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
           >
             {getLabel ? getLabel(opt) : String(opt)}
           </button>
@@ -265,8 +265,8 @@ function MotionSlider({ value, onChange }: { value: number; onChange: (v: number
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 11, color: "#94A3B8" }}>{label}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#22D3EE" }}>{value}</span>
+        <span style={{ fontSize: 12, color: "#B0C0D4" }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#22D3EE" }}>{value}</span>
       </div>
       <div style={{ position: "relative" }}>
         <input
@@ -313,13 +313,13 @@ function MotionAreaSelect({ value, onChange }: { value: string; onChange: (v: st
               padding: "7px 10px", borderRadius: 7, textAlign: "left",
               border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
               background: active ? "rgba(14,165,160,0.1)" : "transparent",
-              color: active ? "#22D3EE" : "#64748B",
-              fontSize: 12, fontWeight: active ? 600 : 400,
+              color: active ? "#22D3EE" : "#7A90A8",
+              fontSize: 13, fontWeight: active ? 600 : 400,
               cursor: "pointer", transition: "all 0.15s",
               display: "flex", alignItems: "center", gap: 7,
             }}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
+            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
           >
             {active && (
               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -374,7 +374,7 @@ export default function VideoLeftRail({
     start_frame:    caps?.startFrame     ?? false,
     start_end:      caps?.endFrame       ?? false,
     extend:         caps?.extendVideo    ?? false,
-    lip_sync:       caps?.lipSync        ?? false,
+    lip_sync:       true,                           // provider-independent — always reachable
     motion_control: caps?.motionControl  ?? false,
   };
 
@@ -407,17 +407,26 @@ export default function VideoLeftRail({
                   cursor: allowed ? "pointer" : "not-allowed",
                   opacity: allowed ? 1 : 0.25,
                   transition: "all 0.15s",
-                  color: active ? "#22D3EE" : "#94A3B8",
-                  fontSize: 12, fontWeight: active ? 600 : 400,
+                  color: active ? "#22D3EE" : "#B0C0D4",
+                  fontSize: 13, fontWeight: active ? 600 : 400,
                 }}
-                onMouseEnter={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#CBD5E1"; }}
-                onMouseLeave={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+                onMouseEnter={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#D8E3EE"; }}
+                onMouseLeave={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
               >
                 <span style={{ flexShrink: 0, lineHeight: 0 }}>{MODE_ICONS[mode]}</span>
                 {MODE_LABELS[mode]}
                 {!allowed && (
-                  <span style={{ marginLeft: "auto", fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: "0.05em" }}>
-                    N/A
+                  <span style={{
+                    marginLeft: "auto",
+                    fontSize: 9,
+                    color: mode === "motion_control" ? "#7C5ABF" : "#3A4F62",
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    background: mode === "motion_control" ? "rgba(124,90,191,0.12)" : "transparent",
+                    borderRadius: 4,
+                    padding: mode === "motion_control" ? "2px 5px" : undefined,
+                  }}>
+                    {mode === "motion_control" ? "Kling 3.0" : "N/A"}
                   </span>
                 )}
               </button>
