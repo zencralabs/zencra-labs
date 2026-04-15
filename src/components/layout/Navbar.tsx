@@ -47,7 +47,7 @@ const navCategories: Record<string, NavCategory> = {
     label: "Image Tools",
     features: [
       {
-        icon: ImageIcon, label: "Create Image", desc: "Generate AI images", badge: "HOT", href: "/studio/image",
+        icon: ImageIcon, label: "Image Studio", desc: "Generate AI images", badge: "HOT", href: "/studio/image",
         right: { type: "models", heading: "Image Models", models: imageModels },
       },
       {
@@ -73,7 +73,7 @@ const navCategories: Record<string, NavCategory> = {
     label: "Video Tools",
     features: [
       {
-        icon: Film, label: "Create Video", desc: "Generate AI videos", badge: "HOT", href: "/studio/video",
+        icon: Film, label: "Video Studio", desc: "Generate AI videos", badge: "HOT", href: "/studio/video",
         right: { type: "models", heading: "Video Models", models: videoModels },
       },
       {
@@ -152,9 +152,9 @@ type DropdownKey = keyof typeof navCategories;
 
 const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropdownKey?: DropdownKey }> = [
   { label: "Explore",       href: "/",             hasDropdown: false },
-  { label: "Create Image",  href: "/studio/image", hasDropdown: true,  dropdownKey: "Image"     },
-  { label: "Create Video",  href: "/studio/video", hasDropdown: true,  dropdownKey: "Video"     },
-  { label: "Audio",         href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
+  { label: "Image Studio",  href: "/studio/image", hasDropdown: true,  dropdownKey: "Image"     },
+  { label: "Video Studio",  href: "/studio/video", hasDropdown: true,  dropdownKey: "Video"     },
+  { label: "Audio Studio",  href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
   { label: "Character",     href: "#",             hasDropdown: true,  dropdownKey: "Character" },
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
   { label: "Pricing",       href: "/pricing",      hasDropdown: false },

@@ -7,7 +7,8 @@ export type FrameMode =
   | "start_frame"
   | "start_end"
   | "extend"
-  | "lip_sync";
+  | "lip_sync"
+  | "motion_control";
 
 export type VideoAR = "16:9" | "9:16" | "1:1";
 export type Quality = "std" | "pro";
@@ -24,7 +25,14 @@ export interface ImageSlot {
   name?: string;
 }
 
+export interface AudioSlot {
+  url: string | null;
+  name?: string;
+  duration?: number; // seconds
+}
+
 export const EMPTY_SLOT: ImageSlot = { url: null, preview: null };
+export const EMPTY_AUDIO: AudioSlot = { url: null };
 
 export type VideoStatus = "generating" | "polling" | "done" | "error";
 

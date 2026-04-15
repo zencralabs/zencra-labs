@@ -5,8 +5,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onUpload: () => void;
-  onSamplePrompt: () => void;
+  onUpload?: () => void;
+  onSamplePrompt?: () => void;
 }
 
 // Inline SVG mascot — stylized clapperboard with teal/blue glow identity
