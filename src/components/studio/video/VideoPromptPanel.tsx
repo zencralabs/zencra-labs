@@ -8,6 +8,8 @@
 import { useState } from "react";
 import type { VideoModel } from "@/lib/ai/video-model-registry";
 import type { FrameMode } from "./types";
+import type { LipSyncState } from "@/hooks/useLipSync";
+import type { LipSyncQuality } from "@/lib/lipsync/status";
 
 // ── Credit estimation ─────────────────────────────────────────────────────────
 
@@ -79,14 +81,14 @@ function ChipStrip({ chips, prompt, setPrompt }: { chips: string[]; prompt: stri
             onClick={() => append(chip)}
             style={{
               padding: "4px 10px", borderRadius: 20,
-              border: on ? "1px solid rgba(34,211,238,0.45)" : "1px solid rgba(255,255,255,0.08)",
+              border: on ? "1px solid rgba(14,165,160,0.6)" : "1px solid rgba(255,255,255,0.08)",
               background: on ? "rgba(14,165,160,0.14)" : "rgba(255,255,255,0.03)",
-              color: on ? "#22D3EE" : "#7A90A8",
-              fontSize: 11, fontWeight: on ? 600 : 400,
-              cursor: on ? "default" : "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
+              color: on ? "#0EA5A0" : "#94A3B8",
+              fontSize: 13, fontWeight: on ? 600 : 400,
+              cursor: on ? "default" : "pointer", transition: "all 0.2s ease", whiteSpace: "nowrap",
             }}
-            onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
-            onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
+            onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#CBD5F5"; }}
+            onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
           >
             {chip}
           </button>
@@ -124,22 +126,22 @@ function CreditsGenerateCard({
         borderBottom: `1px solid ${low ? "rgba(239,68,68,0.12)" : "rgba(14,165,160,0.1)"}`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={low ? "#EF4444" : "#22D3EE"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={low ? "#EF4444" : "#0EA5A0"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: low ? "#EF4444" : "#22D3EE" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: low ? "#EF4444" : "#0EA5A0" }}>
             {comingSoon ? "—" : `~${estimate} credits`}
           </span>
         </div>
-        <span style={{ fontSize: 11, color: "#475569" }}>{modelName}</span>
+        <span style={{ fontSize: 13, color: "#64748B" }}>{modelName}</span>
       </div>
 
       {/* Balance row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
-        <span style={{ fontSize: 13, color: "#B0C0D4" }}>Your balance</span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: low ? "#EF4444" : "#D8E3EE" }}>
+        <span style={{ fontSize: 13, color: "#94A3B8" }}>Your balance</span>
+        <span style={{ fontSize: 15, fontWeight: 800, color: low ? "#EF4444" : "#F8FAFC" }}>
           {balance}
-          <span style={{ fontSize: 11, fontWeight: 500, color: "#7A90A8", marginLeft: 4 }}>credits</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#94A3B8", marginLeft: 4 }}>credits</span>
         </span>
       </div>
 
@@ -226,12 +228,113 @@ function CreditsGenerateCard({
   );
 }
 
-// ── Lip Sync Card ─────────────────────────────────────────────────────────────
-// Shown in the right panel whenever frameMode === "lip_sync".
-// Purple-accented, "Coming Soon" button (not disabled — still styled as CTA).
+// ── Lip Sync Status Row ───────────────────────────────────────────────────────
 
-function LipSyncCard({ provider }: { provider: string | null }) {
-  const hasProvider = !!provider;
+function LipSyncStatusRow({ label, status }: {
+  label: string;
+  status: "idle" | "uploading" | "ready" | "error";
+}) {
+  const isReady    = status === "ready";
+  const isError    = status === "error";
+  const isUploading = status === "uploading";
+
+  const iconColor = isReady ? "#22C55E" : isError ? "#EF4444" : isUploading ? "#A78BFA" : "#334155";
+  const textColor = isReady ? "#CBD5E1" : "#64748B";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+      <div style={{
+        width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+        border: `1.5px solid ${iconColor}`,
+        background: isReady ? "rgba(34,197,94,0.1)" : isError ? "rgba(239,68,68,0.1)" : isUploading ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.04)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {isReady ? (
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        ) : isError ? (
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        ) : isUploading ? (
+          <div style={{ width: 6, height: 6, borderRadius: "50%", border: "1.5px solid #A78BFA", borderTopColor: "transparent", animation: "lsSpinRow 0.7s linear infinite" }} />
+        ) : null}
+      </div>
+      <span style={{ color: textColor }}>
+        {label}
+        {status === "uploading" && <span style={{ color: "#6B7280", marginLeft: 4, fontSize: 12 }}>uploading…</span>}
+      </span>
+    </div>
+  );
+}
+
+// ── Lip Sync Card ─────────────────────────────────────────────────────────────
+// Dynamically driven by LipSyncState — shows the full state machine.
+
+function LipSyncCard({
+  state,
+  onQualityMode,
+  onGenerate,
+  onRetry,
+  onReset,
+  userCredits,
+}: {
+  state: LipSyncState;
+  onQualityMode: (m: LipSyncQuality) => void;
+  onGenerate: () => void;
+  onRetry: () => void;
+  onReset: () => void;
+  userCredits: number;
+}) {
+  const {
+    providerReady, standardReady, proReady,
+    face, audio,
+    qualityMode, estimatedCredits,
+    generationStatus, generationProgress,
+    outputUrl, errorMessage,
+    canGenerate, isGenerating,
+  } = state;
+
+  const isCompleted = generationStatus === "completed";
+  const isFailed    = generationStatus === "failed";
+  const lowCredits  = providerReady && userCredits < estimatedCredits && !isGenerating && !isCompleted;
+  const showQualitySelector = standardReady && proReady;
+
+  // CTA label + enabled state
+  let ctaLabel = "Coming Soon";
+  let ctaEnabled = false;
+  if (providerReady) {
+    if (isGenerating) {
+      ctaLabel  = "Generating…";
+      ctaEnabled = false;
+    } else if (isCompleted) {
+      ctaLabel  = "Done";
+      ctaEnabled = false;
+    } else if (isFailed) {
+      ctaLabel  = "Retry";
+      ctaEnabled = true;
+    } else if (face.status !== "ready") {
+      ctaLabel  = "Upload portrait image";
+      ctaEnabled = false;
+    } else if (audio.status !== "ready") {
+      ctaLabel  = "Upload audio clip";
+      ctaEnabled = false;
+    } else if (lowCredits) {
+      ctaLabel  = "Insufficient credits";
+      ctaEnabled = false;
+    } else {
+      ctaLabel  = "Generate Lip Sync";
+      ctaEnabled = canGenerate;
+    }
+  }
+
+  const handleCta = () => {
+    if (!ctaEnabled) return;
+    if (isFailed) { onRetry(); return; }
+    onGenerate();
+  };
+
   return (
     <div style={{
       borderRadius: 14,
@@ -239,7 +342,7 @@ function LipSyncCard({ provider }: { provider: string | null }) {
       background: "rgba(139,92,246,0.06)",
       overflow: "hidden",
     }}>
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 14px",
@@ -251,81 +354,269 @@ function LipSyncCard({ provider }: { provider: string | null }) {
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
             <line x1="12" y1="19" x2="12" y2="22"/>
           </svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#C4B5FD" }}>Lip Sync</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#C4B5FD" }}>Lip Sync</span>
           <span style={{
             fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-            color: "#A78BFA",
-            background: "rgba(139,92,246,0.18)", borderRadius: 4, padding: "2px 6px",
-          }}>
-            BETA
-          </span>
+            color: "#A78BFA", background: "rgba(139,92,246,0.18)",
+            borderRadius: 4, padding: "2px 6px",
+          }}>BETA</span>
         </div>
-        {hasProvider && (
-          <span style={{ fontSize: 11, color: "#6D4FC9" }}>{provider}</span>
+        {/* Credit estimate (only when provider ready + not terminal) */}
+        {providerReady && !isCompleted && !isFailed && (
+          <span style={{ fontSize: 12, color: lowCredits ? "#EF4444" : "#A78BFA" }}>
+            ~{estimatedCredits} credits
+          </span>
+        )}
+        {/* Reset button after completion */}
+        {isCompleted && (
+          <button
+            onClick={onReset}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#6B7280", padding: 0 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#A78BFA"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+          >
+            New Lip Sync
+          </button>
         )}
       </div>
 
-      {/* Body */}
-      <div style={{ padding: "10px 14px" }}>
-        <p style={{ fontSize: 12, color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
-          {hasProvider
-            ? `Audio-driven facial animation via ${provider}.`
-            : "Powered by a dedicated audio engine. Upload a portrait image and an audio clip — the engine will animate the lips to match."}
-        </p>
-      </div>
-
-      {/* Provider info */}
-      {!hasProvider && (
-        <div style={{
-          padding: "8px 14px",
-          background: "rgba(139,92,246,0.06)",
-          borderTop: "1px solid rgba(139,92,246,0.1)",
-          fontSize: 11, color: "#6D4FC9",
-          display: "flex", alignItems: "center", gap: 5,
-        }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
-          </svg>
-          Provider coming soon — HeyGen / ElevenLabs integration in progress
-        </div>
+      {/* ── Provider not ready → Coming Soon ── */}
+      {!providerReady && (
+        <>
+          <div style={{ padding: "10px 14px" }}>
+            <p style={{ fontSize: 13, color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
+              Upload a portrait image and an audio clip — the engine will animate the lips to match the audio.
+            </p>
+          </div>
+          <div style={{ padding: "0 14px 10px" }}>
+            <div style={{
+              borderRadius: 8, border: "1px solid rgba(139,92,246,0.15)",
+              background: "rgba(139,92,246,0.06)", padding: "7px 10px",
+              fontSize: 11, color: "#6D4FC9",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+              </svg>
+              Integration in progress — provider coming soon
+            </div>
+          </div>
+        </>
       )}
 
-      {/* CTA Button */}
+      {/* ── Provider ready → Full UI ── */}
+      {providerReady && (
+        <>
+          {/* Quality selector — only when both tiers available */}
+          {showQualitySelector && !isCompleted && !isGenerating && (
+            <div style={{ padding: "10px 14px 0", display: "flex", gap: 5 }}>
+              {(["standard", "pro"] as LipSyncQuality[]).map(m => {
+                const active = qualityMode === m;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => onQualityMode(m)}
+                    style={{
+                      flex: 1, padding: "5px 0", borderRadius: 8, fontSize: 12, fontWeight: active ? 700 : 500,
+                      border: active ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                      background: active ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.03)",
+                      color: active ? "#C4B5FD" : "#64748B",
+                      cursor: "pointer", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#A78BFA"; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+                  >
+                    {m === "standard" ? "Standard" : "Pro"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Status checklist — show when not completed */}
+          {!isCompleted && (
+            <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 7 }}>
+              <LipSyncStatusRow label="Character image" status={face.status} />
+              <LipSyncStatusRow label="Audio clip"     status={audio.status} />
+            </div>
+          )}
+
+          {/* Balance row */}
+          {!isCompleted && (
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "4px 14px 8px",
+            }}>
+              <span style={{ fontSize: 13, color: "#94A3B8" }}>Your balance</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: lowCredits ? "#EF4444" : "#F8FAFC" }}>
+                {userCredits}
+                <span style={{ fontSize: 12, fontWeight: 400, color: "#94A3B8", marginLeft: 3 }}>credits</span>
+              </span>
+            </div>
+          )}
+
+          {/* Low credits warning */}
+          {lowCredits && (
+            <div style={{
+              margin: "0 14px 8px",
+              padding: "7px 10px",
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: 8, fontSize: 11, color: "#EF4444",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Insufficient credits — top up to continue
+            </div>
+          )}
+
+          {/* Error message */}
+          {isFailed && errorMessage && (
+            <div style={{
+              margin: "0 14px 8px",
+              padding: "7px 10px",
+              background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: 8, fontSize: 11, color: "#EF4444",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Progress bar — when generating and progress known */}
+          {isGenerating && generationProgress != null && (
+            <div style={{ margin: "0 14px 8px", height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${Math.round(generationProgress)}%`,
+                background: "linear-gradient(90deg, #7C3AED, #A78BFA)",
+                borderRadius: 2, transition: "width 0.3s ease",
+              }} />
+            </div>
+          )}
+
+          {/* Completion output — download / play */}
+          {isCompleted && outputUrl && (
+            <div style={{ padding: "10px 14px" }}>
+              <video
+                src={outputUrl}
+                controls
+                style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(139,92,246,0.2)" }}
+              />
+              <a
+                href={outputUrl}
+                download="lip-sync.mp4"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  marginTop: 8, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)",
+                  color: "#C4B5FD", textDecoration: "none", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.2)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.1)"; }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download
+              </a>
+            </div>
+          )}
+
+          {/* Completion — no URL */}
+          {isCompleted && !outputUrl && (
+            <div style={{ padding: "10px 14px", textAlign: "center", fontSize: 12, color: "#64748B" }}>
+              Generation complete — no output URL available yet
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── CTA Button ── */}
       <div style={{ padding: "10px 10px 10px" }}>
         <button
-          onClick={() => {}}
+          onClick={handleCta}
+          disabled={!ctaEnabled}
           style={{
             width: "100%", height: 50, borderRadius: 10,
-            border: "1px solid rgba(139,92,246,0.45)",
-            background: hasProvider
+            border: ctaEnabled
+              ? "1px solid rgba(139,92,246,0.5)"
+              : "1px solid rgba(139,92,246,0.15)",
+            background: ctaEnabled
               ? "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)"
-              : "rgba(139,92,246,0.1)",
-            color: hasProvider ? "#fff" : "#A78BFA",
-            fontSize: 15, fontWeight: 700,
-            cursor: "pointer",
+              : isCompleted
+              ? "rgba(34,197,94,0.12)"
+              : "rgba(139,92,246,0.06)",
+            color: ctaEnabled ? "#fff" : isCompleted ? "#22C55E" : "#6B4FA8",
+            fontSize: 14, fontWeight: 700,
+            cursor: ctaEnabled ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
             transition: "all 0.2s", letterSpacing: "-0.01em",
-            boxShadow: hasProvider ? "0 0 20px rgba(139,92,246,0.35)" : "none",
+            boxShadow: ctaEnabled ? "0 0 20px rgba(139,92,246,0.3), 0 4px 16px rgba(0,0,0,0.4)" : "none",
+            animation: isGenerating ? "lsPulse 1.5s ease-in-out infinite" : "none",
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.7)";
-            (e.currentTarget as HTMLElement).style.background = hasProvider
-              ? "linear-gradient(135deg, #6D28D9 0%, #8B5CF6 100%)"
-              : "rgba(139,92,246,0.18)";
+            if (ctaEnabled) {
+              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #6D28D9 0%, #8B5CF6 100%)";
+              (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+            }
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.45)";
-            (e.currentTarget as HTMLElement).style.background = hasProvider
-              ? "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)"
-              : "rgba(139,92,246,0.1)";
+            if (ctaEnabled) {
+              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)";
+              (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+            }
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          {hasProvider ? "Generate Lip Sync" : "Coming Soon"}
+          {isGenerating ? (
+            <>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "#C4B5FD", animation: "lsSpinBtn 0.7s linear infinite" }} />
+              Generating…
+            </>
+          ) : isCompleted ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Done
+            </>
+          ) : isFailed ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.36"/>
+              </svg>
+              Retry
+            </>
+          ) : !providerReady ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Coming Soon
+            </>
+          ) : (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              {ctaLabel}
+            </>
+          )}
         </button>
       </div>
+
+      <style>{`
+        @keyframes lsPulse   { 0%,100%{box-shadow:0 0 12px rgba(139,92,246,0.2)} 50%{box-shadow:0 0 28px rgba(139,92,246,0.5)} }
+        @keyframes lsSpinBtn { to { transform: rotate(360deg); } }
+        @keyframes lsSpinRow { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
@@ -343,7 +634,13 @@ interface Props {
   generating: boolean;
   userCredits: number;
   frameMode: FrameMode;
-  lipSyncProvider: string | null;
+  // Lip Sync
+  lipSyncState:         LipSyncState;
+  onLipSyncQualityMode: (m: LipSyncQuality) => void;
+  onLipSyncGenerate:    () => void;
+  onLipSyncRetry:       () => void;
+  onLipSyncReset:       () => void;
+  // Kling / standard video generate
   onGenerate: () => void;
 }
 
@@ -352,7 +649,8 @@ interface Props {
 export default function VideoPromptPanel({
   model, prompt, setPrompt, negPrompt, setNegPrompt,
   quality, duration, generating, userCredits,
-  frameMode, lipSyncProvider,
+  frameMode,
+  lipSyncState, onLipSyncQualityMode, onLipSyncGenerate, onLipSyncRetry, onLipSyncReset,
   onGenerate,
 }: Props) {
   const [showNeg, setShowNeg]         = useState(true); // open by default
@@ -380,19 +678,19 @@ export default function VideoPromptPanel({
 
         {/* Prompt header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#7A90A8", letterSpacing: "0.07em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.07em", textTransform: "uppercase" }}>
             Prompt
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={() => setShowPresets(v => !v)}
               style={{
-                background: "none", border: "none", fontSize: 11, cursor: "pointer", padding: 0,
-                color: showPresets ? "#22D3EE" : "#475569", transition: "color 0.15s", fontWeight: 500,
+                background: "none", border: "none", fontSize: 12, cursor: "pointer", padding: 0,
+                color: showPresets ? "#0EA5A0" : "#64748B", transition: "color 0.15s", fontWeight: 500,
                 display: "flex", alignItems: "center", gap: 4,
               }}
               onMouseEnter={e => { if (!showPresets) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-              onMouseLeave={e => { if (!showPresets) (e.currentTarget as HTMLElement).style.color = "#475569"; }}
+              onMouseLeave={e => { if (!showPresets) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -401,9 +699,9 @@ export default function VideoPromptPanel({
             </button>
             {prompt && (
               <button onClick={() => setPrompt("")}
-                style={{ background: "none", border: "none", fontSize: 11, color: "#475569", cursor: "pointer", padding: 0, transition: "color 0.15s" }}
+                style={{ background: "none", border: "none", fontSize: 12, color: "#64748B", cursor: "pointer", padding: 0, transition: "color 0.15s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#475569"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
               >
                 Clear
               </button>
@@ -437,7 +735,7 @@ export default function VideoPromptPanel({
                   (e.currentTarget as HTMLElement).style.color = "#94A3B8";
                 }}
               >
-                <span style={{ color: "#22D3EE", lineHeight: 0, flexShrink: 0 }}>{p.icon}</span>
+                <span style={{ color: "#0EA5A0", lineHeight: 0, flexShrink: 0 }}>{p.icon}</span>
                 <span style={{ fontWeight: 600, color: "#CBD5E1", flexShrink: 0 }}>{p.label}</span>
                 <span style={{ color: "#475569", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   — {p.text.substring(0, 46)}…
@@ -478,7 +776,7 @@ export default function VideoPromptPanel({
               style={{
                 background: "none", border: "none", cursor: "pointer", padding: 0,
                 display: "flex", alignItems: "center", gap: 5,
-                fontSize: 11, color: showNeg ? "#22D3EE" : "#64748B",
+                fontSize: 12, color: showNeg ? "#0EA5A0" : "#64748B",
                 fontWeight: 500, transition: "color 0.15s",
               }}
             >
@@ -511,7 +809,14 @@ export default function VideoPromptPanel({
 
         {/* Bottom action card — Lip Sync OR Credits+Generate */}
         {frameMode === "lip_sync" ? (
-          <LipSyncCard provider={lipSyncProvider} />
+          <LipSyncCard
+            state={lipSyncState}
+            onQualityMode={onLipSyncQualityMode}
+            onGenerate={onLipSyncGenerate}
+            onRetry={onLipSyncRetry}
+            onReset={onLipSyncReset}
+            userCredits={userCredits}
+          />
         ) : model ? (
           <CreditsGenerateCard
             estimate={estimate}

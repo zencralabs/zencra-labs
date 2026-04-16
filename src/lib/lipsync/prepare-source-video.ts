@@ -43,21 +43,69 @@ export interface PrepareSourceVideoInput {
 // ── Resolution map ────────────────────────────────────────────────────────────
 
 function aspectRatioToResolution(ar: string): { w: number; h: number } {
-  if (ar === "9:16")  return { w: 720, h: 1280 };
-  if (ar === "1:1")   return { w: 720, h: 720 };
-  return { w: 1280, h: 720 }; // 16:9 default
+  if (ar === "9:16")  return { w: 576,  h: 1024 };
+  if (ar === "1:1")   return { w: 1024, h: 1024 };
+  return { w: 1024, h: 576 }; // 16:9 default
 }
 
 /**
- * Build a vf filter string that scales + pads to exact target dimensions.
- * Uses force_original_aspect_ratio + pad to avoid distortion.
+ * Returns whether the source (portrait/square image) needs a blurred-fill
+ * backdrop when placed into a wider / square target frame.
+ *
+ * - 9:16 target  → portrait source fills naturally, simple scale+pad is fine
+ * - 16:9 target  → portrait source is much narrower; blur-fill looks far better
+ * - 1:1 target   → portrait source is taller; blur-fill prevents black pillars
  */
-function scaleFilter(w: number, h: number): string {
-  return (
-    `scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
-    `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,` +
-    `format=yuv420p`
-  );
+function needsBlurredFill(ar: string): boolean {
+  return ar === "16:9" || ar === "1:1";
+}
+
+/**
+ * Build FFmpeg filter args for a still-image-to-video conversion.
+ *
+ * For 9:16 (portrait → portrait):
+ *   Simple -vf scale+pad avoids any unnecessary complexity.
+ *
+ * For 16:9 or 1:1 (portrait → wide/square):
+ *   Two-stream filter_complex:
+ *     [0:v] scaled + blurred to fill frame    → backdrop
+ *     [0:v] scaled to fit + safe padding      → subject overlay
+ *   The subject has 4% inset padding on each side to avoid edge contact.
+ *
+ * Returns { useFilterComplex: false, vf } or { useFilterComplex: true, filterComplex }
+ */
+function buildFilterArgs(
+  w: number,
+  h: number,
+  ar: string
+): { useFilterComplex: false; vf: string } | { useFilterComplex: true; filterComplex: string } {
+  if (!needsBlurredFill(ar)) {
+    // Simple path — portrait fills portrait frame
+    const vf =
+      `scale=${w}:${h}:force_original_aspect_ratio=decrease,` +
+      `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,` +
+      `format=yuv420p`;
+    return { useFilterComplex: false, vf };
+  }
+
+  // Safe inset: 4% on each side of the subject to prevent edge contact
+  const subjectW = Math.round(w * 0.92);
+  const subjectH = Math.round(h * 0.92);
+  // Round down to even numbers (required by libx264)
+  const sw = subjectW % 2 === 0 ? subjectW : subjectW - 1;
+  const sh = subjectH % 2 === 0 ? subjectH : subjectH - 1;
+
+  // filter_complex:
+  //   [0:v]scale=W:H:force_original_aspect_ratio=increase,crop=W:H,gblur=sigma=12,format=yuv420p[bg];
+  //   [0:v]scale=sw:sh:force_original_aspect_ratio=decrease,pad=sw:sh:(ow-iw)/2:(oh-ih)/2:black@0,format=yuv420p[fg];
+  //   [bg][fg]overlay=(W-sw)/2:(H-sh)/2,format=yuv420p
+  const filterComplex = [
+    `[0:v]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},gblur=sigma=12,format=yuv420p[bg]`,
+    `[0:v]scale=${sw}:${sh}:force_original_aspect_ratio=decrease,pad=${sw}:${sh}:(ow-iw)/2:(oh-ih)/2:black@0,format=yuv420p[fg]`,
+    `[bg][fg]overlay=(${w}-${sw})/2:(${h}-${sh})/2,format=yuv420p`,
+  ].join(";");
+
+  return { useFilterComplex: true, filterComplex };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,18 +159,20 @@ async function prepareViaFalFFmpeg(
     },
     body: JSON.stringify({
       inputs: [{ url: falImageUrl, name: `input.${ext}` }],
-      commands: [{
-        args: [
-          "-loop",         "1",
-          "-i",            `input.${ext}`,
-          "-t",            String(duration),
-          "-c:v",          "libx264",
-          "-r",            "25",
-          "-vf",           scaleFilter(w, h),
-          "-movflags",     "+faststart",
-          "output.mp4",
-        ],
-      }],
+      commands: [(() => {
+        const filterArgs = buildFilterArgs(w, h, aspectRatio);
+        const baseArgs = [
+          "-loop",  "1",
+          "-i",     `input.${ext}`,
+          "-t",     String(duration),
+          "-c:v",   "libx264",
+          "-r",     "25",
+        ];
+        const filterFlag = filterArgs.useFilterComplex
+          ? ["-filter_complex", filterArgs.filterComplex]
+          : ["-vf",             filterArgs.vf];
+        return { args: [...baseArgs, ...filterFlag, "-movflags", "+faststart", "output.mp4"] };
+      })()],
     }),
   });
 
@@ -212,9 +262,12 @@ async function prepareViaLocalFfmpeg(
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
     await fs.writeFile(imgPath, imgBuf);
 
-    // Build ffmpeg command
-    const vf  = scaleFilter(w, h);
-    const cmd = `ffmpeg -y -loop 1 -i "${imgPath}" -t ${duration} -c:v libx264 -r 25 -vf "${vf}" -movflags +faststart "${vidPath}"`;
+    // Build ffmpeg command — filter_complex for blurred-fill ARs, simple -vf otherwise
+    const filterArgs = buildFilterArgs(w, h, aspectRatio);
+    const filterPart = filterArgs.useFilterComplex
+      ? `-filter_complex "${filterArgs.filterComplex}"`
+      : `-vf "${filterArgs.vf}"`;
+    const cmd = `ffmpeg -y -loop 1 -i "${imgPath}" -t ${duration} -c:v libx264 -r 25 ${filterPart} -movflags +faststart "${vidPath}"`;
     await execAsync(cmd, { timeout: 60_000 });
 
     // Read the video and return as base64 data URL (for dev only — not suitable for production)

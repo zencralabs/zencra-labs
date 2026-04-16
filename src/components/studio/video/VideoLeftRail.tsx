@@ -104,7 +104,7 @@ const CAMERA_ICONS: Record<CameraPreset | "none", React.ReactNode> = {
 
 function SLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: "#5A6F88", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 7 }}>
+    <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
       {children}
     </div>
   );
@@ -127,16 +127,27 @@ function PillRow<T extends string | number>({
             key={String(opt)}
             onClick={() => onChange(opt)}
             style={{
-              flex: 1, padding: "7px 4px",
+              flex: 1, padding: "8px 4px",
               borderRadius: 7,
-              border: active ? "1px solid rgba(34,211,238,0.45)" : "1px solid rgba(255,255,255,0.07)",
-              background: active ? "rgba(14,165,160,0.14)" : "rgba(255,255,255,0.02)",
-              color: active ? "#22D3EE" : "#7A90A8",
-              fontSize: 12, fontWeight: active ? 700 : 500,
-              cursor: "pointer", transition: "all 0.15s",
+              border: active ? "1px solid rgba(14,165,160,0.6)" : "1px solid rgba(255,255,255,0.12)",
+              background: active ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)",
+              color: active ? "#F8FAFC" : "#94A3B8",
+              fontSize: 13, fontWeight: active ? 700 : 500,
+              cursor: "pointer", transition: "all 0.2s ease",
+              boxShadow: active ? "0 0 10px rgba(14,165,160,0.3)" : "none",
             }}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
-            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
+            onMouseEnter={e => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.color = "#CBD5F5";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.2)";
+              }
+            }}
+            onMouseLeave={e => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+              }
+            }}
           >
             {getLabel ? getLabel(opt) : String(opt)}
           </button>
@@ -146,7 +157,7 @@ function PillRow<T extends string | number>({
   );
 }
 
-const Divider = () => <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "2px 0" }} />;
+const Divider = () => <div style={{ height: 1, background: "rgba(255,255,255,0.09)", margin: "4px 0" }} />;
 
 // ── Camera Dropdown ───────────────────────────────────────────────────────────
 
@@ -178,14 +189,14 @@ function CameraDropdown({ presets, value, onChange }: {
         style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "8px 10px", borderRadius: 8,
-          border: open ? "1px solid rgba(34,211,238,0.35)" : "1px solid rgba(255,255,255,0.08)",
-          background: open ? "rgba(14,165,160,0.08)" : "rgba(255,255,255,0.03)",
+          border: open ? "1px solid rgba(14,165,160,0.6)" : "1px solid rgba(255,255,255,0.12)",
+          background: open ? "rgba(14,165,160,0.1)" : "rgba(255,255,255,0.04)",
           cursor: "pointer", transition: "all 0.15s",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 7, color: value ? "#94A3B8" : "#475569" }}>
-          <span style={{ lineHeight: 0, color: value ? "#22D3EE" : "#475569" }}>{selectedIcon}</span>
-          <span style={{ fontSize: 12, fontWeight: value ? 600 : 400, color: value ? "#CBD5E1" : "#475569" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: value ? "#94A3B8" : "#64748B" }}>
+          <span style={{ lineHeight: 0, color: value ? "#0EA5A0" : "#64748B" }}>{selectedIcon}</span>
+          <span style={{ fontSize: 13, fontWeight: value ? 600 : 400, color: value ? "#CBD5F5" : "#64748B" }}>
             {selectedLabel}
           </span>
         </div>
@@ -226,8 +237,8 @@ function CameraDropdown({ presets, value, onChange }: {
                   border: "none",
                   borderBottom: "1px solid rgba(255,255,255,0.04)",
                   cursor: "pointer", transition: "background 0.12s",
-                  color: active ? "#22D3EE" : "#94A3B8",
-                  fontSize: 12, fontWeight: active ? 600 : 400,
+                  color: active ? "#F8FAFC" : "#94A3B8",
+                  fontSize: 13, fontWeight: active ? 600 : 400,
                   textAlign: "left",
                 }}
                 onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
@@ -265,8 +276,8 @@ function MotionSlider({ value, onChange }: { value: number; onChange: (v: number
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: "#B0C0D4" }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#22D3EE" }}>{value}</span>
+        <span style={{ fontSize: 13, color: "#CBD5F5" }}>{label}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#0EA5A0" }}>{value}</span>
       </div>
       <div style={{ position: "relative" }}>
         <input
@@ -311,15 +322,15 @@ function MotionAreaSelect({ value, onChange }: { value: string; onChange: (v: st
             onClick={() => onChange(o.value)}
             style={{
               padding: "7px 10px", borderRadius: 7, textAlign: "left",
-              border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
-              background: active ? "rgba(14,165,160,0.1)" : "transparent",
-              color: active ? "#22D3EE" : "#7A90A8",
-              fontSize: 13, fontWeight: active ? 600 : 400,
+              border: active ? "1px solid rgba(14,165,160,0.5)" : "1px solid transparent",
+              background: active ? "rgba(14,165,160,0.12)" : "transparent",
+              color: active ? "#F8FAFC" : "#94A3B8",
+              fontSize: 14, fontWeight: active ? 600 : 400,
               cursor: "pointer", transition: "all 0.15s",
               display: "flex", alignItems: "center", gap: 7,
             }}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
-            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
+            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#CBD5F5"; }}
+            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
           >
             {active && (
               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -400,18 +411,35 @@ export default function VideoLeftRail({
                 key={mode}
                 onClick={() => allowed && onFrameMode(mode)}
                 style={{
-                  width: "100%", padding: "8px 10px", borderRadius: 8,
-                  border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
-                  background: active ? "rgba(14,165,160,0.1)" : "transparent",
-                  display: "flex", alignItems: "center", gap: 8,
+                  width: "100%", padding: "9px 10px", borderRadius: 8,
+                  border: active
+                    ? "1px solid rgba(14,165,160,0.65)"
+                    : "1px solid transparent",
+                  background: active
+                    ? "rgba(14,165,160,0.15)"
+                    : "transparent",
+                  display: "flex", alignItems: "center", gap: 9,
                   cursor: allowed ? "pointer" : "not-allowed",
-                  opacity: allowed ? 1 : 0.25,
-                  transition: "all 0.15s",
-                  color: active ? "#22D3EE" : "#B0C0D4",
-                  fontSize: 13, fontWeight: active ? 600 : 400,
+                  opacity: allowed ? 1 : 0.22,
+                  transition: "all 0.2s ease",
+                  color: active ? "#F8FAFC" : "#94A3B8",
+                  fontSize: 14, fontWeight: active ? 700 : 400,
+                  boxShadow: active
+                    ? "0 0 0 1px rgba(14,165,160,0.12) inset, 0 0 16px rgba(14,165,160,0.18)"
+                    : "none",
                 }}
-                onMouseEnter={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#D8E3EE"; }}
-                onMouseLeave={e => { if (allowed && !active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
+                onMouseEnter={e => {
+                  if (allowed && !active) {
+                    (e.currentTarget as HTMLElement).style.color = "#F8FAFC";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (allowed && !active) {
+                    (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }
+                }}
               >
                 <span style={{ flexShrink: 0, lineHeight: 0 }}>{MODE_ICONS[mode]}</span>
                 {MODE_LABELS[mode]}

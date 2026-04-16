@@ -1,0 +1,1 @@
+export { proAdapter as standardAdapter } from "./pro";

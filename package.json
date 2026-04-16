@@ -9,6 +9,7 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.9.5",
     "@supabase/supabase-js": "^2.101.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",

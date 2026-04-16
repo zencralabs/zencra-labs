@@ -104,40 +104,40 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          marginBottom: 32,
+          marginBottom: 36,
         }}
       >
         {/* Outer halo */}
         <div
           style={{
             position: "absolute",
-            width: 160,
-            height: 160,
+            width: 184,
+            height: 184,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(14,165,160,0.06) 0%, transparent 70%)",
-            border: "1px solid rgba(14,165,160,0.08)",
+            background: "radial-gradient(circle, rgba(14,165,160,0.07) 0%, transparent 70%)",
+            border: "1px solid rgba(14,165,160,0.10)",
           }}
         />
         {/* Inner halo */}
         <div
           style={{
             position: "absolute",
-            width: 128,
-            height: 128,
+            width: 148,
+            height: 148,
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(14,165,160,0.08) 0%, transparent 70%)",
-            border: "1px solid rgba(14,165,160,0.12)",
+            background: "radial-gradient(circle, rgba(14,165,160,0.10) 0%, transparent 70%)",
+            border: "1px solid rgba(14,165,160,0.15)",
           }}
         />
         {/* Mascot icon */}
         <div
           style={{
-            width: 96,
-            height: 96,
+            width: 110,
+            height: 110,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            filter: "drop-shadow(0 0 24px rgba(14,165,160,0.35))",
+            filter: "drop-shadow(0 0 28px rgba(14,165,160,0.40))",
           }}
         >
           <ZencraClapperMascot />
@@ -147,12 +147,12 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
       {/* Headline */}
       <h2
         style={{
-          fontSize: 22,
+          fontSize: 26,
           fontWeight: 800,
-          color: "#E2E8F0",
-          margin: "0 0 10px",
-          letterSpacing: "-0.02em",
-          lineHeight: 1.2,
+          color: "#F1F5F9",
+          margin: "0 0 12px",
+          letterSpacing: "-0.025em",
+          lineHeight: 1.15,
         }}
       >
         Create cinematic AI videos
@@ -161,11 +161,11 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
       {/* Subtext */}
       <p
         style={{
-          fontSize: 15,
+          fontSize: 16,
           color: "#64748B",
-          margin: "0 0 32px",
-          maxWidth: 340,
-          lineHeight: 1.6,
+          margin: "0 0 36px",
+          maxWidth: 380,
+          lineHeight: 1.65,
         }}
       >
         Start with a prompt or upload a reference frame to guide your generation
@@ -179,12 +179,12 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "11px 22px",
+            padding: "13px 26px",
             borderRadius: 10,
-            border: "1px solid rgba(14,165,160,0.35)",
-            background: "rgba(14,165,160,0.08)",
+            border: "1px solid rgba(14,165,160,0.40)",
+            background: "rgba(14,165,160,0.09)",
             color: "#0EA5A0",
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 600,
             cursor: "pointer",
             transition: "all 0.2s",
@@ -214,12 +214,12 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "11px 22px",
+            padding: "13px 26px",
             borderRadius: 10,
-            border: "1px solid rgba(37,99,235,0.35)",
-            background: "rgba(37,99,235,0.08)",
+            border: "1px solid rgba(37,99,235,0.38)",
+            background: "rgba(37,99,235,0.09)",
             color: "#60A5FA",
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 600,
             cursor: "pointer",
             transition: "all 0.2s",
@@ -245,17 +245,17 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
       </div>
 
       {/* Subtle hint chips */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 28, opacity: 0.5 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 30, opacity: 0.65 }}>
         {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
           <span
             key={hint}
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: "#475569",
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 20,
-              padding: "3px 10px",
+              padding: "4px 12px",
             }}
           >
             {hint}

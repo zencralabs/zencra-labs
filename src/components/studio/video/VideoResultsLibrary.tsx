@@ -299,28 +299,63 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
   ];
 
   if (videos.length === 0) {
+    // Ghost shimmer cards — gallery feels alive even when empty
+    const GHOST_COLS = 5;
+    const GHOST_HEIGHTS = [140, 110, 155, 125, 140];
     return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: 14, padding: "48px 24px", textAlign: "center",
-        borderRadius: 14,
-        border: "1px dashed rgba(255,255,255,0.07)",
-        background: "rgba(255,255,255,0.012)",
-      }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: 14,
-          border: "1px solid rgba(34,211,238,0.15)", background: "rgba(14,165,160,0.05)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(122,144,168,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="20" height="18" rx="3"/><path d="M9 8l7 4-7 4V8z"/>
-          </svg>
+      <div>
+        {/* Ghost card grid */}
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          {Array.from({ length: GHOST_COLS }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                height: GHOST_HEIGHTS[i],
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.022)",
+                overflow: "hidden",
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {/* Shimmer sweep */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.045) 50%, transparent 100%)",
+                animation: `ghostShimmer 2.2s ease-in-out infinite`,
+                animationDelay: `${i * 0.18}s`,
+              }} />
+              {/* First card gets the label */}
+              {i === 0 && (
+                <div style={{
+                  position: "relative", zIndex: 1,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(100,116,139,0.35)" strokeWidth="1.5"
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="18" rx="3"/>
+                    <path d="M9 8l7 4-7 4V8z"/>
+                  </svg>
+                  <span style={{ fontSize: 11, color: "#334155", fontWeight: 500 }}>
+                    Your first video will appear here
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#7A90A8" }}>No videos yet</div>
-        <div style={{ fontSize: 12, color: "#4E6275", maxWidth: 260, lineHeight: 1.65 }}>
-          Generate your first video above — it will appear here instantly.
-        </div>
-        <style>{`@keyframes libPulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+        <style>{`
+          @keyframes ghostShimmer {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+          }
+          @keyframes libPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        `}</style>
       </div>
     );
   }
