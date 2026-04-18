@@ -86,16 +86,18 @@ function toolDisplayName(id: string | undefined): string {
 }
 
 // ── Showcase — curated static videos ─────────────────────────────────────────
-// Upload your videos to public/showcase/ with these exact filenames.
+// Videos are served from Supabase Storage CDN (not Vercel static assets).
+// To update: run scripts/upload-showcase.ts, then update URLs here.
+const SUPABASE_SHOWCASE = "https://qlhfmhawhdpagkxaldae.supabase.co/storage/v1/object/public/showcase";
 const SHOWCASE_STATIC: PublicAsset[] = [
-  { id: "sc1", tool: "kling-30",    tool_category: "video", prompt: "Cinematic chase through neon city streets at night",         result_url: "/showcase/showcase-kling-30.mp4",  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc2", tool: "kling-26",    tool_category: "video", prompt: "Character walks through misty forest, depth of field",       result_url: "/showcase/showcase-kling-26.mp4",  result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
-  { id: "sc3", tool: "runway-gen4", tool_category: "video", prompt: "Aerial drone shot over mountains at golden hour",             result_url: "/showcase/showcase-runway.mp4",    result_urls: null, credits_used: 12, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc4", tool: "veo2",        tool_category: "video", prompt: "Ocean waves crash in slow motion, cinematic grade",          result_url: "/showcase/showcase-veo.mp4",       result_urls: null, credits_used: 15, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc5", tool: "seedance",    tool_category: "video", prompt: "Epic warrior portrait, dramatic rim lighting",               result_url: "/showcase/showcase-seedance.mp4",  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc6", tool: "heygen",      tool_category: "video", prompt: "AI presenter delivers pitch with perfect lip sync",          result_url: "/showcase/showcase-heygen.mp4",    result_urls: null, credits_used: 20, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc7", tool: "ltx-video",   tool_category: "video", prompt: "Luxury product reveal, studio lighting, slow rotate",       result_url: "/showcase/showcase-ltx.mp4",       result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
-  { id: "sc8", tool: "kling-30",    tool_category: "video", prompt: "Sci-fi battle sequence, laser effects, epic scale",         result_url: "/showcase/showcase-kling-30b.mp4", result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc1", tool: "kling-30",    tool_category: "video", prompt: "Cinematic chase through neon city streets at night",         result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc2", tool: "kling-26",    tool_category: "video", prompt: "Character walks through misty forest, depth of field",       result_url: `${SUPABASE_SHOWCASE}/showcase-kling-26.mp4`,  result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc3", tool: "runway-gen4", tool_category: "video", prompt: "Aerial drone shot over mountains at golden hour",             result_url: `${SUPABASE_SHOWCASE}/showcase-runway.mp4`,    result_urls: null, credits_used: 12, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc4", tool: "veo2",        tool_category: "video", prompt: "Ocean waves crash in slow motion, cinematic grade",          result_url: `${SUPABASE_SHOWCASE}/showcase-veo.mp4`,       result_urls: null, credits_used: 15, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc5", tool: "seedance",    tool_category: "video", prompt: "Epic warrior portrait, dramatic rim lighting",               result_url: `${SUPABASE_SHOWCASE}/showcase-seedance.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc6", tool: "heygen",      tool_category: "video", prompt: "AI presenter delivers pitch with perfect lip sync",          result_url: `${SUPABASE_SHOWCASE}/showcase-heygen.mp4`,    result_urls: null, credits_used: 20, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc7", tool: "ltx-video",   tool_category: "video", prompt: "Luxury product reveal, studio lighting, slow rotate",       result_url: `${SUPABASE_SHOWCASE}/showcase-ltx.mp4`,       result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc8", tool: "kling-30",    tool_category: "video", prompt: "Sci-fi battle sequence, laser effects, epic scale",         result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30b.mp4`, result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
 ];
 
 // ── Audience cards ────────────────────────────────────────────────────────────
@@ -165,29 +167,30 @@ const pricingTiers = [
 
 // ── Auto-scroll slider (hero area) — your 8 uploaded showcase videos ─────────
 const sliderRow1 = [
-  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",    color: "#2563EB", videoSrc: "/showcase/showcase-kling-30.mp4" },
-  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",    color: "#0EA5A0", videoSrc: "/showcase/showcase-runway.mp4" },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "AI Scene",        tool: "Google Veo",  color: "#60A5FA", videoSrc: "/showcase/showcase-veo.mp4" },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "Cinematic Video", tool: "Seedance 2.0", color: "#EF4444", videoSrc: "/showcase/showcase-seedance.mp4" },
+  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",    color: "#2563EB", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-30.mp4` },
+  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",    color: "#0EA5A0", videoSrc: `${SUPABASE_SHOWCASE}/showcase-runway.mp4` },
+  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "AI Scene",        tool: "Google Veo",  color: "#60A5FA", videoSrc: `${SUPABASE_SHOWCASE}/showcase-veo.mp4` },
+  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "Cinematic Video", tool: "Seedance 2.0", color: "#EF4444", videoSrc: `${SUPABASE_SHOWCASE}/showcase-seedance.mp4` },
 ];
 const sliderRow1Doubled = [...sliderRow1, ...sliderRow1, ...sliderRow1];
 
 const sliderRow2 = [
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",   color: "#10B981", videoSrc: "/showcase/showcase-kling-26.mp4" },
-  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",      color: "#C084FC", videoSrc: "/showcase/showcase-heygen.mp4" },
-  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "LTX Video",   color: "#818CF8", videoSrc: "/showcase/showcase-ltx.mp4" },
-  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",   color: "#2563EB", videoSrc: "/showcase/showcase-kling-30b.mp4" },
+  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",   color: "#10B981", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-26.mp4` },
+  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",      color: "#C084FC", videoSrc: `${SUPABASE_SHOWCASE}/showcase-heygen.mp4` },
+  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "LTX Video",   color: "#818CF8", videoSrc: `${SUPABASE_SHOWCASE}/showcase-ltx.mp4` },
+  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",   color: "#2563EB", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-30b.mp4` },
 ];
 const sliderRow2Doubled = [...sliderRow2, ...sliderRow2, ...sliderRow2];
 
 // ── VideoMuted — drop-in video replacement with premium mute toggle ──────────
 // Renders <video autoPlay muted loop> + an absolute-positioned mute button.
 // Parent container MUST have position:relative (or be absolute-stretched).
+// preload="metadata" loads only first frame + duration — not the full file.
 function VideoMuted({
   src,
   style,
   className,
-  preload = "none",
+  preload = "metadata",
   poster,
   btnPos = { bottom: "10px", right: "10px" },
 }: {
@@ -220,6 +223,8 @@ function VideoMuted({
         poster={poster}
         style={style}
         className={className}
+        controlsList="nodownload"
+        onContextMenu={(e) => e.preventDefault()}
         onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
       >
         <source src={src} type="video/mp4" />
@@ -370,7 +375,7 @@ export default function HomePage() {
         {/* Video background — full on desktop, slightly reduced on mobile for text readability */}
         <VideoMuted
           src="/hero-video.mp4"
-          preload="auto"
+          preload="metadata"
           poster="/hero-poster.jpg"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
           btnPos={{ bottom: "52px", right: "20px" }}
