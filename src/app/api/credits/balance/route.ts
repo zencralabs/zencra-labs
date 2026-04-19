@@ -2,21 +2,13 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getAuthUser } from "@/lib/supabase/server";
 
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
-
 export async function GET(req: Request) {
   try {
     const authUser = await getAuthUser(req);
-
-    if (!authUser && !IS_DEV) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")

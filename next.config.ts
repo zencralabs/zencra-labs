@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
   trailingSlash: false,
-  allowedDevOrigins: ["127.0.0.1"],
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   turbopack: {
     root: __dirname,
   },

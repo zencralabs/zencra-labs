@@ -4,8 +4,19 @@ const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL     ?? "https://pla
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "placeholder-anon-key";
 
 // ── Client-side Supabase client (anon key, respects RLS) ──────────────────────
-// Safe to use in browser — never contains service role key
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Safe to use in browser — never contains service role key.
+// Explicit auth options keep multi-tab sessions alive and prevent lock races:
+//   persistSession  — stores tokens in localStorage (survives page reload)
+//   autoRefreshToken — refreshes JWT before it expires (no mid-session logouts)
+//   detectSessionInUrl — picks up OAuth tokens from the redirect URL hash
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession:    true,
+    autoRefreshToken:  true,
+    detectSessionInUrl: true,
+    storageKey:        "zencra-auth-token",
+  },
+});
 
 /** True when real Supabase keys are configured */
 export const isSupabaseConfigured =

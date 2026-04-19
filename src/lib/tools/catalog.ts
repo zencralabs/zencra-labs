@@ -82,16 +82,6 @@ export const TOOL_CATALOG: CatalogTool[] = [
     sortOrder: 30,
   },
   {
-    id: "midjourney-v7",
-    provider: "midjourney",
-    displayName: "Midjourney v7",
-    category: "image",
-    status: "coming_soon",
-    description: "Industry-leading artistic AI images",
-    badge: "SOON",
-    sortOrder: 40,
-  },
-  {
     id: "flux-pro",
     provider: "flux",
     displayName: "FLUX Pro",
@@ -188,16 +178,6 @@ export const TOOL_CATALOG: CatalogTool[] = [
   },
 
   // ── AUDIO — coming soon ─────────────────────────────────────────────────────
-  {
-    id: "suno-ai",
-    provider: "suno",
-    displayName: "Suno AI",
-    category: "audio",
-    status: "coming_soon",
-    description: "Full music generation from text",
-    badge: "SOON",
-    sortOrder: 140,
-  },
   {
     id: "kits-ai",
     provider: "kitsai",

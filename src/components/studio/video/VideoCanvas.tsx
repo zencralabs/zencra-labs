@@ -14,7 +14,7 @@
 //   • All text: upgraded by 2–3px per design system
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import type { FrameMode, ImageSlot, AudioSlot } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 
@@ -36,6 +36,15 @@ const T = {
   textFaint:    "#64748B",
   danger:       "#EF4444",
 } as const;
+
+// ── Frame container glow ──────────────────────────────────────────────────────
+// Applied to all zone wrapper divs. Keeps frames lifted / cinematic depth.
+// Values deliberately soft — not neon.
+const FRAME_GLOW: React.CSSProperties = {
+  background: "radial-gradient(circle at center, rgba(14,165,160,0.08), transparent 70%)",
+  boxShadow: "0 0 40px rgba(14,165,160,0.06)",
+  borderRadius: 10,
+};
 
 // ── AR helpers ────────────────────────────────────────────────────────────────
 
@@ -170,7 +179,7 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
     : `1.5px dashed ${T.borderStd}`;
 
   const zoneStyle: React.CSSProperties = fillParent
-    ? { width: "100%", height: "100%", borderRadius: 10, border: zoneBorder,
+    ? { width: "100%", flex: 1, minHeight: 0, borderRadius: 10, border: zoneBorder,
         background: hasImage ? "transparent" : dragging ? "rgba(14,165,160,0.04)" : T.surface,
         overflow: "hidden", cursor: hasImage ? "default" : "pointer", transition: "all 0.2s ease",
         position: "relative" }
@@ -286,10 +295,12 @@ interface VideoUploadZoneProps {
   onUpload:    (url: string, name: string, dur: number) => void;
   onRemove:    () => void;
   maxDuration?: number;
+  /** When true, the zone fills its parent container (no internal aspectRatio) */
+  fillParent?: boolean;
 }
 
 function VideoUploadZone({
-  label, aspectRatio, videoUrl, videoName, onUpload, onRemove, maxDuration = 30,
+  label, aspectRatio, videoUrl, videoName, onUpload, onRemove, maxDuration = 30, fillParent,
 }: VideoUploadZoneProps) {
   const [dragging, setDragging] = useState(false);
   const [error, setError]       = useState<string | null>(null);
@@ -309,7 +320,7 @@ function VideoUploadZone({
   }, [onUpload, maxDuration]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: 1 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: fillParent ? undefined : 1, height: fillParent ? "100%" : undefined }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: T.textMuted, letterSpacing: "0.07em", textTransform: "uppercase", textAlign: "center" }}>
         {label}
       </div>
@@ -330,7 +341,19 @@ function VideoUploadZone({
             (e.currentTarget as HTMLElement).style.background = T.surface;
           }
         }}
-        style={{
+        style={fillParent ? {
+          position: "relative",
+          width: "100%",
+          flex: 1,
+          borderRadius: 10,
+          border: dragging
+            ? `1.5px dashed ${T.borderActive}`
+            : videoUrl ? `1px solid ${T.borderActive}` : `1.5px dashed ${T.borderStd}`,
+          background: T.surface,
+          overflow: "hidden",
+          cursor: videoUrl ? "default" : "pointer",
+          transition: "all 0.2s ease",
+        } : {
           position: "relative",
           aspectRatio: arToRatio(aspectRatio),
           borderRadius: 10,
@@ -718,6 +741,8 @@ interface Props {
   aspectRatio:        string;
   generating:         boolean;
   cinemaModeActive:   boolean;
+  /** Whether the End Frame zone is active. When false the zone is visible but disabled. */
+  endFrameEnabled?:   boolean;
   startSlot:          ImageSlot;
   endSlot:            ImageSlot;
   audioSlot:          AudioSlot;
@@ -730,17 +755,29 @@ interface Props {
   onMotionVideoRemove:() => void;
   onLipSyncFaceFile?: (file: File, previewUrl: string) => void;
   onLipSyncAudioFile?:(file: File, durationSeconds: number) => void;
+  /** Called when user picks an image from the mascot Upload Image button */
+  onMascotUpload?:    (file: File, previewUrl: string) => void;
+  /** Called when user clicks Try Sample Prompt on the mascot */
+  onSamplePrompt?:    () => void;
+  /** Current prompt to show in mascot (from rotating cinematic bank) */
+  mascotSamplePrompt?:string;
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function VideoCanvas({
   frameMode, aspectRatio, generating, cinemaModeActive,
+  endFrameEnabled = false,
   startSlot, endSlot, audioSlot,
   motionVideoUrl, motionVideoName,
   onStartSlot, onEndSlot, onAudioSlot, onMotionVideo, onMotionVideoRemove,
   onLipSyncFaceFile, onLipSyncAudioFile,
+  onMascotUpload, onSamplePrompt, mascotSamplePrompt,
 }: Props) {
+
+  // Hidden file input for mascot Upload Image button
+  const mascotInputRef = useRef<HTMLInputElement>(null);
+  const mascotInputId  = useId();
 
   // Canvas glow intensifies in cinema mode
   const canvasGlow = cinemaModeActive
@@ -766,21 +803,81 @@ export default function VideoCanvas({
         return (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
             width: "100%", flex: 1 }}>
-            <VideoEmptyStateMascot />
+            {/* Hidden file input wired to mascot Upload Image button */}
+            <input
+              id={mascotInputId}
+              ref={mascotInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                  const previewUrl = ev.target?.result as string;
+                  onStartSlot({ url: URL.createObjectURL(file), preview: previewUrl, name: file.name });
+                  onMascotUpload?.(file, previewUrl);
+                };
+                reader.readAsDataURL(file);
+                // reset so the same file can be re-picked
+                e.target.value = "";
+              }}
+            />
+            <VideoEmptyStateMascot
+              onUpload={() => mascotInputRef.current?.click()}
+              onSamplePrompt={onSamplePrompt}
+              samplePrompt={mascotSamplePrompt}
+            />
           </div>
         );
 
-      case "start_frame":
+      // Start Frame = Image Reference mode.
+      // When endFrameEnabled (model.capabilities.endFrame = true): show Start + End zones side-by-side.
+      // When !endFrameEnabled (model only supports first-frame): show Start Frame zone only.
+      // No separate "start_end" mode exists — end frame is conditional inside this mode.
+
+      case "start_frame": {
+        if (endFrameEnabled) {
+          // Model supports first + last frame — show both zones
+          return (
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center",
+              justifyContent: "center", gap: 0, padding: "16px 20px", width: "100%", height: "100%" }}>
+              {aspectRatio === "9:16" ? (
+                <>
+                  <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", display: "flex", flexDirection: "column", ...FRAME_GLOW }}>
+                    <UploadZone slot={startSlot} label="Start Frame" aspectRatio={aspectRatio} onUpload={onStartSlot} hint="First frame" fillParent />
+                  </div>
+                  <TransitionIndicator />
+                  <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", display: "flex", flexDirection: "column", ...FRAME_GLOW }}>
+                    <UploadZone slot={endSlot} label="End Frame" aspectRatio={aspectRatio} onUpload={onEndSlot} hint="Last frame" fillParent />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ flex: 1, minWidth: 0, ...FRAME_GLOW }}>
+                    <UploadZone slot={startSlot} label="Start Frame" aspectRatio={aspectRatio} onUpload={onStartSlot} hint="First frame" />
+                  </div>
+                  <TransitionIndicator />
+                  <div style={{ flex: 1, minWidth: 0, ...FRAME_GLOW }}>
+                    <UploadZone slot={endSlot} label="End Frame" aspectRatio={aspectRatio} onUpload={onEndSlot} hint="Last frame" />
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        }
+
+        // Model supports only first-frame input — show Start Frame zone only
         return (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
             padding: "16px 32px", width: "100%", height: "100%" }}>
             {aspectRatio === "9:16" ? (
-              /* 9:16 — height-based container, width derives from aspect ratio */
               <div style={{
                 height: "calc(100% - 32px)",
                 aspectRatio: "9 / 16",
-                maxWidth: arMaxW(aspectRatio),
                 display: "flex", flexDirection: "column",
+                ...FRAME_GLOW,
               }}>
                 <UploadZone
                   slot={startSlot} label="Start Frame" aspectRatio={aspectRatio}
@@ -789,7 +886,7 @@ export default function VideoCanvas({
                 />
               </div>
             ) : (
-              <div style={{ maxWidth: arMaxW(aspectRatio), width: "100%" }}>
+              <div style={{ maxWidth: arMaxW(aspectRatio), width: "100%", ...FRAME_GLOW }}>
                 <UploadZone
                   slot={startSlot} label="Start Frame" aspectRatio={aspectRatio}
                   onUpload={onStartSlot} hint="Upload the first frame of your video"
@@ -798,34 +895,7 @@ export default function VideoCanvas({
             )}
           </div>
         );
-
-      case "start_end":
-        return (
-          <div style={{ display: "flex", flexDirection: "row", alignItems: "center",
-            justifyContent: "center", gap: 0, padding: "16px 20px", width: "100%", height: "100%" }}>
-            {aspectRatio === "9:16" ? (
-              <>
-                <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", maxWidth: "220px", display: "flex", flexDirection: "column" }}>
-                  <UploadZone slot={startSlot} label="Start Frame" aspectRatio={aspectRatio} onUpload={onStartSlot} hint="First frame" fillParent />
-                </div>
-                <TransitionIndicator />
-                <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", maxWidth: "220px", display: "flex", flexDirection: "column" }}>
-                  <UploadZone slot={endSlot} label="End Frame" aspectRatio={aspectRatio} onUpload={onEndSlot} hint="Last frame" fillParent />
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <UploadZone slot={startSlot} label="Start Frame" aspectRatio={aspectRatio} onUpload={onStartSlot} hint="First frame" />
-                </div>
-                <TransitionIndicator />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <UploadZone slot={endSlot} label="End Frame" aspectRatio={aspectRatio} onUpload={onEndSlot} hint="Last frame" />
-                </div>
-              </>
-            )}
-          </div>
-        );
+      }
 
       case "extend":
         return (
@@ -845,6 +915,7 @@ export default function VideoCanvas({
               aspectRatio: "9 / 16",
               maxWidth: "200px",
               display: "flex", flexDirection: "column",
+              ...FRAME_GLOW,
             }
           : aspectRatio === "16:9"
           ? {
@@ -854,6 +925,7 @@ export default function VideoCanvas({
               aspectRatio: "16 / 9",
               maxWidth: "calc(100% - 48px)",
               display: "flex", flexDirection: "column",
+              ...FRAME_GLOW,
             }
           : {
               // Square: height-constrained so label stays visible
@@ -862,6 +934,7 @@ export default function VideoCanvas({
               aspectRatio: "1 / 1",
               maxWidth: "calc(100% - 48px)",
               display: "flex", flexDirection: "column",
+              ...FRAME_GLOW,
             };
 
         return (
@@ -966,22 +1039,47 @@ export default function VideoCanvas({
         return (
           <div style={{ display: "flex", flexDirection: "row", alignItems: "center",
             justifyContent: "center", gap: 0, padding: "16px 20px", width: "100%", height: "100%" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <VideoUploadZone
-                label="Reference Video"
-                aspectRatio={aspectRatio}
-                videoUrl={motionVideoUrl}
-                videoName={motionVideoName}
-                onUpload={onMotionVideo}
-                onRemove={onMotionVideoRemove}
-                maxDuration={30}
-              />
-            </div>
-            <TransitionIndicator />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <UploadZone slot={startSlot} label="Character Image" aspectRatio={aspectRatio}
-                onUpload={onStartSlot} hint="Character to animate" />
-            </div>
+            {aspectRatio === "9:16" ? (
+              <>
+                {/* 9:16 — height-constrained wrappers to prevent overflow */}
+                <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", display: "flex", flexDirection: "column", ...FRAME_GLOW }}>
+                  <VideoUploadZone
+                    label="Reference Video"
+                    aspectRatio={aspectRatio}
+                    videoUrl={motionVideoUrl}
+                    videoName={motionVideoName}
+                    onUpload={onMotionVideo}
+                    onRemove={onMotionVideoRemove}
+                    maxDuration={30}
+                    fillParent
+                  />
+                </div>
+                <TransitionIndicator />
+                <div style={{ height: "calc(100% - 32px)", aspectRatio: "9 / 16", display: "flex", flexDirection: "column", ...FRAME_GLOW }}>
+                  <UploadZone slot={startSlot} label="Character Image" aspectRatio={aspectRatio}
+                    onUpload={onStartSlot} hint="Character to animate" fillParent />
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ flex: 1, minWidth: 0, ...FRAME_GLOW }}>
+                  <VideoUploadZone
+                    label="Reference Video"
+                    aspectRatio={aspectRatio}
+                    videoUrl={motionVideoUrl}
+                    videoName={motionVideoName}
+                    onUpload={onMotionVideo}
+                    onRemove={onMotionVideoRemove}
+                    maxDuration={30}
+                  />
+                </div>
+                <TransitionIndicator />
+                <div style={{ flex: 1, minWidth: 0, ...FRAME_GLOW }}>
+                  <UploadZone slot={startSlot} label="Character Image" aspectRatio={aspectRatio}
+                    onUpload={onStartSlot} hint="Character to animate" />
+                </div>
+              </>
+            )}
           </div>
         );
 

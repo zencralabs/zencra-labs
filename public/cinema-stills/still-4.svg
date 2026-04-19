@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="sky4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#050a1a"/>
+      <stop offset="45%" stop-color="#0f1a2e"/>
+      <stop offset="70%" stop-color="#1a1408"/>
+      <stop offset="100%" stop-color="#0d0c06"/>
+    </linearGradient>
+    <linearGradient id="horizon4" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6B1A" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </linearGradient>
+    <filter id="blur4"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="blur4b"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <!-- Sky gradient -->
+  <rect width="800" height="450" fill="url(#sky4)"/>
+  <!-- Stars (night sky, top) -->
+  <g fill="white" opacity="0.6">
+    <circle cx="40" cy="60" r="0.7"/><circle cx="100" cy="40" r="0.5"/><circle cx="180" cy="70" r="0.8"/>
+    <circle cx="260" cy="45" r="0.6"/><circle cx="350" cy="30" r="0.7"/><circle cx="440" cy="55" r="0.5"/>
+    <circle cx="530" cy="35" r="0.8"/><circle cx="620" cy="50" r="0.6"/><circle cx="710" cy="38" r="0.7"/>
+    <circle cx="780" cy="65" r="0.5"/><circle cx="70" cy="130" r="0.5"/><circle cx="150" cy="115" r="0.6"/>
+    <circle cx="240" cy="140" r="0.7"/><circle cx="330" cy="100" r="0.5"/><circle cx="460" cy="125" r="0.6"/>
+    <circle cx="590" cy="110" r="0.7"/><circle cx="680" cy="130" r="0.5"/><circle cx="760" cy="100" r="0.6"/>
+  </g>
+  <!-- Sunset/horizon glow -->
+  <ellipse cx="400" cy="260" rx="380" ry="55" fill="#D97706" opacity="0.18" filter="url(#blur4)"/>
+  <ellipse cx="400" cy="265" rx="280" ry="30" fill="#F59E0B" opacity="0.12" filter="url(#blur4)"/>
+  <rect x="0" y="240" width="800" height="50" fill="url(#horizon4)"/>
+  <!-- Desert ground: rolling dunes -->
+  <path d="M0,290 Q80,265 160,285 Q240,305 320,278 Q400,260 480,280 Q560,300 640,272 Q720,255 800,275 L800,450 L0,450 Z" fill="#1a1408"/>
+  <path d="M0,320 Q100,300 200,318 Q300,335 400,308 Q500,285 600,310 Q700,330 800,305 L800,450 L0,450 Z" fill="#100e06"/>
+  <path d="M0,360 Q150,345 300,360 Q450,375 600,355 Q700,345 800,360 L800,450 L0,450 Z" fill="#0a0904"/>
+  <!-- Dust haze -->
+  <rect x="0" y="255" width="800" height="30" fill="#8B6914" opacity="0.08" filter="url(#blur4b)"/>
+  <!-- Crescent moon / planet -->
+  <circle cx="680" cy="85" r="20" fill="#1a1610" opacity="0"/>
+  <circle cx="680" cy="85" r="12" fill="#F59E0B" opacity="0.65"/>
+  <circle cx="685" cy="80" r="9" fill="#0f1a2e" opacity="0.7"/>
+  <!-- Sand texture lines -->
+  <g stroke="rgba(180,140,60,0.12)" stroke-width="0.8">
+    <path d="M0,330 Q200,322 400,332 Q600,342 800,328"/><path d="M0,345 Q200,338 400,347 Q600,356 800,342"/>
+    <path d="M0,370 Q200,364 400,373 Q600,382 800,368"/><path d="M0,390 Q200,385 400,393 Q600,400 800,388"/>
+    <path d="M0,408 Q200,404 400,410 Q600,416 800,405"/>
+  </g>
+  <!-- Letterbox -->
+  <rect width="800" height="38" fill="black"/>
+  <rect y="412" width="800" height="38" fill="black"/>
+  <text x="24" y="24" font-family="monospace" font-size="9" fill="rgba(245,158,11,0.6)" letter-spacing="3">DESERT DUNES · DUSK</text>
+</svg>

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -36,6 +37,8 @@ export interface AuthUser {
   // Security
   totpEnabled: boolean;
   passkeyRegistered: boolean;
+  // Feature access flags
+  fcsEnabled: boolean;
 }
 
 interface AuthContextValue {
@@ -48,7 +51,7 @@ interface AuthContextValue {
   sendPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<boolean>;
   loginWithPasskey: () => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   /** Re-fetch just the credit balance */
   refreshCredits: () => Promise<void>;
@@ -112,6 +115,8 @@ function buildAuthUser(
     // Security
     totpEnabled:       (profile?.totp_enabled as boolean) ?? false,
     passkeyRegistered: (profile?.passkey_registered as boolean) ?? false,
+    // Feature access
+    fcsEnabled:        (profile?.fcs_access as boolean) ?? false,
   };
 }
 
@@ -123,13 +128,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]       = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   async function loadProfile(sess: Session) {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
-      .select("full_name, role, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url")
+      .select("full_name, role, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url, fcs_access")
       .eq("id", sess.user.id)
       .single();
+
+    if (error) {
+      console.error("[loadProfile] error:", error.message);
+      return;
+    }
 
     setUser(buildAuthUser(profile as Record<string, unknown> | null, sess));
   }
@@ -145,22 +156,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // getSession can fail when the Supabase auth lock is stolen by another tab.
-    // Always call setLoading(false) via .catch() so the app never hangs.
-    supabase.auth.getSession()
-      .then(({ data: { session: sess } }) => {
-        setSession(sess);
-        if (sess) loadProfile(sess).finally(() => setLoading(false));
-        else      setLoading(false);
-      })
-      .catch(() => setLoading(false));
-
+    // Bootstrap via onAuthStateChange only — do NOT call getSession() separately.
+    //
+    // Why: getSession() acquires a Supabase auth lock. If another tab is
+    // mid-refresh when a new tab opens, getSession() blocks indefinitely,
+    // leaving the new tab stuck in a logged-out state and causing any
+    // subsequent signInWithPassword call to hang on the same lock.
+    //
+    // onAuthStateChange fires INITIAL_SESSION immediately from the in-memory
+    // cache (populated from localStorage when createClient ran) — no lock,
+    // no async wait, works correctly across all tabs.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, sess) => {
         setSession(sess);
         if (sess) await loadProfile(sess);
         else      setUser(null);
-        // Ensure loading is always cleared on any auth state change
         setLoading(false);
       }
     );
@@ -179,14 +189,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: "user", plan: "free", credits: 42, joinedAt: new Date().toISOString(),
         emailVerified: true, phoneVerified: false,
         needsEmailVerification: false, needsPhone: true, needsEmail: false,
-        emailLocked: false, totpEnabled: false, passkeyRegistered: false,
+        emailLocked: false, totpEnabled: false, passkeyRegistered: false, fcsEnabled: false,
       };
       setUser(mock);
       localStorage.setItem("zencra_user", JSON.stringify(mock));
       return true;
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { console.error("[login]", error.message); return false; }
+    if (error) { console.warn("[login]", error.message); return false; }
     return true;
   }
 
@@ -200,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: "user", plan: "free", credits: 50, joinedAt: new Date().toISOString(),
         emailVerified: false, phoneVerified: false,
         needsEmailVerification: true, needsPhone: true, needsEmail: false,
-        emailLocked: false, totpEnabled: false, passkeyRegistered: false,
+        emailLocked: false, totpEnabled: false, passkeyRegistered: false, fcsEnabled: false,
       };
       setUser(mock);
       localStorage.setItem("zencra_user", JSON.stringify(mock));
@@ -253,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: "user", plan: "free", credits: 50, joinedAt: new Date().toISOString(),
         emailVerified: false, phoneVerified: true,
         needsEmailVerification: false, needsPhone: false, needsEmail: true,
-        emailLocked: false, totpEnabled: false, passkeyRegistered: false,
+        emailLocked: false, totpEnabled: false, passkeyRegistered: false, fcsEnabled: false,
       };
       setUser(mock);
       localStorage.setItem("zencra_user", JSON.stringify(mock));
@@ -284,11 +294,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSupabaseConfigured) {
       localStorage.removeItem("zencra_user");
       setUser(null);
+      router.push("/");
       return;
     }
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    router.push("/");
   }
 
   // ── Refresh full profile ───────────────────────────────────────────────────

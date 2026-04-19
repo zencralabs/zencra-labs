@@ -1,7 +1,7 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoLeftRail — Controls: Mode, Duration, AR, Quality, Camera, Motion
+// VideoLeftRail — Controls: Mode, Duration, AR, Quality, Resolution, Camera, Motion
 // Width 260px. No tool switcher. No credits (lives in right panel only).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -17,18 +17,11 @@ const MODE_ICONS: Record<FrameMode, React.ReactNode> = {
       <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
     </svg>
   ),
+  // Start Frame = Image Reference mode. End Frame zone shows conditionally inside this mode.
   start_frame: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="3" width="14" height="14" rx="2"/>
       <path d="M16 8l5 4-5 4"/>
-    </svg>
-  ),
-  start_end: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1" y="4" width="9" height="9" rx="1.5"/>
-      <rect x="14" y="4" width="9" height="9" rx="1.5"/>
-      <path d="M10 8.5h4"/>
-      <path d="M12.5 6.5l2 2-2 2"/>
     </svg>
   ),
   extend: (
@@ -58,8 +51,7 @@ const MODE_ICONS: Record<FrameMode, React.ReactNode> = {
 
 const MODE_LABELS: Record<FrameMode, string> = {
   text_to_video:  "Text to Video",
-  start_frame:    "Start Frame",
-  start_end:      "Start + End",
+  start_frame:    "Start + End",   // Label: "Start + End" — End Frame zone appears when model supports it
   extend:         "Extend Video",
   lip_sync:       "Lip Sync",
   motion_control: "Motion Control",
@@ -352,6 +344,7 @@ interface Props {
   aspectRatio:  VideoAR;
   quality:      Quality;
   duration:     number;
+  resolution:   string;
   cameraPreset: CameraPreset | null;
   motionStrength: number;
   motionArea:   string;
@@ -359,6 +352,7 @@ interface Props {
   onAspectRatio:(ar: VideoAR) => void;
   onQuality:    (q: Quality) => void;
   onDuration:   (d: number) => void;
+  onResolution: (r: string) => void;
   onCameraPreset:(p: CameraPreset | null) => void;
   onMotionStrength: (v: number) => void;
   onMotionArea: (v: string) => void;
@@ -366,9 +360,9 @@ interface Props {
 }
 
 export default function VideoLeftRail({
-  frameMode, aspectRatio, quality, duration, cameraPreset,
+  frameMode, aspectRatio, quality, duration, resolution, cameraPreset,
   motionStrength, motionArea,
-  onFrameMode, onAspectRatio, onQuality, onDuration, onCameraPreset,
+  onFrameMode, onAspectRatio, onQuality, onDuration, onResolution, onCameraPreset,
   onMotionStrength, onMotionArea,
   model,
 }: Props) {
@@ -379,13 +373,22 @@ export default function VideoLeftRail({
   const hasCamera      = (caps?.cameraControl && (caps?.cameraPresets?.length ?? 0) > 1) ?? false;
   const isMotionMode   = frameMode === "motion_control";
 
-  const MODES: FrameMode[] = ["text_to_video", "start_frame", "start_end", "extend", "lip_sync", "motion_control"];
+  // Resolution — show pill row only if model declares supported resolutions
+  const availableResolutions = caps?.resolutions ?? [];
+  const hasResolution        = availableResolutions.length > 0;
+
+  // Frame rate — read-only info label (not a control)
+  const frameRate = caps?.frameRate;
+
+  // Modes available for this model.
+  // "start_frame" = Image Reference mode. The canvas conditionally shows the End Frame zone
+  // inside this mode when model.capabilities.endFrame is true.
+  const MODES: FrameMode[] = ["text_to_video", "start_frame", "extend", "lip_sync", "motion_control"];
   const modeAllowed: Record<FrameMode, boolean> = {
     text_to_video:  caps?.textToVideo    ?? true,
     start_frame:    caps?.startFrame     ?? false,
-    start_end:      caps?.endFrame       ?? false,
     extend:         caps?.extendVideo    ?? false,
-    lip_sync:       true,                           // provider-independent — always reachable
+    lip_sync:       true,
     motion_control: caps?.motionControl  ?? false,
   };
 
@@ -454,7 +457,7 @@ export default function VideoLeftRail({
                     borderRadius: 4,
                     padding: mode === "motion_control" ? "2px 5px" : undefined,
                   }}>
-                    {mode === "motion_control" ? "Kling 3.0" : "N/A"}
+                    {mode === "motion_control" ? "Kling 3.0" : mode === "start_frame" ? "No I2V" : "N/A"}
                   </span>
                 )}
               </button>
@@ -476,6 +479,31 @@ export default function VideoLeftRail({
         <SLabel>Aspect Ratio</SLabel>
         <PillRow options={availableARs} value={aspectRatio} onChange={onAspectRatio} />
       </div>
+
+      {/* ── Resolution ───────────────────────────────────────────────────── */}
+      {hasResolution && (
+        <div>
+          <SLabel>Resolution</SLabel>
+          <PillRow options={availableResolutions} value={resolution} onChange={onResolution} />
+        </div>
+      )}
+
+      {/* ── Frame Rate (read-only info label) ────────────────────────────── */}
+      {frameRate && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "7px 10px", borderRadius: 7,
+          background: "rgba(255,255,255,0.025)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}>
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            Frame Rate
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>
+            {frameRate} fps
+          </span>
+        </div>
+      )}
 
       {/* ── Quality ──────────────────────────────────────────────────────── */}
       {hasPro && (

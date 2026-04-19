@@ -39,8 +39,6 @@ import {
   demoPrefixedId,
 } from "@/lib/billing/demo";
 
-const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function POST(req: Request) {
   // ── Gate: 403 in production ──────────────────────────────────────────────
@@ -54,10 +52,10 @@ export async function POST(req: Request) {
   try {
     // ── Auth ─────────────────────────────────────────────────────────────────
     const authUser = await getAuthUser(req);
-    if (!authUser && !IS_DEV) {
+    if (!authUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     // ── Parse body ───────────────────────────────────────────────────────────
     const body = await req.json() as { orderId?: string; provider?: string };

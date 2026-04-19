@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getAuthUser } from "@/lib/supabase/server";
 
+/** Allowlists prevent arbitrary string injection into plan/role columns */
+const VALID_PLANS = new Set(["free", "starter", "pro", "creator"]);
+const VALID_ROLES = new Set(["user", "admin", "moderator"]);
+
 async function isAdmin(req: Request): Promise<boolean> {
   const user = await getAuthUser(req);
   if (!user) return false;
@@ -68,24 +72,42 @@ export async function PATCH(req: Request) {
 
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (plan  !== undefined) updates.plan    = plan;
-  if (role  !== undefined) updates.role    = role;
+  // ── Allowlist validation ─────────────────────────────────────────────────────
+  if (plan !== undefined && !VALID_PLANS.has(plan)) {
+    return NextResponse.json({ error: `Invalid plan. Allowed: ${[...VALID_PLANS].join(", ")}` }, { status: 400 });
+  }
+  if (role !== undefined && !VALID_ROLES.has(role)) {
+    return NextResponse.json({ error: `Invalid role. Allowed: ${[...VALID_ROLES].join(", ")}` }, { status: 400 });
+  }
 
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (plan !== undefined) updates.plan = plan;
+  if (role !== undefined) updates.role = role;
+
+  // ── Atomic credit adjustment via RPCs ────────────────────────────────────────
+  // creditDelta: positive = grant credits, negative = deduct credits
+  // Both paths use the DB RPCs so the balance update + audit row are atomic.
   if (creditDelta !== undefined && creditDelta !== 0) {
-    // Fetch current credits first
-    const { data: cur } = await supabaseAdmin.from("profiles").select("credits").eq("id", userId).single();
-    const current = (cur?.credits ?? 0) as number;
-    updates.credits = Math.max(0, current + creditDelta);
-    // Log transaction
-    await supabaseAdmin.from("credit_transactions").insert({
-      user_id: userId,
-      type: "admin",
-      amount: creditDelta,
-      balance_after: updates.credits,
-      description: `Admin adjustment: ${creditDelta > 0 ? "+" : ""}${creditDelta} credits`,
-    });
+    const description = `Admin adjustment: ${creditDelta > 0 ? "+" : ""}${creditDelta} credits`;
+    if (creditDelta > 0) {
+      // Grant: use refund_credits RPC (adds credits atomically)
+      const { data: rpcData, error: rpcErr } = await supabaseAdmin
+        .rpc("refund_credits", { p_user_id: userId, p_amount: creditDelta, p_description: description });
+      if (rpcErr || !rpcData?.[0]?.success) {
+        const msg = rpcData?.[0]?.error_message ?? rpcErr?.message ?? "Credit grant failed";
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    } else {
+      // Deduct: use spend_credits RPC (subtracts credits atomically, floors at 0)
+      const { data: rpcData, error: rpcErr } = await supabaseAdmin
+        .rpc("spend_credits", { p_user_id: userId, p_amount: Math.abs(creditDelta), p_description: description });
+      if (rpcErr || !rpcData?.[0]?.success) {
+        const msg = rpcData?.[0]?.error_message ?? rpcErr?.message ?? "Credit deduction failed";
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
   } else if (credits !== undefined) {
+    // Absolute set (no RPC) — admin override of exact balance
     updates.credits = credits;
   }
 

@@ -4,7 +4,6 @@ const TOOLS = [
   { name: "GPT Image 1.5",    type: "Image",  status: "active",     provider: "OpenAI",     credits: 2 },
   { name: "DALL·E 3",         type: "Image",  status: "active",     provider: "OpenAI",     credits: 2 },
   { name: "Nano Banana Pro",  type: "Image",  status: "soon",       provider: "Nano",       credits: 3 },
-  { name: "Midjourney v7",    type: "Image",  status: "soon",       provider: "Midjourney", credits: 4 },
   { name: "Kling 2.6",        type: "Video",  status: "active",     provider: "Kling",      credits: 8 },
   { name: "Kling 3.0",        type: "Video",  status: "active",     provider: "Kling",      credits: 10 },
   { name: "Runway ML",        type: "Video",  status: "active",     provider: "Runway",     credits: 8 },
@@ -12,7 +11,6 @@ const TOOLS = [
   { name: "Veo",              type: "Video",  status: "soon",       provider: "Google",     credits: 10 },
   { name: "HeyGen",           type: "Video",  status: "active",     provider: "HeyGen",     credits: 6 },
   { name: "ElevenLabs TTS",   type: "Audio",  status: "active",     provider: "ElevenLabs", credits: 2 },
-  { name: "Suno AI",          type: "Audio",  status: "active",     provider: "Suno",       credits: 4 },
   { name: "Kits AI",          type: "Audio",  status: "soon",       provider: "Kits",       credits: 3 },
 ];
 

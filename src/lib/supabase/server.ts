@@ -24,13 +24,24 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
  *   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
  */
 export async function getAuthUser(req: Request): Promise<User | null> {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
+  const dev = process.env.NODE_ENV === "development";
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (dev) console.warn("[getAuthUser] ✗ Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    return null;
+  }
 
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    if (dev) console.warn("[getAuthUser] ✗ No Bearer token in Authorization header");
+    return null;
+  }
 
   const token = authHeader.slice(7).trim();
-  if (!token) return null;
+  if (!token) {
+    if (dev) console.warn("[getAuthUser] ✗ Empty token after Bearer prefix");
+    return null;
+  }
 
   // Use anon key + the user's JWT — Supabase validates the token server-side
   const client = createClient(supabaseUrl, supabaseAnonKey, {
@@ -39,8 +50,29 @@ export async function getAuthUser(req: Request): Promise<User | null> {
   });
 
   const { data: { user }, error } = await client.auth.getUser(token);
-  if (error || !user) return null;
+  if (error || !user) {
+    if (dev) console.warn("[getAuthUser] ✗ auth.getUser failed:", error?.message ?? "no user returned");
+    return null;
+  }
 
+  // Block synthetic/system users (e.g. demo user) from authenticating through real routes.
+  // is_system = true is set once in the DB and never changes at runtime.
+  const { data: profileMeta, error: profileErr } = await client
+    .from("profiles")
+    .select("is_system")
+    .eq("id", user.id)
+    .single();
+
+  if (dev && profileErr) {
+    console.warn("[getAuthUser] ⚠ profiles.is_system query failed (user still allowed):", profileErr.message);
+  }
+
+  if (profileMeta?.is_system === true) {
+    if (dev) console.warn("[getAuthUser] ✗ Blocked system user:", user.id);
+    return null;
+  }
+
+  if (dev) console.log("[getAuthUser] ✓ Authenticated:", user.id, user.email);
   return user;
 }
 
@@ -57,7 +89,7 @@ export async function requireAuthUser(req: Request): Promise<
     return {
       user: null,
       authError: new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
+        JSON.stringify({ success: false, code: "UNAUTHORIZED", error: "Unauthorized — valid session required." }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       ),
     };

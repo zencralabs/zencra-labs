@@ -37,16 +37,16 @@ export async function GET(req: Request) {
       revenueThisMonth,
       creditsInCirculation,
     ] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }),
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", today),
-      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", sevenDaysAgo),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_system", false),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_system", false).gte("created_at", today),
+      supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_system", false).gte("created_at", sevenDaysAgo),
       supabaseAdmin.from("generations").select("id", { count: "exact", head: true }),
       supabaseAdmin.from("generations").select("id", { count: "exact", head: true }).gte("created_at", today),
       supabaseAdmin.from("generations").select("id", { count: "exact", head: true }).eq("status", "failed"),
-      supabaseAdmin.from("profiles").select("plan"),
+      supabaseAdmin.from("profiles").select("plan").eq("is_system", false),
       supabaseAdmin.from("payments").select("amount_usd").eq("status", "paid"),
       supabaseAdmin.from("payments").select("amount_usd").eq("status", "paid").gte("created_at", new Date(now.getFullYear(), now.getMonth(), 1).toISOString()),
-      supabaseAdmin.from("profiles").select("credits"),
+      supabaseAdmin.from("profiles").select("credits").eq("is_system", false),
     ]);
 
     // Plan distribution

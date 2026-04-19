@@ -4,8 +4,8 @@
 
 export type FrameMode =
   | "text_to_video"
-  | "start_frame"
-  | "start_end"
+  | "start_frame"   // Image Reference — Start Frame always shown; End Frame shown conditionally
+                    // when model.capabilities.endFrame is true. No separate "start_end" mode.
   | "extend"
   | "lip_sync"
   | "motion_control";

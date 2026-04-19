@@ -356,13 +356,25 @@ export default function MediaCard({
     } catch { /* ignore */ }
   }, [mediaUrl]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!mediaUrl) return;
-    const a = document.createElement("a");
-    a.href = mediaUrl;
-    a.download = `zencra-${asset.id.slice(0, 8)}.${isVideo ? "mp4" : "jpg"}`;
-    a.target = "_blank";
-    a.click();
+    try {
+      // Fetch as blob so the browser saves it to disk rather than opening a tab.
+      // Works for Supabase CDN URLs which set Access-Control-Allow-Origin: *.
+      const res = await fetch(mediaUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `zencra-${asset.id.slice(0, 8)}.${isVideo ? "mp4" : "png"}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback: open in new tab if fetch fails (e.g. CORS)
+      window.open(mediaUrl, "_blank", "noopener");
+    }
   }, [mediaUrl, asset.id, isVideo]);
 
   // ── Render ─────────────────────────────────────────────────────────────────

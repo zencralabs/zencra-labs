@@ -309,6 +309,18 @@ export default function HomePage() {
     }
   }, [user, router]);
 
+  // Defer heavy video sections until after initial paint — keeps UI immediately interactive
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // Use requestIdleCallback when available, otherwise a short timeout
+    if (typeof requestIdleCallback !== "undefined") {
+      const id = requestIdleCallback(() => setMounted(true));
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(() => setMounted(true), 200);
+    return () => clearTimeout(t);
+  }, []);
+
   // Carousel state — visible count is responsive (1 mobile / 2 tablet / 3 desktop)
   const [carouselIdx,     setCarouselIdx]     = useState(0);
   const [carouselVisible, setCarouselVisible] = useState(3);
@@ -372,14 +384,16 @@ export default function HomePage() {
         className="relative flex flex-col items-center justify-center overflow-hidden"
         style={{ minHeight: "calc(100vh - 64px)" }}
       >
-        {/* Video background — full on desktop, slightly reduced on mobile for text readability */}
-        <VideoMuted
-          src="/hero-video.mp4"
-          preload="metadata"
-          poster="/hero-poster.jpg"
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
-          btnPos={{ bottom: "52px", right: "20px" }}
-        />
+        {/* Hero video — deferred until after first paint so UI is immediately interactive */}
+        {mounted && (
+          <VideoMuted
+            src="/hero-video.mp4"
+            preload="metadata"
+            poster="/hero-poster.jpg"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
+            btnPos={{ bottom: "52px", right: "20px" }}
+          />
+        )}
 
         {/* Animated orbs — desktop only (blur+animation is GPU-heavy on mobile) */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden hidden md:block" aria-hidden="true">
@@ -447,8 +461,8 @@ export default function HomePage() {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
       </section>
 
-      {/* ── AUTO-SCROLL SHOWCASE STRIP — desktop only (too heavy for mobile) ── */}
-      <section className="hidden md:block strip-section" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
+      {/* ── AUTO-SCROLL SHOWCASE STRIP — deferred + desktop only ── */}
+      {mounted && <section className="hidden md:block strip-section" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} aria-hidden="true" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} aria-hidden="true" />
 
@@ -499,7 +513,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── 2. HOW ZENCRA WORKS — full-width 3-step ─────────────────────────── */}
       <section className="py-14 md:py-24">

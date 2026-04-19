@@ -37,6 +37,9 @@ const iconSizes = {
   lg: { width: 50, height: 50 },
 };
 
+// Standalone icon dimensions (used when not in iconOnly mode to scale the Z-mark)
+const inlineIconPx = { sm: 28, md: 36, lg: 44 };
+
 function LogoImage({ size = "md", iconOnly = false, className }: Omit<LogoProps, "asLink">) {
   const dims = iconOnly ? iconSizes[size] : sizes[size];
 
@@ -53,10 +56,10 @@ function LogoImage({ size = "md", iconOnly = false, className }: Omit<LogoProps,
 
       {/* ── Inline SVG Fallback (used until real logo files are added) ── */}
       <div className="flex items-center gap-2">
-        {/* Z Icon */}
+        {/* Z Icon — scales with size prop */}
         <svg
-          width={dims.width && iconOnly ? dims.width : 36}
-          height={dims.height && iconOnly ? dims.height : 36}
+          width={iconOnly ? dims.width : inlineIconPx[size ?? "md"]}
+          height={iconOnly ? dims.height : inlineIconPx[size ?? "md"]}
           viewBox="0 0 36 36"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -86,7 +89,7 @@ function LogoImage({ size = "md", iconOnly = false, className }: Omit<LogoProps,
             <span
               className="font-bold tracking-tight"
               style={{
-                fontSize: size === "lg" ? "1.25rem" : size === "sm" ? "0.9rem" : "1.05rem",
+                fontSize: size === "lg" ? "1.3rem" : size === "sm" ? "0.9rem" : "1.05rem",
                 background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
@@ -98,7 +101,7 @@ function LogoImage({ size = "md", iconOnly = false, className }: Omit<LogoProps,
             <span
               className="font-medium tracking-[0.2em] uppercase"
               style={{
-                fontSize: size === "lg" ? "0.55rem" : "0.48rem",
+                fontSize: size === "lg" ? "0.55rem" : size === "sm" ? "0.44rem" : "0.48rem",
                 color: "var(--muted-foreground)",
                 letterSpacing: "0.25em",
               }}

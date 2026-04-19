@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <radialGradient id="nebula1" cx="60%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#4F46E5" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#020209" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="glow1" cx="35%" cy="65%" r="40%">
+      <stop offset="0%" stop-color="#A855F7" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#020209" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur1"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <!-- Deep space background -->
+  <rect width="800" height="450" fill="#020209"/>
+  <rect width="800" height="450" fill="url(#nebula1)"/>
+  <rect width="800" height="450" fill="url(#glow1)"/>
+  <!-- Star field -->
+  <g fill="white">
+    <circle cx="42" cy="38" r="0.7" opacity="0.9"/>
+    <circle cx="120" cy="75" r="0.5" opacity="0.6"/>
+    <circle cx="280" cy="22" r="0.8" opacity="0.8"/>
+    <circle cx="380" cy="60" r="0.5" opacity="0.5"/>
+    <circle cx="500" cy="30" r="0.9" opacity="0.9"/>
+    <circle cx="640" cy="55" r="0.6" opacity="0.7"/>
+    <circle cx="720" cy="18" r="0.7" opacity="0.8"/>
+    <circle cx="760" cy="90" r="0.5" opacity="0.5"/>
+    <circle cx="88" cy="160" r="0.6" opacity="0.7"/>
+    <circle cx="195" cy="130" r="0.8" opacity="0.9"/>
+    <circle cx="310" cy="110" r="0.5" opacity="0.4"/>
+    <circle cx="455" cy="145" r="0.7" opacity="0.8"/>
+    <circle cx="570" cy="120" r="0.5" opacity="0.6"/>
+    <circle cx="680" cy="140" r="0.8" opacity="0.9"/>
+    <circle cx="740" cy="175" r="0.6" opacity="0.5"/>
+    <circle cx="60" cy="250" r="0.5" opacity="0.4"/>
+    <circle cx="175" cy="270" r="0.7" opacity="0.7"/>
+    <circle cx="345" cy="235" r="0.5" opacity="0.5"/>
+    <circle cx="510" cy="255" r="0.8" opacity="0.8"/>
+    <circle cx="625" cy="240" r="0.6" opacity="0.6"/>
+    <circle cx="785" cy="260" r="0.5" opacity="0.4"/>
+    <circle cx="30" cy="350" r="0.6" opacity="0.5"/>
+    <circle cx="210" cy="370" r="0.5" opacity="0.4"/>
+    <circle cx="390" cy="340" r="0.7" opacity="0.6"/>
+    <circle cx="560" cy="360" r="0.5" opacity="0.5"/>
+    <circle cx="700" cy="355" r="0.6" opacity="0.4"/>
+  </g>
+  <!-- Nebula cloud wisps -->
+  <ellipse cx="480" cy="180" rx="180" ry="90" fill="#6D28D9" opacity="0.25" filter="url(#blur1)"/>
+  <ellipse cx="240" cy="220" rx="120" ry="60" fill="#8B5CF6" opacity="0.20" filter="url(#blur1)"/>
+  <ellipse cx="620" cy="280" rx="100" ry="55" fill="#4F46E5" opacity="0.18" filter="url(#blur1)"/>
+  <!-- Bright core -->
+  <circle cx="520" cy="160" r="3" fill="#E9D5FF" opacity="0.95"/>
+  <circle cx="520" cy="160" r="18" fill="#A855F7" opacity="0.25" filter="url(#blur1)"/>
+  <!-- Letterbox bars -->
+  <rect width="800" height="38" fill="black"/>
+  <rect y="412" width="800" height="38" fill="black"/>
+  <!-- Scene label -->
+  <text x="24" y="24" font-family="monospace" font-size="9" fill="rgba(168,85,247,0.6)" letter-spacing="3">NEBULA · DEEP SPACE</text>
+</svg>

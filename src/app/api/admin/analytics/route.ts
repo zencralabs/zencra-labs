@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       supabaseAdmin
         .from("profiles")
         .select("created_at")
+        .eq("is_system", false)
         .gte("created_at", daysAgo(30))
         .order("created_at", { ascending: true }),
 

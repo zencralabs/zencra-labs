@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkAuthRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * POST /api/auth/send-otp
@@ -10,12 +11,19 @@ import { createClient } from "@supabase/supabase-js";
  * Returns:
  *   200  { success: true }
  *   400  { success: false, error: "..." }   — bad input / Supabase error
+ *   429  { success: false, error: "..." }   — rate limited
  *   500  { success: false, error: "..." }   — server misconfiguration
  */
 
 const PHONE_RE = /^\+[1-9]\d{6,14}$/;
 
 export async function POST(req: NextRequest) {
+  // ── Auth rate limit (5 req / 10 min per IP) ─────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? crypto.randomUUID();
+  const rateLimitError = await checkAuthRateLimit(ip);
+  if (rateLimitError) return rateLimitError;
+
   // Validate env
   const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey   = process.env.SUPABASE_SERVICE_ROLE_KEY;
