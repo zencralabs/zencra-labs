@@ -14,8 +14,6 @@ function toProviderStatus(dbStatus: string): "pending" | "success" | "error" {
   return "pending";
 }
 
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const IS_DEV           = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
 
 export async function GET(req: Request, context: { params: RouteParams }) {
   try {
@@ -30,10 +28,10 @@ export async function GET(req: Request, context: { params: RouteParams }) {
 
     // ── Auth ───────────────────────────────────────────────────────────────
     const authUser = await getAuthUser(req);
-    if (!authUser && !IS_DEV) {
+    if (!authUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     // ── Look up generation row by generationId (UUID) ──────────────────────
     const { data: generation, error } = await supabaseAdmin

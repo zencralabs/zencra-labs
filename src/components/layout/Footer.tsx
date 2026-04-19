@@ -14,7 +14,6 @@ const imageTools = [
   { label: "Nano Banana 2", href: "/image/nano-banana-2", badge: null },
   { label: "Flux", href: "/image/flux", badge: null },
   { label: "Seedream", href: "/image/seedream", badge: null },
-  { label: "Midjourney", href: "/image/midjourney", badge: "SOON" },
 ];
 
 const videoTools = [
@@ -29,9 +28,7 @@ const videoTools = [
 
 const audioTools = [
   { label: "ElevenLabs", href: "/audio/elevenlabs", badge: null },
-  { label: "Suno AI", href: "/audio/suno", badge: null },
   { label: "Kits AI", href: "/audio/kits", badge: null },
-  { label: "Udio", href: "/audio/udio", badge: "SOON" },
 ];
 
 const companyLinks = [

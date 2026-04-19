@@ -325,22 +325,24 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     }
     setLoading(true);
     let ok = false;
-    if (authMode === "login") {
-      ok = await login(email, password);
-      if (!ok) setError("Invalid email or password.");
-    } else {
-      ok = await signup(name, email, password);
-      if (!ok) setError("Couldn't create account. This email may already be registered.");
-      else {
-        setSuccess("Account created! Please check your email to verify your account.");
-        setLoading(false);
-        return;
+    try {
+      if (authMode === "login") {
+        ok = await login(email, password);
+        if (!ok) setError("Invalid email or password.");
+      } else {
+        ok = await signup(name, email, password);
+        if (!ok) setError("Couldn't create account. This email may already be registered.");
+        else {
+          setSuccess("Account created! Please check your email to verify your account.");
+          return;
+        }
       }
-    }
-    setLoading(false);
-    if (ok) {
-      // Signal the useEffect above to redirect once AuthContext has user+role
-      setPendingRedirect(true);
+      if (ok) {
+        // Signal the useEffect above to redirect once AuthContext has user+role
+        setPendingRedirect(true);
+      }
+    } finally {
+      setLoading(false);
     }
   }
 

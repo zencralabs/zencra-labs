@@ -57,8 +57,8 @@ export type VideoOperationType =
 export type VideoModelCapabilities = {
   textToVideo:    boolean;
   imageToVideo:   boolean;
-  startFrame:     boolean;   // I2V with single start frame
-  endFrame:       boolean;   // I2V with start + end frame (image_tail)
+  startFrame:     boolean;   // I2V with single start frame (unified into start_end mode)
+  endFrame:       boolean;   // I2V with start + end frame (image_tail) — if false, end slot is disabled
   cameraControl:  boolean;
   motionControl:  boolean;   // requires reference video + character image
   multiElement:   boolean;
@@ -75,6 +75,9 @@ export type VideoModelCapabilities = {
   maxDuration:    number;
   aspectRatios:   string[];
   cameraPresets:  CameraPreset[];
+  // ── Optional capability-driven display fields ──────────────────────────────
+  resolutions?:   string[];  // e.g. ["480p","720p"] — if present, shown as pill row in left rail
+  frameRate?:     number;    // e.g. 24 — if present, shown as read-only info label (not a control)
 };
 
 // ── Full model definition ─────────────────────────────────────────────────────
@@ -132,6 +135,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       maxDuration:    10,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
     },
   },
 
@@ -168,6 +172,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       maxDuration:    10,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
     },
   },
 
@@ -204,44 +209,131 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       maxDuration:    10,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
     },
   },
 
   // ── Seedance 2.0 ─────────────────────────────────────────────────────────
-  // Official materials: multimodal text/image/audio/video inputs,
-  // controllable extension/editing, up to 15s multi-shot audio-video output.
+  // BytePlus ModelArk API. Supports T2V, I2V, start frame, and start+end frame.
+  // Resolutions: 480p, 720p. Frame rate: 24 fps. Duration: 4–15s (safe discrete: 5, 8, 10).
+  // Model ID env-configurable via SEEDANCE_MODEL_ID.
   {
     id:          "seedance-20",
     provider:    "seedance",
-    apiModelId:  "seedance-v2",
+    apiModelId:  process.env.SEEDANCE_MODEL_ID ?? "dreamina-seedance-2-0-260128",
     displayName: "Seedance 2.0",
-    description: "Multimodal AI — text, image, audio & video inputs. Up to 15s.",
-    badge:       "SOON",
+    description: "High-quality cinematic video — text/image to video, first+last frame support.",
+    badge:       "NEW",
     badgeColor:  "#A855F7",
-    available:   false,
-    comingSoon:  true,
-    promptChips: ["multi-shot sequence", "character performance", "storyboard style", "cinematic lighting", "motion dynamics", "dramatic arc", "audio-reactive"],
+    available:   true,
+    comingSoon:  false,
+    promptChips: ["cinematic lighting", "character performance", "storyboard style", "motion dynamics", "dramatic arc"],
     capabilities: {
       textToVideo:    true,
       imageToVideo:   true,
-      startFrame:     false,
-      endFrame:       false,
+      startFrame:     true,
+      endFrame:       true,   // BytePlus docs: first + last frame workflow supported
       cameraControl:  false,
-      motionControl:  true,
+      motionControl:  false,
       multiElement:   false,
-      extendVideo:    true,   // controllable extension per official spec
+      extendVideo:    false,
       lipSync:        false,
       avatar:         false,
-      audioEnabled:   true,   // audio reference input per official spec
-      videoInput:     true,   // video reference/editing input
-      nativeAudio:    true,   // generates with native audio per official spec
-      negativePrompt: true,
+      audioEnabled:   false,
+      videoInput:     false,
+      nativeAudio:    false,
+      negativePrompt: false,
       proMode:        false,
       seedControl:    false,
-      durations:      [5, 10, 15], // up to 15s per official spec
-      maxDuration:    15,
+      durations:      [5, 10],       // Safe confirmed discrete values (API validated)
+      maxDuration:    10,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  [],
+      resolutions:    ["480p", "720p"],
+      frameRate:      24,
+    },
+  },
+
+  // ── Seedance 2.0 Fast ────────────────────────────────────────────────────
+  // Fast-turbo variant of Seedance 2.0 for rapid iteration.
+  // Resolutions: 480p, 720p. Frame rate: 24 fps. Safe discrete durations: 5s, 10s.
+  // Model ID env-configurable via SEEDANCE_FAST_MODEL_ID.
+  {
+    id:          "seedance-20-fast",
+    provider:    "seedance",
+    apiModelId:  process.env.SEEDANCE_FAST_MODEL_ID ?? "dreamina-seedance-2-0-fast-260128",
+    displayName: "Seedance 2.0 Fast",
+    description: "Rapid generation variant of Seedance 2.0 — first+last frame support.",
+    badge:       "FAST",
+    badgeColor:  "#10B981",
+    available:   true,
+    comingSoon:  false,
+    promptChips: ["quick draft", "storyboard", "cinematic style", "motion test"],
+    capabilities: {
+      textToVideo:    true,
+      imageToVideo:   true,
+      startFrame:     true,
+      endFrame:       true,   // BytePlus docs: first + last frame workflow supported
+      cameraControl:  false,
+      motionControl:  false,
+      multiElement:   false,
+      extendVideo:    false,
+      lipSync:        false,
+      avatar:         false,
+      audioEnabled:   false,
+      videoInput:     false,
+      nativeAudio:    false,
+      negativePrompt: false,
+      proMode:        false,
+      seedControl:    false,
+      durations:      [5, 10],       // Safe confirmed discrete values
+      maxDuration:    10,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  [],
+      resolutions:    ["480p", "720p"],
+      frameRate:      24,
+    },
+  },
+
+  // ── Seedance 1.5 Pro ─────────────────────────────────────────────────────
+  // BytePlus ModelArk API. Supports T2V, first-frame, and first+last-frame.
+  // Resolutions: 480p, 720p, 1080p. Frame rate: 24 fps. Durations: 4s, 8s, 12s only.
+  // Model ID env-configurable via SEEDANCE_15_MODEL_ID — NO default (requires explicit config).
+  // If model ID is missing (empty string), the studio shows a "Not Configured" screen.
+  {
+    id:          "seedance-15",
+    provider:    "seedance",
+    apiModelId:  process.env.SEEDANCE_15_MODEL_ID ?? "",  // Empty = not configured — DO NOT add a default
+    displayName: "Seedance 1.5 Pro",
+    description: "1080p capable — text/image to video, first+last frame, 4–12s range.",
+    badge:       null,
+    badgeColor:  null,
+    available:   true,
+    comingSoon:  false,
+    promptChips: ["cinematic style", "character close-up", "storyboard scene", "dramatic lighting"],
+    capabilities: {
+      textToVideo:    true,
+      imageToVideo:   true,
+      startFrame:     true,
+      endFrame:       true,   // BytePlus docs: first + last frame workflow supported
+      cameraControl:  false,
+      motionControl:  false,
+      multiElement:   false,
+      extendVideo:    false,
+      lipSync:        false,
+      avatar:         false,
+      audioEnabled:   false,
+      videoInput:     false,
+      nativeAudio:    false,
+      negativePrompt: false,
+      proMode:        false,
+      seedControl:    false,
+      durations:      [4, 8, 12],    // Confirmed discrete values for 1.5 Pro — do NOT add others
+      maxDuration:    12,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  [],
+      resolutions:    ["480p", "720p", "1080p"],  // 1.5 Pro supports 1080p per BytePlus docs
+      frameRate:      24,
     },
   },
 

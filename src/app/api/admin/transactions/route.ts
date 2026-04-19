@@ -65,46 +65,26 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { userId, amount, description, type = "admin" } = body;
+  const { userId, amount, description } = body;
 
   if (!userId || amount === undefined) {
     return NextResponse.json({ error: "userId and amount required" }, { status: 400 });
   }
 
-  // Get current balance
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("credits")
-    .eq("id", userId)
-    .single();
-
-  const currentCredits = (profile?.credits as number) ?? 0;
-  const newBalance = Math.max(0, currentCredits + amount);
-
-  // Update profile credits
-  const { error: updateError } = await supabaseAdmin
-    .from("profiles")
-    .update({ credits: newBalance, updated_at: new Date().toISOString() })
-    .eq("id", userId);
-
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (amount === 0) {
+    return NextResponse.json({ success: true, note: "zero amount — no-op" });
   }
 
-  // Log transaction
-  const { error: txError } = await supabaseAdmin
-    .from("credit_transactions")
-    .insert({
-      user_id: userId,
-      type,
-      amount,
-      balance_after: newBalance,
-      description: description ?? `Admin credit adjustment: ${amount > 0 ? "+" : ""}${amount}`,
-    });
+  // Use atomic RPCs — balance update + ledger entry in a single DB transaction
+  const desc = description ?? `Admin credit adjustment: ${amount > 0 ? "+" : ""}${amount}`;
+  const { error: rpcError } = amount > 0
+    ? await supabaseAdmin.rpc("refund_credits", { p_user_id: userId, p_amount: amount,            p_description: desc })
+    : await supabaseAdmin.rpc("spend_credits",  { p_user_id: userId, p_amount: Math.abs(amount), p_description: desc });
 
-  if (txError) {
-    console.error("[admin/transactions] log error:", txError.message);
+  if (rpcError) {
+    console.error("[admin/transactions] rpc error:", rpcError.message);
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, newBalance });
+  return NextResponse.json({ success: true });
 }

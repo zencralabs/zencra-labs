@@ -6,6 +6,11 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import MediaCard from "@/components/media/MediaCard";
 import type { PublicAsset } from "@/lib/types/generation";
+import { useFlowStore } from "@/lib/flow/store";
+import type { FlowStep } from "@/lib/flow/store";
+import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
+import FlowBar from "@/components/studio/flow/FlowBar";
+import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -24,8 +29,9 @@ interface GeneratedImage {
   error?: string;
 }
 
-type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9";
+type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
 type Quality = "1K" | "2K" | "4K";
+type OutputFormat = "JPG" | "PNG";
 type Tab = "history" | "community";
 
 interface StudioModel {
@@ -42,15 +48,18 @@ interface StudioModel {
   allowedQualities?: Quality[];
 }
 
-// ── Provider routing ──────────────────────────────────────────────────────────
-type ProviderRouting = { provider: "dalle" | "nano-banana"; nbVariant?: string };
-
-const MODEL_TO_PROVIDER: Record<string, ProviderRouting> = {
-  "dalle3":               { provider: "dalle" },
-  "nano-banana-standard": { provider: "nano-banana", nbVariant: "standard" },
-  "nano-banana-edit":     { provider: "nano-banana", nbVariant: "edit" },
-  "nano-banana-pro":      { provider: "nano-banana", nbVariant: "pro" },
+// ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
+const MODEL_TO_KEY: Record<string, string> = {
+  "dalle3":               "gpt-image-1",
+  "nano-banana-standard": "nano-banana-standard",
+  "nano-banana-pro":      "nano-banana-pro",
+  "nano-banana-2":        "nano-banana-2",
 };
+
+// ── Reverse map — model key → UI model ID (used by flow variation handler) ───
+const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
+  Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
+);
 
 // ── Credit display helper ─────────────────────────────────────────────────────
 function computeCredits(modelId: string, quality: Quality, count: number): number {
@@ -63,13 +72,31 @@ function computeCredits(modelId: string, quality: Quality, count: number): numbe
 }
 
 // ── Aspect ratio → API string ─────────────────────────────────────────────────
-function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
-  const landscape = ["16:9", "3:2", "4:3", "21:9", "5:4"];
-  const portrait  = ["9:16", "2:3", "3:4"];
+// GPT Image only supports 4 ratios — collapse everything else.
+function mapArForGpt(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
+  const landscape = ["16:9", "3:2", "4:3", "21:9", "5:4", "4:1", "8:1"];
+  const portrait  = ["9:16", "2:3", "3:4", "1:4", "1:8"];
   if (landscape.includes(ar)) return "16:9";
   if (portrait.includes(ar))  return "9:16";
   if (ar === "4:5")            return "4:5";
   return "1:1";
+}
+
+// Nano Banana supports its aspect ratio strings verbatim.
+// "Auto" maps to undefined (omit from payload — let NB decide).
+const NB_AR_PASSTHROUGH = new Set([
+  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
+  "4:1", "4:3", "4:5", "5:4", "8:1",
+  "9:16", "16:9", "21:9",
+]);
+function mapArForNB(ar: AspectRatio): string | undefined {
+  if (ar === "Auto") return undefined;
+  return NB_AR_PASSTHROUGH.has(ar) ? ar : undefined;
+}
+
+/** Legacy wrapper — used only for GPT Image */
+function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
+  return mapArForGpt(ar);
 }
 
 // ── Model definitions ─────────────────────────────────────────────────────────
@@ -97,24 +124,12 @@ const MODELS: StudioModel[] = [
     nbVariant: "standard",
     allowedQualities: ["1K"],
   },
-  {
-    id: "nano-banana-edit",
-    name: "Nano Banana Edit",
-    provider: "NanoBanana",
-    description: "AI-powered image-to-image editing",
-    badge: "Edit",
-    badgeColor: "#7C2D12",
-    available: true,
-    icon: "nanobana",
-    nbVariant: "edit",
-    requiresImg: true,
-    allowedQualities: ["1K"],
-  },
+  // nano-banana-edit removed — no backend registry entry exists in new provider system
   {
     id: "nano-banana-pro",
     name: "Nano Banana Pro",
     provider: "NanoBanana",
-    description: "High-resolution output · 1K · 2K · 4K",
+    description: "High-resolution output · 1K · 2K · 4K · multi-reference",
     badge: "Pro",
     badgeColor: "#1E3A5F",
     available: true,
@@ -126,37 +141,20 @@ const MODELS: StudioModel[] = [
     id: "nano-banana-2",
     name: "Nano Banana 2",
     provider: "NanoBanana",
-    description: "Next-generation model · Coming soon",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
+    description: "Next-gen model · improved quality · multi-reference",
+    badge: "NEW",
+    badgeColor: "#0E7490",
+    available: true,
     icon: "nanobana",
-  },
-  {
-    id: "midjourney-v7",
-    name: "Midjourney v7",
-    provider: "Midjourney",
-    description: "Industry-leading artistic AI images",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
-    icon: "midjourney",
-  },
-  {
-    id: "flux-pro",
-    name: "FLUX Pro",
-    provider: "Black Forest Labs",
-    description: "Speed-optimised, fine detail generation",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
-    icon: "flux",
+    nbVariant: "nb2",
+    allowedQualities: ["1K", "2K", "4K"],
   },
 ];
 
 const ASPECT_RATIOS: AspectRatio[] = [
   "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
   "9:16", "16:9", "5:4", "4:5", "21:9",
+  "1:4", "1:8", "4:1", "8:1",
 ];
 
 // ── AR icon ───────────────────────────────────────────────────────────────────
@@ -166,6 +164,8 @@ function ARIcon({ ar, size = 16, selected = false }: { ar: AspectRatio; size?: n
     "4:3": { w: 4, h: 3 }, "2:3": { w: 2, h: 3 }, "3:2": { w: 3, h: 2 },
     "9:16": { w: 9, h: 16 }, "16:9": { w: 16, h: 9 }, "5:4": { w: 5, h: 4 },
     "4:5": { w: 4, h: 5 }, "21:9": { w: 21, h: 9 },
+    "1:4": { w: 1, h: 4 }, "1:8": { w: 1, h: 8 },
+    "4:1": { w: 4, h: 1 }, "8:1": { w: 8, h: 1 },
   };
   const { w, h } = map[ar] ?? { w: 1, h: 1 };
   const scale = Math.min(size / w, size / h) * 0.65;
@@ -216,6 +216,7 @@ function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
   const ratioMap: Record<string, number> = {
     Auto: 1, "1:1": 1, "3:4": 4 / 3, "4:3": 3 / 4, "2:3": 3 / 2, "3:2": 2 / 3,
     "9:16": 16 / 9, "16:9": 9 / 16, "5:4": 4 / 5, "4:5": 5 / 4, "21:9": 9 / 21,
+    "1:4": 4, "1:8": 8, "4:1": 1 / 4, "8:1": 1 / 8,
   };
   const paddingBottom = `${(ratioMap[ar] ?? 1) * 100}%`;
 
@@ -304,8 +305,12 @@ function ImageCard({
           alert("✨ Topaz enhancement is coming soon!");
         }}
         onAnimate={() => {
-          // Animate → route to video studio with prompt pre-filled
-          window.location.href = `/studio/cinema?prompt=${encodeURIComponent(img.prompt)}`;
+          // Animate → Video Studio, image pre-loaded into Start Frame, Kling 3.0 pre-selected
+          // "kling-30" is the VIDEO_MODEL_REGISTRY catalog ID for Kling 3.0 Omni
+          const params = new URLSearchParams({ model: "kling-30" });
+          if (img.url) params.set("imageUrl", img.url);
+          if (img.prompt) params.set("prompt", img.prompt);
+          window.location.href = `/studio/video?${params.toString()}`;
         }}
       />
     </div>
@@ -319,11 +324,53 @@ function ImageStudioInner() {
   const { user, refreshUser } = useAuth();
   const searchParams = useSearchParams();
 
+  // ── Creative Flow store ──────────────────────────────────────────────────────
+  const flowStore = useFlowStore();
+
+  // ── Record a completed generation into the flow (fire-and-forget) ────────────
+  const recordFlowStep = useCallback(async (params: {
+    studioType: "image";
+    modelKey:   string;
+    prompt:     string;
+    resultUrl:  string;
+    assetId?:   string;
+    aspectRatio?: string;
+  }) => {
+    if (!user) return;
+    try {
+      let wfId = useFlowStore.getState().workflowId;
+      if (!wfId) {
+        const wfResult = await createWorkflow(user.id);
+        if (!wfResult.ok) return;
+        wfId = wfResult.workflowId;
+        flowStore.initWorkflow(wfId);
+      }
+      const stepResult = await addWorkflowStep({
+        workflowId:  wfId,
+        userId:      user.id,
+        studioType:  params.studioType,
+        modelKey:    params.modelKey,
+        prompt:      params.prompt,
+        aspectRatio: params.aspectRatio,
+        resultUrl:   params.resultUrl,
+        status:      "success",
+        assetId:     params.assetId,
+      });
+      if (stepResult.ok) {
+        flowStore.pushStep(stepResult.step);
+      }
+    } catch {
+      // Flow recording is non-critical — silent failure
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Map catalog IDs (from navbar ?model= param) to internal studio model IDs
   const CATALOG_TO_STUDIO_MODEL: Record<string, string> = {
     "gpt-image-15":    "dalle3",
     "nano-banana":     "nano-banana-standard",
     "nano-banana-pro": "nano-banana-pro",
+    "nano-banana-2":   "nano-banana-2",
   };
   const modelParam = searchParams.get("model") ?? "";
   const initialModel = CATALOG_TO_STUDIO_MODEL[modelParam] ?? "dalle3";
@@ -334,6 +381,7 @@ function ImageStudioInner() {
   const [model, setModel] = useState(initialModel);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
   const [quality, setQuality] = useState<Quality>("1K");
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>("JPG");
   const [batchSize, setBatchSize] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(3); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
@@ -348,6 +396,10 @@ function ImageStudioInner() {
 
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
+  const [referenceImageUrl,      setReferenceImageUrl]      = useState<string>("");
+  const [referencePreviewUrl,    setReferencePreviewUrl]    = useState<string>("");  // blob URL for <img>, not sent to backend
+  const [referenceUploading,     setReferenceUploading]     = useState(false);
   const currentModel = MODELS.find((m) => m.id === model) ?? MODELS[0];
 
   // Grid column sizing based on zoom level
@@ -442,12 +494,21 @@ function ImageStudioInner() {
     if (!user) { setAuthModal(true); return; }
     if (!currentModel.available) return;
 
-    const routing    = MODEL_TO_PROVIDER[model] ?? { provider: "dalle" as const };
-    const isNB       = routing.provider === "nano-banana";
-    const count      = isNB ? 1 : Math.min(batchSize, 4);
-    const nbVariant  = routing.nbVariant === "pro" && quality === "4K" ? "pro-4k" : routing.nbVariant;
-    const apiQuality = quality === "2K" ? "studio" : "cinematic";
-    const apiAr      = mapArToApiAr(aspectRatio);
+    // No silent fallback — explicitly fail if this model ID has no backend mapping
+    const modelKey = MODEL_TO_KEY[model];
+    if (!modelKey) {
+      console.error(`[ImageStudio] No modelKey mapping for model ID: "${model}". Generation aborted.`);
+      return;
+    }
+
+    const isNanoB    = modelKey.startsWith("nano-banana");
+    const isAsync    = isNanoB;   // NB = async polling; gpt-image-1 = sync
+    const count      = isAsync ? 1 : Math.min(batchSize, 4);
+    const apiQuality = quality === "2K" ? "high" : "auto";  // gpt-image-1 tiers
+    // AR routing: NB gets actual string; GPT gets collapsed 4-ratio set
+    const apiAr = isNanoB ? mapArForNB(aspectRatio) : mapArToApiAr(aspectRatio);
+
+    console.log("[ImageStudio] dispatch", { modelKey, prompt, aspectRatio: apiAr });
 
     // Add placeholder(s) immediately so the grid shows shimmer
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
@@ -464,20 +525,35 @@ function ImageStudioInner() {
       const ph = placeholders[i];
       try {
         const body: Record<string, unknown> = {
-          mode:        "image",
-          provider:    routing.provider,
+          modelKey,
           prompt,
-          quality:     apiQuality,
-          aspectRatio: apiAr,
+          ...(apiAr ? { aspectRatio: apiAr } : {}),
         };
-        if (nbVariant)                                body.metadata = { nbVariant };
-        if (currentModel.requiresImg && editImageUrl) body.imageUrl = editImageUrl;
 
-        const res = await fetch("/api/generate", {
+        if (modelKey === "gpt-image-1") {
+          // GPT Image: pass quality as providerParam; reference image as imageUrl
+          body.providerParams = { quality: apiQuality };
+          if (referenceImageUrl) body.imageUrl = referenceImageUrl;
+        } else if (isNanoB) {
+          // Nano Banana family: pass quality for resolution selection.
+          // outputFormat (JPG/PNG) only sent for NB2 — standard and Pro use NB default.
+          // googleSearch is backend-ready but NOT exposed from UI yet (Phase 1 lock).
+          const nbParams: Record<string, unknown> = { quality };
+          if (modelKey === "nano-banana-2") {
+            nbParams.outputFormat = outputFormat;
+          }
+          if (referenceImageUrl) {
+            // Single reference — passed as referenceUrls so provider builds imageUrls[] array
+            nbParams.referenceUrls = [referenceImageUrl];
+          }
+          body.providerParams = nbParams;
+        }
+
+        const res = await fetch("/api/studio/image/generate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(user.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {}),
+            Authorization:  `Bearer ${user.accessToken}`,
           },
           body: JSON.stringify(body),
         });
@@ -500,20 +576,29 @@ function ImageStudioInner() {
               img.id === ph.id ? { ...img, url: data.data.url as string, status: "done" } : img
             )
           );
+          void recordFlowStep({
+            studioType:  "image",
+            modelKey,
+            prompt,
+            resultUrl:   data.data.url as string,
+            assetId:     data.data.assetId as string | undefined,
+            aspectRatio: apiAr,
+          });
           continue;
         }
 
         // ── Async / pending (Nano Banana) ──────────────────────────────────
-        // The job was accepted; poll the status endpoint until it resolves.
-        if (data.data?.status === "pending" && data.generation?.id) {
-          const generationId = data.generation.id as string;
-          const providerKey  = routing.provider;
-          const authHeader: Record<string, string> = user.accessToken
-            ? { Authorization: `Bearer ${user.accessToken}` }
-            : {};
+        // The job was accepted; poll /api/studio/jobs/${jobId}/status until it resolves.
+        if (data.data?.status === "pending") {
+          // Safeguard: pending without a jobId must never silently hang
+          if (!data.data?.jobId) {
+            throw new Error("Generation accepted as pending but no jobId returned — cannot poll for result.");
+          }
+          const jobId     = data.data.jobId as string;
+          const authHeader = { Authorization: `Bearer ${user.accessToken}` };
 
           const POLL_INTERVAL = 4_000;   // 4 s between polls
-          const POLL_TIMEOUT  = 300_000; // give up after 5 min (NB Pro can take 3–5 min)
+          const POLL_TIMEOUT  = 600_000; // give up after 10 min (NB can take 5–8 min on heavy load)
           const deadline      = Date.now() + POLL_TIMEOUT;
 
           let resolved        = false;
@@ -524,10 +609,22 @@ function ImageStudioInner() {
 
             try {
               const statusRes  = await fetch(
-                `/api/generate/status/${providerKey}/${generationId}`,
+                `/api/studio/jobs/${jobId}/status`,
                 { headers: { "Content-Type": "application/json", ...authHeader } }
               );
               const statusData = await statusRes.json();
+
+              // 404 = asset row was never written (persistAsset silent failure) — terminal
+              if (statusRes.status === 404) {
+                generationErr = new Error("Job record not found — the generation was lost. Please try again.");
+                break;
+              }
+
+              // Other non-transient errors — treat as terminal
+              if (!statusRes.ok && statusRes.status !== 502 && statusRes.status !== 503) {
+                generationErr = new Error(statusData.error ?? `Status check failed (${statusRes.status})`);
+                break;
+              }
 
               if (statusData.data?.status === "success" && statusData.data?.url) {
                 setImages((prev) =>
@@ -537,6 +634,14 @@ function ImageStudioInner() {
                       : img
                   )
                 );
+                void recordFlowStep({
+                  studioType:  "image",
+                  modelKey,
+                  prompt,
+                  resultUrl:   statusData.data.url as string,
+                  assetId:     statusData.data.assetId as string | undefined,
+                  aspectRatio: apiAr,
+                });
                 resolved = true;
                 break;
               }
@@ -553,7 +658,17 @@ function ImageStudioInner() {
           }
 
           if (generationErr) throw generationErr;
-          if (!resolved) throw new Error("Generation timed out. The image may still be processing.");
+          if (!resolved) {
+            // NB Pro regularly takes 3–5 min; NB Standard 1–3 min. If the 5-min window
+            // expired without a result, the job is still running on NB's servers.
+            // Next deploy will have Vercel logs showing the raw NB poll response.
+            const isNB = modelKey.startsWith("nano-banana");
+            throw new Error(
+              isNB
+                ? `Nano Banana took longer than ${Math.round(POLL_TIMEOUT / 60_000)} minutes. Your job may still be processing on their servers. Check Vercel logs for the raw NB poll response.`
+                : "Generation timed out. The image may still be processing."
+            );
+          }
           continue;
         }
 
@@ -572,7 +687,17 @@ function ImageStudioInner() {
 
     // Refresh credit balance so the pill reflects the new total
     await refreshUser();
-  }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, batchSize, model, editImageUrl]);
+  }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, outputFormat, batchSize, model, editImageUrl, referenceImageUrl, recordFlowStep]);
+
+  // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
+  const handleVariation = useCallback((step: FlowStep) => {
+    // Restore the step's original settings then re-generate
+    setPrompt(step.prompt);
+    const uiModelId = KEY_TO_MODEL[step.modelKey];
+    if (uiModelId) setModel(uiModelId);
+    // generate() reads from state — call after micro-task so state has settled
+    setTimeout(() => generate(), 0);
+  }, [generate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
@@ -640,7 +765,7 @@ function ImageStudioInner() {
           </div>
         </div>
 
-        {/* Right: Zoom slider + credits + user */}
+        {/* Right: Zoom slider */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {/* Zoom control with % display */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -680,40 +805,6 @@ function ImageStudioInner() {
               title="Zoom in"
             >+</button>
           </div>
-
-          {/* Credits pill — live balance, refreshed after each generation */}
-          {user && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "4px 10px", borderRadius: 20,
-              background: "rgba(37,99,235,0.15)",
-              border: "1px solid rgba(37,99,235,0.3)",
-              fontSize: 12, fontWeight: 600, color: "#60A5FA",
-              whiteSpace: "nowrap",
-            }}>
-              ⚡ {user.credits}
-            </div>
-          )}
-
-          {/* User avatar / login */}
-          {user ? (
-            <div style={{
-              width: 28, height: 28, borderRadius: "50%",
-              background: "linear-gradient(135deg, #2563EB, #0EA5A0)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer", flexShrink: 0,
-            }}>
-              {user.name?.charAt(0).toUpperCase() ?? "Z"}
-            </div>
-          ) : (
-            <button onClick={() => setAuthModal(true)} style={{
-              padding: "5px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              background: "linear-gradient(135deg, #2563EB, #7C3AED)",
-              color: "#fff", border: "none", cursor: "pointer",
-            }}>
-              Login
-            </button>
-          )}
         </div>
       </div>
 
@@ -835,18 +926,123 @@ function ImageStudioInner() {
         }}>
           {/* Prompt row */}
           <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0" }}>
-            {/* Add reference button */}
-            <button style={{
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0, marginTop: 2,
-              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
-              color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: 20,
-              display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-            title="Add reference image">
-              +
-            </button>
+            {/* Hidden file input for reference image */}
+            <input
+              ref={referenceInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !user) return;
+                e.target.value = "";
+
+                // Show a local preview immediately while upload is in progress
+                const blobPreview = URL.createObjectURL(file);
+                setReferencePreviewUrl(blobPreview);
+                setReferenceImageUrl("");        // clear any prior CDN URL
+                setReferenceUploading(true);
+
+                try {
+                  const form = new FormData();
+                  form.append("file", file);
+                  const res = await fetch("/api/studio/upload-reference", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${user.accessToken}` },
+                    body: form,
+                  });
+                  const json = await res.json();
+                  if (res.ok && json.url) {
+                    setReferenceImageUrl(json.url);   // real CDN URL — safe for backend
+                  } else {
+                    console.error("[ref upload] failed:", json.error);
+                    // Clear preview on failure so user knows it didn't work
+                    URL.revokeObjectURL(blobPreview);
+                    setReferencePreviewUrl("");
+                  }
+                } catch (err) {
+                  console.error("[ref upload] network error:", err);
+                  URL.revokeObjectURL(blobPreview);
+                  setReferencePreviewUrl("");
+                } finally {
+                  setReferenceUploading(false);
+                }
+              }}
+            />
+            {/* Reference image slot: uploading spinner → ready thumbnail → empty + button */}
+            {referenceUploading ? (
+              /* ── Uploading state: spinner overlay on the blob preview ── */
+              <div style={{ position: "relative", flexShrink: 0, marginTop: 2, width: 36, height: 36 }}>
+                {referencePreviewUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={referencePreviewUrl}
+                    alt="Uploading…"
+                    style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", opacity: 0.4 }}
+                  />
+                )}
+                {/* Spinner ring */}
+                <div style={{
+                  position: "absolute", inset: 0, borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: referencePreviewUrl ? "transparent" : "rgba(37,99,235,0.15)",
+                  border: "1px solid rgba(37,99,235,0.35)",
+                }}>
+                  <div style={{
+                    width: 16, height: 16, borderRadius: "50%",
+                    border: "2px solid rgba(96,165,250,0.25)",
+                    borderTopColor: "#60A5FA",
+                    animation: "spin 0.7s linear infinite",
+                  }} />
+                </div>
+              </div>
+            ) : referenceImageUrl ? (
+              /* ── Ready: thumbnail with remove button ── */
+              <div style={{ position: "relative", flexShrink: 0, marginTop: 2 }} title="Reference image ready — click to replace">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={referencePreviewUrl || referenceImageUrl}
+                  alt="Reference"
+                  onClick={() => referenceInputRef.current?.click()}
+                  style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(245,158,11,0.6)" }}
+                />
+                {/* Checkmark badge — confirms CDN URL is set */}
+                <div style={{
+                  position: "absolute", bottom: -4, right: -4,
+                  width: 14, height: 14, borderRadius: "50%",
+                  background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
+                }}>✓</div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setReferenceImageUrl(""); setReferencePreviewUrl(""); }}
+                  style={{
+                    position: "absolute", top: -6, right: -6,
+                    width: 16, height: 16, borderRadius: "50%",
+                    background: "rgba(239,68,68,0.9)", border: "none",
+                    color: "#fff", fontSize: 9, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+                  }}
+                  title="Remove reference image"
+                >×</button>
+              </div>
+            ) : (
+              /* ── Empty: add button ── */
+              <button
+                onClick={() => referenceInputRef.current?.click()}
+                style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0, marginTop: 2,
+                  background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: 20,
+                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+                title="Add reference image"
+              >
+                +
+              </button>
+            )}
 
             {/* Prompt textarea */}
             <textarea
@@ -1028,6 +1224,27 @@ function ImageStudioInner() {
               </div>
             )}
 
+            {/* Output format — JPG / PNG (Nano Banana 2 only) */}
+            {currentModel.id === "nano-banana-2" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                {(["JPG", "PNG"] as OutputFormat[]).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setOutputFormat(fmt)}
+                    style={{
+                      ...ctrlBtn(outputFormat === fmt),
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: outputFormat === fmt ? 600 : 500,
+                    }}
+                    title={fmt === "JPG" ? "JPEG output" : "PNG output (lossless)"}
+                  >
+                    {fmt}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Edit image input — shown when model requires a source image */}
             {currentModel.requiresImg && (
               <>
@@ -1094,46 +1311,67 @@ function ImageStudioInner() {
               <kbd style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.25)", background: "transparent" }}>↵</kbd>
             </span>
 
-            {/* Generate button */}
-            <button
-              onClick={generate}
-              disabled={!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl)}
-              style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
-                border: "none",
-                cursor: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
-                  ? "not-allowed" : "pointer",
-                background: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
-                  ? "rgba(255,255,255,0.07)"
-                  : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-                color: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
-                  ? "rgba(255,255,255,0.2)" : "#fff",
-                transition: "all 0.2s", letterSpacing: "0.02em",
-                boxShadow: (!prompt.trim() || !currentModel.available || (currentModel.requiresImg && !editImageUrl))
-                  ? "none" : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
-                minWidth: 140,
-              }}
-              onMouseEnter={e => { if (prompt.trim() && currentModel.available) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = prompt.trim() && currentModel.available ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "none"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
-            >
-              ⚡ Generate
-              {currentModel.available && (
-                <span style={{
-                  fontSize: 11, fontWeight: 600, opacity: 0.8,
-                  background: "rgba(0,0,0,0.25)", padding: "2px 7px", borderRadius: 6,
-                }}>
-                  ✦ {computeCredits(model, quality, MODEL_TO_PROVIDER[model]?.provider === "nano-banana" ? 1 : Math.min(batchSize, 4))} cr
-                </span>
-              )}
-            </button>
+            {/* Generate button — disabled while reference image is uploading */}
+            {(() => {
+              const isDisabled = !prompt.trim() || !currentModel.available
+                || (currentModel.requiresImg && !editImageUrl)
+                || referenceUploading;
+              const isUploadWait = referenceUploading;
+              return (
+                <button
+                  onClick={generate}
+                  disabled={isDisabled}
+                  title={isUploadWait ? "Waiting for reference image to finish uploading…" : undefined}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
+                    border: "none",
+                    cursor: isDisabled ? "not-allowed" : "pointer",
+                    background: isDisabled
+                      ? "rgba(255,255,255,0.07)"
+                      : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                    color: isDisabled ? "rgba(255,255,255,0.2)" : "#fff",
+                    transition: "all 0.2s", letterSpacing: "0.02em",
+                    boxShadow: isDisabled ? "none" : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
+                    minWidth: 140,
+                  }}
+                  onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "none"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                >
+                  {isUploadWait ? (
+                    <>
+                      <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.6)", animation: "spin 0.7s linear infinite" }} />
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      ⚡ Generate
+                      {currentModel.available && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, opacity: 0.8,
+                          background: "rgba(0,0,0,0.25)", padding: "2px 7px", borderRadius: 6,
+                        }}>
+                          ✦ {computeCredits(model, quality, MODEL_TO_KEY[model]?.startsWith("nano-banana") ? 1 : Math.min(batchSize, 4))} cr
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </div>
 
         {/* Notices */}
+        {referenceUploading && (
+          <p style={{ textAlign: "center", fontSize: 11, color: "rgba(96,165,250,0.85)", marginTop: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", border: "1.5px solid rgba(96,165,250,0.3)", borderTopColor: "#60A5FA", animation: "spin 0.7s linear infinite" }} />
+            Uploading reference image… Generate will unlock when it&apos;s ready.
+          </p>
+        )}
         {!currentModel.available && (
           <p style={{ textAlign: "center", fontSize: 11, color: "rgba(255,165,0,0.7)", marginTop: 8 }}>
-            {currentModel.name} is coming soon — try DALL·E 3 or Nano Banana
+            {currentModel.name} is coming soon — try GPT Image or Nano Banana
           </p>
         )}
         {currentModel.requiresImg && !editImageUrl && (
@@ -1145,6 +1383,10 @@ function ImageStudioInner() {
 
       {/* Auth modal */}
       {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
+
+      {/* ── Creative Flow overlays ────────────────────────────────────────── */}
+      <FlowBar />
+      <NextStepPanel onVariation={handleVariation} />
 
       <style>{`
         input[type=range]::-webkit-slider-thumb {

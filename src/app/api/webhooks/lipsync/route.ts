@@ -31,11 +31,18 @@ function hexToBuffer(hex: string): ArrayBuffer {
 }
 
 export async function POST(req: Request) {
-  const rawBody  = await req.text();
+  const rawBody   = await req.text();
   const signature = req.headers.get("x-lipsync-signature") ?? req.headers.get("x-signature") ?? "";
+  const isProd    = process.env.NODE_ENV === "production";
 
-  // ── Signature verification (skip if secret not configured) ───────────────
-  if (WEBHOOK_SECRET) {
+  // ── Signature verification ────────────────────────────────────────────────
+  if (!WEBHOOK_SECRET) {
+    if (isProd) {
+      console.error("[webhook/lipsync] SECURITY: LIPSYNC_WEBHOOK_SECRET not configured — rejecting in production");
+      return NextResponse.json({ success: false, error: "Webhook not configured" }, { status: 500 });
+    }
+    // Dev only: allow through without verification
+  } else {
     const valid = await verifyHmac(rawBody, signature, WEBHOOK_SECRET);
     if (!valid) {
       return NextResponse.json({ success: false, error: "Invalid signature" }, { status: 401 });

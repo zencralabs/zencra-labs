@@ -6,6 +6,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { GeneratedVideo } from "./types";
+import { useAuth } from "@/components/auth/AuthContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,14 +49,16 @@ function StatusBadge({ status }: { status: GeneratedVideo["status"] }) {
 
 // ── Video card ────────────────────────────────────────────────────────────────
 
-function VideoCard({ video, onReuse, onDelete }: {
+function VideoCard({ video, onReuse, onDelete, onAuthRequired }: {
   video: GeneratedVideo;
   onReuse: (v: GeneratedVideo) => void;
   onDelete: (id: string) => void;
+  onAuthRequired?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied]   = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { user } = useAuth();
 
   const handleMouseEnter = useCallback(() => {
     setHovered(true);
@@ -83,6 +86,8 @@ function VideoCard({ video, onReuse, onDelete }: {
 
   function handleDownload() {
     if (!video.url) return;
+    // Auth gate — non-members must sign up before downloading
+    if (!user) { onAuthRequired?.(); return; }
     const a = document.createElement("a");
     a.href = video.url;
     a.download = `zencra-video-${video.id}.mp4`;
@@ -243,9 +248,11 @@ function VideoCard({ video, onReuse, onDelete }: {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  videos: GeneratedVideo[];
-  onReusePrompt: (v: GeneratedVideo) => void;
-  onDelete?: (id: string) => void;
+  videos:         GeneratedVideo[];
+  onReusePrompt:  (v: GeneratedVideo) => void;
+  onDelete?:      (id: string) => void;
+  /** Called when a non-member tries a protected action (Download, Extend, etc.) */
+  onAuthRequired?: () => void;
 }
 
 // ── Filter / sort types ───────────────────────────────────────────────────────
@@ -256,7 +263,7 @@ type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }: Props) {
+export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired }: Props) {
   const [filter, setFilter]     = useState<FilterTab>("all");
   const [sort, setSort]         = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
@@ -459,6 +466,7 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete }:
               video={v}
               onReuse={onReusePrompt}
               onDelete={onDelete ?? (() => {})}
+              onAuthRequired={onAuthRequired}
             />
           ))}
         </div>

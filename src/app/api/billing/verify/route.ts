@@ -29,7 +29,6 @@ import { BILLING_DEMO_MODE, DEMO_RAZORPAY_SIGNATURE } from "@/lib/billing/demo";
 import type { RazorpayVerifyPayload } from "@/lib/billing/types";
 
 const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * Returns true when signature verification should be skipped.
@@ -49,10 +48,10 @@ export async function POST(req: Request) {
   try {
     // ── 1. Auth ──────────────────────────────────────────────────────────────
     const authUser = await getAuthUser(req);
-    if (!authUser && !IS_DEV) {
+    if (!authUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     // ── 2. Parse and validate body ───────────────────────────────────────────
     const body = await req.json() as Partial<RazorpayVerifyPayload>;
@@ -67,8 +66,10 @@ export async function POST(req: Request) {
 
     // ── 3. Verify signature ──────────────────────────────────────────────────
     // Skip only when: BILLING_DEMO_MODE=true AND sentinel signature is present.
-    // In all other cases (including all production requests) the HMAC runs.
-    const skipSig = IS_DEV || shouldSkipSignatureVerification(razorpaySignature);
+    // In all other cases (including all production and IS_DEV requests) the HMAC runs.
+    // IS_DEV is intentionally NOT part of this condition — bypassing HMAC via env flag
+    // is a security hole if DEMO_MODE=true ever leaks into production.
+    const skipSig = shouldSkipSignatureVerification(razorpaySignature);
 
     if (!skipSig) {
       let signatureValid: boolean;

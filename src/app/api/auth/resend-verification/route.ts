@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendVerificationEmail } from "@/lib/email/resend";
+import { checkAuthRateLimit } from "@/lib/security/rate-limit";
 
 /**
  * POST /api/auth/resend-verification
@@ -16,6 +17,12 @@ import { sendVerificationEmail } from "@/lib/email/resend";
  */
 
 export async function POST(req: NextRequest) {
+  // ── Auth rate limit (5 req / 10 min per IP) ─────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? crypto.randomUUID();
+  const rateLimitError = await checkAuthRateLimit(ip);
+  if (rateLimitError) return rateLimitError;
+
   const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey   = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {

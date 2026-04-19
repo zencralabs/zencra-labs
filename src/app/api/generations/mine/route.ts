@@ -5,10 +5,16 @@
  * Used by the studio pages to populate the History panel on load.
  *
  * Query params:
- *   category    "image" | "video" | "audio"   (required — filters by tool_category)
+ *   category    "image" | "video" | "audio"   (required — filters by studio type)
  *   page        number  (default 1)
  *   pageSize    number  (default 30, max 100)
- *   status      "completed" | "processing" | "all"  (default "completed")
+ *
+ * NOTE: Queries the `assets` table (new provider system).
+ * Column mapping to legacy shape so studio pages don't need updating:
+ *   model_key      → tool
+ *   studio         → tool_category
+ *   url            → result_url
+ *   { aspect_ratio } → parameters.aspectRatio
  */
 
 import { NextResponse }  from "next/server";
@@ -17,57 +23,62 @@ import { getAuthUser }   from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
-
 export async function GET(req: Request) {
   try {
     // ── Auth ─────────────────────────────────────────────────────────────────
     const authUser = await getAuthUser(req);
-    if (!authUser && !IS_DEV) {
+    if (!authUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     // ── Params ───────────────────────────────────────────────────────────────
     const { searchParams } = new URL(req.url);
     const category  = searchParams.get("category") ?? "image";
     const page      = Math.max(1, parseInt(searchParams.get("page")     ?? "1",  10));
     const pageSize  = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "30", 10)));
-    const statusParam = searchParams.get("status") ?? "completed";
 
     const from = (page - 1) * pageSize;
     const to   = from + pageSize - 1;
 
-    // ── Query ────────────────────────────────────────────────────────────────
-    let query = supabaseAdmin
-      .from("generations")
+    // ── Query assets table ────────────────────────────────────────────────────
+    const { data, error, count } = await supabaseAdmin
+      .from("assets")
       .select(
-        `id, tool, tool_category, prompt, status, result_url, result_urls,
-         visibility, project_id, credits_used, parameters, created_at, completed_at`,
+        "id, model_key, studio, prompt, status, url, aspect_ratio, created_at",
         { count: "exact" }
       )
-      .eq("user_id",       userId)
-      .eq("tool_category", category)
-      .not("result_url",   "is", null)
+      .eq("user_id",  userId)
+      .eq("studio",   category)
+      .eq("status",   "ready")
+      .not("url",     "is", null)
       .order("created_at", { ascending: false })
       .range(from, to);
-
-    // Filter by status unless caller wants all
-    if (statusParam !== "all") {
-      query = query.eq("status", statusParam);
-    }
-
-    const { data, error, count } = await query;
 
     if (error) {
       console.error("[GET /api/generations/mine]", error.message);
       return NextResponse.json({ success: false, error: "Failed to fetch history" }, { status: 500 });
     }
 
+    // ── Map to legacy shape expected by studio pages ───────────────────────────
+    const mapped = (data ?? []).map((row) => ({
+      id:            row.id,
+      tool:          row.model_key,
+      tool_category: row.studio,
+      prompt:        row.prompt ?? "",
+      status:        "completed",
+      result_url:    row.url,
+      result_urls:   row.url ? [row.url] : null,
+      visibility:    "project",
+      project_id:    null,
+      credits_used:  0,
+      parameters:    row.aspect_ratio ? { aspectRatio: row.aspect_ratio } : null,
+      created_at:    row.created_at,
+    }));
+
     return NextResponse.json({
       success:  true,
-      data:     data ?? [],
+      data:     mapped,
       total:    count ?? 0,
       page,
       pageSize,

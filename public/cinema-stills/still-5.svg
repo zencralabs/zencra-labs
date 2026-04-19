@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="sky5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#020d18"/>
+      <stop offset="55%" stop-color="#051525"/>
+      <stop offset="100%" stop-color="#0a1e30"/>
+    </linearGradient>
+    <linearGradient id="ocean5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a1e30"/>
+      <stop offset="50%" stop-color="#06121e"/>
+      <stop offset="100%" stop-color="#030a12"/>
+    </linearGradient>
+    <radialGradient id="lightning5" cx="50%" cy="0%" r="80%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <filter id="blur5"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="blur5b"><feGaussianBlur stdDeviation="1.5"/></filter>
+  </defs>
+  <!-- Sky -->
+  <rect width="800" height="450" fill="url(#sky5)"/>
+  <!-- Storm cloud mass -->
+  <ellipse cx="280" cy="100" rx="220" ry="80" fill="#0d1825" opacity="0.9"/>
+  <ellipse cx="520" cy="130" rx="200" ry="70" fill="#0a1520" opacity="0.9"/>
+  <ellipse cx="400" cy="80" rx="280" ry="90" fill="#080f1a" opacity="0.8"/>
+  <ellipse cx="150" cy="150" rx="160" ry="60" fill="#0d1825" opacity="0.7"/>
+  <ellipse cx="660" cy="160" rx="180" ry="65" fill="#0a1520" opacity="0.7"/>
+  <!-- Lightning glow in clouds -->
+  <ellipse cx="400" cy="120" rx="100" ry="50" fill="#3B82F6" opacity="0.08" filter="url(#blur5)"/>
+  <!-- Lightning bolt -->
+  <polyline points="420,60 400,120 415,120 390,200" stroke="#93C5FD" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <polyline points="420,60 400,120 415,120 390,200" stroke="white" stroke-width="0.5" fill="none" opacity="0.9"/>
+  <!-- Stars visible above storm -->
+  <g fill="white" opacity="0.4">
+    <circle cx="50" cy="38" r="0.6"/><circle cx="100" cy="25" r="0.5"/><circle cx="700" cy="32" r="0.6"/>
+    <circle cx="750" cy="48" r="0.5"/><circle cx="770" cy="20" r="0.7"/>
+  </g>
+  <!-- Horizon atmospheric light -->
+  <ellipse cx="400" cy="250" rx="400" ry="25" fill="#1E40AF" opacity="0.1" filter="url(#blur5)"/>
+  <!-- Ocean surface -->
+  <rect x="0" y="248" width="800" height="202" fill="url(#ocean5)"/>
+  <!-- Wave layers -->
+  <path d="M0,260 Q40,252 80,262 Q120,272 160,258 Q200,248 240,260 Q280,272 320,255 Q360,242 400,258 Q440,272 480,255 Q520,242 560,258 Q600,272 640,255 Q680,242 720,258 Q760,272 800,255 L800,280 L0,280Z" fill="#0d2035" opacity="0.6"/>
+  <path d="M0,275 Q50,268 100,278 Q150,290 200,272 Q250,258 300,275 Q350,290 400,270 Q450,255 500,272 Q550,288 600,270 Q650,255 700,272 Q750,288 800,270 L800,310 L0,310Z" fill="#0a1830" opacity="0.5"/>
+  <path d="M0,300 Q60,290 120,305 Q180,318 240,298 Q300,280 360,300 Q420,318 480,298 Q540,280 600,300 Q660,318 720,300 Q760,290 800,300 L800,340 L0,340Z" fill="#060f20" opacity="0.7"/>
+  <!-- Distant cliffs/rocks silhouette -->
+  <path d="M0,248 Q30,230 60,245 Q80,255 110,235 Q130,222 150,240 L150,248 L0,248Z" fill="#040b15"/>
+  <path d="M650,248 Q680,225 710,240 Q730,252 755,230 Q775,215 800,238 L800,248 L650,248Z" fill="#040b15"/>
+  <!-- Rain -->
+  <g stroke="rgba(100,160,220,0.2)" stroke-width="0.6">
+    <line x1="80" y1="0" x2="60" y2="248"/><line x1="160" y1="0" x2="140" y2="248"/>
+    <line x1="250" y1="0" x2="230" y2="248"/><line x1="340" y1="0" x2="320" y2="248"/>
+    <line x1="430" y1="0" x2="410" y2="248"/><line x1="520" y1="0" x2="500" y2="248"/>
+    <line x1="610" y1="0" x2="590" y2="248"/><line x1="700" y1="0" x2="680" y2="248"/>
+    <line x1="790" y1="0" x2="770" y2="248"/>
+  </g>
+  <!-- Ocean reflection of lightning -->
+  <ellipse cx="400" cy="290" rx="80" ry="12" fill="#3B82F6" opacity="0.08" filter="url(#blur5b)"/>
+  <!-- Letterbox -->
+  <rect width="800" height="38" fill="black"/>
+  <rect y="412" width="800" height="38" fill="black"/>
+  <text x="24" y="24" font-family="monospace" font-size="9" fill="rgba(96,165,250,0.6)" letter-spacing="3">STORM COAST · MIDNIGHT</text>
+</svg>

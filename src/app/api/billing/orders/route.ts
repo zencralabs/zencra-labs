@@ -8,11 +8,13 @@
  *   4. Updates the order row with provider_order_id
  *   5. Returns the provider-specific clientPayload for the frontend
  *
+ * Headers:
+ *   Idempotency-Key: <UUID v4>  — required, client-generated UUID v4
+ *
  * Body:
  *   {
- *     packId:         string               // credit_packs.id
- *     provider:       "razorpay" | "stripe"
- *     idempotencyKey: string               // client-generated, e.g. `${userId}-${packId}-${Date.now()}`
+ *     packId:    string               // credit_packs.id
+ *     provider:  "razorpay" | "stripe"
  *   }
  *
  * Response (Razorpay):
@@ -44,26 +46,40 @@ import { getAuthUser } from "@/lib/supabase/server";
 import { getBillingAdapter } from "@/lib/billing/providers";
 import type { BillingProvider, CreditPack } from "@/lib/billing/types";
 
-const IS_DEV = process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
-const DEV_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 
 export async function POST(req: Request) {
   try {
     // ── 1. Auth ──────────────────────────────────────────────────────────────
     const authUser = await getAuthUser(req);
-    if (!authUser && !IS_DEV) {
+    if (!authUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const userId = authUser?.id ?? DEV_DEMO_USER_ID;
+    const userId = authUser.id;
 
     // ── 2. Validate input ────────────────────────────────────────────────────
     const body = await req.json() as {
-      packId?:         string;
-      provider?:       string;
-      idempotencyKey?: string;
+      packId?:   string;
+      provider?: string;
     };
 
-    const { packId, provider, idempotencyKey } = body;
+    const { packId, provider } = body;
+
+    // Idempotency-Key must come from the request header (not body) as UUID v4
+    const idempotencyKey = req.headers.get("Idempotency-Key");
+    if (!idempotencyKey) {
+      return NextResponse.json(
+        { success: false, error: "Idempotency-Key header is required" },
+        { status: 400 }
+      );
+    }
+    if (!UUID_V4_RE.test(idempotencyKey)) {
+      return NextResponse.json(
+        { success: false, error: "Idempotency-Key must be a valid UUID v4" },
+        { status: 400 }
+      );
+    }
 
     if (!packId || typeof packId !== "string") {
       return NextResponse.json({ success: false, error: "packId is required" }, { status: 400 });
@@ -74,10 +90,6 @@ export async function POST(req: Request) {
         { success: false, error: "provider must be 'razorpay' or 'stripe'" },
         { status: 400 }
       );
-    }
-
-    if (!idempotencyKey || typeof idempotencyKey !== "string") {
-      return NextResponse.json({ success: false, error: "idempotencyKey is required" }, { status: 400 });
     }
 
     // ── 3. Load the pack ─────────────────────────────────────────────────────

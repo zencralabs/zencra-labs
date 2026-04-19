@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { compressImage, isImageMime } from "@/lib/media/compress-image";
+import { requireAuthUser } from "@/lib/supabase/server";
 
 // ── Supabase admin client (uses service role key — server only) ───────────────
 function getSupabaseAdmin() {
@@ -36,11 +37,23 @@ function getSupabaseAdmin() {
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20 MB input limit
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB input limit
 
+/** Explicit allowlist — callers cannot upload to arbitrary buckets */
+const ALLOWED_BUCKETS = new Set(["media", "showcase"]);
+
 export async function POST(req: NextRequest) {
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const { authError } = await requireAuthUser(req);
+  if (authError) return authError;
+
   try {
     const form   = await req.formData();
     const file   = form.get("file") as File | null;
     const bucket = (form.get("bucket") as string | null) ?? "media";
+
+    // ── Bucket allowlist ──────────────────────────────────────────────────
+    if (!ALLOWED_BUCKETS.has(bucket)) {
+      return NextResponse.json({ success: false, error: `Invalid bucket. Allowed: ${[...ALLOWED_BUCKETS].join(", ")}` }, { status: 400 });
+    }
     const folder = (form.get("folder") as string | null) ?? "";
 
     if (!file) {

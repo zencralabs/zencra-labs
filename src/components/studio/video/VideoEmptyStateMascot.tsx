@@ -7,6 +7,8 @@
 interface Props {
   onUpload?: () => void;
   onSamplePrompt?: () => void;
+  /** Current cinematic sample prompt to preview — rotates on each click */
+  samplePrompt?: string;
 }
 
 // Inline SVG mascot — stylized clapperboard with teal/blue glow identity
@@ -82,7 +84,7 @@ function ZencraClapperMascot() {
   );
 }
 
-export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Props) {
+export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt, samplePrompt }: Props) {
   return (
     <div
       style={{
@@ -244,24 +246,42 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt }: Prop
         </button>
       </div>
 
-      {/* Subtle hint chips */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 30, opacity: 0.65 }}>
-        {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
-          <span
-            key={hint}
-            style={{
-              fontSize: 12,
-              color: "#475569",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 20,
-              padding: "4px 12px",
-            }}
-          >
-            {hint}
-          </span>
-        ))}
-      </div>
+      {/* Sample prompt preview + style chips */}
+      {samplePrompt ? (
+        <div style={{
+          marginTop: 24,
+          maxWidth: 400,
+          padding: "10px 16px",
+          borderRadius: 10,
+          border: "1px solid rgba(37,99,235,0.22)",
+          background: "rgba(37,99,235,0.06)",
+          fontSize: 13,
+          color: "#94A3B8",
+          lineHeight: 1.55,
+          fontStyle: "italic",
+          textAlign: "center",
+        }}>
+          &ldquo;{samplePrompt}&rdquo;
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 30, opacity: 0.65 }}>
+          {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
+            <span
+              key={hint}
+              style={{
+                fontSize: 12,
+                color: "#475569",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 20,
+                padding: "4px 12px",
+              }}
+            >
+              {hint}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
