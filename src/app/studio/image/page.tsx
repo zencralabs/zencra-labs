@@ -602,6 +602,7 @@ function ImageStudioInner() {
           const deadline      = Date.now() + POLL_TIMEOUT;
 
           let resolved        = false;
+          let providerDone    = false; // provider said success but URL not yet captured
           let generationErr: Error | null = null;
 
           while (Date.now() < deadline) {
@@ -626,24 +627,29 @@ function ImageStudioInner() {
                 break;
               }
 
-              if (statusData.data?.status === "success" && statusData.data?.url) {
-                setImages((prev) =>
-                  prev.map((img) =>
-                    img.id === ph.id
-                      ? { ...img, url: statusData.data.url as string, status: "done" }
-                      : img
-                  )
-                );
-                void recordFlowStep({
-                  studioType:  "image",
-                  modelKey,
-                  prompt,
-                  resultUrl:   statusData.data.url as string,
-                  assetId:     statusData.data.assetId as string | undefined,
-                  aspectRatio: apiAr,
-                });
-                resolved = true;
-                break;
+              if (statusData.data?.status === "success") {
+                providerDone = true;
+                if (statusData.data?.url) {
+                  setImages((prev) =>
+                    prev.map((img) =>
+                      img.id === ph.id
+                        ? { ...img, url: statusData.data.url as string, status: "done" }
+                        : img
+                    )
+                  );
+                  void recordFlowStep({
+                    studioType:  "image",
+                    modelKey,
+                    prompt,
+                    resultUrl:   statusData.data.url as string,
+                    assetId:     statusData.data.assetId as string | undefined,
+                    aspectRatio: apiAr,
+                  });
+                  resolved = true;
+                  break;
+                }
+                // Provider returned success but URL is missing — keep polling (brief persistence lag)
+                continue;
               }
 
               if (statusData.data?.status === "error") {
@@ -659,13 +665,14 @@ function ImageStudioInner() {
 
           if (generationErr) throw generationErr;
           if (!resolved) {
-            // NB Pro regularly takes 3–5 min; NB Standard 1–3 min. If the 5-min window
-            // expired without a result, the job is still running on NB's servers.
-            // Next deploy will have Vercel logs showing the raw NB poll response.
+            if (providerDone) {
+              // Provider completed but URL never arrived — likely a persistence lag
+              throw new Error("Generation completed on the provider side but no image URL was returned. Please refresh the page to see your result.");
+            }
             const isNB = modelKey.startsWith("nano-banana");
             throw new Error(
               isNB
-                ? `Nano Banana took longer than ${Math.round(POLL_TIMEOUT / 60_000)} minutes. Your job may still be processing on their servers. Check Vercel logs for the raw NB poll response.`
+                ? `Generation is taking longer than ${Math.round(POLL_TIMEOUT / 60_000)} minutes. Your image may still be processing — check back in a moment.`
                 : "Generation timed out. The image may still be processing."
             );
           }
@@ -883,26 +890,25 @@ function ImageStudioInner() {
             </div>
           </div>
         ) : (
-          /* Image grid */
+          /* Masonry image grid */
           <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
-            gap: 8,
-            transition: "grid-template-columns 0.3s ease",
+            columns: `${gridMinSize}px`,
+            columnGap: 8,
           }}>
             {images.map((img) => (
-              <ImageCard
-                key={img.id}
-                img={img}
-                onRegenerate={(_prompt, _model, _ar) => {
-                  // Re-trigger generate with same params
-                  generate();
-                }}
-                onReusePrompt={(p) => {
-                  setPrompt(p);
-                  promptRef.current?.focus();
-                }}
-              />
+              <div key={img.id} style={{ breakInside: "avoid", marginBottom: 8 }}>
+                <ImageCard
+                  img={img}
+                  onRegenerate={(_prompt, _model, _ar) => {
+                    // Re-trigger generate with same params
+                    generate();
+                  }}
+                  onReusePrompt={(p) => {
+                    setPrompt(p);
+                    promptRef.current?.focus();
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}

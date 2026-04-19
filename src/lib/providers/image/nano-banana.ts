@@ -311,21 +311,46 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         taskStatusStr === "GENERATE_FAILED";
 
       // ── Extract image URL — cover every known NB response shape ───────────
-      // Priority: data.imageUrl → data.image_url → data.url →
-      //           data.images[0] → data.output.image → data.result.url →
-      //           body-level equivalents
+      // CONFIRMED by NB API logs (Apr 20 2026): production field is "result_urls"
+      // returned as an array of strings, e.g. ["https://tempfile.aiquickdraw.com/..."]
+      //
+      // Priority:
+      //   1. result_urls (array or comma-string) ← actual production field
+      //   2. imageUrl / image_url / url / imagUrl ← fallback snake/camel variants
+      //   3. images[] / imageUrls[]               ← array shorthands
+      //   4. output.image / output.url            ← nested output objects
+      //   5. result.url / result.image            ← nested result objects
       const extractUrl = (src: Record<string, unknown>): string | undefined => {
+        // ── 1. result_urls — confirmed production field ──────────────────────
+        if (Array.isArray(src.result_urls)) {
+          for (const u of src.result_urls) {
+            if (typeof u === "string" && u.trim()) return u.trim();
+          }
+        }
+        if (typeof src.result_urls === "string" && src.result_urls) {
+          // May arrive as comma-separated string
+          const first = src.result_urls.split(",")[0].trim();
+          if (first) return first;
+        }
+
+        // ── 2. Scalar URL fields ─────────────────────────────────────────────
         if (typeof src.imageUrl  === "string" && src.imageUrl)  return src.imageUrl;
         if (typeof src.image_url === "string" && src.image_url) return src.image_url;
         if (typeof src.url       === "string" && src.url)       return src.url;
         if (typeof src.imagUrl   === "string" && src.imagUrl)   return src.imagUrl; // NB typo variant
+
+        // ── 3. Array URL fields ──────────────────────────────────────────────
         if (Array.isArray(src.images)    && typeof src.images[0]    === "string") return src.images[0] as string;
         if (Array.isArray(src.imageUrls) && typeof src.imageUrls[0] === "string") return src.imageUrls[0] as string;
+
+        // ── 4. Nested output object ──────────────────────────────────────────
         if (src.output && typeof src.output === "object") {
           const out = src.output as Record<string, unknown>;
           if (typeof out.image === "string" && out.image) return out.image;
           if (typeof out.url   === "string" && out.url)   return out.url;
         }
+
+        // ── 5. Nested result object ──────────────────────────────────────────
         if (src.result && typeof src.result === "object") {
           const res2 = src.result as Record<string, unknown>;
           if (typeof res2.url   === "string" && res2.url)   return res2.url;

@@ -405,7 +405,7 @@ export default function MediaCard({
       <div
         style={{
           position:    "relative",
-          aspectRatio: isVideo ? "16/9" : "1/1",
+          aspectRatio: isVideo ? "16/9" : undefined,
           background:  "rgba(0,0,0,0.3)",
           overflow:    "hidden",
         }}
@@ -427,19 +427,19 @@ export default function MediaCard({
               alt={asset.prompt.slice(0, 80)}
               style={{
                 width:      "100%",
-                height:     "100%",
-                objectFit:  "cover",
+                height:     "auto",
+                display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",
               }}
             />
           )
         ) : (
-          // Placeholder
+          // Placeholder — maintain square so the card has a defined height before image loads
           <div
             style={{
               width:          "100%",
-              height:         "100%",
+              aspectRatio:    "1/1",
               display:        "flex",
               alignItems:     "center",
               justifyContent: "center",
@@ -557,100 +557,95 @@ export default function MediaCard({
             onReusePrompt={onReusePrompt}
           />
         )}
-      </div>
 
-      {/* ── Bottom hover bar (quick actions) — hidden in compact mode ──── */}
-      {!compact && isOwner && (
-        <div
-          style={{
-            position:       "absolute",
-            bottom:         0,
-            left:           0,
-            right:          0,
-            display:        "flex",
-            alignItems:     "center",
-            gap:            6,
-            padding:        "10px 12px",
-            background:     "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)",
-            opacity:        hovered ? 1 : 0,
-            transform:      hovered ? "translateY(0)" : "translateY(6px)",
-            transition:     "opacity 0.2s, transform 0.2s",
-            pointerEvents:  hovered ? "all" : "none",
-          }}
-        >
-          <ActionChip
-            icon={<RefreshCw size={11} />}
-            label="Regenerate"
-            onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
-          />
-          <ActionChip
-            icon={<Repeat2 size={11} />}
-            label="Reuse"
-            onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
-          />
-          <ActionChip
-            icon={<Sparkles size={11} />}
-            label="Enhance"
-            onClick={e => { e.stopPropagation(); onEnhance?.(asset); }}
-            color="#a78bfa"
-          />
-          {/* Animate only for images */}
-          {isImage && (
-            <ActionChip
-              icon={<Play size={11} />}
-              label="Animate"
-              onClick={e => { e.stopPropagation(); onAnimate?.(asset); }}
-              color="#fb923c"
-            />
-          )}
-        </div>
-      )}
-
-      {/* ── Info footer ────────────────────────────────────────────────────── */}
-      <div style={{ padding: "10px 12px 12px" }}>
-        <p
-          style={{
-            fontSize:      12,
-            fontWeight:    500,
-            color:         "rgba(255,255,255,0.75)",
-            margin:        0,
-            overflow:      "hidden",
-            display:       "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            lineHeight:    1.45,
-          }}
-        >
-          {asset.prompt}
-        </p>
-        <div
-          style={{
-            display:    "flex",
-            alignItems: "center",
-            gap:        6,
-            marginTop:  6,
-          }}
-        >
-          <span
+        {/* ── Prompt overlay — hover only, sits above the action bar ──── */}
+        {asset.prompt && (
+          <div
             style={{
-              fontSize:    10,
-              color:       "rgba(255,255,255,0.35)",
-              fontWeight:  500,
-              flex:        1,
-              overflow:    "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace:  "nowrap",
+              position:      "absolute",
+              bottom:        !compact && isOwner ? 46 : 0,
+              left:          0,
+              right:         0,
+              padding:       "20px 10px 8px",
+              background:    "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 100%)",
+              opacity:       hovered ? 1 : 0,
+              transition:    "opacity 0.2s",
+              pointerEvents: "none",
             }}
           >
-            {asset.tool}
-          </span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
-            {new Date(asset.created_at).toLocaleDateString(undefined, {
-              month: "short",
-              day:   "numeric",
-            })}
-          </span>
-        </div>
+            <p
+              style={{
+                fontSize:        11,
+                fontWeight:      500,
+                color:           "rgba(255,255,255,0.88)",
+                margin:          0,
+                overflow:        "hidden",
+                display:         "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                lineHeight:      1.45,
+              }}
+            >
+              {asset.prompt}
+            </p>
+            <span style={{
+              fontSize:   9,
+              color:      "rgba(255,255,255,0.45)",
+              fontWeight: 500,
+              display:    "block",
+              marginTop:  3,
+            }}>
+              {asset.tool}
+            </span>
+          </div>
+        )}
+
+        {/* ── Bottom hover bar (quick actions) — hidden in compact mode ──── */}
+        {!compact && isOwner && (
+          <div
+            style={{
+              position:      "absolute",
+              bottom:        0,
+              left:          0,
+              right:         0,
+              display:       "flex",
+              alignItems:    "center",
+              gap:           6,
+              padding:       "10px 12px",
+              background:    "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)",
+              opacity:       hovered ? 1 : 0,
+              transform:     hovered ? "translateY(0)" : "translateY(6px)",
+              transition:    "opacity 0.2s, transform 0.2s",
+              pointerEvents: hovered ? "all" : "none",
+            }}
+          >
+            <ActionChip
+              icon={<RefreshCw size={11} />}
+              label="Regenerate"
+              onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
+            />
+            <ActionChip
+              icon={<Repeat2 size={11} />}
+              label="Reuse"
+              onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
+            />
+            <ActionChip
+              icon={<Sparkles size={11} />}
+              label="Enhance"
+              onClick={e => { e.stopPropagation(); onEnhance?.(asset); }}
+              color="#a78bfa"
+            />
+            {/* Animate only for images */}
+            {isImage && (
+              <ActionChip
+                icon={<Play size={11} />}
+                label="Animate"
+                onClick={e => { e.stopPropagation(); onAnimate?.(asset); }}
+                color="#fb923c"
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
