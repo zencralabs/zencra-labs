@@ -861,15 +861,6 @@ export function Navbar() {
                     <Zap size={13} />
                     {user.credits} credits
                   </Link>
-                  {/* Dashboard link — scaled up */}
-                  <Link
-                    href={user.role === "admin" ? "/hub" : "/dashboard"}
-                    style={{ fontSize: "15px", fontWeight: 500, color: user.role === "admin" ? "#2563EB" : "#94A3B8", textDecoration: "none", transition: "color 0.2s" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.color = user.role === "admin" ? "#2563EB" : "#94A3B8")}
-                  >
-                    {user.role === "admin" ? "Admin Hub" : "Dashboard"}
-                  </Link>
                   {/* FCS Active pill — clickable Link to Cinema Studio */}
                   {hasFCSAccess(user) && (
                     <Link

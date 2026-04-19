@@ -16,6 +16,7 @@
  * can map them to consistent API error responses.
  */
 
+import { createClient }               from "@supabase/supabase-js";
 import { supabaseAdmin }              from "@/lib/supabase/admin";
 import { dispatch, pollJobStatus }    from "@/lib/providers/core/orchestrator";
 import { buildCreditHooks, buildSupabaseCreditStore, noopCreditHooks }
@@ -257,6 +258,53 @@ export async function studioDispatch(
  * Returns the updated job status. Does not throw — errors are returned
  * as status: "error" payloads.
  */
+/**
+ * Mirror an external image URL to Supabase Storage so the gallery
+ * never depends on provider-side temp URLs.
+ *
+ * Applies to any URL from a known-ephemeral domain (e.g. tempfile.aiquickdraw.com).
+ * Returns the permanent Supabase CDN URL on success, or the original URL as a
+ * fallback if the upload fails (so polling still resolves).
+ */
+async function mirrorImageToStorage(
+  externalUrl: string,
+  assetId:     string,
+): Promise<string> {
+  const TEMP_DOMAINS = ["tempfile.aiquickdraw.com", "aiquickdraw.com"];
+  const isTempUrl = TEMP_DOMAINS.some((d) => externalUrl.includes(d));
+  if (!isTempUrl) return externalUrl; // nothing to mirror
+
+  try {
+    const imgRes = await fetch(externalUrl);
+    if (!imgRes.ok) throw new Error(`Fetch failed: ${imgRes.status}`);
+
+    const buffer      = Buffer.from(await imgRes.arrayBuffer());
+    const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
+    const ext         = contentType.includes("png") ? "png" : "jpg";
+    const storagePath = `nb-generations/${assetId}.${ext}`;
+
+    const supabaseUrl      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceRoleKey   = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const storageClient    = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { error } = await storageClient.storage
+      .from("generations")
+      .upload(storagePath, buffer, { contentType, upsert: true });
+
+    if (error) throw new Error(`Storage upload failed: ${error.message}`);
+
+    const { data } = storageClient.storage.from("generations").getPublicUrl(storagePath);
+    console.log(`[pollAndUpdateJob] mirrored NB image → ${data.publicUrl}`);
+    return data.publicUrl;
+  } catch (err) {
+    // Non-fatal: log the failure and fall back to the original temp URL
+    console.error(`[pollAndUpdateJob] mirrorImageToStorage failed, using temp URL:`, err);
+    return externalUrl;
+  }
+}
+
 export async function pollAndUpdateJob(
   modelKey:      string,
   externalJobId: string,
@@ -268,7 +316,14 @@ export async function pollAndUpdateJob(
     const jobStatus = await pollJobStatus(modelKey, externalJobId);
 
     if (jobStatus.status === "success" && jobStatus.url) {
-      await updateAssetStatus(supabaseAdmin, assetId, "ready", jobStatus.url);
+      // Mirror temp provider URLs (e.g. NB's tempfile.aiquickdraw.com) to
+      // Supabase Storage so the gallery always uses our own CDN.
+      const persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
+      await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl);
+      return {
+        status: "success",
+        url:    persistentUrl,
+      };
     } else if (jobStatus.status === "error") {
       await updateAssetStatus(supabaseAdmin, assetId, "failed");
     }
