@@ -393,6 +393,7 @@ function ImageStudioInner() {
   // ── Prompt enhancement ───────────────────────────────────────────────────────
   const [enhancing, setEnhancing] = useState(false);
   const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
+  const [enhanceError, setEnhanceError] = useState<string | null>(null);
 
   // Dropdowns
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -726,8 +727,9 @@ function ImageStudioInner() {
     if (!prompt.trim() || enhancing) return;
     if (!user) { setAuthModal(true); return; }
 
-    // Save original so the user can undo — also clears any prior undo state
+    // Save original so the user can undo — also clears prior undo and error state
     setPreEnhancePrompt(prompt);
+    setEnhanceError(null);
     setEnhancing(true);
 
     try {
@@ -748,6 +750,7 @@ function ImageStudioInner() {
 
       if (res.ok && json.enhancedPrompt) {
         setPrompt(json.enhancedPrompt);
+        setEnhanceError(null);
         // Resize textarea to fit new content
         if (promptRef.current) {
           promptRef.current.style.height = "auto";
@@ -755,12 +758,15 @@ function ImageStudioInner() {
             Math.min(promptRef.current.scrollHeight, 140) + "px";
         }
       } else {
-        console.error("[prompt-enhance] failed:", json.error);
-        setPreEnhancePrompt(null); // No undo if enhance failed
+        // Use warn (not error) to avoid triggering the Next.js red dev overlay
+        console.warn("[prompt-enhance] failed:", json.error);
+        setPreEnhancePrompt(null);
+        setEnhanceError("Enhancement failed — please try again");
       }
     } catch (err) {
-      console.error("[prompt-enhance] network error:", err);
+      console.warn("[prompt-enhance] network error:", err);
       setPreEnhancePrompt(null);
+      setEnhanceError("Network error — please check your connection");
     } finally {
       setEnhancing(false);
     }
@@ -1113,8 +1119,9 @@ function ImageStudioInner() {
                 setPrompt(e.target.value);
                 e.target.style.height = "auto";
                 e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
-                // Manual edit clears undo state — user is intentionally diverging from enhanced version
+                // Manual edit clears undo and error state
                 if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
+                if (enhanceError !== null) setEnhanceError(null);
               }}
               onKeyDown={handleKeyDown}
               placeholder="Describe the scene you imagine…"
@@ -1501,6 +1508,29 @@ function ImageStudioInner() {
                 }}
               >
                 ← Undo
+              </button>
+            </div>
+          )}
+
+          {/* Enhance error — shown when the AI call fails; dismissed on next enhance attempt */}
+          {enhanceError !== null && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "4px 16px 12px",
+            }}>
+              <span style={{ fontSize: 11, color: "rgba(248,113,113,0.8)", fontWeight: 500 }}>
+                ⚠ {enhanceError}
+              </span>
+              <button
+                onClick={() => setEnhanceError(null)}
+                style={{
+                  padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                  border: "1px solid rgba(248,113,113,0.2)",
+                  background: "transparent", color: "rgba(248,113,113,0.5)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
               </button>
             </div>
           )}

@@ -144,7 +144,8 @@ export async function POST(req: Request): Promise<Response> {
         "content-type":      "application/json",
       },
       body: JSON.stringify({
-        model:      "claude-haiku-4-5-20251001",
+        // claude-3-5-haiku-20241022 — fast, cheap, definitively available via API
+        model:      "claude-3-5-haiku-20241022",
         max_tokens: 512,
         system,
         messages: [
@@ -157,9 +158,21 @@ export async function POST(req: Request): Promise<Response> {
     });
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => "");
-      console.error("[prompt-enhance] Claude API error", response.status, errText);
-      return serverErr(`Prompt enhancement failed (Claude ${response.status})`);
+      // Parse and log full Anthropic error body so root cause is always visible in server logs
+      let errBody: unknown = null;
+      try {
+        errBody = await response.json();
+      } catch {
+        errBody = await response.text().catch(() => "(unreadable body)");
+      }
+      console.error(
+        "[prompt-enhance] Anthropic API error",
+        "status:", response.status,
+        "body:", JSON.stringify(errBody, null, 2)
+      );
+      const errMsg = (errBody as { error?: { message?: string } })?.error?.message
+        ?? `HTTP ${response.status}`;
+      return serverErr(`Prompt enhancement failed: ${errMsg}`);
     }
 
     const json = await response.json() as {
