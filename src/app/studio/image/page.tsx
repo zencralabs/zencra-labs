@@ -331,29 +331,32 @@ function SkeletonCard({ index }: { index: number }) {
   };
   const ar = SKELETON_RATIOS[index % SKELETON_RATIOS.length];
   const paddingBottom = `${(ratioMap[ar] ?? 1) * 100}%`;
+  // Stagger capped at card 20 — beyond that all appear together
+  const delay = `${Math.min(index, 20) * 40}ms`;
 
   return (
     <div style={{
-      position: "relative", width: "100%", paddingBottom, borderRadius: 10, overflow: "hidden",
-      // Stagger entrance slightly so they don't all appear in one flash
+      position: "relative", width: "100%", paddingBottom,
+      borderRadius: 10,   // matches image card border-radius
+      overflow: "hidden",
       opacity: 0,
-      animation: `skeletonAppear 0.3s ease ${index * 30}ms forwards`,
+      animation: `fadeIn 0.4s ease ${delay} forwards`,
     }}>
-      <style>{`
-        @keyframes skeletonAppear {
-          to { opacity: 1; }
-        }
-        @keyframes skeletonShimmer {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
+      {/* Base layer — very faint white tint matching spec */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(110deg, #111118 25%, #1a1a26 50%, #111118 75%)",
-        backgroundSize: "200% 100%",
-        animation: `skeletonShimmer 2s ease-in-out ${index * 60}ms infinite`,
+        background: "rgba(255,255,255,0.03)",
         borderRadius: 10,
+      }} />
+      {/* Shimmer sweep overlay */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.045) 50%, transparent 75%)",
+        backgroundSize: "200% 100%",
+        animation: `skeletonSweep 2.2s ease-in-out ${Math.min(index, 20) * 60}ms infinite`,
+        borderRadius: 10,
+        // Soft blur makes the card feel like frosted glass rather than a hard box
+        filter: "blur(4px)",
       }} />
     </div>
   );
@@ -1017,7 +1020,7 @@ function ImageStudioInner() {
       color: "#fff",
       overflow: "hidden",
     }}>
-      {/* Global keyframes for gallery fade-in and skeleton shimmer */}
+      {/* Global keyframes — shared by skeleton cards and image grid */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(6px); }
@@ -1025,6 +1028,10 @@ function ImageStudioInner() {
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes skeletonSweep {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
       `}</style>
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
@@ -1193,7 +1200,7 @@ function ImageStudioInner() {
                   // Progressive reveal: each card fades in with a small stagger.
                   // Generating placeholders (shimmer) skip the delay so they appear instantly.
                   opacity: 0,
-                  animation: `fadeIn 0.35s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                  animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
                 }}
               >
                 <ImageCard
