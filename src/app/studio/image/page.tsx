@@ -267,10 +267,14 @@ function ImageCard({
   img,
   onRegenerate,
   onReusePrompt,
+  onSelect,
+  onOpen,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
   onReusePrompt?: (prompt: string) => void;
+  onSelect?: () => void;
+  onOpen?: () => void;
 }) {
   const router = useRouter();
   if (img.status === "generating") {
@@ -294,8 +298,18 @@ function ImageCard({
   }
 
   // Done — render full MediaCard with owner actions
+  // Wrapper onClick: always selects card for right panel;
+  // opens fullscreen only when the click target is not an action button.
   return (
-    <div style={{ animation: "fadeIn 0.3s ease" }}>
+    <div
+      style={{ animation: "fadeIn 0.3s ease", cursor: "zoom-in" }}
+      onClick={(e) => {
+        onSelect?.();
+        if (!(e.target as HTMLElement).closest("button")) {
+          onOpen?.();
+        }
+      }}
+    >
       <MediaCard
         asset={toPublicAsset(img)}
         isOwner
@@ -395,6 +409,11 @@ function ImageStudioInner() {
   const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
 
+  // ── Right preview panel + fullscreen viewer ──────────────────────────────────
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
+  const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
+
   // Dropdowns
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showArPicker, setShowArPicker] = useState(false);
@@ -489,6 +508,25 @@ function ImageStudioInner() {
     if (cm.requiresImg) setBatchSize(1);  // edit models: 1 at a time
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
+
+  // Auto-select the most recent "done" image when the gallery first has results
+  // (only fires when nothing is selected — user clicks override this)
+  useEffect(() => {
+    if (selectedImage === null && images.length > 0) {
+      const first = images.find((img) => img.status === "done");
+      if (first) setSelectedImage(first);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images]);
+
+  // ESC closes fullscreen viewer
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setViewingImage(null);
+    }
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   const filteredModels = MODELS.filter(
     (m) => m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -877,6 +915,9 @@ function ImageStudioInner() {
       </div>
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden", position: "relative" }}>
+
+      {/* Gallery scroll area */}
       <div style={{ flex: 1, overflowY: "auto", padding: hasImages ? "24px 24px 200px" : "0" }}>
         {!hasImages ? (
           /* Empty / loading state */
@@ -968,12 +1009,126 @@ function ImageStudioInner() {
                     setPrompt(p);
                     promptRef.current?.focus();
                   }}
+                  onSelect={() => setSelectedImage(img)}
+                  onOpen={() => { if (img.status === "done") setViewingImage(img); }}
                 />
               </div>
             ))}
           </div>
         )}
+      </div>{/* end gallery scroll area */}
+
+      {/* ── RIGHT PREVIEW PANEL ────────────────────────────────────────────── */}
+      <div style={{
+        width: panelOpen ? 300 : 0,
+        minWidth: panelOpen ? 300 : 0,
+        transition: "width 0.28s ease, min-width 0.28s ease",
+        overflow: "hidden",
+        borderLeft: panelOpen ? "1px solid rgba(255,255,255,0.07)" : "none",
+        background: "rgba(255,255,255,0.015)",
+        display: "flex", flexDirection: "column",
+        flexShrink: 0,
+      }}>
+        {panelOpen && (
+          <div style={{ width: 300, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Panel header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 16px 10px",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Preview
+              </span>
+              <button
+                onClick={() => setPanelOpen(false)}
+                title="Close preview panel"
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "rgba(255,255,255,0.3)", fontSize: 16, lineHeight: 1,
+                  padding: "3px 5px", borderRadius: 5, transition: "color 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+              >✕</button>
+            </div>
+
+            {/* Image preview — click to open fullscreen */}
+            <div style={{ padding: "14px 14px 0", flexShrink: 0 }}>
+              {selectedImage?.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedImage.url}
+                  alt="Selected preview"
+                  onClick={() => setViewingImage(selectedImage)}
+                  style={{
+                    width: "100%", borderRadius: 10, objectFit: "contain",
+                    maxHeight: 230, background: "rgba(0,0,0,0.25)",
+                    cursor: "zoom-in", display: "block",
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: "100%", paddingBottom: "75%", borderRadius: 10, position: "relative",
+                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
+                }}>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)" }}>
+                      {images.length > 0 ? "Generating…" : "No image yet"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Metadata */}
+            {selectedImage && (
+              <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 180px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Prompt</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.55, wordBreak: "break-word", margin: 0 }}>
+                    {selectedImage.prompt || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Model</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                    {MODELS.find((m) => MODEL_TO_KEY[m.id] === selectedImage.model || m.id === selectedImage.model)?.name ?? selectedImage.model}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Aspect Ratio</p>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                    {selectedImage.aspectRatio}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Floating reopen tab — visible when panel is closed */}
+      {!panelOpen && (
+        <button
+          onClick={() => setPanelOpen(true)}
+          title="Open preview panel"
+          style={{
+            position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)",
+            width: 20, height: 56, borderRadius: "8px 0 0 8px",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.1)", borderRight: "none",
+            color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 14,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.15s", zIndex: 20,
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.14)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)"; }}
+        >‹</button>
+      )}
+
+      </div>{/* end MAIN CANVAS flex-row */}
 
       {/* ── BOTTOM PROMPT BAR ─────────────────────────────────────────────── */}
       <div style={{
@@ -1554,6 +1709,47 @@ function ImageStudioInner() {
           </p>
         )}
       </div>
+
+      {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────── */}
+      {viewingImage?.url && (
+        <div
+          onClick={() => setViewingImage(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.88)", backdropFilter: "blur(14px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setViewingImage(null); }}
+            title="Close (Esc)"
+            style={{
+              position: "absolute", top: 20, right: 20,
+              width: 36, height: 36, borderRadius: "50%",
+              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
+              color: "#fff", fontSize: 16, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s", zIndex: 10,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
+          >✕</button>
+
+          {/* Image — stop propagation so clicking image doesn't close overlay */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={viewingImage.url}
+            alt="Full size"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "90vw", maxHeight: "90vh",
+              objectFit: "contain", borderRadius: 12,
+              boxShadow: "0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06)",
+            }}
+          />
+        </div>
+      )}
 
       {/* Auth modal */}
       {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
