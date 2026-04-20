@@ -57,12 +57,25 @@ const MODEL_KEY_TO_VARIANT: Record<string, NBVariant> = {
   "nano-banana-2":        "nb2",
 };
 
-// NB-supported aspect ratio strings (passed verbatim to the API)
+// NB Standard + Pro — full supported AR set (includes 21:9)
 const NB_SUPPORTED_ASPECT_RATIOS = new Set([
   "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
   "4:1", "4:3", "4:5", "5:4", "8:1",
   "9:16", "16:9", "21:9",
 ]);
+
+// NB2 — 21:9 is NOT supported; the API silently drops it.
+// Keep this in sync with NB2_AR_FALLBACK_UI in image/page.tsx.
+const NB2_SUPPORTED_ASPECT_RATIOS = new Set([
+  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
+  "4:1", "4:3", "4:5", "5:4", "8:1",
+  "9:16", "16:9",
+]);
+
+/** AR strings unsupported by NB2 → closest supported substitute. */
+const NB2_AR_FALLBACK: Record<string, string> = {
+  "21:9": "16:9",
+};
 
 /**
  * Resolve quality tier to NB resolution string.
@@ -149,9 +162,29 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
       const useGoogleSearch = Boolean(input.providerParams?.useGoogleSearch);
 
       // ── Resolve aspect ratio ────────────────────────────────────────────────
-      const arParam = input.aspectRatio && NB_SUPPORTED_ASPECT_RATIOS.has(input.aspectRatio)
-        ? input.aspectRatio
-        : undefined;
+      // NB2 has a narrower supported set than Standard/Pro.
+      // If the requested AR isn't supported, substitute the closest alternative
+      // and log it so server traces show exactly what was swapped.
+      let arParam: string | undefined;
+      let arFallbackUsed: string | undefined; // original AR before substitution
+
+      if (variant === "nb2") {
+        const requested = input.aspectRatio ?? "";
+        if (NB2_SUPPORTED_ASPECT_RATIOS.has(requested)) {
+          arParam = requested;
+        } else if (NB2_AR_FALLBACK[requested]) {
+          arFallbackUsed = requested;
+          arParam = NB2_AR_FALLBACK[requested];
+          console.log(
+            `[nano-banana][nb2] AR fallback: "${requested}" unsupported by NB2 → using "${arParam}"`
+          );
+        }
+        // else undefined — let NB2 use its server default
+      } else {
+        arParam = input.aspectRatio && NB_SUPPORTED_ASPECT_RATIOS.has(input.aspectRatio)
+          ? input.aspectRatio
+          : undefined;
+      }
 
       // ── Build endpoint + payload ────────────────────────────────────────────
       let endpoint: string;
@@ -291,7 +324,7 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         id: jobId, provider: "nano-banana", modelKey,
         studioType: "image", status: "pending", externalJobId: taskId,
         createdAt: now, updatedAt: now, identity: input.identity,
-        providerMeta: { variant, taskId, isI2I, refCount: refs.length },
+        providerMeta: { variant, taskId, isI2I, refCount: refs.length, arFallback: arFallbackUsed },
         estimatedCredits: input.estimatedCredits,
       };
     },

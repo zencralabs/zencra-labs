@@ -31,30 +31,66 @@ interface GeneratedImage {
   error?: string;
 }
 
-// ── Provider error → user-friendly message ────────────────────────────────────
-function friendlyError(raw: string | undefined): string {
-  if (!raw) return "Generation failed. Please try again.";
-  const lower = raw.toLowerCase();
+// ── Provider error classifier ─────────────────────────────────────────────────
+// Never surfaces raw provider strings — always maps to user-safe copy.
+interface ErrorInfo {
+  title:  string;
+  detail: string;
+  icon:   string;
+}
+
+function classifyError(raw: string | undefined): ErrorInfo {
+  const lower = (raw ?? "").toLowerCase();
+
+  // Policy / safety block
   if (
     lower.includes("prohibited use policy") ||
     lower.includes("safety policy") ||
     lower.includes("violat") ||
     lower.includes("filtered out") ||
-    lower.includes("no images found in ai response")
+    lower.includes("no images found in ai response") ||
+    lower.includes("blocked by provider")
   ) {
-    return "Blocked by provider safety policy. Try a different prompt.";
+    return {
+      icon:   "🚫",
+      title:  "Generation blocked",
+      detail: "This request was filtered by the provider's safety policy. Try a different prompt.",
+    };
   }
-  if (lower.includes("credit") || lower.includes("quota") || lower.includes("limit")) {
-    return "Generation failed — credit or quota limit reached.";
+
+  // Credit / quota exhausted
+  if (lower.includes("credit") || lower.includes("quota") || lower.includes("not enough")) {
+    return {
+      icon:   "⚡",
+      title:  "Not enough credits",
+      detail: "You don't have enough credits for this generation.",
+    };
   }
+
+  // Timeout / too slow
   if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("taking longer")) {
-    return "Generation timed out. Your image may still be processing — check back later.";
+    return {
+      icon:   "⏱",
+      title:  "Generation timed out",
+      detail: "The provider took too long to respond. Your image may still be processing — check back later.",
+    };
   }
-  if (lower.includes("network") || lower.includes("fetch") || lower.includes("connection")) {
-    return "Network error. Please check your connection and try again.";
+
+  // Job record lost
+  if (lower.includes("job record not found") || lower.includes("generation was lost")) {
+    return {
+      icon:   "🔍",
+      title:  "Job not found",
+      detail: "The generation record was lost. Please try again.",
+    };
   }
-  // Fall back to a trimmed version of the raw message (max 120 chars)
-  return raw.length > 120 ? raw.slice(0, 117) + "…" : raw;
+
+  // Generic fallback — no raw text exposed
+  return {
+    icon:   "⚠️",
+    title:  "Generation failed",
+    detail: "Something went wrong. Please try again.",
+  };
 }
 
 type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
@@ -121,6 +157,12 @@ function mapArForNB(ar: AspectRatio): string | undefined {
   if (ar === "Auto") return undefined;
   return NB_AR_PASSTHROUGH.has(ar) ? ar : undefined;
 }
+
+// NB2 does not support 21:9 — keep in sync with nano-banana.ts NB2_AR_FALLBACK.
+// Used to show the AR fallback hint badge in the UI before the request is sent.
+const NB2_AR_FALLBACK_UI: Record<string, string> = {
+  "21:9": "16:9",
+};
 
 /** Legacy wrapper — used only for GPT Image */
 function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
@@ -274,6 +316,49 @@ function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
   );
 }
 
+// ── Skeleton card (history loading) ──────────────────────────────────────────
+// Masonry-aware shimmer: cycles through common aspect ratios so the grid
+// looks like a real gallery in the loading state, not a column of lines.
+const SKELETON_RATIOS = [
+  "3:4", "1:1", "4:3", "2:3", "9:16", "3:4", "16:9", "1:1", "2:3", "4:5",
+  "3:4", "1:1", "3:2", "4:3", "1:1",
+];
+
+function SkeletonCard({ index }: { index: number }) {
+  const ratioMap: Record<string, number> = {
+    "1:1": 1, "3:4": 4/3, "4:3": 3/4, "2:3": 3/2, "3:2": 2/3,
+    "9:16": 16/9, "16:9": 9/16, "4:5": 5/4,
+  };
+  const ar = SKELETON_RATIOS[index % SKELETON_RATIOS.length];
+  const paddingBottom = `${(ratioMap[ar] ?? 1) * 100}%`;
+
+  return (
+    <div style={{
+      position: "relative", width: "100%", paddingBottom, borderRadius: 10, overflow: "hidden",
+      // Stagger entrance slightly so they don't all appear in one flash
+      opacity: 0,
+      animation: `skeletonAppear 0.3s ease ${index * 30}ms forwards`,
+    }}>
+      <style>{`
+        @keyframes skeletonAppear {
+          to { opacity: 1; }
+        }
+        @keyframes skeletonShimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(110deg, #111118 25%, #1a1a26 50%, #111118 75%)",
+        backgroundSize: "200% 100%",
+        animation: `skeletonShimmer 2s ease-in-out ${index * 60}ms infinite`,
+        borderRadius: 10,
+      }} />
+    </div>
+  );
+}
+
 // ── Image card ────────────────────────────────────────────────────────────────
 // Adapts local GeneratedImage to PublicAsset shape for MediaCard
 function toPublicAsset(img: GeneratedImage): PublicAsset {
@@ -310,41 +395,51 @@ function ImageCard({
   }
 
   if (img.status === "error") {
+    const { icon, title, detail } = classifyError(img.error);
     return (
       <div style={{
         width: "100%", paddingBottom: "100%", borderRadius: 10, position: "relative",
-        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)",
+        background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.15)",
       }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20 }}>
-          <span style={{ fontSize: 22 }}>⚠️</span>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 1.5 }}>
-            {friendlyError(img.error)}
-          </span>
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: 8, padding: "20px 16px",
+        }}>
+          <span style={{ fontSize: 24, lineHeight: 1 }}>{icon}</span>
+          <div style={{ textAlign: "center" }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)", margin: 0, marginBottom: 4 }}>
+              {title}
+            </p>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", margin: 0, lineHeight: 1.5 }}>
+              {detail}
+            </p>
+          </div>
           {/* Action row */}
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
             {img.prompt && (
               <button
                 onClick={() => onReusePrompt?.(img.prompt)}
                 style={{
-                  fontSize: 10, fontWeight: 600, padding: "5px 10px", borderRadius: 6,
-                  border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.07)",
-                  color: "rgba(255,255,255,0.55)", cursor: "pointer", letterSpacing: "0.02em",
+                  fontSize: 9, fontWeight: 700, padding: "4px 9px", borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
               >
-                Reuse Prompt
+                Retry
               </button>
             )}
             <button
               onClick={() => onDelete?.(img.id, img.assetId)}
               style={{
-                fontSize: 10, fontWeight: 600, padding: "5px 10px", borderRadius: 6,
-                border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.1)",
-                color: "rgba(239,68,68,0.7)", cursor: "pointer", letterSpacing: "0.02em",
+                fontSize: 9, fontWeight: 700, padding: "4px 9px", borderRadius: 6,
+                border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)",
+                color: "rgba(239,68,68,0.6)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; (e.currentTarget as HTMLElement).style.color = "rgba(239,68,68,0.7)"; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(239,68,68,0.6)"; }}
             >
               Dismiss
             </button>
@@ -922,6 +1017,16 @@ function ImageStudioInner() {
       color: "#fff",
       overflow: "hidden",
     }}>
+      {/* Global keyframes for gallery fade-in and skeleton shimmer */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -999,16 +1104,32 @@ function ImageStudioInner() {
       </div>
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: hasImages ? "24px 24px 200px" : "0" }}>
-        {!hasImages ? (
-          /* Empty / loading state */
+      {/* 3 states:
+          1. user logged in + history loading → skeleton shimmer grid
+          2. history loaded + no images       → empty state with quick prompts
+          3. has images                       → masonry grid with progressive fade-in
+      */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 200px" }}>
+
+        {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
+        {user && !historyLoaded && images.length === 0 && (
+          <div style={{ columns: `${gridMinSize}px`, columnGap: 8 }}>
+            {SKELETON_RATIOS.map((_, i) => (
+              <div key={i} style={{ breakInside: "avoid", marginBottom: 8 }}>
+                <SkeletonCard index={i} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── STATE 2: Empty (logged in + history loaded, or logged out) ───── */}
+        {(!user || historyLoaded) && images.length === 0 && (
           <div style={{
             height: "100%", display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 16,
-            minHeight: "calc(100vh - 58px - 160px)",
+            minHeight: "calc(100vh - 58px - 200px)",
             padding: "40px 24px",
           }}>
-            {/* Icon */}
             <div style={{
               width: 72, height: 72, borderRadius: 20,
               background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(14,165,160,0.15))",
@@ -1016,29 +1137,16 @@ function ImageStudioInner() {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
               boxShadow: "0 0 40px rgba(37,99,235,0.15)",
             }}>
-              {user && !historyLoaded ? (
-                <div style={{
-                  width: 28, height: 28, borderRadius: "50%",
-                  border: "2.5px solid rgba(255,255,255,0.15)",
-                  borderTopColor: "#2563EB",
-                  animation: "spin 0.8s linear infinite",
-                }} />
-              ) : "🎨"}
+              🎨
             </div>
-
-            {/* Heading */}
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 8 }}>
-                {user && !historyLoaded ? "Loading your creations…" : "Describe what you want to create"}
+                Describe what you want to create
               </p>
               <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.6 }}>
-                {user && !historyLoaded
-                  ? "Fetching your image history"
-                  : "Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started."}
+                Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
               </p>
             </div>
-
-            {/* Quick prompts */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4, maxWidth: 560 }}>
               {[
                 "Cinematic portrait in golden hour light",
@@ -1072,20 +1180,25 @@ function ImageStudioInner() {
               ))}
             </div>
           </div>
-        ) : (
-          /* Masonry image grid */
-          <div style={{
-            columns: `${gridMinSize}px`,
-            columnGap: 8,
-          }}>
-            {images.map((img) => (
-              <div key={img.id} style={{ breakInside: "avoid", marginBottom: 8 }}>
+        )}
+
+        {/* ── STATE 3: Masonry image grid — staggered fade-in ──────────────── */}
+        {images.length > 0 && (
+          <div style={{ columns: `${gridMinSize}px`, columnGap: 8 }}>
+            {images.map((img, index) => (
+              <div
+                key={img.id}
+                style={{
+                  breakInside: "avoid", marginBottom: 8,
+                  // Progressive reveal: each card fades in with a small stagger.
+                  // Generating placeholders (shimmer) skip the delay so they appear instantly.
+                  opacity: 0,
+                  animation: `fadeIn 0.35s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                }}
+              >
                 <ImageCard
                   img={img}
-                  onRegenerate={(_prompt, _model, _ar) => {
-                    // Re-trigger generate with same params
-                    generate();
-                  }}
+                  onRegenerate={() => generate()}
                   onReusePrompt={(p) => {
                     setPrompt(p);
                     promptRef.current?.focus();
@@ -1391,38 +1504,72 @@ function ImageStudioInner() {
             </div>
 
             {/* Aspect Ratio */}
-            <div data-dd style={{ position: "relative" }}>
-              <button onClick={() => { closeDropdowns(); setShowArPicker((v) => !v); }} style={ctrlBtn(showArPicker)}>
-                <ARIcon ar={aspectRatio} size={14} />
-                {aspectRatio}
-              </button>
+            {(() => {
+              // Compute whether NB2 will silently fall back this AR
+              const nb2ArFallbackTo = model === "nano-banana-2"
+                ? NB2_AR_FALLBACK_UI[aspectRatio]
+                : undefined;
 
-              {showArPicker && (
-                <div style={{
-                  position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-                  background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 14, padding: 8, zIndex: 200, minWidth: 200,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
-                }}>
-                  <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 8px" }}>
-                    Aspect ratio
-                  </p>
-                  {ASPECT_RATIOS.map((ar) => (
-                    <button
-                      key={ar}
-                      onClick={() => { setAspectRatio(ar); closeDropdowns(); }}
-                      style={{ ...ddItem(aspectRatio === ar) }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = aspectRatio === ar ? "rgba(255,255,255,0.1)" : "transparent"; }}
-                    >
-                      <ARIcon ar={ar} size={16} selected={aspectRatio === ar} />
-                      <span style={{ fontSize: 13, color: "#fff" }}>{ar}</span>
-                      {aspectRatio === ar && <span style={{ marginLeft: "auto", color: "#60A5FA", fontSize: 13 }}>✓</span>}
-                    </button>
-                  ))}
+              return (
+                <div data-dd style={{ position: "relative" }}>
+                  {/* AR button — shows fallback badge when NB2 will substitute the ratio */}
+                  <button onClick={() => { closeDropdowns(); setShowArPicker((v) => !v); }} style={ctrlBtn(showArPicker)}>
+                    <ARIcon ar={aspectRatio} size={14} />
+                    {aspectRatio}
+                    {nb2ArFallbackTo && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4,
+                        background: "rgba(234,179,8,0.15)", color: "#FBBF24",
+                        border: "1px solid rgba(234,179,8,0.25)", marginLeft: 2,
+                      }}>
+                        → {nb2ArFallbackTo}
+                      </span>
+                    )}
+                  </button>
+
+                  {showArPicker && (
+                    <div style={{
+                      position: "absolute", bottom: "calc(100% + 8px)", left: 0,
+                      background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 14, padding: 8, zIndex: 200, minWidth: 220,
+                      boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
+                    }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 8px" }}>
+                        Aspect ratio
+                      </p>
+                      {ASPECT_RATIOS.map((ar) => {
+                        const fallsBack = model === "nano-banana-2" && Boolean(NB2_AR_FALLBACK_UI[ar]);
+                        return (
+                          <button
+                            key={ar}
+                            onClick={() => { setAspectRatio(ar); closeDropdowns(); }}
+                            style={{ ...ddItem(aspectRatio === ar) }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = aspectRatio === ar ? "rgba(255,255,255,0.1)" : "transparent"; }}
+                          >
+                            <ARIcon ar={ar} size={16} selected={aspectRatio === ar} />
+                            <span style={{ fontSize: 13, color: fallsBack ? "rgba(255,255,255,0.4)" : "#fff" }}>{ar}</span>
+                            {fallsBack && (
+                              <span style={{ marginLeft: "auto", fontSize: 9, color: "#FBBF24", fontWeight: 600 }}>
+                                → {NB2_AR_FALLBACK_UI[ar]}
+                              </span>
+                            )}
+                            {!fallsBack && aspectRatio === ar && (
+                              <span style={{ marginLeft: "auto", color: "#60A5FA", fontSize: 13 }}>✓</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {model === "nano-banana-2" && (
+                        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", padding: "8px 8px 4px", lineHeight: 1.5 }}>
+                          Ratios marked → will be converted to the nearest supported ratio for NB2.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Quality — hidden for fixed-quality models */}
             {(currentModel.allowedQualities?.length ?? 0) > 1 && (
