@@ -173,7 +173,7 @@ export default function FlowBar() {
         top: 64,         // sits just below the main nav
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 45,
+        zIndex: 1000,    // above gallery (40), prompt bar (50), and navbar stacking context
         display: "flex",
         alignItems: "center",
         gap: 4,

@@ -385,12 +385,16 @@ function ImageCard({
   onReusePrompt,
   onOpen,
   onDelete,
+  onEnhance,
+  hideHoverActions = false,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
   onReusePrompt?: (prompt: string) => void;
   onOpen?: () => void;
   onDelete?: (id: string, assetId?: string) => void;
+  onEnhance?: () => void;
+  hideHoverActions?: boolean;
 }) {
   const router = useRouter();
   if (img.status === "generating") {
@@ -457,7 +461,7 @@ function ImageCard({
   // opens fullscreen only when the click target is not an action button.
   return (
     <div
-      style={{ animation: "fadeIn 0.3s ease", cursor: "zoom-in" }}
+      style={{ animation: "fadeIn 0.3s ease" }}
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest("button")) {
           onOpen?.();
@@ -467,12 +471,10 @@ function ImageCard({
       <MediaCard
         asset={toPublicAsset(img)}
         isOwner
+        hideHoverActions={hideHoverActions}
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
-        onEnhance={() => {
-          // Topaz enhance — coming soon; show tooltip via alert for now
-          alert("✨ Topaz enhancement is coming soon!");
-        }}
+        onEnhance={onEnhance ? () => onEnhance() : undefined}
         onAnimate={() => {
           // Animate → Video Studio, image pre-loaded into Start Frame, Kling 3.0 pre-selected
           // "kling-30" is the VIDEO_MODEL_REGISTRY catalog ID for Kling 3.0 Omni
@@ -566,6 +568,35 @@ function ImageStudioInner() {
   // ── Fullscreen viewer ────────────────────────────────────────────────────────
   const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
 
+  // ── History error ─────────────────────────────────────────────────────────────
+  const [historyError, setHistoryError] = useState(false);
+
+  // ── Toast ─────────────────────────────────────────────────────────────────────
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  }, []);
+
+  // ── Zoom hint — one-shot tip shown when user zooms below threshold ─────────────
+  // "More actions available when zoomed in" fades in then auto-hides after 2.5s.
+  const [zoomHint, setZoomHint] = useState(false);
+  const zoomHintShownRef = useRef(false);      // track if we've shown it this session
+  const ACTIONS_ZOOM_THRESHOLD = 3;            // levels 1–2 hide actions (< 60%)
+  useEffect(() => {
+    if (zoomLevel < ACTIONS_ZOOM_THRESHOLD) {
+      // Show hint the first time user crosses into low-zoom territory
+      if (!zoomHintShownRef.current) {
+        zoomHintShownRef.current = true;
+        setZoomHint(true);
+        setTimeout(() => setZoomHint(false), 2500);
+      }
+    } else {
+      // Reset so the hint can reappear if they zoom back in then out again later
+      zoomHintShownRef.current = false;
+    }
+  }, [zoomLevel]);
+
   // Dropdowns
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showArPicker, setShowArPicker] = useState(false);
@@ -612,10 +643,10 @@ function ImageStudioInner() {
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         });
-        if (!res.ok) return;
+        if (!res.ok) { setHistoryError(true); return; }
 
         const json = await res.json();
-        if (!json.success || !Array.isArray(json.data)) return;
+        if (!json.success || !Array.isArray(json.data)) { setHistoryError(true); return; }
 
         // Map DB rows → GeneratedImage.
         // Include failed rows (no URL) alongside completed ones.
@@ -650,7 +681,7 @@ function ImageStudioInner() {
           return [...prev, ...fresh];
         });
       } catch {
-        // History load failure is silent — user can still generate
+        setHistoryError(true);
       } finally {
         setHistoryLoaded(true);
       }
@@ -684,18 +715,23 @@ function ImageStudioInner() {
   );
 
   // ── Generate ───────────────────────────────────────────────────────────────
-  const generate = useCallback(async () => {
-    if (!prompt.trim()) return;
+  const generate = useCallback(async (overrides?: { prompt?: string; model?: string; aspectRatio?: string }) => {
+    const activePrompt = overrides?.prompt     ?? prompt;
+    const activeModel  = overrides?.model      ?? model;
+    const activeAr     = (overrides?.aspectRatio ?? aspectRatio) as AspectRatio;
+    const activeCurrentModel = MODELS.find((m) => m.id === activeModel) ?? MODELS[0];
+
+    if (!activePrompt.trim()) return;
     if (!user) { setAuthModal(true); return; }
-    if (!currentModel.available) return;
+    if (!activeCurrentModel.available) return;
 
     // Clear undo state — prompt is now intentionally submitted
     setPreEnhancePrompt(null);
 
     // No silent fallback — explicitly fail if this model ID has no backend mapping
-    const modelKey = MODEL_TO_KEY[model];
+    const modelKey = MODEL_TO_KEY[activeModel];
     if (!modelKey) {
-      console.error(`[ImageStudio] No modelKey mapping for model ID: "${model}". Generation aborted.`);
+      console.error(`[ImageStudio] No modelKey mapping for model ID: "${activeModel}". Generation aborted.`);
       return;
     }
 
@@ -704,17 +740,17 @@ function ImageStudioInner() {
     const count      = isAsync ? 1 : Math.min(batchSize, 4);
     const apiQuality = quality === "2K" ? "high" : "auto";  // gpt-image-1 tiers
     // AR routing: NB gets actual string; GPT gets collapsed 4-ratio set
-    const apiAr = isNanoB ? mapArForNB(aspectRatio) : mapArToApiAr(aspectRatio);
+    const apiAr = isNanoB ? mapArForNB(activeAr) : mapArToApiAr(activeAr);
 
-    console.log("[ImageStudio] dispatch", { modelKey, prompt, aspectRatio: apiAr });
+    console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr });
 
     // Add placeholder(s) immediately so the grid shows shimmer
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
       id: `gen-${Date.now()}-${i}`,
       url: null,
-      prompt,
-      model,
-      aspectRatio,
+      prompt: activePrompt,
+      model:  activeModel,
+      aspectRatio: activeAr,
       status: "generating" as const,
     }));
     setImages((prev) => [...placeholders, ...prev]);
@@ -724,7 +760,7 @@ function ImageStudioInner() {
       try {
         const body: Record<string, unknown> = {
           modelKey,
-          prompt,
+          prompt: activePrompt,
           ...(apiAr ? { aspectRatio: apiAr } : {}),
         };
 
@@ -780,7 +816,7 @@ function ImageStudioInner() {
           void recordFlowStep({
             studioType:  "image",
             modelKey,
-            prompt,
+            prompt:      activePrompt,
             resultUrl:   data.data.url as string,
             assetId:     syncAssetId,
             aspectRatio: apiAr,
@@ -849,7 +885,7 @@ function ImageStudioInner() {
                   void recordFlowStep({
                     studioType:  "image",
                     modelKey,
-                    prompt,
+                    prompt:      activePrompt,
                     resultUrl:   statusData.data.url as string,
                     assetId:     pollAssetId,
                     aspectRatio: apiAr,
@@ -1012,6 +1048,13 @@ function ImageStudioInner() {
   });
 
   return (
+    // Fragment wraps the gallery container + the global overlays.
+    // FlowBar and NextStepPanel MUST be siblings of the gallery div, NOT children,
+    // because the gallery div is position:fixed with overflow:hidden which creates
+    // a stacking context — any position:fixed child inside it would have its
+    // effective z-index capped at the parent's z-index (40), making it invisible
+    // behind the navbar and other page-level elements.
+    <>
     <div style={{
       position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 40,
       background: "#0A0A0A",
@@ -1116,7 +1159,7 @@ function ImageStudioInner() {
           2. history loaded + no images       → empty state with quick prompts
           3. has images                       → masonry grid with progressive fade-in
       */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 200px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 100px" }}>
 
         {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
         {user && !historyLoaded && images.length === 0 && (
@@ -1129,12 +1172,48 @@ function ImageStudioInner() {
           </div>
         )}
 
+        {/* ── HISTORY ERROR: fetch failed — show retry prompt ──────────────── */}
+        {historyError && historyLoaded && images.length === 0 && (
+          <div style={{
+            height: "100%", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 12,
+            minHeight: "calc(100vh - 58px - 100px)",
+          }}>
+            <span style={{ fontSize: 28 }}>⚠️</span>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.7)", margin: 0 }}>
+              Couldn&apos;t load your images
+            </p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", margin: 0 }}>
+              A network error occurred while fetching your history.
+            </p>
+            <button
+              onClick={() => { setHistoryError(false); setHistoryLoaded(false); }}
+              style={{
+                marginTop: 4, padding: "8px 20px", borderRadius: 10, fontSize: 12,
+                fontWeight: 600, border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.8)",
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.2)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.4)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.14)";
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* ── STATE 2: Empty (logged in + history loaded, or logged out) ───── */}
-        {(!user || historyLoaded) && images.length === 0 && (
+        {(!user || historyLoaded) && images.length === 0 && !historyError && (
           <div style={{
             height: "100%", display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 16,
-            minHeight: "calc(100vh - 58px - 200px)",
+            minHeight: "calc(100vh - 58px - 100px)",
             padding: "40px 24px",
           }}>
             <div style={{
@@ -1205,13 +1284,15 @@ function ImageStudioInner() {
               >
                 <ImageCard
                   img={img}
-                  onRegenerate={() => generate()}
+                  hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
+                  onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
                   onReusePrompt={(p) => {
                     setPrompt(p);
                     promptRef.current?.focus();
                   }}
                   onOpen={() => { if (img.status === "done") setViewingImage(img); }}
                   onDelete={handleDeleteCard}
+                  onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                 />
               </div>
             ))}
@@ -1716,7 +1797,7 @@ function ImageStudioInner() {
               const isUploadWait = referenceUploading;
               return (
                 <button
-                  onClick={generate}
+                  onClick={() => generate()}
                   disabled={isDisabled}
                   title={isUploadWait ? "Waiting for reference image to finish uploading…" : undefined}
                   style={{
@@ -1899,9 +1980,47 @@ function ImageStudioInner() {
       {/* Auth modal */}
       {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
 
-      {/* ── Creative Flow overlays ────────────────────────────────────────── */}
-      <FlowBar />
-      <NextStepPanel onVariation={handleVariation} />
+      {/* ── Zoom hint — fades in briefly when user zooms below action threshold ── */}
+      {zoomHint && (
+        <div style={{
+          position:       "fixed",
+          bottom:         140,
+          left:           "50%",
+          transform:      "translateX(-50%)",
+          zIndex:         99998,
+          background:     "rgba(20,20,28,0.82)",
+          backdropFilter: "blur(10px)",
+          border:         "1px solid rgba(255,255,255,0.10)",
+          borderRadius:   20,
+          padding:        "7px 16px",
+          fontSize:       11,
+          fontWeight:     500,
+          color:          "rgba(255,255,255,0.55)",
+          animation:      "fadeIn 0.3s ease",
+          pointerEvents:  "none",
+          whiteSpace:     "nowrap",
+        }}>
+          More actions available when zoomed in
+        </div>
+      )}
+
+      {/* ── Toast notification ────────────────────────────────────────────── */}
+      {toastMsg && (
+        <div style={{
+          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+          zIndex: 99999,
+          background: "rgba(20,20,28,0.96)", backdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.14)",
+          borderRadius: 12, padding: "10px 20px",
+          fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.88)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          animation: "fadeIn 0.2s ease",
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}>
+          {toastMsg}
+        </div>
+      )}
 
       <style>{`
         input[type=range]::-webkit-slider-thumb {
@@ -1924,6 +2043,14 @@ function ImageStudioInner() {
         @keyframes spin { to{transform:rotate(360deg)} }
       `}</style>
     </div>
+
+    {/* ── Creative Flow overlays — rendered OUTSIDE the gallery div so they
+         are not trapped inside its stacking context (zIndex: 40). Being at
+         the root Fragment level lets their own zIndex values compete freely
+         with the navbar and other page-level layers. ─────────────────────── */}
+    <FlowBar />
+    <NextStepPanel onVariation={handleVariation} />
+    </>
   );
 }
 

@@ -192,7 +192,7 @@ export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
           right: 0,
           bottom: 0,
           width: 360,
-          zIndex: 44,
+          zIndex: 1000,
           background: "rgba(6,6,10,0.97)",
           backdropFilter: "blur(20px)",
           borderLeft: "1px solid rgba(255,255,255,0.07)",
@@ -309,29 +309,32 @@ export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
       </div>
 
       {/* ── Reopen tab — visible when panel is dismissed but step exists ── */}
+      {/* zIndex 1000: must sit above the prompt bar (50), gallery cards, and any
+          stacking context created by transformed card elements in the grid.    */}
       {reopenVisible && (
         <button
           onClick={() => setDismissed(false)}
           title="Reopen panel"
           style={{
-            position: "fixed",
-            top: "50%",
-            right: 0,
-            transform: "translateY(-50%)",
-            zIndex: 44,
-            width: 22,
-            height: 60,
+            position:     "fixed",
+            top:          "50%",
+            right:        0,
+            transform:    "translateY(-50%)",
+            zIndex:       1000,
+            pointerEvents: "all",
+            width:        36,
+            height:       64,
             borderRadius: "8px 0 0 8px",
-            background: "rgba(6,6,10,0.92)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRight: "none",
-            color: "rgba(255,255,255,0.4)",
-            cursor: "pointer",
-            fontSize: 14,
-            display: "flex",
-            alignItems: "center",
+            background:   "rgba(6,6,10,0.92)",
+            border:       "1px solid rgba(255,255,255,0.1)",
+            borderRight:  "none",
+            color:        "rgba(255,255,255,0.4)",
+            cursor:       "pointer",
+            fontSize:     16,
+            display:      "flex",
+            alignItems:   "center",
             justifyContent: "center",
-            transition: "all 0.15s",
+            transition:   "all 0.15s",
           }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLElement).style.background = "rgba(30,30,40,0.98)";

@@ -14,7 +14,8 @@
  * Owner-only actions (like, more-menu, bottom bar) are hidden when `isOwner` is false.
  */
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Heart,
   Download,
@@ -42,6 +43,11 @@ export interface MediaCardProps {
   isOwner?: boolean;
   /** Compact mode: no bottom bar, smaller icons (used in homepage carousel) */
   compact?: boolean;
+  /**
+   * Zoom simplification — when true (zoom level < 60% in gallery) all hover
+   * overlays and action buttons are hidden. Image click remains fully active.
+   */
+  hideHoverActions?: boolean;
   /** Called when the user clicks Regenerate */
   onRegenerate?: (asset: PublicAsset) => void;
   /** Called when the user clicks Reuse Prompt */
@@ -161,16 +167,12 @@ function MoreMenu({
     <div
       onClick={e => e.stopPropagation()}
       style={{
-        position:     "absolute",
-        right:        8,
-        bottom:       8,
-        zIndex:       50,
-        background:   "rgba(12,12,18,0.97)",
-        border:       "1px solid rgba(255,255,255,0.10)",
-        borderRadius: 12,
-        padding:      "6px 0",
-        minWidth:     192,
-        boxShadow:    "0 8px 40px rgba(0,0,0,0.7)",
+        // No position — the portal wrapper (in MediaCard) handles placement via position:fixed
+        background:     "rgba(12,12,18,0.97)",
+        border:         "1px solid rgba(255,255,255,0.10)",
+        borderRadius:   12,
+        padding:        "6px 0",
+        boxShadow:      "0 8px 40px rgba(0,0,0,0.7)",
         backdropFilter: "blur(16px)",
       }}
     >
@@ -326,6 +328,7 @@ export default function MediaCard({
   asset,
   isOwner = false,
   compact = false,
+  hideHoverActions = false,
   onRegenerate,
   onReusePrompt,
   onEnhance,
@@ -333,17 +336,47 @@ export default function MediaCard({
   onVisibilityChange,
   onDelete,
 }: MediaCardProps) {
-  const [hovered, setHovered]       = useState(false);
-  const [liked,   setLiked]         = useState(false);
-  const [copied,  setCopied]        = useState(false);
-  const [moreOpen, setMoreOpen]     = useState(false);
+  const [hovered,  setHovered]  = useState(false);
+  const [liked,    setLiked]    = useState(false);
+  const [copied,   setCopied]   = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuPos,  setMenuPos]  = useState<{ top: number; left: number } | null>(null);
 
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef        = useRef<HTMLDivElement>(null);
+  const moreButtonRef  = useRef<HTMLDivElement>(null);    // wraps the ⋮ trigger
+  const portalMenuRef  = useRef<HTMLDivElement>(null);    // wraps the portal dropdown
 
   const mediaUrl  = asset.result_url ?? asset.result_urls?.[0] ?? null;
   const isVideo   = mediaUrl ? isVideoUrl(mediaUrl) : false;
   const isImage   = !isVideo;
   const category  = asset.tool_category;
+
+  // ── Close portal menu on scroll / resize (capture phase catches nested scrollers) ──
+  useEffect(() => {
+    if (!moreOpen) return;
+    const close = () => { setMoreOpen(false); setMenuPos(null); };
+    window.addEventListener("scroll",  close, true);
+    window.addEventListener("resize",  close);
+    return () => {
+      window.removeEventListener("scroll",  close, true);
+      window.removeEventListener("resize",  close);
+    };
+  }, [moreOpen]);
+
+  // ── Close portal menu on outside mousedown ────────────────────────────────
+  useEffect(() => {
+    if (!moreOpen) return;
+    function handleOutside(e: MouseEvent) {
+      if (
+        portalMenuRef.current?.contains(e.target as Node) ||
+        moreButtonRef.current?.contains(e.target as Node)
+      ) return;
+      setMoreOpen(false);
+      setMenuPos(null);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [moreOpen]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -380,14 +413,17 @@ export default function MediaCard({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div
       ref={cardRef}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setMoreOpen(false); }}
+      onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
       style={{
         position:     "relative",
         borderRadius: 14,
-        overflow:     "hidden",
+        // overflow is intentionally omitted here so the MoreMenu dropdown can
+        // extend beyond the card boundary. The media div below handles its own
+        // overflow:hidden for image/video clipping.
         background:   "rgba(255,255,255,0.03)",
         border:       hovered
           ? "1px solid rgba(255,255,255,0.14)"
@@ -404,10 +440,11 @@ export default function MediaCard({
       {/* ── Media ─────────────────────────────────────────────────────────── */}
       <div
         style={{
-          position:    "relative",
-          aspectRatio: isVideo ? "16/9" : undefined,
-          background:  "rgba(0,0,0,0.3)",
-          overflow:    "hidden",
+          position:     "relative",
+          aspectRatio:  isVideo ? "16/9" : undefined,
+          background:   "rgba(0,0,0,0.3)",
+          overflow:     "hidden",
+          borderRadius: "inherit",   // clips scaled image within card's border-radius
         }}
       >
         {mediaUrl ? (
@@ -483,83 +520,23 @@ export default function MediaCard({
           </div>
         )}
 
-        {/* Visibility badge — top left */}
-        <div
-          style={{
-            position:   "absolute",
-            top:        8,
-            left:       8,
-            transition: "opacity 0.2s",
-            opacity:    hovered ? 1 : 0.7,
-          }}
-        >
-          <VisibilityBadge visibility={asset.visibility} />
-        </div>
-
-        {/* ── RIGHT hover action strip ──────────────────────────────────── */}
-        <div
-          style={{
-            position:   "absolute",
-            top:        8,
-            right:      8,
-            display:    "flex",
-            flexDirection: "column",
-            gap:        6,
-            opacity:    hovered ? 1 : 0,
-            transform:  hovered ? "translateX(0)" : "translateX(8px)",
-            transition: "opacity 0.2s, transform 0.2s",
-            pointerEvents: hovered ? "all" : "none",
-          }}
-        >
-          {/* Like (owner only) */}
-          {isOwner && (
-            <IconBtn
-              onClick={e => { e.stopPropagation(); setLiked(l => !l); }}
-              title="Like"
-              active={liked}
-              activeColor="#f43f5e"
-            >
-              <Heart size={13} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
-            </IconBtn>
-          )}
-
-          {/* Download */}
-          <IconBtn onClick={e => { e.stopPropagation(); handleDownload(); }} title="Download">
-            <Download size={13} />
-          </IconBtn>
-
-          {/* Copy URL */}
-          <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy URL" active={copied} activeColor="#60a5fa">
-            {copied ? <Check size={13} /> : <Copy size={13} />}
-          </IconBtn>
-
-          {/* More menu (owner only) */}
-          {isOwner && (
-            <IconBtn
-              onClick={e => { e.stopPropagation(); setMoreOpen(m => !m); }}
-              title="More options"
-              active={moreOpen}
-            >
-              <MoreVertical size={13} />
-            </IconBtn>
-          )}
-        </div>
-
-        {/* ── More menu ──────────────────────────────────────────────── */}
-        {moreOpen && (
-          <MoreMenu
-            asset={asset}
-            isOwner={isOwner}
-            onClose={() => setMoreOpen(false)}
-            onVisibilityChange={onVisibilityChange}
-            onDelete={onDelete}
-            onRegenerate={onRegenerate}
-            onReusePrompt={onReusePrompt}
-          />
+        {/* Visibility badge — top left (hidden at low zoom) */}
+        {!hideHoverActions && (
+          <div
+            style={{
+              position:   "absolute",
+              top:        8,
+              left:       8,
+              transition: "opacity 0.2s",
+              opacity:    hovered ? 1 : 0.7,
+            }}
+          >
+            <VisibilityBadge visibility={asset.visibility} />
+          </div>
         )}
 
         {/* ── Prompt overlay — hover only, sits above the action bar ──── */}
-        {asset.prompt && (
+        {!hideHoverActions && asset.prompt && (
           <div
             style={{
               position:      "absolute",
@@ -600,8 +577,8 @@ export default function MediaCard({
           </div>
         )}
 
-        {/* ── Bottom hover bar (quick actions) — hidden in compact mode ──── */}
-        {!compact && isOwner && (
+        {/* ── Bottom hover bar (quick actions) — hidden in compact mode or low zoom ──── */}
+        {!hideHoverActions && !compact && isOwner && (
           <div
             style={{
               position:      "absolute",
@@ -647,7 +624,102 @@ export default function MediaCard({
           </div>
         )}
       </div>
+
+      {/* ── RIGHT hover action strip — lives OUTSIDE the media div so the
+           MoreMenu dropdown is never clipped by overflow:hidden ────────────── */}
+      {!hideHoverActions && <div
+        style={{
+          position:      "absolute",
+          top:           8,
+          right:         8,
+          display:       "flex",
+          flexDirection: "column",
+          gap:           6,
+          opacity:       hovered ? 1 : 0,
+          transform:     hovered ? "translateX(0)" : "translateX(8px)",
+          transition:    "opacity 0.2s, transform 0.2s",
+          pointerEvents: hovered ? "all" : "none",
+          zIndex:        20,
+        }}
+      >
+        {/* Like (owner only) */}
+        {isOwner && (
+          <IconBtn
+            onClick={e => { e.stopPropagation(); setLiked(l => !l); }}
+            title="Like"
+            active={liked}
+            activeColor="#f43f5e"
+          >
+            <Heart size={13} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
+          </IconBtn>
+        )}
+
+        {/* Download */}
+        <IconBtn onClick={e => { e.stopPropagation(); handleDownload(); }} title="Download">
+          <Download size={13} />
+        </IconBtn>
+
+        {/* Copy URL */}
+        <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy URL" active={copied} activeColor="#60a5fa">
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </IconBtn>
+
+        {/* More menu trigger — ref captures position for portal placement */}
+        {isOwner && (
+          <div ref={moreButtonRef}>
+            <IconBtn
+              onClick={e => {
+                e.stopPropagation();
+                if (moreOpen) {
+                  setMoreOpen(false);
+                  setMenuPos(null);
+                } else {
+                  const rect = moreButtonRef.current?.getBoundingClientRect();
+                  if (rect) {
+                    setMenuPos({
+                      top:  rect.bottom + 8,
+                      left: rect.right - 220,   // right-align: right edge of menu = right edge of button
+                    });
+                  }
+                  setMoreOpen(true);
+                }
+              }}
+              title="More options"
+              active={moreOpen}
+            >
+              <MoreVertical size={13} />
+            </IconBtn>
+          </div>
+        )}
+      </div>}
     </div>
+
+    {/* ── Portal: renders dropdown at document.body so it is never clipped
+         by any overflow:hidden or stacking context in the card grid ──────── */}
+    {moreOpen && menuPos && typeof document !== "undefined" && createPortal(
+      <div
+        ref={portalMenuRef}
+        style={{
+          position: "fixed",
+          top:      menuPos.top,
+          left:     menuPos.left,
+          width:    220,
+          zIndex:   9999,
+        }}
+      >
+        <MoreMenu
+          asset={asset}
+          isOwner={isOwner}
+          onClose={() => { setMoreOpen(false); setMenuPos(null); }}
+          onVisibilityChange={onVisibilityChange}
+          onDelete={onDelete}
+          onRegenerate={onRegenerate}
+          onReusePrompt={onReusePrompt}
+        />
+      </div>,
+      document.body
+    )}
+    </>
   );
 }
 
