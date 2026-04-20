@@ -274,125 +274,119 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
 
       const body = (await res.json()) as Record<string, unknown>;
 
-      // ── FULL RAW LOG — critical for diagnosing field names in NB responses ──
+      // ── FULL RAW LOG — always log the complete response for traceability ──
       console.log(
         `[nano-banana] poll taskId=${externalJobId} raw body:`,
-        JSON.stringify(body).slice(0, 800)
+        JSON.stringify(body)
       );
 
-      // NB may nest results under body.data or return them at the top level.
-      // Try body.data first; fall back to body itself.
+      // ── body.data is the primary payload ─────────────────────────────────
       const data = (
         body.data != null && typeof body.data === "object" && !Array.isArray(body.data)
           ? body.data
           : body
       ) as Record<string, unknown>;
 
-      // ── Numeric taskStatus (official NB API) ───────────────────────────────
-      // 0 = GENERATING, 1 = SUCCESS, 2 = CREATE_TASK_FAILED, 3 = GENERATE_FAILED
-      const taskStatusNum = Number(data.taskStatus ?? data.task_status ?? -1);
-
-      // ── String status field (some NB variants return e.g. "SUCCESS", "PENDING") ─
-      const taskStatusStr = String(data.status ?? data.taskStatusStr ?? "").toUpperCase();
-
-      // ── Determine if complete ──────────────────────────────────────────────
-      const isSuccess =
-        taskStatusNum === 1 ||
-        taskStatusStr === "SUCCESS" ||
-        taskStatusStr === "COMPLETED" ||
-        taskStatusStr === "DONE";
-
-      const isFailed =
-        taskStatusNum === 2 ||
-        taskStatusNum === 3 ||
-        taskStatusStr === "FAILED" ||
-        taskStatusStr === "ERROR" ||
-        taskStatusStr === "CREATE_TASK_FAILED" ||
-        taskStatusStr === "GENERATE_FAILED";
-
-      // ── Extract image URL — cover every known NB response shape ───────────
-      // CONFIRMED by NB API logs (Apr 20 2026): production field is "result_urls"
-      // returned as an array of strings, e.g. ["https://tempfile.aiquickdraw.com/..."]
+      // ── CONFIRMED PRODUCTION STRUCTURE (Apr 20 2026, from raw response logs)
       //
-      // Priority:
-      //   1. result_urls (array or comma-string) ← actual production field
-      //   2. imageUrl / image_url / url / imagUrl ← fallback snake/camel variants
-      //   3. images[] / imageUrls[]               ← array shorthands
-      //   4. output.image / output.url            ← nested output objects
-      //   5. result.url / result.image            ← nested result objects
+      // Nano Banana returns:
+      //   body.data.successFlag        = 1           → SUCCESS
+      //   body.data.response           = { resultImageUrl: "https://tempfile.aiquickdraw.com/..." }
+      //
+      // Previous assumptions (taskStatus, status, result_urls) do NOT appear
+      // in production responses from the record-info endpoint.
+
+      // ── 1. PRIMARY: successFlag + nested response.resultImageUrl ──────────
+      const successFlag = Number((data as Record<string, unknown>).successFlag ?? -1);
+      const responseObj = (data as Record<string, unknown>).response;
+      const nestedUrl =
+        responseObj && typeof responseObj === "object" && !Array.isArray(responseObj)
+          ? (responseObj as Record<string, unknown>).resultImageUrl
+          : undefined;
+
+      if (successFlag === 1 && typeof nestedUrl === "string" && nestedUrl.trim()) {
+        const imageUrl = nestedUrl.trim();
+        console.log(`[nano-banana] taskId=${externalJobId} SUCCESS via successFlag+resultImageUrl url=${imageUrl.slice(0, 80)}`);
+        return { jobId: externalJobId, status: "success", url: imageUrl };
+      }
+
+      // ── 2. FALLBACK: legacy / alternate field names ───────────────────────
+      // Keep these so the parser degrades gracefully if NB changes shape again.
       const extractUrl = (src: Record<string, unknown>): string | undefined => {
-        // ── 1. result_urls — confirmed production field ──────────────────────
+        // result_urls (array or comma-string)
         if (Array.isArray(src.result_urls)) {
           for (const u of src.result_urls) {
             if (typeof u === "string" && u.trim()) return u.trim();
           }
         }
         if (typeof src.result_urls === "string" && src.result_urls) {
-          // May arrive as comma-separated string
           const first = src.result_urls.split(",")[0].trim();
           if (first) return first;
         }
-
-        // ── 2. Scalar URL fields ─────────────────────────────────────────────
+        // Scalar URL fields
         if (typeof src.imageUrl  === "string" && src.imageUrl)  return src.imageUrl;
         if (typeof src.image_url === "string" && src.image_url) return src.image_url;
         if (typeof src.url       === "string" && src.url)       return src.url;
-        if (typeof src.imagUrl   === "string" && src.imagUrl)   return src.imagUrl; // NB typo variant
-
-        // ── 3. Array URL fields ──────────────────────────────────────────────
+        if (typeof src.imagUrl   === "string" && src.imagUrl)   return src.imagUrl;
+        // Array shorthands
         if (Array.isArray(src.images)    && typeof src.images[0]    === "string") return src.images[0] as string;
         if (Array.isArray(src.imageUrls) && typeof src.imageUrls[0] === "string") return src.imageUrls[0] as string;
-
-        // ── 4. Nested output object ──────────────────────────────────────────
+        // Nested output / result objects
         if (src.output && typeof src.output === "object") {
           const out = src.output as Record<string, unknown>;
           if (typeof out.image === "string" && out.image) return out.image;
           if (typeof out.url   === "string" && out.url)   return out.url;
         }
-
-        // ── 5. Nested result object ──────────────────────────────────────────
         if (src.result && typeof src.result === "object") {
-          const res2 = src.result as Record<string, unknown>;
-          if (typeof res2.url   === "string" && res2.url)   return res2.url;
-          if (typeof res2.image === "string" && res2.image) return res2.image;
+          const r2 = src.result as Record<string, unknown>;
+          if (typeof r2.url   === "string" && r2.url)   return r2.url;
+          if (typeof r2.image === "string" && r2.image) return r2.image;
+        }
+        // Nested response.resultImageUrl (catch via fallback as well)
+        if (src.response && typeof src.response === "object") {
+          const rsp = src.response as Record<string, unknown>;
+          if (typeof rsp.resultImageUrl === "string" && rsp.resultImageUrl) return rsp.resultImageUrl;
+          if (typeof rsp.imageUrl       === "string" && rsp.imageUrl)       return rsp.imageUrl;
+          if (typeof rsp.url            === "string" && rsp.url)            return rsp.url;
         }
         return undefined;
       };
 
-      const imageUrl = extractUrl(data) ?? extractUrl(body as Record<string, unknown>);
-
-      // ── Decision ───────────────────────────────────────────────────────────
-
-      // If we found a URL, treat as success regardless of status field
-      if (imageUrl) {
-        console.log(`[nano-banana] taskId=${externalJobId} SUCCESS url=${imageUrl.slice(0, 80)}`);
-        return { jobId: externalJobId, status: "success", url: imageUrl };
+      const fallbackUrl = extractUrl(data) ?? extractUrl(body as Record<string, unknown>);
+      if (fallbackUrl) {
+        console.log(`[nano-banana] taskId=${externalJobId} SUCCESS via fallback url=${fallbackUrl.slice(0, 80)}`);
+        return { jobId: externalJobId, status: "success", url: fallbackUrl };
       }
 
-      if (isSuccess) {
-        // Status says done but no URL — fatal error
-        console.error(
-          `[nano-banana] taskId=${externalJobId} status=SUCCESS but no imageUrl found. ` +
-          `Full body: ${JSON.stringify(body).slice(0, 800)}`
-        );
-        return { jobId: externalJobId, status: "error", error: "Generation complete but no image URL returned." };
-      }
+      // ── 3. Explicit failure codes ─────────────────────────────────────────
+      const taskStatusNum = Number(
+        (data as Record<string, unknown>).taskStatus ??
+        (data as Record<string, unknown>).task_status ?? -1
+      );
+      const taskStatusStr = String(
+        (data as Record<string, unknown>).status ??
+        (data as Record<string, unknown>).taskStatusStr ?? ""
+      ).toUpperCase();
+
+      const isFailed =
+        taskStatusNum === 2 || taskStatusNum === 3 ||
+        ["FAILED", "ERROR", "CREATE_TASK_FAILED", "GENERATE_FAILED"].includes(taskStatusStr);
 
       if (isFailed) {
         const failMsg = String(
-          data.msg     ?? data.message   ?? data.error ??
-          data.errMsg  ?? data.reason    ??
-          body.msg     ?? body.message   ??
-          "Generation failed."
+          (data as Record<string, unknown>).msg     ??
+          (data as Record<string, unknown>).message ??
+          (data as Record<string, unknown>).error   ??
+          body.msg ?? body.message ?? "Generation failed."
         );
         console.error(`[nano-banana] taskId=${externalJobId} FAILED taskStatus=${taskStatusNum} msg=${failMsg}`);
         return { jobId: externalJobId, status: "error", error: failMsg };
       }
 
-      // Still processing
+      // ── 4. No URL and no explicit failure → still processing ─────────────
       console.log(
-        `[nano-banana] taskId=${externalJobId} pending ` +
-        `taskStatus=${taskStatusNum} statusStr=${taskStatusStr}`
+        `[nano-banana] taskId=${externalJobId} pending` +
+        ` successFlag=${successFlag} taskStatus=${taskStatusNum} statusStr=${taskStatusStr}`
       );
       return { jobId: externalJobId, status: "pending" };
     },

@@ -184,95 +184,89 @@ async function pollNB(taskId: string): Promise<NBPollResult> {
     return { outcome: "failed", reason: "Invalid JSON from NB API" };
   }
 
-  // ── FULL untruncated log — outer body ─────────────────────────────────────
-  console.log(`\n  ┌─ NB RAW RESPONSE (outer body) taskId=${taskId}`);
+  // ── FULL untruncated log ─────────────────────────────────────────────────
+  console.log(`\n  ┌─ NB RAW RESPONSE taskId=${taskId}`);
   console.log(`  │  HTTP status: ${res.status}`);
   console.log(`  │  Top-level keys: [${Object.keys(body).join(", ")}]`);
-  console.log(`  │  Full body:\n${JSON.stringify(body, null, 2).split("\n").map(l => `  │    ${l}`).join("\n")}`);
+  console.log(JSON.stringify(body, null, 2).split("\n").map(l => `  │  ${l}`).join("\n"));
+  console.log(`  └─ END RAW RESPONSE\n`);
 
-  // NB may nest under body.data
+  // body.data is the primary payload
   const hasNestedData =
     body.data != null && typeof body.data === "object" && !Array.isArray(body.data);
   const data = (hasNestedData ? body.data : body) as Record<string, unknown>;
 
-  if (hasNestedData) {
-    console.log(`  │  → Nested body.data keys: [${Object.keys(data).join(", ")}]`);
-  }
-  console.log(`  └─ END RAW RESPONSE\n`);
+  // ── 1. PRIMARY: successFlag + data.response.resultImageUrl ───────────────
+  // Confirmed production structure (Apr 20 2026 raw response logs):
+  //   body.data.successFlag         = 1
+  //   body.data.response.resultImageUrl = "https://tempfile.aiquickdraw.com/..."
+  const successFlag = Number(data.successFlag ?? -1);
+  const responseObj = data.response;
+  const primaryUrl =
+    responseObj && typeof responseObj === "object" && !Array.isArray(responseObj)
+      ? (responseObj as Record<string, unknown>).resultImageUrl
+      : undefined;
 
-  // ── Status decode ─────────────────────────────────────────────────────────
-  const numStatus = Number(data.taskStatus ?? data.task_status ?? -1);
-  const strStatus = String(data.status ?? data.taskStatusStr ?? "").toUpperCase();
+  console.log(`  [decode] successFlag=${successFlag}  response.resultImageUrl=${JSON.stringify(primaryUrl ?? "(absent)")}`);
 
-  console.log(`  [status decode] taskStatus(num)=${numStatus}  status(str)="${strStatus}"`);
-  console.log(`  [result_urls]   ${JSON.stringify(data.result_urls ?? "(absent)")}`);
-
-  const isSuccess =
-    numStatus === 1 ||
-    ["SUCCESS", "COMPLETED", "DONE"].includes(strStatus);
-
-  const isFailed =
-    numStatus === 2 || numStatus === 3 ||
-    ["FAILED", "ERROR", "CREATE_TASK_FAILED", "GENERATE_FAILED"].includes(strStatus);
-
-  // Explicit pending: numStatus 0, or known pending strings
-  const isExplicitlyPending =
-    numStatus === 0 ||
-    ["GENERATING", "PENDING", "PROCESSING", "QUEUED", "WAITING"].includes(strStatus);
-
-  // Unknown: none of the above — log it so we can see what NB is returning
-  const isUnknown = !isSuccess && !isFailed && !isExplicitlyPending;
-  if (isUnknown) {
-    console.log(`  ⚠️  UNKNOWN status — numStatus=${numStatus} strStatus="${strStatus}". Treating as pending.`);
-    console.log(`      If this keeps happening, this taskId may need a new status string added to the parser.`);
+  if (successFlag === 1 && typeof primaryUrl === "string" && primaryUrl.trim()) {
+    const url = primaryUrl.trim();
+    console.log(`  ✅  SUCCESS via successFlag+resultImageUrl`);
+    return { outcome: "success", url };
   }
 
-  if (isFailed)  return { outcome: "failed",  reason: strStatus || `taskStatus=${numStatus}` };
-  if (!isSuccess) return { outcome: "pending" };  // isExplicitlyPending or isUnknown
-
-  // ── Extract URL — checks every known NB field variant ────────────────────
+  // ── 2. FALLBACK: all legacy / alternate field variants ────────────────────
   const extractUrl = (src: Record<string, unknown>): string | undefined => {
-    // 1. result_urls — confirmed production field (Apr 2026 NB logs)
     if (Array.isArray(src.result_urls)) {
-      for (const u of src.result_urls) {
-        if (typeof u === "string" && u.trim()) return u.trim();
-      }
+      for (const u of src.result_urls) { if (typeof u === "string" && u.trim()) return u.trim(); }
     }
     if (typeof src.result_urls === "string" && src.result_urls) {
-      const first = src.result_urls.split(",")[0].trim();
-      if (first) return first;
+      const first = src.result_urls.split(",")[0].trim(); if (first) return first;
     }
-    // 2. Scalar URL fields
     if (typeof src.imageUrl  === "string" && src.imageUrl)  return src.imageUrl;
     if (typeof src.image_url === "string" && src.image_url) return src.image_url;
     if (typeof src.url       === "string" && src.url)       return src.url;
     if (typeof src.imagUrl   === "string" && src.imagUrl)   return src.imagUrl;
-    // 3. Array shorthands
     if (Array.isArray(src.images)    && typeof src.images[0]    === "string") return src.images[0];
     if (Array.isArray(src.imageUrls) && typeof src.imageUrls[0] === "string") return src.imageUrls[0];
-    // 4. Nested output object
     if (src.output && typeof src.output === "object") {
       const out = src.output as Record<string, unknown>;
       if (typeof out.image === "string" && out.image) return out.image;
       if (typeof out.url   === "string" && out.url)   return out.url;
     }
-    // 5. Nested result object
     if (src.result && typeof src.result === "object") {
       const r2 = src.result as Record<string, unknown>;
       if (typeof r2.url   === "string" && r2.url)   return r2.url;
       if (typeof r2.image === "string" && r2.image) return r2.image;
     }
+    if (src.response && typeof src.response === "object") {
+      const rsp = src.response as Record<string, unknown>;
+      if (typeof rsp.resultImageUrl === "string" && rsp.resultImageUrl) return rsp.resultImageUrl;
+      if (typeof rsp.imageUrl       === "string" && rsp.imageUrl)       return rsp.imageUrl;
+      if (typeof rsp.url            === "string" && rsp.url)            return rsp.url;
+    }
     return undefined;
   };
 
-  const url = extractUrl(data);
-  if (!url) {
-    console.log(`  ⚠️  NB returned SUCCESS status but no URL found in response.`);
-    console.log(`      Tried: result_urls, imageUrl, image_url, url, imagUrl, images[], imageUrls[], output.*, result.*`);
-    return { outcome: "failed", reason: "success status but no URL found in response" };
+  const fallbackUrl = extractUrl(data) ?? extractUrl(body as Record<string, unknown>);
+  if (fallbackUrl) {
+    console.log(`  ✅  SUCCESS via fallback field`);
+    return { outcome: "success", url: fallbackUrl };
   }
 
-  return { outcome: "success", url };
+  // ── 3. Explicit failure codes ─────────────────────────────────────────────
+  const numStatus = Number(data.taskStatus ?? data.task_status ?? -1);
+  const strStatus = String(data.status ?? data.taskStatusStr ?? "").toUpperCase();
+  const isFailed =
+    numStatus === 2 || numStatus === 3 ||
+    ["FAILED", "ERROR", "CREATE_TASK_FAILED", "GENERATE_FAILED"].includes(strStatus);
+
+  if (isFailed) return { outcome: "failed", reason: strStatus || `taskStatus=${numStatus}` };
+
+  // ── 4. None of the above → genuinely still pending ────────────────────────
+  console.log(`  ⏳  No success signal found — treating as pending.`);
+  console.log(`      successFlag=${successFlag}  numStatus=${numStatus}  strStatus="${strStatus}"`);
+  return { outcome: "pending" };
 }
 
 // ── Mirror image to Supabase Storage ─────────────────────────────────────────
