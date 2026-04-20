@@ -44,7 +44,11 @@ function loadEnv() {
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    // Strip surrounding quotes, then strip inline comments (e.g. "value  # note")
+    // Must strip quotes first so a quoted hash is preserved; our env values are
+    // unquoted API keys/URLs so ` #` anywhere after the value is safe to remove.
+    const raw = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    const val = raw.replace(/\s+#.*$/, "");
     if (key && !(key in process.env)) process.env[key] = val;
   }
 }
