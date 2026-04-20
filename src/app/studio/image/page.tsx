@@ -509,11 +509,31 @@ function ImageStudioInner() {
     aspectRatio?: string;
   }) => {
     if (!user) return;
+
+    // ── Push provisional step immediately ────────────────────────────────────
+    // Panel visibility must never depend on DB latency or failure.
+    // We push a local step right now so the NextStepPanel slides in instantly.
+    // The provisional ID is replaced with the real DB ID after the write below.
+    const provisionalId = `provisional-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const provisionalStep: FlowStep = {
+      id:           provisionalId,
+      stepNumber:   useFlowStore.getState().steps.length + 1,
+      studioType:   params.studioType,
+      modelKey:     params.modelKey,
+      prompt:       params.prompt,
+      resultUrl:    params.resultUrl,
+      thumbnailUrl: params.resultUrl,
+      status:       "success",
+      createdAt:    new Date().toISOString(),
+    };
+    flowStore.pushStep(provisionalStep);
+
+    // ── Persist to DB in background (non-critical) ───────────────────────────
     try {
       let wfId = useFlowStore.getState().workflowId;
       if (!wfId) {
         const wfResult = await createWorkflow(user.id);
-        if (!wfResult.ok) return;
+        if (!wfResult.ok) return; // DB failed — panel is already showing
         wfId = wfResult.workflowId;
         flowStore.initWorkflow(wfId);
       }
@@ -529,10 +549,14 @@ function ImageStudioInner() {
         assetId:     params.assetId,
       });
       if (stepResult.ok) {
-        flowStore.pushStep(stepResult.step);
+        // Upgrade the provisional step in-place with the real DB-backed step
+        // (real ID + real step_number). updateStep patches by provisional ID
+        // and replaces all fields including id, so subsequent pushStep dedup
+        // checks against the real ID work correctly.
+        flowStore.updateStep(provisionalId, stepResult.step);
       }
     } catch {
-      // Flow recording is non-critical — silent failure
+      // Flow recording is non-critical — provisional step keeps the panel alive
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
