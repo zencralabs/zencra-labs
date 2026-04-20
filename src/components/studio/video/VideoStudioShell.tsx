@@ -8,10 +8,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useFlowStore } from "@/lib/flow/store";
-import type { FlowStep } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
-import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import {
@@ -787,11 +785,6 @@ export default function VideoStudioShell() {
     motionStrength, motionArea, lipSyncCreate, recordFlowStep,
   ]);
 
-  // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
-  const handleVariation = useCallback((step: FlowStep) => {
-    setPrompt(step.prompt);
-    setTimeout(() => handleGenerate(), 0);
-  }, [handleGenerate]);
 
   const handleReusePrompt = useCallback((video: GeneratedVideo) => {
     setPrompt(video.prompt ?? "");
@@ -1017,7 +1010,6 @@ export default function VideoStudioShell() {
 
       {/* ── Creative Flow overlays ────────────────────────────────────────── */}
       <FlowBar />
-      <NextStepPanel onVariation={handleVariation} />
 
     </div>
   );

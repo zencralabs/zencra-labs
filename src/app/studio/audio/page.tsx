@@ -5,10 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useFlowStore } from "@/lib/flow/store";
-import type { FlowStep } from "@/lib/flow/store";
+
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
-import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA AUDIO STUDIO
@@ -1039,12 +1038,6 @@ function AudioStudioInner() {
     }
   }, [user, tool, prompt, voiceId, kitsModel, quality, audioDataUrl, audioFile, generating, recordFlowStep]);
 
-  // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
-  const handleVariation = useCallback((step: FlowStep) => {
-    setPrompt(step.prompt);
-    setTimeout(() => handleGenerate(), 0);
-  }, [handleGenerate]);
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handleGenerate(); }
@@ -1628,7 +1621,6 @@ function AudioStudioInner() {
 
       {/* ── Creative Flow overlays ────────────────────────────────────────── */}
       <FlowBar />
-      <NextStepPanel onVariation={handleVariation} />
 
       {/* ── Keyframes ─────────────────────────────────────────────────────── */}
       <style>{`

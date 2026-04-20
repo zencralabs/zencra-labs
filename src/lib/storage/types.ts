@@ -189,6 +189,7 @@ export interface AssetRecord {
   duration_seconds?: number;
   credits_cost?:   number;
   studio_meta:     Record<string, unknown>;
+  error_message?:  string | null;
   created_at:      string;
   updated_at:      string;
 }
