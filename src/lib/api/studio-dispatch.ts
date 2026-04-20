@@ -325,7 +325,12 @@ export async function pollAndUpdateJob(
         url:    persistentUrl,
       };
     } else if (jobStatus.status === "error") {
-      await updateAssetStatus(supabaseAdmin, assetId, "failed");
+      // Persist the error reason so it survives page refreshes.
+      // errorMessage is trimmed to 500 chars to avoid oversized DB writes.
+      const errorMsg = (jobStatus.error ?? "Generation failed")
+        .trim()
+        .slice(0, 500);
+      await updateAssetStatus(supabaseAdmin, assetId, "failed", undefined, errorMsg);
     }
 
     return {

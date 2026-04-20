@@ -42,16 +42,17 @@ export async function GET(req: Request) {
     const to   = from + pageSize - 1;
 
     // ── Query assets table ────────────────────────────────────────────────────
+    // Include both "ready" and "failed" so failed cards persist across refreshes.
+    // "deleted" and "pending" are excluded — pending are polled live, deleted are gone.
     const { data, error, count } = await supabaseAdmin
       .from("assets")
       .select(
-        "id, model_key, studio, prompt, status, url, aspect_ratio, created_at",
+        "id, model_key, studio, prompt, status, url, aspect_ratio, error_message, created_at",
         { count: "exact" }
       )
       .eq("user_id",  userId)
       .eq("studio",   category)
-      .eq("status",   "ready")
-      .not("url",     "is", null)
+      .in("status",   ["ready", "failed"])
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -66,13 +67,14 @@ export async function GET(req: Request) {
       tool:          row.model_key,
       tool_category: row.studio,
       prompt:        row.prompt ?? "",
-      status:        "completed",
-      result_url:    row.url,
+      status:        row.status === "failed" ? "failed" : "completed",
+      result_url:    row.url ?? null,
       result_urls:   row.url ? [row.url] : null,
       visibility:    "project",
       project_id:    null,
       credits_used:  0,
       parameters:    row.aspect_ratio ? { aspectRatio: row.aspect_ratio } : null,
+      error_message: (row as Record<string, unknown>).error_message as string | null ?? null,
       created_at:    row.created_at,
     }));
 

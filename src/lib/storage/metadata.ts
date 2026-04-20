@@ -187,19 +187,25 @@ export async function saveAssetMetadata(
 }
 
 /**
- * Update an existing asset record's status and URL (e.g., when polling completes).
+ * Update an existing asset record's status, URL, and optional error message
+ * (e.g., when polling completes or fails).
+ *
+ * Pass `errorMessage` when marking status as "failed" so the error reason
+ * is persisted to the `error_message` column and survives page refreshes.
  */
 export async function updateAssetStatus(
-  supabase: SupabaseClient,
-  assetId:  string,
-  status:   AssetStatus,
-  url?:     string
+  supabase:      SupabaseClient,
+  assetId:       string,
+  status:        AssetStatus,
+  url?:          string,
+  errorMessage?: string
 ): Promise<void> {
   const patch: Record<string, unknown> = {
     status,
     updated_at: new Date().toISOString(),
   };
-  if (url) patch.url = url;
+  if (url)          patch.url           = url;
+  if (errorMessage) patch.error_message = errorMessage;
 
   const { error } = await supabase
     .from("assets")

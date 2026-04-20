@@ -21,12 +21,40 @@ import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface GeneratedImage {
   id: string;
+  /** DB asset UUID — present for history-loaded rows and async generations once assetId is known */
+  assetId?: string;
   url: string | null;
   prompt: string;
   model: string;
   aspectRatio: string;
   status: "generating" | "done" | "error";
   error?: string;
+}
+
+// ── Provider error → user-friendly message ────────────────────────────────────
+function friendlyError(raw: string | undefined): string {
+  if (!raw) return "Generation failed. Please try again.";
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("prohibited use policy") ||
+    lower.includes("safety policy") ||
+    lower.includes("violat") ||
+    lower.includes("filtered out") ||
+    lower.includes("no images found in ai response")
+  ) {
+    return "Blocked by provider safety policy. Try a different prompt.";
+  }
+  if (lower.includes("credit") || lower.includes("quota") || lower.includes("limit")) {
+    return "Generation failed — credit or quota limit reached.";
+  }
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("taking longer")) {
+    return "Generation timed out. Your image may still be processing — check back later.";
+  }
+  if (lower.includes("network") || lower.includes("fetch") || lower.includes("connection")) {
+    return "Network error. Please check your connection and try again.";
+  }
+  // Fall back to a trimmed version of the raw message (max 120 chars)
+  return raw.length > 120 ? raw.slice(0, 117) + "…" : raw;
 }
 
 type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
@@ -268,11 +296,13 @@ function ImageCard({
   onRegenerate,
   onReusePrompt,
   onOpen,
+  onDelete,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
   onReusePrompt?: (prompt: string) => void;
   onOpen?: () => void;
+  onDelete?: (id: string, assetId?: string) => void;
 }) {
   const router = useRouter();
   if (img.status === "generating") {
@@ -283,13 +313,42 @@ function ImageCard({
     return (
       <div style={{
         width: "100%", paddingBottom: "100%", borderRadius: 10, position: "relative",
-        background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
+        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)",
       }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 16 }}>
-          <span style={{ fontSize: 20 }}>⚠️</span>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
-            {img.error ?? "Generation failed"}
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20 }}>
+          <span style={{ fontSize: 22 }}>⚠️</span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 1.5 }}>
+            {friendlyError(img.error)}
           </span>
+          {/* Action row */}
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            {img.prompt && (
+              <button
+                onClick={() => onReusePrompt?.(img.prompt)}
+                style={{
+                  fontSize: 10, fontWeight: 600, padding: "5px 10px", borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.07)",
+                  color: "rgba(255,255,255,0.55)", cursor: "pointer", letterSpacing: "0.02em",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+              >
+                Reuse Prompt
+              </button>
+            )}
+            <button
+              onClick={() => onDelete?.(img.id, img.assetId)}
+              style={{
+                fontSize: 10, fontWeight: 600, padding: "5px 10px", borderRadius: 6,
+                border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.1)",
+                color: "rgba(239,68,68,0.7)", cursor: "pointer", letterSpacing: "0.02em",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; (e.currentTarget as HTMLElement).style.color = "rgba(239,68,68,0.7)"; }}
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -460,23 +519,31 @@ function ImageStudioInner() {
         const json = await res.json();
         if (!json.success || !Array.isArray(json.data)) return;
 
-        // Map DB rows → GeneratedImage, skip rows without a usable URL
+        // Map DB rows → GeneratedImage.
+        // Include failed rows (no URL) alongside completed ones.
         const loaded: GeneratedImage[] = (json.data as Array<{
           id: string;
           tool: string;
           prompt: string;
+          status: string;
           result_url: string | null;
+          error_message?: string | null;
           parameters?: { aspectRatio?: string } | null;
         }>)
-          .filter((row) => Boolean(row.result_url))
-          .map((row) => ({
-            id:          row.id,
-            url:         row.result_url,
-            prompt:      row.prompt ?? "",
-            model:       row.tool ?? "nano-banana",
-            aspectRatio: (row.parameters?.aspectRatio ?? "1:1") as AspectRatio,
-            status:      "done" as const,
-          }));
+          .filter((row) => row.status === "completed" || row.status === "failed")
+          .map((row) => {
+            const isFailed = row.status === "failed";
+            return {
+              id:          row.id,
+              assetId:     row.id,   // history rows use the DB asset ID directly
+              url:         row.result_url ?? null,
+              prompt:      row.prompt ?? "",
+              model:       row.tool ?? "nano-banana",
+              aspectRatio: (row.parameters?.aspectRatio ?? "1:1") as AspectRatio,
+              status:      (isFailed ? "error" : "done") as GeneratedImage["status"],
+              error:       isFailed ? (row.error_message ?? undefined) : undefined,
+            };
+          });
 
         // Prepend loaded history behind any images already generated this session
         setImages((prev) => {
@@ -604,9 +671,12 @@ function ImageStudioInner() {
 
         // ── Synchronous success (DALL-E, etc.) ─────────────────────────────
         if (data.data?.url) {
+          const syncAssetId = data.data.assetId as string | undefined;
           setImages((prev) =>
             prev.map((img) =>
-              img.id === ph.id ? { ...img, url: data.data.url as string, status: "done" } : img
+              img.id === ph.id
+                ? { ...img, url: data.data.url as string, status: "done", assetId: syncAssetId }
+                : img
             )
           );
           void recordFlowStep({
@@ -614,7 +684,7 @@ function ImageStudioInner() {
             modelKey,
             prompt,
             resultUrl:   data.data.url as string,
-            assetId:     data.data.assetId as string | undefined,
+            assetId:     syncAssetId,
             aspectRatio: apiAr,
           });
           continue;
@@ -628,6 +698,13 @@ function ImageStudioInner() {
             throw new Error("Generation accepted as pending but no jobId returned — cannot poll for result.");
           }
           const jobId     = data.data.jobId as string;
+          // Store assetId from initial response so error cards can be deleted from DB
+          const pendingAssetId = data.data.assetId as string | undefined;
+          if (pendingAssetId) {
+            setImages((prev) =>
+              prev.map((img) => img.id === ph.id ? { ...img, assetId: pendingAssetId } : img)
+            );
+          }
           const authHeader = { Authorization: `Bearer ${user.accessToken}` };
 
           const POLL_INTERVAL = 4_000;   // 4 s between polls
@@ -663,10 +740,11 @@ function ImageStudioInner() {
               if (statusData.data?.status === "success") {
                 providerDone = true;
                 if (statusData.data?.url) {
+                  const pollAssetId = statusData.data.assetId as string | undefined;
                   setImages((prev) =>
                     prev.map((img) =>
                       img.id === ph.id
-                        ? { ...img, url: statusData.data.url as string, status: "done" }
+                        ? { ...img, url: statusData.data.url as string, status: "done", assetId: pollAssetId ?? img.assetId }
                         : img
                     )
                   );
@@ -675,7 +753,7 @@ function ImageStudioInner() {
                     modelKey,
                     prompt,
                     resultUrl:   statusData.data.url as string,
-                    assetId:     statusData.data.assetId as string | undefined,
+                    assetId:     pollAssetId,
                     aspectRatio: apiAr,
                   });
                   resolved = true;
@@ -728,6 +806,27 @@ function ImageStudioInner() {
     // Refresh credit balance so the pill reflects the new total
     await refreshUser();
   }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, outputFormat, batchSize, model, editImageUrl, referenceImageUrl, recordFlowStep]);
+
+  // ── Delete failed card ────────────────────────────────────────────────────────
+  // Removes a failed card from local state and marks the DB asset as "deleted".
+  // Only makes the DB call when an assetId is present (history-loaded rows and
+  // async generations where the server already wrote the asset record).
+  const handleDeleteCard = useCallback(async (localId: string, assetId?: string) => {
+    // Optimistic UI — remove immediately
+    setImages((prev) => prev.filter((img) => img.id !== localId));
+
+    if (!assetId || !user?.accessToken) return;
+
+    try {
+      await fetch(`/api/studio/assets/${assetId}/delete`, {
+        method:  "POST",
+        headers: { Authorization: `Bearer ${user.accessToken}` },
+      });
+    } catch {
+      // Deletion failure is non-critical — the card is already gone from the UI
+      console.warn("[ImageStudio] Failed to mark asset as deleted:", assetId);
+    }
+  }, [user]);
 
   // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
   const handleVariation = useCallback((step: FlowStep) => {
@@ -992,6 +1091,7 @@ function ImageStudioInner() {
                     promptRef.current?.focus();
                   }}
                   onOpen={() => { if (img.status === "done") setViewingImage(img); }}
+                  onDelete={handleDeleteCard}
                 />
               </div>
             ))}
