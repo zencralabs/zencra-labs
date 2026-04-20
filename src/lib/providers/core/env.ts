@@ -54,6 +54,13 @@ export interface NanoBananaEnv {
   apiKey: string;
   baseUrl: string;
   callbackUrl: string;
+  /**
+   * Nano Banana 2 generation endpoint path (relative to baseUrl).
+   * Default: /api/v1/nanobanana/generate  (same as Standard — confirmed working).
+   * Override via NANO_BANANA_NB2_ENDPOINT if the reseller docs specify a dedicated path.
+   * Example: NANO_BANANA_NB2_ENDPOINT=/api/v1/nanobanana/generate-pro
+   */
+  nb2Endpoint: string;
 }
 
 export function getNanoBananaEnv(): NanoBananaEnv {
@@ -65,6 +72,13 @@ export function getNanoBananaEnv(): NanoBananaEnv {
     callbackUrl: optional(
       "NANO_BANANA_CALLBACK_URL",
       `${optional("NEXT_PUBLIC_SITE_URL", "https://zencralabs.com")}/api/webhooks/studio/nano-banana`
+    ) as string,
+    // NB2 endpoint — defaults to the standard route (proven working).
+    // Set NANO_BANANA_NB2_ENDPOINT if your reseller account has a dedicated path
+    // e.g. /api/v1/nanobanana/generate-v2 or /api/v1/nanobanana/generate-pro
+    nb2Endpoint: optional(
+      "NANO_BANANA_NB2_ENDPOINT",
+      "/api/v1/nanobanana/generate"
     ) as string,
   };
 }

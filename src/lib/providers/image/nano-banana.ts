@@ -36,10 +36,12 @@ import { getNanoBananaEnv } from "../core/env";
 
 type NBVariant = "standard" | "pro" | "nb2";
 
+// nb2 endpoint is NOT defined here — it is read from env at runtime so it can
+// be overridden via NANO_BANANA_NB2_ENDPOINT without a code deploy.
+// The standard and pro paths are stable and don't need overrides.
 const NB_ENDPOINTS = {
   standard: "/api/v1/nanobanana/generate",
   pro:      "/api/v1/nanobanana/generate-pro",
-  nb2:      "/api/v1/nanobanana/generate-v2",
   task:     "/api/v1/nanobanana/record-info",
 } as const;
 
@@ -132,7 +134,7 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
     },
 
     async createJob(input: ZProviderInput): Promise<ZJob> {
-      const { apiKey, baseUrl, callbackUrl } = getNanoBananaEnv();
+      const { apiKey, baseUrl, callbackUrl, nb2Endpoint } = getNanoBananaEnv();
       const jobId = newJobId();
 
       // ── Collect reference images ────────────────────────────────────────────
@@ -141,15 +143,12 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
       const quality = (input.providerParams?.quality as string | undefined) ?? "1K";
 
       // outputFormat: only NB2 exposes this in UI; Standard/Pro use NB server default.
-      // The field is still read here so future API callers can pass it via providerParams.
       const outputFmt = (input.providerParams?.outputFormat as string | undefined);
 
       // googleSearch: backend-ready, not exposed in Zencra UI yet (Phase 1 lock).
-      // To enable: pass providerParams.useGoogleSearch = true from a future advanced toggle.
       const useGoogleSearch = Boolean(input.providerParams?.useGoogleSearch);
 
       // ── Resolve aspect ratio ────────────────────────────────────────────────
-      // Pass the exact AR string if NB supports it; omit "auto" (let NB decide)
       const arParam = input.aspectRatio && NB_SUPPORTED_ASPECT_RATIOS.has(input.aspectRatio)
         ? input.aspectRatio
         : undefined;
@@ -165,23 +164,36 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
           prompt:      input.prompt,
           resolution,
           callBackUrl: callbackUrl,
-          // format: not sent for Pro — NB server default (Standard/Pro lock Phase 1)
           ...(arParam              ? { aspectRatio:   arParam }             : {}),
           ...(refs.length > 0      ? { imageUrls:     refs }                : {}),
           ...(useGoogleSearch      ? { googleSearch:  true }                : {}),
         };
       } else if (variant === "nb2") {
-        endpoint = NB_ENDPOINTS.nb2;
+        // ── NB2 endpoint is configurable via NANO_BANANA_NB2_ENDPOINT.
+        // Default: /api/v1/nanobanana/generate (same as Standard — proven working).
+        // The previous /generate-v2 path returned 404 (Spring Boot "Not Found").
+        // If your reseller account has a dedicated NB2 path, set the env var.
+        endpoint = nb2Endpoint;
         payload = {
+          // type is required by the /generate endpoint; include it for NB2 too.
+          type:        isI2I ? NB_TYPE.image : NB_TYPE.text,
           prompt:      input.prompt,
           numImages:   1,
           callBackUrl: callbackUrl,
-          // format: only NB2 surfaces this in UI; pass when present
+          // outputFormat is NB2-specific; only sent when explicitly set.
           ...(outputFmt            ? { format:        outputFmt }           : {}),
           ...(arParam              ? { aspectRatio:   arParam }             : {}),
           ...(refs.length > 0      ? { imageUrls:     refs }                : {}),
           ...(useGoogleSearch      ? { googleSearch:  true }                : {}),
         };
+        // ── NB2 request diagnostics — log endpoint + full sanitized payload ──
+        console.log(
+          `[nano-banana][nb2] submitting to ${baseUrl}${endpoint}`,
+          "\npayload:", JSON.stringify({
+            ...payload,
+            // callBackUrl included so we can verify the webhook path is correct
+          }, null, 2)
+        );
       } else {
         // standard — T2I or I2I depending on reference presence
         endpoint = NB_ENDPOINTS.standard;
@@ -190,14 +202,16 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
           prompt:      input.prompt,
           numImages:   1,
           callBackUrl: callbackUrl,
-          // format: not sent for Standard — NB server default
           ...(arParam              ? { aspectRatio:   arParam }             : {}),
           ...(refs.length > 0      ? { imageUrls:     refs }                : {}),
           ...(useGoogleSearch      ? { googleSearch:  true }                : {}),
         };
       }
 
-      const res = await fetch(`${baseUrl}${endpoint}`, {
+      const fullUrl = `${baseUrl}${endpoint}`;
+      console.log(`[nano-banana] variant=${variant} POST ${fullUrl}`);
+
+      const res = await fetch(fullUrl, {
         method:  "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -212,13 +226,28 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         let errBody = "(unreadable)";
         try { errBody = await res.text(); } catch { /* ignore */ }
         console.error(
-          `[nano-banana] submit HTTP ${res.status} for variant=${variant}`,
-          `endpoint=${endpoint}`,
-          `body=${errBody.slice(0, 500)}`
+          `[nano-banana] submit HTTP ${res.status} variant=${variant}`,
+          `url=${fullUrl}`,
+          `responseBody=${errBody.slice(0, 600)}`
         );
         throw new Error(`Nano Banana submit HTTP ${res.status}: ${errBody.slice(0, 200)}`);
       }
-      const body = (await res.json()) as Record<string, unknown>;
+
+      const rawText = await res.text();
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        console.error(`[nano-banana] variant=${variant} non-JSON success response: ${rawText.slice(0, 300)}`);
+        throw new Error(`Nano Banana returned non-JSON response: ${rawText.slice(0, 100)}`);
+      }
+
+      // ── Log full success response (critical for NB2 debugging) ─────────────
+      console.log(
+        `[nano-banana] variant=${variant} submit success HTTP ${res.status}`,
+        `url=${fullUrl}`,
+        `responseBody=${JSON.stringify(body).slice(0, 600)}`
+      );
 
       // Body-level error check: NB sometimes returns HTTP 200 with a non-200 code in the body.
       const bodyCode = Number(body.code ?? 200);
