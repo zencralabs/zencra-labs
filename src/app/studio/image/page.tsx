@@ -1019,92 +1019,89 @@ function ImageStudioInner() {
       </div>{/* end gallery scroll area */}
 
       {/* ── RIGHT PREVIEW PANEL ────────────────────────────────────────────── */}
+      {/* Single div — no inner wrapper. Collapses via width animation; overflow:hidden clips content. */}
       <div style={{
         width: panelOpen ? 300 : 0,
         minWidth: panelOpen ? 300 : 0,
         transition: "width 0.28s ease, min-width 0.28s ease",
         overflow: "hidden",
-        borderLeft: panelOpen ? "1px solid rgba(255,255,255,0.07)" : "none",
-        background: "rgba(255,255,255,0.015)",
+        borderLeft: "1px solid rgba(255,255,255,0.07)",
+        background: "#0d0d0d",
         display: "flex", flexDirection: "column",
         flexShrink: 0,
       }}>
-        {panelOpen && (
-          <div style={{ width: 300, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            {/* Panel header */}
+        {/* Panel header — always rendered inside the collapsing div */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 16px 10px",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0, minWidth: 300,
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Preview
+          </span>
+          <button
+            onClick={() => setPanelOpen(false)}
+            title="Close preview panel"
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "rgba(255,255,255,0.3)", fontSize: 16, lineHeight: 1,
+              padding: "3px 5px", borderRadius: 5, transition: "color 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+          >✕</button>
+        </div>
+
+        {/* Image preview — click to open fullscreen */}
+        <div style={{ padding: "14px 14px 0", flexShrink: 0, minWidth: 300 }}>
+          {selectedImage?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={selectedImage.url}
+              alt="Selected preview"
+              onClick={() => setViewingImage(selectedImage)}
+              style={{
+                width: "100%", borderRadius: 10, objectFit: "contain",
+                maxHeight: 230, background: "rgba(0,0,0,0.25)",
+                cursor: "zoom-in", display: "block",
+              }}
+            />
+          ) : (
             <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "14px 16px 10px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              flexShrink: 0,
+              width: "100%", paddingBottom: "75%", borderRadius: 10, position: "relative",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
             }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Preview
-              </span>
-              <button
-                onClick={() => setPanelOpen(false)}
-                title="Close preview panel"
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "rgba(255,255,255,0.3)", fontSize: 16, lineHeight: 1,
-                  padding: "3px 5px", borderRadius: 5, transition: "color 0.15s",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
-              >✕</button>
-            </div>
-
-            {/* Image preview — click to open fullscreen */}
-            <div style={{ padding: "14px 14px 0", flexShrink: 0 }}>
-              {selectedImage?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={selectedImage.url}
-                  alt="Selected preview"
-                  onClick={() => setViewingImage(selectedImage)}
-                  style={{
-                    width: "100%", borderRadius: 10, objectFit: "contain",
-                    maxHeight: 230, background: "rgba(0,0,0,0.25)",
-                    cursor: "zoom-in", display: "block",
-                  }}
-                />
-              ) : (
-                <div style={{
-                  width: "100%", paddingBottom: "75%", borderRadius: 10, position: "relative",
-                  background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-                }}>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)" }}>
-                      {images.length > 0 ? "Generating…" : "No image yet"}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Metadata */}
-            {selectedImage && (
-              <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 180px", display: "flex", flexDirection: "column", gap: 12 }}>
-                <div>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Prompt</p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.55, wordBreak: "break-word", margin: 0 }}>
-                    {selectedImage.prompt || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Model</p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-                    {MODELS.find((m) => MODEL_TO_KEY[m.id] === selectedImage.model || m.id === selectedImage.model)?.name ?? selectedImage.model}
-                  </p>
-                </div>
-                <div>
-                  <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Aspect Ratio</p>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
-                    {selectedImage.aspectRatio}
-                  </p>
-                </div>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)" }}>
+                  {images.length > 0 ? "Generating…" : "No image yet"}
+                </span>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+
+        {/* Metadata */}
+        {selectedImage && (
+          <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px 180px", display: "flex", flexDirection: "column", gap: 12, minWidth: 300 }}>
+            <div>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Prompt</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.55, wordBreak: "break-word", margin: 0 }}>
+                {selectedImage.prompt || "—"}
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Model</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                {MODELS.find((m) => MODEL_TO_KEY[m.id] === selectedImage.model || m.id === selectedImage.model)?.name ?? selectedImage.model}
+              </p>
+            </div>
+            <div>
+              <p style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 5 }}>Aspect Ratio</p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                {selectedImage.aspectRatio}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -1711,43 +1708,65 @@ function ImageStudioInner() {
       </div>
 
       {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────── */}
+      {/* position: fixed with top:64 keeps it below the navbar (64px height).          */}
+      {/* Background is semi-transparent so the studio remains ~12% visible — cinematic. */}
       {viewingImage?.url && (
         <div
           onClick={() => setViewingImage(null)}
           style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            background: "rgba(0,0,0,0.88)", backdropFilter: "blur(14px)",
+            position: "fixed",
+            top: 64, left: 0, right: 0, bottom: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.82)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
             display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "32px 40px",
           }}
         >
-          {/* Close button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setViewingImage(null); }}
-            title="Close (Esc)"
-            style={{
-              position: "absolute", top: 20, right: 20,
-              width: 36, height: 36, borderRadius: "50%",
-              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
-              color: "#fff", fontSize: 16, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s", zIndex: 10,
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.22)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
-          >✕</button>
-
-          {/* Image — stop propagation so clicking image doesn't close overlay */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={viewingImage.url}
-            alt="Full size"
+          {/* Image frame wrapper — close button lives inside this, top-right corner */}
+          <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "90vw", maxHeight: "90vh",
-              objectFit: "contain", borderRadius: 12,
-              boxShadow: "0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06)",
-            }}
-          />
+            style={{ position: "relative", lineHeight: 0 }}
+          >
+            {/* Close button — anchored to top-right of image frame */}
+            <button
+              onClick={() => setViewingImage(null)}
+              title="Close (Esc)"
+              style={{
+                position: "absolute", top: -14, right: -14,
+                width: 32, height: 32, borderRadius: "50%",
+                background: "rgba(20,20,20,0.9)", border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff", fontSize: 14, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s", zIndex: 10,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.85)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.6)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(20,20,20,0.9)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
+              }}
+            >✕</button>
+
+            {/* Image — responsive across laptop / desktop / tablet / mobile */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={viewingImage.url}
+              alt="Full size"
+              style={{
+                display: "block",
+                maxWidth: "min(82vw, 1100px)",
+                maxHeight: "calc(100vh - 64px - 80px)",
+                objectFit: "contain",
+                borderRadius: 12,
+                boxShadow: "0 24px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07)",
+              }}
+            />
+          </div>
         </div>
       )}
 
