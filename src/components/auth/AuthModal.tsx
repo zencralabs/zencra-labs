@@ -559,17 +559,17 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                 {error   && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
                 {success && <p style={{ fontSize: "12px", color: "#6EE7B7", margin: 0 }}>{success}</p>}
 
-                <button type="submit" disabled={loading} style={{
+                <button type="submit" disabled={loading || pendingRedirect} style={{
                   marginTop: "4px", padding: "12px", borderRadius: "10px", border: "none",
                   background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
                   color: "#fff", fontSize: "14px", fontWeight: 700,
-                  cursor: loading ? "not-allowed" : "pointer",
-                  opacity: loading ? 0.7 : 1,
+                  cursor: (loading || pendingRedirect) ? "not-allowed" : "pointer",
+                  opacity: (loading || pendingRedirect) ? 0.7 : 1,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
                   transition: "opacity 0.2s",
                 }}>
                   <Zap size={15} />
-                  {loading ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
+                  {(loading || pendingRedirect) ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
                 </button>
               </form>
             </>

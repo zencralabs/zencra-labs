@@ -139,6 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       console.error("[loadProfile] error:", error.message);
+      // Still set user from session so auth flow completes (profile enrichment is non-fatal).
+      // Without this, user stays null after login if the profiles query fails,
+      // leaving the auth modal stuck showing "Please wait…" indefinitely.
+      setUser(buildAuthUser(null, sess));
       return;
     }
 
