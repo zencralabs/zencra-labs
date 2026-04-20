@@ -3,7 +3,8 @@
  *
  * AI-powered prompt enhancement for Zencra studios.
  * Takes a rough user prompt and returns a detailed, model-aware,
- * cinematically rich version using Claude Haiku (fast, low-latency).
+ * cinematically rich version using OpenAI gpt-4o-mini (fast, cheap,
+ * uses the same key already powering image generation).
  *
  * No credits are consumed — this is a free UX utility, not a generation.
  *
@@ -20,9 +21,10 @@
  * Errors:
  *   401  UNAUTHORIZED   — missing/invalid Bearer token
  *   400  INVALID_INPUT  — missing prompt or studioType
- *   500  SERVER_ERROR   — Claude API error
+ *   500  SERVER_ERROR   — OpenAI API error
  */
 
+import OpenAI                                    from "openai";
 import { requireAuthUser }                       from "@/lib/supabase/server";
 import { invalidInput, serverErr, parseBody, requireField }
                                                  from "@/lib/api/route-utils";
@@ -32,10 +34,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ── Runtime key check ────────────────────────────────────────────────────────
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("[prompt-enhance] ANTHROPIC_API_KEY is NOT set — prompt enhancement will fail");
+if (!process.env.OPENAI_API_KEY) {
+  console.error("[prompt-enhance] OPENAI_API_KEY is NOT set — prompt enhancement will fail");
 } else {
-  console.log("[prompt-enhance] ANTHROPIC_API_KEY present ✓");
+  console.log("[prompt-enhance] OPENAI_API_KEY present ✓ (length:", process.env.OPENAI_API_KEY.length, ")");
 }
 
 // ── System prompts by studio type ────────────────────────────────────────────
@@ -60,7 +62,7 @@ Rules:
 - Preserve the user's core subject, scene, and intent exactly — never change what they want to create
 - Add camera motion: dolly, pan, orbit, tracking shot, crane, handheld, static lock-off, etc.
 - Add physical motion: how subjects, elements, and the environment move and behave
-- Add cinematic quality: lighting, atmosphere, colour grade, visual style (e.g. "golden hour", "neon-drenched", "muted desaturated tones")
+- Add cinematic quality: lighting, atmosphere, colour grade, visual style
 - Add lens/format cues: focal length, depth of field, film grain if appropriate
 - Output ONLY the enhanced prompt — no explanation, no prefix, no quotes, no commentary
 - Keep the result between 40 and 140 words
@@ -72,16 +74,16 @@ Rules:
 function modelContext(modelHint: string, studioType: string): string {
   if (studioType === "image") {
     if (modelHint.startsWith("nano-banana-2")) {
-      return "\n\nModel note: This prompt targets Nano Banana 2. Use dense, grounded visual language — specific lighting setups, material surfaces, photographic detail. Avoid abstract metaphors; ground everything in concrete visual elements.";
+      return "\n\nModel note: This prompt targets Nano Banana 2. Use dense, grounded visual language — specific lighting setups, material surfaces, photographic detail. Avoid abstract metaphors.";
     }
     if (modelHint.startsWith("nano-banana")) {
       return "\n\nModel note: This prompt targets Nano Banana. Clear subject/scene descriptions with strong visual language. Include mood, lighting direction, and compositional framing.";
     }
     if (modelHint === "dalle3" || modelHint.includes("gpt-image")) {
-      return "\n\nModel note: This prompt targets GPT Image 1. This model handles natural-language prompts well and follows detailed instructions closely. Be descriptive and specific.";
+      return "\n\nModel note: This prompt targets GPT Image 1. It follows detailed natural-language instructions closely. Be descriptive and specific.";
     }
     if (modelHint.includes("seedream")) {
-      return "\n\nModel note: This prompt targets Seedream. Rich scene composition with emotional tone, colour palette, and artistic style references. This model handles stylistic diversity well.";
+      return "\n\nModel note: This prompt targets Seedream. Rich scene composition with emotional tone, colour palette, and artistic style references.";
     }
   }
   if (studioType === "video") {
@@ -101,7 +103,7 @@ export async function POST(req: Request): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { user, authError } = await requireAuthUser(req);
   if (authError) return authError;
-  void user; // auth confirmed — user ID not needed for this route
+  void user;
 
   // ── Parse body ────────────────────────────────────────────────────────────
   const { body, parseError } = await parseBody<{
@@ -111,7 +113,6 @@ export async function POST(req: Request): Promise<Response> {
   }>(req);
   if (parseError) return parseError;
 
-  // body is non-null here — parseError is only set when body is null
   const b = body as { prompt: string; studioType: string; modelHint?: string };
 
   const { value: rawPrompt, fieldError: promptErr } = requireField(b as Record<string, unknown>, "prompt");
@@ -131,65 +132,38 @@ export async function POST(req: Request): Promise<Response> {
   const baseSystem = studioType === "video" ? VIDEO_SYSTEM : IMAGE_SYSTEM;
   const system     = baseSystem + modelContext(modelHint, studioType);
 
-  // ── Call Claude Haiku via raw fetch (no SDK dependency) ───────────────────
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return serverErr("ANTHROPIC_API_KEY is not configured");
+  // ── Call OpenAI gpt-4o-mini ───────────────────────────────────────────────
+  // Uses the same OPENAI_API_KEY already powering image generation — no new key needed.
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return serverErr("OPENAI_API_KEY is not configured");
 
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method:  "POST",
-      headers: {
-        "x-api-key":         apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type":      "application/json",
-      },
-      body: JSON.stringify({
-        // claude-3-5-haiku-20241022 — fast, cheap, definitively available via API
-        model:      "claude-3-5-haiku-20241022",
-        max_tokens: 512,
-        system,
-        messages: [
-          {
-            role:    "user",
-            content: `Enhance this prompt:\n\n${rawPrompt}`,
-          },
-        ],
-      }),
+    const openai = new OpenAI({ apiKey });
+
+    const completion = await openai.chat.completions.create({
+      model:      "gpt-4o-mini",
+      max_tokens: 512,
+      messages: [
+        { role: "system", content: system },
+        { role: "user",   content: `Enhance this prompt:\n\n${rawPrompt}` },
+      ],
     });
 
-    if (!response.ok) {
-      // Parse and log full Anthropic error body so root cause is always visible in server logs
-      let errBody: unknown = null;
-      try {
-        errBody = await response.json();
-      } catch {
-        errBody = await response.text().catch(() => "(unreadable body)");
-      }
-      console.error(
-        "[prompt-enhance] Anthropic API error",
-        "status:", response.status,
-        "body:", JSON.stringify(errBody, null, 2)
-      );
-      const errMsg = (errBody as { error?: { message?: string } })?.error?.message
-        ?? `HTTP ${response.status}`;
-      return serverErr(`Prompt enhancement failed: ${errMsg}`);
-    }
-
-    const json = await response.json() as {
-      content?: { type: string; text: string }[];
-    };
-
-    const enhanced = json.content?.find((b) => b.type === "text")?.text?.trim() ?? "";
+    const enhanced = completion.choices[0]?.message?.content?.trim() ?? "";
 
     if (!enhanced) {
-      console.error("[prompt-enhance] Claude returned empty content", json);
+      console.error("[prompt-enhance] OpenAI returned empty content", completion);
       return serverErr("Prompt enhancement returned empty result");
     }
 
+    console.log("[prompt-enhance] success — enhanced prompt length:", enhanced.length);
     return NextResponse.json({ enhancedPrompt: enhanced }, { status: 200 });
 
-  } catch (err) {
-    console.error("[prompt-enhance] Unexpected error", err);
-    return serverErr("Prompt enhancement failed unexpectedly");
+  } catch (err: unknown) {
+    // Surface OpenAI error details fully in server logs
+    const status  = (err as { status?: number })?.status;
+    const message = (err as { message?: string })?.message ?? String(err);
+    console.error("[prompt-enhance] OpenAI error", "status:", status, "message:", message, err);
+    return serverErr(`Prompt enhancement failed: ${message}`);
   }
 }
