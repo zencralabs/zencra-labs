@@ -159,22 +159,17 @@ function ResultPreview({ step }: { step: FlowStep }) {
 export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
   const { activeStep } = useFlowStore();
 
-  // dismissed = user manually closed the panel; resets when a new step appears
+  // dismissed = user manually closed the panel; resets whenever a new step arrives
   const [dismissed, setDismissed] = useState(false);
 
-  // Reset dismissed whenever the active step changes (new generation)
+  // Reset dismissed when a new generation completes (activeStep.id changes)
   useEffect(() => {
-    setDismissed(false);
+    if (activeStep) setDismissed(false);
   }, [activeStep?.id]);
 
-  // Panel content is ready when there is a successful step
-  const hasStep = activeStep !== null && activeStep.status === "success";
-
-  // Panel slides in when ready AND user has not dismissed it
-  const panelVisible = hasStep && !dismissed;
-
-  // Reopen tab is shown when there's a step but the panel was dismissed
-  const reopenVisible = hasStep && dismissed;
+  // Panel visible: step exists AND user hasn't dismissed it
+  // NOTE: no status check — rely only on activeStep presence + dismissed flag
+  const panelVisible = !!activeStep && !dismissed;
 
   function handleAction(actionId: ActionId, step: FlowStep) {
     if (actionId === "variation") {
@@ -187,24 +182,24 @@ export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
       {/* ── Main panel ────────────────────────────────────────────────────── */}
       <div
         style={{
-          position: "fixed",
-          top: 64,
-          right: 0,
-          bottom: 0,
-          width: 360,
-          zIndex: 1000,
-          background: "rgba(6,6,10,0.97)",
+          position:       "fixed",
+          top:            64,
+          right:          0,
+          bottom:         0,
+          width:          360,
+          zIndex:         1000,
+          background:     "rgba(6,6,10,0.97)",
           backdropFilter: "blur(20px)",
-          borderLeft: "1px solid rgba(255,255,255,0.07)",
-          display: "flex",
-          flexDirection: "column",
-          fontFamily: "var(--font-body, system-ui, sans-serif)",
-          color: "#fff",
-          transform: panelVisible ? "translateX(0)" : "translateX(100%)",
-          opacity: panelVisible ? 1 : 0,
-          transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
-          pointerEvents: panelVisible ? "all" : "none",
-          overflow: "hidden",
+          borderLeft:     "1px solid rgba(255,255,255,0.07)",
+          display:        "flex",
+          flexDirection:  "column",
+          fontFamily:     "var(--font-body, system-ui, sans-serif)",
+          color:          "#fff",
+          transform:      panelVisible ? "translateX(0)" : "translateX(100%)",
+          opacity:        panelVisible ? 1 : 0,
+          transition:     "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+          pointerEvents:  panelVisible ? "all" : "none",
+          overflow:       "hidden",
         }}
       >
         {activeStep && (
@@ -308,41 +303,43 @@ export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
         )}
       </div>
 
-      {/* ── Reopen tab — visible when panel is dismissed but step exists ── */}
-      {/* zIndex 1000: must sit above the prompt bar (50), gallery cards, and any
-          stacking context created by transformed card elements in the grid.    */}
-      {reopenVisible && (
+      {/* ── Reopen tab ─────────────────────────────────────────────────────
+           Shown whenever activeStep exists AND panel was dismissed.
+           Logic is purely panel-state — no dependency on zoomLevel,
+           hideHoverActions, or any other gallery-level state.
+           zIndex 1000: above gallery (40), prompt bar (50), navbar context. */}
+      {activeStep && dismissed && (
         <button
           onClick={() => setDismissed(false)}
           title="Reopen panel"
           style={{
-            position:     "fixed",
-            top:          "50%",
-            right:        0,
-            transform:    "translateY(-50%)",
-            zIndex:       1000,
-            pointerEvents: "all",
-            width:        36,
-            height:       64,
-            borderRadius: "8px 0 0 8px",
-            background:   "rgba(6,6,10,0.92)",
-            border:       "1px solid rgba(255,255,255,0.1)",
-            borderRight:  "none",
-            color:        "rgba(255,255,255,0.4)",
-            cursor:       "pointer",
-            fontSize:     16,
-            display:      "flex",
-            alignItems:   "center",
+            position:       "fixed",
+            top:            "50%",
+            right:          0,
+            transform:      "translateY(-50%)",
+            zIndex:         1000,
+            pointerEvents:  "auto",
+            background:     "#0B0F1A",
+            border:         "1px solid rgba(255,255,255,0.1)",
+            borderRight:    "none",
+            borderRadius:   "8px 0 0 8px",
+            padding:        "12px 8px",
+            cursor:         "pointer",
+            color:          "rgba(255,255,255,0.5)",
+            fontSize:       18,
+            lineHeight:     1,
+            display:        "flex",
+            alignItems:     "center",
             justifyContent: "center",
-            transition:   "all 0.15s",
+            transition:     "background 0.15s, color 0.15s",
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(30,30,40,0.98)";
+            (e.currentTarget as HTMLElement).style.background = "rgba(30,30,50,0.98)";
             (e.currentTarget as HTMLElement).style.color = "#fff";
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(6,6,10,0.92)";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)";
+            (e.currentTarget as HTMLElement).style.background = "#0B0F1A";
+            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)";
           }}
         >‹</button>
       )}
