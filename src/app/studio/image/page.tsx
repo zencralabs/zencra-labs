@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import MediaCard from "@/components/media/MediaCard";
@@ -272,6 +272,7 @@ function ImageCard({
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
   onReusePrompt?: (prompt: string) => void;
 }) {
+  const router = useRouter();
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} />;
   }
@@ -307,10 +308,11 @@ function ImageCard({
         onAnimate={() => {
           // Animate → Video Studio, image pre-loaded into Start Frame, Kling 3.0 pre-selected
           // "kling-30" is the VIDEO_MODEL_REGISTRY catalog ID for Kling 3.0 Omni
-          const params = new URLSearchParams({ model: "kling-30" });
+          // router.push = soft navigation; preserves Zustand FlowStore workflow ID
+          const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
           if (img.url) params.set("imageUrl", img.url);
           if (img.prompt) params.set("prompt", img.prompt);
-          window.location.href = `/studio/video?${params.toString()}`;
+          router.push(`/studio/video?${params.toString()}`);
         }}
       />
     </div>

@@ -487,6 +487,8 @@ export default function VideoStudioShell() {
 
   // "imageUrl" param: pre-populate the Start Frame slot when coming from Image Studio Animate
   const imageUrlParam = searchParams.get("imageUrl") ?? "";
+  // "from" param: visual indicator that user arrived via Image Studio → Animate
+  const fromImageStudio = searchParams.get("from") === "image-studio" && !!imageUrlParam;
 
   // Controls
   // If an imageUrl is provided, open in Image Reference (start_frame) mode automatically
@@ -891,6 +893,28 @@ export default function VideoStudioShell() {
           transition: "filter 0.35s ease",
           filter: cinemaModeActive ? "brightness(1.04)" : "brightness(1)",
         }}>
+          {/* "From Image Studio" source badge — shown only when arriving via Animate */}
+          {fromImageStudio && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "6px 12px 6px 10px",
+              marginBottom: 8,
+              borderRadius: 8,
+              background: "rgba(99,102,241,0.10)",
+              border: "1px solid rgba(99,102,241,0.22)",
+              width: "fit-content",
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(165,180,252,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: "rgba(165,180,252,0.85)", letterSpacing: "0.01em" }}>
+                Image loaded from Image Studio — ready to animate
+              </span>
+            </div>
+          )}
           {model && !model.available ? (
             <ComingSoonScreen model={model} />
           ) : model && model.apiModelId === "" ? (
