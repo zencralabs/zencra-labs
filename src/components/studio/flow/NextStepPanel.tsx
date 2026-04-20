@@ -21,6 +21,7 @@
  * UI labels use: "Create", "Continue", "Use this".
  */
 
+import { useState, useEffect } from "react";
 import { useFlowStore } from "@/lib/flow/store";
 import type { FlowStep, FlowStudioType } from "@/lib/flow/store";
 import { ActionCard, ACTION_DEFINITIONS } from "./ActionCard";
@@ -158,8 +159,22 @@ function ResultPreview({ step }: { step: FlowStep }) {
 export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
   const { activeStep } = useFlowStore();
 
-  // Panel is hidden when there's no active step
-  const visible = activeStep !== null && activeStep.status === "success";
+  // dismissed = user manually closed the panel; resets when a new step appears
+  const [dismissed, setDismissed] = useState(false);
+
+  // Reset dismissed whenever the active step changes (new generation)
+  useEffect(() => {
+    setDismissed(false);
+  }, [activeStep?.id]);
+
+  // Panel content is ready when there is a successful step
+  const hasStep = activeStep !== null && activeStep.status === "success";
+
+  // Panel slides in when ready AND user has not dismissed it
+  const panelVisible = hasStep && !dismissed;
+
+  // Reopen tab is shown when there's a step but the panel was dismissed
+  const reopenVisible = hasStep && dismissed;
 
   function handleAction(actionId: ActionId, step: FlowStep) {
     if (actionId === "variation") {
@@ -168,118 +183,166 @@ export default function NextStepPanel({ onVariation }: NextStepPanelProps) {
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 64,
-        right: 0,
-        bottom: 0,
-        width: 360,
-        zIndex: 44,
-        background: "rgba(6,6,10,0.97)",
-        backdropFilter: "blur(20px)",
-        borderLeft: "1px solid rgba(255,255,255,0.07)",
-        display: "flex",
-        flexDirection: "column",
-        fontFamily: "var(--font-body, system-ui, sans-serif)",
-        color: "#fff",
-        // CSS slide animation (no Framer Motion needed)
-        transform: visible ? "translateX(0)" : "translateX(100%)",
-        opacity: visible ? 1 : 0,
-        transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
-        pointerEvents: visible ? "all" : "none",
-        overflow: "hidden",
-      }}
-    >
-      {activeStep && (
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: 20,
+    <>
+      {/* ── Main panel ────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          top: 64,
+          right: 0,
+          bottom: 0,
+          width: 360,
+          zIndex: 44,
+          background: "rgba(6,6,10,0.97)",
+          backdropFilter: "blur(20px)",
+          borderLeft: "1px solid rgba(255,255,255,0.07)",
           display: "flex",
           flexDirection: "column",
-          gap: 0,
-        }}>
-
-          {/* ── Header ────────────────────────────────────────────────────── */}
+          fontFamily: "var(--font-body, system-ui, sans-serif)",
+          color: "#fff",
+          transform: panelVisible ? "translateX(0)" : "translateX(100%)",
+          opacity: panelVisible ? 1 : 0,
+          transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease",
+          pointerEvents: panelVisible ? "all" : "none",
+          overflow: "hidden",
+        }}
+      >
+        {activeStep && (
           <div style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: 20,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
+            flexDirection: "column",
+            gap: 0,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16 }}>{STUDIO_ICON[activeStep.studioType]}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
-                {STUDIO_LABEL[activeStep.studioType]}
-              </span>
+
+            {/* ── Header ──────────────────────────────────────────────────── */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 16,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>{STUDIO_ICON[activeStep.studioType]}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
+                  {STUDIO_LABEL[activeStep.studioType]}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{
+                  fontSize: 10,
+                  color: "rgba(255,255,255,0.2)",
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}>
+                  What&apos;s next?
+                </span>
+                {/* Close button */}
+                <button
+                  onClick={() => setDismissed(true)}
+                  title="Dismiss panel"
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "rgba(255,255,255,0.25)", fontSize: 15, lineHeight: 1,
+                    padding: "3px 4px", borderRadius: 4, transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
+                >✕</button>
+              </div>
             </div>
-            <span style={{
+
+            {/* ── Result preview ──────────────────────────────────────────── */}
+            <ResultPreview step={activeStep} />
+
+            {/* ── Prompt snippet ──────────────────────────────────────────── */}
+            {activeStep.prompt && (
+              <p style={{
+                fontSize: 11,
+                color: "rgba(255,255,255,0.3)",
+                lineHeight: 1.5,
+                marginBottom: 16,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}>
+                {activeStep.prompt}
+              </p>
+            )}
+
+            {/* ── Divider ─────────────────────────────────────────────────── */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.06)", marginBottom: 16 }} />
+
+            {/* ── Action cards ────────────────────────────────────────────── */}
+            <p style={{
               fontSize: 10,
-              color: "rgba(255,255,255,0.2)",
               fontWeight: 600,
+              color: "rgba(255,255,255,0.25)",
               letterSpacing: "0.08em",
               textTransform: "uppercase",
+              marginBottom: 10,
             }}>
-              What&apos;s next?
-            </span>
-          </div>
-
-          {/* ── Result preview ─────────────────────────────────────────────── */}
-          <ResultPreview step={activeStep} />
-
-          {/* ── Prompt snippet ─────────────────────────────────────────────── */}
-          {activeStep.prompt && (
-            <p style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,0.3)",
-              lineHeight: 1.5,
-              marginBottom: 16,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}>
-              {activeStep.prompt}
+              Continue creating
             </p>
-          )}
 
-          {/* ── Divider ────────────────────────────────────────────────────── */}
-          <div style={{
-            height: 1,
-            background: "rgba(255,255,255,0.06)",
-            marginBottom: 16,
-          }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(CARD_MAP[activeStep.studioType] ?? []).map((actionId) => {
+                const def = ACTION_DEFINITIONS[actionId];
+                return (
+                  <ActionCard
+                    key={actionId}
+                    action={def}
+                    step={activeStep}
+                    onTrigger={handleAction}
+                  />
+                );
+              })}
+            </div>
 
-          {/* ── Action cards ───────────────────────────────────────────────── */}
-          <p style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.25)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 10,
-          }}>
-            Continue creating
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(CARD_MAP[activeStep.studioType] ?? []).map((actionId) => {
-              const def = ACTION_DEFINITIONS[actionId];
-              return (
-                <ActionCard
-                  key={actionId}
-                  action={def}
-                  step={activeStep}
-                  onTrigger={handleAction}
-                />
-              );
-            })}
           </div>
+        )}
+      </div>
 
-        </div>
+      {/* ── Reopen tab — visible when panel is dismissed but step exists ── */}
+      {reopenVisible && (
+        <button
+          onClick={() => setDismissed(false)}
+          title="Reopen panel"
+          style={{
+            position: "fixed",
+            top: "50%",
+            right: 0,
+            transform: "translateY(-50%)",
+            zIndex: 44,
+            width: 22,
+            height: 60,
+            borderRadius: "8px 0 0 8px",
+            background: "rgba(6,6,10,0.92)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRight: "none",
+            color: "rgba(255,255,255,0.4)",
+            cursor: "pointer",
+            fontSize: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(30,30,40,0.98)";
+            (e.currentTarget as HTMLElement).style.color = "#fff";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(6,6,10,0.92)";
+            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)";
+          }}
+        >‹</button>
       )}
-    </div>
+    </>
   );
 }
