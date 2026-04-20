@@ -79,6 +79,7 @@ type Asset = {
   status:          string;
   storage_path:    string | null;
   bucket:          string | null;
+  created_at:      string;
 };
 
 async function supabaseFetch(
@@ -99,7 +100,7 @@ async function supabaseFetch(
 
 async function getPendingNBAssets(): Promise<Asset[]> {
   const res = await supabaseFetch(
-    `/assets?status=eq.pending&model_key=like.nano-banana%25&external_job_id=not.is.null&limit=${LIMIT}&select=id,external_job_id,model_key,user_id,url,status,storage_path,bucket`,
+    `/assets?status=eq.pending&model_key=like.nano-banana%25&external_job_id=not.is.null&limit=${LIMIT}&select=id,external_job_id,model_key,user_id,url,status,storage_path,bucket,created_at&order=created_at.asc`,
     { method: "GET" }
   );
   if (!res.ok) {
@@ -107,6 +108,29 @@ async function getPendingNBAssets(): Promise<Asset[]> {
     throw new Error(`Supabase query failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<Asset[]>;
+}
+
+// Jobs older than this are assumed stale — NB will not complete them
+const STALE_THRESHOLD_DAYS = 3;
+
+async function updateAssetStale(assetId: string, reason: string): Promise<void> {
+  const res = await supabaseFetch(
+    `/assets?id=eq.${encodeURIComponent(assetId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        status:     "failed",
+        updated_at: new Date().toISOString(),
+        // store the stale reason in the error_message column if it exists;
+        // if the column doesn't exist Supabase will silently ignore it
+        error_message: reason,
+      }),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase stale-update failed (${res.status}): ${text}`);
+  }
 }
 
 async function updateAssetReady(assetId: string, publicUrl: string, storagePath: string): Promise<void> {
@@ -149,7 +173,8 @@ async function pollNB(taskId: string): Promise<NBPollResult> {
   }
 
   if (!res.ok) {
-    return { outcome: "failed", reason: `HTTP ${res.status}` };
+    const errText = await res.text().catch(() => "");
+    return { outcome: "failed", reason: `HTTP ${res.status} — ${errText.slice(0, 200)}` };
   }
 
   let body: Record<string, unknown>;
@@ -159,33 +184,55 @@ async function pollNB(taskId: string): Promise<NBPollResult> {
     return { outcome: "failed", reason: "Invalid JSON from NB API" };
   }
 
-  // NB may nest under body.data
-  const data = (
-    body.data != null && typeof body.data === "object" && !Array.isArray(body.data)
-      ? body.data
-      : body
-  ) as Record<string, unknown>;
+  // ── FULL untruncated log — outer body ─────────────────────────────────────
+  console.log(`\n  ┌─ NB RAW RESPONSE (outer body) taskId=${taskId}`);
+  console.log(`  │  HTTP status: ${res.status}`);
+  console.log(`  │  Top-level keys: [${Object.keys(body).join(", ")}]`);
+  console.log(`  │  Full body:\n${JSON.stringify(body, null, 2).split("\n").map(l => `  │    ${l}`).join("\n")}`);
 
-  console.log(`  [NB raw] taskId=${taskId}:`, JSON.stringify(data).slice(0, 400));
+  // NB may nest under body.data
+  const hasNestedData =
+    body.data != null && typeof body.data === "object" && !Array.isArray(body.data);
+  const data = (hasNestedData ? body.data : body) as Record<string, unknown>;
+
+  if (hasNestedData) {
+    console.log(`  │  → Nested body.data keys: [${Object.keys(data).join(", ")}]`);
+  }
+  console.log(`  └─ END RAW RESPONSE\n`);
 
   // ── Status decode ─────────────────────────────────────────────────────────
   const numStatus = Number(data.taskStatus ?? data.task_status ?? -1);
   const strStatus = String(data.status ?? data.taskStatusStr ?? "").toUpperCase();
 
+  console.log(`  [status decode] taskStatus(num)=${numStatus}  status(str)="${strStatus}"`);
+  console.log(`  [result_urls]   ${JSON.stringify(data.result_urls ?? "(absent)")}`);
+
   const isSuccess =
-    numStatus === 1 || ["SUCCESS", "COMPLETED", "DONE"].includes(strStatus);
-  const isFailed  =
+    numStatus === 1 ||
+    ["SUCCESS", "COMPLETED", "DONE"].includes(strStatus);
+
+  const isFailed =
     numStatus === 2 || numStatus === 3 ||
     ["FAILED", "ERROR", "CREATE_TASK_FAILED", "GENERATE_FAILED"].includes(strStatus);
-  const isPending =
-    numStatus === 0 || strStatus === "GENERATING" || strStatus === "PENDING" ||
-    (!isSuccess && !isFailed);
+
+  // Explicit pending: numStatus 0, or known pending strings
+  const isExplicitlyPending =
+    numStatus === 0 ||
+    ["GENERATING", "PENDING", "PROCESSING", "QUEUED", "WAITING"].includes(strStatus);
+
+  // Unknown: none of the above — log it so we can see what NB is returning
+  const isUnknown = !isSuccess && !isFailed && !isExplicitlyPending;
+  if (isUnknown) {
+    console.log(`  ⚠️  UNKNOWN status — numStatus=${numStatus} strStatus="${strStatus}". Treating as pending.`);
+    console.log(`      If this keeps happening, this taskId may need a new status string added to the parser.`);
+  }
 
   if (isFailed)  return { outcome: "failed",  reason: strStatus || `taskStatus=${numStatus}` };
-  if (isPending) return { outcome: "pending" };
+  if (!isSuccess) return { outcome: "pending" };  // isExplicitlyPending or isUnknown
 
-  // ── Extract URL (mirrors nano-banana.ts extractUrl logic) ─────────────────
+  // ── Extract URL — checks every known NB field variant ────────────────────
   const extractUrl = (src: Record<string, unknown>): string | undefined => {
+    // 1. result_urls — confirmed production field (Apr 2026 NB logs)
     if (Array.isArray(src.result_urls)) {
       for (const u of src.result_urls) {
         if (typeof u === "string" && u.trim()) return u.trim();
@@ -195,17 +242,21 @@ async function pollNB(taskId: string): Promise<NBPollResult> {
       const first = src.result_urls.split(",")[0].trim();
       if (first) return first;
     }
+    // 2. Scalar URL fields
     if (typeof src.imageUrl  === "string" && src.imageUrl)  return src.imageUrl;
     if (typeof src.image_url === "string" && src.image_url) return src.image_url;
     if (typeof src.url       === "string" && src.url)       return src.url;
     if (typeof src.imagUrl   === "string" && src.imagUrl)   return src.imagUrl;
+    // 3. Array shorthands
     if (Array.isArray(src.images)    && typeof src.images[0]    === "string") return src.images[0];
     if (Array.isArray(src.imageUrls) && typeof src.imageUrls[0] === "string") return src.imageUrls[0];
+    // 4. Nested output object
     if (src.output && typeof src.output === "object") {
       const out = src.output as Record<string, unknown>;
       if (typeof out.image === "string" && out.image) return out.image;
       if (typeof out.url   === "string" && out.url)   return out.url;
     }
+    // 5. Nested result object
     if (src.result && typeof src.result === "object") {
       const r2 = src.result as Record<string, unknown>;
       if (typeof r2.url   === "string" && r2.url)   return r2.url;
@@ -216,6 +267,8 @@ async function pollNB(taskId: string): Promise<NBPollResult> {
 
   const url = extractUrl(data);
   if (!url) {
+    console.log(`  ⚠️  NB returned SUCCESS status but no URL found in response.`);
+    console.log(`      Tried: result_urls, imageUrl, image_url, url, imagUrl, images[], imageUrls[], output.*, result.*`);
     return { outcome: "failed", reason: "success status but no URL found in response" };
   }
 
@@ -292,13 +345,39 @@ async function main() {
     pending:   0,
     failed:    0,
     expired:   0,
+    stale:     0,
   };
 
   for (const asset of assets) {
-    const { id, external_job_id, model_key } = asset;
-    console.log(`─── Asset ${id} | model=${model_key} | taskId=${external_job_id}`);
+    const { id, external_job_id, model_key, created_at } = asset;
 
-    // Poll NB
+    const ageMs   = Date.now() - new Date(created_at).getTime();
+    const ageDays = (ageMs / 86_400_000).toFixed(1);
+    const isStale = ageMs > STALE_THRESHOLD_DAYS * 86_400_000;
+
+    console.log(`─── Asset ${id} | model=${model_key} | age=${ageDays}d${isStale ? " [STALE]" : ""}`);
+    console.log(`    taskId=${external_job_id}`);
+    console.log(`    created_at=${created_at}`);
+
+    // ── Stale-age check: if older than threshold, stop polling and mark stale ─
+    if (isStale) {
+      console.log(`  ⏰  Job is ${ageDays} days old (threshold: ${STALE_THRESHOLD_DAYS}d).`);
+      console.log(`      NB provider will not complete jobs this old — marking as stale/failed.`);
+      if (!DRY_RUN) {
+        try {
+          await updateAssetStale(id, `Stale after ${ageDays} days — NB provider did not complete.`);
+          console.log("  💾  DB updated → status=failed (stale)\n");
+        } catch (e) {
+          console.error("  ❌  Failed to mark stale:", e, "\n");
+        }
+      } else {
+        console.log("  [dry-run] Would mark as stale/failed\n");
+      }
+      results.stale++;
+      continue;
+    }
+
+    // Poll NB for live status
     const poll = await pollNB(external_job_id);
 
     if (poll.outcome === "pending") {
@@ -364,9 +443,10 @@ async function main() {
 
   // 3. Summary
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  BACKFILL COMPLETE");
+  console.log("  BACKFILL COMPLETE" + (DRY_RUN ? " [DRY RUN]" : ""));
   console.log(`  ✅  Recovered:        ${results.recovered}`);
-  console.log(`  ⏳  Still pending:    ${results.pending}`);
+  console.log(`  ⏳  Still pending:    ${results.pending}  ← genuinely still generating`);
+  console.log(`  ⏰  Marked stale:     ${results.stale}  ← too old, marked as failed`);
   console.log(`  ⚠️   URL expired:      ${results.expired}  ← re-generate manually`);
   console.log(`  ❌  Failed/skipped:   ${results.failed}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
