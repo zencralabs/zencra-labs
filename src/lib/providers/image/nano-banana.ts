@@ -208,7 +208,16 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         signal: AbortSignal.timeout(30_000),
       });
 
-      if (!res.ok) throw new Error(`Nano Banana submit HTTP ${res.status}.`);
+      if (!res.ok) {
+        let errBody = "(unreadable)";
+        try { errBody = await res.text(); } catch { /* ignore */ }
+        console.error(
+          `[nano-banana] submit HTTP ${res.status} for variant=${variant}`,
+          `endpoint=${endpoint}`,
+          `body=${errBody.slice(0, 500)}`
+        );
+        throw new Error(`Nano Banana submit HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+      }
       const body = (await res.json()) as Record<string, unknown>;
 
       // Body-level error check: NB sometimes returns HTTP 200 with a non-200 code in the body.
