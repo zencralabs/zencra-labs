@@ -390,6 +390,10 @@ function ImageStudioInner() {
   const [authModal, setAuthModal] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState("");   // source image for edit models
 
+  // ── Prompt enhancement ───────────────────────────────────────────────────────
+  const [enhancing, setEnhancing] = useState(false);
+  const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
+
   // Dropdowns
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showArPicker, setShowArPicker] = useState(false);
@@ -495,6 +499,9 @@ function ImageStudioInner() {
     if (!prompt.trim()) return;
     if (!user) { setAuthModal(true); return; }
     if (!currentModel.available) return;
+
+    // Clear undo state — prompt is now intentionally submitted
+    setPreEnhancePrompt(null);
 
     // No silent fallback — explicitly fail if this model ID has no backend mapping
     const modelKey = MODEL_TO_KEY[model];
@@ -713,6 +720,52 @@ function ImageStudioInner() {
   };
 
   const hasImages = images.length > 0;
+
+  // ── Prompt enhancement ────────────────────────────────────────────────────────
+  const handleEnhance = useCallback(async () => {
+    if (!prompt.trim() || enhancing) return;
+    if (!user) { setAuthModal(true); return; }
+
+    // Save original so the user can undo — also clears any prior undo state
+    setPreEnhancePrompt(prompt);
+    setEnhancing(true);
+
+    try {
+      const res = await fetch("/api/studio/prompt/enhance", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${user.accessToken}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          studioType: "image",
+          modelHint:  model,
+        }),
+      });
+
+      const json = await res.json() as { enhancedPrompt?: string; error?: string };
+
+      if (res.ok && json.enhancedPrompt) {
+        setPrompt(json.enhancedPrompt);
+        // Resize textarea to fit new content
+        if (promptRef.current) {
+          promptRef.current.style.height = "auto";
+          promptRef.current.style.height =
+            Math.min(promptRef.current.scrollHeight, 140) + "px";
+        }
+      } else {
+        console.error("[prompt-enhance] failed:", json.error);
+        setPreEnhancePrompt(null); // No undo if enhance failed
+      }
+    } catch (err) {
+      console.error("[prompt-enhance] network error:", err);
+      setPreEnhancePrompt(null);
+    } finally {
+      setEnhancing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt, enhancing, user, model]);
 
   // ── Styles ──────────────────────────────────────────────────────────────────
   const ctrlBtn = (active?: boolean): React.CSSProperties => ({
@@ -1060,17 +1113,68 @@ function ImageStudioInner() {
                 setPrompt(e.target.value);
                 e.target.style.height = "auto";
                 e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+                // Manual edit clears undo state — user is intentionally diverging from enhanced version
+                if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
               }}
               onKeyDown={handleKeyDown}
               placeholder="Describe the scene you imagine…"
               rows={1}
               style={{
                 flex: 1, background: "transparent", border: "none", outline: "none",
-                color: "#fff", fontSize: 15, lineHeight: 1.6, resize: "none",
+                color: enhancing ? "rgba(255,255,255,0.45)" : "#fff",
+                fontSize: 15, lineHeight: 1.6, resize: "none",
                 padding: "6px 14px", fontFamily: "var(--font-body, system-ui)",
                 minHeight: 36, maxHeight: 140, boxSizing: "border-box",
+                transition: "color 0.2s",
               }}
             />
+
+            {/* ✦ Enhance button — visible when prompt has content */}
+            {prompt.trim() && (
+              <button
+                onClick={handleEnhance}
+                disabled={enhancing}
+                title={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}
+                style={{
+                  flexShrink: 0, alignSelf: "center",
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "6px 11px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                  border: "1px solid rgba(139,92,246,0.35)",
+                  background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
+                  color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
+                  cursor: enhancing ? "not-allowed" : "pointer",
+                  transition: "all 0.15s", marginRight: 4, letterSpacing: "0.01em",
+                }}
+                onMouseEnter={e => {
+                  if (!enhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)";
+                    (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!enhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
+                    (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.9)";
+                  }
+                }}
+              >
+                {enhancing ? (
+                  <>
+                    <div style={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      border: "1.5px solid rgba(167,139,250,0.25)",
+                      borderTopColor: "rgba(167,139,250,0.7)",
+                      animation: "spin 0.7s linear infinite", flexShrink: 0,
+                    }} />
+                    Enhancing…
+                  </>
+                ) : (
+                  <>✦ Enhance</>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Controls row */}
@@ -1368,6 +1472,38 @@ function ImageStudioInner() {
               );
             })()}
           </div>
+
+          {/* Undo enhanced prompt — stays visible until user edits, generates, or enhances again */}
+          {preEnhancePrompt !== null && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "4px 16px 12px",
+            }}>
+              <span style={{ fontSize: 11, color: "rgba(167,139,250,0.55)", fontWeight: 500 }}>
+                ✦ Prompt enhanced by AI
+              </span>
+              <button
+                onClick={() => { setPrompt(preEnhancePrompt); setPreEnhancePrompt(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 4,
+                  padding: "3px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)",
+                  cursor: "pointer", transition: "all 0.12s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)";
+                  (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                  (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
+                }}
+              >
+                ← Undo
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Notices */}
