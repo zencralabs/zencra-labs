@@ -493,7 +493,7 @@ function ImageCard({
 // INNER PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 function ImageStudioInner() {
-  const { user, refreshUser } = useAuth();
+  const { user, session, refreshUser } = useAuth();
   const searchParams = useSearchParams();
 
   // ── Creative Flow store ──────────────────────────────────────────────────────
@@ -633,7 +633,9 @@ function ImageStudioInner() {
   useEffect(() => {
     if (!user || historyLoaded) return;
 
-    const accessToken = user.accessToken;
+    // Use live session token — user.accessToken is a snapshot that goes stale
+    // after a token refresh, causing 401s on this fetch.
+    const accessToken = session?.access_token;
 
     (async () => {
       try {
@@ -787,7 +789,7 @@ function ImageStudioInner() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization:  `Bearer ${user.accessToken}`,
+            Authorization:  `Bearer ${session?.access_token ?? ""}`,
           },
           body: JSON.stringify(body),
         });
@@ -839,7 +841,7 @@ function ImageStudioInner() {
               prev.map((img) => img.id === ph.id ? { ...img, assetId: pendingAssetId } : img)
             );
           }
-          const authHeader = { Authorization: `Bearer ${user.accessToken}` };
+          const authHeader = { Authorization: `Bearer ${session?.access_token ?? ""}` };
 
           const POLL_INTERVAL = 4_000;   // 4 s between polls
           const POLL_TIMEOUT  = 600_000; // give up after 10 min (NB can take 5–8 min on heavy load)
@@ -949,12 +951,12 @@ function ImageStudioInner() {
     // Optimistic UI — remove immediately
     setImages((prev) => prev.filter((img) => img.id !== localId));
 
-    if (!assetId || !user?.accessToken) return;
+    if (!assetId || !session?.access_token) return;
 
     try {
       await fetch(`/api/studio/assets/${assetId}/delete`, {
         method:  "POST",
-        headers: { Authorization: `Bearer ${user.accessToken}` },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       });
     } catch {
       // Deletion failure is non-critical — the card is already gone from the UI
@@ -993,7 +995,7 @@ function ImageStudioInner() {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization:  `Bearer ${user.accessToken}`,
+          Authorization:  `Bearer ${session?.access_token ?? ""}`,
         },
         body: JSON.stringify({
           prompt,
@@ -1340,7 +1342,7 @@ function ImageStudioInner() {
                   form.append("file", file);
                   const res = await fetch("/api/studio/upload-reference", {
                     method: "POST",
-                    headers: { Authorization: `Bearer ${user.accessToken}` },
+                    headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
                     body: form,
                   });
                   const json = await res.json();

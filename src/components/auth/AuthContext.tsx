@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -130,12 +130,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Incremented on every logout so any in-flight loadProfile call can detect
+  // that the session changed and discard its stale result instead of
+  // re-hydrating the user after sign-out.
+  const loadGenRef = useRef(0);
+
   async function loadProfile(sess: Session) {
+    // Capture generation at call time. If logout fires before the query resolves,
+    // loadGenRef.current will have been incremented and we discard the result.
+    const gen = loadGenRef.current;
+
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("full_name, role, plan, credits, created_at, phone, phone_verified, email_verified, subscription_purchased_at, email_lock_expires_at, totp_enabled, passkey_registered, avatar_color, avatar_url, fcs_access")
       .eq("id", sess.user.id)
       .single();
+
+    // Discard stale result if logout (or a newer auth event) happened while we awaited.
+    if (loadGenRef.current !== gen) return;
 
     if (error) {
       console.error("[loadProfile] error:", error.message);
@@ -295,15 +307,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout ─────────────────────────────────────────────────────────────────
   async function logout() {
+    // Increment generation counter so any in-flight loadProfile call discards
+    // its result and doesn't re-hydrate the user after we clear state.
+    loadGenRef.current++;
+
+    // Clear auth state immediately — UI should reflect logged-out before
+    // the network call completes.
+    setUser(null);
+    setSession(null);
+
     if (!isSupabaseConfigured) {
       localStorage.removeItem("zencra_user");
-      setUser(null);
       router.push("/");
       return;
     }
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Non-fatal — local state is already cleared so the user is effectively
+      // logged out. The signOut may fail if the token was already expired.
+    }
+
     router.push("/");
   }
 
