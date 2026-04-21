@@ -57,10 +57,11 @@ const MODEL_KEY_TO_VARIANT: Record<string, NBVariant> = {
   "nano-banana-2":        "nb2",
 };
 
-// NB Standard + Pro — 7 supported AR options (playground-aligned).
-// Keep in sync with NB_STANDARD_PRO_AR in image/page.tsx.
+// NB Standard + Pro — 10 supported AR options.
+// Pro additionally allows "Auto" (= no aspectRatio sent), handled UI-side.
+// Keep in sync with NB_STANDARD_AR / NB_PRO_AR in image/page.tsx.
 const NB_SUPPORTED_ASPECT_RATIOS = new Set([
-  "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4",
+  "1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "4:5", "5:4", "21:9",
 ]);
 
 // NB2 — 6 dimension-map entries (Auto → undefined → NB2 default).

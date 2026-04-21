@@ -151,8 +151,15 @@ function mapArForGpt(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
 // Hard-locked to playground-confirmed behaviour.
 // Keep in sync with NB_SUPPORTED_ASPECT_RATIOS / NB2_SUPPORTED_ASPECT_RATIOS in nano-banana.ts.
 
-/** NB Standard + Pro: exactly 7 options, no Auto. */
-const NB_STANDARD_PRO_AR: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4"];
+/** NB Standard: exactly 10 concrete options, no Auto. */
+const NB_STANDARD_AR: AspectRatio[] = [
+  "1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "4:5", "5:4", "21:9",
+];
+
+/** NB Pro: same 10 + Auto (Auto → omit aspectRatio → model picks dimensions). */
+const NB_PRO_AR: AspectRatio[] = [
+  "Auto", "1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "4:5", "5:4", "21:9",
+];
 
 /** NB2: 7 options including Auto (Auto → no AR sent → NB2 server default). */
 const NB2_AR: AspectRatio[] = ["Auto", "1:1", "4:5", "5:4", "9:16", "16:9", "8:1"];
@@ -160,9 +167,9 @@ const NB2_AR: AspectRatio[] = ["Auto", "1:1", "4:5", "5:4", "9:16", "16:9", "8:1
 /** GPT Image: collapsed internally by mapArForGpt — show 4 meaningful options. */
 const DALLE_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
 
-// Nano Banana Standard/Pro: pass the selected AR string verbatim.
-// "Auto" maps to undefined (omit from payload — let NB decide).
-const NB_AR_PASSTHROUGH = new Set<AspectRatio>(NB_STANDARD_PRO_AR);
+// Nano Banana Standard/Pro concrete AR passthrough — the same 10 ARs are valid
+// for both models. "Auto" is excluded: it maps to undefined (no AR sent).
+const NB_AR_PASSTHROUGH = new Set<AspectRatio>(NB_STANDARD_AR);
 function mapArForNB(ar: AspectRatio): string | undefined {
   if (ar === "Auto") return undefined;
   return NB_AR_PASSTHROUGH.has(ar) ? ar : undefined;
@@ -774,14 +781,16 @@ function ImageStudioInner() {
     if (cm.requiresImg) setBatchSize(1);  // edit models: 1 at a time
 
     // ── AR hard-lock per model ────────────────────────────────────────────────
-    // Switching to NB2 → only 7 options; switching to NB Standard/Pro → only 7 options.
-    // If the current AR is not in the target model's list, reset to 1:1.
+    // If the current AR is not in the target model's supported list, reset to 1:1.
     setAspectRatio((cur) => {
       if (model === "nano-banana-2") {
         return (NB2_AR as readonly string[]).includes(cur) ? cur : "1:1";
       }
+      if (model === "nano-banana-pro") {
+        return (NB_PRO_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
       if (model.startsWith("nano-banana")) {
-        return (NB_STANDARD_PRO_AR as readonly string[]).includes(cur) ? cur : "1:1";
+        return (NB_STANDARD_AR as readonly string[]).includes(cur) ? cur : "1:1";
       }
       // GPT Image — always pass through (mapArForGpt collapses internally)
       return cur;
@@ -1684,8 +1693,9 @@ function ImageStudioInner() {
             {(() => {
               // Hard-locked AR list per model — only supported ratios are shown.
               const activeArList: AspectRatio[] =
-                model === "nano-banana-2"       ? NB2_AR :
-                model.startsWith("nano-banana") ? NB_STANDARD_PRO_AR :
+                model === "nano-banana-2"   ? NB2_AR :
+                model === "nano-banana-pro" ? NB_PRO_AR :
+                model.startsWith("nano-banana") ? NB_STANDARD_AR :
                 DALLE_AR;
 
               return (
