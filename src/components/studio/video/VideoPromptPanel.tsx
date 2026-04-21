@@ -5,11 +5,13 @@
 // Order: Prompt → Presets → Chips → Negative Prompt → Unified Credits+Generate Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { Zap } from "lucide-react";
 import type { VideoModel } from "@/lib/ai/video-model-registry";
 import type { FrameMode } from "./types";
 import type { LipSyncState } from "@/hooks/useLipSync";
 import type { LipSyncQuality } from "@/lib/lipsync/status";
+import { useAuth } from "@/components/auth/AuthContext";
 
 // ── Credit estimation ─────────────────────────────────────────────────────────
 
@@ -211,9 +213,7 @@ function CreditsGenerateCard({
             </>
           ) : (
             <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-              </svg>
+              <Zap size={14} />
               Generate Video
             </>
           )}
@@ -221,8 +221,9 @@ function CreditsGenerateCard({
       </div>
 
       <style>{`
-        @keyframes ppPulse { 0%,100%{box-shadow:0 0 12px rgba(14,165,160,0.2)} 50%{box-shadow:0 0 28px rgba(14,165,160,0.4)} }
-        @keyframes ppSpin  { to { transform: rotate(360deg); } }
+        @keyframes ppPulse   { 0%,100%{box-shadow:0 0 12px rgba(14,165,160,0.2)} 50%{box-shadow:0 0 28px rgba(14,165,160,0.4)} }
+        @keyframes ppSpin    { to { transform: rotate(360deg); } }
+        @keyframes vpEnhSpin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
@@ -656,6 +657,53 @@ export default function VideoPromptPanel({
   const [showNeg, setShowNeg]         = useState(true); // open by default
   const [showPresets, setShowPresets] = useState(false);
 
+  // ── Prompt enhancement ────────────────────────────────────────────────────
+  const { user } = useAuth();
+  const [enhancing, setEnhancing]               = useState(false);
+  const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
+  const [enhanceError, setEnhanceError]         = useState<string | null>(null);
+
+  const handleEnhance = useCallback(async () => {
+    if (!prompt.trim() || enhancing) return;
+    if (!user) return; // auth guard — VideoStudioShell handles login prompt elsewhere
+
+    setPreEnhancePrompt(prompt);
+    setEnhanceError(null);
+    setEnhancing(true);
+
+    try {
+      const res = await fetch("/api/studio/prompt/enhance", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${user.accessToken}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          studioType: "video",
+          modelHint:  model?.id ?? "",
+        }),
+      });
+
+      const json = await res.json() as { enhancedPrompt?: string; error?: string };
+
+      if (res.ok && json.enhancedPrompt) {
+        setPrompt(json.enhancedPrompt);
+        setEnhanceError(null);
+      } else {
+        console.warn("[video-prompt-enhance] failed:", json.error);
+        setPreEnhancePrompt(null);
+        setEnhanceError("Enhancement failed — please try again");
+      }
+    } catch (err) {
+      console.warn("[video-prompt-enhance] network error:", err);
+      setPreEnhancePrompt(null);
+      setEnhanceError("Network error — please check your connection");
+    } finally {
+      setEnhancing(false);
+    }
+  }, [prompt, enhancing, user, model, setPrompt]);
+
   const chips = model?.promptChips ?? [
     "cinematic lighting", "slow motion", "aerial shot",
     "dramatic scene", "ultra realistic", "film grain", "smooth camera motion",
@@ -682,6 +730,51 @@ export default function VideoPromptPanel({
             Prompt
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* ✦ Enhance button — visible when prompt has content */}
+            {prompt.trim() && (
+              <button
+                onClick={() => void handleEnhance()}
+                disabled={enhancing}
+                title={enhancing ? "Enhancing…" : "Enhance prompt with AI"}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "6px 11px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                  border: "1px solid rgba(139,92,246,0.35)",
+                  background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
+                  color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
+                  cursor: enhancing ? "not-allowed" : "pointer",
+                  transition: "all 0.15s", letterSpacing: "0.01em",
+                }}
+                onMouseEnter={e => {
+                  if (!enhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)";
+                    (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!enhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
+                    (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.9)";
+                  }
+                }}
+              >
+                {enhancing ? (
+                  <>
+                    <div style={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      border: "1.5px solid rgba(167,139,250,0.25)",
+                      borderTopColor: "rgba(167,139,250,0.7)",
+                      animation: "vpEnhSpin 0.7s linear infinite", flexShrink: 0,
+                    }} />
+                    Enhancing…
+                  </>
+                ) : (
+                  <>✦ Enhance</>
+                )}
+              </button>
+            )}
             <button
               onClick={() => setShowPresets(v => !v)}
               style={{
@@ -698,7 +791,7 @@ export default function VideoPromptPanel({
               Presets
             </button>
             {prompt && (
-              <button onClick={() => setPrompt("")}
+              <button onClick={() => { setPrompt(""); setPreEnhancePrompt(null); setEnhanceError(null); }}
                 style={{ background: "none", border: "none", fontSize: 12, color: "#64748B", cursor: "pointer", padding: 0, transition: "color 0.15s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
@@ -748,7 +841,12 @@ export default function VideoPromptPanel({
         {/* Textarea */}
         <textarea
           value={prompt}
-          onChange={e => setPrompt(e.target.value)}
+          onChange={e => {
+            setPrompt(e.target.value);
+            // Manual edit dismisses undo + error state (same as Image Studio)
+            if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
+            if (enhanceError !== null)     setEnhanceError(null);
+          }}
           placeholder="Describe your video — setting, mood, movement, lighting…"
           rows={5}
           style={{
@@ -767,6 +865,55 @@ export default function VideoPromptPanel({
 
         {/* Chips */}
         <ChipStrip chips={chips} prompt={prompt} setPrompt={setPrompt} />
+
+        {/* Undo enhanced prompt — stays visible until user edits, clears, or enhances again */}
+        {preEnhancePrompt !== null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "rgba(167,139,250,0.55)", fontWeight: 500 }}>
+              ✦ Prompt enhanced by AI
+            </span>
+            <button
+              onClick={() => { setPrompt(preEnhancePrompt); setPreEnhancePrompt(null); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "3px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)",
+                cursor: "pointer", transition: "all 0.12s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)";
+                (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
+              }}
+            >
+              ← Undo
+            </button>
+          </div>
+        )}
+
+        {/* Enhance error — shown when AI call fails; dismissed on next attempt or manual edit */}
+        {enhanceError !== null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "rgba(248,113,113,0.8)", fontWeight: 500 }}>
+              ⚠ {enhanceError}
+            </span>
+            <button
+              onClick={() => setEnhanceError(null)}
+              style={{
+                padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                border: "1px solid rgba(248,113,113,0.2)",
+                background: "transparent", color: "rgba(248,113,113,0.5)",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Negative prompt */}
         {model?.capabilities.negativePrompt && (

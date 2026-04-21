@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { Zap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -1488,7 +1489,7 @@ function AudioStudioInner() {
                   Generating…
                 </>
               ) : (
-                tool.available ? "Generate" : "Coming Soon"
+                tool.available ? <><Zap size={14} /> Generate</> : "Coming Soon"
               )}
             </button>
 

@@ -732,7 +732,7 @@ export function Navbar() {
     <>
       <header
         ref={navRef}
-        className="fixed top-0 z-[100] w-full transition-all duration-300"
+        className="fixed top-0 z-[1100] w-full transition-all duration-300"
         style={{
           backgroundColor: scrolled ? "var(--page-bg)" : "transparent",
           backdropFilter: scrolled ? "blur(20px)" : "none",
