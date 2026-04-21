@@ -45,10 +45,11 @@ interface AuthContextValue {
   user: AuthUser | null;
   session: Session | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string) => Promise<boolean>;
+  /** captchaToken is optional — omitting it works in mock/dev mode */
+  login: (email: string, password: string, captchaToken?: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, captchaToken?: string) => Promise<boolean>;
   loginWithOAuth: (provider: "google" | "apple" | "facebook") => Promise<void>;
-  sendPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
+  sendPhoneOtp: (phone: string, captchaToken?: string) => Promise<{ success: boolean; error?: string }>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<boolean>;
   loginWithPasskey: () => Promise<boolean>;
   logout: () => Promise<void>;
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Email / Password login ─────────────────────────────────────────────────
-  async function login(email: string, password: string): Promise<boolean> {
+  async function login(email: string, password: string, captchaToken?: string): Promise<boolean> {
     if (!isSupabaseConfigured) {
       if (!email) return false;
       const mock: AuthUser = {
@@ -211,13 +212,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("zencra_user", JSON.stringify(mock));
       return true;
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     if (error) { console.warn("[login]", error.message); return false; }
     return true;
   }
 
   // ── Email / Password signup ────────────────────────────────────────────────
-  async function signup(name: string, email: string, password: string): Promise<boolean> {
+  async function signup(name: string, email: string, password: string, captchaToken?: string): Promise<boolean> {
     if (!isSupabaseConfigured) {
       if (!email || !name) return false;
       const mock: AuthUser = {
@@ -238,6 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: { full_name: name },
         emailRedirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback`,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
     if (error) { console.error("[signup]", error.message); return false; }
@@ -260,11 +266,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Phone OTP — Step 1: send ───────────────────────────────────────────────
-  async function sendPhoneOtp(phone: string): Promise<{ success: boolean; error?: string }> {
+  async function sendPhoneOtp(phone: string, captchaToken?: string): Promise<{ success: boolean; error?: string }> {
     if (!isSupabaseConfigured) {
       return { success: true }; // mock: always succeeds
     }
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     if (error) return { success: false, error: error.message };
     return { success: true };
   }

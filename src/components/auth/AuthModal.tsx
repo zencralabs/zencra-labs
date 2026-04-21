@@ -4,7 +4,13 @@ import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft } from "lucide-react";
 import { useAuth } from "./AuthContext";
+import { TurnstileWidget } from "./TurnstileWidget";
 import { AUTH_SLIDES } from "@/config/auth-modal-slides";
+
+// Turnstile site key — set in Vercel env and local .env as NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+// When undefined (key not yet configured) the CAPTCHA block is skipped entirely,
+// so dev environments without Cloudflare keys continue to work.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH MODAL — Login / Sign Up — Full auth system
@@ -255,6 +261,13 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
+  // CAPTCHA
+  // One token covers all submit paths. Reset (null) whenever authMode or method
+  // changes so the user gets a fresh challenge on each new form context.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // resetKey forces TurnstileWidget to tear down and re-render the iframe
+  const captchaResetKey = `${authMode}-${method}`;
+
   // State
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -311,6 +324,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   }, [onClose]);
 
   function resetErrors() { setError(""); setSuccess(""); }
+  function resetCaptcha() { setCaptchaToken(null); }
 
   // ── Email/Password submit ──────────────────────────────────────────────────
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -323,14 +337,19 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       if (!/[0-9]/.test(password)) { setError("Password must contain at least one number."); return; }
       if (!/[^A-Za-z0-9]/.test(password)) { setError("Password must contain at least one special character (e.g. !@#$%)."); return; }
     }
+    // Enforce CAPTCHA when site key is configured
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("Please complete the verification before continuing.");
+      return;
+    }
     setLoading(true);
     let ok = false;
     try {
       if (authMode === "login") {
-        ok = await login(email, password);
+        ok = await login(email, password, captchaToken ?? undefined);
         if (!ok) setError("Invalid email or password.");
       } else {
-        ok = await signup(name, email, password);
+        ok = await signup(name, email, password, captchaToken ?? undefined);
         if (!ok) setError("Couldn't create account. This email may already be registered.");
         else {
           setSuccess("Account created! Please check your email to verify your account.");
@@ -343,6 +362,9 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       }
     } finally {
       setLoading(false);
+      // Always reset the token after a submit attempt so a fresh challenge is
+      // required if the user corrects an error and tries again.
+      resetCaptcha();
     }
   }
 
@@ -354,15 +376,22 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       setError("Enter a valid phone number with country code, e.g. +91 98765 43210");
       return;
     }
+    // Enforce CAPTCHA when site key is configured
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError("Please complete the verification before continuing.");
+      return;
+    }
     setLoading(true);
-    const result = await sendPhoneOtp(cleaned);
+    const result = await sendPhoneOtp(cleaned, captchaToken ?? undefined);
     setLoading(false);
     if (result.success) {
       setPhoneStep("otp");
       setCountdown(60);
       setOtpSent(true);
+      resetCaptcha(); // fresh challenge required if user tries to resend
     } else {
       setError(result.error ?? "Failed to send OTP. Please try again.");
+      resetCaptcha();
     }
   }
 
@@ -478,11 +507,11 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
             display: "flex", gap: "4px", background: "rgba(255,255,255,0.04)",
             borderRadius: "10px", padding: "3px", marginBottom: "20px",
           }}>
-            <button style={tabBtn(method === "email")} onClick={() => { setMethod("email"); resetErrors(); }}>
+            <button style={tabBtn(method === "email")} onClick={() => { setMethod("email"); resetErrors(); resetCaptcha(); }}>
               <Mail size={13} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
               Email
             </button>
-            <button style={tabBtn(method === "phone")} onClick={() => { setMethod("phone"); setPhoneStep("phone"); resetErrors(); }}>
+            <button style={tabBtn(method === "phone")} onClick={() => { setMethod("phone"); setPhoneStep("phone"); resetErrors(); resetCaptcha(); }}>
               <Phone size={13} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
               Phone
             </button>
@@ -559,6 +588,16 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                 {error   && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
                 {success && <p style={{ fontSize: "12px", color: "#6EE7B7", margin: 0 }}>{success}</p>}
 
+                {/* ── Turnstile CAPTCHA — only renders when site key is configured ── */}
+                {TURNSTILE_SITE_KEY && (
+                  <TurnstileWidget
+                    siteKey={TURNSTILE_SITE_KEY}
+                    resetKey={captchaResetKey}
+                    onSuccess={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken(null)}
+                  />
+                )}
+
                 <button type="submit" disabled={loading || pendingRedirect} style={{
                   marginTop: "4px", padding: "12px", borderRadius: "10px", border: "none",
                   background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
@@ -606,6 +645,16 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                   </div>
 
                   {error && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
+
+                  {/* ── Turnstile CAPTCHA for phone OTP ── */}
+                  {TURNSTILE_SITE_KEY && (
+                    <TurnstileWidget
+                      siteKey={TURNSTILE_SITE_KEY}
+                      resetKey={captchaResetKey}
+                      onSuccess={(token) => setCaptchaToken(token)}
+                      onExpire={() => setCaptchaToken(null)}
+                    />
+                  )}
 
                   <button onClick={handleSendOtp} disabled={loading} style={{
                     padding: "12px", borderRadius: "10px", border: "none",
@@ -701,7 +750,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
           <p style={{ fontSize: "12px", color: "#64748B", marginTop: "18px", textAlign: "center" }}>
             {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
             <button
-              onClick={() => { setAuthMode(m => m === "login" ? "signup" : "login"); resetErrors(); }}
+              onClick={() => { setAuthMode(m => m === "login" ? "signup" : "login"); resetErrors(); resetCaptcha(); }}
               style={{ background: "none", border: "none", cursor: "pointer", color: "#60A5FA", fontWeight: 700, fontSize: "12px" }}
             >
               {authMode === "login" ? "Sign up free →" : "Sign in"}
