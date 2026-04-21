@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { supabase } from "@/lib/supabase";
 import MediaCard from "@/components/media/MediaCard";
 import type { PublicAsset } from "@/lib/types/generation";
 import { useFlowStore } from "@/lib/flow/store";
@@ -686,18 +687,21 @@ function ImageStudioInner() {
   useEffect(() => {
     if (!user || historyLoaded) return;
 
-    // Use live session token — user.accessToken is a snapshot that goes stale
-    // after a token refresh, causing 401s on this fetch.
-    const accessToken = session?.access_token;
-
-    // No session token — mock/unconfigured local env. Mark loaded so we show
-    // empty state instead of an error (no real Supabase = no history to fetch).
-    if (!accessToken) {
-      setHistoryLoaded(true);
-      return;
-    }
-
     (async () => {
+      // Call getSession() directly rather than reading session?.access_token from
+      // React state. With autoRefreshToken enabled, getSession() always returns a
+      // valid token (refreshing if needed), eliminating the race where
+      // INITIAL_SESSION fires with an expired token before TOKEN_REFRESHED arrives.
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const accessToken = freshSession?.access_token;
+
+      // No session token — unconfigured local env or not actually logged in.
+      // Show empty state rather than an error.
+      if (!accessToken) {
+        setHistoryLoaded(true);
+        return;
+      }
+
       try {
         const res = await fetch("/api/generations/mine?category=image&pageSize=50", {
           headers: {
@@ -765,10 +769,12 @@ function ImageStudioInner() {
         setHistoryLoaded(true);
       }
     })();
-  // session is used inside the effect — include it so a late-arriving token
-  // triggers a re-run rather than fetching with a stale null token.
+  // session intentionally omitted — we call supabase.auth.getSession() directly
+  // at fetch time to guarantee a fresh token. session in React state can be one
+  // render behind when a token refresh fires (INITIAL_SESSION → TOKEN_REFRESHED),
+  // causing an expired-token 401 on the first load.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, session, historyLoaded]);
+  }, [user, historyLoaded]);
 
   // When model changes: reset quality if not allowed, clear edit image if not needed,
   // and hard-reset aspect ratio if the current AR is not in the new model's supported list.
