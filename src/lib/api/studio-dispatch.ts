@@ -193,7 +193,11 @@ export async function studioDispatch(
   const idempotencyResult = await checkIdempotency(idempotencyKey);
 
   if (idempotencyResult.outcome === "duplicate_complete") {
-    // Previous identical request completed — return the cached result
+    // Previous identical request completed — return the cached result directly.
+    // IMPORTANT: do NOT throw here. Throwing causes routes' catch blocks to call
+    // dispatchErrorStatus("VALIDATION_FAILED") → 400, discarding the cached data.
+    // Instead, construct a synthetic ZJob from the stored values and return normally
+    // so the route's success path delivers the cached result to the client.
     void logRequest({
       userId,
       ip:        clientIp,
@@ -205,16 +209,32 @@ export async function studioDispatch(
       assetId:   idempotencyResult.assetId ?? undefined,
       durationMs: elapsed(),
     });
-    throw new StudioDispatchError(
-      "Duplicate request — returning cached result",
-      "VALIDATION_FAILED",
-      {
-        isDuplicate: true,
-        assetId:     idempotencyResult.assetId,
-        jobId:       idempotencyResult.jobId,
-        resultUrl:   idempotencyResult.resultUrl,
-      },
-    );
+
+    const replayJobId = idempotencyResult.jobId ?? crypto.randomUUID();
+    const cachedJob: ZJob = {
+      id:          replayJobId,
+      provider:    "openai",        // placeholder — not used for dispatch routing on replay
+      modelKey:    input.modelKey,
+      studioType:  input.studio,
+      status:      "success",
+      createdAt:   new Date(),
+      updatedAt:   new Date(),
+      completedAt: new Date(),
+      result: idempotencyResult.resultUrl
+        ? {
+            jobId:    replayJobId,
+            provider: "openai",
+            modelKey: input.modelKey,
+            status:   "success",
+            url:      idempotencyResult.resultUrl,
+          }
+        : undefined,
+    };
+
+    return {
+      job:     cachedJob,
+      assetId: idempotencyResult.assetId ?? undefined,
+    };
   }
 
   if (idempotencyResult.outcome === "duplicate_processing") {

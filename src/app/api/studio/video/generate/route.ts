@@ -33,7 +33,8 @@ import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
 import { accepted, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
-import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
+import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
+                                     from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
 
@@ -49,6 +50,10 @@ export async function POST(req: Request): Promise<Response> {
   // ── Rate limit ──────────────────────────────────────────────────────────────
   const rateLimitError = await checkStudioRateLimit(userId);
   if (rateLimitError) return rateLimitError;
+
+  const clientIp = getClientIp(req);
+  const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
+  if (ipRateLimitError) return ipRateLimitError;
 
   // ── Feature gate ────────────────────────────────────────────────────────────
   const gate = guardStudio("video");
@@ -103,6 +108,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const { job, assetId } = await studioDispatch({
       userId,
+      ip:              clientIp,
       studio:          "video",
       modelKey:        modelKey!,
       prompt:          prompt!,
