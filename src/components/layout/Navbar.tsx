@@ -767,6 +767,7 @@ export function Navbar() {
                   <li
                     key={link.href + link.label}
                     className="relative"
+                    style={isOpen ? { zIndex: 10 } : undefined}
                     onMouseEnter={() => isDropdown && openDropdown(dropKey)}
                     onMouseLeave={() => isDropdown && closeDropdownDelayed()}
                   >
@@ -859,7 +860,7 @@ export function Navbar() {
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                   >
                     <Zap size={13} />
-                    {user.credits} credits
+                    {user.credits} cr
                   </Link>
                   {/* FCS Active pill — clickable Link to Cinema Studio */}
                   {hasFCSAccess(user) && (

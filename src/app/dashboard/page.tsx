@@ -61,14 +61,14 @@ export default function DashboardPage() {
       {/* ── STATS ROW ──────────────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "32px" }}>
         {/* Credits card */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "20px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "14px", padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Credits</span>
-            <div style={{ width: "30px", height: "30px", borderRadius: "8px", backgroundColor: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={14} style={{ color: "#A855F7" }} />
+            <div style={{ width: "36px", height: "36px", borderRadius: "9px", backgroundColor: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap size={16} style={{ color: "#A855F7" }} />
             </div>
           </div>
-          <div style={{ fontSize: "32px", fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</div>
+          <div style={{ fontSize: "26px", fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</div>
           <div style={{ height: "4px", borderRadius: "2px", backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: "12px" }}>
             <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg,#2563EB,#A855F7)", borderRadius: "2px" }} />
           </div>
@@ -76,11 +76,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Plan card */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "20px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, #0A1122 0%, #0d1533 100%)" }}>
+        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "14px", padding: "20px 22px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, #0A1122 0%, #0d1533 100%)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Plan</span>
-            <div style={{ width: "30px", height: "30px", borderRadius: "8px", backgroundColor: "rgba(37,99,235,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <TrendingUp size={14} style={{ color: "#2563EB" }} />
+            <div style={{ width: "36px", height: "36px", borderRadius: "9px", backgroundColor: "rgba(37,99,235,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <TrendingUp size={16} style={{ color: "#2563EB" }} />
             </div>
           </div>
           <div style={{ fontSize: "26px", fontWeight: 800, color: "#60A5FA", lineHeight: 1 }}>{user.plan}</div>
@@ -95,11 +95,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Referrals */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "20px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "14px", padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Referrals</span>
-            <div style={{ width: "30px", height: "30px", borderRadius: "8px", backgroundColor: "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Users size={14} style={{ color: "#F59E0B" }} />
+            <div style={{ width: "36px", height: "36px", borderRadius: "9px", backgroundColor: "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Users size={16} style={{ color: "#F59E0B" }} />
             </div>
           </div>
           <div style={{ fontSize: "32px", fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>0</div>

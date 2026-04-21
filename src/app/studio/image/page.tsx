@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Zap } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import MediaCard from "@/components/media/MediaCard";
@@ -1849,7 +1850,7 @@ function ImageStudioInner() {
                     </>
                   ) : (
                     <>
-                      ⚡ Generate
+                      <Zap size={14} /> Generate
                       {currentModel.available && (
                         <span style={{
                           fontSize: 11, fontWeight: 600, opacity: 0.8,
