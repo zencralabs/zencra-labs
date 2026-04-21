@@ -491,7 +491,7 @@ function ImageCard({
       <MediaCard
         asset={toPublicAsset(img)}
         isOwner
-        aspectRatio={img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
+        aspectRatio={img.aspectRatio && img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
         hideHoverActions={hideHoverActions}
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
@@ -682,21 +682,42 @@ function ImageStudioInner() {
     // after a token refresh, causing 401s on this fetch.
     const accessToken = session?.access_token;
 
+    // No session token — mock/unconfigured local env. Mark loaded so we show
+    // empty state instead of an error (no real Supabase = no history to fetch).
+    if (!accessToken) {
+      setHistoryLoaded(true);
+      return;
+    }
+
     (async () => {
       try {
         const res = await fetch("/api/generations/mine?category=image&pageSize=50", {
           headers: {
             "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            Authorization: `Bearer ${accessToken}`,
           },
         });
-        if (!res.ok) { setHistoryError(true); return; }
+        if (!res.ok) {
+          console.error(
+            "[ImageStudio] history fetch failed — status:", res.status,
+            await res.text().catch(() => "(unreadable body)")
+          );
+          setHistoryError(true);
+          return;
+        }
 
         const json = await res.json();
-        if (!json.success || !Array.isArray(json.data)) { setHistoryError(true); return; }
+        if (!json.success || !Array.isArray(json.data)) {
+          console.error("[ImageStudio] history response shape unexpected:", json);
+          setHistoryError(true);
+          return;
+        }
 
         // Map DB rows → GeneratedImage.
         // Include failed rows (no URL) alongside completed ones.
+        // aspectRatio: use stored value when present; fall back to "Auto" so
+        // images with no stored AR render at their natural dimensions in the
+        // masonry grid (ImageCard converts "Auto" → undefined → natural height).
         const loaded: GeneratedImage[] = (json.data as Array<{
           id: string;
           tool: string;
@@ -715,7 +736,9 @@ function ImageStudioInner() {
               url:         row.result_url ?? null,
               prompt:      row.prompt ?? "",
               model:       row.tool ?? "nano-banana",
-              aspectRatio: (row.parameters?.aspectRatio ?? "1:1") as AspectRatio,
+              // "Auto" sentinel → ImageCard passes undefined → MediaCard renders at
+              // natural image height → true masonry proportions preserved.
+              aspectRatio: (row.parameters?.aspectRatio ?? "Auto") as AspectRatio,
               status:      (isFailed ? "error" : "done") as GeneratedImage["status"],
               error:       isFailed ? (row.error_message ?? undefined) : undefined,
             };
@@ -727,13 +750,17 @@ function ImageStudioInner() {
           const fresh = loaded.filter((img) => !existingIds.has(img.id));
           return [...prev, ...fresh];
         });
-      } catch {
+      } catch (err) {
+        console.error("[ImageStudio] history fetch threw:", err);
         setHistoryError(true);
       } finally {
         setHistoryLoaded(true);
       }
     })();
-  }, [user, historyLoaded]);
+  // session is used inside the effect — include it so a late-arriving token
+  // triggers a re-run rather than fetching with a stale null token.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, session, historyLoaded]);
 
   // When model changes: reset quality if not allowed, clear edit image if not needed,
   // and hard-reset aspect ratio if the current AR is not in the new model's supported list.

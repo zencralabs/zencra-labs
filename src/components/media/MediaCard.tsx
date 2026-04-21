@@ -449,17 +449,21 @@ export default function MediaCard({
       <div
         style={{
           position:     "relative",
-          // For videos, always lock 16/9. For images, use the supplied AR when
-          // available so the card shape matches the actual generated output.
-          // "16:9" → "16 / 9" for valid CSS aspect-ratio syntax.
+          // Videos: always lock 16/9.
+          // Images with a real URL: NO forced ratio — let the browser render
+          //   the image at its true dimensions so masonry reflects actual output.
+          // Images without a URL (placeholder): use supplied AR or square fallback
+          //   so the card has a defined shape before the image loads.
           aspectRatio:  isVideo
             ? "16 / 9"
-            : aspectRatioProp
-              ? aspectRatioProp.replace(":", " / ")
-              : undefined,
+            : (isImage && mediaUrl)
+              ? undefined
+              : aspectRatioProp
+                ? aspectRatioProp.replace(":", " / ")
+                : "1 / 1",
           background:   "rgba(0,0,0,0.3)",
           overflow:     "hidden",
-          borderRadius: "inherit",   // clips scaled image within card's border-radius
+          borderRadius: "inherit",   // clips image within card's border-radius
         }}
       >
         {mediaUrl ? (
@@ -478,11 +482,11 @@ export default function MediaCard({
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
               style={{
+                // True masonry: image renders at its natural aspect ratio.
+                // width: 100% fills the column; height: auto follows the image's
+                // real dimensions — no crop, no forced shape, no distortion.
                 width:      "100%",
-                // When container has an explicit AR, fill it completely.
-                // When no AR is provided (legacy/history), natural height.
-                height:     aspectRatioProp ? "100%" : "auto",
-                objectFit:  aspectRatioProp ? "cover" : undefined,
+                height:     "auto",
                 display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",
@@ -490,11 +494,11 @@ export default function MediaCard({
             />
           )
         ) : (
-          // Placeholder — maintain square so the card has a defined height before image loads
+          // Placeholder — shape held by container aspectRatio above
           <div
             style={{
               width:          "100%",
-              aspectRatio:    "1/1",
+              height:         "100%",
               display:        "flex",
               alignItems:     "center",
               justifyContent: "center",
