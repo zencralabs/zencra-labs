@@ -78,6 +78,27 @@ const NB2_AR_FALLBACK: Record<string, string> = {
 };
 
 /**
+ * NB2 dimension map — the /generate endpoint ignores `aspectRatio`.
+ * Explicit width + height must be sent instead.
+ * Dimensions are chosen to be multiples of 64 and within typical NB limits.
+ */
+const NB2_DIMENSION_MAP: Record<string, { width: number; height: number }> = {
+  "1:1":  { width: 1024, height: 1024 },
+  "16:9": { width: 1792, height: 1024 },
+  "9:16": { width: 1024, height: 1792 },
+  "4:3":  { width: 1365, height: 1024 },
+  "3:4":  { width: 1024, height: 1365 },
+  "3:2":  { width: 1536, height: 1024 },
+  "2:3":  { width: 1024, height: 1536 },
+  "4:5":  { width: 1024, height: 1280 },
+  "5:4":  { width: 1280, height: 1024 },
+  "4:1":  { width: 2048, height:  512 },
+  "1:4":  { width:  512, height: 2048 },
+  "8:1":  { width: 2048, height:  256 },
+  "1:8":  { width:  256, height: 2048 },
+};
+
+/**
  * Resolve quality tier to NB resolution string.
  * Standard endpoint only supports 1K. Pro/NB2 support 1K/2K/4K.
  */
@@ -207,6 +228,14 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         // The previous /generate-v2 path returned 404 (Spring Boot "Not Found").
         // If your reseller account has a dedicated NB2 path, set the env var.
         endpoint = nb2Endpoint;
+
+        // ── NB2 dimension fix ─────────────────────────────────────────────────
+        // The /generate endpoint IGNORES the `aspectRatio` field entirely and
+        // always defaults to 1:1 if no dimensions are supplied.
+        // Fix: look up explicit width + height from the dimension map instead.
+        const nb2Dims = arParam ? (NB2_DIMENSION_MAP[arParam] ?? null) : null;
+        console.log(`[nano-banana][nb2] sending: ${JSON.stringify(nb2Dims ?? { width: "default", height: "default" })} (ar="${arParam ?? "none"}")`);
+
         payload = {
           // type is required by the /generate endpoint; include it for NB2 too.
           type:        isI2I ? NB_TYPE.image : NB_TYPE.text,
@@ -215,7 +244,8 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
           callBackUrl: callbackUrl,
           // outputFormat is NB2-specific; only sent when explicitly set.
           ...(outputFmt            ? { format:        outputFmt }           : {}),
-          ...(arParam              ? { aspectRatio:   arParam }             : {}),
+          // Send explicit width/height instead of aspectRatio — NB2 API requires it.
+          ...(nb2Dims              ? { width: nb2Dims.width, height: nb2Dims.height } : {}),
           ...(refs.length > 0      ? { imageUrls:     refs }                : {}),
           ...(useGoogleSearch      ? { googleSearch:  true }                : {}),
         };
