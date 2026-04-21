@@ -59,21 +59,22 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
+  // Timeout / too slow — MUST come before credit check because the timeout
+  // message includes "Credits refunded" which would otherwise match the credit rule.
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("taking longer")) {
+    return {
+      icon:   "⏱",
+      title:  "Generation timed out",
+      detail: "The provider took too long to respond. Your image may still be processing — check back later.",
+    };
+  }
+
   // Credit / quota exhausted
   if (lower.includes("credit") || lower.includes("quota") || lower.includes("not enough")) {
     return {
       icon:   "⚡",
       title:  "Not enough credits",
       detail: "You don't have enough credits for this generation.",
-    };
-  }
-
-  // Timeout / too slow
-  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("taking longer")) {
-    return {
-      icon:   "⏱",
-      title:  "Generation timed out",
-      detail: "The provider took too long to respond. Your image may still be processing — check back later.",
     };
   }
 
