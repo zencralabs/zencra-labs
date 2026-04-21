@@ -23,7 +23,17 @@ import { buildCreditHooks, buildSupabaseCreditStore, noopCreditHooks }
                                       from "@/lib/credits/hooks";
 import { buildAssetMetadata, saveAssetMetadata, updateAssetStatus }
                                       from "@/lib/storage/metadata";
+import { logProviderCost }            from "@/lib/providers/core/cost-logger";
 import { ensureProvidersRegistered }  from "@/lib/providers/startup";
+import { validateStudioRequest }      from "@/lib/security/request-validator";
+import {
+  generateIdempotencyKey,
+  checkIdempotency,
+  markIdempotencyProcessing,
+  markIdempotencyComplete,
+  markIdempotencyFailed,
+}                                     from "@/lib/security/idempotency";
+import { logRequest, startTimer }     from "@/lib/security/request-logger";
 import type { ZProviderInput, ZJob, StudioType, IdentityContext, CreditEstimate }
                                       from "@/lib/providers/core/types";
 // isDev / DEV_DEMO_USER_ID removed — all callers must supply a real userId
@@ -59,6 +69,12 @@ export interface StudioDispatchInput {
   skipCredits?:    boolean;
   /** Required for FCS routes — passed from hasFCSAccess() check */
   fcsAccessGranted?: boolean;
+  /**
+   * Client IP address — used for request_logs audit trail.
+   * Extract with getClientIp(req) from rate-limit.ts before calling studioDispatch.
+   * If omitted, logged as "unknown".
+   */
+  ip?: string;
 }
 
 export interface StudioDispatchResult {
@@ -138,6 +154,90 @@ export async function studioDispatch(
 
   const requestId = crypto.randomUUID();
   const userId    = input.userId || "";
+  const clientIp  = input.ip    || "unknown";
+  const route     = `/api/studio/${input.studio}/generate`;
+  const elapsed   = startTimer();
+
+  // Step 1.1 — request validation
+  // Validates model key (must exist in registry + be active), aspect ratio allowlist,
+  // and prompt length (3–2000 chars). Fast + synchronous — no DB calls.
+  const validation = validateStudioRequest({
+    modelKey:    input.modelKey,
+    prompt:      input.prompt,
+    aspectRatio: input.aspectRatio,
+  });
+
+  if (!validation.valid) {
+    void logRequest({
+      userId,
+      ip:        clientIp,
+      route,
+      modelKey:  input.modelKey,
+      studio:    input.studio,
+      status:    "invalid",
+      errorCode: "VALIDATION_FAILED",
+      durationMs: elapsed(),
+    });
+    // Return the validation 400 response directly as an error
+    throw new StudioDispatchError(
+      "Request validation failed",
+      "VALIDATION_FAILED",
+      validation.response,
+    );
+  }
+
+  // Step 1.2 — idempotency check
+  // Prevents double-charges when clients retry on timeout or network error.
+  // Key = SHA256(userId + modelKey + prompt) bucketed to 5-minute window.
+  const idempotencyKey = generateIdempotencyKey(userId, input.modelKey, input.prompt);
+  const idempotencyResult = await checkIdempotency(idempotencyKey);
+
+  if (idempotencyResult.outcome === "duplicate_complete") {
+    // Previous identical request completed — return the cached result
+    void logRequest({
+      userId,
+      ip:        clientIp,
+      route,
+      modelKey:  input.modelKey,
+      studio:    input.studio,
+      status:    "success",
+      errorCode: "IDEMPOTENT_REPLAY",
+      assetId:   idempotencyResult.assetId ?? undefined,
+      durationMs: elapsed(),
+    });
+    throw new StudioDispatchError(
+      "Duplicate request — returning cached result",
+      "VALIDATION_FAILED",
+      {
+        isDuplicate: true,
+        assetId:     idempotencyResult.assetId,
+        jobId:       idempotencyResult.jobId,
+        resultUrl:   idempotencyResult.resultUrl,
+      },
+    );
+  }
+
+  if (idempotencyResult.outcome === "duplicate_processing") {
+    void logRequest({
+      userId,
+      ip:        clientIp,
+      route,
+      modelKey:  input.modelKey,
+      studio:    input.studio,
+      status:    "failed",
+      errorCode: "DUPLICATE_IN_FLIGHT",
+      durationMs: elapsed(),
+    });
+    throw new StudioDispatchError(
+      "A generation with the same parameters is already in progress. Please wait.",
+      "JOB_LIMIT_EXCEEDED",
+    );
+  }
+
+  // Mark as processing before dispatch — race-safe via ON CONFLICT DO NOTHING
+  if (idempotencyResult.outcome === "proceed") {
+    await markIdempotencyProcessing(idempotencyKey, userId);
+  }
 
   // Step 1.5 — concurrent job cap
   // Reject if the user already has MAX_CONCURRENT_JOBS in-flight.
@@ -218,6 +318,21 @@ export async function studioDispatch(
       fcsAccessGranted: input.fcsAccessGranted,
     });
   } catch (err) {
+    // Mark idempotency key as failed so retries can proceed
+    void markIdempotencyFailed(idempotencyKey);
+    // Log the failed attempt
+    void logRequest({
+      userId,
+      ip:        clientIp,
+      route,
+      modelKey:  input.modelKey,
+      studio:    input.studio,
+      status:    "failed",
+      errorCode: err instanceof Error && "code" in err
+        ? (err as { code: string }).code
+        : "PROVIDER_ERROR",
+      durationMs: elapsed(),
+    });
     throw mapOrchestratorError(err);
   }
 
@@ -243,6 +358,48 @@ export async function studioDispatch(
       console.error("[studioDispatch] Asset persist failed (non-fatal for sync job):", persistErr);
     }
   }
+
+  // ── Provider cost logging for sync providers ─────────────────────────────
+  // Async providers (pending status) are logged in the job status polling route
+  // when they first resolve. Sync providers (LTX, FCS) complete here — log now.
+  if (job.status === "success" || job.status === "error") {
+    void logProviderCost({
+      assetId:        assetId,
+      modelKey:       input.modelKey,
+      studio:         input.studio,
+      userId:         userId || undefined,
+      status:         job.status === "success" ? "success" : "failed",
+      failureReason:  job.status === "error" ? (job.result?.error as string | undefined) : undefined,
+      generationParams: {
+        ...(input.durationSeconds ? { durationSeconds: input.durationSeconds } : {}),
+        ...(input.aspectRatio     ? { aspectRatio:     input.aspectRatio }     : {}),
+      },
+    });
+  }
+
+  // ── Idempotency completion ─────────────────────────────────────────────────
+  // Mark the key as completed so duplicate retries return the cached result.
+  // For async jobs, assetId is always set (persistAsset is fatal for async).
+  const resultUrl = job.result?.url ?? null;
+  void markIdempotencyComplete(
+    idempotencyKey,
+    assetId ?? null,
+    job.id,
+    typeof resultUrl === "string" ? resultUrl : null,
+  );
+
+  // ── Request audit log ─────────────────────────────────────────────────────
+  void logRequest({
+    userId,
+    ip:           clientIp,
+    route,
+    modelKey:     input.modelKey,
+    studio:       input.studio,
+    status:       job.status === "success" ? "success" : (job.status === "error" ? "failed" : "success"),
+    creditsUsed:  job.actualCredits ?? job.reservedCredits ?? undefined,
+    assetId:      assetId,
+    durationMs:   elapsed(),
+  });
 
   return { job, assetId };
 }

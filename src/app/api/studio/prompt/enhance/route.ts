@@ -28,6 +28,7 @@ import OpenAI                                    from "openai";
 import { requireAuthUser }                       from "@/lib/supabase/server";
 import { invalidInput, serverErr, parseBody, requireField }
                                                  from "@/lib/api/route-utils";
+import { checkEnhanceRateLimit }                 from "@/lib/security/rate-limit";
 import { NextResponse }                          from "next/server";
 
 export const runtime = "nodejs";
@@ -103,7 +104,11 @@ export async function POST(req: Request): Promise<Response> {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const { user, authError } = await requireAuthUser(req);
   if (authError) return authError;
-  void user;
+  const userId = user!.id;
+
+  // ── Rate limit ────────────────────────────────────────────────────────────
+  const rateLimited = await checkEnhanceRateLimit(userId);
+  if (rateLimited) return rateLimited;
 
   // ── Parse body ────────────────────────────────────────────────────────────
   const { body, parseError } = await parseBody<{

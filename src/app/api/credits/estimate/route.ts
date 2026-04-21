@@ -1,8 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse }       from "next/server";
 import type { CreditEstimateInput } from "@/lib/ai/types";
-import { calculateCredits } from "@/lib/credits/calculate";
+import { calculateCredits }  from "@/lib/credits/calculate";
+import { requireAuthUser }   from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
+  // Auth — estimation is free but must be authenticated to prevent anonymous abuse
+  const { authError } = await requireAuthUser(req);
+  if (authError) return authError;
+
   try {
     const body = (await req.json()) as Partial<CreditEstimateInput>;
 
