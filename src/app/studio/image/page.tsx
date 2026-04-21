@@ -147,22 +147,39 @@ function mapArForGpt(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   return "1:1";
 }
 
-// Nano Banana supports its aspect ratio strings verbatim.
+// ── Per-model AR lists ────────────────────────────────────────────────────────
+// Hard-locked to playground-confirmed behaviour.
+// Keep in sync with NB_SUPPORTED_ASPECT_RATIOS / NB2_SUPPORTED_ASPECT_RATIOS in nano-banana.ts.
+
+/** NB Standard + Pro: exactly 7 options, no Auto. */
+const NB_STANDARD_PRO_AR: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4"];
+
+/** NB2: 7 options including Auto (Auto → no AR sent → NB2 server default). */
+const NB2_AR: AspectRatio[] = ["Auto", "1:1", "4:5", "5:4", "9:16", "16:9", "8:1"];
+
+/** GPT Image: collapsed internally by mapArForGpt — show 4 meaningful options. */
+const DALLE_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
+
+// Nano Banana Standard/Pro: pass the selected AR string verbatim.
 // "Auto" maps to undefined (omit from payload — let NB decide).
-const NB_AR_PASSTHROUGH = new Set([
-  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
-  "4:1", "4:3", "4:5", "5:4", "8:1",
-  "9:16", "16:9", "21:9",
-]);
+const NB_AR_PASSTHROUGH = new Set<AspectRatio>(NB_STANDARD_PRO_AR);
 function mapArForNB(ar: AspectRatio): string | undefined {
   if (ar === "Auto") return undefined;
   return NB_AR_PASSTHROUGH.has(ar) ? ar : undefined;
 }
 
-// NB2 does not support 21:9 — keep in sync with nano-banana.ts NB2_AR_FALLBACK.
-// Used to show the AR fallback hint badge in the UI before the request is sent.
+// NB2 UI fallback hints — any currently-selected AR not in the NB2 list
+// will be shown with a badge so the user understands what will actually be sent.
+// Keep in sync with NB2_AR_FALLBACK in nano-banana.ts.
 const NB2_AR_FALLBACK_UI: Record<string, string> = {
-  "21:9": "16:9",
+  "2:3":  "1:1",
+  "3:2":  "1:1",
+  "3:4":  "1:1",
+  "4:3":  "1:1",
+  "21:9": "1:1",
+  "1:4":  "1:1",
+  "1:8":  "1:1",
+  "4:1":  "1:1",
 };
 
 /** Legacy wrapper — used only for GPT Image */
@@ -222,6 +239,8 @@ const MODELS: StudioModel[] = [
   },
 ];
 
+// ASPECT_RATIOS is now model-specific — see NB_STANDARD_PRO_AR / NB2_AR / DALLE_AR above.
+// This alias is kept only for GeneratingPlaceholder's ratioMap (all possible values).
 const ASPECT_RATIOS: AspectRatio[] = [
   "Auto", "1:1", "3:4", "4:3", "2:3", "3:2",
   "9:16", "16:9", "5:4", "4:5", "21:9",
@@ -472,6 +491,7 @@ function ImageCard({
       <MediaCard
         asset={toPublicAsset(img)}
         isOwner
+        aspectRatio={img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
         hideHoverActions={hideHoverActions}
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
@@ -576,7 +596,7 @@ function ImageStudioInner() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [prompt, setPrompt] = useState(searchParams.get("prompt") ?? "");
   const [model, setModel] = useState(initialModel);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("3:4");
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [quality, setQuality] = useState<Quality>("1K");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("JPG");
   const [batchSize, setBatchSize] = useState(1);
@@ -715,7 +735,8 @@ function ImageStudioInner() {
     })();
   }, [user, historyLoaded]);
 
-  // When model changes: reset quality if not allowed, clear edit image if not needed
+  // When model changes: reset quality if not allowed, clear edit image if not needed,
+  // and hard-reset aspect ratio if the current AR is not in the new model's supported list.
   useEffect(() => {
     const cm = MODELS.find((m) => m.id === model);
     if (!cm) return;
@@ -724,6 +745,20 @@ function ImageStudioInner() {
     }
     if (!cm.requiresImg) setEditImageUrl("");
     if (cm.requiresImg) setBatchSize(1);  // edit models: 1 at a time
+
+    // ── AR hard-lock per model ────────────────────────────────────────────────
+    // Switching to NB2 → only 7 options; switching to NB Standard/Pro → only 7 options.
+    // If the current AR is not in the target model's list, reset to 1:1.
+    setAspectRatio((cur) => {
+      if (model === "nano-banana-2") {
+        return (NB2_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
+      if (model.startsWith("nano-banana")) {
+        return (NB_STANDARD_PRO_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
+      // GPT Image — always pass through (mapArForGpt collapses internally)
+      return cur;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
 
@@ -1620,26 +1655,17 @@ function ImageStudioInner() {
 
             {/* Aspect Ratio */}
             {(() => {
-              // Compute whether NB2 will silently fall back this AR
-              const nb2ArFallbackTo = model === "nano-banana-2"
-                ? NB2_AR_FALLBACK_UI[aspectRatio]
-                : undefined;
+              // Hard-locked AR list per model — only supported ratios are shown.
+              const activeArList: AspectRatio[] =
+                model === "nano-banana-2"       ? NB2_AR :
+                model.startsWith("nano-banana") ? NB_STANDARD_PRO_AR :
+                DALLE_AR;
 
               return (
                 <div data-dd style={{ position: "relative" }}>
-                  {/* AR button — shows fallback badge when NB2 will substitute the ratio */}
                   <button onClick={() => { closeDropdowns(); setShowArPicker((v) => !v); }} style={ctrlBtn(showArPicker)}>
                     <ARIcon ar={aspectRatio} size={14} />
                     {aspectRatio}
-                    {nb2ArFallbackTo && (
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4,
-                        background: "rgba(234,179,8,0.15)", color: "#FBBF24",
-                        border: "1px solid rgba(234,179,8,0.25)", marginLeft: 2,
-                      }}>
-                        → {nb2ArFallbackTo}
-                      </span>
-                    )}
                   </button>
 
                   {showArPicker && (
@@ -1652,34 +1678,21 @@ function ImageStudioInner() {
                       <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 8px" }}>
                         Aspect ratio
                       </p>
-                      {ASPECT_RATIOS.map((ar) => {
-                        const fallsBack = model === "nano-banana-2" && Boolean(NB2_AR_FALLBACK_UI[ar]);
-                        return (
-                          <button
-                            key={ar}
-                            onClick={() => { setAspectRatio(ar); closeDropdowns(); }}
-                            style={{ ...ddItem(aspectRatio === ar) }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = aspectRatio === ar ? "rgba(255,255,255,0.1)" : "transparent"; }}
-                          >
-                            <ARIcon ar={ar} size={16} selected={aspectRatio === ar} />
-                            <span style={{ fontSize: 13, color: fallsBack ? "rgba(255,255,255,0.4)" : "#fff" }}>{ar}</span>
-                            {fallsBack && (
-                              <span style={{ marginLeft: "auto", fontSize: 9, color: "#FBBF24", fontWeight: 600 }}>
-                                → {NB2_AR_FALLBACK_UI[ar]}
-                              </span>
-                            )}
-                            {!fallsBack && aspectRatio === ar && (
-                              <span style={{ marginLeft: "auto", color: "#60A5FA", fontSize: 13 }}>✓</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                      {model === "nano-banana-2" && (
-                        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", padding: "8px 8px 4px", lineHeight: 1.5 }}>
-                          Ratios marked → will be converted to the nearest supported ratio for NB2.
-                        </p>
-                      )}
+                      {activeArList.map((ar) => (
+                        <button
+                          key={ar}
+                          onClick={() => { setAspectRatio(ar); closeDropdowns(); }}
+                          style={{ ...ddItem(aspectRatio === ar) }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = aspectRatio === ar ? "rgba(255,255,255,0.1)" : "transparent"; }}
+                        >
+                          <ARIcon ar={ar} size={16} selected={aspectRatio === ar} />
+                          <span style={{ fontSize: 13, color: "#fff" }}>{ar}</span>
+                          {aspectRatio === ar && (
+                            <span style={{ marginLeft: "auto", color: "#60A5FA", fontSize: 13 }}>✓</span>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

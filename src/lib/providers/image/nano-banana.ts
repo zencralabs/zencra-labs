@@ -57,24 +57,32 @@ const MODEL_KEY_TO_VARIANT: Record<string, NBVariant> = {
   "nano-banana-2":        "nb2",
 };
 
-// NB Standard + Pro — full supported AR set (includes 21:9)
+// NB Standard + Pro — 7 supported AR options (playground-aligned).
+// Keep in sync with NB_STANDARD_PRO_AR in image/page.tsx.
 const NB_SUPPORTED_ASPECT_RATIOS = new Set([
-  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
-  "4:1", "4:3", "4:5", "5:4", "8:1",
-  "9:16", "16:9", "21:9",
+  "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4",
 ]);
 
-// NB2 — 21:9 is NOT supported; the API silently drops it.
-// Keep this in sync with NB2_AR_FALLBACK_UI in image/page.tsx.
+// NB2 — 6 dimension-map entries (Auto → undefined → NB2 default).
+// Keep in sync with NB2_AR list in image/page.tsx.
 const NB2_SUPPORTED_ASPECT_RATIOS = new Set([
-  "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
-  "4:1", "4:3", "4:5", "5:4", "8:1",
-  "9:16", "16:9",
+  "1:1", "4:5", "5:4", "9:16", "16:9", "8:1",
 ]);
 
-/** AR strings unsupported by NB2 → closest supported substitute. */
+/**
+ * Internal safety rule: any AR that slips through UI hard-lock for NB2
+ * gets forced to 1:1 rather than silently generating a wrong-ratio image.
+ * Keep this in sync with NB2_AR_FALLBACK_UI in image/page.tsx.
+ */
 const NB2_AR_FALLBACK: Record<string, string> = {
-  "21:9": "16:9",
+  "2:3":  "1:1",
+  "3:2":  "1:1",
+  "3:4":  "1:1",
+  "4:3":  "1:1",
+  "21:9": "1:1",
+  "1:4":  "1:1",
+  "1:8":  "1:1",
+  "4:1":  "1:1",
 };
 
 /**
@@ -191,16 +199,21 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
 
       if (variant === "nb2") {
         const requested = input.aspectRatio ?? "";
-        if (NB2_SUPPORTED_ASPECT_RATIOS.has(requested)) {
+        if (!requested) {
+          // Empty/undefined → let NB2 use its server default (typically 1:1).
+          // "Auto" is converted to undefined by mapArForNB in page.tsx before dispatch.
+          arParam = undefined;
+        } else if (NB2_SUPPORTED_ASPECT_RATIOS.has(requested)) {
           arParam = requested;
-        } else if (NB2_AR_FALLBACK[requested]) {
+        } else {
+          // INTERNAL SAFETY RULE: any AR not in the supported set → force 1:1.
+          // This is the server-side guard; the UI hard-lock is the first line of defence.
           arFallbackUsed = requested;
-          arParam = NB2_AR_FALLBACK[requested];
+          arParam = NB2_AR_FALLBACK[requested] ?? "1:1";
           console.log(
-            `[nano-banana][nb2] AR fallback: "${requested}" unsupported by NB2 → using "${arParam}"`
+            `[nano-banana][nb2] AR safety fallback: "${requested}" not in NB2 supported set → forcing "${arParam}"`
           );
         }
-        // else undefined — let NB2 use its server default
       } else {
         arParam = input.aspectRatio && NB_SUPPORTED_ASPECT_RATIOS.has(input.aspectRatio)
           ? input.aspectRatio
@@ -234,7 +247,10 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
         // always defaults to 1:1 if no dimensions are supplied.
         // Fix: look up explicit width + height from the dimension map instead.
         const nb2Dims = arParam ? (NB2_DIMENSION_MAP[arParam] ?? null) : null;
-        console.log(`[nano-banana][nb2] sending: ${JSON.stringify(nb2Dims ?? { width: "default", height: "default" })} (ar="${arParam ?? "none"}")`);
+        console.log(
+          `[nano-banana-2] requested_ar: "${input.aspectRatio ?? "Auto"}" resolved_ar: "${arParam ?? "Auto"}"` +
+          ` width: ${nb2Dims?.width ?? "default"} height: ${nb2Dims?.height ?? "default"}`
+        );
 
         payload = {
           // type is required by the /generate endpoint; include it for NB2 too.

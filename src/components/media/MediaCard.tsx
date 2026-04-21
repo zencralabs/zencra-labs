@@ -48,6 +48,13 @@ export interface MediaCardProps {
    * overlays and action buttons are hidden. Image click remains fully active.
    */
   hideHoverActions?: boolean;
+  /**
+   * Aspect ratio of the generated image (e.g. "16:9", "9:16", "1:1").
+   * When provided the media container adopts this ratio so the card shape
+   * matches the actual output — critical for NB2 non-square generations.
+   * Leave undefined to fall back to natural image height (width: 100%, height: auto).
+   */
+  aspectRatio?: string;
   /** Called when the user clicks Regenerate */
   onRegenerate?: (asset: PublicAsset) => void;
   /** Called when the user clicks Reuse Prompt */
@@ -329,6 +336,7 @@ export default function MediaCard({
   isOwner = false,
   compact = false,
   hideHoverActions = false,
+  aspectRatio: aspectRatioProp,
   onRegenerate,
   onReusePrompt,
   onEnhance,
@@ -441,7 +449,14 @@ export default function MediaCard({
       <div
         style={{
           position:     "relative",
-          aspectRatio:  isVideo ? "16/9" : undefined,
+          // For videos, always lock 16/9. For images, use the supplied AR when
+          // available so the card shape matches the actual generated output.
+          // "16:9" → "16 / 9" for valid CSS aspect-ratio syntax.
+          aspectRatio:  isVideo
+            ? "16 / 9"
+            : aspectRatioProp
+              ? aspectRatioProp.replace(":", " / ")
+              : undefined,
           background:   "rgba(0,0,0,0.3)",
           overflow:     "hidden",
           borderRadius: "inherit",   // clips scaled image within card's border-radius
@@ -464,7 +479,10 @@ export default function MediaCard({
               alt={asset.prompt.slice(0, 80)}
               style={{
                 width:      "100%",
-                height:     "auto",
+                // When container has an explicit AR, fill it completely.
+                // When no AR is provided (legacy/history), natural height.
+                height:     aspectRatioProp ? "100%" : "auto",
+                objectFit:  aspectRatioProp ? "cover" : undefined,
                 display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",
