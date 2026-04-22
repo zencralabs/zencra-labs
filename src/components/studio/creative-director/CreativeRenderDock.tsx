@@ -41,6 +41,10 @@ export interface RenderDockSettings {
   /** Only present when 2+ reference images are uploaded */
   blendMode?: BlendMode;
   locks?: StyleLocks;
+  /** Character Consistency — present when face detected + lock enabled */
+  characterLock?: boolean;
+  characterReference?: string;
+  consistencyStrength?: "low" | "medium" | "high";
 }
 
 export interface CreativeRenderDockProps {
@@ -251,6 +255,29 @@ function computeReferenceWeights(
   }));
 }
 
+/**
+ * Try to detect a human face in an image URL using the browser's FaceDetector API.
+ * Falls back silently if the API is unavailable (non-Chrome browsers).
+ */
+async function detectFaceInUrl(url: string): Promise<boolean> {
+  try {
+    if (typeof window === "undefined" || !("FaceDetector" in window)) return false;
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("load failed"));
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detector = new (window as any).FaceDetector({ fastMode: true });
+    const faces: unknown[] = await detector.detect(img);
+    return faces.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function CreativeRenderDock({
@@ -296,10 +323,35 @@ export default function CreativeRenderDock({
     setStyleLocks((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // ── Character Consistency ─────────────────────────────────────────────────
+  const [faceImageIds,        setFaceImageIds]        = useState<Set<string>>(new Set());
+  const [characterLock,       setCharacterLock]       = useState(false);
+  const [consistencyStrength, setConsistencyStrength] = useState<"low" | "medium" | "high">("medium");
+  const checkedImageIdsRef = useRef<Set<string>>(new Set());
+
+  // Run face detection on each newly added image (skips already-checked IDs)
+  useEffect(() => {
+    for (const img of uploadedImages) {
+      if (checkedImageIdsRef.current.has(img.id)) continue;
+      checkedImageIdsRef.current.add(img.id);
+      void detectFaceInUrl(img.url).then((hasFace) => {
+        if (hasFace) setFaceImageIds((prev) => new Set([...prev, img.id]));
+      });
+    }
+  }, [uploadedImages]);
+
   // ── Reference image influence system ──────────────────────────────────────
   // primaryId: first image is implicitly primary unless user clicks a different one
   const primaryId = primaryImageId ?? uploadedImages[0]?.id ?? null;
   const imgCount  = uploadedImages.length;
+
+  // Character Consistency derived values
+  const hasFaceImages          = uploadedImages.some((i) => faceImageIds.has(i.id));
+  const showCharacterControls  = hasFaceImages;
+  const showCharacterHint      = hasFaceImages && !characterLock;
+  const characterReferenceUrl  = primaryId
+    ? (uploadedImages.find((i) => i.id === primaryId)?.url ?? null)
+    : null;
 
   // Render primary first, then secondaries in upload order
   const primaryImg    = uploadedImages.find((i) => i.id === primaryId) ?? null;
@@ -386,9 +438,12 @@ export default function CreativeRenderDock({
       outputCount, promptText,
       referenceImages,
       ...(showBlendControls ? { blendMode, locks: styleLocks } : {}),
+      ...(characterLock && characterReferenceUrl
+        ? { characterLock: true, characterReference: characterReferenceUrl, consistencyStrength }
+        : {}),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, primaryId, showBlendControls, blendMode, styleLocks, onGenerate, onGenerateConcepts]);
+  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, primaryId, showBlendControls, blendMode, styleLocks, characterLock, characterReferenceUrl, consistencyStrength, onGenerate, onGenerateConcepts]);
 
   return (
     <>
@@ -441,6 +496,8 @@ export default function CreativeRenderDock({
           .rd-blend:hover { border-color: rgba(86,140,255,0.45) !important; background: rgba(86,140,255,0.1) !important; color: ${Z.textPrimary} !important; }
           .rd-lock:hover { border-color: rgba(86,140,255,0.4) !important; background: rgba(86,140,255,0.1) !important; color: ${Z.textPrimary} !important; }
           .rd-lock-suggest:hover { background: rgba(37,99,235,0.25) !important; border-color: rgba(96,165,250,0.6) !important; }
+          .rd-char-toggle:hover { border-color: rgba(245,158,11,0.55) !important; background: rgba(245,158,11,0.1) !important; color: rgba(252,211,77,0.9) !important; }
+          .rd-char-strength:hover { border-color: rgba(245,158,11,0.45) !important; background: rgba(245,158,11,0.1) !important; color: rgba(252,211,77,0.85) !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
           @keyframes rdFadeIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
           @keyframes rdSlideIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 36px; } }
@@ -496,10 +553,11 @@ export default function CreativeRenderDock({
                 scrollbarWidth: "none",
               }}>
                 {orderedImgs.map((img) => {
-                  const isPrimary = img.id === primaryId;
-                  const chipH     = getChipH(img.id);
+                  const isPrimary     = img.id === primaryId;
+                  const isCharacterRef = characterLock && isPrimary;
+                  const chipH         = getChipH(img.id);
                   // width proportional: primary slightly wider (square-ish)
-                  const chipW     = imgCount === 1 ? 128 : isPrimary ? chipH + 8 : chipH;
+                  const chipW         = imgCount === 1 ? 128 : isPrimary ? chipH + 8 : chipH;
 
                   return (
                     <div
@@ -508,9 +566,13 @@ export default function CreativeRenderDock({
                       onClick={() => {
                         if (!isPrimary) setPrimaryImageId(img.id);
                       }}
-                      title={isPrimary
-                        ? "Main reference (strongest influence)"
-                        : "Supporting reference — click to make primary"}
+                      title={
+                        isCharacterRef
+                          ? "Character reference — face identity locked"
+                          : isPrimary
+                          ? "Main reference (strongest influence)"
+                          : "Supporting reference — click to make primary"
+                      }
                       style={{
                         flexShrink:   0,
                         position:     "relative",
@@ -519,14 +581,18 @@ export default function CreativeRenderDock({
                         borderRadius: 10,
                         overflow:     "hidden",
                         cursor:       isPrimary ? "default" : "pointer",
-                        border:       isPrimary
+                        border:       isCharacterRef
+                          ? "1.5px solid rgba(245,158,11,0.75)"
+                          : isPrimary
                           ? "1.5px solid rgba(86,140,255,0.7)"
                           : `1px solid ${Z.borderSoft}`,
                         background:   Z.bgInput,
                         animation:    "rdFadeIn 0.18s ease",
                         transform:    isPrimary ? "scale(1.05)" : "scale(1)",
                         transformOrigin: "bottom center",
-                        boxShadow:    isPrimary
+                        boxShadow:    isCharacterRef
+                          ? "0 0 0 2px rgba(245,158,11,0.45), 0 0 20px rgba(245,158,11,0.32), 0 0 40px rgba(245,158,11,0.12)"
+                          : isPrimary
                           ? "0 0 0 2px rgba(86,140,255,0.5), 0 0 20px rgba(86,140,255,0.35), 0 0 40px rgba(86,140,255,0.12)"
                           : "0 0 0 1px rgba(120,160,255,0.15), 0 0 8px rgba(86,140,255,0.08)",
                       }}
@@ -534,12 +600,12 @@ export default function CreativeRenderDock({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={img.url}
-                        alt={isPrimary ? "Primary reference" : "Supporting reference"}
+                        alt={isCharacterRef ? "Character reference" : isPrimary ? "Primary reference" : "Supporting reference"}
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         draggable={false}
                       />
 
-                      {/* PRIMARY badge */}
+                      {/* CHARACTER / PRIMARY badge */}
                       {isPrimary && (
                         <div style={{
                           position:     "absolute",
@@ -548,14 +614,16 @@ export default function CreativeRenderDock({
                           fontWeight:   800,
                           letterSpacing: "0.10em",
                           color:        "#ffffff",
-                          background:   "rgba(59,130,246,0.92)",
+                          background:   isCharacterRef
+                            ? "rgba(245,158,11,0.92)"
+                            : "rgba(59,130,246,0.92)",
                           borderRadius: 4,
                           padding:      "2px 5px",
                           lineHeight:   1.2,
                           pointerEvents: "none",
                           backdropFilter: "blur(4px)",
                         }}>
-                          PRIMARY
+                          {isCharacterRef ? "CHARACTER" : "PRIMARY"}
                         </div>
                       )}
 
@@ -746,6 +814,96 @@ export default function CreativeRenderDock({
                     <span style={{ fontSize: 9 }}>⚡</span>
                     Enable Style lock?
                   </button>
+                )}
+              </div>
+            </div>
+
+            {/* ── Character Consistency — fades in when face detected ── */}
+            <div
+              style={{
+                maxHeight:     showCharacterControls ? 38 : 0,
+                opacity:       showCharacterControls ? 1 : 0,
+                overflow:      "hidden",
+                transition:    "opacity 0.22s ease, max-height 0.22s ease",
+                pointerEvents: showCharacterControls ? "auto" : "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7, paddingBottom: 4 }}>
+                {/* Lock toggle pill */}
+                <button
+                  className="rd-char-toggle"
+                  onClick={() => setCharacterLock((prev) => !prev)}
+                  title="Preserve the character's face identity across all generations"
+                  style={{
+                    height:       26,
+                    padding:      "0 10px",
+                    borderRadius: 20,
+                    border:       characterLock
+                      ? "1px solid rgba(245,158,11,0.62)"
+                      : "1px solid rgba(255,255,255,0.1)",
+                    background:   characterLock
+                      ? "rgba(245,158,11,0.13)"
+                      : "rgba(255,255,255,0.04)",
+                    color:        characterLock
+                      ? "rgba(252,211,77,0.95)"
+                      : "rgba(140,155,185,0.72)",
+                    fontSize:     11,
+                    fontWeight:   700,
+                    cursor:       "pointer",
+                    display:      "flex", alignItems: "center", gap: 5,
+                    transition:   "all 0.15s ease",
+                    whiteSpace:   "nowrap",
+                    flexShrink:   0,
+                  }}
+                >
+                  <span style={{ fontSize: 13, lineHeight: 1 }}>{characterLock ? "◉" : "○"}</span>
+                  Lock Character Identity
+                </button>
+
+                {/* Consistency strength — only when locked */}
+                {characterLock && (["low", "medium", "high"] as const).map((s) => {
+                  const isActive = consistencyStrength === s;
+                  return (
+                    <button
+                      key={s}
+                      className="rd-char-strength"
+                      onClick={() => setConsistencyStrength(s)}
+                      style={{
+                        height:       24,
+                        padding:      "0 8px",
+                        borderRadius: 6,
+                        border:       isActive
+                          ? "1px solid rgba(245,158,11,0.52)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                        background:   isActive
+                          ? "rgba(245,158,11,0.12)"
+                          : "rgba(255,255,255,0.03)",
+                        color:        isActive
+                          ? "rgba(252,211,77,0.9)"
+                          : "rgba(120,140,180,0.5)",
+                        fontSize:     10,
+                        fontWeight:   700,
+                        cursor:       "pointer",
+                        textTransform: "capitalize",
+                        transition:   "all 0.15s ease",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+
+                {/* Auto-suggest hint when face detected but lock is off */}
+                {showCharacterHint && (
+                  <span style={{
+                    fontSize:      10,
+                    color:         "rgba(252,211,77,0.52)",
+                    fontWeight:    600,
+                    letterSpacing: "0.01em",
+                    whiteSpace:    "nowrap",
+                  }}>
+                    Face detected — enable to preserve identity
+                  </span>
                 )}
               </div>
             </div>

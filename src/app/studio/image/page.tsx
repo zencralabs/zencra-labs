@@ -714,6 +714,10 @@ function ImageStudioInner() {
   const [referenceImageUrl,      setReferenceImageUrl]      = useState<string>("");
   const [referencePreviewUrl,    setReferencePreviewUrl]    = useState<string>("");  // blob URL for <img>, not sent to backend
   const [referenceUploading,     setReferenceUploading]     = useState(false);
+  // Character Consistency
+  const [refFaceDetected,     setRefFaceDetected]     = useState(false);
+  const [characterLock,       setCharacterLock]       = useState(false);
+  const [consistencyStrength, setConsistencyStrength] = useState<"low" | "medium" | "high">("medium");
   const currentModel = MODELS.find((m) => m.id === model) ?? MODELS[0];
 
   // Grid column sizing based on zoom level
@@ -733,6 +737,24 @@ function ImageStudioInner() {
     window.addEventListener("mousedown", handle);
     return () => window.removeEventListener("mousedown", handle);
   }, []);
+
+  // ── Character Consistency: detect face when CDN URL becomes available ────────
+  useEffect(() => {
+    if (!referenceImageUrl) { setRefFaceDetected(false); setCharacterLock(false); return; }
+    (async () => {
+      try {
+        if (typeof window === "undefined" || !("FaceDetector" in window)) return;
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.src = referenceImageUrl;
+        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const det = new (window as any).FaceDetector({ fastMode: true });
+        const faces: unknown[] = await det.detect(img);
+        setRefFaceDetected(faces.length > 0);
+      } catch { /* FaceDetector unavailable — no-op */ }
+    })();
+  }, [referenceImageUrl]);
 
   // ── Load user's image history on mount (once auth is ready) ─────────────────
   useEffect(() => {
@@ -967,6 +989,13 @@ function ImageStudioInner() {
             nbParams.referenceUrls = [referenceImageUrl];
           }
           body.providerParams = nbParams;
+        }
+
+        // Attach character consistency when face is locked
+        if (characterLock && refFaceDetected && referenceImageUrl) {
+          body.characterLock       = true;
+          body.characterReference  = referenceImageUrl;
+          body.consistencyStrength = consistencyStrength;
         }
 
         const res = await fetch("/api/studio/image/generate", {
@@ -1713,34 +1742,83 @@ function ImageStudioInner() {
                 </div>
               </div>
             ) : referenceImageUrl ? (
-              /* ── Ready: thumbnail with remove button ── */
-              <div style={{ position: "relative", flexShrink: 0, marginTop: 2 }} title="Reference image ready — click to replace">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={referencePreviewUrl || referenceImageUrl}
-                  alt="Reference"
-                  onClick={() => referenceInputRef.current?.click()}
-                  style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", cursor: "pointer", border: "1px solid rgba(245,158,11,0.6)" }}
-                />
-                {/* Checkmark badge — confirms CDN URL is set */}
-                <div style={{
-                  position: "absolute", bottom: -4, right: -4,
-                  width: 14, height: 14, borderRadius: "50%",
-                  background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
-                }}>✓</div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setReferenceImageUrl(""); setReferencePreviewUrl(""); }}
-                  style={{
-                    position: "absolute", top: -6, right: -6,
-                    width: 16, height: 16, borderRadius: "50%",
-                    background: "rgba(239,68,68,0.9)", border: "none",
-                    color: "#fff", fontSize: 9, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
-                  }}
-                  title="Remove reference image"
-                >×</button>
+              /* ── Ready: thumbnail with remove button + character lock ── */
+              <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, marginTop: 2 }}>
+                <div style={{ position: "relative" }} title="Reference image ready — click to replace">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={referencePreviewUrl || referenceImageUrl}
+                    alt="Reference"
+                    onClick={() => referenceInputRef.current?.click()}
+                    style={{
+                      width: 36, height: 36, borderRadius: 10, objectFit: "cover", cursor: "pointer",
+                      border: characterLock && refFaceDetected
+                        ? "1.5px solid rgba(245,158,11,0.75)"
+                        : "1px solid rgba(245,158,11,0.6)",
+                      boxShadow: characterLock && refFaceDetected
+                        ? "0 0 0 2px rgba(245,158,11,0.35), 0 0 12px rgba(245,158,11,0.25)"
+                        : "none",
+                      transition: "box-shadow 0.18s ease, border-color 0.18s ease",
+                    }}
+                  />
+                  {/* CHARACTER badge — shown when face locked */}
+                  {characterLock && refFaceDetected ? (
+                    <div style={{
+                      position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
+                      fontSize: 7, fontWeight: 800, letterSpacing: "0.08em",
+                      color: "#fff", background: "rgba(245,158,11,0.92)",
+                      borderRadius: 3, padding: "1px 4px", lineHeight: 1.3,
+                      whiteSpace: "nowrap", pointerEvents: "none",
+                    }}>CHARACTER</div>
+                  ) : (
+                    /* Checkmark badge — confirms CDN URL is set */
+                    <div style={{
+                      position: "absolute", bottom: -4, right: -4,
+                      width: 14, height: 14, borderRadius: "50%",
+                      background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
+                    }}>✓</div>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setReferenceImageUrl(""); setReferencePreviewUrl(""); }}
+                    style={{
+                      position: "absolute", top: -6, right: -6,
+                      width: 16, height: 16, borderRadius: "50%",
+                      background: "rgba(239,68,68,0.9)", border: "none",
+                      color: "#fff", fontSize: 9, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+                    }}
+                    title="Remove reference image"
+                  >×</button>
+                </div>
+                {/* Character lock toggle — only when face detected */}
+                {refFaceDetected && (
+                  <button
+                    onClick={() => setCharacterLock((prev) => !prev)}
+                    title="Lock character face identity across generations"
+                    style={{
+                      height: 18, padding: "0 6px",
+                      borderRadius: 10,
+                      border: characterLock
+                        ? "1px solid rgba(245,158,11,0.6)"
+                        : "1px solid rgba(255,255,255,0.12)",
+                      background: characterLock
+                        ? "rgba(245,158,11,0.14)"
+                        : "rgba(255,255,255,0.05)",
+                      color: characterLock
+                        ? "rgba(252,211,77,0.95)"
+                        : "rgba(160,175,205,0.7)",
+                      fontSize: 9, fontWeight: 700,
+                      cursor: "pointer", whiteSpace: "nowrap",
+                      display: "flex", alignItems: "center", gap: 3,
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <span style={{ fontSize: 9 }}>{characterLock ? "◉" : "○"}</span>
+                    Lock
+                  </button>
+                )}
               </div>
             ) : (
               /* ── Empty: add button ── */
