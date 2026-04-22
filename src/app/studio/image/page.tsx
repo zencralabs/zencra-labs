@@ -2126,13 +2126,15 @@ function ImageStudioInner() {
                     </>
                   ) : (
                     <>
-                      <Zap size={14} /> Generate
+                      Generate
+                      <Zap size={14} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                       {currentModel.available && (
                         <span style={{
-                          fontSize: 11, fontWeight: 600, opacity: 0.8,
-                          background: "rgba(0,0,0,0.25)", padding: "2px 7px", borderRadius: 6,
+                          fontSize: 14, fontWeight: 700,
+                          color: "rgba(255,255,255,0.92)",
+                          letterSpacing: "-0.01em",
                         }}>
-                          ✦ {computeCredits(model, quality, MODEL_TO_KEY[model]?.startsWith("nano-banana") ? 1 : Math.min(batchSize, 4))} cr
+                          {computeCredits(model, quality, MODEL_TO_KEY[model]?.startsWith("nano-banana") ? 1 : Math.min(batchSize, 4))} cr
                         </span>
                       )}
                     </>

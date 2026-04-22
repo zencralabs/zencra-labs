@@ -868,10 +868,8 @@ export default function CreativeDirectorShell() {
           <BriefBuilder
             brief={brief}
             onChange={handleBriefChange}
-            onGenerateConcepts={handleGenerateConcepts}
             onImproveBrief={handleImproveBrief}
             isLoading={isGeneratingConcepts}
-            creditsEstimate={creditsEstimate}
           />
         </div>
 

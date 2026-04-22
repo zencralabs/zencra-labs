@@ -34,10 +34,8 @@ export interface BriefState {
 interface BriefBuilderProps {
   brief: BriefState;
   onChange: (updates: Partial<BriefState>) => void;
-  onGenerateConcepts: () => void;
   onImproveBrief: () => void;
   isLoading: boolean;
-  creditsEstimate: number | null;
 }
 
 const PROJECT_TYPES = [
@@ -133,10 +131,8 @@ const fieldStyle: React.CSSProperties = {
 export default function BriefBuilder({
   brief,
   onChange,
-  onGenerateConcepts,
   onImproveBrief,
   isLoading,
-  creditsEstimate,
 }: BriefBuilderProps) {
 
   const toggleMoodTag = (tag: string) => {
@@ -600,60 +596,9 @@ export default function BriefBuilder({
         )}
       </div>
 
-      {/* ── B5: Action Buttons ── */}
+      {/* ── B5: Brief support actions (Generate via dock below) ── */}
       <div style={{ padding: "12px 20px 20px", marginTop: "auto" }}>
-        {/* Generate Concepts — primary */}
-        <button
-          onClick={onGenerateConcepts}
-          disabled={isLoading}
-          style={{
-            width: "100%",
-            padding: "12px 0",
-            background: isLoading
-              ? "rgba(37,99,235,0.08)"
-              : "linear-gradient(135deg, rgba(37,99,235,0.25), rgba(124,58,237,0.18))",
-            border: "1px solid rgba(37,99,235,0.35)",
-            borderRadius: 10,
-            color: isLoading ? "rgba(255,255,255,0.4)" : "#fff",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: isLoading ? "default" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            transition: "all 0.15s ease",
-            letterSpacing: "0.02em",
-          }}
-        >
-          {isLoading ? (
-            <>
-              <span style={{ fontSize: 14 }}>⟳</span>
-              Generating…
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: 14 }}>✦</span>
-              Generate Concepts
-              <span
-                style={{
-                  fontSize: 10,
-                  padding: "2px 6px",
-                  background: "rgba(255,255,255,0.08)",
-                  borderRadius: 4,
-                  color: "rgba(255,255,255,0.5)",
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {creditsEstimate !== null ? `${creditsEstimate} cr` : "0.5 cr"}
-              </span>
-            </>
-          )}
-        </button>
-
-        {/* Secondary actions */}
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             className="brief-action-btn"
             onClick={onImproveBrief}
@@ -676,7 +621,6 @@ export default function BriefBuilder({
           <button
             className="brief-action-btn"
             onClick={() => {
-              // Randomize picks random mood tags and style preset
               const shuffled = [...MOOD_TAGS].sort(() => Math.random() - 0.5);
               const randomPreset = STYLE_PRESETS[Math.floor(Math.random() * STYLE_PRESETS.length)];
               onChange({
@@ -700,6 +644,16 @@ export default function BriefBuilder({
           >
             ⟳ Randomize
           </button>
+        </div>
+        {/* Hint: dock is the primary CTA */}
+        <div style={{
+          marginTop: 10,
+          textAlign: "center",
+          fontSize: 10,
+          color: "rgba(120,140,180,0.4)",
+          letterSpacing: "0.02em",
+        }}>
+          Use the Generate button below ↓
         </div>
       </div>
     </div>

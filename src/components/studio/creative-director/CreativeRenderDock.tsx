@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Zap } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeRenderDock — Floating render command bar (Zencra-branded)
@@ -278,18 +279,6 @@ export default function CreativeRenderDock({
     : "render";
 
   const isRenderDisabled = ctaMode !== "render" || isGenerating;
-  const isGenerateLabel  = isGeneratingConcepts ? "Generating Concepts…" : "Generate Concepts";
-
-  const generateLabel =
-    ctaMode === "generate-concepts"
-      ? isGenerateLabel
-      : ctaMode === "select-concept"
-      ? "Select a Concept"
-      : isGenerating
-      ? "Rendering…"
-      : isVariationMode
-      ? "Generate Variation"
-      : "Render Selected Concept";
 
   const handleModelChange = useCallback((value: string) => {
     const m = CD_MODELS.find((x) => x.value === value);
@@ -372,7 +361,7 @@ export default function CreativeRenderDock({
           .rd-step:hover:not([disabled]) { background: rgba(120,160,255,0.08) !important; }
           .rd-step[disabled] { opacity: 0.28; cursor: default; }
           .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
-          .rd-gen:hover:not([disabled]) { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(140,180,255,0.3), 0 8px 28px rgba(30,58,110,0.7), 0 0 18px rgba(86,140,255,0.28) !important; }
+          .rd-gen:hover:not([disabled]) { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(120,80,255,0.3) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           .rd-chip-remove:hover { background: rgba(255,80,80,0.18) !important; color: #FF8080 !important; }
           .rd-ref-chip { transition: box-shadow 0.15s ease, transform 0.15s ease; }
@@ -839,23 +828,23 @@ export default function CreativeRenderDock({
             }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Context CTA button — Zencra premium blue ── */}
+          {/* ── 6. Context CTA — Zencra master brand Generate button ── */}
           <button
             className="rd-gen"
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
               height:       46,
-              minWidth:     ctaMode === "render" ? 210 : ctaMode === "generate-concepts" ? 188 : 176,
+              minWidth:     ctaMode === "render" ? 190 : ctaMode === "generate-concepts" ? 180 : 168,
               padding:      "0 22px",
               borderRadius: 12,
               border:       ctaMode === "select-concept"
                 ? `1px solid ${Z.borderSubtle}`
-                : "1px solid rgba(140,180,255,0.22)",   /* silver-white glow border */
+                : "none",
               background:   ctaMode === "select-concept"
                 ? Z.bgInput
-                : "linear-gradient(135deg, #1E3A6E 0%, #1A2F5E 45%, #0F1F42 100%)",  /* deep blue */
-              color:        ctaMode === "select-concept" ? Z.textMuted : Z.textPrimary,
+                : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+              color:        ctaMode === "select-concept" ? Z.textMuted : "#ffffff",
               fontSize:     14,
               fontWeight:   700,
               cursor:       ctaMode === "select-concept" ? "default" : "pointer",
@@ -868,14 +857,51 @@ export default function CreativeRenderDock({
               whiteSpace:   "nowrap",
               boxShadow:    ctaMode === "select-concept"
                 ? "none"
-                : "0 0 0 1px rgba(120,160,255,0.18), 0 4px 20px rgba(30,58,110,0.55), 0 0 12px rgba(86,140,255,0.2)",
+                : "0 0 28px rgba(37,99,235,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(120,80,255,0.2)",
               transition:   "all 0.18s ease",
             }}
           >
+            {/* Spinning loader during generation */}
             {(isGenerating || isGeneratingConcepts) && (
-              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>⟳</span>
+              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 14, lineHeight: 1 }}>⟳</span>
             )}
-            {generateLabel}
+
+            {/* Label */}
+            <span>
+              {ctaMode === "select-concept"
+                ? "Select a Concept"
+                : isGenerating
+                ? "Generating…"
+                : isGeneratingConcepts
+                ? "Generating Concepts…"
+                : isVariationMode && ctaMode === "render"
+                ? "Generate Variation"
+                : ctaMode === "generate-concepts"
+                ? "Generate"
+                : "Generate"}
+            </span>
+
+            {/* Icon + credits — only on active (non-disabled) states */}
+            {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
+              <>
+                <Zap
+                  size={14}
+                  strokeWidth={2.5}
+                  style={{ color: "#fece01", flexShrink: 0 }}
+                />
+                <span style={{
+                  fontSize:     14,
+                  fontWeight:   700,
+                  color:        "rgba(255,255,255,0.92)",
+                  letterSpacing: "-0.01em",
+                  lineHeight:   1,
+                }}>
+                  {ctaMode === "generate-concepts"
+                    ? "0.5 cr"
+                    : `${creditEstimate} cr`}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>
