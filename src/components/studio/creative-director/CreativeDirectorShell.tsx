@@ -8,6 +8,7 @@ import OutputWorkspace, {
   type GenerationResult,
   type OutputAction,
 } from "./OutputWorkspace";
+import CreativeRenderDock, { type RenderDockSettings } from "./CreativeRenderDock";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeDirectorShell — AI Creative Director main layout + state
@@ -418,7 +419,7 @@ export default function CreativeDirectorShell() {
 
   // ── Generate outputs ───────────────────────────────────────────────────────────
   const handleGenerateConcept = useCallback(
-    async (conceptId: string) => {
+    async (conceptId: string, dockSettings?: RenderDockSettings) => {
       if (!session) {
         addToast("Sign in to generate outputs.", "warning");
         return;
@@ -434,8 +435,8 @@ export default function CreativeDirectorShell() {
           headers: authHeader(),
         });
 
-        // 2. Generate outputs
-        const count = brief.outputCount ?? 4;
+        // 2. Generate outputs — use dock settings if provided, else brief fallback
+        const count = dockSettings?.outputCount ?? brief.outputCount ?? 4;
         const res = await fetch(
           `/api/creative-director/concepts/${conceptId}/generate`,
           {
@@ -444,7 +445,15 @@ export default function CreativeDirectorShell() {
               "Content-Type": "application/json",
               ...authHeader(),
             },
-            body: JSON.stringify({ count }),
+            body: JSON.stringify({
+              count,
+              model:        dockSettings?.model,
+              quality:      dockSettings?.quality,
+              resolution:   dockSettings?.resolution,
+              aspectRatio:  dockSettings?.aspectRatio,
+              promptText:   dockSettings?.promptText,
+              referenceImageUrl: dockSettings?.referenceImageUrl,
+            }),
           }
         );
 
@@ -471,6 +480,7 @@ export default function CreativeDirectorShell() {
         setIsGeneratingOutputs(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session, isGeneratingOutputs, brief.outputCount, authHeader, addToast, pollGeneration]
   );
 
@@ -847,7 +857,7 @@ export default function CreativeDirectorShell() {
           overflow: "hidden",
         }}
       >
-        {/* Left: BriefBuilder */}
+        {/* Left: BriefBuilder — paddingBottom leaves space for dock */}
         <div
           className="cd-col"
           style={{
@@ -855,6 +865,7 @@ export default function CreativeDirectorShell() {
             overflowY: "auto",
             scrollbarWidth: "none",
             background: "rgba(9,9,18,0.6)",
+            paddingBottom: 168,
           }}
         >
           <BriefBuilder
@@ -874,6 +885,7 @@ export default function CreativeDirectorShell() {
             borderRight: "1px solid rgba(255,255,255,0.06)",
             overflowY: "auto",
             scrollbarWidth: "none",
+            paddingBottom: 168,
           }}
         >
           <ConceptBoard
@@ -893,6 +905,7 @@ export default function CreativeDirectorShell() {
             overflowY: "auto",
             scrollbarWidth: "none",
             background: "rgba(9,9,18,0.4)",
+            paddingBottom: 168,
           }}
         >
           <OutputWorkspace
@@ -907,6 +920,22 @@ export default function CreativeDirectorShell() {
 
       {/* ── Toast notifications ── */}
       <ToastBar toasts={toasts} />
+
+      {/* ── Render Dock — floating bottom command bar ── */}
+      <CreativeRenderDock
+        selectedConceptId={selectedConceptId}
+        conceptRecommendedProvider={
+          concepts.find((c) => c.id === selectedConceptId)?.recommendedProvider ?? null
+        }
+        projectType={brief.projectType}
+        isGenerating={isGeneratingOutputs}
+        isVariationMode={false}
+        onGenerate={(settings) => {
+          if (selectedConceptId) {
+            handleGenerateConcept(selectedConceptId, settings);
+          }
+        }}
+      />
     </div>
   );
 }

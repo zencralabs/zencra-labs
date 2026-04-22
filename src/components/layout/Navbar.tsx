@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
   Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
-  UserCircle2, Clapperboard, ArrowUpCircle, ArrowLeft,
+  UserCircle2, Clapperboard, ArrowUpCircle, ArrowLeft, Cpu,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -50,6 +50,10 @@ const navCategories: Record<string, NavCategory> = {
       {
         icon: ImageIcon, label: "Image Studio", desc: "Generate AI images", badge: "HOT", href: "/studio/image",
         right: { type: "models", heading: "Image Models", models: imageModels },
+      },
+      {
+        icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/studio/image",
+        right: { type: "soon", title: "Creative Director", badge: "NEW", desc: "Brief your campaign, receive 3 distinct creative concepts from an AI art director, then render any concept into production-ready visuals — all in one workflow.", bullets: ["AI-generated creative concepts", "Multi-provider smart routing", "Variation engine (5 passes)", "Format adaptation (Story, Square, Banner)"] },
       },
       {
         icon: Sparkles, label: "Enhance & Upscale", desc: "Topaz-powered 4K boost", badge: "SOON", href: "#",
