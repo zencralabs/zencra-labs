@@ -694,7 +694,7 @@ export default function CreativeDirectorShell() {
         <div style={{ flexShrink: 0 }}>
           <span
             style={{
-              fontSize: 12,
+              fontSize: 15,
               fontWeight: 500,
               color: "rgba(167,176,197,0.5)",
               letterSpacing: "0.02em",
@@ -760,7 +760,7 @@ export default function CreativeDirectorShell() {
           {creditsEstimate !== null && (
             <span
               style={{
-                fontSize: 10,
+                fontSize: 14,
                 fontWeight: 700,
                 padding: "3px 8px",
                 borderRadius: 20,
@@ -781,8 +781,8 @@ export default function CreativeDirectorShell() {
               setTimeout(() => setAutosaveState("saved"), 800);
             }}
             style={{
-              padding: "5px 12px",
-              fontSize: 11,
+              padding: "7px 14px",
+              fontSize: 15,
               fontWeight: 600,
               borderRadius: 6,
               border: "1px solid rgba(255,255,255,0.1)",
@@ -798,8 +798,8 @@ export default function CreativeDirectorShell() {
           {/* History button */}
           <button
             style={{
-              padding: "5px 12px",
-              fontSize: 11,
+              padding: "7px 14px",
+              fontSize: 15,
               fontWeight: 600,
               borderRadius: 6,
               border: "1px solid rgba(255,255,255,0.08)",
@@ -826,8 +826,8 @@ export default function CreativeDirectorShell() {
               setAutosaveState("saved");
             }}
             style={{
-              padding: "5px 12px",
-              fontSize: 11,
+              padding: "7px 14px",
+              fontSize: 15,
               fontWeight: 700,
               borderRadius: 6,
               border: "1px solid rgba(37,99,235,0.3)",

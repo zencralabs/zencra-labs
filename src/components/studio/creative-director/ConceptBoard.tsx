@@ -796,8 +796,8 @@ export default function ConceptBoard({
           }}>
             <span style={{ fontSize: 13, lineHeight: 1 }}>✨</span>
             <span style={{
-              fontSize:      12,
-              fontWeight:    600,
+              fontSize:      15,
+              fontWeight:    500,
               color:         "rgba(252,211,77,0.68)",
               letterSpacing: "0.01em",
               lineHeight:    1,

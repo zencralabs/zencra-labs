@@ -70,11 +70,11 @@ const PROVIDERS = ["Auto", "GPT Image", "Nano Banana", "Nano Banana Pro", "Nano 
 // ── Style constants — Zencra refined typography ────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: 700,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "rgba(167,176,197,0.6)",
+  color: "rgba(255,255,255,0.65)",
   display: "block",
   marginBottom: 7,
 };
@@ -86,7 +86,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 10,
   padding: "10px 14px",
   color: "#F5F7FF",
-  fontSize: 15,
+  fontSize: 16,
   outline: "none",
   boxSizing: "border-box",
   transition: "border-color 0.15s ease",
@@ -117,8 +117,8 @@ const sectionStyle: React.CSSProperties = {
 };
 
 const sectionHeaderStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
+  fontSize: 15,
+  fontWeight: 600,
   letterSpacing: "0.04em",
   color: "rgba(167,176,197,0.55)",
   marginBottom: 16,
@@ -605,12 +605,12 @@ export default function BriefBuilder({
             disabled={isLoading}
             style={{
               flex: 1,
-              padding: "9px 0",
+              padding: "11px 0",
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 8,
               color: "rgba(255,255,255,0.55)",
-              fontSize: 12,
+              fontSize: 15,
               fontWeight: 600,
               cursor: isLoading ? "default" : "pointer",
               transition: "all 0.15s ease",
@@ -631,12 +631,12 @@ export default function BriefBuilder({
             }}
             style={{
               flex: 1,
-              padding: "9px 0",
+              padding: "11px 0",
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 8,
               color: "rgba(255,255,255,0.55)",
-              fontSize: 12,
+              fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",
               transition: "all 0.15s ease",

@@ -587,10 +587,10 @@ export default function OutputWorkspace({
         </div>
         <p
           style={{
-            fontSize: 13,
+            fontSize: 15,
             color: Z.textMuted,
             margin: 0,
-            lineHeight: 1.5,
+            lineHeight: 1.6,
           }}
         >
           Generated concept outputs appear here and are saved to your project.
@@ -611,7 +611,7 @@ export default function OutputWorkspace({
         }}
       >
         <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>◈</span>
-        <p style={{ fontSize: 12, color: Z.textSecondary, margin: 0, lineHeight: 1.55 }}>
+        <p style={{ fontSize: 15, color: Z.textSecondary, margin: 0, lineHeight: 1.6 }}>
           Outputs are saved to this project and also appear in{" "}
           <span style={{ color: "#93c5fd", fontWeight: 600 }}>Image Studio → History</span>{" "}
           tagged with <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Creative Director</span> so you can find them anytime.
