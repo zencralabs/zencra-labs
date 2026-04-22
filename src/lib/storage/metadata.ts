@@ -16,6 +16,8 @@ import type {
   CharacterAssetMeta, UGCAssetMeta, FCSAssetMeta,
 } from "./types";
 import type { ZJob } from "../providers/core/types";
+import type { GenerationMetadata } from "../metadata/types";
+import { enrichAndPersist } from "../metadata/enrich-metadata";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BUILDER INPUT
@@ -33,6 +35,11 @@ export interface BuildAssetMetadataInput {
   creditsCost?: number;
   /** Override status (defaults to "ready") */
   status?:      AssetStatus;
+  /**
+   * Raw generation provenance — written once at creation, never overwritten.
+   * If provided, saved to generation_metadata column and triggers async enrichment.
+   */
+  generationMetadata?: GenerationMetadata;
   /** Studio-specific extension fields */
   studioMeta?: {
     image?:     ImageAssetMeta;
@@ -80,7 +87,7 @@ function inferMimeType(job: ZJob, provided?: AssetMimeType): AssetMimeType {
  * Call this after the provider returns a success URL.
  */
 export function buildAssetMetadata(input: BuildAssetMetadataInput): AssetMetadata {
-  const { job, userId, url, storagePath, bucket, prompt, sizeBytes, creditsCost, studioMeta } = input;
+  const { job, userId, url, storagePath, bucket, prompt, sizeBytes, creditsCost, studioMeta, generationMetadata } = input;
   const now = new Date();
 
   return {
@@ -110,6 +117,9 @@ export function buildAssetMetadata(input: BuildAssetMetadataInput): AssetMetadat
     durationSeconds: (job.providerMeta?.duration as number | undefined),
     creditsCost,
 
+    // Metadata Engine — raw provenance, written once
+    generationMetadata,
+
     // Studio-specific extensions
     image:     studioMeta?.image,
     video:     studioMeta?.video,
@@ -138,29 +148,34 @@ export function toAssetRecord(meta: AssetMetadata): AssetRecord {
   if (meta.fcs)       studioMeta.fcs       = meta.fcs;
 
   return {
-    id:              meta.assetId,
-    job_id:          meta.jobId,
-    user_id:         meta.userId,
-    studio:          meta.studio,
-    provider:        meta.provider,
-    model_key:       meta.modelKey,
-    external_job_id: meta.externalJobId,
-    character_id:    meta.character_id,
-    soul_id:         meta.soul_id,
-    reference_urls:  meta.reference_urls,
-    status:          meta.status,
-    mime_type:       meta.mimeType,
-    url:             meta.url,
-    storage_path:    meta.storagePath,
-    bucket:          meta.bucket,
-    size_bytes:      meta.sizeBytes,
-    prompt:          meta.prompt,
-    aspect_ratio:    meta.aspectRatio,
-    duration_seconds: meta.durationSeconds,
-    credits_cost:    meta.creditsCost,
-    studio_meta:     studioMeta,
-    created_at:      meta.createdAt.toISOString(),
-    updated_at:      meta.updatedAt.toISOString(),
+    id:                  meta.assetId,
+    job_id:              meta.jobId,
+    user_id:             meta.userId,
+    studio:              meta.studio,
+    provider:            meta.provider,
+    model_key:           meta.modelKey,
+    external_job_id:     meta.externalJobId,
+    character_id:        meta.character_id,
+    soul_id:             meta.soul_id,
+    reference_urls:      meta.reference_urls,
+    status:              meta.status,
+    mime_type:           meta.mimeType,
+    url:                 meta.url,
+    storage_path:        meta.storagePath,
+    bucket:              meta.bucket,
+    size_bytes:          meta.sizeBytes,
+    prompt:              meta.prompt,
+    aspect_ratio:        meta.aspectRatio,
+    duration_seconds:    meta.durationSeconds,
+    credits_cost:        meta.creditsCost,
+    studio_meta:         studioMeta,
+    // Metadata Engine — raw provenance written at creation time
+    // Cast to Record<string, unknown> for JSONB serialization
+    generation_metadata: meta.generationMetadata
+      ? (meta.generationMetadata as unknown as Record<string, unknown>)
+      : null,
+    created_at:          meta.createdAt.toISOString(),
+    updated_at:          meta.updatedAt.toISOString(),
   };
 }
 
@@ -183,6 +198,11 @@ export async function saveAssetMetadata(
 
   if (error) {
     throw new Error(`Failed to save asset metadata: ${error.message}`);
+  }
+
+  // Fire-and-forget enrichment — runs async, never blocks this function
+  if (meta.generationMetadata) {
+    void enrichAndPersist(supabase, meta.assetId, meta.generationMetadata);
   }
 }
 

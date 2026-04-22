@@ -95,6 +95,13 @@ export interface AssetMetadata {
   ugc?:            UGCAssetMeta;
   fcs?:            FCSAssetMeta;
 
+  // ── Metadata Engine ───────────────────────────────────────────────────────
+  /**
+   * Raw generation provenance — written once at asset creation.
+   * Stored in the generation_metadata JSONB column.
+   */
+  generationMetadata?: import("../metadata/types").GenerationMetadata;
+
   // ── Timestamps ────────────────────────────────────────────────────────────
   createdAt:       Date;
   updatedAt:       Date;
@@ -188,8 +195,12 @@ export interface AssetRecord {
   aspect_ratio?:   string;
   duration_seconds?: number;
   credits_cost?:   number;
-  studio_meta:     Record<string, unknown>;
-  error_message?:  string | null;
-  created_at:      string;
-  updated_at:      string;
+  studio_meta:          Record<string, unknown>;
+  generation_metadata?: Record<string, unknown> | null;
+  enriched_metadata?:   Record<string, unknown> | null;
+  metadata_enriched_at?: string | null;
+  metadata_version?:    number | null;
+  error_message?:       string | null;
+  created_at:           string;
+  updated_at:           string;
 }

@@ -13,6 +13,7 @@ import type { FlowStep } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
 import NextStepPanel from "@/components/studio/flow/NextStepPanel";
+import type { AssetDetailsResponse } from "@/lib/metadata/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -525,6 +526,7 @@ function ImageCard({
 function ImageStudioInner() {
   const { user, session, refreshUser } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // ── Creative Flow store ──────────────────────────────────────────────────────
   const flowStore = useFlowStore();
@@ -621,6 +623,11 @@ function ImageStudioInner() {
 
   // ── Fullscreen viewer ────────────────────────────────────────────────────────
   const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
+
+  // ── Right details panel ──────────────────────────────────────────────────────
+  const [selectedImage, setSelectedImage]   = useState<GeneratedImage | null>(null);
+  const [panelDetails, setPanelDetails]     = useState<AssetDetailsResponse | null>(null);
+  const [panelLoading, setPanelLoading]     = useState(false);
 
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
@@ -805,14 +812,42 @@ function ImageStudioInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
 
-  // ESC closes fullscreen viewer
+  // ESC closes fullscreen viewer and right panel
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setViewingImage(null);
+      if (e.key === "Escape") {
+        setViewingImage(null);
+        setSelectedImage(null);
+        setPanelDetails(null);
+      }
     }
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
+  // ── Fetch asset details when a card is selected ───────────────────────────────
+  useEffect(() => {
+    if (!selectedImage?.assetId || !session?.access_token) {
+      setPanelDetails(null);
+      return;
+    }
+    let cancelled = false;
+    setPanelLoading(true);
+    setPanelDetails(null);
+
+    fetch(`/api/assets/${selectedImage.assetId}/details`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: AssetDetailsResponse | null) => {
+        if (!cancelled) setPanelDetails(data);
+      })
+      .catch(() => { if (!cancelled) setPanelDetails(null); })
+      .finally(() => { if (!cancelled) setPanelLoading(false); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedImage?.assetId]);
 
   const filteredModels = MODELS.filter(
     (m) => m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -1395,7 +1430,12 @@ function ImageStudioInner() {
                     setPrompt(p);
                     promptRef.current?.focus();
                   }}
-                  onOpen={() => { if (img.status === "done") setViewingImage(img); }}
+                  onOpen={() => {
+                    if (img.status === "done") {
+                      setSelectedImage(img);
+                      setPanelDetails(null);
+                    }
+                  }}
                   onDelete={handleDeleteCard}
                   onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                 />
@@ -2134,6 +2174,322 @@ function ImageStudioInner() {
          with the navbar and other page-level layers. ─────────────────────── */}
     <FlowBar />
     <NextStepPanel onVariation={handleVariation} />
+
+    {/* ── METADATA RIGHT PANEL ─────────────────────────────────────────── */}
+    {/* position:fixed slide-in from right; rendered OUTSIDE gallery div   */}
+    {/* to avoid being clipped by the gallery's stacking context.          */}
+    {selectedImage && selectedImage.status === "done" && (
+      <>
+        {/* Backdrop — clicking outside closes panel */}
+        <div
+          onClick={() => { setSelectedImage(null); setPanelDetails(null); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9980,
+            background: "transparent",
+          }}
+        />
+
+        {/* Panel */}
+        <div
+          style={{
+            position: "fixed", top: 64, right: 0, bottom: 0,
+            width: 360, zIndex: 9981,
+            background: "rgba(11,11,16,0.97)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderLeft: "1px solid rgba(255,255,255,0.09)",
+            display: "flex", flexDirection: "column",
+            fontFamily: "var(--font-body, system-ui, sans-serif)",
+            color: "#fff",
+            animation: "slideInRight 0.22s cubic-bezier(0.16,1,0.3,1)",
+            overflowY: "auto",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <style>{`
+            @keyframes slideInRight {
+              from { transform: translateX(100%); opacity: 0.6; }
+              to   { transform: translateX(0);    opacity: 1;   }
+            }
+          `}</style>
+
+          {/* ── Panel header ── */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)",
+            minHeight: 52, flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>
+              Asset Details
+            </span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* Fullscreen button */}
+              {selectedImage.url && (
+                <button
+                  onClick={() => setViewingImage(selectedImage)}
+                  style={{
+                    padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.06)",
+                    color: "rgba(255,255,255,0.6)", cursor: "pointer", transition: "all 0.15s",
+                    letterSpacing: "0.02em",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                >
+                  ⛶ Fullscreen
+                </button>
+              )}
+              {/* Close */}
+              <button
+                onClick={() => { setSelectedImage(null); setPanelDetails(null); }}
+                style={{
+                  width: 28, height: 28, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 14, transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.3)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)"; }}
+              >✕</button>
+            </div>
+          </div>
+
+          {/* ── Image thumbnail ── */}
+          {selectedImage.url && (
+            <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedImage.url}
+                alt="Selected"
+                onClick={() => setViewingImage(selectedImage)}
+                style={{
+                  width: "100%", borderRadius: 10, objectFit: "contain",
+                  maxHeight: 220, background: "rgba(255,255,255,0.03)",
+                  cursor: "zoom-in", display: "block",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              />
+            </div>
+          )}
+
+          {/* ── Panel body ── */}
+          <div style={{ padding: "16px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Generation Details */}
+            <section>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
+                Generation Details
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {/* Prompt */}
+                <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "9px 11px" }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 3, letterSpacing: "0.04em" }}>PROMPT</span>
+                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", lineHeight: 1.5, margin: 0 }}>
+                    {selectedImage.prompt || "—"}
+                  </p>
+                </div>
+
+                {/* Row: Model + Provider */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>MODEL</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
+                      {panelDetails?.asset.model_key || selectedImage.model || "—"}
+                    </span>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>PROVIDER</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
+                      {panelDetails?.asset.provider || "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row: AR + Quality */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>ASPECT RATIO</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
+                      {panelDetails?.generation_metadata?.aspect_ratio || selectedImage.aspectRatio || "—"}
+                    </span>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>QUALITY</span>
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
+                      {panelDetails?.generation_metadata?.quality || "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Credits */}
+                {(panelDetails?.asset.credits_cost != null || panelDetails?.generation_metadata?.credits_used != null) && (
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>CREDITS USED</span>
+                    <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 600 }}>
+                      {panelDetails?.generation_metadata?.credits_used ?? panelDetails?.asset.credits_cost} cr
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Cinematic Details */}
+            <section>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
+                Cinematic Analysis
+              </p>
+
+              {panelLoading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#60A5FA", animation: "spin 0.8s linear infinite" }} />
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Analyzing…</span>
+                </div>
+              ) : panelDetails?.enriched_metadata ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+                  {/* Visual summary */}
+                  {panelDetails.enriched_metadata.visual_summary && (
+                    <div style={{ background: "rgba(37,99,235,0.08)", borderRadius: 8, padding: "9px 11px", border: "1px solid rgba(37,99,235,0.18)" }}>
+                      <span style={{ fontSize: 10, color: "rgba(96,165,250,0.7)", display: "block", marginBottom: 3, letterSpacing: "0.04em" }}>VISUAL SUMMARY</span>
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
+                        {String(panelDetails.enriched_metadata.visual_summary)}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Tag rows — camera, lens, lighting */}
+                  {(panelDetails.enriched_metadata.camera || panelDetails.enriched_metadata.lens || panelDetails.enriched_metadata.lighting) && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {panelDetails.enriched_metadata.camera && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Camera</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
+                            {String(panelDetails.enriched_metadata.camera)}
+                          </span>
+                        </div>
+                      )}
+                      {panelDetails.enriched_metadata.lens && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Lens</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
+                            {String(panelDetails.enriched_metadata.lens)}
+                          </span>
+                        </div>
+                      )}
+                      {panelDetails.enriched_metadata.lighting && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Lighting</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
+                            {String(panelDetails.enriched_metadata.lighting)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Arrays: mood, style, composition, color_tone */}
+                  {(() => {
+                    type TagGroup = { label: string; key: string; color: string };
+                    const groups: TagGroup[] = [
+                      { label: "Mood",        key: "mood",        color: "#A78BFA" },
+                      { label: "Style",       key: "style_tags",  color: "#34D399" },
+                      { label: "Composition", key: "composition", color: "#60A5FA" },
+                      { label: "Color Tone",  key: "color_tone",  color: "#FB923C" },
+                    ];
+                    return groups.map(({ label, key, color }) => {
+                      const val = panelDetails.enriched_metadata![key as keyof typeof panelDetails.enriched_metadata];
+                      if (!Array.isArray(val) || val.length === 0) return null;
+                      return (
+                        <div key={key}>
+                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 4, letterSpacing: "0.03em" }}>{label}</span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {(val as string[]).map((tag: string) => (
+                              <span key={tag} style={{
+                                fontSize: 10, padding: "3px 8px", borderRadius: 20,
+                                background: `${color}18`,
+                                border: `1px solid ${color}30`,
+                                color: color,
+                                fontWeight: 500,
+                              }}>
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+
+                  {/* Confidence badge */}
+                  {typeof panelDetails.enriched_metadata.confidence === "number" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.04em" }}>PARSE CONFIDENCE</span>
+                      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${(panelDetails.enriched_metadata.confidence as number) * 100}%`, background: "linear-gradient(90deg, #2563EB, #7C3AED)", borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 28, textAlign: "right" }}>
+                        {Math.round((panelDetails.enriched_metadata.confidence as number) * 100)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : !selectedImage.assetId ? (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
+                  No metadata available — asset ID not captured.
+                </p>
+              ) : (
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
+                  No cinematic analysis found.
+                </p>
+              )}
+            </section>
+
+            {/* Actions */}
+            <section style={{ marginTop: "auto", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {selectedImage.url && (
+                <a
+                  href={selectedImage.url}
+                  download
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.8)",
+                    textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.13)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                >
+                  ↓ Download
+                </a>
+              )}
+              {selectedImage.url && (
+                <button
+                  onClick={() => {
+                    const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
+                    if (selectedImage.url) params.set("imageUrl", selectedImage.url);
+                    if (selectedImage.prompt) params.set("prompt", selectedImage.prompt);
+                    router.push(`/studio/video?${params.toString()}`);
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    border: "1px solid rgba(37,99,235,0.3)",
+                    background: "rgba(37,99,235,0.12)", color: "rgba(96,165,250,0.9)",
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.22)"; (e.currentTarget as HTMLElement).style.color = "#93C5FD"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(96,165,250,0.9)"; }}
+                >
+                  ▶ Animate
+                </button>
+              )}
+            </section>
+          </div>
+        </div>
+      </>
+    )}
     </>
   );
 }
