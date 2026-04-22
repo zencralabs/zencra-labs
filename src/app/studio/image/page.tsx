@@ -14,6 +14,7 @@ import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
 import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
+import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -652,6 +653,8 @@ function ImageStudioInner() {
   const [batchSize, setBatchSize] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(3); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
+  // ── Studio mode — Standard Generate or Creative Director ────────────────────
+  const [studioMode, setStudioMode] = useState<"standard" | "creative-director">("standard");
   const [authModal, setAuthModal] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState("");   // source image for edit models
 
@@ -1268,29 +1271,69 @@ function ImageStudioInner() {
         background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
         zIndex: 10,
       }}>
-        {/* Left: tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        {/* Left: studio mode tabs + gallery tabs */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
 
-          {/* History / Community tabs */}
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["history", "community"] as Tab[]).map((tab) => (
+          {/* ── Studio mode switcher ── */}
+          <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
+            {([
+              { id: "standard",          label: "Generate",        badge: null },
+              { id: "creative-director", label: "Creative Director", badge: "NEW" },
+            ] as const).map(({ id, label, badge }) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={id}
+                onClick={() => setStudioMode(id)}
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
-                  padding: "6px 14px", borderRadius: 9, fontSize: 13, fontWeight: 500,
+                  padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600,
                   cursor: "pointer", border: "none",
-                  background: activeTab === tab ? "rgba(255,255,255,0.12)" : "transparent",
-                  color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.4)",
+                  background: studioMode === id
+                    ? "linear-gradient(135deg, rgba(37,99,235,0.3), rgba(124,58,237,0.2))"
+                    : "transparent",
+                  color: studioMode === id ? "#fff" : "rgba(255,255,255,0.4)",
                   transition: "all 0.15s",
+                  boxShadow: studioMode === id ? "0 0 0 1px rgba(37,99,235,0.3)" : "none",
                 }}
               >
-                {tab === "history" ? "📁" : "🌐"}
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {label}
+                {badge && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 800, letterSpacing: "0.06em",
+                    background: "linear-gradient(135deg, #2563EB, #7C3AED)",
+                    color: "#fff", padding: "2px 5px", borderRadius: 4,
+                  }}>{badge}</span>
+                )}
               </button>
             ))}
           </div>
+
+          {/* Divider — only show when in standard mode */}
+          {studioMode === "standard" && (
+            <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)" }} />
+          )}
+
+          {/* History / Community tabs — standard mode only */}
+          {studioMode === "standard" && (
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["history", "community"] as Tab[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 14px", borderRadius: 9, fontSize: 13, fontWeight: 500,
+                    cursor: "pointer", border: "none",
+                    background: activeTab === tab ? "rgba(255,255,255,0.12)" : "transparent",
+                    color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.4)",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {tab === "history" ? "📁" : "🌐"}
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Zoom slider */}
@@ -1337,11 +1380,20 @@ function ImageStudioInner() {
       </div>
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
+      {/* ── Creative Director mode — full-width shell, replaces gallery ── */}
+      {studioMode === "creative-director" && (
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <CreativeDirectorShell />
+        </div>
+      )}
+
+      {/* ── Standard Generate mode — gallery + generate bar ── */}
       {/* 3 states:
           1. user logged in + history loading → skeleton shimmer grid
           2. history loaded + no images       → empty state with quick prompts
           3. has images                       → masonry grid with progressive fade-in
       */}
+      {studioMode === "standard" && (
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 100px" }}>
 
         {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
@@ -1488,9 +1540,11 @@ function ImageStudioInner() {
             ))}
           </div>
         )}
-      </div>{/* end MAIN CANVAS */}
+      </div>
+      )} {/* end studioMode === "standard" gallery scroll div */}
 
-      {/* ── BOTTOM PROMPT BAR ─────────────────────────────────────────────── */}
+      {/* ── BOTTOM PROMPT BAR — standard mode only ────────────────────────── */}
+      {studioMode === "standard" && (<>
       <div style={{
         position: "fixed", bottom: 16, left: 0, right: 0,
         padding: "0 20px",
@@ -2217,7 +2271,8 @@ function ImageStudioInner() {
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         @keyframes spin { to{transform:rotate(360deg)} }
       `}</style>
-    </div>
+      </>)} {/* end studioMode === "standard" generate bar + modals */}
+    </div> {/* end MAIN FIXED CONTAINER */}
 
     {/* ── Creative Flow overlays — rendered OUTSIDE the gallery div so they
          are not trapped inside its stacking context (zIndex: 40). Being at

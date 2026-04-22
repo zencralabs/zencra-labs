@@ -325,3 +325,20 @@ export function getSupabaseEnv(): SupabaseEnv {
     serviceRoleKey: required("SUPABASE_SERVICE_ROLE_KEY"),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATIVE DIRECTOR — Text Intelligence Model
+//
+// Used by brief-parser.ts, concept-engine.ts, and brief/improve route.
+// Aliased here so the model can be swapped in one place across all CD services.
+// Never hardcode a model string in individual service files.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Internal alias for the OpenAI model used in Creative Director text tasks
+ * (brief parsing, concept generation, field improvement).
+ * Override via CREATIVE_DIRECTOR_TEXT_MODEL env var.
+ * Default: "gpt-4o"
+ */
+export const CREATIVE_DIRECTOR_TEXT_MODEL: string =
+  optional("CREATIVE_DIRECTOR_TEXT_MODEL", "gpt-4o") as string;

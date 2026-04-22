@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, Users, FileText, Wrench, BarChart3, Settings, Bell,
   LogOut, Search, ChevronDown, TrendingUp, TrendingDown, ArrowRight,
@@ -8,6 +8,7 @@ import {
   Clock, Zap, Star, ImageIcon, Video, Music, Globe,
   Shield, CreditCard, Mail, Activity, RefreshCw, MoreVertical,
   ChevronLeft, ChevronRight, AlertCircle, UserCheck, UserX,
+  DollarSign, Cpu,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,9 +83,29 @@ const statusConfig: Record<string, { color: string; bg: string; label: string }>
   inactive:  { color: "#64748B", bg: "rgba(100,116,139,0.12)",label: "Inactive"  },
 };
 
-type NavItem = "dashboard" | "users" | "blog" | "tools" | "analytics" | "settings";
+type NavItem = "dashboard" | "users" | "blog" | "tools" | "analytics" | "provider-costs" | "settings";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ── Provider Costs types ──────────────────────────────────────────────────────
+interface ProviderCostSummary {
+  providerKey:          string;
+  displayName:          string;
+  billingType:          string;
+  currentBalance:       number | null;
+  balanceUnit:          string | null;
+  quotaUsed:            number | null;
+  quotaTotal:           number | null;
+  lowBalanceThreshold:  number | null;
+  balanceSyncedAt:      string | null;
+  syncMethod:           string;
+  notes:                string | null;
+  isActive:             boolean;
+  monthlyGenerations:   number;
+  monthlyEstimatedUsd:  number;
+  monthlySuccessCount:  number;
+  monthlyFailedCount:   number;
+}
+
 export default function AdminDashboard() {
   const [activeNav, setActiveNav] = useState<NavItem>("dashboard");
   const [userSearch, setUserSearch]     = useState("");
@@ -92,13 +113,65 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [notifOpen, setNotifOpen]       = useState(false);
 
+  // ── Provider Costs state ────────────────────────────────────────────────────
+  const [providerCosts, setProviderCosts]       = useState<ProviderCostSummary[]>([]);
+  const [providerMonthLabel, setProviderMonthLabel] = useState("");
+  const [providerLoading, setProviderLoading]   = useState(false);
+  const [providerSyncing, setProviderSyncing]   = useState(false);
+  const [providerError, setProviderError]       = useState<string | null>(null);
+  const [syncResult, setSyncResult]             = useState<{ synced: string[]; errors: Record<string, string> } | null>(null);
+
+  const fetchProviderCosts = useCallback(async () => {
+    setProviderLoading(true);
+    setProviderError(null);
+    try {
+      const res  = await fetch("/api/admin/provider-costs");
+      const json = await res.json() as { success: boolean; providers?: ProviderCostSummary[]; monthLabel?: string; error?: string };
+      if (json.success && json.providers) {
+        setProviderCosts(json.providers);
+        setProviderMonthLabel(json.monthLabel ?? "");
+      } else {
+        setProviderError(json.error ?? "Failed to load provider costs");
+      }
+    } catch {
+      setProviderError("Network error — could not load provider costs");
+    } finally {
+      setProviderLoading(false);
+    }
+  }, []);
+
+  const syncProviderBalances = useCallback(async () => {
+    setProviderSyncing(true);
+    setSyncResult(null);
+    try {
+      const res  = await fetch("/api/admin/provider-costs/sync", { method: "POST" });
+      const json = await res.json() as { success: boolean; synced?: string[]; errors?: Record<string, string> };
+      if (json.success) {
+        setSyncResult({ synced: json.synced ?? [], errors: json.errors ?? {} });
+        // Refresh data after sync
+        void fetchProviderCosts();
+      }
+    } catch {
+      setSyncResult({ synced: [], errors: { network: "Sync request failed" } });
+    } finally {
+      setProviderSyncing(false);
+    }
+  }, [fetchProviderCosts]);
+
+  useEffect(() => {
+    if (activeNav === "provider-costs" && providerCosts.length === 0 && !providerLoading) {
+      void fetchProviderCosts();
+    }
+  }, [activeNav, providerCosts.length, providerLoading, fetchProviderCosts]);
+
   const navItems: { id: NavItem; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: "dashboard",  label: "Dashboard",  icon: LayoutDashboard },
     { id: "users",      label: "Users",      icon: Users,      badge: "2,847" },
     { id: "blog",       label: "Blog",       icon: FileText,   badge: "4"     },
     { id: "tools",      label: "Tools",      icon: Wrench,     badge: "9"     },
-    { id: "analytics",  label: "Analytics",  icon: BarChart3              },
-    { id: "settings",   label: "Settings",   icon: Settings               },
+    { id: "analytics",      label: "Analytics",      icon: BarChart3              },
+    { id: "provider-costs", label: "Provider Costs", icon: DollarSign             },
+    { id: "settings",       label: "Settings",       icon: Settings               },
   ];
 
   const filteredUsers = allUsers.filter(u => {
@@ -240,8 +313,9 @@ export default function AdminDashboard() {
               {activeNav === "users"     && `${allUsers.length} total users registered`}
               {activeNav === "blog"      && "Manage your blog posts and content"}
               {activeNav === "tools"     && "Manage platform tool integrations"}
-              {activeNav === "analytics" && "Platform performance overview"}
-              {activeNav === "settings"  && "Platform configuration & preferences"}
+              {activeNav === "analytics"      && "Platform performance overview"}
+              {activeNav === "provider-costs" && "Provider balances and platform cost tracking — admin only"}
+              {activeNav === "settings"       && "Platform configuration & preferences"}
             </p>
           </div>
 
@@ -776,6 +850,279 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+               PROVIDER COSTS
+          ═══════════════════════════════════════════════════════════════════ */}
+          {activeNav === "provider-costs" && (
+            <div>
+
+              {/* ── Header row: month label + sync button ─────────────────────── */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+                <div>
+                  <p style={{ fontSize: "13px", color: C.muted, margin: 0 }}>
+                    {providerMonthLabel ? `Showing generation stats for ${providerMonthLabel}` : "Loading…"}
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {syncResult && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
+                      {syncResult.synced.length > 0 && (
+                        <span style={{ color: "#34D399", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <CheckCircle size={12} />
+                          Synced: {syncResult.synced.join(", ")}
+                        </span>
+                      )}
+                      {Object.keys(syncResult.errors).length > 0 && (
+                        <span style={{ color: "#FCA5A5", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <AlertCircle size={12} />
+                          {Object.keys(syncResult.errors).length} error(s)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => void fetchProviderCosts()}
+                    disabled={providerLoading}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "6px",
+                      background: C.card, border: `1px solid ${C.border}`,
+                      borderRadius: "10px", padding: "9px 14px",
+                      color: providerLoading ? C.muted : "var(--page-text)", fontSize: "13px",
+                      cursor: providerLoading ? "not-allowed" : "pointer", opacity: providerLoading ? 0.6 : 1,
+                    }}
+                  >
+                    <RefreshCw size={13} style={{ animation: providerLoading ? "spin 1s linear infinite" : "none" }} />
+                    Refresh
+                  </button>
+                  <button
+                    onClick={() => void syncProviderBalances()}
+                    disabled={providerSyncing}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "6px",
+                      background: providerSyncing ? "rgba(37,99,235,0.3)" : C.accent,
+                      border: "none", borderRadius: "10px",
+                      padding: "9px 16px", color: "#fff", fontSize: "13px", fontWeight: 600,
+                      cursor: providerSyncing ? "not-allowed" : "pointer",
+                      opacity: providerSyncing ? 0.7 : 1,
+                    }}
+                  >
+                    <Cpu size={13} style={{ animation: providerSyncing ? "spin 1s linear infinite" : "none" }} />
+                    {providerSyncing ? "Syncing…" : "Sync Balances"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Error banner ────────────────────────────────────────────── */}
+              {providerError && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "10px",
+                  background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
+                  borderRadius: "10px", padding: "12px 16px", marginBottom: "16px",
+                }}>
+                  <AlertCircle size={14} style={{ color: "#FCA5A5", flexShrink: 0 }} />
+                  <p style={{ fontSize: "13px", color: "#FCA5A5", margin: 0 }}>{providerError}</p>
+                  <button
+                    onClick={() => void fetchProviderCosts()}
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "#FCA5A5", cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}
+                  >Retry</button>
+                </div>
+              )}
+
+              {/* ── Loading skeleton ─────────────────────────────────────────── */}
+              {providerLoading && providerCosts.length === 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} style={{
+                      height: "72px", background: C.card, border: `1px solid ${C.border}`,
+                      borderRadius: "12px", opacity: 0.5,
+                      animation: "pulse 1.4s ease-in-out infinite",
+                    }} />
+                  ))}
+                </div>
+              )}
+
+              {/* ── Provider table ────────────────────────────────────────────── */}
+              {!providerLoading && providerCosts.length > 0 && (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: "14px", overflow: "hidden" }}>
+                  {/* Table header */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "180px 110px 160px 110px 100px 120px 110px 80px",
+                    padding: "11px 20px",
+                    borderBottom: `1px solid ${C.border}`,
+                    fontSize: "10px", fontWeight: 700, color: C.muted,
+                    letterSpacing: "0.08em", textTransform: "uppercase",
+                  }}>
+                    <span>Provider</span>
+                    <span>Billing</span>
+                    <span>Balance / Quota</span>
+                    <span>Threshold</span>
+                    <span>Last Synced</span>
+                    <span>Monthly Spend</span>
+                    <span>Generations</span>
+                    <span>Status</span>
+                  </div>
+
+                  {providerCosts.map((p, i) => {
+                    // ── Balance display ───────────────────────────────────────
+                    const hasQuota = p.quotaTotal !== null && p.quotaTotal > 0;
+                    const balanceDisplay = (() => {
+                      if (hasQuota) {
+                        const used  = p.quotaUsed ?? 0;
+                        const total = p.quotaTotal!;
+                        const pct   = Math.round((used / total) * 100);
+                        return { label: `${used.toLocaleString()} / ${total.toLocaleString()} ${p.balanceUnit ?? ""}`, pct, isQuota: true };
+                      }
+                      if (p.currentBalance !== null) {
+                        const unit = p.balanceUnit === "USD" ? "$" : "";
+                        return { label: `${unit}${p.currentBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${p.balanceUnit !== "USD" ? (p.balanceUnit ?? "") : ""}`.trim(), pct: null, isQuota: false };
+                      }
+                      return { label: "—", pct: null, isQuota: false };
+                    })();
+
+                    // ── Low balance warning ───────────────────────────────────
+                    const isLow = p.currentBalance !== null && p.lowBalanceThreshold !== null
+                      ? p.currentBalance <= p.lowBalanceThreshold
+                      : false;
+
+                    // ── Last synced ───────────────────────────────────────────
+                    const syncedAgo = (() => {
+                      if (!p.balanceSyncedAt) return "Never";
+                      const mins = Math.floor((Date.now() - new Date(p.balanceSyncedAt).getTime()) / 60000);
+                      if (mins < 1)    return "Just now";
+                      if (mins < 60)   return `${mins}m ago`;
+                      const hrs = Math.floor(mins / 60);
+                      if (hrs < 24)    return `${hrs}h ago`;
+                      return `${Math.floor(hrs / 24)}d ago`;
+                    })();
+
+                    // ── Success rate ─────────────────────────────────────────
+                    const totalGens = p.monthlySuccessCount + p.monthlyFailedCount;
+                    const failRate  = totalGens > 0 ? (p.monthlyFailedCount / totalGens) * 100 : 0;
+
+                    const rowColor = isLow ? "rgba(239,68,68,0.04)" : "transparent";
+
+                    return (
+                      <div
+                        key={p.providerKey}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "180px 110px 160px 110px 100px 120px 110px 80px",
+                          padding: "14px 20px",
+                          borderBottom: i < providerCosts.length - 1 ? `1px solid ${C.border}` : "none",
+                          alignItems: "center",
+                          background: rowColor,
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isLow ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = rowColor; }}
+                      >
+                        {/* Provider name */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+                          {isLow && <AlertCircle size={13} style={{ color: "#FCA5A5", flexShrink: 0 }} />}
+                          <div>
+                            <p style={{ fontSize: "13px", fontWeight: 600, margin: "0 0 2px", color: isLow ? "#FCA5A5" : "var(--page-text)" }}>{p.displayName}</p>
+                            <p style={{ fontSize: "10px", color: C.muted, margin: 0 }}>{p.providerKey} · {p.syncMethod === "auto" ? "auto-sync" : "manual"}</p>
+                          </div>
+                        </div>
+
+                        {/* Billing type */}
+                        <span style={{
+                          fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "20px",
+                          background: p.billingType === "prepaid_credits" ? "rgba(37,99,235,0.12)"
+                            : p.billingType === "subscription" ? "rgba(168,85,247,0.12)" : "rgba(14,165,160,0.12)",
+                          color: p.billingType === "prepaid_credits" ? "#60A5FA"
+                            : p.billingType === "subscription" ? "#C084FC" : "#2DD4BF",
+                          display: "inline-block",
+                          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100px",
+                        }}>
+                          {p.billingType === "prepaid_credits" ? "Prepaid"
+                            : p.billingType === "subscription" ? "Subscription" : "Usage"}
+                        </span>
+
+                        {/* Balance / quota */}
+                        <div>
+                          <p style={{ fontSize: "12px", fontWeight: 600, margin: "0 0 4px", color: isLow ? "#FCA5A5" : "var(--page-text)" }}>{balanceDisplay.label}</p>
+                          {balanceDisplay.isQuota && balanceDisplay.pct !== null && (
+                            <div style={{ height: "4px", borderRadius: "10px", background: "rgba(255,255,255,0.08)", width: "100px" }}>
+                              <div style={{
+                                height: "100%", borderRadius: "10px",
+                                width: `${Math.min(balanceDisplay.pct, 100)}%`,
+                                background: balanceDisplay.pct > 80 ? "#EF4444" : balanceDisplay.pct > 60 ? "#F59E0B" : "#34D399",
+                              }} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Low balance threshold */}
+                        <span style={{ fontSize: "12px", color: C.muted }}>
+                          {p.lowBalanceThreshold !== null
+                            ? `${p.balanceUnit === "USD" ? "$" : ""}${p.lowBalanceThreshold.toLocaleString()}`
+                            : "—"}
+                        </span>
+
+                        {/* Last synced */}
+                        <span style={{ fontSize: "12px", color: C.muted }}>{syncedAgo}</span>
+
+                        {/* Monthly spend */}
+                        <div>
+                          <p style={{ fontSize: "13px", fontWeight: 700, margin: "0 0 1px", color: p.monthlyEstimatedUsd > 0 ? "var(--page-text)" : C.muted }}>
+                            {p.monthlyEstimatedUsd > 0 ? `~$${p.monthlyEstimatedUsd.toFixed(2)}` : "$0.00"}
+                          </p>
+                          <p style={{ fontSize: "10px", color: C.muted, margin: 0 }}>estimated</p>
+                        </div>
+
+                        {/* Generations */}
+                        <div>
+                          <p style={{ fontSize: "13px", fontWeight: 700, margin: "0 0 1px" }}>
+                            {p.monthlyGenerations.toLocaleString()}
+                          </p>
+                          {failRate > 0 && (
+                            <p style={{ fontSize: "10px", color: "#FCA5A5", margin: 0 }}>
+                              {p.monthlyFailedCount} failed
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Active status */}
+                        <span style={{
+                          fontSize: "11px", fontWeight: 600, padding: "3px 9px", borderRadius: "20px",
+                          background: p.isActive ? "rgba(16,185,129,0.12)" : "rgba(100,116,139,0.12)",
+                          color: p.isActive ? "#34D399" : C.muted,
+                          display: "flex", alignItems: "center", gap: "4px", width: "fit-content",
+                        }}>
+                          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: p.isActive ? "#34D399" : C.muted, display: "inline-block", flexShrink: 0 }} />
+                          {p.isActive ? "Active" : "Off"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Empty state ───────────────────────────────────────────────── */}
+              {!providerLoading && !providerError && providerCosts.length === 0 && (
+                <div style={{
+                  background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: "14px", padding: "60px",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "12px",
+                }}>
+                  <DollarSign size={36} style={{ color: C.muted, opacity: 0.3 }} />
+                  <p style={{ fontSize: "15px", fontWeight: 600, margin: 0, color: C.muted }}>No provider accounts found</p>
+                  <p style={{ fontSize: "13px", color: C.muted, margin: 0 }}>Run the database migration to seed provider data.</p>
+                </div>
+              )}
+
+              {/* ── Footer note ───────────────────────────────────────────────── */}
+              {providerCosts.length > 0 && (
+                <p style={{ fontSize: "11px", color: C.muted, marginTop: "12px", textAlign: "right" }}>
+                  * Monthly spend is estimated from static rate table. Auto-sync providers: fal.ai, ElevenLabs.
+                </p>
+              )}
+
             </div>
           )}
 
