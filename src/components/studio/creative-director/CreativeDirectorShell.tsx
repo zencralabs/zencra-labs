@@ -33,7 +33,7 @@ const DEFAULT_BRIEF: BriefState = {
   realismVsDesign: 50,
   colorPreference: "",
   aspectRatio: "1:1",
-  outputCount: 4,
+  outputCount: 1,
   advancedOpen: false,
   preferredProvider: "Auto",
   avoidElements: "",
@@ -444,7 +444,7 @@ export default function CreativeDirectorShell() {
         });
 
         // 2. Generate outputs — use dock settings if provided, else brief fallback
-        const count = dockSettings?.outputCount ?? brief.outputCount ?? 4;
+        const count = dockSettings?.outputCount ?? brief.outputCount ?? 1;
         const res = await fetch(
           `/api/creative-director/concepts/${conceptId}/generate`,
           {
