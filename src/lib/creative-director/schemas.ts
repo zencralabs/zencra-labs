@@ -91,12 +91,30 @@ export interface GenerateConceptsInput {
   sessionKey?: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UPLOAD LIMITS — Zencra-enforced per model (backend source of truth)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MODEL_UPLOAD_LIMITS: Record<string, number> = {
+  "gpt-image-1":     16,
+  "nano-banana-pro": 14,
+  "nano-banana-2":   14,
+  "seedream-v5":     14,
+  "flux-kontext":    1,
+};
+
+export interface ReferenceImageInput {
+  url: string;
+  weight: number;
+}
+
 export interface GenerateRenderInput {
   count: number;
   aspectRatio?: string;
   providerOverride?: string | null;
   modelOverride?: string | null;
   idempotencyKey?: string;
+  referenceImages?: ReferenceImageInput[];
 }
 
 export interface VariationInput {
@@ -257,16 +275,47 @@ export function validateGenerateRender(
   const count = isNumber(b.count) ? Math.floor(b.count) : 1;
   if (count < 1 || count > 4) return err("count must be between 1 and 4");
 
+  // Validate referenceImages: Array<{ url: string; weight: number }>
+  let referenceImages: ReferenceImageInput[] | undefined;
+  if (b.referenceImages !== undefined) {
+    if (!Array.isArray(b.referenceImages)) {
+      return err("referenceImages must be an array");
+    }
+    for (const item of b.referenceImages) {
+      if (!item || typeof item !== "object") return err("Each referenceImage must be an object");
+      const ri = item as Record<string, unknown>;
+      if (!isString(ri.url)) return err("Each referenceImage must have a string url");
+      if (!isNumber(ri.weight) || ri.weight < 0 || ri.weight > 1) {
+        return err("Each referenceImage weight must be a number between 0 and 1");
+      }
+    }
+    referenceImages = (b.referenceImages as ReferenceImageInput[]);
+  }
+
+  // Enforce per-model upload limit when model is known
+  const modelOverride = (b.modelOverride === null || isString(b.modelOverride))
+    ? (b.modelOverride as string | null | undefined)
+    : undefined;
+
+  if (referenceImages && modelOverride) {
+    const limit = MODEL_UPLOAD_LIMITS[modelOverride];
+    if (limit !== undefined && referenceImages.length > limit) {
+      return err(
+        `Too many reference images for model "${modelOverride}": ` +
+        `${referenceImages.length} provided, limit is ${limit}`
+      );
+    }
+  }
+
   return ok({
     count,
     aspectRatio: isString(b.aspectRatio) ? b.aspectRatio : undefined,
     providerOverride: (b.providerOverride === null || isString(b.providerOverride))
       ? (b.providerOverride as string | null | undefined)
       : undefined,
-    modelOverride: (b.modelOverride === null || isString(b.modelOverride))
-      ? (b.modelOverride as string | null | undefined)
-      : undefined,
+    modelOverride,
     idempotencyKey: isString(b.idempotencyKey) ? b.idempotencyKey : undefined,
+    referenceImages,
   });
 }
 

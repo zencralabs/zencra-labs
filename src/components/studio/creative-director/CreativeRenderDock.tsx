@@ -9,6 +9,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // Row 2: model → quality → resolution → ratio → count → estimate → generate
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface ReferenceImage {
+  url: string;
+  weight: number;
+}
+
 export interface RenderDockSettings {
   model: string;
   quality: "low" | "medium" | "high";
@@ -16,7 +21,7 @@ export interface RenderDockSettings {
   aspectRatio: string;
   outputCount: number;
   promptText: string;
-  referenceImageUrls?: string[];
+  referenceImages?: ReferenceImage[];
 }
 
 export interface CreativeRenderDockProps {
@@ -64,7 +69,7 @@ interface CDModel {
 }
 
 const CD_MODELS: CDModel[] = [
-  { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 8  },
+  { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 16 },
   { value: "nano-banana-pro", label: "Nano Banana Pro",    provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12, maxUploads: 14 },
   { value: "nano-banana-2",   label: "Nano Banana 2",      provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10, maxUploads: 14 },
   { value: "seedream-v5",     label: "Seedream 5.0 Lite",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 5,  maxUploads: 14 },
@@ -177,6 +182,26 @@ function estimateCredits(model: string, quality: string, resolution: string, cou
   return Math.round(base * qMult * rMult * count * 10) / 10;
 }
 
+/**
+ * Compute influence weights for reference images.
+ * Primary = 0.7; remaining 0.3 split evenly across secondaries.
+ */
+function computeReferenceWeights(
+  images: Array<{ id: string; url: string }>,
+  primaryId: string | null
+): ReferenceImage[] {
+  if (images.length === 0) return [];
+  const pid = primaryId ?? images[0].id;
+  const secondaryCount = images.filter((i) => i.id !== pid).length;
+  const secondaryWeight = secondaryCount > 0
+    ? Math.round(((1 - 0.7) / secondaryCount) * 1000) / 1000
+    : 0;
+  return images.map((img) => ({
+    url: img.url,
+    weight: img.id === pid ? 0.7 : secondaryWeight,
+  }));
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function CreativeRenderDock({
@@ -200,10 +225,28 @@ export default function CreativeRenderDock({
   const [outputCount, setOutputCount] = useState<number>(4);
   const [promptText,      setPromptText]      = useState<string>("");
   const [uploadedImages,  setUploadedImages]  = useState<Array<{ id: string; url: string }>>([]);
+  const [primaryImageId,  setPrimaryImageId]  = useState<string | null>(null);
 
   const [manualModelOverride, setManualModelOverride] = useState(false);
   const [openDropdown,        setOpenDropdown]        = useState<string | null>(null);
   const [isUploadingRef,      setIsUploadingRef]      = useState(false);
+
+  // ── Reference image influence system ──────────────────────────────────────
+  // primaryId: first image is implicitly primary unless user clicks a different one
+  const primaryId = primaryImageId ?? uploadedImages[0]?.id ?? null;
+  const imgCount  = uploadedImages.length;
+
+  // Render primary first, then secondaries in upload order
+  const primaryImg    = uploadedImages.find((i) => i.id === primaryId) ?? null;
+  const secondaryImgs = uploadedImages.filter((i) => i.id !== primaryId);
+  const orderedImgs   = primaryImg ? [primaryImg, ...secondaryImgs] : uploadedImages;
+
+  // Chip height by count and role
+  const getChipH = (imgId: string): number => {
+    if (imgCount === 1) return 76;                              // hero
+    if (imgCount <= 4)  return imgId === primaryId ? 72 : 58;  // strip
+    return imgId === primaryId ? 68 : 52;                       // scrollable strip
+  };
 
   // Smart defaults from concept recommendation
   useEffect(() => {
@@ -280,10 +323,13 @@ export default function CreativeRenderDock({
       return;
     }
     if (isRenderDisabled) return;
-    const resolvedRatio = aspectRatio === "Auto" ? getDefaultAspectRatio(projectType) : aspectRatio;
-    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImageUrls: uploadedImages.length > 0 ? uploadedImages.map((i) => i.url) : undefined });
+    const resolvedRatio    = aspectRatio === "Auto" ? getDefaultAspectRatio(projectType) : aspectRatio;
+    const referenceImages  = uploadedImages.length > 0
+      ? computeReferenceWeights(uploadedImages, primaryId)
+      : undefined;
+    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImages });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, onGenerate, onGenerateConcepts]);
+  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, primaryId, onGenerate, onGenerateConcepts]);
 
   return (
     <>
@@ -329,6 +375,10 @@ export default function CreativeRenderDock({
           .rd-gen:hover:not([disabled]) { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(140,180,255,0.3), 0 8px 28px rgba(30,58,110,0.7), 0 0 18px rgba(86,140,255,0.28) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           .rd-chip-remove:hover { background: rgba(255,80,80,0.18) !important; color: #FF8080 !important; }
+          .rd-ref-chip { transition: box-shadow 0.15s ease, transform 0.15s ease; }
+          .rd-ref-chip:hover { transform: translateY(-2px) !important; }
+          .rd-ref-chip--primary:hover { box-shadow: 0 0 0 2px rgba(86,140,255,0.9), 0 0 24px rgba(86,140,255,0.55), 0 4px 12px rgba(0,0,0,0.5) !important; }
+          .rd-ref-chip--secondary:hover { box-shadow: 0 0 0 1px rgba(120,160,255,0.5), 0 0 16px rgba(86,140,255,0.3), 0 4px 12px rgba(0,0,0,0.5) !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
           @keyframes rdFadeIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
         `}</style>
@@ -343,8 +393,12 @@ export default function CreativeRenderDock({
             disabled={isUploadingRef || uploadedImages.length >= selectedModel.maxUploads}
             title={
               uploadedImages.length >= selectedModel.maxUploads
-                ? `${selectedModel.label} supports up to ${selectedModel.maxUploads} reference image${selectedModel.maxUploads === 1 ? "" : "s"}`
-                : "Upload reference image, brand asset, or logo"
+                ? selectedModel.maxUploads === 1
+                  ? `${selectedModel.label} accepts 1 reference image only`
+                  : `${selectedModel.label} limit reached — upload up to ${selectedModel.maxUploads} images`
+                : selectedModel.maxUploads === 1
+                  ? "Upload 1 reference image (this model is single-reference)"
+                  : `Upload up to ${selectedModel.maxUploads} reference images, brand assets, or logos`
             }
             style={{
               flexShrink:   0,
@@ -365,77 +419,122 @@ export default function CreativeRenderDock({
               : "+"}
           </button>
 
-          {/* ── Thumbnail chip row + prompt (grows together) ── */}
+          {/* ── Reference strip + prompt (grows together) ── */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
 
-            {/* Chip row — only when images exist */}
+            {/* ── Reference influence strip — only when images exist ── */}
             {uploadedImages.length > 0 && (
               <div style={{
-                display:    "flex",
-                gap:        6,
-                overflowX:  "auto",
-                paddingBottom: 2,
+                display:        "flex",
+                alignItems:     "flex-end",  // secondary chips bottom-align with primary
+                gap:            6,
+                overflowX:      imgCount >= 5 ? "auto" : "visible",
+                paddingBottom:  2,
                 scrollbarWidth: "none",
               }}>
-                {uploadedImages.map((img, idx) => (
-                  <div
-                    key={img.id}
-                    style={{
-                      flexShrink:   0,
-                      position:     "relative",
-                      width:        52, height: 52,
-                      borderRadius: 10,
-                      overflow:     "hidden",
-                      border:       `1px solid ${Z.borderSoft}`,
-                      background:   Z.bgInput,
-                      animation:    "rdFadeIn 0.18s ease",
-                      boxShadow:    "0 0 0 1px rgba(86,140,255,0.12)",
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.url}
-                      alt={`Reference ${idx + 1}`}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                    {/* Remove button */}
-                    <button
-                      className="rd-chip-remove"
-                      onClick={() => setUploadedImages((prev) => prev.filter((x) => x.id !== img.id))}
-                      title="Remove"
-                      style={{
-                        position:   "absolute", top: 2, right: 2,
-                        width:      18, height: 18,
-                        borderRadius: 5,
-                        border:     "none",
-                        background: "rgba(0,0,0,0.55)",
-                        color:      "rgba(255,255,255,0.75)",
-                        fontSize:   11,
-                        lineHeight: 1,
-                        cursor:     "pointer",
-                        display:    "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.12s ease",
-                        padding:    0,
+                {orderedImgs.map((img) => {
+                  const isPrimary = img.id === primaryId;
+                  const chipH     = getChipH(img.id);
+                  // width proportional: primary slightly wider (square-ish)
+                  const chipW     = imgCount === 1 ? 128 : isPrimary ? chipH + 8 : chipH;
+
+                  return (
+                    <div
+                      key={img.id}
+                      className={`rd-ref-chip rd-ref-chip--${isPrimary ? "primary" : "secondary"}`}
+                      onClick={() => {
+                        if (!isPrimary) setPrimaryImageId(img.id);
                       }}
-                    >×</button>
-                    {/* Index badge */}
-                    <div style={{
-                      position:   "absolute", bottom: 2, left: 2,
-                      fontSize:   9, fontWeight: 700,
-                      color:      "rgba(255,255,255,0.55)",
-                      background: "rgba(0,0,0,0.45)",
-                      borderRadius: 3,
-                      padding:    "1px 3px",
-                      lineHeight: 1.2,
-                    }}>{idx + 1}</div>
-                  </div>
-                ))}
-                {/* Limit indicator */}
+                      title={isPrimary
+                        ? "Main reference (strongest influence)"
+                        : "Supporting reference — click to make primary"}
+                      style={{
+                        flexShrink:   0,
+                        position:     "relative",
+                        width:        chipW,
+                        height:       chipH,
+                        borderRadius: 10,
+                        overflow:     "hidden",
+                        cursor:       isPrimary ? "default" : "pointer",
+                        border:       isPrimary
+                          ? "1.5px solid rgba(86,140,255,0.7)"
+                          : `1px solid ${Z.borderSoft}`,
+                        background:   Z.bgInput,
+                        animation:    "rdFadeIn 0.18s ease",
+                        transform:    isPrimary ? "scale(1.05)" : "scale(1)",
+                        transformOrigin: "bottom center",
+                        boxShadow:    isPrimary
+                          ? "0 0 0 2px rgba(86,140,255,0.5), 0 0 20px rgba(86,140,255,0.35), 0 0 40px rgba(86,140,255,0.12)"
+                          : "0 0 0 1px rgba(120,160,255,0.15), 0 0 8px rgba(86,140,255,0.08)",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt={isPrimary ? "Primary reference" : "Supporting reference"}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        draggable={false}
+                      />
+
+                      {/* PRIMARY badge */}
+                      {isPrimary && (
+                        <div style={{
+                          position:     "absolute",
+                          bottom:       4, left: 4,
+                          fontSize:     8,
+                          fontWeight:   800,
+                          letterSpacing: "0.10em",
+                          color:        "#ffffff",
+                          background:   "rgba(59,130,246,0.92)",
+                          borderRadius: 4,
+                          padding:      "2px 5px",
+                          lineHeight:   1.2,
+                          pointerEvents: "none",
+                          backdropFilter: "blur(4px)",
+                        }}>
+                          PRIMARY
+                        </div>
+                      )}
+
+                      {/* Remove button */}
+                      <button
+                        className="rd-chip-remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploadedImages((prev) => prev.filter((x) => x.id !== img.id));
+                          if (isPrimary) setPrimaryImageId(null);
+                        }}
+                        title="Remove"
+                        style={{
+                          position:   "absolute", top: 3, right: 3,
+                          width:      17, height: 17,
+                          borderRadius: 5,
+                          border:     "none",
+                          background: "rgba(0,0,0,0.6)",
+                          color:      "rgba(255,255,255,0.8)",
+                          fontSize:   11,
+                          lineHeight: 1,
+                          cursor:     "pointer",
+                          display:    "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.12s ease",
+                          padding:    0,
+                          zIndex:     2,
+                        }}
+                      >×</button>
+                    </div>
+                  );
+                })}
+
+                {/* Limit counter */}
                 <div style={{
-                  flexShrink: 0,
-                  display: "flex", alignItems: "center",
-                  fontSize: 11, color: Z.textMuted,
-                  paddingLeft: 2, whiteSpace: "nowrap",
+                  flexShrink:  0,
+                  display:     "flex",
+                  alignItems:  "flex-end",
+                  paddingBottom: 4,
+                  fontSize:    11,
+                  color:       Z.textMuted,
+                  paddingLeft: 2,
+                  whiteSpace:  "nowrap",
                 }}>
                   {uploadedImages.length}/{selectedModel.maxUploads}
                 </div>
@@ -448,7 +547,7 @@ export default function CreativeRenderDock({
               type="text"
               placeholder={
                 uploadedImages.length > 0
-                  ? "Describe how to transform these references — style, mood, or direction…"
+                  ? "Describe how to blend these references — style, mood, or creative direction…"
                   : selectedConceptId
                   ? "Refine this concept before rendering — add direction, mood, or extra detail…"
                   : "Describe the scene, campaign, or direction you want to create…"

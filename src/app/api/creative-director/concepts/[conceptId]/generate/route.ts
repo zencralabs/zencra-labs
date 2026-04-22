@@ -68,6 +68,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     providerOverride,
     modelOverride,
     idempotencyKey,
+    referenceImages,
   } = validation.data;
 
   // ── Idempotency check ──────────────────────────────────────────────────────
@@ -281,6 +282,9 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
             modelKey: providerDecision.model,
             prompt: promptString,
             aspectRatio: effectiveAspectRatio,
+            ...(referenceImages && referenceImages.length > 0
+              ? { referenceImages }
+              : {}),
           }),
         });
 

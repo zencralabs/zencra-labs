@@ -458,7 +458,7 @@ export default function CreativeDirectorShell() {
               resolution:   dockSettings?.resolution,
               aspectRatio:  dockSettings?.aspectRatio,
               promptText:   dockSettings?.promptText,
-              referenceImageUrls: dockSettings?.referenceImageUrls,
+              referenceImages: dockSettings?.referenceImages,
             }),
           }
         );
