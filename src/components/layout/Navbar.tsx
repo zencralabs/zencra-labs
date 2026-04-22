@@ -262,7 +262,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
     <div
       className="absolute top-full left-0 z-[200] overflow-hidden rounded-2xl"
       style={{
-        width: "420px",
+        width: "520px",
         background: "rgba(8,14,28,0.97)",
         border: `1px solid ${data.color}22`,
         backdropFilter: "blur(24px)",
@@ -270,7 +270,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
         animation: "ddOpen 180ms ease-out forwards",
       }}
     >
-      <div className="grid grid-cols-[196px_1fr]">
+      <div className="grid grid-cols-[220px_1fr]">
 
         {/* ── LEFT PANEL — feature list ──────────────────────────────────── */}
         <div

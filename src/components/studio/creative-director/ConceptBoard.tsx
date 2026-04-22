@@ -229,56 +229,84 @@ function SkeletonCard({ index }: { index: number }) {
   );
 }
 
-// ── Ghost empty card ──────────────────────────────────────────────────────────
+// ── Ghost empty card — visibly distinct, clearly labelled placeholder ─────────
 function GhostCard({ index }: { index: number }) {
   const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
+  // Opacity cascade: first card is most visible, last is faintest
+  const baseOpacity = 1 - index * 0.18;
+
   return (
     <div
       style={{
         background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
-        border: "1px dashed rgba(120,160,255,0.12)",
+        border: "1px dashed rgba(120,160,255,0.22)",
         borderRadius: 18,
         overflow: "hidden",
-        opacity: 0.45 - index * 0.08,
+        opacity: baseOpacity,
       }}
     >
-      {/* Preview area */}
+      {/* Preview area — slightly visible gradient so it reads as a card zone */}
       <div
         style={{
           height: 180,
           background: grad,
-          opacity: 0.3,
+          position: "relative",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            border: "1px dashed rgba(255,255,255,0.15)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "rgba(255,255,255,0.2)",
-            fontSize: 16,
-          }}
-        >
-          ✦
+        {/* Ambient blob for depth */}
+        <div style={{
+          position: "absolute", width: 100, height: 100, borderRadius: "50%",
+          background: acc.a, filter: "blur(32px)", opacity: 0.45, top: 10, right: 10,
+        }} />
+        {/* Card number + placeholder icon */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              width: 40, height: 40, borderRadius: 12,
+              border: "1px dashed rgba(120,160,255,0.3)",
+              background: "rgba(120,160,255,0.06)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "rgba(120,160,255,0.4)", fontSize: 17,
+            }}
+          >
+            ✦
+          </div>
+          <span style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
+            color: "rgba(120,160,255,0.3)", textTransform: "uppercase",
+          }}>
+            Concept {index + 1}
+          </span>
         </div>
       </div>
+
       <div style={{ padding: 16 }}>
-        {/* Ghost title */}
-        <div style={{ width: "60%", height: 12, background: "rgba(255,255,255,0.04)", borderRadius: 6, marginBottom: 10 }} />
-        <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4, marginBottom: 5 }} />
-        <div style={{ width: "75%", height: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4, marginBottom: 14 }} />
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <div style={{ width: 55, height: 18, background: "rgba(255,255,255,0.03)", borderRadius: 20 }} />
-          <div style={{ width: 70, height: 18, background: "rgba(255,255,255,0.03)", borderRadius: 20 }} />
+        {/* Number badge placeholder */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ width: 28, height: 20, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 6 }} />
+          <div style={{ width: 72, height: 20, background: "rgba(120,160,255,0.05)", borderRadius: 20 }} />
         </div>
-        <div style={{ height: 34, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+        {/* Title */}
+        <div style={{ width: "62%", height: 13, background: "rgba(255,255,255,0.07)", borderRadius: 5, marginBottom: 10 }} />
+        {/* Description lines */}
+        <div style={{ width: "100%", height: 9, background: "rgba(255,255,255,0.05)", borderRadius: 4, marginBottom: 6 }} />
+        <div style={{ width: "78%", height: 9, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
+        {/* Tag chips */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <div style={{ width: 58, height: 20, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 20 }} />
+          <div style={{ width: 76, height: 20, background: "rgba(120,160,255,0.05)", border: "1px dashed rgba(120,160,255,0.1)", borderRadius: 20 }} />
+          <div style={{ width: 52, height: 20, background: "rgba(120,160,255,0.04)", borderRadius: 20 }} />
+        </div>
+        {/* Action row */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1.6, height: 36, background: "rgba(59,130,246,0.07)", border: "1px dashed rgba(59,130,246,0.18)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+        </div>
       </div>
     </div>
   );

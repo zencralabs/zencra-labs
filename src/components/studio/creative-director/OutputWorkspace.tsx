@@ -597,6 +597,27 @@ export default function OutputWorkspace({
         </p>
       </div>
 
+      {/* ── CD output destination note ── */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "10px 14px",
+          borderRadius: 10,
+          background: "rgba(59,130,246,0.06)",
+          border: "1px solid rgba(120,160,255,0.14)",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+        }}
+      >
+        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>◈</span>
+        <p style={{ fontSize: 12, color: Z.textSecondary, margin: 0, lineHeight: 1.55 }}>
+          Outputs are saved to this project and also appear in{" "}
+          <span style={{ color: "#93c5fd", fontWeight: 600 }}>Image Studio → History</span>{" "}
+          tagged with <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Creative Director</span> so you can find them anytime.
+        </p>
+      </div>
+
       {/* ── Empty state ── */}
       {isEmpty && (
         <div
@@ -611,42 +632,58 @@ export default function OutputWorkspace({
               key={i}
               style={{
                 aspectRatio: "1 / 1",
-                background: "rgba(255,255,255,0.02)",
-                border: "1px dashed rgba(255,255,255,0.07)",
+                background: "rgba(120,160,255,0.04)",
+                border: "1px dashed rgba(120,160,255,0.2)",
                 borderRadius: 12,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 6,
+                gap: 8,
+                transition: "border-color 0.15s ease, background 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(120,160,255,0.35)";
+                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.07)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(120,160,255,0.2)";
+                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.04)";
               }}
             >
               <div
                 style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: 6,
-                  border: "1px dashed rgba(255,255,255,0.12)",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  border: "1px dashed rgba(120,160,255,0.3)",
+                  background: "rgba(120,160,255,0.08)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "rgba(255,255,255,0.12)",
+                  color: "rgba(120,160,255,0.4)",
                   fontSize: 14,
                 }}
               >
-                +
+                ✦
               </div>
               {i === 0 && (
                 <span
                   style={{
-                    fontSize: 10,
-                    color: "rgba(255,255,255,0.15)",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: "rgba(167,176,197,0.4)",
                     textAlign: "center",
-                    maxWidth: 80,
-                    lineHeight: 1.4,
+                    maxWidth: 90,
+                    lineHeight: 1.45,
                   }}
                 >
-                  Generate a concept to see outputs
+                  Output slot {i + 1}
+                </span>
+              )}
+              {i !== 0 && (
+                <span style={{ fontSize: 11, color: "rgba(167,176,197,0.25)", fontWeight: 500 }}>
+                  Slot {i + 1}
                 </span>
               )}
             </div>

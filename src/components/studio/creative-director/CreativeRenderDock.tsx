@@ -288,8 +288,8 @@ export default function CreativeRenderDock({
 
       {/* ══════════════════════════════════════════════════════════════
           DOCK SHELL
-          Positioned to the center zone: left/right panels are 320px + 20px gap each = 340px per side
-          width: clamp(860px, calc(100vw - 680px), 1120px)
+          Center zone: 320px panels + 20px gap + 20px outer each side = 360px × 2 = 720px
+          width: clamp(840px, calc(100vw - 720px), 1080px) — tighter, more breathable
       ═══════════════════════════════════════════════════════════════ */}
       <div
         style={{
@@ -297,16 +297,15 @@ export default function CreativeRenderDock({
           bottom:          24,
           left:            "50%",
           transform:       "translateX(-50%)",
-          // Stays inside the center zone, away from left/right panels
-          width:           "clamp(860px, calc(100vw - 680px), 1120px)",
+          width:           "clamp(840px, calc(100vw - 720px), 1080px)",
           zIndex:          300,
-          background:      `${Z.bgDock}f5`,   // ~96% opacity
-          backdropFilter:  "blur(32px)",
-          WebkitBackdropFilter: "blur(32px)",
-          border:          `1px solid ${Z.borderSoft}`,
-          borderRadius:    28,
-          boxShadow:       "0 16px 60px rgba(0,0,0,0.48), 0 0 0 1px rgba(59,130,246,0.08)",
-          padding:         "16px 18px",
+          background:      `${Z.bgDock}f8`,
+          backdropFilter:  "blur(36px)",
+          WebkitBackdropFilter: "blur(36px)",
+          border:          "1px solid rgba(180,210,255,0.1)",
+          borderRadius:    24,
+          boxShadow:       "0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(140,180,255,0.07), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 32px rgba(59,130,246,0.07)",
+          padding:         "16px 20px",
           display:         "flex",
           flexDirection:   "column",
           gap:             12,
@@ -320,7 +319,7 @@ export default function CreativeRenderDock({
           .rd-step:hover:not([disabled]) { background: rgba(120,160,255,0.08) !important; }
           .rd-step[disabled] { opacity: 0.28; cursor: default; }
           .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
-          .rd-gen:hover:not([disabled]) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 12px 32px rgba(59,130,246,0.38) !important; }
+          .rd-gen:hover:not([disabled]) { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(140,180,255,0.3), 0 8px 28px rgba(30,58,110,0.7), 0 0 18px rgba(86,140,255,0.28) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
         `}</style>
@@ -647,35 +646,36 @@ export default function CreativeRenderDock({
             }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Context CTA button ── */}
+          {/* ── 6. Context CTA button — Zencra premium blue ── */}
           <button
             className="rd-gen"
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
               height:       44,
-              minWidth:     ctaMode === "render" ? 200 : ctaMode === "generate-concepts" ? 180 : 172,
+              minWidth:     ctaMode === "render" ? 210 : ctaMode === "generate-concepts" ? 188 : 176,
               padding:      "0 22px",
               borderRadius: 12,
               border:       ctaMode === "select-concept"
                 ? `1px solid ${Z.borderSubtle}`
-                : "none",
+                : "1px solid rgba(140,180,255,0.22)",   /* silver-white glow border */
               background:   ctaMode === "select-concept"
                 ? Z.bgInput
-                : ctaMode === "generate-concepts"
-                ? "linear-gradient(135deg, rgba(16,185,129,0.85) 0%, rgba(5,150,105,0.85) 100%)"
-                : "linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(79,70,229,0.9) 100%)",
+                : "linear-gradient(135deg, #1E3A6E 0%, #1A2F5E 45%, #0F1F42 100%)",  /* deep blue */
               color:        ctaMode === "select-concept" ? Z.textMuted : Z.textPrimary,
-              fontSize:     14, fontWeight: 700,
+              fontSize:     14,
+              fontWeight:   700,
               cursor:       ctaMode === "select-concept" ? "default" : "pointer",
-              letterSpacing: "0.01em",
-              display:      "flex", alignItems: "center", justifyContent: "center",
-              gap:          8, flexShrink: 0, whiteSpace: "nowrap",
+              letterSpacing: "0.02em",
+              display:      "flex",
+              alignItems:   "center",
+              justifyContent: "center",
+              gap:          8,
+              flexShrink:   0,
+              whiteSpace:   "nowrap",
               boxShadow:    ctaMode === "select-concept"
                 ? "none"
-                : ctaMode === "generate-concepts"
-                ? "0 8px 24px rgba(16,185,129,0.2)"
-                : "0 8px 24px rgba(59,130,246,0.28)",
+                : "0 0 0 1px rgba(120,160,255,0.18), 0 4px 20px rgba(30,58,110,0.55), 0 0 12px rgba(86,140,255,0.2)",
               transition:   "all 0.18s ease",
             }}
           >

@@ -1277,45 +1277,45 @@ function ImageStudioInner() {
           {/* ── Studio mode switcher — animated sliding pill toggle ── */}
           <div
             style={{
-              position: "relative",
-              display: "inline-flex",
-              alignItems: "center",
-              height: 52,
-              padding: "4px",
-              borderRadius: 16,
-              background: "#0B1022",
-              border: "1px solid rgba(120,160,255,0.1)",
-              flexShrink: 0,
+              position:    "relative",
+              display:     "inline-flex",
+              alignItems:  "center",
+              height:      44,          /* outer container */
+              padding:     "5px 5px",   /* 5px breathing room top/bottom */
+              borderRadius: 13,
+              background:  "#0B1022",
+              border:      "1px solid rgba(120,160,255,0.1)",
+              flexShrink:  0,
             }}
           >
-            {/* Sliding pill — CSS transition handles movement */}
+            {/* Sliding pill — 34px high, 5px from edges */}
             <div
               aria-hidden="true"
               style={{
-                position: "absolute",
-                top: 4,
-                left: studioMode === "standard" ? 4 : "calc(50% + 2px)",
-                width: "calc(50% - 6px)",
-                height: 44,
-                borderRadius: 12,
-                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease",
+                position:   "absolute",
+                top:        5,
+                left:       studioMode === "standard" ? 5 : "calc(50% + 2px)",
+                width:      "calc(50% - 7px)",
+                height:     34,         /* pill height = container − 2×padding */
+                borderRadius: 9,
+                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease, box-shadow 0.22s ease",
                 background: studioMode === "standard"
                   ? "#151D34"
-                  : "linear-gradient(135deg, rgba(59,130,246,0.28), rgba(79,70,229,0.22))",
+                  : "linear-gradient(135deg, rgba(59,130,246,0.26), rgba(79,70,229,0.2))",
                 border: studioMode === "standard"
-                  ? "1px solid rgba(120,160,255,0.14)"
-                  : "1px solid rgba(86,140,255,0.42)",
+                  ? "1px solid rgba(120,160,255,0.16)"
+                  : "1px solid rgba(86,140,255,0.44)",
                 boxShadow: studioMode === "creative-director"
-                  ? "0 0 16px rgba(86,140,255,0.35), 0 0 0 1px rgba(59,130,246,0.1)"
-                  : "0 0 10px rgba(255,255,255,0.04)",
+                  ? "0 0 14px rgba(86,140,255,0.32), 0 2px 8px rgba(0,0,0,0.3)"
+                  : "0 1px 4px rgba(0,0,0,0.2)",
                 pointerEvents: "none",
-                zIndex: 0,
+                zIndex:     0,
               }}
             />
             {/* Tab buttons */}
             {([
-              { id: "standard",          label: "Quick Gen",        badge: null  },
-              { id: "creative-director", label: "Creative Director", badge: "NEW" },
+              { id: "standard",          label: "Quick Gen",         badge: null  },
+              { id: "creative-director", label: "Creative Director",  badge: "NEW" },
             ] as const).map(({ id, label, badge }) => {
               const isActive = studioMode === id;
               return (
@@ -1323,38 +1323,39 @@ function ImageStudioInner() {
                   key={id}
                   onClick={() => setStudioMode(id)}
                   style={{
-                    position:   "relative",
-                    zIndex:     1,
-                    display:    "flex",
-                    alignItems: "center",
-                    gap:        7,
-                    height:     44,
-                    padding:    "0 20px",
-                    minWidth:   140,
-                    borderRadius: 12,
-                    fontSize:   15,
-                    fontWeight: 600,
-                    cursor:     "pointer",
-                    letterSpacing: "-0.01em",
-                    transition: "color 0.18s ease",
-                    border:     "none",
-                    background: "transparent",
-                    color:      isActive ? "#F5F7FF" : "rgba(167,176,197,0.45)",
+                    position:      "relative",
+                    zIndex:        1,
+                    display:       "flex",
+                    alignItems:    "center",
                     justifyContent: "center",
+                    gap:           6,
+                    height:        34,
+                    padding:       "0 18px",
+                    minWidth:      132,
+                    borderRadius:  9,
+                    fontSize:      14,
+                    fontWeight:    600,
+                    cursor:        "pointer",
+                    letterSpacing: "-0.01em",
+                    lineHeight:    1,       /* prevent text drift */
+                    transition:    "color 0.18s ease",
+                    border:        "none",
+                    background:    "transparent",
+                    color:         isActive ? "#F5F7FF" : "rgba(167,176,197,0.45)",
                   }}
                 >
                   {label}
                   {badge && (
                     <span style={{
-                      fontSize: 9,
-                      fontWeight: 800,
+                      fontSize:      9,
+                      fontWeight:    800,
                       letterSpacing: "0.07em",
-                      background: "rgba(199,243,107,0.12)",
-                      color: "#C7F36B",
-                      border: "1px solid rgba(199,243,107,0.25)",
-                      padding: "2px 6px",
-                      borderRadius: 5,
-                      lineHeight: 1,
+                      background:    "rgba(199,243,107,0.12)",
+                      color:         "#C7F36B",
+                      border:        "1px solid rgba(199,243,107,0.25)",
+                      padding:       "2px 5px",
+                      borderRadius:  4,
+                      lineHeight:    1,
                     }}>
                       {badge}
                     </span>
@@ -1369,71 +1370,89 @@ function ImageStudioInner() {
             <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)" }} />
           )}
 
-          {/* History / Community tabs — standard mode only */}
+          {/* History / Community tabs — standard mode only, Zencra premium style */}
           {studioMode === "standard" && (
-            <div style={{ display: "flex", gap: 4 }}>
-              {(["history", "community"] as Tab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "6px 14px", borderRadius: 9, fontSize: 13, fontWeight: 500,
-                    cursor: "pointer", border: "none",
-                    background: activeTab === tab ? "rgba(255,255,255,0.12)" : "transparent",
-                    color: activeTab === tab ? "#fff" : "rgba(255,255,255,0.4)",
-                    transition: "all 0.15s",
-                  }}
-                >
-                  {tab === "history" ? "📁" : "🌐"}
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
+            <div style={{ display: "flex", gap: 2, padding: "4px", borderRadius: 11, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              {([
+                { id: "history",   label: "History",   icon: "⊞" },
+                { id: "community", label: "Explore",   icon: "◈" },
+              ] as { id: Tab; label: string; icon: string }[]).map(({ id, label, icon }) => {
+                const isActive = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    style={{
+                      display:       "flex",
+                      alignItems:    "center",
+                      justifyContent: "center",
+                      gap:           6,
+                      height:        34,
+                      padding:       "0 14px",
+                      borderRadius:  8,
+                      fontSize:      13,
+                      fontWeight:    600,
+                      cursor:        "pointer",
+                      letterSpacing: "0.01em",
+                      lineHeight:    1,
+                      transition:    "all 0.15s ease",
+                      border:        isActive ? "1px solid rgba(120,160,255,0.2)" : "1px solid transparent",
+                      background:    isActive ? "#151D34" : "transparent",
+                      color:         isActive ? "#F5F7FF" : "rgba(167,176,197,0.5)",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, lineHeight: 1, opacity: isActive ? 1 : 0.6 }}>{icon}</span>
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Right: Zoom slider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Zoom control with % display */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
-              title="Zoom out"
-            >−</button>
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={zoomLevel}
-                onChange={(e) => setZoomLevel(Number(e.target.value))}
-                style={{
-                  width: 90, height: 4, appearance: "none", borderRadius: 4,
-                  background: `linear-gradient(to right, #2563EB ${(zoomLevel - 1) * 25}%, rgba(255,255,255,0.15) ${(zoomLevel - 1) * 25}%)`,
-                  cursor: "pointer", outline: "none", border: "none",
-                }}
-              />
-              <span style={{
-                fontSize: 11, fontWeight: 600, minWidth: 32, textAlign: "center",
-                color: "#60A5FA", letterSpacing: "0.02em",
-              }}>
-                {zoomLevel * 20}%
-              </span>
+        {/* Right: Zoom slider — hidden in Creative Director mode */}
+        {studioMode === "standard" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Zoom control with % display */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+                title="Zoom out"
+              >−</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={zoomLevel}
+                  onChange={(e) => setZoomLevel(Number(e.target.value))}
+                  style={{
+                    width: 90, height: 4, appearance: "none", borderRadius: 4,
+                    background: `linear-gradient(to right, #2563EB ${(zoomLevel - 1) * 25}%, rgba(255,255,255,0.15) ${(zoomLevel - 1) * 25}%)`,
+                    cursor: "pointer", outline: "none", border: "none",
+                  }}
+                />
+                <span style={{
+                  fontSize: 11, fontWeight: 600, minWidth: 32, textAlign: "center",
+                  color: "#60A5FA", letterSpacing: "0.02em",
+                }}>
+                  {zoomLevel * 20}%
+                </span>
+              </div>
+              <button
+                onClick={() => setZoomLevel(Math.min(5, zoomLevel + 1))}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+                title="Zoom in"
+              >+</button>
             </div>
-            <button
-              onClick={() => setZoomLevel(Math.min(5, zoomLevel + 1))}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
-              title="Zoom in"
-            >+</button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
