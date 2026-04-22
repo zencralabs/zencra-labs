@@ -35,7 +35,7 @@ export interface CreativeRenderDockProps {
 // ── Zencra color tokens ────────────────────────────────────────────────────────
 
 const Z = {
-  bgDock:       "#0A0F20",
+  bgDock:       "#0a0a0a",
   bgInput:      "#12182B",
   bgHover:      "#151D34",
   bgElevated:   "#11182F",
