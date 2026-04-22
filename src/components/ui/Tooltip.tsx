@@ -37,11 +37,11 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   fontSize:     13,
   fontWeight:   500,
   lineHeight:   1.4,
-  padding:      "8px 10px",
+  padding:      "9px 14px",
   borderRadius: 10,
   boxShadow:    "0 4px 20px rgba(0,0,0,0.45), 0 1px 4px rgba(0,0,0,0.3)",
   whiteSpace:   "nowrap",
-  maxWidth:     260,
+  maxWidth:     280,
   userSelect:   "none",
   // Motion transitions
   transition:   "opacity 140ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1)",

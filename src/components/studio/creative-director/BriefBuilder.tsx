@@ -162,7 +162,7 @@ export default function BriefBuilder({
         .brief-builder-scroll::-webkit-scrollbar { display: none; }
         .brief-chip:hover { border-color: rgba(37,99,235,0.5) !important; background: rgba(37,99,235,0.1) !important; }
         .brief-input:focus { border-color: rgba(37,99,235,0.4) !important; outline: none; }
-        .brief-action-btn:hover { background: rgba(255,255,255,0.07) !important; }
+        .brief-action-btn:hover { background: rgba(37,99,235,0.14) !important; border-color: rgba(86,140,255,0.45) !important; box-shadow: 0 0 16px rgba(59,130,246,0.2), inset 0 1px 0 rgba(255,255,255,0.07) !important; }
       `}</style>
 
       {/* ── B1: Project Basics ── */}
@@ -606,14 +606,15 @@ export default function BriefBuilder({
             style={{
               flex: 1,
               padding: "11px 0",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(37,99,235,0.07)",
+              border: "1px solid rgba(86,140,255,0.28)",
               borderRadius: 8,
-              color: "rgba(255,255,255,0.55)",
+              color: "rgba(255,255,255,0.72)",
               fontSize: 15,
               fontWeight: 600,
               cursor: isLoading ? "default" : "pointer",
-              transition: "all 0.15s ease",
+              transition: "all 0.18s ease",
+              boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
           >
             ✨ Improve Brief
@@ -632,14 +633,15 @@ export default function BriefBuilder({
             style={{
               flex: 1,
               padding: "11px 0",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(37,99,235,0.07)",
+              border: "1px solid rgba(86,140,255,0.28)",
               borderRadius: 8,
-              color: "rgba(255,255,255,0.55)",
+              color: "rgba(255,255,255,0.72)",
               fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",
-              transition: "all 0.15s ease",
+              transition: "all 0.18s ease",
+              boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
             }}
           >
             ⟳ Randomize
