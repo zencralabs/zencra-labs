@@ -1288,17 +1288,17 @@ function ImageStudioInner() {
               flexShrink:  0,
             }}
           >
-            {/* Sliding pill — 34px high, 5px from edges */}
+            {/* Sliding pill — fills each half, 5px inset from all edges */}
             <div
               aria-hidden="true"
               style={{
                 position:   "absolute",
                 top:        5,
-                left:       studioMode === "standard" ? 5 : "calc(50% + 2px)",
-                width:      "calc(50% - 7px)",
-                height:     34,         /* pill height = container − 2×padding */
+                bottom:     5,
+                left:       studioMode === "standard" ? 5 : "50%",
+                right:      studioMode === "standard" ? "50%" : 5,
                 borderRadius: 9,
-                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease, box-shadow 0.22s ease",
+                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), right 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease, box-shadow 0.22s ease",
                 background: studioMode === "standard"
                   ? "#151D34"
                   : "linear-gradient(135deg, rgba(59,130,246,0.26), rgba(79,70,229,0.2))",
@@ -1331,7 +1331,7 @@ function ImageStudioInner() {
                     gap:           6,
                     height:        34,
                     padding:       "0 18px",
-                    minWidth:      132,
+                    minWidth:      168,
                     borderRadius:  9,
                     fontSize:      14,
                     fontWeight:    600,

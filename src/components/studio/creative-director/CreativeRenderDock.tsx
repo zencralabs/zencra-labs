@@ -16,7 +16,7 @@ export interface RenderDockSettings {
   aspectRatio: string;
   outputCount: number;
   promptText: string;
-  referenceImageUrl?: string;
+  referenceImageUrls?: string[];
 }
 
 export interface CreativeRenderDockProps {
@@ -60,14 +60,15 @@ interface CDModel {
   supportedResolutions: ("1k" | "2k" | "4k")[];
   defaultQuality: "low" | "medium" | "high";
   baseCredits: number;
+  maxUploads: number;  // max reference images this model accepts
 }
 
 const CD_MODELS: CDModel[] = [
-  { value: "gpt-image-1",     label: "GPT Image 2",     provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8  },
-  { value: "nano-banana-pro", label: "Nano Banana Pro", provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12 },
-  { value: "nano-banana-2",   label: "Nano Banana 2",   provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10 },
-  { value: "seedream-v5",     label: "Seedream v5",     provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 5  },
-  { value: "flux-kontext",    label: "Flux Kontext",    provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8  },
+  { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 8  },
+  { value: "nano-banana-pro", label: "Nano Banana Pro",    provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12, maxUploads: 14 },
+  { value: "nano-banana-2",   label: "Nano Banana 2",      provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10, maxUploads: 14 },
+  { value: "seedream-v5",     label: "Seedream 5.0 Lite",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 5,  maxUploads: 14 },
+  { value: "flux-kontext",    label: "Flux Kontext Max",   provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 1  },
 ];
 
 const QUALITY_OPTIONS: { value: "low" | "medium" | "high"; label: string; desc: string }[] = [
@@ -197,8 +198,8 @@ export default function CreativeRenderDock({
   const [resolution,  setResolution]  = useState<"1k" | "2k" | "4k">("1k");
   const [aspectRatio, setAspectRatio] = useState<string>("Auto");
   const [outputCount, setOutputCount] = useState<number>(4);
-  const [promptText,  setPromptText]  = useState<string>("");
-  const [refImageUrl, setRefImageUrl] = useState<string>("");
+  const [promptText,      setPromptText]      = useState<string>("");
+  const [uploadedImages,  setUploadedImages]  = useState<Array<{ id: string; url: string }>>([]);
 
   const [manualModelOverride, setManualModelOverride] = useState(false);
   const [openDropdown,        setOpenDropdown]        = useState<string | null>(null);
@@ -262,10 +263,16 @@ export default function CreativeRenderDock({
     if (!file || !onReferenceUpload) return;
     e.target.value = "";
     setIsUploadingRef(true);
-    try { const url = await onReferenceUpload(file); setRefImageUrl(url); }
+    try {
+      const url = await onReferenceUpload(file);
+      setUploadedImages((prev) => {
+        if (prev.length >= selectedModel.maxUploads) return prev; // guard limit
+        return [...prev, { id: `${Date.now()}-${Math.random()}`, url }];
+      });
+    }
     catch { /* caller handles toast */ }
     finally { setIsUploadingRef(false); }
-  }, [onReferenceUpload]);
+  }, [onReferenceUpload, selectedModel.maxUploads]);
 
   const handleGenerate = useCallback(() => {
     if (ctaMode === "generate-concepts") {
@@ -274,9 +281,9 @@ export default function CreativeRenderDock({
     }
     if (isRenderDisabled) return;
     const resolvedRatio = aspectRatio === "Auto" ? getDefaultAspectRatio(projectType) : aspectRatio;
-    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImageUrl: refImageUrl || undefined });
+    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImageUrls: uploadedImages.length > 0 ? uploadedImages.map((i) => i.url) : undefined });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, refImageUrl, onGenerate, onGenerateConcepts]);
+  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, onGenerate, onGenerateConcepts]);
 
   return (
     <>
@@ -302,9 +309,9 @@ export default function CreativeRenderDock({
           background:      `${Z.bgDock}f8`,
           backdropFilter:  "blur(36px)",
           WebkitBackdropFilter: "blur(36px)",
-          border:          "1px solid rgba(180,210,255,0.1)",
+          border:          "1px solid rgba(255,255,255,0.12)",
           borderRadius:    24,
-          boxShadow:       "0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(140,180,255,0.07), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 32px rgba(59,130,246,0.07)",
+          boxShadow:       "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 24px rgba(120,160,255,0.18), 0 12px 40px rgba(0,0,0,0.55), 0 0 60px rgba(86,140,255,0.12)",
           padding:         "16px 20px",
           display:         "flex",
           flexDirection:   "column",
@@ -321,64 +328,150 @@ export default function CreativeRenderDock({
           .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
           .rd-gen:hover:not([disabled]) { filter: brightness(1.15); transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(140,180,255,0.3), 0 8px 28px rgba(30,58,110,0.7), 0 0 18px rgba(86,140,255,0.28) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
+          .rd-chip-remove:hover { background: rgba(255,80,80,0.18) !important; color: #FF8080 !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
+          @keyframes rdFadeIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
         `}</style>
 
-        {/* ── ROW 1: Prompt bar ─────────────────────────────────────────── */}
+        {/* ── ROW 1: Upload chips + Prompt bar ─────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 
-          {/* Upload / Add button — 48×48 */}
+          {/* ── Upload button — 48×48 ── */}
           <button
             className="rd-upload"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isUploadingRef}
-            title="Upload reference image, attach brand asset, or add logo"
+            disabled={isUploadingRef || uploadedImages.length >= selectedModel.maxUploads}
+            title={
+              uploadedImages.length >= selectedModel.maxUploads
+                ? `${selectedModel.label} supports up to ${selectedModel.maxUploads} reference image${selectedModel.maxUploads === 1 ? "" : "s"}`
+                : "Upload reference image, brand asset, or logo"
+            }
             style={{
-              flexShrink:     0,
-              width:          48, height: 48,
-              borderRadius:   16,
-              border:         `1px solid ${refImageUrl ? Z.borderActive : Z.borderSubtle}`,
-              background:     refImageUrl ? "rgba(59,130,246,0.15)" : Z.bgInput,
-              color:          refImageUrl ? Z.accentBlue : Z.textMuted,
-              cursor:         isUploadingRef ? "default" : "pointer",
-              display:        "flex", alignItems: "center", justifyContent: "center",
-              transition:     "all 0.15s ease",
-              fontSize:       22, fontWeight: 300, lineHeight: 1,
+              flexShrink:   0,
+              width:        48, height: 48,
+              borderRadius: 16,
+              border:       `1px solid ${uploadedImages.length > 0 ? Z.borderActive : Z.borderSubtle}`,
+              background:   uploadedImages.length > 0 ? "rgba(59,130,246,0.12)" : Z.bgInput,
+              color:        uploadedImages.length > 0 ? Z.accentBlue : Z.textMuted,
+              cursor:       (isUploadingRef || uploadedImages.length >= selectedModel.maxUploads) ? "default" : "pointer",
+              display:      "flex", alignItems: "center", justifyContent: "center",
+              transition:   "all 0.15s ease",
+              fontSize:     22, fontWeight: 300, lineHeight: 1,
+              opacity:      uploadedImages.length >= selectedModel.maxUploads ? 0.38 : 1,
             }}
           >
-            {isUploadingRef ? (
-              <span style={{ fontSize: 16, animation: "rdSpin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
-            ) : refImageUrl ? (
-              <span style={{ fontSize: 15 }}>✓</span>
-            ) : "+"}
+            {isUploadingRef
+              ? <span style={{ fontSize: 16, animation: "rdSpin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
+              : "+"}
           </button>
 
-          {/* Prompt input — 56px tall */}
-          <input
-            className="rd-prompt"
-            type="text"
-            placeholder={
-              selectedConceptId
-                ? "Refine this concept before rendering — add direction, mood, or extra detail…"
-                : "Describe the scene, campaign, or direction you want to create…"
-            }
-            value={promptText}
-            onChange={(e) => setPromptText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !isRenderDisabled) handleGenerate(); }}
-            style={{
-              flex:         1,
-              height:       56,
-              background:   Z.bgInput,
-              border:       `1px solid ${Z.borderSubtle}`,
-              borderRadius: 20,
-              padding:      "0 18px",
-              color:        Z.textPrimary,
-              fontSize:     15,
-              fontWeight:   500,
-              fontFamily:   "inherit",
-              transition:   "border-color 0.15s ease",
-            }}
-          />
+          {/* ── Thumbnail chip row + prompt (grows together) ── */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+
+            {/* Chip row — only when images exist */}
+            {uploadedImages.length > 0 && (
+              <div style={{
+                display:    "flex",
+                gap:        6,
+                overflowX:  "auto",
+                paddingBottom: 2,
+                scrollbarWidth: "none",
+              }}>
+                {uploadedImages.map((img, idx) => (
+                  <div
+                    key={img.id}
+                    style={{
+                      flexShrink:   0,
+                      position:     "relative",
+                      width:        52, height: 52,
+                      borderRadius: 10,
+                      overflow:     "hidden",
+                      border:       `1px solid ${Z.borderSoft}`,
+                      background:   Z.bgInput,
+                      animation:    "rdFadeIn 0.18s ease",
+                      boxShadow:    "0 0 0 1px rgba(86,140,255,0.12)",
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={`Reference ${idx + 1}`}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    {/* Remove button */}
+                    <button
+                      className="rd-chip-remove"
+                      onClick={() => setUploadedImages((prev) => prev.filter((x) => x.id !== img.id))}
+                      title="Remove"
+                      style={{
+                        position:   "absolute", top: 2, right: 2,
+                        width:      18, height: 18,
+                        borderRadius: 5,
+                        border:     "none",
+                        background: "rgba(0,0,0,0.55)",
+                        color:      "rgba(255,255,255,0.75)",
+                        fontSize:   11,
+                        lineHeight: 1,
+                        cursor:     "pointer",
+                        display:    "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.12s ease",
+                        padding:    0,
+                      }}
+                    >×</button>
+                    {/* Index badge */}
+                    <div style={{
+                      position:   "absolute", bottom: 2, left: 2,
+                      fontSize:   9, fontWeight: 700,
+                      color:      "rgba(255,255,255,0.55)",
+                      background: "rgba(0,0,0,0.45)",
+                      borderRadius: 3,
+                      padding:    "1px 3px",
+                      lineHeight: 1.2,
+                    }}>{idx + 1}</div>
+                  </div>
+                ))}
+                {/* Limit indicator */}
+                <div style={{
+                  flexShrink: 0,
+                  display: "flex", alignItems: "center",
+                  fontSize: 11, color: Z.textMuted,
+                  paddingLeft: 2, whiteSpace: "nowrap",
+                }}>
+                  {uploadedImages.length}/{selectedModel.maxUploads}
+                </div>
+              </div>
+            )}
+
+            {/* Prompt input */}
+            <input
+              className="rd-prompt"
+              type="text"
+              placeholder={
+                uploadedImages.length > 0
+                  ? "Describe how to transform these references — style, mood, or direction…"
+                  : selectedConceptId
+                  ? "Refine this concept before rendering — add direction, mood, or extra detail…"
+                  : "Describe the scene, campaign, or direction you want to create…"
+              }
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !isRenderDisabled) handleGenerate(); }}
+              style={{
+                width:        "100%",
+                height:       uploadedImages.length > 0 ? 44 : 56,
+                background:   Z.bgInput,
+                border:       `1px solid ${Z.borderSubtle}`,
+                borderRadius: 20,
+                padding:      "0 18px",
+                color:        Z.textPrimary,
+                fontSize:     15,
+                fontWeight:   500,
+                fontFamily:   "inherit",
+                transition:   "border-color 0.15s ease, height 0.2s ease",
+                boxSizing:    "border-box",
+              }}
+            />
+          </div>
 
           {/* Clear prompt */}
           {promptText && (
