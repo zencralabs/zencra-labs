@@ -105,36 +105,42 @@ function InlineProjectName({
         setDraft(value);
         setEditing(true);
       }}
-      title="Click to rename"
+      title="Click to rename project"
       style={{
-        background: "none",
-        border: "1px solid transparent",
-        borderRadius: 6,
-        padding: "4px 10px",
-        color: "rgba(255,255,255,0.7)",
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "text",
-        transition: "all 0.15s ease",
+        display:      "flex",
+        alignItems:   "center",
+        gap:          8,
+        background:   "rgba(255,255,255,0.05)",
+        border:       "1px solid rgba(255,255,255,0.16)",  /* always-visible border */
+        borderRadius: 8,
+        padding:      "5px 12px",
+        color:        "#F0F3FF",
+        fontSize:     14,
+        fontWeight:   600,
+        cursor:       "text",
+        transition:   "all 0.15s ease",
+        letterSpacing: "-0.01em",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor =
-          "rgba(255,255,255,0.1)";
-        (e.currentTarget as HTMLButtonElement).style.background =
-          "rgba(255,255,255,0.04)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(86,140,255,0.45)";
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(86,140,255,0.08)";
+        (e.currentTarget as HTMLButtonElement).style.color = "#fff";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "transparent";
-        (e.currentTarget as HTMLButtonElement).style.background = "none";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.16)";
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+        (e.currentTarget as HTMLButtonElement).style.color = "#F0F3FF";
       }}
     >
       {value}
+      {/* Edit icon — clearly visible, not faint */}
       <span
         style={{
-          fontSize: 10,
-          marginLeft: 6,
-          opacity: 0.3,
+          fontSize:   13,
+          color:      "rgba(147,197,253,0.7)",
           fontWeight: 400,
+          flexShrink: 0,
+          lineHeight: 1,
         }}
       >
         ✎
@@ -684,32 +690,18 @@ export default function CreativeDirectorShell() {
           position: "relative",   /* enables absolute centering of project name */
         }}
       >
-        {/* Left: title identifier — secondary label, not primary heading */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <span
-            style={{
-              fontSize: 10,
-              color: "#93c5fd",
-              background: "rgba(37,99,235,0.15)",
-              border: "1px solid rgba(37,99,235,0.22)",
-              borderRadius: 4,
-              padding: "2px 6px",
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              lineHeight: 1,
-            }}
-          >
-            AI
-          </span>
+        {/* Left: workflow subtitle only — no title duplication */}
+        <div style={{ flexShrink: 0 }}>
           <span
             style={{
               fontSize: 12,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.55)",
-              letterSpacing: "0.01em",
+              fontWeight: 500,
+              color: "rgba(167,176,197,0.5)",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
             }}
           >
-            Creative Director
+            Brief → Concepts → Campaign-ready visuals
           </span>
         </div>
 
@@ -733,13 +725,14 @@ export default function CreativeDirectorShell() {
           </div>
         </div>
 
-        {/* Right: autosave + new badge + credits + actions */}
+        {/* Right: autosave + credits + actions — pushed to far right */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
             flexShrink: 0,
+            marginLeft: "auto",
           }}
         >
           {/* Autosave indicator */}

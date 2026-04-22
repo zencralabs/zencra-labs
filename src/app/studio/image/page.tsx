@@ -1265,111 +1265,15 @@ function ImageStudioInner() {
       `}</style>
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        position: "relative",
+        display: "flex", alignItems: "center",
         padding: "0 24px", height: 58, minHeight: 58,
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(10,10,10,0.95)", backdropFilter: "blur(16px)",
         zIndex: 10,
       }}>
-        {/* Left: studio mode tabs + gallery tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-
-          {/* ── Studio mode switcher — animated sliding pill toggle ── */}
-          <div
-            style={{
-              position:    "relative",
-              display:     "inline-flex",
-              alignItems:  "center",
-              height:      44,          /* outer container — pill inset handles all gaps */
-              padding:     0,
-              borderRadius: 13,
-              background:  "#0B1022",
-              border:      "1px solid rgba(120,160,255,0.1)",
-              flexShrink:  0,
-            }}
-          >
-            {/* Sliding pill — fills each half, 5px inset from all edges */}
-            <div
-              aria-hidden="true"
-              style={{
-                position:   "absolute",
-                top:        5,
-                bottom:     5,
-                left:       studioMode === "standard" ? 5 : "50%",
-                right:      studioMode === "standard" ? "50%" : 5,
-                borderRadius: 9,
-                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), right 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease, box-shadow 0.22s ease",
-                background: studioMode === "standard"
-                  ? "#151D34"
-                  : "linear-gradient(135deg, rgba(59,130,246,0.26), rgba(79,70,229,0.2))",
-                border: studioMode === "standard"
-                  ? "1px solid rgba(120,160,255,0.16)"
-                  : "1px solid rgba(86,140,255,0.44)",
-                boxShadow: studioMode === "creative-director"
-                  ? "0 0 14px rgba(86,140,255,0.32), 0 2px 8px rgba(0,0,0,0.3)"
-                  : "0 1px 4px rgba(0,0,0,0.2)",
-                pointerEvents: "none",
-                zIndex:     0,
-              }}
-            />
-            {/* Tab buttons */}
-            {([
-              { id: "standard",          label: "Quick Gen",         badge: null  },
-              { id: "creative-director", label: "Creative Director",  badge: "NEW" },
-            ] as const).map(({ id, label, badge }) => {
-              const isActive = studioMode === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setStudioMode(id)}
-                  style={{
-                    position:      "relative",
-                    zIndex:        1,
-                    display:       "flex",
-                    alignItems:    "center",
-                    justifyContent: "center",
-                    gap:           6,
-                    height:        34,
-                    padding:       "0 18px",
-                    minWidth:      168,
-                    borderRadius:  9,
-                    fontSize:      14,
-                    fontWeight:    600,
-                    cursor:        "pointer",
-                    letterSpacing: "-0.01em",
-                    lineHeight:    1,       /* prevent text drift */
-                    transition:    "color 0.18s ease",
-                    border:        "none",
-                    background:    "transparent",
-                    color:         isActive ? "#F5F7FF" : "rgba(167,176,197,0.45)",
-                  }}
-                >
-                  {label}
-                  {badge && (
-                    <span style={{
-                      fontSize:      9,
-                      fontWeight:    800,
-                      letterSpacing: "0.07em",
-                      background:    "rgba(199,243,107,0.12)",
-                      color:         "#C7F36B",
-                      border:        "1px solid rgba(199,243,107,0.25)",
-                      padding:       "2px 5px",
-                      borderRadius:  4,
-                      lineHeight:    1,
-                    }}>
-                      {badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Divider — only show when in standard mode */}
-          {studioMode === "standard" && (
-            <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)" }} />
-          )}
-
+        {/* Left: gallery tabs — standard mode only */}
+        <div style={{ display: "flex", alignItems: "center", gap: 20, flexShrink: 0 }}>
           {/* History / Community tabs — standard mode only, Zencra premium style */}
           {studioMode === "standard" && (
             <div style={{ display: "flex", gap: 2, padding: "4px", borderRadius: 11, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1408,6 +1312,106 @@ function ImageStudioInner() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Center: studio mode toggle — always absolutely centered in the bar */}
+        <div style={{
+          position: "absolute",
+          left: 0, right: 0,
+          display: "flex", justifyContent: "center", alignItems: "center",
+          pointerEvents: "none",
+        }}>
+          {/* ── Studio mode switcher — animated sliding pill toggle ── */}
+          <div
+            style={{
+              pointerEvents:  "auto",
+              position:       "relative",
+              display:        "inline-flex",
+              alignItems:     "center",
+              height:         44,
+              padding:        0,
+              borderRadius:   13,
+              background:     "#0B1022",
+              border:         "1px solid rgba(120,160,255,0.1)",
+              flexShrink:     0,
+            }}
+          >
+            {/* Sliding pill — fills each half, 5px inset from all edges */}
+            <div
+              aria-hidden="true"
+              style={{
+                position:   "absolute",
+                top:        5,
+                bottom:     5,
+                left:       studioMode === "standard" ? 5 : "50%",
+                right:      studioMode === "standard" ? "50%" : 5,
+                borderRadius: 9,
+                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), right 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease, box-shadow 0.22s ease",
+                background: studioMode === "standard"
+                  ? "#151D34"
+                  : "linear-gradient(135deg, rgba(59,130,246,0.26), rgba(79,70,229,0.2))",
+                border: studioMode === "standard"
+                  ? "1px solid rgba(120,160,255,0.16)"
+                  : "1px solid rgba(86,140,255,0.44)",
+                boxShadow: studioMode === "creative-director"
+                  ? "0 0 14px rgba(86,140,255,0.32), 0 2px 8px rgba(0,0,0,0.3)"
+                  : "0 1px 4px rgba(0,0,0,0.2)",
+                pointerEvents: "none",
+                zIndex:     0,
+              }}
+            />
+            {/* Tab buttons */}
+            {([
+              { id: "standard",          label: "Quick Gen",         badge: null  },
+              { id: "creative-director", label: "Creative Director",  badge: "NEW" },
+            ] as const).map(({ id, label, badge }) => {
+              const isActive = studioMode === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setStudioMode(id)}
+                  style={{
+                    position:       "relative",
+                    zIndex:         1,
+                    display:        "flex",
+                    alignItems:     "center",
+                    justifyContent: "center",
+                    gap:            6,
+                    height:         34,
+                    padding:        "0 18px",
+                    minWidth:       168,
+                    borderRadius:   9,
+                    fontSize:       14,
+                    fontWeight:     600,
+                    cursor:         "pointer",
+                    letterSpacing:  "-0.01em",
+                    lineHeight:     1,
+                    transition:     "color 0.18s ease",
+                    border:         "none",
+                    background:     "transparent",
+                    color:          isActive ? "#F5F7FF" : "rgba(167,176,197,0.45)",
+                  }}
+                >
+                  {label}
+                  {badge && (
+                    <span style={{
+                      fontSize:      9,
+                      fontWeight:    800,
+                      letterSpacing: "0.07em",
+                      background:    "rgba(199,243,107,0.12)",
+                      color:         "#C7F36B",
+                      border:        "1px solid rgba(199,243,107,0.25)",
+                      padding:       "2px 5px",
+                      borderRadius:  4,
+                      lineHeight:    1,
+                    }}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Right: Zoom slider — hidden in Creative Director mode */}
