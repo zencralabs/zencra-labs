@@ -2199,36 +2199,41 @@ function ImageStudioInner() {
         <div
           style={{
             position: "fixed", top: 64, right: 0, bottom: 0,
-            width: 340, zIndex: 9981,
-            background: "rgba(10,10,14,0.98)",
-            backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            width: 360, zIndex: 9981,
+            background: "linear-gradient(170deg, rgba(9,9,18,0.99) 0%, rgba(12,10,22,0.99) 50%, rgba(8,9,16,0.99) 100%)",
+            backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)",
+            borderLeft: "1px solid rgba(255,255,255,0.07)",
+            boxShadow: "-20px 0 60px rgba(0,0,0,0.5), -1px 0 0 rgba(255,255,255,0.04)",
             display: "flex", flexDirection: "column",
             fontFamily: "var(--font-body, system-ui, sans-serif)",
             color: "#fff",
-            animation: "slideInRight 0.2s cubic-bezier(0.16,1,0.3,1)",
+            animation: "slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)",
             overflowY: "auto",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <style>{`
             @keyframes slideInRight {
-              from { transform: translateX(100%); opacity: 0.7; }
-              to   { transform: translateX(0);    opacity: 1;   }
+              from { transform: translateX(20px); opacity: 0; }
+              to   { transform: translateX(0);    opacity: 1; }
             }
             @keyframes metaExpand {
-              from { opacity: 0; transform: translateY(-4px); }
+              from { opacity: 0; transform: translateY(-6px); }
               to   { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes panelSpin {
+              to { transform: rotate(360deg); }
             }
           `}</style>
 
           {/* ── Header ── */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "13px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)",
+            padding: "13px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "linear-gradient(90deg, rgba(37,99,235,0.06) 0%, transparent 100%)",
             flexShrink: 0,
           }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)" }}>
               Image
             </span>
             <button
@@ -2248,26 +2253,60 @@ function ImageStudioInner() {
             >✕</button>
           </div>
 
-          {/* ── Thumbnail ── */}
+          {/* ── Thumbnail — natural aspect ratio, full bleed ── */}
           {selectedImage.url && (
-            <div style={{ padding: "14px 14px 0", flexShrink: 0 }}>
+            <div
+              onClick={() => setViewingImage(selectedImage)}
+              style={{
+                position: "relative", flexShrink: 0,
+                cursor: "zoom-in", overflow: "hidden",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+              }}
+              onMouseEnter={e => {
+                const overlay = (e.currentTarget as HTMLElement).querySelector(".thumb-overlay") as HTMLElement | null;
+                if (overlay) overlay.style.opacity = "1";
+              }}
+              onMouseLeave={e => {
+                const overlay = (e.currentTarget as HTMLElement).querySelector(".thumb-overlay") as HTMLElement | null;
+                if (overlay) overlay.style.opacity = "0";
+              }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedImage.url}
                 alt="Selected"
-                onClick={() => setViewingImage(selectedImage)}
                 style={{
-                  width: "100%", borderRadius: 10, objectFit: "contain",
-                  maxHeight: 200, background: "rgba(255,255,255,0.02)",
-                  cursor: "zoom-in", display: "block",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  width: "100%", height: "auto", display: "block",
+                  maxHeight: 260,
+                  objectFit: "contain",
+                  background: "rgba(0,0,0,0.4)",
+                  transition: "transform 0.3s ease",
                 }}
               />
+              {/* Zoom hint overlay */}
+              <div
+                className="thumb-overlay"
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(124,58,237,0.08))",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  opacity: 0, transition: "opacity 0.2s ease",
+                }}
+              >
+                <span style={{
+                  fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  background: "rgba(0,0,0,0.55)", padding: "5px 12px", borderRadius: 20,
+                  backdropFilter: "blur(8px)",
+                }}>
+                  ⛶ View full size
+                </span>
+              </div>
             </div>
           )}
 
           {/* ── Panel body ── */}
-          <div style={{ padding: "14px", flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+          <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
 
             {/* ══ PRIMARY ACTIONS ══════════════════════════════════════════════ */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -2303,12 +2342,18 @@ function ImageStudioInner() {
                   letterSpacing: "0.01em", textAlign: "center" as const,
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(37,99,235,0.28), rgba(124,58,237,0.22))";
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.3)";
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "linear-gradient(135deg, rgba(37,99,235,0.32), rgba(124,58,237,0.26))";
+                  el.style.borderColor = "rgba(96,165,250,0.4)";
+                  el.style.boxShadow = "0 0 18px rgba(37,99,235,0.22), 0 0 6px rgba(124,58,237,0.14)";
+                  el.style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(124,58,237,0.12))";
-                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(124,58,237,0.12))";
+                  el.style.borderColor = "rgba(255,255,255,0.12)";
+                  el.style.boxShadow = "none";
+                  el.style.transform = "translateY(0)";
                 }}
               >
                 <span style={{ fontSize: 18 }}>✦</span>
@@ -2329,14 +2374,20 @@ function ImageStudioInner() {
                     letterSpacing: "0.01em", textAlign: "center" as const,
                   }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.2)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.45)";
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.background = "rgba(37,99,235,0.22)";
+                    el.style.borderColor = "rgba(96,165,250,0.5)";
+                    el.style.boxShadow = "0 0 18px rgba(37,99,235,0.2)";
+                    el.style.transform = "translateY(-1px)";
                   }}
                   onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement;
                     if (!panelAnimateOpen) {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.25)";
+                      el.style.background = "rgba(37,99,235,0.1)";
+                      el.style.borderColor = "rgba(37,99,235,0.25)";
                     }
+                    el.style.boxShadow = "none";
+                    el.style.transform = "translateY(0)";
                   }}
                 >
                   <span style={{ fontSize: 18 }}>▶</span>
@@ -2446,24 +2497,24 @@ function ImageStudioInner() {
             </div>
 
             {/* ══ METADATA — collapsed by default ══════════════════════════════ */}
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 10, marginTop: 2 }}>
 
               {/* Accordion toggle */}
               <button
                 onClick={() => setPanelMetaExpanded(v => !v)}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
-                  color: "rgba(255,255,255,0.35)", transition: "color 0.15s",
+                  background: "none", border: "none", cursor: "pointer", padding: "2px 0 4px",
+                  color: "rgba(255,255,255,0.32)", transition: "color 0.15s",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.32)"; }}
               >
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>
-                  Metadata
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+                  Details
                 </span>
-                <span style={{ fontSize: 12, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                  ›
+                <span style={{ fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.3)" }}>
+                  ▾
                 </span>
               </button>
 
@@ -2514,7 +2565,7 @@ function ImageStudioInner() {
                   {/* Cinematic Analysis */}
                   {panelLoading ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6 }}>
-                      <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.08)", borderTopColor: "#60A5FA", animation: "spin 0.8s linear infinite" }} />
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.08)", borderTopColor: "#60A5FA", animation: "panelSpin 0.8s linear infinite" }} />
                       <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Analyzing…</span>
                     </div>
                   ) : panelDetails?.enriched_metadata && (
