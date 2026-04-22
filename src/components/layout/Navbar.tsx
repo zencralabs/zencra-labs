@@ -252,34 +252,38 @@ function RightPanelContent({ panel, color, onClose }: { panel: RightPanel; color
 
 function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: () => void }) {
   const data = navCategories[category];
-  // null = no inner item hovered yet — right panel stays hidden until user moves into the left panel
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const activeFeat = activeIdx !== null ? data.features[activeIdx] : null;
+  // Default to first item so right panel is always visible on open
+  const [activeIdx, setActiveIdx] = useState<number>(0);
+  const activeFeat = data.features[activeIdx];
 
   return (
     <>
-    {/* Keyframe injected once per mount — negligible cost */}
-    <style>{`@keyframes ddOpen{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    <style>{`@keyframes ddOpen{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
     <div
       className="absolute top-full left-0 z-[200] overflow-hidden rounded-2xl"
       style={{
-        width: activeFeat ? "620px" : "260px",
-        transition: "width 200ms ease",
+        width: "420px",
         background: "rgba(8,14,28,0.97)",
-        border: `1px solid ${data.color}20`,
-        backdropFilter: "blur(20px)",
-        boxShadow: `0 24px 64px rgba(0,0,0,0.75), 0 0 40px ${data.color}12`,
-        animation: "ddOpen 200ms ease-out forwards",
+        border: `1px solid ${data.color}22`,
+        backdropFilter: "blur(24px)",
+        boxShadow: `0 28px 72px rgba(0,0,0,0.75), 0 0 40px ${data.color}14`,
+        animation: "ddOpen 180ms ease-out forwards",
       }}
     >
-      <div className={activeFeat ? "grid grid-cols-[240px_1fr]" : ""}>
+      <div className="grid grid-cols-[196px_1fr]">
 
-        {/* ── LEFT PANEL — features ────────────────────────────────────── */}
-        <div className="border-r p-3.5" style={{ borderColor: `${data.color}12` }}>
-          <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.25em]" style={{ color: `${data.color}60` }}>
+        {/* ── LEFT PANEL — feature list ──────────────────────────────────── */}
+        <div
+          className="border-r flex flex-col"
+          style={{ borderColor: `${data.color}14`, padding: "14px 10px" }}
+        >
+          <p
+            className="px-3 mb-3 font-bold uppercase"
+            style={{ fontSize: 11, letterSpacing: "0.2em", color: `${data.color}70` }}
+          >
             {data.label}
           </p>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             {data.features.map((feat, idx) => {
               const Icon     = feat.icon;
               const isActive = idx === activeIdx;
@@ -290,32 +294,36 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
                   href={feat.href}
                   onClick={onClose}
                   onMouseEnter={() => setActiveIdx(idx)}
-                  className="group flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-all duration-150"
+                  className="group flex items-center gap-3 rounded-xl transition-all duration-150"
                   style={{
-                    background: isActive ? `${data.color}14` : "transparent",
+                    padding: "10px 12px",
+                    background: isActive ? `${data.color}16` : "transparent",
                     color: isActive ? "#F8FAFC" : "#94A3B8",
-                    opacity: isSoon && !isActive ? 0.75 : 1,
+                    opacity: isSoon && !isActive ? 0.72 : 1,
                   }}
                 >
-                  {/* Icon */}
+                  {/* Icon box */}
                   <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150"
+                    className="flex shrink-0 items-center justify-center rounded-lg transition-all duration-150"
                     style={{
-                      background: isActive ? `${data.color}20` : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${isActive ? data.color + "30" : "rgba(255,255,255,0.06)"}`,
+                      width: 34, height: 34,
+                      background: isActive ? `${data.color}22` : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${isActive ? data.color + "35" : "rgba(255,255,255,0.07)"}`,
                     }}
                   >
-                    <Icon size={14} style={{ color: isActive ? data.color : "#64748B" }} />
+                    <Icon size={15} style={{ color: isActive ? data.color : "#64748B" }} />
                   </div>
 
                   {/* Label + desc */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[14px] font-medium leading-none">{feat.label}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{feat.label}</span>
                       {feat.badge && (
                         <span
-                          className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase"
+                          className="rounded-full font-bold uppercase"
                           style={{
+                            fontSize: 8,
+                            padding: "2px 5px",
                             background: isSoon ? "rgba(55,65,81,0.7)" : `${data.color}22`,
                             color:      isSoon ? "#6B7280" : data.color,
                           }}
@@ -324,41 +332,39 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
                         </span>
                       )}
                     </div>
-                    <span className="mt-1 block text-[12px] leading-none" style={{ color: isActive ? `${data.color}90` : "#475569" }}>
+                    <span
+                      className="mt-0.5 block"
+                      style={{
+                        fontSize: 12,
+                        color: isActive ? `${data.color}90` : "#475569",
+                        lineHeight: 1.3,
+                      }}
+                    >
                       {feat.desc}
                     </span>
                   </div>
-
-                  {/* Right affordance arrow — only visible when this item is active */}
-                  <ChevronRight
-                    size={13}
-                    className="shrink-0 transition-all duration-150"
-                    style={{
-                      color: isActive ? data.color : "transparent",
-                      transform: isActive ? "translateX(1px)" : "none",
-                    }}
-                  />
                 </Link>
               );
             })}
           </div>
         </div>
 
-        {/* ── RIGHT PANEL — only rendered after inner-item hover ──────────
-             Nothing exists in the DOM here until the user hovers a left item. */}
-        {activeFeat && (
-          <div
-            className="p-4"
-            style={{ minHeight: "200px" }}
-            key={activeIdx}
-          >
-            <RightPanelContent panel={activeFeat.right} color={data.color} onClose={onClose} />
-          </div>
-        )}
+        {/* ── RIGHT PANEL — always visible, animates on item change ─────── */}
+        <div
+          className="flex flex-col"
+          key={activeIdx}
+          style={{
+            padding: "16px",
+            minHeight: "240px",
+            animation: "ddOpen 150ms ease-out forwards",
+          }}
+        >
+          <RightPanelContent panel={activeFeat.right} color={data.color} onClose={onClose} />
+        </div>
       </div>
 
       {/* Bottom accent line */}
-      <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${data.color}30, transparent)` }} />
+      <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${data.color}35, transparent)` }} />
     </div>
     </>
   );

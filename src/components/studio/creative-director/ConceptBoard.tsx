@@ -33,41 +33,49 @@ interface ConceptBoardProps {
   onExpandConcept: (id: string) => void;
 }
 
-// ── Score bar component ────────────────────────────────────────────────────────
-function ScoreBar({
-  label,
-  value,
-  color = "#2563EB",
-}: {
-  label: string;
-  value: number;
-  color?: string;
-}) {
+// ── Zencra tokens ─────────────────────────────────────────────────────────────
+const Z = {
+  textPrimary:   "#F5F7FF",
+  textSecondary: "#A7B0C5",
+  textMuted:     "#6F7893",
+  borderSubtle:  "rgba(120,160,255,0.18)",
+  borderActive:  "rgba(86,140,255,0.42)",
+  glowPrimary:   "0 0 16px rgba(86,140,255,0.35)",
+  glowWhite:     "0 0 10px rgba(255,255,255,0.15)",
+  accentBlue:    "#3B82F6",
+  accentViolet:  "#8B5CF6",
+  accentCyan:    "#22D3EE",
+} as const;
+
+// ── Gradient preview backgrounds per concept index ────────────────────────────
+const PREVIEW_GRADIENTS = [
+  "linear-gradient(135deg, #0F1B3A 0%, #1A2850 40%, #0D1428 100%)",
+  "linear-gradient(135deg, #1A0F3A 0%, #2D1850 40%, #100D28 100%)",
+  "linear-gradient(135deg, #0A1F2E 0%, #0D2E40 40%, #061420 100%)",
+];
+
+const PREVIEW_ACCENTS = [
+  { a: "rgba(59,130,246,0.25)", b: "rgba(139,92,246,0.15)" },
+  { b: "rgba(139,92,246,0.25)", a: "rgba(236,72,153,0.15)" },
+  { a: "rgba(34,211,238,0.2)",  b: "rgba(59,130,246,0.2)"  },
+];
+
+// ── Score bar ─────────────────────────────────────────────────────────────────
+function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", letterSpacing: "0.05em" }}>
-          {label}
-        </span>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>
-          {value}/10
-        </span>
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontSize: 12, color: Z.textMuted, letterSpacing: "0.02em" }}>{label}</span>
+        <span style={{ fontSize: 12, color: Z.textSecondary, fontWeight: 600 }}>{value}/10</span>
       </div>
-      <div
-        style={{
-          height: 3,
-          background: "rgba(255,255,255,0.07)",
-          borderRadius: 2,
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
         <div
           style={{
             height: "100%",
             width: `${(value / 10) * 100}%`,
             background: color,
             borderRadius: 2,
-            transition: "width 0.6s ease",
+            transition: "width 0.7s ease",
           }}
         />
       </div>
@@ -75,77 +83,203 @@ function ScoreBar({
   );
 }
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
-function SkeletonCard({ index }: { index: number }) {
+// ── Chip tag ──────────────────────────────────────────────────────────────────
+function Chip({ label, color }: { label: string; color?: string }) {
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        padding: "3px 9px",
+        borderRadius: 20,
+        background: color ? `${color}18` : "rgba(120,160,255,0.1)",
+        border: `1px solid ${color ? color + "35" : "rgba(120,160,255,0.25)"}`,
+        color: color ?? Z.textSecondary,
+        letterSpacing: "0.02em",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ── Preview placeholder ────────────────────────────────────────────────────────
+function ConceptPreview({ index, isSelected }: { index: number; isSelected: boolean }) {
+  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
   return (
     <div
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 12,
-        padding: "18px 20px",
-        animation: `skeletonPulse 1.6s ease-in-out ${index * 0.2}s infinite`,
+        height: 180,
+        background: grad,
+        borderRadius: "14px 14px 0 0",
+        overflow: "hidden",
+        position: "relative",
+        flexShrink: 0,
       }}
     >
-      {/* Badge placeholder */}
+      {/* Ambient blobs */}
       <div
         style={{
-          width: 28,
-          height: 20,
-          background: "rgba(255,255,255,0.06)",
-          borderRadius: 4,
-          marginBottom: 12,
-        }}
-      />
-      {/* Title placeholder */}
-      <div
-        style={{
-          width: "70%",
-          height: 14,
-          background: "rgba(255,255,255,0.06)",
-          borderRadius: 4,
-          marginBottom: 8,
-        }}
-      />
-      {/* Summary lines */}
-      <div
-        style={{
-          width: "100%",
-          height: 10,
-          background: "rgba(255,255,255,0.04)",
-          borderRadius: 3,
-          marginBottom: 5,
+          position: "absolute",
+          width: 160,
+          height: 160,
+          borderRadius: "50%",
+          background: acc.a,
+          filter: "blur(48px)",
+          top: -20,
+          right: -20,
+          pointerEvents: "none",
         }}
       />
       <div
         style={{
-          width: "85%",
-          height: 10,
-          background: "rgba(255,255,255,0.04)",
-          borderRadius: 3,
-          marginBottom: 14,
+          position: "absolute",
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          background: acc.b,
+          filter: "blur(36px)",
+          bottom: -10,
+          left: -10,
+          pointerEvents: "none",
         }}
       />
-      {/* Provider tag */}
+      {/* Center icon */}
       <div
         style={{
-          width: 80,
-          height: 18,
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: 20,
-          marginBottom: 14,
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
         }}
-      />
-      {/* Score bars */}
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ marginBottom: 6 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-            <div style={{ width: 70, height: 8, background: "rgba(255,255,255,0.04)", borderRadius: 2 }} />
-            <div style={{ width: 24, height: 8, background: "rgba(255,255,255,0.04)", borderRadius: 2 }} />
-          </div>
-          <div style={{ height: 3, background: "rgba(255,255,255,0.05)", borderRadius: 2 }} />
+      >
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.06)",
+            border: `1px solid ${isSelected ? Z.borderActive : "rgba(255,255,255,0.12)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 18,
+            boxShadow: isSelected ? Z.glowPrimary : "none",
+            transition: "all 0.2s ease",
+          }}
+        >
+          ✦
         </div>
-      ))}
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.25)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+          }}
+        >
+          Concept {index + 1}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+function SkeletonCard({ index }: { index: number }) {
+  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
+        border: "1px solid rgba(120,160,255,0.1)",
+        borderRadius: 18,
+        overflow: "hidden",
+        animation: `skeletonPulse 1.8s ease-in-out ${index * 0.25}s infinite`,
+      }}
+    >
+      {/* Preview placeholder */}
+      <div style={{ height: 180, background: grad, opacity: 0.4 }} />
+      <div style={{ padding: 16 }}>
+        {/* Title */}
+        <div style={{ width: "65%", height: 14, background: "rgba(255,255,255,0.07)", borderRadius: 6, marginBottom: 10 }} />
+        {/* Description lines */}
+        <div style={{ width: "100%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 5 }} />
+        <div style={{ width: "80%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
+        {/* Tags */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <div style={{ width: 60, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
+          <div style={{ width: 80, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
+          <div style={{ width: 50, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
+        </div>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ flex: 1.5, height: 36, background: "rgba(255,255,255,0.06)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ghost empty card ──────────────────────────────────────────────────────────
+function GhostCard({ index }: { index: number }) {
+  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  return (
+    <div
+      style={{
+        background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
+        border: "1px dashed rgba(120,160,255,0.12)",
+        borderRadius: 18,
+        overflow: "hidden",
+        opacity: 0.45 - index * 0.08,
+      }}
+    >
+      {/* Preview area */}
+      <div
+        style={{
+          height: 180,
+          background: grad,
+          opacity: 0.3,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            border: "1px dashed rgba(255,255,255,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "rgba(255,255,255,0.2)",
+            fontSize: 16,
+          }}
+        >
+          ✦
+        </div>
+      </div>
+      <div style={{ padding: 16 }}>
+        {/* Ghost title */}
+        <div style={{ width: "60%", height: 12, background: "rgba(255,255,255,0.04)", borderRadius: 6, marginBottom: 10 }} />
+        <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4, marginBottom: 5 }} />
+        <div style={{ width: "75%", height: 8, background: "rgba(255,255,255,0.03)", borderRadius: 4, marginBottom: 14 }} />
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <div style={{ width: 55, height: 18, background: "rgba(255,255,255,0.03)", borderRadius: 20 }} />
+          <div style={{ width: 70, height: 18, background: "rgba(255,255,255,0.03)", borderRadius: 20 }} />
+        </div>
+        <div style={{ height: 34, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+      </div>
     </div>
   );
 }
@@ -166,140 +300,213 @@ function ConceptCardView({
   onGenerate: () => void;
   onExpand: () => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+
+  // Derive tags from concept data
+  const tags: { label: string; color?: string }[] = [
+    { label: concept.recommendedProvider, color: Z.accentViolet },
+    ...(concept.recommendedUseCase ? [{ label: concept.recommendedUseCase }] : []),
+    ...(concept.scores.cinematicImpact >= 8 ? [{ label: "Cinematic", color: Z.accentCyan }] : []),
+    ...(concept.scores.textAccuracy >= 8 ? [{ label: "Text-first" }] : []),
+  ].slice(0, 4);
+
+  const cardGlow = isSelected
+    ? `0 0 0 1px ${Z.borderActive}, ${Z.glowPrimary}, 0 8px 32px rgba(0,0,0,0.4)`
+    : isHovered
+    ? `0 0 0 1px rgba(120,160,255,0.3), 0 0 12px rgba(86,140,255,0.12), 0 4px 20px rgba(0,0,0,0.3)`
+    : "0 2px 12px rgba(0,0,0,0.25)";
 
   return (
     <div
+      className="concept-card-root"
       onClick={onSelect}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: isSelected
-          ? "rgba(37,99,235,0.06)"
-          : "rgba(255,255,255,0.02)",
-        border: isSelected
-          ? "1px solid rgba(37,99,235,0.25)"
-          : "1px solid rgba(255,255,255,0.07)",
-        borderLeft: isSelected
-          ? "3px solid rgba(37,99,235,0.7)"
-          : "1px solid rgba(255,255,255,0.07)",
-        borderRadius: 12,
-        padding: "18px 20px",
+        background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
+        border: `1px solid ${isSelected ? Z.borderActive : isHovered ? "rgba(120,160,255,0.3)" : Z.borderSubtle}`,
+        borderRadius: 18,
+        overflow: "hidden",
         cursor: "pointer",
-        transition: "all 0.15s ease",
-        position: "relative",
+        transition: "all 0.2s ease",
+        boxShadow: cardGlow,
+        transform: isSelected ? "scale(1.012)" : "scale(1)",
+        maxWidth: 420,
+        width: "100%",
       }}
     >
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            color: isSelected ? "#93c5fd" : "rgba(255,255,255,0.25)",
-            background: isSelected ? "rgba(37,99,235,0.12)" : "rgba(255,255,255,0.05)",
-            border: isSelected ? "1px solid rgba(37,99,235,0.2)" : "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 4,
-            padding: "3px 7px",
-          }}
-        >
-          {String(index + 1).padStart(2, "0")}
-        </div>
+      {/* ── Preview area ── */}
+      <ConceptPreview index={index} isSelected={isSelected} />
 
-        {/* Provider badge */}
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 600,
-            padding: "3px 8px",
-            borderRadius: 20,
-            background: "rgba(124,58,237,0.12)",
-            border: "1px solid rgba(124,58,237,0.2)",
-            color: "#c4b5fd",
-            letterSpacing: "0.03em",
-          }}
-        >
-          {concept.recommendedProvider}
-        </span>
-      </div>
+      {/* ── Card body ── */}
+      <div style={{ padding: 16 }}>
 
-      {/* Title */}
-      <div
-        style={{
-          fontSize: 15,
-          fontWeight: 700,
-          color: "#fff",
-          marginBottom: 6,
-          lineHeight: 1.3,
-        }}
-      >
-        {concept.title}
-      </div>
-
-      {/* Summary */}
-      <div
-        style={{
-          fontSize: 12,
-          color: "rgba(255,255,255,0.45)",
-          lineHeight: 1.5,
-          marginBottom: 14,
-        }}
-      >
-        {concept.summary}
-      </div>
-
-      {/* Score bars */}
-      <div style={{ marginBottom: 14 }}>
-        <ScoreBar label="Text Accuracy" value={concept.scores.textAccuracy} color="#2563EB" />
-        <ScoreBar label="Cinematic Impact" value={concept.scores.cinematicImpact} color="#7C3AED" />
-        <ScoreBar label="Design Control" value={concept.scores.designControl} color="#0891B2" />
-        <ScoreBar label="Speed" value={concept.scores.speed} color="#059669" />
-      </div>
-
-      {/* Action row */}
-      <div
-        style={{ display: "flex", gap: 6 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {[
-          { key: "expand", label: "Preview Details", action: onExpand },
-          { key: "generate", label: "Generate This", action: onGenerate },
-          { key: "more", label: "More Like This", action: () => {} },
-        ].map(({ key, label, action }) => (
-          <button
-            key={key}
-            onClick={action}
-            onMouseEnter={() => setHoveredAction(key)}
-            onMouseLeave={() => setHoveredAction(null)}
+        {/* Number badge + selected indicator */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span
             style={{
-              flex: key === "generate" ? 1.5 : 1,
-              padding: "6px 8px",
               fontSize: 11,
-              fontWeight: 600,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              color: isSelected ? "#93c5fd" : Z.textMuted,
+              background: isSelected ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${isSelected ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)"}`,
               borderRadius: 6,
-              border:
-                key === "generate"
-                  ? "1px solid rgba(37,99,235,0.35)"
-                  : "1px solid rgba(255,255,255,0.09)",
-              background:
-                key === "generate"
-                  ? hoveredAction === "generate"
-                    ? "rgba(37,99,235,0.2)"
-                    : "rgba(37,99,235,0.12)"
-                  : hoveredAction === key
-                  ? "rgba(255,255,255,0.07)"
-                  : "rgba(255,255,255,0.04)",
-              color:
-                key === "generate"
-                  ? "#93c5fd"
-                  : "rgba(255,255,255,0.5)",
-              cursor: "pointer",
-              transition: "all 0.12s ease",
-              whiteSpace: "nowrap",
+              padding: "3px 8px",
             }}
           >
-            {label}
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          {isSelected && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#93c5fd",
+                background: "rgba(59,130,246,0.1)",
+                border: "1px solid rgba(59,130,246,0.25)",
+                borderRadius: 20,
+                padding: "3px 9px",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                boxShadow: Z.glowPrimary,
+              }}
+            >
+              ✓ Selected
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <div
+          style={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: Z.textPrimary,
+            marginBottom: 8,
+            lineHeight: 1.3,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {concept.title}
+        </div>
+
+        {/* Description */}
+        <div
+          style={{
+            fontSize: 13.5,
+            color: Z.textSecondary,
+            lineHeight: 1.6,
+            marginBottom: 14,
+          }}
+        >
+          {concept.summary}
+        </div>
+
+        {/* Tag chips */}
+        {tags.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              marginBottom: 16,
+            }}
+          >
+            {tags.map((tag, i) => (
+              <Chip key={i} label={tag.label} color={tag.color} />
+            ))}
+          </div>
+        )}
+
+        {/* Score bars — collapsed when not selected */}
+        {isSelected && (
+          <div style={{ marginBottom: 14 }}>
+            <ScoreBar label="Text Accuracy"   value={concept.scores.textAccuracy}   color={Z.accentBlue}   />
+            <ScoreBar label="Cinematic Impact" value={concept.scores.cinematicImpact} color={Z.accentViolet} />
+            <ScoreBar label="Design Control"  value={concept.scores.designControl}  color={Z.accentCyan}   />
+            <ScoreBar label="Speed"           value={concept.scores.speed}          color="#10B981"        />
+          </div>
+        )}
+
+        {/* Actions row */}
+        <div
+          style={{ display: "flex", gap: 8 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Select Concept — primary */}
+          <button
+            onClick={onSelect}
+            onMouseEnter={() => setHoveredAction("select")}
+            onMouseLeave={() => setHoveredAction(null)}
+            style={{
+              flex: 1.6,
+              height: 38,
+              fontSize: 13,
+              fontWeight: 700,
+              borderRadius: 10,
+              border: isSelected
+                ? `1px solid ${Z.borderActive}`
+                : `1px solid rgba(59,130,246,0.3)`,
+              background: isSelected
+                ? "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(79,70,229,0.2))"
+                : hoveredAction === "select"
+                ? "rgba(59,130,246,0.15)"
+                : "rgba(59,130,246,0.08)",
+              color: isSelected ? "#93c5fd" : Z.textSecondary,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              boxShadow: isSelected ? Z.glowPrimary : "none",
+              letterSpacing: "0.01em",
+            }}
+          >
+            {isSelected ? "✓ Selected" : "Select Concept"}
           </button>
-        ))}
+
+          {/* Preview (detail view) */}
+          <button
+            onClick={onExpand}
+            onMouseEnter={() => setHoveredAction("preview")}
+            onMouseLeave={() => setHoveredAction(null)}
+            style={{
+              flex: 1,
+              height: 38,
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.09)",
+              background: hoveredAction === "preview" ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+              color: Z.textSecondary,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            Preview
+          </button>
+
+          {/* Refine */}
+          <button
+            onClick={onExpand}
+            onMouseEnter={() => setHoveredAction("refine")}
+            onMouseLeave={() => setHoveredAction(null)}
+            style={{
+              flex: 1,
+              height: 38,
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.09)",
+              background: hoveredAction === "refine" ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+              color: Z.textMuted,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            Refine
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -308,10 +515,12 @@ function ConceptCardView({
 // ── Detail panel ──────────────────────────────────────────────────────────────
 function ConceptDetailPanel({
   concept,
+  index,
   onGenerate,
   onBack,
 }: {
   concept: ConceptCard;
+  index: number;
   onGenerate: () => void;
   onBack: () => void;
 }) {
@@ -323,108 +532,91 @@ function ConceptDetailPanel({
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: "rgba(255,255,255,0.4)",
-          fontSize: 12,
+          color: Z.textMuted,
+          fontSize: 13,
           fontWeight: 600,
-          padding: "0 0 16px 0",
+          padding: "0 0 20px 0",
           display: "flex",
           alignItems: "center",
           gap: 6,
+          transition: "color 0.15s",
         }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = Z.textSecondary)}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = Z.textMuted)}
       >
         ← Back to Concepts
       </button>
 
+      {/* Preview */}
+      <div style={{ borderRadius: "14px 14px 0 0", overflow: "hidden", marginBottom: 0 }}>
+        <ConceptPreview index={index} isSelected />
+      </div>
+
       <div
         style={{
-          background: "rgba(37,99,235,0.05)",
-          border: "1px solid rgba(37,99,235,0.15)",
-          borderLeft: "3px solid rgba(37,99,235,0.6)",
-          borderRadius: 12,
-          padding: "20px 22px",
+          background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
+          border: `1px solid ${Z.borderActive}`,
+          borderTop: "none",
+          borderRadius: "0 0 14px 14px",
+          padding: "20px 20px",
           marginBottom: 16,
+          boxShadow: Z.glowPrimary,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            color: "#93c5fd",
-            marginBottom: 8,
-          }}
-        >
-          CONCEPT DIRECTION
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#93c5fd", marginBottom: 8, textTransform: "uppercase" }}>
+          Concept Direction
         </div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: Z.textPrimary, marginBottom: 8, letterSpacing: "-0.01em" }}>
           {concept.title}
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13.5, color: Z.textSecondary, lineHeight: 1.6 }}>
           {concept.summary}
         </div>
       </div>
 
       {/* Detail sections */}
       {[
-        { label: "Rationale", content: concept.rationale },
-        { label: "Layout Strategy", content: concept.layoutStrategy },
-        { label: "Typography Approach", content: concept.typographyStrategy },
-        { label: "Color Strategy", content: concept.colorStrategy },
+        { label: "Rationale",            content: concept.rationale         },
+        { label: "Layout Strategy",      content: concept.layoutStrategy    },
+        { label: "Typography Approach",  content: concept.typographyStrategy },
+        { label: "Color Strategy",       content: concept.colorStrategy     },
         { label: "Recommended Use Case", content: concept.recommendedUseCase },
       ].map(({ label, content }) =>
         content ? (
           <div
             key={label}
             style={{
-              marginBottom: 14,
+              marginBottom: 12,
               background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              borderRadius: 10,
+              border: `1px solid ${Z.borderSubtle}`,
+              borderRadius: 12,
               padding: "14px 16px",
             }}
           >
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.25)",
-                marginBottom: 6,
-              }}
-            >
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: Z.textMuted, marginBottom: 7 }}>
               {label}
             </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13.5, color: Z.textSecondary, lineHeight: 1.6 }}>
               {content}
             </div>
           </div>
         ) : null
       )}
 
-      {/* Provider recommendation */}
+      {/* Provider */}
       <div
         style={{
-          background: "rgba(124,58,237,0.06)",
-          border: "1px solid rgba(124,58,237,0.15)",
-          borderRadius: 10,
+          background: "rgba(139,92,246,0.06)",
+          border: "1px solid rgba(139,92,246,0.18)",
+          borderRadius: 12,
           padding: "14px 16px",
-          marginBottom: 20,
+          marginBottom: 12,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "rgba(196,181,253,0.5)",
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(196,181,253,0.5)", marginBottom: 6 }}>
           Recommended Provider
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#c4b5fd" }}>
           {concept.recommendedProvider}
         </div>
       </div>
@@ -433,28 +625,19 @@ function ConceptDetailPanel({
       <div
         style={{
           background: "rgba(255,255,255,0.02)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          borderRadius: 10,
-          padding: "14px 16px",
+          border: `1px solid ${Z.borderSubtle}`,
+          borderRadius: 12,
+          padding: "16px",
           marginBottom: 20,
         }}
       >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.25)",
-            marginBottom: 12,
-          }}
-        >
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: Z.textMuted, marginBottom: 14 }}>
           Performance Scores
         </div>
-        <ScoreBar label="Text Accuracy" value={concept.scores.textAccuracy} color="#2563EB" />
-        <ScoreBar label="Cinematic Impact" value={concept.scores.cinematicImpact} color="#7C3AED" />
-        <ScoreBar label="Design Control" value={concept.scores.designControl} color="#0891B2" />
-        <ScoreBar label="Speed" value={concept.scores.speed} color="#059669" />
+        <ScoreBar label="Text Accuracy"    value={concept.scores.textAccuracy}   color={Z.accentBlue}   />
+        <ScoreBar label="Cinematic Impact" value={concept.scores.cinematicImpact} color={Z.accentViolet} />
+        <ScoreBar label="Design Control"   value={concept.scores.designControl}  color={Z.accentCyan}   />
+        <ScoreBar label="Speed"            value={concept.scores.speed}          color="#10B981"        />
       </div>
 
       {/* Generate button */}
@@ -462,12 +645,12 @@ function ConceptDetailPanel({
         onClick={onGenerate}
         style={{
           width: "100%",
-          padding: "13px 0",
-          background: "linear-gradient(135deg, rgba(37,99,235,0.25), rgba(124,58,237,0.18))",
-          border: "1px solid rgba(37,99,235,0.35)",
-          borderRadius: 10,
-          color: "#fff",
-          fontSize: 13,
+          padding: "14px 0",
+          background: "linear-gradient(135deg, rgba(59,130,246,0.3), rgba(79,70,229,0.22))",
+          border: `1px solid ${Z.borderActive}`,
+          borderRadius: 12,
+          color: Z.textPrimary,
+          fontSize: 14,
           fontWeight: 700,
           cursor: "pointer",
           display: "flex",
@@ -475,22 +658,12 @@ function ConceptDetailPanel({
           justifyContent: "center",
           gap: 8,
           letterSpacing: "0.02em",
+          boxShadow: Z.glowPrimary,
+          transition: "all 0.2s ease",
         }}
       >
         <span>✦</span>
-        Generate 4 Outputs
-        <span
-          style={{
-            fontSize: 10,
-            padding: "2px 6px",
-            background: "rgba(255,255,255,0.08)",
-            borderRadius: 4,
-            color: "rgba(255,255,255,0.5)",
-            fontWeight: 600,
-          }}
-        >
-          2 cr
-        </span>
+        Render Concept
       </button>
     </div>
   );
@@ -506,6 +679,7 @@ export default function ConceptBoard({
   onExpandConcept,
 }: ConceptBoardProps) {
   const selectedConcept = concepts.find((c) => c.id === selectedConceptId) ?? null;
+  const selectedIndex   = concepts.findIndex((c) => c.id === selectedConceptId);
 
   return (
     <div
@@ -513,112 +687,146 @@ export default function ConceptBoard({
         height: "100%",
         overflowY: "auto",
         scrollbarWidth: "none",
-        padding: "20px 20px",
+        padding: "20px",
       }}
     >
       <style>{`
         @keyframes skeletonPulse {
-          0%, 100% { opacity: 0.6; }
+          0%, 100% { opacity: 0.55; }
           50% { opacity: 1; }
         }
-        .concept-card:hover { border-color: rgba(255,255,255,0.12) !important; }
       `}</style>
 
       {/* ── Empty state ── */}
       {state === "empty" && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            minHeight: 360,
-            textAlign: "center",
-            padding: "0 40px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 32,
-              color: "rgba(255,255,255,0.1)",
-              marginBottom: 20,
-              letterSpacing: "-0.02em",
-            }}
-          >
-            ✦
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", padding: "32px 20px 28px" }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 52,
+                height: 52,
+                borderRadius: 16,
+                background: "rgba(59,130,246,0.08)",
+                border: `1px solid rgba(120,160,255,0.2)`,
+                fontSize: 22,
+                marginBottom: 16,
+                boxShadow: "0 0 20px rgba(59,130,246,0.08)",
+              }}
+            >
+              ✦
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: Z.textPrimary,
+                marginBottom: 10,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Start your creative direction
+            </div>
+            <div
+              style={{
+                fontSize: 13.5,
+                color: Z.textMuted,
+                lineHeight: 1.6,
+                maxWidth: 300,
+                margin: "0 auto",
+              }}
+            >
+              Fill in your brief and click Generate Concepts — the AI art director will produce 3 strategic directions.
+            </div>
           </div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.25)",
-              marginBottom: 10,
-              letterSpacing: "0.01em",
-            }}
-          >
-            No concepts yet
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "rgba(255,255,255,0.2)",
-              lineHeight: 1.6,
-              maxWidth: 280,
-            }}
-          >
-            Fill in your brief and generate creative directions — AI will produce 3 strategic concepts for your campaign.
+
+          {/* Ghost cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[0, 1, 2].map((i) => (
+              <GhostCard key={i} index={i} />
+            ))}
           </div>
         </div>
       )}
 
       {/* ── Loading state ── */}
       {state === "loading" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.25)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 4,
-            }}
-          >
-            Thinking through concepts…
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Header */}
+          <div style={{ padding: "20px 0 24px" }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: Z.textMuted,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: Z.accentBlue,
+                  boxShadow: `0 0 8px ${Z.accentBlue}`,
+                  animation: "skeletonPulse 1.2s ease-in-out infinite",
+                }}
+              />
+              Thinking through concepts…
+            </div>
           </div>
-          {[0, 1, 2].map((i) => (
-            <SkeletonCard key={i} index={i} />
-          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[0, 1, 2].map((i) => (
+              <SkeletonCard key={i} index={i} />
+            ))}
+          </div>
         </div>
       )}
 
       {/* ── Results state ── */}
       {state === "results" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.25)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              marginBottom: 4,
-            }}
-          >
-            {concepts.length} Creative Direction{concepts.length !== 1 ? "s" : ""}
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {/* Header */}
+          <div style={{ padding: "0 0 20px" }}>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: Z.textPrimary,
+                marginBottom: 6,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {concepts.length} Creative Direction{concepts.length !== 1 ? "s" : ""}
+            </div>
+            <div style={{ fontSize: 13, color: Z.textMuted, lineHeight: 1.5 }}>
+              {selectedConceptId
+                ? "Concept selected — use the dock below to render."
+                : "Select a concept to begin rendering."}
+            </div>
           </div>
-          {concepts.map((concept, i) => (
-            <ConceptCardView
-              key={concept.id}
-              concept={concept}
-              index={i}
-              isSelected={concept.id === selectedConceptId}
-              onSelect={() => onSelectConcept(concept.id)}
-              onGenerate={() => onGenerateConcept(concept.id)}
-              onExpand={() => onExpandConcept(concept.id)}
-            />
-          ))}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {concepts.map((concept, i) => (
+              <ConceptCardView
+                key={concept.id}
+                concept={concept}
+                index={i}
+                isSelected={concept.id === selectedConceptId}
+                onSelect={() => onSelectConcept(concept.id)}
+                onGenerate={() => onGenerateConcept(concept.id)}
+                onExpand={() => onExpandConcept(concept.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -626,6 +834,7 @@ export default function ConceptBoard({
       {state === "detail" && selectedConcept && (
         <ConceptDetailPanel
           concept={selectedConcept}
+          index={selectedIndex >= 0 ? selectedIndex : 0}
           onGenerate={() => onGenerateConcept(selectedConcept.id)}
           onBack={() => onSelectConcept(selectedConcept.id)}
         />

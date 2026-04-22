@@ -25,7 +25,10 @@ export interface CreativeRenderDockProps {
   projectType?: string;
   isGenerating: boolean;
   isVariationMode?: boolean;
+  conceptsExist?: boolean;          // true once at least 1 concept card exists
+  isGeneratingConcepts?: boolean;   // true while concept generation is running
   onGenerate: (settings: RenderDockSettings) => void;
+  onGenerateConcepts?: () => void;  // called when dock CTA = "Generate Concepts"
   onReferenceUpload?: (file: File) => Promise<string>;
 }
 
@@ -181,7 +184,10 @@ export default function CreativeRenderDock({
   projectType = "",
   isGenerating,
   isVariationMode = false,
+  conceptsExist = false,
+  isGeneratingConcepts = false,
   onGenerate,
+  onGenerateConcepts,
   onReferenceUpload,
 }: CreativeRenderDockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -215,8 +221,31 @@ export default function CreativeRenderDock({
 
   const selectedModel  = CD_MODELS.find((x) => x.value === model) ?? CD_MODELS[0];
   const creditEstimate = estimateCredits(model, quality, resolution, outputCount);
-  const isDisabled     = !selectedConceptId || isGenerating;
-  const generateLabel  = isGenerating ? "Generating…" : isVariationMode ? "Generate Variation" : "Generate";
+
+  // ── Context CTA state machine ─────────────────────────────────────────────
+  // Step 1: No concepts yet  → "Generate Concepts" (calls onGenerateConcepts)
+  // Step 2: Concepts exist, none selected → "Select a Concept" (disabled)
+  // Step 3: Concept selected → "Render Selected Concept" (calls onGenerate)
+  type DockCTAMode = "generate-concepts" | "select-concept" | "render";
+  const ctaMode: DockCTAMode = !conceptsExist
+    ? "generate-concepts"
+    : !selectedConceptId
+    ? "select-concept"
+    : "render";
+
+  const isRenderDisabled = ctaMode !== "render" || isGenerating;
+  const isGenerateLabel  = isGeneratingConcepts ? "Generating Concepts…" : "Generate Concepts";
+
+  const generateLabel =
+    ctaMode === "generate-concepts"
+      ? isGenerateLabel
+      : ctaMode === "select-concept"
+      ? "Select a Concept"
+      : isGenerating
+      ? "Rendering…"
+      : isVariationMode
+      ? "Generate Variation"
+      : "Render Selected Concept";
 
   const handleModelChange = useCallback((value: string) => {
     const m = CD_MODELS.find((x) => x.value === value);
@@ -239,10 +268,15 @@ export default function CreativeRenderDock({
   }, [onReferenceUpload]);
 
   const handleGenerate = useCallback(() => {
-    if (isDisabled) return;
+    if (ctaMode === "generate-concepts") {
+      if (!isGeneratingConcepts) onGenerateConcepts?.();
+      return;
+    }
+    if (isRenderDisabled) return;
     const resolvedRatio = aspectRatio === "Auto" ? getDefaultAspectRatio(projectType) : aspectRatio;
     onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImageUrl: refImageUrl || undefined });
-  }, [isDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, refImageUrl, onGenerate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, refImageUrl, onGenerate, onGenerateConcepts]);
 
   return (
     <>
@@ -331,7 +365,7 @@ export default function CreativeRenderDock({
             }
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !isDisabled) handleGenerate(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !isRenderDisabled) handleGenerate(); }}
             style={{
               flex:         1,
               height:       56,
@@ -602,13 +636,6 @@ export default function CreativeRenderDock({
           {/* Spacer */}
           <div style={{ flex: 1 }} />
 
-          {/* Helper text — no concept selected */}
-          {!selectedConceptId && (
-            <span style={{ fontSize: 13, color: Z.textMuted, flexShrink: 0, whiteSpace: "nowrap", fontStyle: "italic" }}>
-              Select a concept to render
-            </span>
-          )}
-
           {/* Variation mode chip */}
           {isVariationMode && selectedConceptId && (
             <span style={{
@@ -620,30 +647,40 @@ export default function CreativeRenderDock({
             }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Generate button — 148px ── */}
+          {/* ── 6. Context CTA button ── */}
           <button
             className="rd-gen"
             onClick={handleGenerate}
-            disabled={isDisabled}
+            disabled={ctaMode === "select-concept"}
             style={{
-              height:       44, minWidth: 148,
-              padding:      "0 20px", borderRadius: 12,
-              border:       "none",
-              background:   isDisabled
+              height:       44,
+              minWidth:     ctaMode === "render" ? 200 : ctaMode === "generate-concepts" ? 180 : 172,
+              padding:      "0 22px",
+              borderRadius: 12,
+              border:       ctaMode === "select-concept"
+                ? `1px solid ${Z.borderSubtle}`
+                : "none",
+              background:   ctaMode === "select-concept"
                 ? Z.bgInput
+                : ctaMode === "generate-concepts"
+                ? "linear-gradient(135deg, rgba(16,185,129,0.85) 0%, rgba(5,150,105,0.85) 100%)"
                 : "linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(79,70,229,0.9) 100%)",
-              color:        isDisabled ? Z.textMuted : Z.textPrimary,
-              fontSize:     15, fontWeight: 600,
-              cursor:       isDisabled ? "default" : "pointer",
+              color:        ctaMode === "select-concept" ? Z.textMuted : Z.textPrimary,
+              fontSize:     14, fontWeight: 700,
+              cursor:       ctaMode === "select-concept" ? "default" : "pointer",
               letterSpacing: "0.01em",
               display:      "flex", alignItems: "center", justifyContent: "center",
               gap:          8, flexShrink: 0, whiteSpace: "nowrap",
-              boxShadow:    isDisabled ? "none" : "0 8px 24px rgba(59,130,246,0.24)",
-              transition:   "all 0.15s ease",
+              boxShadow:    ctaMode === "select-concept"
+                ? "none"
+                : ctaMode === "generate-concepts"
+                ? "0 8px 24px rgba(16,185,129,0.2)"
+                : "0 8px 24px rgba(59,130,246,0.28)",
+              transition:   "all 0.18s ease",
             }}
           >
-            {isGenerating && (
-              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 15 }}>⟳</span>
+            {(isGenerating || isGeneratingConcepts) && (
+              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>⟳</span>
             )}
             {generateLabel}
           </button>

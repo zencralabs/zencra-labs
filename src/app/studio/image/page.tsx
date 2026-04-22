@@ -1274,53 +1274,73 @@ function ImageStudioInner() {
         {/* Left: studio mode tabs + gallery tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
 
-          {/* ── Studio mode switcher ── */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            height: 52,
-            padding: "4px",
-            borderRadius: 16,
-            background: "#0B1022",
-            border: "1px solid rgba(120,160,255,0.1)",
-          }}>
+          {/* ── Studio mode switcher — animated sliding pill toggle ── */}
+          <div
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              alignItems: "center",
+              height: 52,
+              padding: "4px",
+              borderRadius: 16,
+              background: "#0B1022",
+              border: "1px solid rgba(120,160,255,0.1)",
+              flexShrink: 0,
+            }}
+          >
+            {/* Sliding pill — CSS transition handles movement */}
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                top: 4,
+                left: studioMode === "standard" ? 4 : "calc(50% + 2px)",
+                width: "calc(50% - 6px)",
+                height: 44,
+                borderRadius: 12,
+                transition: "left 0.22s cubic-bezier(0.4,0,0.2,1), background 0.22s ease",
+                background: studioMode === "standard"
+                  ? "#151D34"
+                  : "linear-gradient(135deg, rgba(59,130,246,0.28), rgba(79,70,229,0.22))",
+                border: studioMode === "standard"
+                  ? "1px solid rgba(120,160,255,0.14)"
+                  : "1px solid rgba(86,140,255,0.42)",
+                boxShadow: studioMode === "creative-director"
+                  ? "0 0 16px rgba(86,140,255,0.35), 0 0 0 1px rgba(59,130,246,0.1)"
+                  : "0 0 10px rgba(255,255,255,0.04)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+            />
+            {/* Tab buttons */}
             {([
-              { id: "standard",          label: "Generate",         badge: null },
+              { id: "standard",          label: "Quick Gen",        badge: null  },
               { id: "creative-director", label: "Creative Director", badge: "NEW" },
             ] as const).map(({ id, label, badge }) => {
               const isActive = studioMode === id;
-              const isCD = id === "creative-director";
               return (
                 <button
                   key={id}
                   onClick={() => setStudioMode(id)}
                   style={{
-                    display: "flex",
+                    position:   "relative",
+                    zIndex:     1,
+                    display:    "flex",
                     alignItems: "center",
-                    gap: 7,
-                    height: 44,
-                    padding: "0 18px",
+                    gap:        7,
+                    height:     44,
+                    padding:    "0 20px",
+                    minWidth:   140,
                     borderRadius: 12,
-                    fontSize: 15,
+                    fontSize:   15,
                     fontWeight: 600,
-                    cursor: "pointer",
+                    cursor:     "pointer",
                     letterSpacing: "-0.01em",
-                    transition: "all 0.18s ease",
-                    border: isActive
-                      ? isCD
-                        ? "1px solid rgba(86,140,255,0.42)"
-                        : "1px solid rgba(120,160,255,0.14)"
-                      : "1px solid transparent",
-                    background: isActive
-                      ? isCD
-                        ? "linear-gradient(135deg, rgba(59,130,246,0.22), rgba(79,70,229,0.18))"
-                        : "#151D34"
-                      : "transparent",
-                    color: isActive ? "#F5F7FF" : "rgba(167,176,197,0.55)",
-                    boxShadow: isActive && isCD
-                      ? "0 0 16px rgba(59,130,246,0.12)"
-                      : "none",
+                    transition: "color 0.18s ease",
+                    border:     "none",
+                    background: "transparent",
+                    color:      isActive ? "#F5F7FF" : "rgba(167,176,197,0.45)",
+                    justifyContent: "center",
                   }}
                 >
                   {label}

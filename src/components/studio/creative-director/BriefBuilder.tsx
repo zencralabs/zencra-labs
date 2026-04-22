@@ -69,28 +69,29 @@ const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:5", "3:4", "4:3"];
 
 const PROVIDERS = ["Auto", "GPT Image", "Nano Banana", "Nano Banana Pro", "Nano Banana 2"];
 
-// ── Style constants ────────────────────────────────────────────────────────────
+// ── Style constants — Zencra refined typography ────────────────────────────────
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: 700,
-  letterSpacing: "0.08em",
+  letterSpacing: "0.06em",
   textTransform: "uppercase",
-  color: "rgba(255,255,255,0.3)",
+  color: "rgba(167,176,197,0.6)",
   display: "block",
-  marginBottom: 6,
+  marginBottom: 7,
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 8,
-  padding: "8px 12px",
-  color: "#fff",
-  fontSize: 13,
+  background: "rgba(255,255,255,0.05)",
+  border: "1px solid rgba(120,160,255,0.14)",
+  borderRadius: 10,
+  padding: "10px 14px",
+  color: "#F5F7FF",
+  fontSize: 15,
   outline: "none",
   boxSizing: "border-box",
+  transition: "border-color 0.15s ease",
 };
 
 const textareaStyle: React.CSSProperties = {
@@ -113,21 +114,20 @@ const selectStyle: React.CSSProperties = {
 };
 
 const sectionStyle: React.CSSProperties = {
-  borderTop: "1px solid rgba(255,255,255,0.06)",
-  padding: "16px 20px",
+  borderTop: "1px solid rgba(120,160,255,0.08)",
+  padding: "20px 20px",
 };
 
 const sectionHeaderStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 13,
   fontWeight: 700,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.25)",
-  marginBottom: 14,
+  letterSpacing: "0.04em",
+  color: "rgba(167,176,197,0.55)",
+  marginBottom: 16,
 };
 
 const fieldStyle: React.CSSProperties = {
-  marginBottom: 12,
+  marginBottom: 14,
 };
 
 export default function BriefBuilder({

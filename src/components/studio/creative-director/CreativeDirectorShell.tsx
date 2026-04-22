@@ -935,6 +935,9 @@ export default function CreativeDirectorShell() {
         projectType={brief.projectType}
         isGenerating={isGeneratingOutputs}
         isVariationMode={false}
+        conceptsExist={concepts.length > 0}
+        isGeneratingConcepts={isGeneratingConcepts}
+        onGenerateConcepts={handleGenerateConcepts}
         onGenerate={(settings) => {
           if (selectedConceptId) {
             handleGenerateConcept(selectedConceptId, settings);
