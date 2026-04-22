@@ -551,7 +551,7 @@ export default function CreativeRenderDock({
               <div style={{
                 display:        "flex",
                 alignItems:     "flex-end",  // secondary chips bottom-align with primary
-                gap:            6,
+                gap:            8,
                 overflowX:      imgCount >= 5 ? "auto" : "visible",
                 paddingBottom:  2,
                 scrollbarWidth: "none",
@@ -689,7 +689,7 @@ export default function CreativeRenderDock({
               <div style={{
                 display:    "flex",
                 alignItems: "center",
-                gap:        6,
+                gap:        8,
                 paddingBottom: 4,
               }}>
                 {/* ── Blend mode pills ── */}
@@ -834,7 +834,7 @@ export default function CreativeRenderDock({
                 pointerEvents: showCharacterControls ? "auto" : "none",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 7, paddingBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
                 {/* Lock toggle pill */}
                 <Tooltip content="Preserve the character's face identity across all generations">
                 <button

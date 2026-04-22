@@ -301,11 +301,11 @@ function GenerationCard({
       {/* Info row */}
       <div
         style={{
-          padding: "10px 12px",
+          padding: "12px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 6,
+          gap: 8,
           borderBottom: "1px solid rgba(255,255,255,0.05)",
         }}
       >
@@ -341,9 +341,9 @@ function GenerationCard({
       {/* Action row */}
       <div
         style={{
-          padding: "8px 12px",
+          padding: "10px 16px",
           display: "flex",
-          gap: 6,
+          gap: 8,
         }}
       >
         {[
@@ -426,7 +426,7 @@ function GenerationCard({
             scrollbarWidth: "none",
           }}
         >
-          <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 8, paddingBottom: 2 }}>
             {VARIATION_TYPES.map(({ key, label, icon }) => (
               <button
                 key={key}
@@ -460,9 +460,9 @@ function GenerationCard({
       {isCompleted && (
         <div
           style={{
-            padding: "0 12px 10px",
+            padding: "0 16px 12px",
             display: "flex",
-            gap: 6,
+            gap: 8,
           }}
         >
           <span style={{ ...labelStyle, alignSelf: "center", marginRight: 4, flexShrink: 0 }}>

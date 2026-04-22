@@ -213,7 +213,7 @@ function SkeletonCard({ index }: { index: number }) {
         <div style={{ width: "100%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 5 }} />
         <div style={{ width: "80%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
         {/* Tags */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <div style={{ width: 60, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
           <div style={{ width: 80, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
           <div style={{ width: 50, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
@@ -303,7 +303,7 @@ function GhostCard({ index }: { index: number }) {
         <div style={{ width: "100%", height: 9, background: "rgba(255,255,255,0.05)", borderRadius: 4, marginBottom: 6 }} />
         <div style={{ width: "78%", height: 9, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
         {/* Tag chips */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           <div style={{ width: 58, height: 20, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 20 }} />
           <div style={{ width: 76, height: 20, background: "rgba(120,160,255,0.05)", border: "1px dashed rgba(120,160,255,0.1)", borderRadius: 20 }} />
           <div style={{ width: 52, height: 20, background: "rgba(120,160,255,0.04)", borderRadius: 20 }} />
@@ -446,7 +446,7 @@ function ConceptCardView({
             style={{
               display: "flex",
               flexWrap: "wrap",
-              gap: 6,
+              gap: 8,
               marginBottom: 16,
             }}
           >

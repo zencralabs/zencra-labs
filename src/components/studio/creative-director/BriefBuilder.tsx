@@ -76,7 +76,7 @@ const labelStyle: React.CSSProperties = {
   textTransform: "uppercase",
   color: "rgba(255,255,255,0.65)",
   display: "block",
-  marginBottom: 7,
+  marginBottom: 8,
 };
 
 const inputStyle: React.CSSProperties = {
@@ -125,7 +125,7 @@ const sectionHeaderStyle: React.CSSProperties = {
 };
 
 const fieldStyle: React.CSSProperties = {
-  marginBottom: 14,
+  marginBottom: 16,
 };
 
 export default function BriefBuilder({
@@ -166,7 +166,7 @@ export default function BriefBuilder({
       `}</style>
 
       {/* ── B1: Project Basics ── */}
-      <div style={{ padding: "16px 20px 0" }}>
+      <div style={{ padding: "20px 20px 0" }}>
         <div style={sectionHeaderStyle}>Project Basics</div>
 
         <div style={fieldStyle}>
@@ -196,7 +196,7 @@ export default function BriefBuilder({
           </select>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div style={fieldStyle}>
             <label style={labelStyle}>Brand Name</label>
             <input
@@ -304,7 +304,7 @@ export default function BriefBuilder({
         {/* Style Presets */}
         <div style={fieldStyle}>
           <label style={labelStyle}>Style Preset</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {STYLE_PRESETS.map((preset) => {
               const active = brief.stylePreset === preset;
               return (
@@ -313,7 +313,7 @@ export default function BriefBuilder({
                   className="brief-chip"
                   onClick={() => onChange({ stylePreset: active ? "" : preset })}
                   style={{
-                    padding: "5px 10px",
+                    padding: "6px 12px",
                     fontSize: 11,
                     fontWeight: 600,
                     borderRadius: 6,
@@ -343,7 +343,7 @@ export default function BriefBuilder({
               (max 4)
             </span>
           </label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {MOOD_TAGS.map((tag) => {
               const active = brief.moodTags.includes(tag);
               const disabled = !active && brief.moodTags.length >= 4;
@@ -354,7 +354,7 @@ export default function BriefBuilder({
                   onClick={() => toggleMoodTag(tag)}
                   disabled={disabled}
                   style={{
-                    padding: "4px 9px",
+                    padding: "6px 12px",
                     fontSize: 11,
                     fontWeight: 600,
                     borderRadius: 5,
@@ -504,7 +504,7 @@ export default function BriefBuilder({
 
             <div style={fieldStyle}>
               <label style={labelStyle}>Aspect Ratio</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {ASPECT_RATIOS.map((ar) => {
                   const active = brief.aspectRatio === ar;
                   return (
@@ -513,7 +513,7 @@ export default function BriefBuilder({
                       className="brief-chip"
                       onClick={() => onChange({ aspectRatio: ar })}
                       style={{
-                        padding: "5px 10px",
+                        padding: "6px 12px",
                         fontSize: 11,
                         fontWeight: 600,
                         borderRadius: 6,
@@ -537,7 +537,7 @@ export default function BriefBuilder({
 
             <div style={fieldStyle}>
               <label style={labelStyle}>Output Count</label>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 8 }}>
                 {[1, 2, 3, 4].map((n) => {
                   const active = brief.outputCount === n;
                   return (
@@ -597,7 +597,7 @@ export default function BriefBuilder({
       </div>
 
       {/* ── B5: Brief support actions (Generate via dock below) ── */}
-      <div style={{ padding: "12px 20px 20px", marginTop: "auto" }}>
+      <div style={{ padding: "16px 20px 20px", marginTop: "auto" }}>
         <div style={{ display: "flex", gap: 8 }}>
           <button
             className="brief-action-btn"
