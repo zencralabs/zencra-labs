@@ -628,6 +628,8 @@ function ImageStudioInner() {
   const [selectedImage, setSelectedImage]   = useState<GeneratedImage | null>(null);
   const [panelDetails, setPanelDetails]     = useState<AssetDetailsResponse | null>(null);
   const [panelLoading, setPanelLoading]     = useState(false);
+  const [panelAnimateOpen, setPanelAnimateOpen] = useState(false);   // animate dropdown
+  const [panelMetaExpanded, setPanelMetaExpanded] = useState(false); // metadata accordion
 
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
@@ -819,6 +821,8 @@ function ImageStudioInner() {
         setViewingImage(null);
         setSelectedImage(null);
         setPanelDetails(null);
+        setPanelAnimateOpen(false);
+        setPanelMetaExpanded(false);
       }
     }
     window.addEventListener("keydown", handleEsc);
@@ -1434,6 +1438,8 @@ function ImageStudioInner() {
                     if (img.status === "done") {
                       setSelectedImage(img);
                       setPanelDetails(null);
+                      setPanelAnimateOpen(false);
+                      setPanelMetaExpanded(false);
                     }
                   }}
                   onDelete={handleDeleteCard}
@@ -2175,89 +2181,76 @@ function ImageStudioInner() {
     <FlowBar />
     <NextStepPanel onVariation={handleVariation} />
 
-    {/* ── METADATA RIGHT PANEL ─────────────────────────────────────────── */}
+    {/* ── RIGHT ACTION PANEL ───────────────────────────────────────────── */}
     {/* position:fixed slide-in from right; rendered OUTSIDE gallery div   */}
-    {/* to avoid being clipped by the gallery's stacking context.          */}
+    {/* to avoid being clipped by the gallery's stacking context (z:40).  */}
     {selectedImage && selectedImage.status === "done" && (
       <>
-        {/* Backdrop — clicking outside closes panel */}
+        {/* Backdrop — close on outside click */}
         <div
-          onClick={() => { setSelectedImage(null); setPanelDetails(null); }}
-          style={{
-            position: "fixed", inset: 0, zIndex: 9980,
-            background: "transparent",
+          onClick={() => {
+            setSelectedImage(null); setPanelDetails(null);
+            setPanelAnimateOpen(false); setPanelMetaExpanded(false);
           }}
+          style={{ position: "fixed", inset: 0, zIndex: 9980, background: "transparent" }}
         />
 
         {/* Panel */}
         <div
           style={{
             position: "fixed", top: 64, right: 0, bottom: 0,
-            width: 360, zIndex: 9981,
-            background: "rgba(11,11,16,0.97)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderLeft: "1px solid rgba(255,255,255,0.09)",
+            width: 340, zIndex: 9981,
+            background: "rgba(10,10,14,0.98)",
+            backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+            borderLeft: "1px solid rgba(255,255,255,0.08)",
             display: "flex", flexDirection: "column",
             fontFamily: "var(--font-body, system-ui, sans-serif)",
             color: "#fff",
-            animation: "slideInRight 0.22s cubic-bezier(0.16,1,0.3,1)",
+            animation: "slideInRight 0.2s cubic-bezier(0.16,1,0.3,1)",
             overflowY: "auto",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <style>{`
             @keyframes slideInRight {
-              from { transform: translateX(100%); opacity: 0.6; }
+              from { transform: translateX(100%); opacity: 0.7; }
               to   { transform: translateX(0);    opacity: 1;   }
+            }
+            @keyframes metaExpand {
+              from { opacity: 0; transform: translateY(-4px); }
+              to   { opacity: 1; transform: translateY(0); }
             }
           `}</style>
 
-          {/* ── Panel header ── */}
+          {/* ── Header ── */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)",
-            minHeight: 52, flexShrink: 0,
+            padding: "13px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)",
+            flexShrink: 0,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>
-              Asset Details
+            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }}>
+              Image
             </span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Fullscreen button */}
-              {selectedImage.url && (
-                <button
-                  onClick={() => setViewingImage(selectedImage)}
-                  style={{
-                    padding: "5px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.06)",
-                    color: "rgba(255,255,255,0.6)", cursor: "pointer", transition: "all 0.15s",
-                    letterSpacing: "0.02em",
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
-                >
-                  ⛶ Fullscreen
-                </button>
-              )}
-              {/* Close */}
-              <button
-                onClick={() => { setSelectedImage(null); setPanelDetails(null); }}
-                style={{
-                  width: 28, height: 28, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)",
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 14, transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.3)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)"; }}
-              >✕</button>
-            </div>
+            <button
+              onClick={() => {
+                setSelectedImage(null); setPanelDetails(null);
+                setPanelAnimateOpen(false); setPanelMetaExpanded(false);
+              }}
+              style={{
+                width: 26, height: 26, borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.09)",
+                background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)"; }}
+            >✕</button>
           </div>
 
-          {/* ── Image thumbnail ── */}
+          {/* ── Thumbnail ── */}
           {selectedImage.url && (
-            <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+            <div style={{ padding: "14px 14px 0", flexShrink: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedImage.url}
@@ -2265,7 +2258,7 @@ function ImageStudioInner() {
                 onClick={() => setViewingImage(selectedImage)}
                 style={{
                   width: "100%", borderRadius: 10, objectFit: "contain",
-                  maxHeight: 220, background: "rgba(255,255,255,0.03)",
+                  maxHeight: 200, background: "rgba(255,255,255,0.02)",
                   cursor: "zoom-in", display: "block",
                   border: "1px solid rgba(255,255,255,0.07)",
                 }}
@@ -2274,218 +2267,327 @@ function ImageStudioInner() {
           )}
 
           {/* ── Panel body ── */}
-          <div style={{ padding: "16px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ padding: "14px", flex: 1, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
 
-            {/* Generation Details */}
-            <section>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
-                Generation Details
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                {/* Prompt */}
-                <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "9px 11px" }}>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 3, letterSpacing: "0.04em" }}>PROMPT</span>
-                  <p style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", lineHeight: 1.5, margin: 0 }}>
-                    {selectedImage.prompt || "—"}
-                  </p>
-                </div>
+            {/* ══ PRIMARY ACTIONS ══════════════════════════════════════════════ */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
 
-                {/* Row: Model + Provider */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>MODEL</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
-                      {panelDetails?.asset.model_key || selectedImage.model || "—"}
-                    </span>
-                  </div>
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>PROVIDER</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
-                      {panelDetails?.asset.provider || "—"}
-                    </span>
-                  </div>
-                </div>
+              {/* Create Variation */}
+              <button
+                onClick={() => {
+                  // Restore the selected image's exact settings then generate
+                  const srcPrompt = selectedImage.prompt;
+                  const srcAr     = (selectedImage.aspectRatio || "1:1") as AspectRatio;
+                  // selectedImage.model may be a UI ID ("dalle3") or a model key ("gpt-image-1")
+                  // KEY_TO_MODEL handles model keys → UI IDs; fall back to as-is for UI IDs
+                  const srcModel  = KEY_TO_MODEL[selectedImage.model] ?? selectedImage.model;
+                  setPrompt(srcPrompt);
+                  if (srcModel && MODELS.find(m => m.id === srcModel)) setModel(srcModel);
+                  setAspectRatio(srcAr);
+                  setSelectedImage(null);
+                  setPanelDetails(null);
+                  // generate() reads overrides — pass values directly so we don't
+                  // depend on state having already updated before the call
+                  setTimeout(() => generate({
+                    prompt: srcPrompt,
+                    model:  srcModel,
+                    aspectRatio: srcAr,
+                  }), 0);
+                }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: 5, padding: "14px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(124,58,237,0.12))",
+                  color: "#fff", cursor: "pointer", transition: "all 0.15s",
+                  letterSpacing: "0.01em", textAlign: "center" as const,
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(37,99,235,0.28), rgba(124,58,237,0.22))";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.3)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(124,58,237,0.12))";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+                }}
+              >
+                <span style={{ fontSize: 18 }}>✦</span>
+                Create Variation
+              </button>
 
-                {/* Row: AR + Quality */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>ASPECT RATIO</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
-                      {panelDetails?.generation_metadata?.aspect_ratio || selectedImage.aspectRatio || "—"}
-                    </span>
-                  </div>
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>QUALITY</span>
-                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.82)", fontWeight: 500 }}>
-                      {panelDetails?.generation_metadata?.quality || "—"}
-                    </span>
-                  </div>
-                </div>
+              {/* Animate — with inline Start/End Frame dropdown */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setPanelAnimateOpen(v => !v)}
+                  style={{
+                    width: "100%", display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    gap: 5, padding: "14px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600,
+                    border: "1px solid rgba(37,99,235,0.25)",
+                    background: "rgba(37,99,235,0.1)",
+                    color: "#93C5FD", cursor: "pointer", transition: "all 0.15s",
+                    letterSpacing: "0.01em", textAlign: "center" as const,
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.2)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.45)";
+                  }}
+                  onMouseLeave={e => {
+                    if (!panelAnimateOpen) {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.25)";
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>▶</span>
+                  Animate {panelAnimateOpen ? "▲" : "▾"}
+                </button>
 
-                {/* Credits */}
-                {(panelDetails?.asset.credits_cost != null || panelDetails?.generation_metadata?.credits_used != null) && (
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 11px" }}>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", display: "block", marginBottom: 2, letterSpacing: "0.04em" }}>CREDITS USED</span>
-                    <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 600 }}>
-                      {panelDetails?.generation_metadata?.credits_used ?? panelDetails?.asset.credits_cost} cr
-                    </span>
+                {/* Inline dropdown */}
+                {panelAnimateOpen && selectedImage.url && (
+                  <div style={{
+                    position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+                    background: "#141420", border: "1px solid rgba(96,165,250,0.2)",
+                    borderRadius: 10, overflow: "hidden", zIndex: 10,
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  }}>
+                    {[
+                      { label: "Use as Start Frame", param: "startFrame", desc: "Image becomes the first frame" },
+                      { label: "Use as End Frame",   param: "endFrame",   desc: "Image becomes the last frame" },
+                    ].map(({ label, param, desc }) => (
+                      <button
+                        key={param}
+                        onClick={() => {
+                          const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
+                          params.set(param, selectedImage.url!);
+                          if (selectedImage.prompt) params.set("prompt", selectedImage.prompt);
+                          setPanelAnimateOpen(false);
+                          router.push(`/studio/video?${params.toString()}`);
+                        }}
+                        style={{
+                          width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
+                          padding: "10px 12px", border: "none", background: "transparent",
+                          color: "#fff", cursor: "pointer", transition: "background 0.12s",
+                          borderBottom: param === "startFrame" ? "1px solid rgba(255,255,255,0.06)" : "none",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.1)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-            </section>
+            </div>
 
-            {/* Cinematic Details */}
-            <section>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 10 }}>
-                Cinematic Analysis
-              </p>
+            {/* ══ SECONDARY ACTIONS ════════════════════════════════════════════ */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
 
-              {panelLoading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0" }}>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#60A5FA", animation: "spin 0.8s linear infinite" }} />
-                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Analyzing…</span>
-                </div>
-              ) : panelDetails?.enriched_metadata ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-                  {/* Visual summary */}
-                  {panelDetails.enriched_metadata.visual_summary && (
-                    <div style={{ background: "rgba(37,99,235,0.08)", borderRadius: 8, padding: "9px 11px", border: "1px solid rgba(37,99,235,0.18)" }}>
-                      <span style={{ fontSize: 10, color: "rgba(96,165,250,0.7)", display: "block", marginBottom: 3, letterSpacing: "0.04em" }}>VISUAL SUMMARY</span>
-                      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
-                        {String(panelDetails.enriched_metadata.visual_summary)}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Tag rows — camera, lens, lighting */}
-                  {(panelDetails.enriched_metadata.camera || panelDetails.enriched_metadata.lens || panelDetails.enriched_metadata.lighting) && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      {panelDetails.enriched_metadata.camera && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Camera</span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
-                            {String(panelDetails.enriched_metadata.camera)}
-                          </span>
-                        </div>
-                      )}
-                      {panelDetails.enriched_metadata.lens && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Lens</span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
-                            {String(panelDetails.enriched_metadata.lens)}
-                          </span>
-                        </div>
-                      )}
-                      {panelDetails.enriched_metadata.lighting && (
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 60, letterSpacing: "0.03em" }}>Lighting</span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", background: "rgba(255,255,255,0.06)", padding: "2px 8px", borderRadius: 5 }}>
-                            {String(panelDetails.enriched_metadata.lighting)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Arrays: mood, style, composition, color_tone */}
-                  {(() => {
-                    type TagGroup = { label: string; key: string; color: string };
-                    const groups: TagGroup[] = [
-                      { label: "Mood",        key: "mood",        color: "#A78BFA" },
-                      { label: "Style",       key: "style_tags",  color: "#34D399" },
-                      { label: "Composition", key: "composition", color: "#60A5FA" },
-                      { label: "Color Tone",  key: "color_tone",  color: "#FB923C" },
-                    ];
-                    return groups.map(({ label, key, color }) => {
-                      const val = panelDetails.enriched_metadata![key as keyof typeof panelDetails.enriched_metadata];
-                      if (!Array.isArray(val) || val.length === 0) return null;
-                      return (
-                        <div key={key}>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 4, letterSpacing: "0.03em" }}>{label}</span>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {(val as string[]).map((tag: string) => (
-                              <span key={tag} style={{
-                                fontSize: 10, padding: "3px 8px", borderRadius: 20,
-                                background: `${color}18`,
-                                border: `1px solid ${color}30`,
-                                color: color,
-                                fontWeight: 500,
-                              }}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-
-                  {/* Confidence badge */}
-                  {typeof panelDetails.enriched_metadata.confidence === "number" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", letterSpacing: "0.04em" }}>PARSE CONFIDENCE</span>
-                      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${(panelDetails.enriched_metadata.confidence as number) * 100}%`, background: "linear-gradient(90deg, #2563EB, #7C3AED)", borderRadius: 2 }} />
-                      </div>
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", minWidth: 28, textAlign: "right" }}>
-                        {Math.round((panelDetails.enriched_metadata.confidence as number) * 100)}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : !selectedImage.assetId ? (
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
-                  No metadata available — asset ID not captured.
-                </p>
-              ) : (
-                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
-                  No cinematic analysis found.
-                </p>
+              {/* Reuse Prompt */}
+              {selectedImage.prompt && (
+                <button
+                  onClick={() => {
+                    setPrompt(selectedImage.prompt);
+                    promptRef.current?.focus();
+                    setSelectedImage(null); setPanelDetails(null);
+                  }}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
+                    cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap" as const,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
+                >
+                  ↩ Reuse Prompt
+                </button>
               )}
-            </section>
 
-            {/* Actions */}
-            <section style={{ marginTop: "auto", paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {/* Download */}
               {selectedImage.url && (
                 <a
                   href={selectedImage.url}
                   download
                   style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.8)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
                     textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.13)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
                   ↓ Download
                 </a>
               )}
+
+              {/* Fullscreen */}
               {selectedImage.url && (
                 <button
-                  onClick={() => {
-                    const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
-                    if (selectedImage.url) params.set("imageUrl", selectedImage.url);
-                    if (selectedImage.prompt) params.set("prompt", selectedImage.prompt);
-                    router.push(`/studio/video?${params.toString()}`);
-                  }}
+                  onClick={() => setViewingImage(selectedImage)}
                   style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
-                    border: "1px solid rgba(37,99,235,0.3)",
-                    background: "rgba(37,99,235,0.12)", color: "rgba(96,165,250,0.9)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
                     cursor: "pointer", transition: "all 0.15s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.22)"; (e.currentTarget as HTMLElement).style.color = "#93C5FD"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(96,165,250,0.9)"; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ▶ Animate
+                  ⛶ Fullscreen
                 </button>
               )}
-            </section>
+            </div>
+
+            {/* ══ METADATA — collapsed by default ══════════════════════════════ */}
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
+
+              {/* Accordion toggle */}
+              <button
+                onClick={() => setPanelMetaExpanded(v => !v)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  background: "none", border: "none", cursor: "pointer", padding: "0 0 4px",
+                  color: "rgba(255,255,255,0.35)", transition: "color 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                  Metadata
+                </span>
+                <span style={{ fontSize: 12, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+                  ›
+                </span>
+              </button>
+
+              {/* Expanded content */}
+              {panelMetaExpanded && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, animation: "metaExpand 0.18s ease" }}>
+
+                  {/* Generation Details */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 6px" }}>
+                      Generation
+                    </p>
+
+                    {/* Prompt */}
+                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "8px 10px" }}>
+                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>PROMPT</span>
+                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, margin: 0 }}>
+                        {selectedImage.prompt || "—"}
+                      </p>
+                    </div>
+
+                    {/* Model / Provider / AR / Quality row */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+                      {[
+                        { label: "MODEL",    val: panelDetails?.asset.model_key || selectedImage.model },
+                        { label: "PROVIDER", val: panelDetails?.asset.provider },
+                        { label: "RATIO",    val: panelDetails?.generation_metadata?.aspect_ratio as string | undefined || selectedImage.aspectRatio },
+                        { label: "QUALITY",  val: panelDetails?.generation_metadata?.quality as string | undefined },
+                      ].filter(({ val }) => !!val).map(({ label, val }) => (
+                        <div key={label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>{label}</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Credits */}
+                    {(panelDetails?.asset.credits_cost != null || panelDetails?.generation_metadata?.credits_used != null) && (
+                      <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
+                        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>CREDITS</span>
+                        <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 600 }}>
+                          {panelDetails?.generation_metadata?.credits_used ?? panelDetails?.asset.credits_cost} cr
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cinematic Analysis */}
+                  {panelLoading ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.08)", borderTopColor: "#60A5FA", animation: "spin 0.8s linear infinite" }} />
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Analyzing…</span>
+                    </div>
+                  ) : panelDetails?.enriched_metadata && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 2px" }}>
+                        Cinematic
+                      </p>
+
+                      {/* Visual summary */}
+                      {panelDetails.enriched_metadata.visual_summary && (
+                        <div style={{ background: "rgba(37,99,235,0.07)", borderRadius: 7, padding: "8px 10px", border: "1px solid rgba(37,99,235,0.15)" }}>
+                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
+                            {String(panelDetails.enriched_metadata.visual_summary)}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Single-value fields */}
+                      {(["camera", "lens", "lighting"] as const).map((field) => {
+                        const val = panelDetails.enriched_metadata![field];
+                        if (!val) return null;
+                        return (
+                          <div key={field} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", minWidth: 52, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{field}</span>
+                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
+                              {String(val)}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Array tags */}
+                      {(["mood", "style_tags", "composition", "color_tone"] as const).map((field) => {
+                        const colors: Record<string, string> = { mood: "#A78BFA", style_tags: "#34D399", composition: "#60A5FA", color_tone: "#FB923C" };
+                        const labels: Record<string, string> = { mood: "Mood", style_tags: "Style", composition: "Composition", color_tone: "Color" };
+                        const val = panelDetails.enriched_metadata![field];
+                        if (!Array.isArray(val) || val.length === 0) return null;
+                        return (
+                          <div key={field}>
+                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", display: "block", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>{labels[field]}</span>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                              {(val as string[]).map((tag: string) => (
+                                <span key={tag} style={{
+                                  fontSize: 10, padding: "2px 7px", borderRadius: 20,
+                                  background: `${colors[field]}15`,
+                                  border: `1px solid ${colors[field]}28`,
+                                  color: colors[field], fontWeight: 500,
+                                }}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Confidence bar */}
+                      {typeof panelDetails.enriched_metadata.confidence === "number" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 2 }}>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>CONFIDENCE</span>
+                          <div style={{ flex: 1, height: 2, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${(panelDetails.enriched_metadata.confidence as number) * 100}%`, background: "linear-gradient(90deg, #2563EB, #7C3AED)", borderRadius: 2 }} />
+                          </div>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", minWidth: 24, textAlign: "right" as const }}>
+                            {Math.round((panelDetails.enriched_metadata.confidence as number) * 100)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </>
