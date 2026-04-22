@@ -177,9 +177,9 @@ function ConceptPreview({ index, isSelected }: { index: number; isSelected: bool
         </div>
         <span
           style={{
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 600,
-            color: "rgba(255,255,255,0.25)",
+            color: "rgba(255,255,255,0.35)",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
           }}
@@ -273,18 +273,18 @@ function GhostCard({ index }: { index: number }) {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
           <div
             style={{
-              width: 40, height: 40, borderRadius: 12,
-              border: "1px dashed rgba(140,185,255,0.38)",
-              background: "rgba(120,160,255,0.08)",
+              width: 44, height: 44, borderRadius: 13,
+              border: "1px dashed rgba(140,185,255,0.42)",
+              background: "rgba(120,160,255,0.1)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "rgba(140,185,255,0.55)", fontSize: 17,
+              color: "rgba(140,185,255,0.65)", fontSize: 18,
             }}
           >
             ✦
           </div>
           <span style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
-            color: "rgba(140,185,255,0.42)", textTransform: "uppercase",
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
+            color: "rgba(140,185,255,0.55)", textTransform: "uppercase",
           }}>
             Concept {index + 1}
           </span>

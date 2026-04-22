@@ -554,13 +554,13 @@ export default function OutputWorkspace({
             {generations.length > 0 && (
               <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: 500,
                   color: Z.textMuted,
                   background: "rgba(255,255,255,0.05)",
                   border: `1px solid ${Z.borderSubtle}`,
                   borderRadius: 20,
-                  padding: "1px 8px",
+                  padding: "2px 9px",
                 }}
               >
                 {generations.length}
@@ -570,9 +570,9 @@ export default function OutputWorkspace({
           {generations.length > 0 && (
             <button
               style={{
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 600,
-                padding: "4px 10px",
+                padding: "5px 12px",
                 borderRadius: 7,
                 border: `1px solid ${Z.borderSubtle}`,
                 background: "rgba(255,255,255,0.03)",
@@ -602,17 +602,18 @@ export default function OutputWorkspace({
       <div
         style={{
           marginBottom: 16,
-          padding: "10px 14px",
+          padding: "12px 14px",
           borderRadius: 10,
-          background: "rgba(59,130,246,0.06)",
-          border: "1px solid rgba(120,160,255,0.14)",
+          background: "rgba(59,130,246,0.07)",
+          border: "1px solid rgba(120,160,255,0.22)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
           display: "flex",
           alignItems: "flex-start",
           gap: 10,
         }}
       >
-        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>◈</span>
-        <p style={{ fontSize: 15, color: Z.textSecondary, margin: 0, lineHeight: 1.6 }}>
+        <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>◈</span>
+        <p style={{ fontSize: 14, color: Z.textSecondary, margin: 0, lineHeight: 1.65 }}>
           Outputs are saved to this project and also appear in{" "}
           <span style={{ color: "#93c5fd", fontWeight: 600 }}>Image Studio → History</span>{" "}
           tagged with <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Creative Director</span> so you can find them anytime.
@@ -657,16 +658,16 @@ export default function OutputWorkspace({
             >
               <div
                 style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  border: "1px dashed rgba(120,160,255,0.3)",
-                  background: "rgba(120,160,255,0.08)",
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  border: "1px dashed rgba(120,160,255,0.35)",
+                  background: "rgba(120,160,255,0.1)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "rgba(120,160,255,0.4)",
-                  fontSize: 14,
+                  color: "rgba(120,160,255,0.5)",
+                  fontSize: 16,
                 }}
               >
                 ✦
@@ -674,11 +675,11 @@ export default function OutputWorkspace({
               {i === 0 && (
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 500,
-                    color: "rgba(167,176,197,0.4)",
+                    color: "rgba(167,176,197,0.55)",
                     textAlign: "center",
-                    maxWidth: 90,
+                    maxWidth: 110,
                     lineHeight: 1.45,
                   }}
                 >
@@ -686,7 +687,7 @@ export default function OutputWorkspace({
                 </span>
               )}
               {i !== 0 && (
-                <span style={{ fontSize: 11, color: "rgba(167,176,197,0.25)", fontWeight: 500 }}>
+                <span style={{ fontSize: 13, color: "rgba(167,176,197,0.38)", fontWeight: 500 }}>
                   Slot {i + 1}
                 </span>
               )}
