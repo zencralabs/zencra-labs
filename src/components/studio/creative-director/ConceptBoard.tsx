@@ -782,6 +782,30 @@ export default function ConceptBoard({
             </div>
           </div>
 
+          {/* Value callout */}
+          <div style={{
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "center",
+            gap:            7,
+            padding:        "9px 16px",
+            background:     "rgba(254,206,1,0.04)",
+            border:         "1px solid rgba(254,206,1,0.11)",
+            borderRadius:   10,
+            marginBottom:   16,
+          }}>
+            <span style={{ fontSize: 13, lineHeight: 1 }}>✨</span>
+            <span style={{
+              fontSize:      12,
+              fontWeight:    600,
+              color:         "rgba(252,211,77,0.68)",
+              letterSpacing: "0.01em",
+              lineHeight:    1,
+            }}>
+              AI will generate 3 strategic directions for your campaign
+            </span>
+          </div>
+
           {/* Ghost cards */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[0, 1, 2].map((i) => (

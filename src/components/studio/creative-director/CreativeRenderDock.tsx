@@ -298,7 +298,7 @@ export default function CreativeRenderDock({
   const [quality,     setQuality]     = useState<"low" | "medium" | "high">("medium");
   const [resolution,  setResolution]  = useState<"1k" | "2k" | "4k">("1k");
   const [aspectRatio, setAspectRatio] = useState<string>("Auto");
-  const [outputCount, setOutputCount] = useState<number>(4);
+  const [outputCount, setOutputCount] = useState<number>(1);
   const [promptText,      setPromptText]      = useState<string>("");
   const [uploadedImages,  setUploadedImages]  = useState<Array<{ id: string; url: string }>>([]);
   const [primaryImageId,  setPrimaryImageId]  = useState<string | null>(null);
@@ -486,7 +486,7 @@ export default function CreativeRenderDock({
           .rd-step:hover:not([disabled]) { background: rgba(120,160,255,0.08) !important; }
           .rd-step[disabled] { opacity: 0.28; cursor: default; }
           .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
-          .rd-gen:hover:not([disabled]) { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(120,80,255,0.3) !important; }
+          .rd-gen:hover:not([disabled]) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 36px rgba(63,169,245,0.55), 0 0 20px rgba(108,92,231,0.35), 0 6px 20px rgba(0,0,0,0.5) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           .rd-chip-remove:hover { background: rgba(255,80,80,0.18) !important; color: #FF8080 !important; }
           .rd-ref-chip { transition: box-shadow 0.15s ease, transform 0.15s ease; }
@@ -1185,8 +1185,10 @@ export default function CreativeRenderDock({
 
           {/* Credit estimate */}
           <div style={{
-            fontSize: 15, fontWeight: 600, color: "rgba(200,215,255,0.75)",
-            flexShrink: 0, whiteSpace: "nowrap", paddingLeft: 2,
+            fontSize: 13, fontWeight: 600,
+            color:        "rgba(254,206,1,0.65)",
+            textShadow:   "0 0 6px rgba(254,206,1,0.2)",
+            flexShrink:   0, whiteSpace: "nowrap", paddingLeft: 2,
             letterSpacing: "-0.01em",
           }}>
             ~{creditEstimate} cr
@@ -1206,78 +1208,83 @@ export default function CreativeRenderDock({
             }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Context CTA — Zencra master brand Generate button ── */}
+          {/* ── 6. Context CTA — Zencra signature trigger button ── */}
           <button
             className="rd-gen"
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
-              height:       46,
-              minWidth:     ctaMode === "render" ? 190 : ctaMode === "generate-concepts" ? 180 : 168,
-              padding:      "0 22px",
-              borderRadius: 12,
-              border:       ctaMode === "select-concept"
+              height:         54,
+              minWidth:       ctaMode === "select-concept" ? 170 : 158,
+              padding:        "0 20px",
+              borderRadius:   14,
+              border:         ctaMode === "select-concept"
                 ? `1px solid ${Z.borderSubtle}`
-                : "none",
-              background:   ctaMode === "select-concept"
+                : "1px solid rgba(255,255,255,0.18)",
+              background:     ctaMode === "select-concept"
                 ? Z.bgInput
-                : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-              color:        ctaMode === "select-concept" ? Z.textMuted : "#ffffff",
-              fontSize:     14,
-              fontWeight:   700,
-              cursor:       ctaMode === "select-concept" ? "default" : "pointer",
-              letterSpacing: "0.02em",
-              display:      "flex",
-              alignItems:   "center",
+                : "linear-gradient(135deg, #3FA9F5 0%, #6C5CE7 100%)",
+              color:          ctaMode === "select-concept" ? Z.textMuted : "#ffffff",
+              cursor:         ctaMode === "select-concept" ? "default" : "pointer",
+              display:        "flex",
+              flexDirection:  "column",
+              alignItems:     "stretch",
               justifyContent: "center",
-              gap:          8,
-              flexShrink:   0,
-              whiteSpace:   "nowrap",
-              boxShadow:    ctaMode === "select-concept"
+              flexShrink:     0,
+              boxShadow:      ctaMode === "select-concept"
                 ? "none"
-                : "0 0 28px rgba(37,99,235,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(120,80,255,0.2)",
-              transition:   "all 0.18s ease",
+                : "0 0 20px rgba(63,169,245,0.4), 0 0 20px rgba(108,92,231,0.25), 0 4px 16px rgba(0,0,0,0.4)",
+              transition:     "all 0.18s ease",
             }}
           >
-            {/* Spinning loader during generation */}
-            {(isGenerating || isGeneratingConcepts) && (
-              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 14, lineHeight: 1 }}>⟳</span>
+            {/* ── Disabled: select-concept ── */}
+            {ctaMode === "select-concept" && (
+              <span style={{ fontSize: 14, fontWeight: 600, textAlign: "center", letterSpacing: "0.01em" }}>
+                Select a Concept
+              </span>
             )}
 
-            {/* Label */}
-            <span>
-              {ctaMode === "select-concept"
-                ? "Select a Concept"
-                : isGenerating
-                ? "Generating…"
-                : isGeneratingConcepts
-                ? "Generating Concepts…"
-                : isVariationMode && ctaMode === "render"
-                ? "Generate Variation"
-                : ctaMode === "generate-concepts"
-                ? "Generate Concepts"
-                : "Render Selected Concept"}
-            </span>
+            {/* ── Loading state ── */}
+            {ctaMode !== "select-concept" && (isGenerating || isGeneratingConcepts) && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 16, lineHeight: 1 }}>⟳</span>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>
+                  {isGeneratingConcepts ? "Generating Concepts…" : "Generating…"}
+                </span>
+              </div>
+            )}
 
-            {/* Icon + credits — only on active (non-disabled) states */}
+            {/* ── Active: stacked two-line layout ── */}
             {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
               <>
-                <Zap
-                  size={14}
-                  strokeWidth={2.5}
-                  style={{ color: "#fece01", flexShrink: 0 }}
-                />
-                <span style={{
-                  fontSize:     14,
-                  fontWeight:   700,
-                  color:        "rgba(255,255,255,0.92)",
-                  letterSpacing: "-0.01em",
-                  lineHeight:   1,
-                }}>
-                  {ctaMode === "generate-concepts"
-                    ? "0.5 cr"
-                    : `${creditEstimate} cr`}
-                </span>
+                {/* Row 1: primary verb + icon + credits */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7, lineHeight: 1 }}>
+                  <span style={{ flex: 1, fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>
+                    {ctaMode === "generate-concepts" ? "Generate"
+                      : isVariationMode           ? "Generate"
+                      : "Render"}
+                  </span>
+                  <Zap size={13} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
+                  <span style={{
+                    fontSize:    13,
+                    fontWeight:  700,
+                    color:       "#fece01",
+                    textShadow:  "0 0 8px rgba(254,206,1,0.4)",
+                    letterSpacing: "-0.01em",
+                    lineHeight:  1,
+                    flexShrink:  0,
+                  }}>
+                    {ctaMode === "generate-concepts" ? "0.5 cr" : `${creditEstimate} cr`}
+                  </span>
+                </div>
+                {/* Row 2: context noun */}
+                <div style={{ lineHeight: 1, marginTop: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.8, letterSpacing: "0.005em" }}>
+                    {ctaMode === "generate-concepts" ? "Concepts"
+                      : isVariationMode           ? "Variation"
+                      : "Concept"}
+                  </span>
+                </div>
               </>
             )}
           </button>
