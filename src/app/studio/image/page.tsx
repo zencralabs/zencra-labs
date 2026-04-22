@@ -1280,8 +1280,8 @@ function ImageStudioInner() {
               position:    "relative",
               display:     "inline-flex",
               alignItems:  "center",
-              height:      44,          /* outer container */
-              padding:     "5px 5px",   /* 5px breathing room top/bottom */
+              height:      44,          /* outer container — pill inset handles all gaps */
+              padding:     0,
               borderRadius: 13,
               background:  "#0B1022",
               border:      "1px solid rgba(120,160,255,0.1)",

@@ -233,17 +233,24 @@ function SkeletonCard({ index }: { index: number }) {
 function GhostCard({ index }: { index: number }) {
   const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
   const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
-  // Opacity cascade: first card is most visible, last is faintest
+  // Opacity cascade: first card fully opaque, each subsequent card 18% dimmer
   const baseOpacity = 1 - index * 0.18;
+  // Stagger breathing animation by index
+  const breathDelay = `${index * 0.55}s`;
 
   return (
     <div
       style={{
         background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
-        border: "1px dashed rgba(120,160,255,0.22)",
+        border: `1px dashed rgba(140,185,255,${0.28 - index * 0.06})`,
         borderRadius: 18,
         overflow: "hidden",
-        opacity: baseOpacity,
+        /* CSS custom property drives the animation opacity range */
+        ["--ghost-opacity" as string]: baseOpacity,
+        animation: `ghostBreath 3s ease-in-out ${breathDelay} infinite`,
+        boxShadow: index === 0
+          ? "0 0 18px rgba(86,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.03)"
+          : "none",
       }}
     >
       {/* Preview area — slightly visible gradient so it reads as a card zone */}
@@ -267,17 +274,17 @@ function GhostCard({ index }: { index: number }) {
           <div
             style={{
               width: 40, height: 40, borderRadius: 12,
-              border: "1px dashed rgba(120,160,255,0.3)",
-              background: "rgba(120,160,255,0.06)",
+              border: "1px dashed rgba(140,185,255,0.38)",
+              background: "rgba(120,160,255,0.08)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "rgba(120,160,255,0.4)", fontSize: 17,
+              color: "rgba(140,185,255,0.55)", fontSize: 17,
             }}
           >
             ✦
           </div>
           <span style={{
             fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
-            color: "rgba(120,160,255,0.3)", textTransform: "uppercase",
+            color: "rgba(140,185,255,0.42)", textTransform: "uppercase",
           }}>
             Concept {index + 1}
           </span>
@@ -722,6 +729,10 @@ export default function ConceptBoard({
         @keyframes skeletonPulse {
           0%, 100% { opacity: 0.55; }
           50% { opacity: 1; }
+        }
+        @keyframes ghostBreath {
+          0%, 100% { opacity: var(--ghost-opacity); box-shadow: 0 0 0 0 rgba(120,160,255,0); }
+          50% { opacity: calc(var(--ghost-opacity) * 1.12); box-shadow: 0 0 14px rgba(120,160,255,0.08); }
         }
       `}</style>
 

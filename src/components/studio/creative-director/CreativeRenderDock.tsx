@@ -309,9 +309,9 @@ export default function CreativeRenderDock({
           background:      `${Z.bgDock}f8`,
           backdropFilter:  "blur(36px)",
           WebkitBackdropFilter: "blur(36px)",
-          border:          "1px solid rgba(255,255,255,0.12)",
+          border:          "1px solid rgba(255,255,255,0.16)",
           borderRadius:    24,
-          boxShadow:       "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 24px rgba(120,160,255,0.18), 0 12px 40px rgba(0,0,0,0.55), 0 0 60px rgba(86,140,255,0.12)",
+          boxShadow:       "inset 0 1px 0 rgba(255,255,255,0.09), 0 0 28px rgba(140,180,255,0.22), 0 14px 44px rgba(0,0,0,0.6), 0 0 70px rgba(86,140,255,0.14)",
           padding:         "16px 20px",
           display:         "flex",
           flexDirection:   "column",
@@ -719,8 +719,9 @@ export default function CreativeRenderDock({
 
           {/* Credit estimate */}
           <div style={{
-            fontSize: 13, fontWeight: 500, color: Z.textSecondary,
+            fontSize: 15, fontWeight: 600, color: "rgba(200,215,255,0.75)",
             flexShrink: 0, whiteSpace: "nowrap", paddingLeft: 2,
+            letterSpacing: "-0.01em",
           }}>
             ~{creditEstimate} cr
           </div>
@@ -745,7 +746,7 @@ export default function CreativeRenderDock({
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
-              height:       44,
+              height:       46,
               minWidth:     ctaMode === "render" ? 210 : ctaMode === "generate-concepts" ? 188 : 176,
               padding:      "0 22px",
               borderRadius: 12,

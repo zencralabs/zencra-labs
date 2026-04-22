@@ -632,23 +632,26 @@ export default function OutputWorkspace({
               key={i}
               style={{
                 aspectRatio: "1 / 1",
-                background: "rgba(120,160,255,0.04)",
-                border: "1px dashed rgba(120,160,255,0.2)",
+                background: "rgba(120,160,255,0.05)",
+                border: "1px dashed rgba(140,185,255,0.32)",
                 borderRadius: 12,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                transition: "border-color 0.15s ease, background 0.15s ease",
+                boxShadow: "0 0 12px rgba(86,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.04)",
+                transition: "border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(120,160,255,0.35)";
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.07)";
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(140,185,255,0.52)";
+                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.09)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 18px rgba(86,140,255,0.14), inset 0 1px 0 rgba(255,255,255,0.05)";
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(120,160,255,0.2)";
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.04)";
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(140,185,255,0.32)";
+                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.05)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 12px rgba(86,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.04)";
               }}
             >
               <div

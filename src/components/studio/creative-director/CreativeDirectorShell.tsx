@@ -681,55 +681,56 @@ export default function CreativeDirectorShell() {
           background: "#0B1022",
           flexShrink: 0,
           gap: 20,
+          position: "relative",   /* enables absolute centering of project name */
         }}
       >
-        {/* Left: title + subtitle */}
-        <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#fff",
-              lineHeight: 1.2,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                color: "#93c5fd",
-                background: "rgba(37,99,235,0.15)",
-                border: "1px solid rgba(37,99,235,0.25)",
-                borderRadius: 4,
-                padding: "1px 6px",
-                fontWeight: 700,
-                letterSpacing: "0.05em",
-              }}
-            >
-              AI
-            </span>
-            Creative Director
-          </div>
-          <div
+        {/* Left: title identifier — secondary label, not primary heading */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+          <span
             style={{
               fontSize: 10,
-              color: "rgba(255,255,255,0.25)",
-              letterSpacing: "0.02em",
-              marginTop: 1,
+              color: "#93c5fd",
+              background: "rgba(37,99,235,0.15)",
+              border: "1px solid rgba(37,99,235,0.22)",
+              borderRadius: 4,
+              padding: "2px 6px",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              lineHeight: 1,
             }}
           >
-            Brief → Concepts → Campaign-ready visuals
-          </div>
+            AI
+          </span>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.55)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            Creative Director
+          </span>
         </div>
 
-        {/* Center: editable project name */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <InlineProjectName
-            value={projectName}
-            onChange={handleProjectNameChange}
-          />
+        {/* Center: editable project name — truly centered over full bar */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ pointerEvents: "auto" }}>
+            <InlineProjectName
+              value={projectName}
+              onChange={handleProjectNameChange}
+            />
+          </div>
         </div>
 
         {/* Right: autosave + new badge + credits + actions */}
