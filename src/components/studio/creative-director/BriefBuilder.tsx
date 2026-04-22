@@ -647,16 +647,6 @@ export default function BriefBuilder({
             ⟳ Randomize
           </button>
         </div>
-        {/* Hint: dock is the primary CTA */}
-        <div style={{
-          marginTop: 10,
-          textAlign: "center",
-          fontSize: 10,
-          color: "rgba(120,140,180,0.4)",
-          letterSpacing: "0.02em",
-        }}>
-          Use the Generate button below ↓
-        </div>
       </div>
     </div>
   );
