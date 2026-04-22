@@ -15,6 +15,21 @@ export interface ReferenceImage {
   weight: number;
 }
 
+export type BlendMode =
+  | "Primary Focus"
+  | "Balanced"
+  | "Style Transfer"
+  | "Comp. Lock"
+  | "Free Blend";
+
+export interface StyleLocks {
+  style:       boolean;
+  lighting:    boolean;
+  color:       boolean;
+  composition: boolean;
+  texture:     boolean;
+}
+
 export interface RenderDockSettings {
   model: string;
   quality: "low" | "medium" | "high";
@@ -23,6 +38,9 @@ export interface RenderDockSettings {
   outputCount: number;
   promptText: string;
   referenceImages?: ReferenceImage[];
+  /** Only present when 2+ reference images are uploaded */
+  blendMode?: BlendMode;
+  locks?: StyleLocks;
 }
 
 export interface CreativeRenderDockProps {
@@ -90,6 +108,36 @@ const RESOLUTION_OPTIONS: { value: "1k" | "2k" | "4k"; label: string; desc: stri
 ];
 
 const ASPECT_RATIOS = ["Auto", "1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "21:9"];
+
+// ── Blend modes + style locks ──────────────────────────────────────────────────
+
+const BLEND_MODES: BlendMode[] = [
+  "Primary Focus",
+  "Balanced",
+  "Style Transfer",
+  "Comp. Lock",
+  "Free Blend",
+];
+
+const LOCK_KEYS: (keyof StyleLocks)[] = [
+  "style", "lighting", "color", "composition", "texture",
+];
+
+const LOCK_LABELS: Record<keyof StyleLocks, string> = {
+  style:       "Style",
+  lighting:    "Lighting",
+  color:       "Color",
+  composition: "Comp",
+  texture:     "Texture",
+};
+
+const LOCK_TOOLTIPS: Record<keyof StyleLocks, string> = {
+  style:       "Lock visual style — colors, texture, overall aesthetic",
+  lighting:    "Preserve lighting conditions across references",
+  color:       "Maintain the color palette from references",
+  composition: "Keep compositional structure and layout",
+  texture:     "Preserve surface texture details",
+};
 
 // ── Shared style constants (Zencra-branded) ───────────────────────────────────
 
@@ -232,6 +280,22 @@ export default function CreativeRenderDock({
   const [openDropdown,        setOpenDropdown]        = useState<string | null>(null);
   const [isUploadingRef,      setIsUploadingRef]      = useState(false);
 
+  // ── Blend mode + style locks (active when 2+ images uploaded) ─────────────
+  const [blendMode,   setBlendMode]   = useState<BlendMode>("Primary Focus");
+  const [styleLocks,  setStyleLocks]  = useState<StyleLocks>({
+    style: false, lighting: false, color: false, composition: false, texture: false,
+  });
+
+  const showBlendControls = uploadedImages.length >= 2;
+
+  // Smart suggestion: when Style Transfer is active, Style lock should be on
+  const showStyleLockSuggestion =
+    showBlendControls && blendMode === "Style Transfer" && !styleLocks.style;
+
+  const toggleLock = (key: keyof StyleLocks) => {
+    setStyleLocks((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   // ── Reference image influence system ──────────────────────────────────────
   // primaryId: first image is implicitly primary unless user clicks a different one
   const primaryId = primaryImageId ?? uploadedImages[0]?.id ?? null;
@@ -316,9 +380,15 @@ export default function CreativeRenderDock({
     const referenceImages  = uploadedImages.length > 0
       ? computeReferenceWeights(uploadedImages, primaryId)
       : undefined;
-    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImages });
+    onGenerate({
+      model, quality, resolution,
+      aspectRatio: resolvedRatio,
+      outputCount, promptText,
+      referenceImages,
+      ...(showBlendControls ? { blendMode, locks: styleLocks } : {}),
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, primaryId, onGenerate, onGenerateConcepts]);
+  }, [ctaMode, isGeneratingConcepts, isRenderDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, uploadedImages, primaryId, showBlendControls, blendMode, styleLocks, onGenerate, onGenerateConcepts]);
 
   return (
     <>
@@ -368,8 +438,12 @@ export default function CreativeRenderDock({
           .rd-ref-chip:hover { transform: translateY(-2px) !important; }
           .rd-ref-chip--primary:hover { box-shadow: 0 0 0 2px rgba(86,140,255,0.9), 0 0 24px rgba(86,140,255,0.55), 0 4px 12px rgba(0,0,0,0.5) !important; }
           .rd-ref-chip--secondary:hover { box-shadow: 0 0 0 1px rgba(120,160,255,0.5), 0 0 16px rgba(86,140,255,0.3), 0 4px 12px rgba(0,0,0,0.5) !important; }
+          .rd-blend:hover { border-color: rgba(86,140,255,0.45) !important; background: rgba(86,140,255,0.1) !important; color: ${Z.textPrimary} !important; }
+          .rd-lock:hover { border-color: rgba(86,140,255,0.4) !important; background: rgba(86,140,255,0.1) !important; color: ${Z.textPrimary} !important; }
+          .rd-lock-suggest:hover { background: rgba(37,99,235,0.25) !important; border-color: rgba(96,165,250,0.6) !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
           @keyframes rdFadeIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
+          @keyframes rdSlideIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 36px; } }
         `}</style>
 
         {/* ── ROW 1: Upload chips + Prompt bar ─────────────────────────── */}
@@ -529,6 +603,152 @@ export default function CreativeRenderDock({
                 </div>
               </div>
             )}
+
+            {/* ── Blend mode + style lock row — fades in at 2+ images ── */}
+            <div
+              style={{
+                maxHeight:  showBlendControls ? 34 : 0,
+                opacity:    showBlendControls ? 1 : 0,
+                overflow:   "hidden",
+                transition: "opacity 0.22s ease, max-height 0.22s ease",
+                pointerEvents: showBlendControls ? "auto" : "none",
+              }}
+            >
+              <div style={{
+                display:    "flex",
+                alignItems: "center",
+                gap:        6,
+                paddingBottom: 4,
+              }}>
+                {/* ── Blend mode pills ── */}
+                {BLEND_MODES.map((mode) => {
+                  const isActive = blendMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      className="rd-blend"
+                      onClick={() => setBlendMode(mode)}
+                      title={mode === "Primary Focus"
+                        ? "Primary reference dominates the output"
+                        : mode === "Balanced"
+                        ? "Equal influence from all references"
+                        : mode === "Style Transfer"
+                        ? "Transfer style from primary to subject"
+                        : mode === "Comp. Lock"
+                        ? "Lock composition from primary reference"
+                        : "All references blend freely with no hierarchy"}
+                      style={{
+                        height:       26,
+                        padding:      "0 9px",
+                        borderRadius: 20,
+                        border:       isActive
+                          ? "1px solid rgba(86,140,255,0.55)"
+                          : "1px solid rgba(255,255,255,0.1)",
+                        background:   isActive
+                          ? "rgba(37,99,235,0.22)"
+                          : "rgba(255,255,255,0.04)",
+                        color:        isActive ? Z.textPrimary : "rgba(167,176,197,0.55)",
+                        fontSize:     11,
+                        fontWeight:   isActive ? 700 : 500,
+                        cursor:       "pointer",
+                        whiteSpace:   "nowrap",
+                        flexShrink:   0,
+                        transform:    isActive ? "scale(1.03)" : "scale(1)",
+                        boxShadow:    isActive
+                          ? "0 0 0 1px rgba(86,140,255,0.3), 0 0 10px rgba(37,99,235,0.2)"
+                          : "none",
+                        transition:   "all 0.14s ease",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      {mode}
+                    </button>
+                  );
+                })}
+
+                {/* ── Separator ── */}
+                <div style={{ width: 1, height: 14, background: "rgba(120,160,255,0.15)", flexShrink: 0, margin: "0 2px" }} />
+
+                {/* ── Lock label ── */}
+                <span style={{
+                  fontSize: 9, fontWeight: 700,
+                  color: "rgba(120,140,180,0.5)",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}>
+                  Lock
+                </span>
+
+                {/* ── Style lock chips ── */}
+                {LOCK_KEYS.map((key) => {
+                  const isOn = styleLocks[key];
+                  return (
+                    <button
+                      key={key}
+                      className="rd-lock"
+                      onClick={() => toggleLock(key)}
+                      title={LOCK_TOOLTIPS[key]}
+                      style={{
+                        height:       24,
+                        padding:      "0 8px",
+                        borderRadius: 6,
+                        border:       isOn
+                          ? "1px solid rgba(86,140,255,0.5)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                        background:   isOn
+                          ? "rgba(37,99,235,0.2)"
+                          : "rgba(255,255,255,0.03)",
+                        color:        isOn ? "rgba(147,197,253,0.95)" : "rgba(120,140,180,0.5)",
+                        fontSize:     10,
+                        fontWeight:   700,
+                        cursor:       "pointer",
+                        whiteSpace:   "nowrap",
+                        flexShrink:   0,
+                        letterSpacing: "0.04em",
+                        boxShadow:    isOn
+                          ? "0 0 0 1px rgba(86,140,255,0.25), 0 0 8px rgba(37,99,235,0.18)"
+                          : "none",
+                        transition:   "all 0.13s ease",
+                      }}
+                    >
+                      {LOCK_LABELS[key]}
+                    </button>
+                  );
+                })}
+
+                {/* ── Style Transfer suggestion chip ── */}
+                {showStyleLockSuggestion && (
+                  <button
+                    className="rd-lock-suggest"
+                    onClick={() => toggleLock("style")}
+                    title="Style Transfer works best with Style lock enabled"
+                    style={{
+                      height:       24,
+                      padding:      "0 8px",
+                      borderRadius: 6,
+                      border:       "1px solid rgba(96,165,250,0.4)",
+                      background:   "rgba(37,99,235,0.14)",
+                      color:        "rgba(147,197,253,0.8)",
+                      fontSize:     10,
+                      fontWeight:   700,
+                      cursor:       "pointer",
+                      whiteSpace:   "nowrap",
+                      flexShrink:   0,
+                      letterSpacing: "0.02em",
+                      transition:   "all 0.13s ease",
+                      display:      "flex",
+                      alignItems:   "center",
+                      gap:          4,
+                    }}
+                  >
+                    <span style={{ fontSize: 9 }}>⚡</span>
+                    Enable Style lock?
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Prompt input */}
             <input
@@ -877,8 +1097,8 @@ export default function CreativeRenderDock({
                 : isVariationMode && ctaMode === "render"
                 ? "Generate Variation"
                 : ctaMode === "generate-concepts"
-                ? "Generate"
-                : "Generate"}
+                ? "Generate Concepts"
+                : "Render Selected Concept"}
             </span>
 
             {/* Icon + credits — only on active (non-disabled) states */}

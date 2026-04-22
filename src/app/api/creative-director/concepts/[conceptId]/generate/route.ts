@@ -69,6 +69,8 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     modelOverride,
     idempotencyKey,
     referenceImages,
+    blendMode,
+    locks,
   } = validation.data;
 
   // ── Idempotency check ──────────────────────────────────────────────────────
@@ -253,7 +255,13 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
         generation_type: "base",
         provider: providerDecision.provider,
         model: providerDecision.model,
-        request_payload: { promptString, aspectRatio: effectiveAspectRatio, count },
+        request_payload: {
+          promptString,
+          aspectRatio: effectiveAspectRatio,
+          count,
+          ...(blendMode ? { blendMode } : {}),
+          ...(locks ? { locks } : {}),
+        },
         normalized_prompt: normalizedPrompt as unknown as Record<string, unknown>,
         status: "processing",
         credit_cost: computeTotalGenerationCost(providerDecision.model, 1, "base"),
@@ -285,6 +293,8 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
             ...(referenceImages && referenceImages.length > 0
               ? { referenceImages }
               : {}),
+            ...(blendMode ? { blendMode } : {}),
+            ...(locks ? { locks } : {}),
           }),
         });
 

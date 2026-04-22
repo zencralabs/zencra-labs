@@ -108,6 +108,21 @@ export interface ReferenceImageInput {
   weight: number;
 }
 
+export type BlendMode =
+  | "Primary Focus"
+  | "Balanced"
+  | "Style Transfer"
+  | "Comp. Lock"
+  | "Free Blend";
+
+export interface StyleLocks {
+  style: boolean;
+  lighting: boolean;
+  color: boolean;
+  composition: boolean;
+  texture: boolean;
+}
+
 export interface GenerateRenderInput {
   count: number;
   aspectRatio?: string;
@@ -115,6 +130,8 @@ export interface GenerateRenderInput {
   modelOverride?: string | null;
   idempotencyKey?: string;
   referenceImages?: ReferenceImageInput[];
+  blendMode?: BlendMode;
+  locks?: StyleLocks;
 }
 
 export interface VariationInput {
@@ -307,6 +324,38 @@ export function validateGenerateRender(
     }
   }
 
+  // Validate blendMode (optional)
+  const BLEND_MODES: BlendMode[] = ["Primary Focus", "Balanced", "Style Transfer", "Comp. Lock", "Free Blend"];
+  let blendMode: BlendMode | undefined;
+  if (b.blendMode !== undefined) {
+    if (!isString(b.blendMode) || !BLEND_MODES.includes(b.blendMode as BlendMode)) {
+      return err(`blendMode must be one of: ${BLEND_MODES.join(", ")}`);
+    }
+    blendMode = b.blendMode as BlendMode;
+  }
+
+  // Validate locks (optional)
+  let locks: StyleLocks | undefined;
+  if (b.locks !== undefined) {
+    if (!b.locks || typeof b.locks !== "object" || Array.isArray(b.locks)) {
+      return err("locks must be an object");
+    }
+    const l = b.locks as Record<string, unknown>;
+    const lockKeys: (keyof StyleLocks)[] = ["style", "lighting", "color", "composition", "texture"];
+    for (const key of lockKeys) {
+      if (l[key] !== undefined && typeof l[key] !== "boolean") {
+        return err(`locks.${key} must be a boolean`);
+      }
+    }
+    locks = {
+      style:       typeof l.style       === "boolean" ? l.style       : false,
+      lighting:    typeof l.lighting    === "boolean" ? l.lighting    : false,
+      color:       typeof l.color       === "boolean" ? l.color       : false,
+      composition: typeof l.composition === "boolean" ? l.composition : false,
+      texture:     typeof l.texture     === "boolean" ? l.texture     : false,
+    };
+  }
+
   return ok({
     count,
     aspectRatio: isString(b.aspectRatio) ? b.aspectRatio : undefined,
@@ -316,6 +365,8 @@ export function validateGenerateRender(
     modelOverride,
     idempotencyKey: isString(b.idempotencyKey) ? b.idempotencyKey : undefined,
     referenceImages,
+    blendMode,
+    locks,
   });
 }
 
