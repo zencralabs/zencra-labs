@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
+import Tooltip from "@/components/ui/Tooltip";
 import BriefBuilder, { type BriefState } from "./BriefBuilder";
 import ConceptBoard, { type ConceptCard } from "./ConceptBoard";
 import OutputWorkspace, {
@@ -100,12 +101,12 @@ function InlineProjectName({
   }
 
   return (
+    <Tooltip content="Click to rename project">
     <button
       onClick={() => {
         setDraft(value);
         setEditing(true);
       }}
-      title="Click to rename project"
       style={{
         display:      "flex",
         alignItems:   "center",
@@ -146,6 +147,7 @@ function InlineProjectName({
         ✎
       </span>
     </button>
+    </Tooltip>
   );
 }
 

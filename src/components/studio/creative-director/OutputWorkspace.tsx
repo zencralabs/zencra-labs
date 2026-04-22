@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Tooltip from "@/components/ui/Tooltip";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OutputWorkspace — Right column of the AI Creative Director
@@ -271,9 +272,8 @@ function GenerationCard({
               { key: "save", icon: "♡", title: "Save" },
               { key: "regenerate", icon: "⟳", title: "Regenerate" },
             ].map(({ key, icon, title }) => (
+              <Tooltip key={key} content={title}>
               <button
-                key={key}
-                title={title}
                 onClick={() => onAction(key as OutputAction)}
                 style={{
                   width: 36,
@@ -292,6 +292,7 @@ function GenerationCard({
               >
                 {icon}
               </button>
+              </Tooltip>
             ))}
           </div>
         )}
@@ -351,9 +352,8 @@ function GenerationCard({
           { key: "save", label: "♡", title: "Save" },
           { key: "regenerate", label: "⟳", title: "Regenerate" },
         ].map(({ key, label, title }) => (
+          <Tooltip key={key} content={title}>
           <button
-            key={key}
-            title={title}
             onClick={() => onAction(key as OutputAction)}
             disabled={!isCompleted && key !== "regenerate"}
             onMouseEnter={() => setHoveredBtn(key)}
@@ -377,6 +377,7 @@ function GenerationCard({
           >
             {label}
           </button>
+          </Tooltip>
         ))}
 
         {/* Variations button */}

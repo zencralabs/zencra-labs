@@ -15,6 +15,7 @@ import FlowBar from "@/components/studio/flow/FlowBar";
 import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
+import Tooltip from "@/components/ui/Tooltip";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -1448,13 +1449,14 @@ function ImageStudioInner() {
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {/* Zoom control with % display */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Tooltip content="Zoom out">
               <button
                 onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
                 onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
-                title="Zoom out"
               >−</button>
+              </Tooltip>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <input
                   type="range"
@@ -1476,13 +1478,14 @@ function ImageStudioInner() {
                   {zoomLevel * 20}%
                 </span>
               </div>
+              <Tooltip content="Zoom in">
               <button
                 onClick={() => setZoomLevel(Math.min(5, zoomLevel + 1))}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 16, lineHeight: 1, padding: "2px 4px", borderRadius: 4, transition: "color 0.15s" }}
                 onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
                 onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
-                title="Zoom in"
               >+</button>
+              </Tooltip>
             </div>
           </div>
         )}
@@ -1780,6 +1783,7 @@ function ImageStudioInner() {
                       fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
                     }}>✓</div>
                   )}
+                  <Tooltip content="Remove reference image">
                   <button
                     onClick={(e) => { e.stopPropagation(); setReferenceImageUrl(""); setReferencePreviewUrl(""); }}
                     style={{
@@ -1789,14 +1793,14 @@ function ImageStudioInner() {
                       color: "#fff", fontSize: 9, cursor: "pointer",
                       display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
                     }}
-                    title="Remove reference image"
                   >×</button>
+                  </Tooltip>
                 </div>
                 {/* Character lock toggle — only when face detected */}
                 {refFaceDetected && (
+                  <Tooltip content="Lock character face identity across generations">
                   <button
                     onClick={() => setCharacterLock((prev) => !prev)}
-                    title="Lock character face identity across generations"
                     style={{
                       height: 18, padding: "0 6px",
                       borderRadius: 10,
@@ -1818,10 +1822,12 @@ function ImageStudioInner() {
                     <span style={{ fontSize: 9 }}>{characterLock ? "◉" : "○"}</span>
                     Lock
                   </button>
+                  </Tooltip>
                 )}
               </div>
             ) : (
               /* ── Empty: add button ── */
+              <Tooltip content="Add reference image">
               <button
                 onClick={() => referenceInputRef.current?.click()}
                 style={{
@@ -1832,10 +1838,10 @@ function ImageStudioInner() {
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-                title="Add reference image"
               >
                 +
               </button>
+              </Tooltip>
             )}
 
             {/* Prompt textarea */}
@@ -1865,10 +1871,10 @@ function ImageStudioInner() {
 
             {/* ✦ Enhance button — visible when prompt has content */}
             {prompt.trim() && (
+              <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}>
               <button
                 onClick={handleEnhance}
                 disabled={enhancing}
-                title={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}
                 style={{
                   flexShrink: 0, alignSelf: "center",
                   display: "flex", alignItems: "center", gap: 5,
@@ -1908,6 +1914,7 @@ function ImageStudioInner() {
                   <>✦ Enhance</>
                 )}
               </button>
+              </Tooltip>
             )}
           </div>
 

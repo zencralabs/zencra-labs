@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Zap } from "lucide-react";
+import Tooltip from "@/components/ui/Tooltip";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeRenderDock — Floating render command bar (Zencra-branded)
@@ -486,7 +487,7 @@ export default function CreativeRenderDock({
           .rd-step:hover:not([disabled]) { background: rgba(120,160,255,0.08) !important; }
           .rd-step[disabled] { opacity: 0.28; cursor: default; }
           .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
-          .rd-gen:hover:not([disabled]) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 36px rgba(63,169,245,0.55), 0 0 20px rgba(108,92,231,0.35), 0 6px 20px rgba(0,0,0,0.5) !important; }
+          .rd-gen:hover:not([disabled]) { transform: translateY(-1px); box-shadow: 0 0 14px rgba(86,140,255,0.35), 0 6px 22px rgba(0,0,0,0.6) !important; }
           .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           .rd-chip-remove:hover { background: rgba(255,80,80,0.18) !important; color: #FF8080 !important; }
           .rd-ref-chip { transition: box-shadow 0.15s ease, transform 0.15s ease; }
@@ -507,11 +508,8 @@ export default function CreativeRenderDock({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 
           {/* ── Upload button — 48×48 ── */}
-          <button
-            className="rd-upload"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploadingRef || uploadedImages.length >= selectedModel.maxUploads}
-            title={
+          <Tooltip
+            content={
               uploadedImages.length >= selectedModel.maxUploads
                 ? selectedModel.maxUploads === 1
                   ? `${selectedModel.label} accepts 1 reference image only`
@@ -520,6 +518,11 @@ export default function CreativeRenderDock({
                   ? "Upload 1 reference image (this model is single-reference)"
                   : `Upload up to ${selectedModel.maxUploads} reference images, brand assets, or logos`
             }
+          >
+          <button
+            className="rd-upload"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingRef || uploadedImages.length >= selectedModel.maxUploads}
             style={{
               flexShrink:   0,
               width:        48, height: 48,
@@ -538,6 +541,7 @@ export default function CreativeRenderDock({
               ? <span style={{ fontSize: 16, animation: "rdSpin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
               : "+"}
           </button>
+          </Tooltip>
 
           {/* ── Reference strip + prompt (grows together) ── */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -691,20 +695,20 @@ export default function CreativeRenderDock({
                 {/* ── Blend mode pills ── */}
                 {BLEND_MODES.map((mode) => {
                   const isActive = blendMode === mode;
+                  const blendTooltip = mode === "Primary Focus"
+                    ? "Primary reference dominates the output"
+                    : mode === "Balanced"
+                    ? "Equal influence from all references"
+                    : mode === "Style Transfer"
+                    ? "Transfer style from primary to subject"
+                    : mode === "Comp. Lock"
+                    ? "Lock composition from primary reference"
+                    : "All references blend freely with no hierarchy";
                   return (
+                    <Tooltip key={mode} content={blendTooltip}>
                     <button
-                      key={mode}
                       className="rd-blend"
                       onClick={() => setBlendMode(mode)}
-                      title={mode === "Primary Focus"
-                        ? "Primary reference dominates the output"
-                        : mode === "Balanced"
-                        ? "Equal influence from all references"
-                        : mode === "Style Transfer"
-                        ? "Transfer style from primary to subject"
-                        : mode === "Comp. Lock"
-                        ? "Lock composition from primary reference"
-                        : "All references blend freely with no hierarchy"}
                       style={{
                         height:       26,
                         padding:      "0 9px",
@@ -731,6 +735,7 @@ export default function CreativeRenderDock({
                     >
                       {mode}
                     </button>
+                    </Tooltip>
                   );
                 })}
 
@@ -753,11 +758,10 @@ export default function CreativeRenderDock({
                 {LOCK_KEYS.map((key) => {
                   const isOn = styleLocks[key];
                   return (
+                    <Tooltip key={key} content={LOCK_TOOLTIPS[key]}>
                     <button
-                      key={key}
                       className="rd-lock"
                       onClick={() => toggleLock(key)}
-                      title={LOCK_TOOLTIPS[key]}
                       style={{
                         height:       24,
                         padding:      "0 8px",
@@ -783,15 +787,16 @@ export default function CreativeRenderDock({
                     >
                       {LOCK_LABELS[key]}
                     </button>
+                    </Tooltip>
                   );
                 })}
 
                 {/* ── Style Transfer suggestion chip ── */}
                 {showStyleLockSuggestion && (
+                  <Tooltip content="Style Transfer works best with Style lock enabled">
                   <button
                     className="rd-lock-suggest"
                     onClick={() => toggleLock("style")}
-                    title="Style Transfer works best with Style lock enabled"
                     style={{
                       height:       24,
                       padding:      "0 8px",
@@ -814,6 +819,7 @@ export default function CreativeRenderDock({
                     <span style={{ fontSize: 9 }}>⚡</span>
                     Enable Style lock?
                   </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -830,10 +836,10 @@ export default function CreativeRenderDock({
             >
               <div style={{ display: "flex", alignItems: "center", gap: 7, paddingBottom: 4 }}>
                 {/* Lock toggle pill */}
+                <Tooltip content="Preserve the character's face identity across all generations">
                 <button
                   className="rd-char-toggle"
                   onClick={() => setCharacterLock((prev) => !prev)}
-                  title="Preserve the character's face identity across all generations"
                   style={{
                     height:       26,
                     padding:      "0 10px",
@@ -859,6 +865,7 @@ export default function CreativeRenderDock({
                   <span style={{ fontSize: 13, lineHeight: 1 }}>{characterLock ? "◉" : "○"}</span>
                   Lock Character Identity
                 </button>
+                </Tooltip>
 
                 {/* Consistency strength — only when locked */}
                 {characterLock && (["low", "medium", "high"] as const).map((s) => {
@@ -941,6 +948,7 @@ export default function CreativeRenderDock({
 
           {/* Clear prompt */}
           {promptText && (
+            <Tooltip content="Clear prompt">
             <button
               className="rd-clear"
               onClick={() => setPromptText("")}
@@ -952,8 +960,8 @@ export default function CreativeRenderDock({
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "all 0.15s ease",
               }}
-              title="Clear"
             >×</button>
+            </Tooltip>
           )}
         </div>
 
@@ -1183,16 +1191,24 @@ export default function CreativeRenderDock({
             >+</button>
           </div>
 
-          {/* Credit estimate */}
-          <div style={{
-            fontSize: 13, fontWeight: 600,
-            color:        "rgba(254,206,1,0.65)",
-            textShadow:   "0 0 6px rgba(254,206,1,0.2)",
-            flexShrink:   0, whiteSpace: "nowrap", paddingLeft: 2,
-            letterSpacing: "-0.01em",
-          }}>
+          {/* Credit estimate — amber, larger, with tooltip */}
+          <Tooltip content="Estimated total cost based on selected settings">
+          <div
+            style={{
+              fontSize:      16,
+              fontWeight:    700,
+              color:         "#fece01",
+              textShadow:    "0 0 8px rgba(254,206,1,0.25)",
+              flexShrink:    0,
+              whiteSpace:    "nowrap",
+              paddingLeft:   2,
+              letterSpacing: "-0.02em",
+              cursor:        "default",
+            }}
+          >
             ~{creditEstimate} cr
           </div>
+          </Tooltip>
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
@@ -1214,10 +1230,11 @@ export default function CreativeRenderDock({
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
-              height:         54,
-              minWidth:       ctaMode === "select-concept" ? 170 : 158,
-              padding:        "0 20px",
-              borderRadius:   14,
+              height:         50,
+              minWidth:       ctaMode === "select-concept" ? 168 : 154,
+              padding:        "0 18px",
+              borderRadius:   12,
+              marginLeft:     12,
               border:         ctaMode === "select-concept"
                 ? `1px solid ${Z.borderSubtle}`
                 : "1px solid rgba(255,255,255,0.18)",
@@ -1233,7 +1250,7 @@ export default function CreativeRenderDock({
               flexShrink:     0,
               boxShadow:      ctaMode === "select-concept"
                 ? "none"
-                : "0 0 20px rgba(63,169,245,0.4), 0 0 20px rgba(108,92,231,0.25), 0 4px 16px rgba(0,0,0,0.4)",
+                : "0 0 10px rgba(86,140,255,0.25), 0 4px 18px rgba(0,0,0,0.5)",
               transition:     "all 0.18s ease",
             }}
           >
@@ -1257,29 +1274,28 @@ export default function CreativeRenderDock({
             {/* ── Active: stacked two-line layout ── */}
             {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
               <>
-                {/* Row 1: primary verb + icon + credits */}
-                <div style={{ display: "flex", alignItems: "center", gap: 7, lineHeight: 1 }}>
+                {/* Row 1: primary verb + icon + credit */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, lineHeight: 1 }}>
                   <span style={{ flex: 1, fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>
                     {ctaMode === "generate-concepts" ? "Generate"
                       : isVariationMode           ? "Generate"
                       : "Render"}
                   </span>
-                  <Zap size={13} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
+                  <Zap size={12} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                   <span style={{
-                    fontSize:    13,
-                    fontWeight:  700,
-                    color:       "#fece01",
-                    textShadow:  "0 0 8px rgba(254,206,1,0.4)",
+                    fontSize:      13,
+                    fontWeight:    600,
+                    color:         "rgba(255,255,255,0.85)",
                     letterSpacing: "-0.01em",
-                    lineHeight:  1,
-                    flexShrink:  0,
+                    lineHeight:    1,
+                    flexShrink:    0,
                   }}>
                     {ctaMode === "generate-concepts" ? "0.5 cr" : `${creditEstimate} cr`}
                   </span>
                 </div>
                 {/* Row 2: context noun */}
                 <div style={{ lineHeight: 1, marginTop: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.8, letterSpacing: "0.005em" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.78, letterSpacing: "0.005em" }}>
                     {ctaMode === "generate-concepts" ? "Concepts"
                       : isVariationMode           ? "Variation"
                       : "Concept"}
