@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CreativeRenderDock — Floating bottom command bar for Creative Director mode
-// Render execution controls: model → quality → resolution → ratio → count → generate
+// CreativeRenderDock — Floating render command bar (Zencra-branded)
+// Positioned inside the center zone — does not overlap left / right panels.
+// Row 1: upload + prompt instruction
+// Row 2: model → quality → resolution → ratio → count → estimate → generate
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface RenderDockSettings {
@@ -27,6 +29,25 @@ export interface CreativeRenderDockProps {
   onReferenceUpload?: (file: File) => Promise<string>;
 }
 
+// ── Zencra color tokens ────────────────────────────────────────────────────────
+
+const Z = {
+  bgDock:       "#0A0F20",
+  bgInput:      "#12182B",
+  bgHover:      "#151D34",
+  bgElevated:   "#11182F",
+  borderSubtle: "rgba(255,255,255,0.06)",
+  borderSoft:   "rgba(120,160,255,0.14)",
+  borderActive: "rgba(86,140,255,0.42)",
+  textPrimary:  "#F5F7FF",
+  textSecondary:"#A7B0C5",
+  textMuted:    "#6F7893",
+  accentBlue:   "#3B82F6",
+  accentCyan:   "#22D3EE",
+  accentViolet: "#8B5CF6",
+  accentLime:   "#C7F36B",
+} as const;
+
 // ── Model registry ─────────────────────────────────────────────────────────────
 
 interface CDModel {
@@ -39,46 +60,11 @@ interface CDModel {
 }
 
 const CD_MODELS: CDModel[] = [
-  {
-    value: "gpt-image-1",
-    label: "GPT Image 2",
-    provider: "openai",
-    supportedResolutions: ["1k", "2k"],
-    defaultQuality: "medium",
-    baseCredits: 8,
-  },
-  {
-    value: "nano-banana-pro",
-    label: "Nano Banana Pro",
-    provider: "nano-banana",
-    supportedResolutions: ["1k", "2k", "4k"],
-    defaultQuality: "high",
-    baseCredits: 12,
-  },
-  {
-    value: "nano-banana-2",
-    label: "Nano Banana 2",
-    provider: "nano-banana",
-    supportedResolutions: ["1k", "2k", "4k"],
-    defaultQuality: "medium",
-    baseCredits: 10,
-  },
-  {
-    value: "seedream-v5",
-    label: "Seedream v5",
-    provider: "fal",
-    supportedResolutions: ["1k", "2k"],
-    defaultQuality: "low",
-    baseCredits: 5,
-  },
-  {
-    value: "flux-kontext",
-    label: "Flux Kontext",
-    provider: "fal",
-    supportedResolutions: ["1k", "2k"],
-    defaultQuality: "medium",
-    baseCredits: 8,
-  },
+  { value: "gpt-image-1",     label: "GPT Image 2",     provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8  },
+  { value: "nano-banana-pro", label: "Nano Banana Pro", provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12 },
+  { value: "nano-banana-2",   label: "Nano Banana 2",   provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10 },
+  { value: "seedream-v5",     label: "Seedream v5",     provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 5  },
+  { value: "flux-kontext",    label: "Flux Kontext",    provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8  },
 ];
 
 const QUALITY_OPTIONS: { value: "low" | "medium" | "high"; label: string; desc: string }[] = [
@@ -93,9 +79,59 @@ const RESOLUTION_OPTIONS: { value: "1k" | "2k" | "4k"; label: string; desc: stri
   { value: "4k", label: "4K", desc: "4096 px" },
 ];
 
-const ASPECT_RATIOS = [
-  "Auto", "1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "21:9",
-];
+const ASPECT_RATIOS = ["Auto", "1:1", "3:2", "2:3", "16:9", "9:16", "4:3", "3:4", "21:9"];
+
+// ── Shared style constants (Zencra-branded) ───────────────────────────────────
+
+const pillBase: React.CSSProperties = {
+  height:          44,
+  padding:         "0 14px",
+  borderRadius:    12,
+  border:          `1px solid ${Z.borderSubtle}`,
+  background:      Z.bgInput,
+  color:           Z.textPrimary,
+  fontSize:        14,
+  fontWeight:      500,
+  cursor:          "pointer",
+  display:         "flex",
+  alignItems:      "center",
+  gap:             7,
+  whiteSpace:      "nowrap" as const,
+  flexShrink:      0,
+  transition:      "all 0.15s ease",
+};
+
+const dropdownBase: React.CSSProperties = {
+  position:        "absolute",
+  bottom:          "calc(100% + 8px)",
+  left:            0,
+  background:      Z.bgDock,
+  backdropFilter:  "blur(24px)",
+  WebkitBackdropFilter: "blur(24px)",
+  border:          `1px solid ${Z.borderSoft}`,
+  borderRadius:    14,
+  overflow:        "hidden",
+  zIndex:          400,
+  boxShadow:       "0 16px 48px rgba(0,0,0,0.7)",
+};
+
+const dropdownItemBase: React.CSSProperties = {
+  width:      "100%",
+  display:    "block",
+  textAlign:  "left",
+  padding:    "10px 16px",
+  border:     "none",
+  cursor:     "pointer",
+  fontSize:   14,
+  transition: "background 0.1s ease",
+};
+
+const vSep: React.CSSProperties = {
+  width:      1,
+  height:     22,
+  background: "rgba(120,160,255,0.12)",
+  flexShrink: 0,
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -129,70 +165,13 @@ function providerToModelValue(provider: string): string {
   return map[provider?.toLowerCase()] ?? "gpt-image-1";
 }
 
-function estimateCredits(
-  model: string,
-  quality: string,
-  resolution: string,
-  count: number,
-): number {
-  const m = CD_MODELS.find((x) => x.value === model);
-  const base = m?.baseCredits ?? 8;
+function estimateCredits(model: string, quality: string, resolution: string, count: number): number {
+  const m     = CD_MODELS.find((x) => x.value === model);
+  const base  = m?.baseCredits ?? 8;
   const qMult = quality === "low" ? 0.7 : quality === "high" ? 1.35 : 1.0;
   const rMult = resolution === "2k" ? 1.5 : resolution === "4k" ? 2.5 : 1.0;
   return Math.round(base * qMult * rMult * count * 10) / 10;
 }
-
-// ── Shared pill button style ───────────────────────────────────────────────────
-
-const pillBase: React.CSSProperties = {
-  height: 36,
-  padding: "0 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(255,255,255,0.05)",
-  color: "#fff",
-  fontSize: 12,
-  fontWeight: 600,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  whiteSpace: "nowrap" as const,
-  flexShrink: 0,
-  transition: "all 0.15s ease",
-};
-
-const dropdownBase: React.CSSProperties = {
-  position: "absolute",
-  bottom: "calc(100% + 8px)",
-  left: 0,
-  background: "rgba(10,10,18,0.98)",
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 12,
-  overflow: "hidden",
-  zIndex: 400,
-  boxShadow: "0 12px 40px rgba(0,0,0,0.75)",
-};
-
-const dropdownItemBase: React.CSSProperties = {
-  width: "100%",
-  display: "block",
-  textAlign: "left",
-  padding: "9px 14px",
-  border: "none",
-  cursor: "pointer",
-  fontSize: 13,
-  transition: "background 0.1s ease",
-};
-
-const vSep: React.CSSProperties = {
-  width: 1,
-  height: 20,
-  background: "rgba(255,255,255,0.08)",
-  flexShrink: 0,
-};
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -207,7 +186,6 @@ export default function CreativeRenderDock({
 }: CreativeRenderDockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Dock controls state
   const [model,       setModel]       = useState<string>("gpt-image-1");
   const [quality,     setQuality]     = useState<"low" | "medium" | "high">("medium");
   const [resolution,  setResolution]  = useState<"1k" | "2k" | "4k">("1k");
@@ -216,12 +194,11 @@ export default function CreativeRenderDock({
   const [promptText,  setPromptText]  = useState<string>("");
   const [refImageUrl, setRefImageUrl] = useState<string>("");
 
-  // UI state
   const [manualModelOverride, setManualModelOverride] = useState(false);
   const [openDropdown,        setOpenDropdown]        = useState<string | null>(null);
   const [isUploadingRef,      setIsUploadingRef]      = useState(false);
 
-  // ── Smart defaults: concept recommendation fills model + quality ───────────
+  // Smart defaults from concept recommendation
   useEffect(() => {
     if (!conceptRecommendedProvider || manualModelOverride) return;
     const mv = providerToModelValue(conceptRecommendedProvider);
@@ -233,20 +210,14 @@ export default function CreativeRenderDock({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conceptRecommendedProvider, manualModelOverride]);
 
-  // ── Concept change clears manual override ─────────────────────────────────
-  useEffect(() => {
-    setManualModelOverride(false);
-  }, [selectedConceptId]);
+  // Concept change clears manual override
+  useEffect(() => { setManualModelOverride(false); }, [selectedConceptId]);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const selectedModel   = CD_MODELS.find((x) => x.value === model) ?? CD_MODELS[0];
-  const creditEstimate  = estimateCredits(model, quality, resolution, outputCount);
-  const isDisabled      = !selectedConceptId || isGenerating;
-  const generateLabel   = isGenerating ? "Generating…"
-    : isVariationMode ? "Generate Variation"
-    : "Generate";
+  const selectedModel  = CD_MODELS.find((x) => x.value === model) ?? CD_MODELS[0];
+  const creditEstimate = estimateCredits(model, quality, resolution, outputCount);
+  const isDisabled     = !selectedConceptId || isGenerating;
+  const generateLabel  = isGenerating ? "Generating…" : isVariationMode ? "Generate Variation" : "Generate";
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleModelChange = useCallback((value: string) => {
     const m = CD_MODELS.find((x) => x.value === value);
     if (!m) return;
@@ -262,96 +233,68 @@ export default function CreativeRenderDock({
     if (!file || !onReferenceUpload) return;
     e.target.value = "";
     setIsUploadingRef(true);
-    try {
-      const url = await onReferenceUpload(file);
-      setRefImageUrl(url);
-    } catch {
-      // caller handles toast
-    } finally {
-      setIsUploadingRef(false);
-    }
+    try { const url = await onReferenceUpload(file); setRefImageUrl(url); }
+    catch { /* caller handles toast */ }
+    finally { setIsUploadingRef(false); }
   }, [onReferenceUpload]);
 
   const handleGenerate = useCallback(() => {
     if (isDisabled) return;
-    const resolvedRatio = aspectRatio === "Auto"
-      ? getDefaultAspectRatio(projectType)
-      : aspectRatio;
-    onGenerate({
-      model,
-      quality,
-      resolution,
-      aspectRatio: resolvedRatio,
-      outputCount,
-      promptText,
-      referenceImageUrl: refImageUrl || undefined,
-    });
-  }, [
-    isDisabled, aspectRatio, projectType, model, quality,
-    resolution, outputCount, promptText, refImageUrl, onGenerate,
-  ]);
+    const resolvedRatio = aspectRatio === "Auto" ? getDefaultAspectRatio(projectType) : aspectRatio;
+    onGenerate({ model, quality, resolution, aspectRatio: resolvedRatio, outputCount, promptText, referenceImageUrl: refImageUrl || undefined });
+  }, [isDisabled, aspectRatio, projectType, model, quality, resolution, outputCount, promptText, refImageUrl, onGenerate]);
 
   return (
     <>
-      {/* Backdrop — closes any open dropdown */}
       {openDropdown && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 299 }}
-          onClick={() => setOpenDropdown(null)}
-        />
+        <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setOpenDropdown(null)} />
       )}
 
-      {/* Hidden file input for reference upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={handleUploadChange}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleUploadChange} />
 
-      {/* ── Render Dock shell ── */}
+      {/* ══════════════════════════════════════════════════════════════
+          DOCK SHELL
+          Positioned to the center zone: left/right panels are 320px + 20px gap each = 340px per side
+          width: clamp(860px, calc(100vw - 680px), 1120px)
+      ═══════════════════════════════════════════════════════════════ */}
       <div
         style={{
           position:        "fixed",
-          bottom:          20,
+          bottom:          24,
           left:            "50%",
           transform:       "translateX(-50%)",
-          width:           "calc(100vw - 48px)",
-          maxWidth:        1220,
+          // Stays inside the center zone, away from left/right panels
+          width:           "clamp(860px, calc(100vw - 680px), 1120px)",
           zIndex:          300,
-          background:      "rgba(8,8,14,0.97)",
+          background:      `${Z.bgDock}f5`,   // ~96% opacity
           backdropFilter:  "blur(32px)",
           WebkitBackdropFilter: "blur(32px)",
-          border:          "1px solid rgba(255,255,255,0.09)",
-          borderRadius:    26,
-          boxShadow:       "0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04), 0 0 60px rgba(37,99,235,0.05)",
-          padding:         "12px 16px 12px",
+          border:          `1px solid ${Z.borderSoft}`,
+          borderRadius:    28,
+          boxShadow:       "0 16px 60px rgba(0,0,0,0.48), 0 0 0 1px rgba(59,130,246,0.08)",
+          padding:         "16px 18px",
           display:         "flex",
           flexDirection:   "column",
-          gap:             9,
+          gap:             12,
         }}
       >
-        {/* Scoped styles */}
         <style>{`
-          .rd-pill:hover:not([disabled]) { border-color: rgba(255,255,255,0.22) !important; background: rgba(255,255,255,0.09) !important; }
-          .rd-pill[disabled] { opacity: 0.38; cursor: default !important; }
-          .rd-prompt:focus { outline: none; border-color: rgba(37,99,235,0.45) !important; }
-          .rd-stepper-btn:hover:not([disabled]) { background: rgba(255,255,255,0.07) !important; }
-          .rd-stepper-btn[disabled] { opacity: 0.3; cursor: default; }
-          .rd-generate:hover:not([disabled]) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 0 28px rgba(37,99,235,0.45) !important; }
-          .rd-generate[disabled] { opacity: 0.35; cursor: default; transform: none !important; filter: none !important; }
-          .rd-upload:hover { background: rgba(255,255,255,0.09) !important; border-color: rgba(255,255,255,0.2) !important; }
-          .rd-clear:hover { background: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.7) !important; }
+          .rd-pill:hover:not([disabled]) { border-color: ${Z.borderActive} !important; background: ${Z.bgHover} !important; }
+          .rd-pill[disabled] { opacity: 0.36; cursor: default !important; }
+          .rd-prompt:focus { outline: none; border-color: ${Z.borderActive} !important; }
+          .rd-upload:hover:not([disabled]) { background: ${Z.bgHover} !important; border-color: ${Z.borderSoft} !important; }
+          .rd-step:hover:not([disabled]) { background: rgba(120,160,255,0.08) !important; }
+          .rd-step[disabled] { opacity: 0.28; cursor: default; }
+          .rd-clear:hover { background: ${Z.bgHover} !important; color: ${Z.textSecondary} !important; }
+          .rd-gen:hover:not([disabled]) { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 12px 32px rgba(59,130,246,0.38) !important; }
+          .rd-gen[disabled] { opacity: 0.36; cursor: default; transform: none !important; filter: none !important; box-shadow: none !important; }
           @keyframes rdSpin { to { transform: rotate(360deg); } }
         `}</style>
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ROW 1 — Prompt bar                                                */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* ── ROW 1: Prompt bar ─────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 
-          {/* Upload / Add button */}
+          {/* Upload / Add button — 48×48 */}
           <button
             className="rd-upload"
             onClick={() => fileInputRef.current?.click()}
@@ -359,33 +302,25 @@ export default function CreativeRenderDock({
             title="Upload reference image, attach brand asset, or add logo"
             style={{
               flexShrink:     0,
-              width:          44,
-              height:         44,
-              borderRadius:   12,
-              border:         refImageUrl
-                ? "1px solid rgba(37,99,235,0.45)"
-                : "1px solid rgba(255,255,255,0.12)",
-              background:     refImageUrl
-                ? "rgba(37,99,235,0.15)"
-                : "rgba(255,255,255,0.05)",
-              color:          refImageUrl ? "#93c5fd" : "rgba(255,255,255,0.55)",
+              width:          48, height: 48,
+              borderRadius:   16,
+              border:         `1px solid ${refImageUrl ? Z.borderActive : Z.borderSubtle}`,
+              background:     refImageUrl ? "rgba(59,130,246,0.15)" : Z.bgInput,
+              color:          refImageUrl ? Z.accentBlue : Z.textMuted,
               cursor:         isUploadingRef ? "default" : "pointer",
-              display:        "flex",
-              alignItems:     "center",
-              justifyContent: "center",
+              display:        "flex", alignItems: "center", justifyContent: "center",
               transition:     "all 0.15s ease",
+              fontSize:       22, fontWeight: 300, lineHeight: 1,
             }}
           >
             {isUploadingRef ? (
-              <span style={{ fontSize: 15, animation: "rdSpin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
+              <span style={{ fontSize: 16, animation: "rdSpin 0.8s linear infinite", display: "inline-block" }}>⟳</span>
             ) : refImageUrl ? (
-              <span style={{ fontSize: 14 }}>✓</span>
-            ) : (
-              <span style={{ fontSize: 22, lineHeight: 1, marginTop: -1, fontWeight: 300 }}>+</span>
-            )}
+              <span style={{ fontSize: 15 }}>✓</span>
+            ) : "+"}
           </button>
 
-          {/* Prompt input */}
+          {/* Prompt input — 56px tall */}
           <input
             className="rd-prompt"
             type="text"
@@ -399,13 +334,14 @@ export default function CreativeRenderDock({
             onKeyDown={(e) => { if (e.key === "Enter" && !isDisabled) handleGenerate(); }}
             style={{
               flex:         1,
-              height:       44,
-              background:   "rgba(255,255,255,0.05)",
-              border:       "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 12,
-              padding:      "0 14px",
-              color:        "#fff",
-              fontSize:     13,
+              height:       56,
+              background:   Z.bgInput,
+              border:       `1px solid ${Z.borderSubtle}`,
+              borderRadius: 20,
+              padding:      "0 18px",
+              color:        Z.textPrimary,
+              fontSize:     15,
+              fontWeight:   500,
               fontFamily:   "inherit",
               transition:   "border-color 0.15s ease",
             }}
@@ -417,61 +353,43 @@ export default function CreativeRenderDock({
               className="rd-clear"
               onClick={() => setPromptText("")}
               style={{
-                flexShrink:     0,
-                width:          30,
-                height:         30,
-                borderRadius:   8,
-                border:         "none",
-                background:     "rgba(255,255,255,0.05)",
-                color:          "rgba(255,255,255,0.3)",
-                cursor:         "pointer",
-                fontSize:       16,
-                display:        "flex",
-                alignItems:     "center",
-                justifyContent: "center",
-                transition:     "all 0.15s ease",
+                flexShrink: 0, width: 32, height: 32,
+                borderRadius: 9, border: "none",
+                background: Z.bgInput, color: Z.textMuted,
+                cursor: "pointer", fontSize: 17,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s ease",
               }}
               title="Clear"
             >×</button>
           )}
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* ROW 2 — Render controls                                           */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        {/* ── ROW 2: Render controls ────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 
-          {/* ── 1. Model selector ── */}
+          {/* ── 1. Model selector — 190px ── */}
           <div style={{ position: "relative" }}>
             <button
               className="rd-pill"
               disabled={isGenerating}
               onClick={() => setOpenDropdown(openDropdown === "model" ? null : "model")}
               style={{
-                ...pillBase,
-                minWidth:   186,
-                background: openDropdown === "model" ? "rgba(37,99,235,0.12)" : pillBase.background,
-                borderColor: openDropdown === "model" ? "rgba(37,99,235,0.35)" : undefined,
+                ...pillBase, minWidth: 190,
+                background:  openDropdown === "model" ? "rgba(59,130,246,0.12)" : Z.bgInput,
+                borderColor: openDropdown === "model" ? Z.borderActive : Z.borderSubtle,
               }}
             >
-              <span style={{ fontSize: 10, opacity: 0.4, letterSpacing: "0.05em" }}>MODEL</span>
-              <span style={{ flex: 1 }}>{selectedModel.label}</span>
-              {manualModelOverride && (
-                <span style={{ fontSize: 9, color: "rgba(251,191,36,0.75)", fontWeight: 700 }}>⚡</span>
-              )}
-              <span style={{ fontSize: 9, opacity: 0.35 }}>▾</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: Z.textMuted, textTransform: "uppercase" }}>Model</span>
+              <span style={{ flex: 1, color: Z.textPrimary }}>{selectedModel.label}</span>
+              {manualModelOverride && <span style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700 }}>⚡</span>}
+              <span style={{ fontSize: 10, color: Z.textMuted }}>▾</span>
             </button>
 
             {openDropdown === "model" && (
-              <div style={{ ...dropdownBase, minWidth: 210 }}>
+              <div style={{ ...dropdownBase, minWidth: 220 }}>
                 {manualModelOverride && (
-                  <div style={{
-                    padding: "6px 14px",
-                    fontSize: 10, fontWeight: 600,
-                    color: "rgba(251,191,36,0.75)",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
-                    letterSpacing: "0.04em",
-                  }}>
+                  <div style={{ padding: "7px 16px", fontSize: 12, fontWeight: 600, color: "#F59E0B", borderBottom: `1px solid ${Z.borderSubtle}`, letterSpacing: "0.04em" }}>
                     ⚡ Manual override active
                   </div>
                 )}
@@ -481,15 +399,15 @@ export default function CreativeRenderDock({
                     onClick={() => handleModelChange(m.value)}
                     style={{
                       ...dropdownItemBase,
-                      background: model === m.value ? "rgba(37,99,235,0.12)" : "transparent",
-                      color:      model === m.value ? "#93c5fd" : "rgba(255,255,255,0.82)",
+                      background: model === m.value ? "rgba(59,130,246,0.12)" : "transparent",
+                      color:      model === m.value ? Z.accentBlue : Z.textPrimary,
                       fontWeight: model === m.value ? 600 : 400,
                     }}
-                    onMouseEnter={(e) => { if (model !== m.value) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                    onMouseEnter={(e) => { if (model !== m.value) (e.currentTarget as HTMLButtonElement).style.background = Z.bgHover; }}
                     onMouseLeave={(e) => { if (model !== m.value) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                   >
                     {m.label}
-                    {model === m.value && <span style={{ float: "right", fontSize: 11, opacity: 0.5 }}>✓</span>}
+                    {model === m.value && <span style={{ float: "right", fontSize: 12, color: Z.textMuted }}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -498,61 +416,61 @@ export default function CreativeRenderDock({
 
           <div style={vSep} />
 
-          {/* ── 2. Quality selector ── */}
+          {/* ── 2. Quality — 122px ── */}
           <div style={{ position: "relative" }}>
             <button
               className="rd-pill"
               disabled={isGenerating}
               onClick={() => setOpenDropdown(openDropdown === "quality" ? null : "quality")}
               style={{
-                ...pillBase,
-                background: openDropdown === "quality" ? "rgba(37,99,235,0.12)" : pillBase.background,
-                borderColor: openDropdown === "quality" ? "rgba(37,99,235,0.35)" : undefined,
+                ...pillBase, minWidth: 122,
+                background:  openDropdown === "quality" ? "rgba(59,130,246,0.12)" : Z.bgInput,
+                borderColor: openDropdown === "quality" ? Z.borderActive : Z.borderSubtle,
               }}
             >
-              <span style={{ fontSize: 10, opacity: 0.4, letterSpacing: "0.05em" }}>QUALITY</span>
-              <span>{quality.charAt(0).toUpperCase() + quality.slice(1)}</span>
-              <span style={{ fontSize: 9, opacity: 0.35 }}>▾</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: Z.textMuted, textTransform: "uppercase" }}>Quality</span>
+              <span style={{ color: Z.textPrimary }}>{quality.charAt(0).toUpperCase() + quality.slice(1)}</span>
+              <span style={{ fontSize: 10, color: Z.textMuted }}>▾</span>
             </button>
 
             {openDropdown === "quality" && (
-              <div style={{ ...dropdownBase, minWidth: 188 }}>
+              <div style={{ ...dropdownBase, minWidth: 192 }}>
                 {QUALITY_OPTIONS.map((q) => (
                   <button
                     key={q.value}
                     onClick={() => { setQuality(q.value); setOpenDropdown(null); }}
                     style={{
                       ...dropdownItemBase,
-                      background: quality === q.value ? "rgba(37,99,235,0.12)" : "transparent",
-                      color:      quality === q.value ? "#93c5fd" : "rgba(255,255,255,0.82)",
+                      background: quality === q.value ? "rgba(59,130,246,0.12)" : "transparent",
+                      color:      quality === q.value ? Z.accentBlue : Z.textPrimary,
                       fontWeight: quality === q.value ? 600 : 400,
                     }}
-                    onMouseEnter={(e) => { if (quality !== q.value) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                    onMouseEnter={(e) => { if (quality !== q.value) (e.currentTarget as HTMLButtonElement).style.background = Z.bgHover; }}
                     onMouseLeave={(e) => { if (quality !== q.value) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                   >
                     <div>{q.label}</div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>{q.desc}</div>
+                    <div style={{ fontSize: 12, color: Z.textMuted, marginTop: 2 }}>{q.desc}</div>
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* ── 3. Resolution selector ── */}
+          {/* ── 3. Resolution — 112px ── */}
           <div style={{ position: "relative" }}>
             <button
               className="rd-pill"
               disabled={isGenerating}
               onClick={() => setOpenDropdown(openDropdown === "resolution" ? null : "resolution")}
               style={{
-                ...pillBase,
-                background: openDropdown === "resolution" ? "rgba(37,99,235,0.12)" : pillBase.background,
-                borderColor: openDropdown === "resolution" ? "rgba(37,99,235,0.35)" : undefined,
+                ...pillBase, minWidth: 112,
+                background:  openDropdown === "resolution" ? "rgba(59,130,246,0.12)" : Z.bgInput,
+                borderColor: openDropdown === "resolution" ? Z.borderActive : Z.borderSubtle,
               }}
             >
-              <span style={{ fontSize: 10, opacity: 0.4, letterSpacing: "0.05em" }}>RES</span>
-              <span>{resolution.toUpperCase()}</span>
-              <span style={{ fontSize: 9, opacity: 0.35 }}>▾</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: Z.textMuted, textTransform: "uppercase" }}>Res</span>
+              <span style={{ color: Z.textPrimary }}>{resolution.toUpperCase()}</span>
+              <span style={{ fontSize: 10, color: Z.textMuted }}>▾</span>
             </button>
 
             {openDropdown === "resolution" && (
@@ -567,24 +485,19 @@ export default function CreativeRenderDock({
                       title={!supported ? "Not available for this model" : undefined}
                       style={{
                         ...dropdownItemBase,
-                        background: resolution === r.value ? "rgba(37,99,235,0.12)" : "transparent",
-                        color:      !supported
-                          ? "rgba(255,255,255,0.22)"
-                          : resolution === r.value
-                          ? "#93c5fd"
-                          : "rgba(255,255,255,0.82)",
+                        background: resolution === r.value ? "rgba(59,130,246,0.12)" : "transparent",
+                        color:      !supported ? Z.textMuted : resolution === r.value ? Z.accentBlue : Z.textPrimary,
                         fontWeight: resolution === r.value ? 600 : 400,
                         cursor:     supported ? "pointer" : "default",
-                        opacity:    supported ? 1 : 0.55,
+                        opacity:    supported ? 1 : 0.5,
                       }}
-                      onMouseEnter={(e) => { if (supported && resolution !== r.value) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                      onMouseEnter={(e) => { if (supported && resolution !== r.value) (e.currentTarget as HTMLButtonElement).style.background = Z.bgHover; }}
                       onMouseLeave={(e) => { if (supported && resolution !== r.value) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {r.label}
-                        {!supported && <span style={{ fontSize: 10 }}>⊘</span>}
+                        {r.label} {!supported && <span style={{ fontSize: 11, color: Z.textMuted }}>⊘</span>}
                       </div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.32)", marginTop: 1 }}>{r.desc}</div>
+                      <div style={{ fontSize: 12, color: Z.textMuted, marginTop: 2 }}>{r.desc}</div>
                     </button>
                   );
                 })}
@@ -594,42 +507,40 @@ export default function CreativeRenderDock({
 
           <div style={vSep} />
 
-          {/* ── 4. Aspect ratio selector ── */}
+          {/* ── 4. Aspect ratio — 130px ── */}
           <div style={{ position: "relative" }}>
             <button
               className="rd-pill"
               disabled={isGenerating}
               onClick={() => setOpenDropdown(openDropdown === "aspect" ? null : "aspect")}
               style={{
-                ...pillBase,
-                minWidth:   130,
-                background: openDropdown === "aspect" ? "rgba(37,99,235,0.12)" : pillBase.background,
-                borderColor: openDropdown === "aspect" ? "rgba(37,99,235,0.35)" : undefined,
+                ...pillBase, minWidth: 130,
+                background:  openDropdown === "aspect" ? "rgba(59,130,246,0.12)" : Z.bgInput,
+                borderColor: openDropdown === "aspect" ? Z.borderActive : Z.borderSubtle,
               }}
             >
-              <span style={{ fontSize: 10, opacity: 0.4, letterSpacing: "0.05em" }}>RATIO</span>
-              <span>{aspectRatio}</span>
-              <span style={{ fontSize: 9, opacity: 0.35 }}>▾</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: Z.textMuted, textTransform: "uppercase" }}>Ratio</span>
+              <span style={{ color: Z.textPrimary }}>{aspectRatio}</span>
+              <span style={{ fontSize: 10, color: Z.textMuted }}>▾</span>
             </button>
 
             {openDropdown === "aspect" && (
-              <div style={{ ...dropdownBase, minWidth: 148 }}>
+              <div style={{ ...dropdownBase, minWidth: 160 }}>
                 {ASPECT_RATIOS.map((ar) => (
                   <button
                     key={ar}
                     onClick={() => { setAspectRatio(ar); setOpenDropdown(null); }}
                     style={{
-                      ...dropdownItemBase,
-                      padding:    "7px 14px",
-                      background: aspectRatio === ar ? "rgba(37,99,235,0.12)" : "transparent",
-                      color:      aspectRatio === ar ? "#93c5fd" : "rgba(255,255,255,0.82)",
+                      ...dropdownItemBase, padding: "8px 16px",
+                      background: aspectRatio === ar ? "rgba(59,130,246,0.12)" : "transparent",
+                      color:      aspectRatio === ar ? Z.accentBlue : Z.textPrimary,
                       fontWeight: aspectRatio === ar ? 600 : 400,
                     }}
-                    onMouseEnter={(e) => { if (aspectRatio !== ar) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+                    onMouseEnter={(e) => { if (aspectRatio !== ar) (e.currentTarget as HTMLButtonElement).style.background = Z.bgHover; }}
                     onMouseLeave={(e) => { if (aspectRatio !== ar) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                   >
                     {ar === "Auto"
-                      ? <span>Auto <span style={{ fontSize: 11, opacity: 0.38 }}>— smart default</span></span>
+                      ? <span>{ar} <span style={{ fontSize: 12, color: Z.textMuted }}>— smart default</span></span>
                       : ar
                     }
                   </button>
@@ -640,46 +551,40 @@ export default function CreativeRenderDock({
 
           <div style={vSep} />
 
-          {/* ── 5. Output count stepper ── */}
+          {/* ── 5. Output count — 112px ── */}
           <div style={{
-            display:      "flex",
-            alignItems:   "center",
-            height:       36,
-            borderRadius: 10,
-            border:       "1px solid rgba(255,255,255,0.12)",
-            background:   "rgba(255,255,255,0.05)",
-            overflow:     "hidden",
-            flexShrink:   0,
+            display: "flex", alignItems: "center",
+            height: 44, minWidth: 112, borderRadius: 12,
+            border: `1px solid ${Z.borderSubtle}`,
+            background: Z.bgInput, overflow: "hidden", flexShrink: 0,
           }}>
             <button
-              className="rd-stepper-btn"
+              className="rd-step"
               onClick={() => setOutputCount((n) => Math.max(1, n - 1))}
               disabled={outputCount <= 1 || isGenerating}
               style={{
-                width: 30, height: "100%", border: "none",
+                width: 36, height: "100%", border: "none",
                 background: "transparent",
                 cursor: outputCount <= 1 || isGenerating ? "default" : "pointer",
-                color: "rgba(255,255,255,0.45)", fontSize: 17, fontWeight: 300,
+                color: Z.textSecondary, fontSize: 18, fontWeight: 300,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "background 0.1s ease",
               }}
             >−</button>
             <div style={{
-              minWidth: 26, textAlign: "center",
-              fontSize: 13, fontWeight: 700, color: "#fff",
+              flex: 1, textAlign: "center",
+              fontSize: 15, fontWeight: 700, color: Z.textPrimary,
               userSelect: "none",
-            }}>
-              {outputCount}
-            </div>
+            }}>{outputCount}</div>
             <button
-              className="rd-stepper-btn"
+              className="rd-step"
               onClick={() => setOutputCount((n) => Math.min(4, n + 1))}
               disabled={outputCount >= 4 || isGenerating}
               style={{
-                width: 30, height: "100%", border: "none",
+                width: 36, height: "100%", border: "none",
                 background: "transparent",
                 cursor: outputCount >= 4 || isGenerating ? "default" : "pointer",
-                color: "rgba(255,255,255,0.45)", fontSize: 17, fontWeight: 300,
+                color: Z.textSecondary, fontSize: 18, fontWeight: 300,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "background 0.1s ease",
               }}
@@ -688,25 +593,18 @@ export default function CreativeRenderDock({
 
           {/* Credit estimate */}
           <div style={{
-            fontSize: 11, fontWeight: 600,
-            color: "rgba(255,255,255,0.28)",
-            letterSpacing: "0.03em",
-            flexShrink: 0,
-            whiteSpace: "nowrap",
+            fontSize: 13, fontWeight: 500, color: Z.textSecondary,
+            flexShrink: 0, whiteSpace: "nowrap", paddingLeft: 2,
           }}>
             ~{creditEstimate} cr
           </div>
 
-          {/* Elastic spacer */}
+          {/* Spacer */}
           <div style={{ flex: 1 }} />
 
           {/* Helper text — no concept selected */}
           {!selectedConceptId && (
-            <span style={{
-              fontSize: 11, color: "rgba(255,255,255,0.28)",
-              flexShrink: 0, whiteSpace: "nowrap",
-              fontStyle: "italic",
-            }}>
+            <span style={{ fontSize: 13, color: Z.textMuted, flexShrink: 0, whiteSpace: "nowrap", fontStyle: "italic" }}>
               Select a concept to render
             </span>
           )}
@@ -714,46 +612,38 @@ export default function CreativeRenderDock({
           {/* Variation mode chip */}
           {isVariationMode && selectedConceptId && (
             <span style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
-              padding: "3px 8px", borderRadius: 20,
-              background: "rgba(124,58,237,0.15)",
-              border: "1px solid rgba(124,58,237,0.3)",
-              color: "#c4b5fd",
-              flexShrink: 0,
-            }}>
-              MODE: VARIATION
-            </span>
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+              padding: "3px 10px", borderRadius: 20,
+              background: "rgba(139,92,246,0.15)",
+              border: "1px solid rgba(139,92,246,0.3)",
+              color: "#C4B5FD", flexShrink: 0,
+            }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Generate button ── */}
+          {/* ── 6. Generate button — 148px ── */}
           <button
-            className="rd-generate"
+            className="rd-gen"
             onClick={handleGenerate}
             disabled={isDisabled}
             style={{
-              height:       36,
-              padding:      "0 24px",
-              borderRadius: 10,
+              height:       44, minWidth: 148,
+              padding:      "0 20px", borderRadius: 12,
               border:       "none",
               background:   isDisabled
-                ? "rgba(255,255,255,0.07)"
-                : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-              color:        isDisabled ? "rgba(255,255,255,0.3)" : "#fff",
-              fontSize:     13,
-              fontWeight:   700,
+                ? Z.bgInput
+                : "linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(79,70,229,0.9) 100%)",
+              color:        isDisabled ? Z.textMuted : Z.textPrimary,
+              fontSize:     15, fontWeight: 600,
               cursor:       isDisabled ? "default" : "pointer",
-              letterSpacing: "0.02em",
-              display:      "flex",
-              alignItems:   "center",
-              gap:          7,
-              flexShrink:   0,
-              whiteSpace:   "nowrap",
-              boxShadow:    isDisabled ? "none" : "0 0 22px rgba(37,99,235,0.28)",
+              letterSpacing: "0.01em",
+              display:      "flex", alignItems: "center", justifyContent: "center",
+              gap:          8, flexShrink: 0, whiteSpace: "nowrap",
+              boxShadow:    isDisabled ? "none" : "0 8px 24px rgba(59,130,246,0.24)",
               transition:   "all 0.15s ease",
             }}
           >
             {isGenerating && (
-              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 14 }}>⟳</span>
+              <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 15 }}>⟳</span>
             )}
             {generateLabel}
           </button>

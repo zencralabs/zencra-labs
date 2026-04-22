@@ -1275,36 +1275,73 @@ function ImageStudioInner() {
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
 
           {/* ── Studio mode switcher ── */}
-          <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            height: 52,
+            padding: "4px",
+            borderRadius: 16,
+            background: "#0B1022",
+            border: "1px solid rgba(120,160,255,0.1)",
+          }}>
             {([
-              { id: "standard",          label: "Generate",        badge: null },
+              { id: "standard",          label: "Generate",         badge: null },
               { id: "creative-director", label: "Creative Director", badge: "NEW" },
-            ] as const).map(({ id, label, badge }) => (
-              <button
-                key={id}
-                onClick={() => setStudioMode(id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600,
-                  cursor: "pointer", border: "none",
-                  background: studioMode === id
-                    ? "linear-gradient(135deg, rgba(37,99,235,0.3), rgba(124,58,237,0.2))"
-                    : "transparent",
-                  color: studioMode === id ? "#fff" : "rgba(255,255,255,0.4)",
-                  transition: "all 0.15s",
-                  boxShadow: studioMode === id ? "0 0 0 1px rgba(37,99,235,0.3)" : "none",
-                }}
-              >
-                {label}
-                {badge && (
-                  <span style={{
-                    fontSize: 8, fontWeight: 800, letterSpacing: "0.06em",
-                    background: "linear-gradient(135deg, #2563EB, #7C3AED)",
-                    color: "#fff", padding: "2px 5px", borderRadius: 4,
-                  }}>{badge}</span>
-                )}
-              </button>
-            ))}
+            ] as const).map(({ id, label, badge }) => {
+              const isActive = studioMode === id;
+              const isCD = id === "creative-director";
+              return (
+                <button
+                  key={id}
+                  onClick={() => setStudioMode(id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    height: 44,
+                    padding: "0 18px",
+                    borderRadius: 12,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    letterSpacing: "-0.01em",
+                    transition: "all 0.18s ease",
+                    border: isActive
+                      ? isCD
+                        ? "1px solid rgba(86,140,255,0.42)"
+                        : "1px solid rgba(120,160,255,0.14)"
+                      : "1px solid transparent",
+                    background: isActive
+                      ? isCD
+                        ? "linear-gradient(135deg, rgba(59,130,246,0.22), rgba(79,70,229,0.18))"
+                        : "#151D34"
+                      : "transparent",
+                    color: isActive ? "#F5F7FF" : "rgba(167,176,197,0.55)",
+                    boxShadow: isActive && isCD
+                      ? "0 0 16px rgba(59,130,246,0.12)"
+                      : "none",
+                  }}
+                >
+                  {label}
+                  {badge && (
+                    <span style={{
+                      fontSize: 9,
+                      fontWeight: 800,
+                      letterSpacing: "0.07em",
+                      background: "rgba(199,243,107,0.12)",
+                      color: "#C7F36B",
+                      border: "1px solid rgba(199,243,107,0.25)",
+                      padding: "2px 6px",
+                      borderRadius: 5,
+                      lineHeight: 1,
+                    }}>
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Divider — only show when in standard mode */}

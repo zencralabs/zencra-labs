@@ -33,14 +33,22 @@ interface OutputWorkspaceProps {
   onAdaptFormat: (format: string, generationId: string) => void;
 }
 
-// ── Style constants ────────────────────────────────────────────────────────────
+// ── Zencra brand tokens ────────────────────────────────────────────────────────
+const Z = {
+  textPrimary:   "#F5F7FF",
+  textSecondary: "#A7B0C5",
+  textMuted:     "#6F7893",
+  borderSubtle:  "rgba(255,255,255,0.06)",
+  borderSoft:    "rgba(120,160,255,0.14)",
+  bgCard:        "rgba(255,255,255,0.025)",
+} as const;
 
+// ── Style constants ────────────────────────────────────────────────────────────
 const labelStyle: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.25)",
+  fontSize: 13,
+  fontWeight: 600,
+  letterSpacing: "0.02em",
+  color: Z.textSecondary,
 };
 
 const VARIATION_TYPES = [
@@ -154,12 +162,11 @@ function GenerationCard({
   return (
     <div
       style={{
-        background: "rgba(255,255,255,0.02)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: Z.bgCard,
+        border: `1px solid ${isHovered ? "rgba(120,160,255,0.2)" : Z.borderSubtle}`,
         borderRadius: 12,
         overflow: "hidden",
-        transition: "border-color 0.15s ease",
-        borderColor: isHovered ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)",
+        transition: "border-color 0.18s ease",
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -176,7 +183,7 @@ function GenerationCard({
               alignItems: "center",
               justifyContent: "center",
               gap: 12,
-              background: "rgba(9,9,18,0.8)",
+              background: "rgba(5,8,22,0.85)",
             }}
           >
             <div
@@ -205,7 +212,7 @@ function GenerationCard({
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              background: "rgba(9,9,18,0.8)",
+              background: "rgba(5,8,22,0.85)",
             }}
           >
             <span style={{ fontSize: 20 }}>⚠</span>
@@ -521,39 +528,73 @@ export default function OutputWorkspace({
       `}</style>
 
       {/* Section header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 14,
-        }}
-      >
-        <span style={labelStyle}>
-          Outputs{" "}
-          {generations.length > 0 && (
-            <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400 }}>
-              ({generations.length})
-            </span>
-          )}
-        </span>
-        {generations.length > 0 && (
-          <button
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 4,
+          }}
+        >
+          <h3
             style={{
-              fontSize: 10,
+              fontSize: 18,
               fontWeight: 600,
-              padding: "3px 8px",
-              borderRadius: 5,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.03)",
-              color: "rgba(255,255,255,0.35)",
-              cursor: "pointer",
-              letterSpacing: "0.04em",
+              color: Z.textPrimary,
+              margin: 0,
+              letterSpacing: "-0.01em",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            ↓ Download All
-          </button>
-        )}
+            Outputs
+            {generations.length > 0 && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: Z.textMuted,
+                  background: "rgba(255,255,255,0.05)",
+                  border: `1px solid ${Z.borderSubtle}`,
+                  borderRadius: 20,
+                  padding: "1px 8px",
+                }}
+              >
+                {generations.length}
+              </span>
+            )}
+          </h3>
+          {generations.length > 0 && (
+            <button
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "4px 10px",
+                borderRadius: 7,
+                border: `1px solid ${Z.borderSubtle}`,
+                background: "rgba(255,255,255,0.03)",
+                color: Z.textSecondary,
+                cursor: "pointer",
+                letterSpacing: "0.01em",
+                transition: "all 0.15s ease",
+              }}
+            >
+              ↓ Download All
+            </button>
+          )}
+        </div>
+        <p
+          style={{
+            fontSize: 13,
+            color: Z.textMuted,
+            margin: 0,
+            lineHeight: 1.5,
+          }}
+        >
+          Generated concept outputs appear here and are saved to your project.
+        </p>
       </div>
 
       {/* ── Empty state ── */}

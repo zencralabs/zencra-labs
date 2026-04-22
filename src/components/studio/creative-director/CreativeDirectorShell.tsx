@@ -661,8 +661,8 @@ export default function CreativeDirectorShell() {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: "#0A0A0A",
-        color: "#fff",
+        background: "#050816",
+        color: "#F5F7FF",
         fontFamily: "inherit",
       }}
     >
@@ -678,7 +678,7 @@ export default function CreativeDirectorShell() {
           alignItems: "center",
           padding: "0 20px",
           borderBottom: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(9,9,18,0.99)",
+          background: "#0B1022",
           flexShrink: 0,
           gap: 20,
         }}
@@ -852,20 +852,23 @@ export default function CreativeDirectorShell() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "340px 1fr 380px",
+          gridTemplateColumns: "320px 1fr 320px",
+          gap: "20px",
           height: "calc(100vh - 48px)",
           overflow: "hidden",
+          padding: "0 20px",
+          background: "#050816",
         }}
       >
         {/* Left: BriefBuilder — paddingBottom leaves space for dock */}
         <div
           className="cd-col"
           style={{
-            borderRight: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: "0 0 12px 12px",
             overflowY: "auto",
             scrollbarWidth: "none",
-            background: "rgba(9,9,18,0.6)",
-            paddingBottom: 168,
+            background: "#0B1022",
+            paddingBottom: 176,
           }}
         >
           <BriefBuilder
@@ -882,10 +885,11 @@ export default function CreativeDirectorShell() {
         <div
           className="cd-col"
           style={{
-            borderRight: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: "0 0 12px 12px",
             overflowY: "auto",
             scrollbarWidth: "none",
-            paddingBottom: 168,
+            background: "#070B1D",
+            paddingBottom: 176,
           }}
         >
           <ConceptBoard
@@ -902,10 +906,11 @@ export default function CreativeDirectorShell() {
         <div
           className="cd-col"
           style={{
+            borderRadius: "0 0 12px 12px",
             overflowY: "auto",
             scrollbarWidth: "none",
-            background: "rgba(9,9,18,0.4)",
-            paddingBottom: 168,
+            background: "#0B1022",
+            paddingBottom: 176,
           }}
         >
           <OutputWorkspace
