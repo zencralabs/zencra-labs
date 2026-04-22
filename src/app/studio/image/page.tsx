@@ -427,6 +427,7 @@ function ImageCard({
   hideHoverActions?: boolean;
 }) {
   const router = useRouter();
+  const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} />;
   }
@@ -491,11 +492,11 @@ function ImageCard({
   // opens fullscreen only when the click target is not an action button.
   return (
     <div
-      style={{ animation: "fadeIn 0.3s ease" }}
+      style={{ animation: "fadeIn 0.3s ease", position: "relative" }}
       onClick={(e) => {
-        if (!(e.target as HTMLElement).closest("button")) {
-          onOpen?.();
-        }
+        if ((e.target as HTMLElement).closest("button")) return;
+        setCardAnimateOpen(false);
+        onOpen?.();
       }}
     >
       <MediaCard
@@ -506,16 +507,54 @@ function ImageCard({
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
-        onAnimate={() => {
-          // Animate → Video Studio, image pre-loaded into Start Frame, Kling 3.0 pre-selected
-          // "kling-30" is the VIDEO_MODEL_REGISTRY catalog ID for Kling 3.0 Omni
-          // router.push = soft navigation; preserves Zustand FlowStore workflow ID
-          const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
-          if (img.url) params.set("imageUrl", img.url);
-          if (img.prompt) params.set("prompt", img.prompt);
-          router.push(`/studio/video?${params.toString()}`);
-        }}
+        onAnimate={() => setCardAnimateOpen(v => !v)}
       />
+
+      {/* ── Animate Start/End Frame dropdown — identical routing to right panel ── */}
+      {cardAnimateOpen && img.url && (
+        <>
+          {/* Invisible backdrop — closes dropdown on outside click */}
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 200 }}
+            onClick={(e) => { e.stopPropagation(); setCardAnimateOpen(false); }}
+          />
+          <div style={{
+            position: "absolute", bottom: 48, left: 8, right: 8,
+            background: "#141420",
+            border: "1px solid rgba(96,165,250,0.22)",
+            borderRadius: 10, overflow: "hidden", zIndex: 201,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.75)",
+          }}>
+            {([
+              { label: "Use as Start Frame", param: "startFrame", desc: "Image becomes the first frame" },
+              { label: "Use as End Frame",   param: "endFrame",   desc: "Image becomes the last frame"  },
+            ] as const).map(({ label, param, desc }, idx) => (
+              <button
+                key={param}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
+                  params.set(param, img.url!);
+                  if (img.prompt) params.set("prompt", img.prompt);
+                  setCardAnimateOpen(false);
+                  router.push(`/studio/video?${params.toString()}`);
+                }}
+                style={{
+                  width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
+                  padding: "10px 12px", border: "none", background: "transparent",
+                  color: "#fff", cursor: "pointer", transition: "background 0.12s",
+                  borderBottom: idx === 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.1)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2052,7 +2091,11 @@ function ImageStudioInner() {
           onClick={() => setViewingImage(null)}
           style={{
             position: "fixed",
-            top: 64, left: 0, right: 0, bottom: 0,
+            top: 64, left: 0,
+            // Shrink canvas right edge when right panel is open so image + close button
+            // are never obscured by the 360px panel (z:9981).
+            right: selectedImage ? 360 : 0,
+            bottom: 0,
             zIndex: 9999,
             background: "rgba(0,0,0,0.82)",
             backdropFilter: "blur(10px)",
@@ -2089,14 +2132,16 @@ function ImageStudioInner() {
               }}
             >✕</button>
 
-            {/* Image — responsive across laptop / desktop / tablet / mobile */}
+            {/* Image — constrained to the available canvas width (panel excluded) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={viewingImage.url}
               alt="Full size"
               style={{
                 display: "block",
-                maxWidth: "min(82vw, 1100px)",
+                maxWidth: selectedImage
+                  ? "min(calc(100vw - 360px - 80px), 1100px)"
+                  : "min(82vw, 1100px)",
                 maxHeight: "calc(100vh - 64px - 80px)",
                 objectFit: "contain",
                 borderRadius: 12,
