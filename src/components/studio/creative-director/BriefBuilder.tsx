@@ -36,6 +36,8 @@ interface BriefBuilderProps {
   onChange: (updates: Partial<BriefState>) => void;
   onImproveBrief: () => void;
   isLoading: boolean;
+  /** True once the first round of concepts has been generated — unlocks Improve Brief */
+  hasConceptsGenerated?: boolean;
 }
 
 const PROJECT_TYPES = [
@@ -133,6 +135,7 @@ export default function BriefBuilder({
   onChange,
   onImproveBrief,
   isLoading,
+  hasConceptsGenerated = false,
 }: BriefBuilderProps) {
 
   const toggleMoodTag = (tag: string) => {
@@ -164,6 +167,21 @@ export default function BriefBuilder({
         .brief-input:focus { border-color: rgba(37,99,235,0.4) !important; outline: none; }
         .brief-action-btn:hover { background: rgba(37,99,235,0.14) !important; border-color: rgba(86,140,255,0.45) !important; box-shadow: 0 0 16px rgba(59,130,246,0.2), inset 0 1px 0 rgba(255,255,255,0.07) !important; }
       `}</style>
+
+      {/* ── Helper banner — always visible onboarding hint ── */}
+      <div
+        style={{
+          margin: "16px 20px 0",
+          padding: "10px 14px",
+          borderRadius: 8,
+          background: "rgba(37,99,235,0.06)",
+          border: "1px solid rgba(86,140,255,0.18)",
+        }}
+      >
+        <p style={{ fontSize: 13, color: "rgba(180,196,230,0.85)", margin: 0, lineHeight: 1.55 }}>
+          Fill key fields below. <span style={{ color: "rgba(255,255,255,0.5)" }}>Optional fields can be skipped — AI will handle the rest.</span>
+        </p>
+      </div>
 
       {/* ── B1: Project Basics ── */}
       <div style={{ padding: "20px 20px 0" }}>
@@ -239,7 +257,10 @@ export default function BriefBuilder({
         <div style={sectionHeaderStyle}>Message Inputs</div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Campaign Goal</label>
+          <label style={labelStyle}>
+            Campaign Goal{" "}
+            <span style={{ color: "#60a5fa", fontWeight: 700 }}>*</span>
+          </label>
           <textarea
             className="brief-input"
             style={textareaStyle}
@@ -247,10 +268,16 @@ export default function BriefBuilder({
             value={brief.goal}
             onChange={(e) => onChange({ goal: e.target.value })}
           />
+          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
+            e.g. get signups, drive clicks, promote a product
+          </p>
         </div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Headline</label>
+          <label style={labelStyle}>
+            Headline{" "}
+            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
+          </label>
           <input
             className="brief-input"
             style={inputStyle}
@@ -259,10 +286,16 @@ export default function BriefBuilder({
             value={brief.headline}
             onChange={(e) => onChange({ headline: e.target.value })}
           />
+          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
+            The primary text that will appear on the creative
+          </p>
         </div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Subheadline</label>
+          <label style={labelStyle}>
+            Subheadline{" "}
+            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
+          </label>
           <input
             className="brief-input"
             style={inputStyle}
@@ -274,7 +307,10 @@ export default function BriefBuilder({
         </div>
 
         <div style={fieldStyle}>
-          <label style={labelStyle}>Call to Action</label>
+          <label style={labelStyle}>
+            Call to Action{" "}
+            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
+          </label>
           <input
             className="brief-input"
             style={inputStyle}
@@ -283,6 +319,9 @@ export default function BriefBuilder({
             value={brief.cta}
             onChange={(e) => onChange({ cta: e.target.value })}
           />
+          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
+            The action button text shown on the creative
+          </p>
         </div>
 
         <div style={fieldStyle}>
@@ -599,53 +638,78 @@ export default function BriefBuilder({
       {/* ── B5: Brief support actions (Generate via dock below) ── */}
       <div style={{ padding: "16px 20px 20px", marginTop: "auto" }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="brief-action-btn"
-            onClick={onImproveBrief}
-            disabled={isLoading}
-            style={{
-              flex: 1,
-              padding: "11px 0",
-              background: "rgba(37,99,235,0.07)",
-              border: "1px solid rgba(86,140,255,0.28)",
-              borderRadius: 8,
-              color: "rgba(255,255,255,0.72)",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: isLoading ? "default" : "pointer",
-              transition: "all 0.18s ease",
-              boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
-            }}
+          {/* Improve Brief — only active once concepts have been generated */}
+          <div
+            style={{ flex: 1, position: "relative" }}
+            title={
+              !hasConceptsGenerated
+                ? "Generate concepts first — then AI will refine your brief based on them"
+                : "Refine your brief using AI feedback from your concepts"
+            }
           >
-            ✨ Improve Brief
-          </button>
-          <button
-            className="brief-action-btn"
-            onClick={() => {
-              const shuffled = [...MOOD_TAGS].sort(() => Math.random() - 0.5);
-              const randomPreset = STYLE_PRESETS[Math.floor(Math.random() * STYLE_PRESETS.length)];
-              onChange({
-                moodTags: shuffled.slice(0, 2),
-                stylePreset: randomPreset,
-                visualIntensity: INTENSITY_LABELS[Math.floor(Math.random() * INTENSITY_LABELS.length)].toLowerCase(),
-              });
-            }}
-            style={{
-              flex: 1,
-              padding: "11px 0",
-              background: "rgba(37,99,235,0.07)",
-              border: "1px solid rgba(86,140,255,0.28)",
-              borderRadius: 8,
-              color: "rgba(255,255,255,0.72)",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.18s ease",
-              boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
-            }}
+            <button
+              className="brief-action-btn"
+              onClick={onImproveBrief}
+              disabled={isLoading || !hasConceptsGenerated}
+              style={{
+                width: "100%",
+                padding: "11px 0",
+                background: hasConceptsGenerated
+                  ? "rgba(37,99,235,0.07)"
+                  : "rgba(255,255,255,0.03)",
+                border: hasConceptsGenerated
+                  ? "1px solid rgba(86,140,255,0.28)"
+                  : "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8,
+                color: hasConceptsGenerated
+                  ? "rgba(255,255,255,0.72)"
+                  : "rgba(255,255,255,0.28)",
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: (isLoading || !hasConceptsGenerated) ? "default" : "pointer",
+                transition: "all 0.18s ease",
+                boxShadow: hasConceptsGenerated
+                  ? "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)"
+                  : "none",
+              }}
+            >
+              ✨ Improve Brief
+            </button>
+          </div>
+
+          {/* Randomize — always available */}
+          <div
+            style={{ flex: 1 }}
+            title="Auto-fill style fields with a creative starting point"
           >
-            ⟳ Randomize
-          </button>
+            <button
+              className="brief-action-btn"
+              onClick={() => {
+                const shuffled = [...MOOD_TAGS].sort(() => Math.random() - 0.5);
+                const randomPreset = STYLE_PRESETS[Math.floor(Math.random() * STYLE_PRESETS.length)];
+                onChange({
+                  moodTags: shuffled.slice(0, 2),
+                  stylePreset: randomPreset,
+                  visualIntensity: INTENSITY_LABELS[Math.floor(Math.random() * INTENSITY_LABELS.length)].toLowerCase(),
+                });
+              }}
+              style={{
+                width: "100%",
+                padding: "11px 0",
+                background: "rgba(37,99,235,0.07)",
+                border: "1px solid rgba(86,140,255,0.28)",
+                borderRadius: 8,
+                color: "rgba(255,255,255,0.72)",
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.18s ease",
+                boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              ⟳ Randomize
+            </button>
+          </div>
         </div>
       </div>
     </div>

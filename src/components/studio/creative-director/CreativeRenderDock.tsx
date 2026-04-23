@@ -1228,21 +1228,23 @@ export default function CreativeRenderDock({
           <button
             className="rd-gen"
             onClick={handleGenerate}
-            disabled={ctaMode === "select-concept"}
+            disabled={ctaMode === "select-concept" || isGeneratingConcepts || isGenerating}
             style={{
               height:         56,
               minWidth:       ctaMode === "select-concept" ? 168 : 192,
               padding:        "0 20px 0 22px",
               borderRadius:   12,
               marginLeft:     12,
-              border:         ctaMode === "select-concept"
+              border:         (ctaMode === "select-concept" || isGeneratingConcepts || isGenerating)
                 ? `1px solid ${Z.borderSubtle}`
                 : "1px solid rgba(255,255,255,0.18)",
-              background:     ctaMode === "select-concept"
-                ? Z.bgInput
+              background:     (ctaMode === "select-concept" || isGeneratingConcepts || isGenerating)
+                ? (isGeneratingConcepts || isGenerating)
+                  ? "linear-gradient(135deg, rgba(63,169,245,0.45) 0%, rgba(108,92,231,0.45) 100%)"
+                  : Z.bgInput
                 : "linear-gradient(135deg, #3FA9F5 0%, #6C5CE7 100%)",
               color:          ctaMode === "select-concept" ? Z.textMuted : "#ffffff",
-              cursor:         ctaMode === "select-concept" ? "default" : "pointer",
+              cursor:         (ctaMode === "select-concept" || isGeneratingConcepts || isGenerating) ? "default" : "pointer",
               display:        "flex",
               flexDirection:  "row",
               alignItems:     "center",

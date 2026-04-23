@@ -415,6 +415,8 @@ export default function CreativeDirectorShell() {
   const handleGenerateConcepts = useCallback(async () => {
     if (isGeneratingConcepts) return;
 
+    console.log("[CD] handleGenerateConcepts: triggered");
+
     // Get a live token once — used for all three requests in this flow.
     // getAuthHeaders() reads from supabase's in-memory state which handles
     // auto-refresh, so this is safe even if the React session state is stale.
@@ -429,9 +431,17 @@ export default function CreativeDirectorShell() {
     setIsGeneratingConcepts(true);
     setConceptBoardState("loading");
 
+    // 8-second timeout fallback — if the API hasn't responded, surface a
+    // "still working" info toast so the UI never looks completely frozen.
+    const slowTimer = setTimeout(() => {
+      addToast("Still working… this may take a few seconds longer.", "info");
+    }, 8000);
+
     try {
       let currentProjectId = projectId;
       let currentBriefId = briefId;
+
+      console.log("[CD] step 1: create/reuse project", { currentProjectId, currentBriefId });
 
       // 1. Create project if none
       if (!currentProjectId) {
@@ -443,6 +453,8 @@ export default function CreativeDirectorShell() {
             projectType: brief.projectType,
           }),
         });
+
+        console.log("[CD] project create response:", projRes.status);
 
         if (!projRes.ok) {
           const err = await projRes.json().catch(() => ({}));
@@ -457,7 +469,10 @@ export default function CreativeDirectorShell() {
         currentBriefId = projData.brief.id;
         setProjectId(currentProjectId);
         setBriefId(currentBriefId);
+        console.log("[CD] project created:", currentProjectId);
       }
+
+      console.log("[CD] step 2: save brief", { currentProjectId });
 
       // 2. Update brief
       const briefRes = await fetch(
@@ -468,6 +483,9 @@ export default function CreativeDirectorShell() {
           body: JSON.stringify(serializeBriefForApi(brief)),
         }
       );
+
+      console.log("[CD] brief save response:", briefRes.status);
+
       if (!briefRes.ok) {
         const err = await briefRes.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error ?? "Failed to save brief");
@@ -480,6 +498,8 @@ export default function CreativeDirectorShell() {
         }
       }
 
+      console.log("[CD] step 3: generate concepts", { currentProjectId });
+
       // 3. Generate concepts
       const conceptsRes = await fetch(
         `/api/creative-director/projects/${currentProjectId}/concepts`,
@@ -488,12 +508,16 @@ export default function CreativeDirectorShell() {
           headers: jsonHeaders,
         }
       );
+
+      console.log("[CD] concepts response:", conceptsRes.status);
+
       if (!conceptsRes.ok) {
         const err = await conceptsRes.json().catch(() => ({}));
         throw new Error((err as { error?: string }).error ?? "Failed to generate concepts");
       }
 
       const conceptsData = (await conceptsRes.json()) as { concepts: ConceptRow[]; estimatedGenerationCredits?: number };
+      console.log("[CD] concepts received:", conceptsData.concepts?.length ?? 0);
       setConcepts((conceptsData.concepts ?? []).map(mapConceptRowToCard));
       if (conceptsData.estimatedGenerationCredits != null) {
         setCreditsEstimate(conceptsData.estimatedGenerationCredits);
@@ -503,9 +527,11 @@ export default function CreativeDirectorShell() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong generating concepts.";
+      console.error("[CD] handleGenerateConcepts failed:", message);
       addToast(message, "error");
       setConceptBoardState(concepts.length > 0 ? "results" : "empty");
     } finally {
+      clearTimeout(slowTimer);
       setIsGeneratingConcepts(false);
     }
   }, [
@@ -1055,6 +1081,7 @@ export default function CreativeDirectorShell() {
             onChange={handleBriefChange}
             onImproveBrief={handleImproveBrief}
             isLoading={isGeneratingConcepts}
+            hasConceptsGenerated={concepts.length > 0}
           />
         </div>
 
