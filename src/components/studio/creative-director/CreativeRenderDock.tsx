@@ -1232,7 +1232,7 @@ export default function CreativeRenderDock({
             style={{
               height:         56,
               minWidth:       ctaMode === "select-concept" ? 168 : 192,
-              padding:        "0 20px",
+              padding:        "0 20px 0 22px",
               borderRadius:   12,
               marginLeft:     12,
               border:         ctaMode === "select-concept"
@@ -1311,7 +1311,7 @@ export default function CreativeRenderDock({
                   alignItems:     "center",
                   justifyContent: "flex-end",
                   alignSelf:      "center",
-                  minWidth:       64,
+                  minWidth:       72,
                   gap:            6,
                   flexShrink:     0,
                 }}>
