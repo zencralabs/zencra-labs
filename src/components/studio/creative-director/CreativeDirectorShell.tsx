@@ -781,7 +781,24 @@ export default function CreativeDirectorShell() {
 
         // 2. Generate outputs — use dock settings if provided, else brief fallback
         const count = dockSettings?.outputCount ?? brief.outputCount ?? 1;
-        console.log("[CD] render: starting generation", { count, model: dockSettings?.model });
+
+        // ── Model routing: derive providerOverride from dock model key ───────
+        // The render route expects { modelOverride, providerOverride }.
+        // The dock sends { model } (e.g. "nano-banana-pro", "gpt-image-1").
+        // We must map model → provider so the provider-router honours the selection.
+        const modelKey = dockSettings?.model;
+        const modelOverride = modelKey ?? undefined;
+        const providerOverride = modelKey
+          ? ((): string => {
+              if (modelKey === "gpt-image-1")                          return "openai";
+              if (modelKey === "nano-banana-pro" || modelKey === "nano-banana-2") return "nano-banana";
+              if (modelKey.startsWith("seedream"))                     return "seedream";
+              if (modelKey.startsWith("flux"))                         return "flux";
+              return "openai";
+            })()
+          : undefined;
+
+        console.log("[CD] render: starting generation", { count, modelOverride, providerOverride });
         const res = await fetch(
           `/api/creative-director/concepts/${conceptId}/generate`,
           {
@@ -789,9 +806,8 @@ export default function CreativeDirectorShell() {
             headers: { "Content-Type": "application/json", ...authH },
             body: JSON.stringify({
               count,
-              model:        dockSettings?.model,
-              quality:      dockSettings?.quality,
-              resolution:   dockSettings?.resolution,
+              modelOverride,     // renamed from "model" — matches validateGenerateRender schema
+              providerOverride,  // derived from model key so provider-router honours selection
               aspectRatio:  dockSettings?.aspectRatio,
               promptText:   dockSettings?.promptText,
               referenceImages: dockSettings?.referenceImages,
