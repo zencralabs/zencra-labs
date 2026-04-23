@@ -11,10 +11,15 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { validateBriefInput } from "@/lib/creative-director/schemas";
-import { parseBrief } from "@/lib/creative-director/brief-parser";
 import { saveBrief, updateBrief } from "@/lib/creative-director/save-history";
 import { logActivity } from "@/lib/creative-director/activity-log";
 import type { CreativeBriefRow } from "@/lib/creative-director/types";
+
+// Note: parseBrief() is intentionally NOT called here.
+// The brief route is responsible only for persisting raw brief fields.
+// parseBrief() (OpenAI call) runs exclusively in the concepts route,
+// right before concept generation. This prevents a hard OpenAI dependency
+// on every brief save and removes the "Brief parsing failed" 502 blocker.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,40 +61,6 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
   }
 
   const input = validation.data;
-  const proj = project as {
-    project_type: string;
-    brand_name?: string;
-    audience?: string;
-    platform?: string;
-  };
-
-  // Build brief parser input from project + body
-  const parserInput = {
-    projectType: proj.project_type,
-    brandName: proj.brand_name ?? undefined,
-    audience: proj.audience ?? undefined,
-    platform: proj.platform ?? undefined,
-    goal: input.goal,
-    headline: input.headline,
-    subheadline: input.subheadline,
-    cta: input.cta,
-    additionalNotes: input.additionalCopyNotes,
-    stylePreset: input.stylePreset,
-    moodTags: input.moodTags,
-    visualIntensity: input.visualIntensity,
-    textRenderingIntent: input.textRenderingIntent,
-    realismVsDesign: input.realismVsDesign,
-    colorPreference: input.colorPreference,
-  };
-
-  // Run brief parsing
-  let parsedBrief;
-  try {
-    parsedBrief = await parseBrief(parserInput);
-  } catch (err) {
-    console.error(`[brief/route] parseBrief failed for project ${projectId}:`, err);
-    return NextResponse.json({ error: "Brief parsing failed" }, { status: 502 });
-  }
 
   // Check for existing brief
   const { data: existingBriefs } = await supabaseAdmin
@@ -101,6 +72,9 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
 
   const existingBriefId = (existingBriefs?.[0] as { id?: string } | undefined)?.id;
 
+  // parsed_brief_json is populated by the concepts route after parseBrief() succeeds.
+  // We do NOT call parseBrief() here — brief save must never depend on OpenAI.
+  // Preserve any existing parsed_brief_json by not overwriting it unless needed.
   const briefData = {
     project_id: projectId,
     goal: input.goal,
@@ -108,7 +82,6 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     subheadline: input.subheadline,
     cta: input.cta,
     additional_copy_notes: input.additionalCopyNotes,
-    project_type: proj.project_type,
     style_preset: input.stylePreset,
     mood_tags: input.moodTags ?? [],
     visual_intensity: input.visualIntensity,
@@ -118,8 +91,10 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     aspect_ratio: input.aspectRatio,
     reference_assets: (input.referenceAssets ?? []) as unknown[],
     advanced_settings: (input.advancedSettings ?? {}) as Record<string, unknown>,
-    parsed_brief_json: parsedBrief as unknown as Record<string, unknown>,
     original_input: input.originalInput,
+    // parsed_brief_json is populated by the concepts route after parseBrief() succeeds.
+    // Pass empty object so the DB column is satisfied; concepts route overwrites on generation.
+    parsed_brief_json: {} as Record<string, unknown>,
   };
 
   let brief: CreativeBriefRow;
@@ -145,5 +120,5 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     { brief_id: brief.id }
   );
 
-  return NextResponse.json({ brief, parsedBrief });
+  return NextResponse.json({ brief });
 }

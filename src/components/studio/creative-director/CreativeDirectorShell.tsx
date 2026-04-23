@@ -55,6 +55,9 @@ function serializeBriefForApi(b: BriefState): Record<string, unknown> {
   return {
     ...b,
     realismVsDesign: normalized,
+    // Schema validator reads `additionalCopyNotes` — BriefState uses `additionalNotes`.
+    // Explicitly remap so the field is not silently dropped on every brief save.
+    additionalCopyNotes: b.additionalNotes,
   };
 }
 
