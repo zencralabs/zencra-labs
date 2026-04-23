@@ -132,6 +132,8 @@ export interface GenerateRenderInput {
   referenceImages?: ReferenceImageInput[];
   blendMode?: BlendMode;
   locks?: StyleLocks;
+  /** Links this render to a project_sessions row (project system) */
+  session_id?: string;
 }
 
 export interface VariationInput {
@@ -367,6 +369,7 @@ export function validateGenerateRender(
     referenceImages,
     blendMode,
     locks,
+    session_id: isStringOrUndef(b.session_id) ? (b.session_id as string | undefined) : undefined,
   });
 }
 

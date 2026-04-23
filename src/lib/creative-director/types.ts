@@ -254,6 +254,8 @@ export interface CreativeGenerationRow {
   error_message?: string;
   created_at: string;
   completed_at?: string;
+  /** Links this generation to a project_sessions row (project system) */
+  session_id?: string;
 }
 
 export interface CreativeActivityRow {

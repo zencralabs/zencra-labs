@@ -379,6 +379,8 @@ export default function CreativeDirectorShell() {
   const [brief, setBrief] = useState<BriefState>(DEFAULT_BRIEF);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [briefId, setBriefId] = useState<string | null>(null);
+  /** Unified project_sessions.id — links this CD run to the projects/assets system */
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [conceptBoardState, setConceptBoardState] = useState<
     "empty" | "loading" | "results" | "detail"
   >("empty");
@@ -476,6 +478,7 @@ export default function CreativeDirectorShell() {
       const saved = JSON.parse(raw) as {
         projectId?: string;
         briefId?: string;
+        sessionId?: string | null;
         projectName?: string;
         brief?: Partial<BriefState>;
         concepts?: ConceptCard[];
@@ -486,6 +489,7 @@ export default function CreativeDirectorShell() {
       if (!saved.projectId) return;
       setProjectId(saved.projectId);
       if (saved.briefId) setBriefId(saved.briefId);
+      if (saved.sessionId) setSessionId(saved.sessionId);
       if (saved.projectName) setProjectName(saved.projectName);
       if (saved.brief) setBrief((prev) => ({ ...prev, ...saved.brief }));
       if (saved.concepts?.length) {
@@ -504,7 +508,7 @@ export default function CreativeDirectorShell() {
     if (!projectId) return; // nothing to save yet
     try {
       const toSave = {
-        projectId, briefId, projectName, brief,
+        projectId, briefId, sessionId, projectName, brief,
         concepts, generations,
         selectedConceptId, conceptBoardState,
       };
@@ -512,7 +516,7 @@ export default function CreativeDirectorShell() {
     } catch {
       // localStorage full or unavailable — ignore
     }
-  }, [projectId, briefId, projectName, brief, concepts, generations, selectedConceptId, conceptBoardState]);
+  }, [projectId, briefId, sessionId, projectName, brief, concepts, generations, selectedConceptId, conceptBoardState]);
 
   // Brief change handler — marks unsaved
   const handleBriefChange = useCallback((updates: Partial<BriefState>) => {
@@ -631,6 +635,50 @@ export default function CreativeDirectorShell() {
         console.log("[CD] project created:", currentProjectId);
       }
 
+      // 1b. Create unified project + session if this is a fresh run.
+      // Uses the separate /api/projects + /api/sessions routes (project_sessions table).
+      // Non-fatal: if these calls fail we log a warning and continue — CD still works.
+      let currentSessionId = sessionId;
+      if (!currentSessionId) {
+        try {
+          const uniProjRes = await fetch("/api/projects", {
+            method: "POST",
+            headers: jsonHeaders,
+            signal: flowController.signal,
+            body: JSON.stringify({
+              name: projectName || brief.projectName || "Untitled Project",
+              description: brief.goal || "",
+            }),
+          });
+          if (uniProjRes.ok) {
+            const uniProjData = (await uniProjRes.json()) as { project?: { id: string } };
+            const uniProjectId = uniProjData.project?.id;
+            if (uniProjectId) {
+              const sessRes = await fetch("/api/sessions", {
+                method: "POST",
+                headers: jsonHeaders,
+                signal: flowController.signal,
+                body: JSON.stringify({
+                  project_id: uniProjectId,
+                  type: "creative-director",
+                  name: projectName || brief.projectName || "Session 1",
+                }),
+              });
+              if (sessRes.ok) {
+                const sessData = (await sessRes.json()) as { session?: { id: string } };
+                currentSessionId = sessData.session?.id ?? null;
+                if (currentSessionId) {
+                  setSessionId(currentSessionId);
+                  console.log("[CD] session created:", currentSessionId);
+                }
+              }
+            }
+          }
+        } catch (sessionErr) {
+          console.warn("[CD] non-fatal: failed to create unified session —", sessionErr);
+        }
+      }
+
       console.log("[CD] step 2: save brief", { currentProjectId });
 
       // 2. Update brief
@@ -685,6 +733,19 @@ export default function CreativeDirectorShell() {
       }
       setConceptBoardState("results");
       setAutosaveState("saved");
+
+      // 4. Stamp session_id on the generated concepts + advance session status.
+      // Fire-and-forget: non-blocking, non-fatal — does not affect CD UX.
+      if (currentSessionId) {
+        const conceptIds = (conceptsData.concepts ?? []).map((c) => c.id).filter(Boolean);
+        if (conceptIds.length > 0) {
+          fetch(`/api/sessions/${currentSessionId}/concepts`, {
+            method: "POST",
+            headers: jsonHeaders,
+            body: JSON.stringify({ concept_ids: conceptIds }),
+          }).catch((e) => console.warn("[CD] non-fatal: concept session stamp failed —", e));
+        }
+      }
     } catch (err) {
       const isAbort = err instanceof Error && err.name === "AbortError";
       const message = isAbort
@@ -704,6 +765,7 @@ export default function CreativeDirectorShell() {
     isGeneratingConcepts,
     projectId,
     briefId,
+    sessionId,
     projectName,
     brief,
     getAuthHeaders,
@@ -874,6 +936,7 @@ export default function CreativeDirectorShell() {
               aspectRatio:  dockSettings?.aspectRatio,
               promptText:   dockSettings?.promptText,
               referenceImages: dockSettings?.referenceImages,
+              session_id:   sessionId ?? undefined,   // propagate to creative_generations row
             }),
             signal: renderController.signal,
           }
@@ -925,23 +988,32 @@ export default function CreativeDirectorShell() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isGeneratingOutputs, brief.outputCount, concepts, getAuthHeaders, addToast, pollGeneration]
+    [isGeneratingOutputs, brief.outputCount, concepts, sessionId, getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Select / expand concept ────────────────────────────────────────────────────
   const handleSelectConcept = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (selectedConceptId === id && conceptBoardState === "detail") {
         // Already in detail — go back to results
         setConceptBoardState("results");
       } else {
         setSelectedConceptId(id);
-        if (conceptBoardState !== "detail") {
-          // Just select, don't go to detail
+        // Stamp selected_concept_id on the session (non-blocking, non-fatal)
+        if (sessionId) {
+          getAuthHeaders()
+            .then((authH) =>
+              fetch(`/api/sessions/${sessionId}/select`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...authH },
+                body: JSON.stringify({ concept_id: id }),
+              })
+            )
+            .catch((e) => console.warn("[CD] non-fatal: session concept select failed —", e));
         }
       }
     },
-    [selectedConceptId, conceptBoardState]
+    [selectedConceptId, conceptBoardState, sessionId, getAuthHeaders]
   );
 
   const handleExpandConcept = useCallback(

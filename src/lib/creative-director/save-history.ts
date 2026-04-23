@@ -266,6 +266,7 @@ export async function saveGeneration(
       idempotency_key: data.idempotency_key ?? null,
       error_message: data.error_message ?? null,
       completed_at: data.completed_at ?? null,
+      ...(data.session_id ? { session_id: data.session_id } : {}),
     })
     .select()
     .single();

@@ -73,6 +73,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     referenceImages,
     blendMode,
     locks,
+    session_id,
   } = validation.data;
 
   // ── Idempotency check ──────────────────────────────────────────────────────
@@ -268,6 +269,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
         status: "processing",
         credit_cost: computeTotalGenerationCost(providerDecision.model, 1, "base"),
         idempotency_key: iKey,
+        session_id: session_id ?? undefined,
       });
       generationRecords.push(gen);
     } catch (err) {
