@@ -288,7 +288,7 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
     <div
       style={{
         position: "fixed",
-        bottom: 112,           // sits above the dock
+        bottom: 200,           // sits above the dock (dock height ~156px + 24px offset = 180px)
         left: "50%",
         transform: "translateX(-50%)",
         display: "flex",
@@ -372,13 +372,22 @@ export default function CreativeDirectorShell() {
   }, [session]);
 
   // Async getAuthHeaders — used in all user-initiated action handlers.
-  // Reads the live token from supabase's in-memory state (handles auto-refresh).
-  // Falls back to React session state if supabase.auth.getSession() fails.
+  // 1. Try live session from Supabase's in-memory state.
+  // 2. If no token found (stale or not yet hydrated), force a refreshSession() call.
+  // 3. Falls back to React session state as last resort.
   const getAuthHeaders = useCallback(
     async (): Promise<HeadersInit> => {
       try {
         const { data: { session: live } } = await supabase.auth.getSession();
-        const token = live?.access_token ?? session?.access_token;
+        let token: string | undefined = live?.access_token ?? session?.access_token;
+
+        // If still no token, force a network refresh — handles stale/expired tokens
+        if (!token) {
+          console.warn("[CD] getAuthHeaders: no token from getSession, attempting refreshSession");
+          const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+          token = refreshed?.access_token;
+        }
+
         if (!token) return {};
         return { Authorization: `Bearer ${token}` };
       } catch {
@@ -417,19 +426,33 @@ export default function CreativeDirectorShell() {
 
     console.log("[CD] handleGenerateConcepts: triggered");
 
+    // Show loading state IMMEDIATELY so the button visually responds on click.
+    // If auth then fails, we reset these below before returning.
+    setIsGeneratingConcepts(true);
+    setConceptBoardState("loading");
+
     // Get a live token once — used for all three requests in this flow.
     // getAuthHeaders() reads from supabase's in-memory state which handles
     // auto-refresh, so this is safe even if the React session state is stale.
+    // Pre-flight validation — surface field errors before hitting the API
+    if (!brief.projectType || brief.projectType.trim() === "") {
+      setIsGeneratingConcepts(false);
+      setConceptBoardState(concepts.length > 0 ? "results" : "empty");
+      addToast("Please select a Project Type before generating concepts.", "warning");
+      return;
+    }
+
     const authH = await getAuthHeaders();
+    console.log("[CD] getAuthHeaders result:", "Authorization" in authH ? "✓ token present" : "✗ no token");
+
     if (!("Authorization" in authH)) {
-      addToast("Session expired — please refresh the page and try again.", "warning");
+      setIsGeneratingConcepts(false);
+      setConceptBoardState(concepts.length > 0 ? "results" : "empty");
+      addToast("Session expired — please sign in and try again.", "error");
       return;
     }
 
     const jsonHeaders: HeadersInit = { "Content-Type": "application/json", ...authH };
-
-    setIsGeneratingConcepts(true);
-    setConceptBoardState("loading");
 
     // 8-second timeout fallback — if the API hasn't responded, surface a
     // "still working" info toast so the UI never looks completely frozen.
