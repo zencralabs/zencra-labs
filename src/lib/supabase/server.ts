@@ -51,7 +51,13 @@ export async function getAuthUser(req: Request): Promise<User | null> {
 
   const { data: { user }, error } = await client.auth.getUser(token);
   if (error || !user) {
-    if (dev) console.warn("[getAuthUser] ✗ auth.getUser failed:", error?.message ?? "no user returned");
+    if (dev) console.warn(
+      "[getAuthUser] ✗ auth.getUser failed —",
+      "message:", error?.message ?? "no user returned",
+      "| status:", error?.status ?? "n/a",
+      "| hint: if status=401 in local dev, the access token is expired.",
+      "The client will retry via refreshSession() automatically."
+    );
     return null;
   }
 

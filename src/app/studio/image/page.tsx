@@ -762,12 +762,16 @@ function ImageStudioInner() {
     if (!user || historyLoaded) return;
 
     (async () => {
-      // Call getSession() directly rather than reading session?.access_token from
-      // React state. With autoRefreshToken enabled, getSession() always returns a
-      // valid token (refreshing if needed), eliminating the race where
-      // INITIAL_SESSION fires with an expired token before TOKEN_REFRESHED arrives.
+      // ── Token strategy ─────────────────────────────────────────────────────
+      // getSession() reads from localStorage and can return a stale expired token
+      // before the SDK's background refresh cycle has run (race: user state
+      // updates via INITIAL_SESSION before TOKEN_REFRESHED fires).
+      // Strategy: getSession() first; if the server returns 401 (expired token),
+      // call refreshSession() to force a new access token and retry once.
+      // This keeps the common path cheap (one getSession + one fetch) while
+      // being resilient to the local-dev startup timing issue.
       const { data: { session: freshSession } } = await supabase.auth.getSession();
-      const accessToken = freshSession?.access_token;
+      let accessToken = freshSession?.access_token ?? null;
 
       // No session token — unconfigured local env or not actually logged in.
       // Show empty state rather than an error.
@@ -776,13 +780,35 @@ function ImageStudioInner() {
         return;
       }
 
-      try {
-        const res = await fetch("/api/generations/mine?category=image&pageSize=50", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
+      // ── Shared fetch helper ─────────────────────────────────────────────────
+      const doFetch = (token: string) =>
+        fetch("/api/generations/mine?category=image&pageSize=50", {
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         });
+
+      try {
+        let res = await doFetch(accessToken);
+
+        // ── 401 retry: token expired — refresh and try once more ───────────
+        if (res.status === 401) {
+          console.warn("[ImageStudio] Bearer token expired — refreshing session and retrying");
+          try {
+            const { data: { session: refreshed }, error: refreshErr } =
+              await supabase.auth.refreshSession();
+            if (refreshErr || !refreshed?.access_token) {
+              console.error("[ImageStudio] refreshSession failed:", refreshErr?.message ?? "no session");
+              setHistoryError(true);
+              return;
+            }
+            accessToken = refreshed.access_token;
+            res = await doFetch(accessToken);
+          } catch (refreshEx) {
+            console.error("[ImageStudio] refreshSession threw:", refreshEx);
+            setHistoryError(true);
+            return;
+          }
+        }
+
         if (!res.ok) {
           console.error(
             "[ImageStudio] history fetch failed — status:", res.status,
@@ -843,10 +869,10 @@ function ImageStudioInner() {
         setHistoryLoaded(true);
       }
     })();
-  // session intentionally omitted — we call supabase.auth.getSession() directly
-  // at fetch time to guarantee a fresh token. session in React state can be one
-  // render behind when a token refresh fires (INITIAL_SESSION → TOKEN_REFRESHED),
-  // causing an expired-token 401 on the first load.
+  // session intentionally omitted — we read the token via supabase.auth.getSession()
+  // at fetch time to avoid the INITIAL_SESSION → TOKEN_REFRESHED stale-state race.
+  // If the stored token is expired (common after a local dev restart), a single
+  // refreshSession() call re-issues a valid token and the fetch is retried once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, historyLoaded]);
 
