@@ -673,25 +673,41 @@ export default function CreativeDirectorShell() {
   // ── Generate outputs ───────────────────────────────────────────────────────────
   const handleGenerateConcept = useCallback(
     async (conceptId: string, dockSettings?: RenderDockSettings) => {
-      if (isGeneratingOutputs) return;
-
-      const authH = await getAuthHeaders();
-      if (!("Authorization" in authH)) {
-        addToast("Session expired — please refresh the page and try again.", "warning");
+      console.log("[CD] handleGenerateConcept: triggered", { conceptId, dockSettings });
+      if (isGeneratingOutputs) {
+        console.log("[CD] handleGenerateConcept: already generating — bailed");
         return;
       }
 
+      // ── Show loading state IMMEDIATELY — before any async work ──────────────
       setIsGeneratingOutputs(true);
+      console.log("[CD] render: loading state set — fetching auth");
+
+      // 90-second hard abort for the entire render flow
+      const renderController = new AbortController();
+      const renderTimeout = setTimeout(() => {
+        renderController.abort();
+      }, 90_000);
 
       try {
+        const authH = await getAuthHeaders();
+        console.log("[CD] render: auth result", Object.keys(authH));
+        if (!("Authorization" in authH)) {
+          addToast("Session expired — please refresh the page and try again.", "warning");
+          return;
+        }
+
         // 1. Select concept
+        console.log("[CD] render: selecting concept", conceptId);
         await fetch(`/api/creative-director/concepts/${conceptId}/select`, {
           method: "POST",
           headers: authH,
+          signal: renderController.signal,
         });
 
         // 2. Generate outputs — use dock settings if provided, else brief fallback
         const count = dockSettings?.outputCount ?? brief.outputCount ?? 1;
+        console.log("[CD] render: starting generation", { count, model: dockSettings?.model });
         const res = await fetch(
           `/api/creative-director/concepts/${conceptId}/generate`,
           {
@@ -706,17 +722,21 @@ export default function CreativeDirectorShell() {
               promptText:   dockSettings?.promptText,
               referenceImages: dockSettings?.referenceImages,
             }),
+            signal: renderController.signal,
           }
         );
 
+        console.log("[CD] render: response status", res.status);
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error((err as { error?: string }).error ?? "Failed to start generation");
         }
 
         const data = (await res.json()) as { generations: Record<string, unknown>[] };
+        console.log("[CD] render: generations received", data.generations?.length ?? 0);
         const newGens = (data.generations ?? []).map(mapGenerationRow);
         setGenerations((prev) => [...newGens, ...prev]);
+        console.log("[CD] render: state updated — outputs appended");
 
         // 3. Poll each async generation (sync providers already have status=completed + url)
         newGens.forEach((g) => {
@@ -725,11 +745,16 @@ export default function CreativeDirectorShell() {
           }
         });
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Generation failed. Please try again.";
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        const message = isAbort
+          ? "Render timed out (90s) — please try again."
+          : err instanceof Error ? err.message : "Generation failed. Please try again.";
+        console.error("[CD] handleGenerateConcept failed:", isAbort ? "timeout (90s)" : message);
         addToast(message, "error");
       } finally {
+        clearTimeout(renderTimeout);
         setIsGeneratingOutputs(false);
+        console.log("[CD] render: finally — loading cleared");
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -923,6 +948,7 @@ export default function CreativeDirectorShell() {
     >
       <style>{`
         .cd-col::-webkit-scrollbar { display: none; }
+        .cd-col { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
       `}</style>
 
       {/* ── Top header bar ── */}
