@@ -1192,7 +1192,7 @@ export default function CreativeRenderDock({
           </div>
 
           {/* Credit estimate — amber, larger, with tooltip */}
-          <Tooltip content="Estimated total cost based on selected settings">
+          <Tooltip content="Estimated total cost for current settings">
           <div
             style={{
               fontSize:      16,
@@ -1231,8 +1231,8 @@ export default function CreativeRenderDock({
             disabled={ctaMode === "select-concept"}
             style={{
               height:         50,
-              minWidth:       ctaMode === "select-concept" ? 168 : 154,
-              padding:        "0 18px",
+              minWidth:       ctaMode === "select-concept" ? 168 : 162,
+              padding:        "0 24px",
               borderRadius:   12,
               marginLeft:     12,
               border:         ctaMode === "select-concept"
@@ -1275,18 +1275,18 @@ export default function CreativeRenderDock({
             {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
               <>
                 {/* Row 1: primary verb + icon + credit */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, lineHeight: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
                   <span style={{ flex: 1, fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>
                     {ctaMode === "generate-concepts" ? "Generate"
                       : isVariationMode           ? "Generate"
                       : "Render"}
                   </span>
-                  <Zap size={12} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
+                  <Zap size={11} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                   <span style={{
-                    fontSize:      13,
-                    fontWeight:    600,
-                    color:         "rgba(255,255,255,0.85)",
-                    letterSpacing: "-0.01em",
+                    fontSize:      12,
+                    fontWeight:    500,
+                    color:         "rgba(255,255,255,0.62)",
+                    letterSpacing: "0em",
                     lineHeight:    1,
                     flexShrink:    0,
                   }}>

@@ -40,6 +40,60 @@ const DEFAULT_BRIEF: BriefState = {
   compositionPreference: "",
 };
 
+// ── Brief API serializer ──────────────────────────────────────────────────────
+// BriefState.realismVsDesign is stored as 0–100 (integer slider).
+// The API schema expects a 0–1 float. Normalise at the boundary so nothing
+// inside the app ever needs to think about which scale is which.
+function serializeBriefForApi(b: BriefState): Record<string, unknown> {
+  const raw = b.realismVsDesign;
+  const normalized =
+    typeof raw === "number" && !Number.isNaN(raw)
+      ? Math.max(0, Math.min(1, raw > 1 ? raw / 100 : raw))
+      : 0.5; // safe default if somehow undefined/NaN
+
+  return {
+    ...b,
+    realismVsDesign: normalized,
+  };
+}
+
+// ── DB row → UI type mapper ───────────────────────────────────────────────────
+// The concepts API returns raw snake_case DB rows (CreativeConceptRow).
+// ConceptCard is camelCase. This mapper normalises at the shell boundary.
+interface ConceptRow {
+  id: string;
+  title: string;
+  summary: string;
+  rationale?: string | null;
+  layout_strategy?: string | null;
+  typography_strategy?: string | null;
+  color_strategy?: string | null;
+  recommended_provider?: string | null;
+  recommended_use_case?: string | null;
+  scores?: Record<string, number> | null;
+}
+
+function mapConceptRowToCard(row: ConceptRow): ConceptCard {
+  const scores = (row.scores ?? {}) as Record<string, number>;
+  return {
+    id:                   row.id,
+    title:                row.title,
+    summary:              row.summary,
+    rationale:            row.rationale ?? undefined,
+    layoutStrategy:       row.layout_strategy ?? undefined,
+    typographyStrategy:   row.typography_strategy ?? undefined,
+    colorStrategy:        row.color_strategy ?? undefined,
+    recommendedProvider:  row.recommended_provider ?? "openai",
+    recommendedUseCase:   row.recommended_use_case ?? undefined,
+    scores: {
+      textAccuracy:      scores.textAccuracy      ?? 0,
+      cinematicImpact:   scores.cinematicImpact   ?? 0,
+      designControl:     scores.designControl     ?? 0,
+      speed:             scores.speed             ?? 0,
+    },
+  };
+}
+
 // ── Toast types ───────────────────────────────────────────────────────────────
 interface Toast {
   id: string;
@@ -151,6 +205,55 @@ function InlineProjectName({
   );
 }
 
+// ── Toast copy map ────────────────────────────────────────────────────────────
+// Maps raw API / internal strings → polished user-facing copy.
+// Add entries here instead of scattering rewrites across handlers.
+const TOAST_COPY: Record<string, string> = {
+  // API credit errors
+  "Credit deduction failed":
+    "Unable to start generation — credits could not be deducted. Please try again.",
+  "Insufficient credits":
+    "You don't have enough credits for this generation. Top up and try again.",
+  "Credit deduction failed (concepts)":
+    "Concept generation could not start — credits could not be deducted. Please try again.",
+
+  // Auth gates
+  "Sign in to generate concepts.":
+    "Please sign in to generate concepts.",
+  "Sign in to generate outputs.":
+    "Please sign in to generate outputs.",
+  "Sign in to use Improve Brief.":
+    "Please sign in to use Improve Brief.",
+
+  // Workflow gates
+  "Generate concepts first to enable Improve Brief.":
+    "Generate concepts first to unlock Improve Brief.",
+
+  // Brief
+  "Brief improved.": "Brief improved successfully.",
+  "Could not improve brief. Try again.":
+    "Improve Brief failed. Please try again.",
+
+  // Generation
+  "Regenerate failed. Try again.":
+    "Regeneration failed. Please try again.",
+  "Could not create variation. Try again.":
+    "Could not create a variation. Please try again.",
+  "Format adaptation failed. Try again.":
+    "Format adaptation failed. Please try again.",
+
+  // Generic fallbacks already shown with good copy — keep as-is
+  "Failed to create project": "Failed to create project. Please try again.",
+  "Failed to save brief": "Failed to save brief. Please try again.",
+  "Failed to generate concepts":
+    "Concept generation failed. Please try again.",
+  "Failed to start generation":
+    "Generation could not start. Please try again.",
+  "Regenerate failed": "Regeneration failed. Please try again.",
+  "Variation failed": "Could not create a variation. Please try again.",
+  "Adapt format failed": "Format adaptation failed. Please try again.",
+};
+
 // ── Toast component ────────────────────────────────────────────────────────────
 function ToastBar({ toasts }: { toasts: Toast[] }) {
   if (toasts.length === 0) return null;
@@ -158,13 +261,13 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
     <div
       style={{
         position: "fixed",
-        bottom: 24,
+        bottom: 112,           // sits above the dock
         left: "50%",
         transform: "translateX(-50%)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 8,
+        gap: 10,
         zIndex: 9999,
         pointerEvents: "none",
       }}
@@ -173,26 +276,35 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
         <div
           key={toast.id}
           style={{
-            padding: "8px 16px",
-            borderRadius: 20,
-            fontSize: 12,
+            padding: "14px 28px",
+            borderRadius: 12,
+            fontSize: 15,
             fontWeight: 600,
+            lineHeight: 1.45,
             color: "#fff",
+            maxWidth: 520,
+            textAlign: "center",
+            wordBreak: "break-word",
             background:
               toast.type === "error"
-                ? "rgba(220,38,38,0.9)"
+                ? "rgba(185,28,28,0.97)"
                 : toast.type === "warning"
-                ? "rgba(217,119,6,0.9)"
-                : "rgba(37,99,235,0.9)",
+                ? "rgba(180,83,9,0.97)"
+                : "rgba(29,78,216,0.97)",
             border:
               toast.type === "error"
-                ? "1px solid rgba(248,113,113,0.4)"
+                ? "1px solid rgba(252,165,165,0.35)"
                 : toast.type === "warning"
-                ? "1px solid rgba(251,191,36,0.4)"
-                : "1px solid rgba(96,165,250,0.4)",
-            backdropFilter: "blur(8px)",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-            whiteSpace: "nowrap",
+                ? "1px solid rgba(253,211,77,0.35)"
+                : "1px solid rgba(147,197,253,0.35)",
+            backdropFilter: "blur(12px)",
+            boxShadow:
+              toast.type === "error"
+                ? "0 8px 32px rgba(185,28,28,0.45), 0 2px 8px rgba(0,0,0,0.5)"
+                : toast.type === "warning"
+                ? "0 8px 32px rgba(180,83,9,0.4), 0 2px 8px rgba(0,0,0,0.5)"
+                : "0 8px 32px rgba(29,78,216,0.4), 0 2px 8px rgba(0,0,0,0.5)",
+            letterSpacing: "-0.01em",
           }}
         >
           {toast.message}
@@ -233,10 +345,14 @@ export default function CreativeDirectorShell() {
   const addToast = useCallback(
     (message: string, type: Toast["type"] = "error") => {
       const id = Math.random().toString(36).slice(2);
-      setToasts((prev) => [...prev, { id, message, type }]);
+      // Humanise known raw API error strings before displaying
+      const display = TOAST_COPY[message] ?? message;
+      setToasts((prev) => [...prev, { id, message: display, type }]);
+      // Errors and warnings stay longer so they're never missed
+      const duration = type === "info" ? 4500 : 7000;
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 4000);
+      }, duration);
     },
     []
   );
@@ -250,7 +366,7 @@ export default function CreativeDirectorShell() {
   // ── Generate concepts flow ────────────────────────────────────────────────────
   const handleGenerateConcepts = useCallback(async () => {
     if (!session) {
-      addToast("Sign in to generate concepts.", "warning");
+      addToast("Please sign in to generate concepts.", "warning");
       return;
     }
     if (isGeneratingConcepts) return;
@@ -282,11 +398,11 @@ export default function CreativeDirectorShell() {
         }
 
         const projData = (await projRes.json()) as {
-          projectId: string;
-          briefId: string;
+          project: { id: string };
+          brief: { id: string };
         };
-        currentProjectId = projData.projectId;
-        currentBriefId = projData.briefId;
+        currentProjectId = projData.project.id;
+        currentBriefId = projData.brief.id;
         setProjectId(currentProjectId);
         setBriefId(currentBriefId);
       }
@@ -300,7 +416,7 @@ export default function CreativeDirectorShell() {
             "Content-Type": "application/json",
             ...authHeader(),
           },
-          body: JSON.stringify(brief),
+          body: JSON.stringify(serializeBriefForApi(brief)),
         }
       );
       if (!briefRes.ok) {
@@ -308,9 +424,9 @@ export default function CreativeDirectorShell() {
         throw new Error((err as { error?: string }).error ?? "Failed to save brief");
       }
       if (!currentBriefId) {
-        const briefData = (await briefRes.json()) as { briefId?: string };
-        if (briefData.briefId) {
-          currentBriefId = briefData.briefId;
+        const briefData = (await briefRes.json()) as { brief?: { id: string } };
+        if (briefData.brief?.id) {
+          currentBriefId = briefData.brief.id;
           setBriefId(currentBriefId);
         }
       }
@@ -331,8 +447,11 @@ export default function CreativeDirectorShell() {
         throw new Error((err as { error?: string }).error ?? "Failed to generate concepts");
       }
 
-      const conceptsData = (await conceptsRes.json()) as { concepts: ConceptCard[] };
-      setConcepts(conceptsData.concepts ?? []);
+      const conceptsData = (await conceptsRes.json()) as { concepts: ConceptRow[]; estimatedGenerationCredits?: number };
+      setConcepts((conceptsData.concepts ?? []).map(mapConceptRowToCard));
+      if (conceptsData.estimatedGenerationCredits != null) {
+        setCreditsEstimate(conceptsData.estimatedGenerationCredits);
+      }
       setConceptBoardState("results");
       setAutosaveState("saved");
     } catch (err) {
@@ -358,28 +477,35 @@ export default function CreativeDirectorShell() {
   // ── Improve brief ─────────────────────────────────────────────────────────────
   const handleImproveBrief = useCallback(async () => {
     if (!session) {
-      addToast("Sign in to use Improve Brief.", "warning");
+      addToast("Please sign in to use Improve Brief.", "warning");
+      return;
+    }
+    if (!projectId) {
+      addToast("Generate concepts first to unlock Improve Brief.", "warning");
       return;
     }
     try {
-      const res = await fetch("/api/creative-director/improve-brief", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader(),
-        },
-        body: JSON.stringify(brief),
-      });
+      const res = await fetch(
+        `/api/creative-director/projects/${projectId}/brief/improve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader(),
+          },
+          body: JSON.stringify(serializeBriefForApi(brief)),
+        }
+      );
       if (!res.ok) throw new Error("Improve brief failed");
       const data = (await res.json()) as { brief?: Partial<BriefState> };
       if (data.brief) {
         setBrief((prev) => ({ ...prev, ...data.brief }));
-        addToast("Brief improved.", "info");
+        addToast("Brief improved successfully.", "info");
       }
     } catch {
-      addToast("Could not improve brief. Try again.", "error");
+      addToast("Improve Brief failed. Please try again.", "error");
     }
-  }, [session, brief, authHeader, addToast]);
+  }, [session, projectId, brief, authHeader, addToast]);
 
   // ── Poll generation status ────────────────────────────────────────────────────
   const pollGeneration = useCallback(
@@ -429,7 +555,7 @@ export default function CreativeDirectorShell() {
   const handleGenerateConcept = useCallback(
     async (conceptId: string, dockSettings?: RenderDockSettings) => {
       if (!session) {
-        addToast("Sign in to generate outputs.", "warning");
+        addToast("Please sign in to generate outputs.", "warning");
         return;
       }
       if (isGeneratingOutputs) return;
@@ -563,7 +689,7 @@ export default function CreativeDirectorShell() {
                 g.id === generationId ? { ...g, status: "failed" } : g
               )
             );
-            addToast("Regenerate failed. Try again.", "error");
+            addToast("Regeneration failed. Please try again.", "error");
           }
           break;
         }
@@ -585,7 +711,7 @@ export default function CreativeDirectorShell() {
           break;
         }
         case "save": {
-          addToast("Saved to your library.", "info");
+          addToast("Saved to your library.", "info"); // already clear
           break;
         }
         default:
@@ -620,7 +746,7 @@ export default function CreativeDirectorShell() {
           pollGeneration(newGen.id);
         }
       } catch {
-        addToast("Could not create variation. Try again.", "error");
+        addToast("Could not create a variation. Please try again.", "error");
       }
     },
     [session, authHeader, addToast, pollGeneration]
@@ -650,7 +776,7 @@ export default function CreativeDirectorShell() {
           pollGeneration(newGen.id);
         }
       } catch {
-        addToast("Format adaptation failed. Try again.", "error");
+        addToast("Format adaptation failed. Please try again.", "error");
       }
     },
     [session, authHeader, addToast, pollGeneration]

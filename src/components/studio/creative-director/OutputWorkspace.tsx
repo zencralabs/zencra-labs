@@ -155,6 +155,13 @@ function GenerationCard({
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null);
+  const [publishPulse, setPublishPulse] = useState(false);
+
+  function handlePublish() {
+    if (publishPulse) return;
+    setPublishPulse(true);
+    setTimeout(() => setPublishPulse(false), 2000);
+  }
 
   const isLoading = gen.status === "queued" || gen.status === "processing";
   const isCompleted = gen.status === "completed";
@@ -267,33 +274,62 @@ function GenerationCard({
             }}
           >
             {[
-              { key: "download", icon: "↓", title: "Download" },
+              { key: "download",   icon: "↓", title: "Download"   },
               { key: "fullscreen", icon: "⤢", title: "Fullscreen" },
-              { key: "save", icon: "♡", title: "Save" },
+              { key: "save",       icon: "♡", title: "Save"       },
               { key: "regenerate", icon: "⟳", title: "Regenerate" },
             ].map(({ key, icon, title }) => (
               <Tooltip key={key} content={title}>
+                <button
+                  onClick={() => onAction(key as OutputAction)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    background: "rgba(0,0,0,0.6)",
+                    color: "#fff",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.12s ease",
+                  }}
+                >
+                  {icon}
+                </button>
+              </Tooltip>
+            ))}
+
+            {/* Publish — coming soon */}
+            <Tooltip content="Gallery publish coming soon">
               <button
-                onClick={() => onAction(key as OutputAction)}
+                onClick={handlePublish}
                 style={{
                   width: 36,
                   height: 36,
                   borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff",
-                  fontSize: 14,
+                  border: publishPulse
+                    ? "1px solid rgba(251,191,36,0.4)"
+                    : "1px solid rgba(251,191,36,0.2)",
+                  background: publishPulse
+                    ? "rgba(251,191,36,0.15)"
+                    : "rgba(251,191,36,0.06)",
+                  color: publishPulse ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.5)",
+                  fontSize: publishPulse ? 9 : 13,
+                  fontWeight: 700,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  transition: "background 0.12s ease",
+                  transition: "all 0.18s ease",
+                  letterSpacing: publishPulse ? "0.03em" : "0",
                 }}
               >
-                {icon}
+                {publishPulse ? "Soon" : "↑"}
               </button>
-              </Tooltip>
-            ))}
+            </Tooltip>
           </div>
         )}
       </div>
@@ -379,6 +415,43 @@ function GenerationCard({
           </button>
           </Tooltip>
         ))}
+
+        {/* Publish pill — coming soon */}
+        <Tooltip content="Gallery publish coming soon">
+          <button
+            onClick={handlePublish}
+            onMouseEnter={() => setHoveredBtn("publish")}
+            onMouseLeave={() => setHoveredBtn(null)}
+            style={{
+              padding: "0 9px",
+              height: 28,
+              borderRadius: 6,
+              border: publishPulse
+                ? "1px solid rgba(251,191,36,0.38)"
+                : hoveredBtn === "publish"
+                ? "1px solid rgba(251,191,36,0.28)"
+                : "1px solid rgba(251,191,36,0.16)",
+              background: publishPulse
+                ? "rgba(251,191,36,0.12)"
+                : hoveredBtn === "publish"
+                ? "rgba(251,191,36,0.08)"
+                : "rgba(251,191,36,0.04)",
+              color: publishPulse
+                ? "rgba(251,191,36,0.9)"
+                : "rgba(251,191,36,0.45)",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              transition: "all 0.15s ease",
+              letterSpacing: "0.01em",
+            }}
+          >
+            {publishPulse ? "Coming soon" : "↑ Publish"}
+          </button>
+        </Tooltip>
 
         {/* Variations button */}
         <button

@@ -112,8 +112,8 @@ const selectStyle: React.CSSProperties = {
 };
 
 const sectionStyle: React.CSSProperties = {
-  borderTop: "1px solid rgba(120,160,255,0.08)",
-  padding: "20px 20px",
+  borderTop: "1px solid rgba(120,160,255,0.1)",
+  padding: "28px 20px",
 };
 
 const sectionHeaderStyle: React.CSSProperties = {

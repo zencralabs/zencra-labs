@@ -39,7 +39,7 @@ const Z = {
   textSecondary: "#A7B0C5",
   textMuted:     "#6F7893",
   borderSubtle:  "rgba(120,160,255,0.18)",
-  borderActive:  "rgba(86,140,255,0.42)",
+  borderActive:  "rgba(86,140,255,0.55)",
   glowPrimary:   "0 0 16px rgba(86,140,255,0.35)",
   glowWhite:     "0 0 10px rgba(255,255,255,0.15)",
   accentBlue:    "#3B82F6",
@@ -48,19 +48,68 @@ const Z = {
 } as const;
 
 // ── Gradient preview backgrounds per concept index ────────────────────────────
+// Each card has a distinct cinematic identity:
+// 0 — Cinematic Blue (deep navy, electric blue undertones)
+// 1 — Rich Violet   (deep indigo, luminous purple)
+// 2 — Teal / Moody  (dark ocean, emerald undertones)
 const PREVIEW_GRADIENTS = [
-  "linear-gradient(135deg, #0F1B3A 0%, #1A2850 40%, #0D1428 100%)",
-  "linear-gradient(135deg, #1A0F3A 0%, #2D1850 40%, #100D28 100%)",
-  "linear-gradient(135deg, #0A1F2E 0%, #0D2E40 40%, #061420 100%)",
+  "linear-gradient(148deg, #060E28 0%, #0C1E48 48%, #05112A 100%)",
+  "linear-gradient(148deg, #130930 0%, #240F56 48%, #0B0524 100%)",
+  "linear-gradient(148deg, #031419 0%, #072D35 48%, #020C10 100%)",
 ];
 
 const PREVIEW_ACCENTS = [
-  { a: "rgba(59,130,246,0.25)", b: "rgba(139,92,246,0.15)" },
-  { b: "rgba(139,92,246,0.25)", a: "rgba(236,72,153,0.15)" },
-  { a: "rgba(34,211,238,0.2)",  b: "rgba(59,130,246,0.2)"  },
+  // Cinematic blue: strong electric blue + cyan glint
+  { a: "rgba(37,99,235,0.5)",  b: "rgba(6,182,212,0.3)"   },
+  // Rich violet: deep violet + rose flare
+  { a: "rgba(109,40,217,0.5)", b: "rgba(219,39,119,0.28)" },
+  // Teal/moody: teal + emerald depth
+  { a: "rgba(13,148,136,0.5)", b: "rgba(16,185,129,0.28)" },
 ];
 
-// ── Score bar ─────────────────────────────────────────────────────────────────
+// ── Per-card blob positioning — gives each card a distinct spatial feel ────────
+const BLOB_CONFIGS = [
+  // Card 0: blobs top-right + bottom-left (diagonal top)
+  {
+    a: { top: -24, right: -24 } as React.CSSProperties,
+    b: { bottom: -14, left: -14 } as React.CSSProperties,
+  },
+  // Card 1: blobs top-left + bottom-right (diagonal, mirrored)
+  {
+    a: { top: -24, left: -24 } as React.CSSProperties,
+    b: { bottom: -14, right: -14 } as React.CSSProperties,
+  },
+  // Card 2: blobs centre-right + upper-left (off-axis, moody)
+  {
+    a: { top: 16, right: -32 } as React.CSSProperties,
+    b: { top: -24, left: 24 } as React.CSSProperties,
+  },
+];
+
+// ── Strength bar (shown only on selected card) ─────────────────────────────────
+function StrengthBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: Z.textMuted, letterSpacing: "0.02em" }}>{label}</span>
+        <span style={{ fontSize: 11, color: Z.textSecondary, fontWeight: 600 }}>{value}/10</span>
+      </div>
+      <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+        <div
+          style={{
+            height: "100%",
+            width: `${(value / 10) * 100}%`,
+            background: "linear-gradient(to right, #3FA9F5, #6C5CE7)",
+            borderRadius: 2,
+            transition: "width 0.7s ease",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Score bar (used in detail panel only) ─────────────────────────────────────
 function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div style={{ marginBottom: 8 }}>
@@ -88,9 +137,9 @@ function Chip({ label, color }: { label: string; color?: string }) {
   return (
     <span
       style={{
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: 600,
-        padding: "3px 9px",
+        padding: "6px 12px",
         borderRadius: 20,
         background: color ? `${color}18` : "rgba(120,160,255,0.1)",
         border: `1px solid ${color ? color + "35" : "rgba(120,160,255,0.25)"}`,
@@ -104,14 +153,17 @@ function Chip({ label, color }: { label: string; color?: string }) {
   );
 }
 
-// ── Preview placeholder ────────────────────────────────────────────────────────
+// ── Animated concept preview ──────────────────────────────────────────────────
 function ConceptPreview({ index, isSelected }: { index: number; isSelected: boolean }) {
-  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
-  const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
+  const grad     = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  const acc      = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
+  const blobPos  = BLOB_CONFIGS[index % BLOB_CONFIGS.length];
+  const blobDelay = `${index * 1.2}s`;
+
   return (
     <div
       style={{
-        height: 180,
+        height: 200,
         background: grad,
         borderRadius: "14px 14px 0 0",
         overflow: "hidden",
@@ -119,43 +171,65 @@ function ConceptPreview({ index, isSelected }: { index: number; isSelected: bool
         flexShrink: 0,
       }}
     >
-      {/* Ambient blobs */}
+      {/* Animated ambient blob A — position varies per card */}
       <div
         style={{
           position: "absolute",
-          width: 160,
-          height: 160,
+          width: 170,
+          height: 170,
           borderRadius: "50%",
           background: acc.a,
-          filter: "blur(48px)",
-          top: -20,
-          right: -20,
+          filter: "blur(52px)",
+          ...blobPos.a,
           pointerEvents: "none",
+          animation: `conceptBlobA 8s ease-in-out ${blobDelay} infinite`,
         }}
       />
+      {/* Animated ambient blob B — position varies per card */}
       <div
         style={{
           position: "absolute",
-          width: 120,
-          height: 120,
+          width: 130,
+          height: 130,
           borderRadius: "50%",
           background: acc.b,
-          filter: "blur(36px)",
-          bottom: -10,
-          left: -10,
+          filter: "blur(40px)",
+          ...blobPos.b,
           pointerEvents: "none",
+          animation: `conceptBlobB 10s ease-in-out ${blobDelay} infinite`,
         }}
       />
+
+      {/* Number badge — top-left */}
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 12,
+          zIndex: 2,
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.1em",
+          color: isSelected ? "#93c5fd" : "rgba(255,255,255,0.45)",
+          background: isSelected ? "rgba(59,130,246,0.22)" : "rgba(0,0,0,0.38)",
+          border: `1px solid ${isSelected ? "rgba(59,130,246,0.38)" : "rgba(255,255,255,0.1)"}`,
+          borderRadius: 6,
+          padding: "3px 7px",
+          backdropFilter: "blur(4px)",
+          transition: "all 0.2s ease",
+        }}
+      >
+        {String(index + 1).padStart(2, "0")}
+      </div>
+
       {/* Center icon */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
         }}
       >
         <div
@@ -175,23 +249,12 @@ function ConceptPreview({ index, isSelected }: { index: number; isSelected: bool
         >
           ✦
         </div>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: "rgba(255,255,255,0.35)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-          }}
-        >
-          Concept {index + 1}
-        </span>
       </div>
     </div>
   );
 }
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
+// ── Skeleton card (matches new card shape) ────────────────────────────────────
 function SkeletonCard({ index }: { index: number }) {
   const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
   return (
@@ -205,37 +268,33 @@ function SkeletonCard({ index }: { index: number }) {
       }}
     >
       {/* Preview placeholder */}
-      <div style={{ height: 180, background: grad, opacity: 0.4 }} />
-      <div style={{ padding: 16 }}>
+      <div style={{ height: 200, background: grad, opacity: 0.4 }} />
+      <div style={{ padding: "16px 16px 22px" }}>
         {/* Title */}
-        <div style={{ width: "65%", height: 14, background: "rgba(255,255,255,0.07)", borderRadius: 6, marginBottom: 10 }} />
+        <div style={{ width: "65%", height: 16, background: "rgba(255,255,255,0.07)", borderRadius: 6, marginBottom: 12 }} />
         {/* Description lines */}
-        <div style={{ width: "100%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 5 }} />
-        <div style={{ width: "80%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
+        <div style={{ width: "100%", height: 11, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 6 }} />
+        <div style={{ width: "80%", height: 11, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 16 }} />
         {/* Tags */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <div style={{ width: 60, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
-          <div style={{ width: 80, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
-          <div style={{ width: 50, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ width: 70, height: 24, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
+          <div style={{ width: 90, height: 24, background: "rgba(255,255,255,0.05)", borderRadius: 20 }} />
         </div>
         {/* Actions */}
-        <div style={{ display: "flex", gap: 6 }}>
-          <div style={{ flex: 1.5, height: 36, background: "rgba(255,255,255,0.06)", borderRadius: 10 }} />
-          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
-          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1.6, height: 38, background: "rgba(255,255,255,0.06)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 38, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
         </div>
       </div>
     </div>
   );
 }
 
-// ── Ghost empty card — visibly distinct, clearly labelled placeholder ─────────
+// ── Ghost empty card — matches new card shape ─────────────────────────────────
 function GhostCard({ index }: { index: number }) {
-  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
-  const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
-  // Opacity cascade: first card fully opaque, each subsequent card 18% dimmer
+  const grad       = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  const acc        = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
   const baseOpacity = 1 - index * 0.18;
-  // Stagger breathing animation by index
   const breathDelay = `${index * 0.55}s`;
 
   return (
@@ -245,7 +304,6 @@ function GhostCard({ index }: { index: number }) {
         border: `1px dashed rgba(140,185,255,${0.28 - index * 0.06})`,
         borderRadius: 18,
         overflow: "hidden",
-        /* CSS custom property drives the animation opacity range */
         ["--ghost-opacity" as string]: baseOpacity,
         animation: `ghostBreath 3s ease-in-out ${breathDelay} infinite`,
         boxShadow: index === 0
@@ -253,24 +311,42 @@ function GhostCard({ index }: { index: number }) {
           : "none",
       }}
     >
-      {/* Preview area — slightly visible gradient so it reads as a card zone */}
+      {/* Preview area */}
       <div
         style={{
-          height: 180,
+          height: 200,
           background: grad,
           position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          overflow: "hidden",
         }}
       >
-        {/* Ambient blob for depth */}
-        <div style={{
-          position: "absolute", width: 100, height: 100, borderRadius: "50%",
-          background: acc.a, filter: "blur(32px)", opacity: 0.45, top: 10, right: 10,
-        }} />
-        {/* Card number + placeholder icon */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, position: "relative", zIndex: 1 }}>
+        {/* Ambient blob */}
+        <div
+          style={{
+            position: "absolute", width: 100, height: 100, borderRadius: "50%",
+            background: acc.a, filter: "blur(32px)", opacity: 0.45, top: 10, right: 10,
+          }}
+        />
+        {/* Number badge */}
+        <div
+          style={{
+            position: "absolute", top: 10, left: 12, zIndex: 2,
+            fontSize: 11, fontWeight: 800, letterSpacing: "0.1em",
+            color: "rgba(140,185,255,0.5)",
+            background: "rgba(0,0,0,0.32)",
+            border: "1px dashed rgba(140,185,255,0.28)",
+            borderRadius: 6, padding: "3px 7px",
+          }}
+        >
+          {String(index + 1).padStart(2, "0")}
+        </div>
+        {/* Center icon */}
+        <div
+          style={{
+            position: "absolute", inset: 0, display: "flex",
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
           <div
             style={{
               width: 44, height: 44, borderRadius: 13,
@@ -282,37 +358,25 @@ function GhostCard({ index }: { index: number }) {
           >
             ✦
           </div>
-          <span style={{
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.1em",
-            color: "rgba(140,185,255,0.55)", textTransform: "uppercase",
-          }}>
-            Concept {index + 1}
-          </span>
         </div>
       </div>
 
-      <div style={{ padding: 16 }}>
-        {/* Number badge placeholder */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ width: 28, height: 20, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 6 }} />
-          <div style={{ width: 72, height: 20, background: "rgba(120,160,255,0.05)", borderRadius: 20 }} />
-        </div>
+      {/* Card body */}
+      <div style={{ padding: "16px 16px 22px" }}>
         {/* Title */}
-        <div style={{ width: "62%", height: 13, background: "rgba(255,255,255,0.07)", borderRadius: 5, marginBottom: 10 }} />
-        {/* Description lines */}
-        <div style={{ width: "100%", height: 9, background: "rgba(255,255,255,0.05)", borderRadius: 4, marginBottom: 6 }} />
-        <div style={{ width: "78%", height: 9, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 14 }} />
-        {/* Tag chips */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <div style={{ width: 58, height: 20, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 20 }} />
-          <div style={{ width: 76, height: 20, background: "rgba(120,160,255,0.05)", border: "1px dashed rgba(120,160,255,0.1)", borderRadius: 20 }} />
-          <div style={{ width: 52, height: 20, background: "rgba(120,160,255,0.04)", borderRadius: 20 }} />
+        <div style={{ width: "62%", height: 15, background: "rgba(255,255,255,0.07)", borderRadius: 5, marginBottom: 12 }} />
+        {/* Description */}
+        <div style={{ width: "100%", height: 10, background: "rgba(255,255,255,0.05)", borderRadius: 4, marginBottom: 6 }} />
+        <div style={{ width: "78%", height: 10, background: "rgba(255,255,255,0.04)", borderRadius: 4, marginBottom: 16 }} />
+        {/* Tags */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ width: 65, height: 24, background: "rgba(120,160,255,0.07)", border: "1px dashed rgba(120,160,255,0.15)", borderRadius: 20 }} />
+          <div style={{ width: 85, height: 24, background: "rgba(120,160,255,0.05)", border: "1px dashed rgba(120,160,255,0.1)", borderRadius: 20 }} />
         </div>
-        {/* Action row */}
+        {/* Actions */}
         <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ flex: 1.6, height: 36, background: "rgba(59,130,246,0.07)", border: "1px dashed rgba(59,130,246,0.18)", borderRadius: 10 }} />
-          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
-          <div style={{ flex: 1, height: 36, background: "rgba(255,255,255,0.03)", borderRadius: 10 }} />
+          <div style={{ flex: 1.6, height: 38, background: "rgba(59,130,246,0.07)", border: "1px dashed rgba(59,130,246,0.18)", borderRadius: 10 }} />
+          <div style={{ flex: 1, height: 38, background: "rgba(255,255,255,0.04)", borderRadius: 10 }} />
         </div>
       </div>
     </div>
@@ -325,7 +389,7 @@ function ConceptCardView({
   index,
   isSelected,
   onSelect,
-  onGenerate,
+  onGenerate: _onGenerate,
   onExpand,
 }: {
   concept: ConceptCard;
@@ -338,86 +402,71 @@ function ConceptCardView({
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
-  // Derive tags from concept data
   const tags: { label: string; color?: string }[] = [
     { label: concept.recommendedProvider, color: Z.accentViolet },
     ...(concept.recommendedUseCase ? [{ label: concept.recommendedUseCase }] : []),
     ...(concept.scores.cinematicImpact >= 8 ? [{ label: "Cinematic", color: Z.accentCyan }] : []),
     ...(concept.scores.textAccuracy >= 8 ? [{ label: "Text-first" }] : []),
-  ].slice(0, 4);
+  ].slice(0, 3);
 
   const cardGlow = isSelected
-    ? `0 0 0 1px ${Z.borderActive}, ${Z.glowPrimary}, 0 8px 32px rgba(0,0,0,0.4)`
+    ? `0 0 0 0px transparent, 0 0 28px rgba(86,140,255,0.28), 0 8px 32px rgba(0,0,0,0.45)`
     : isHovered
-    ? `0 0 0 1px rgba(120,160,255,0.3), 0 0 12px rgba(86,140,255,0.12), 0 4px 20px rgba(0,0,0,0.3)`
+    ? `0 0 0 0px transparent, 0 8px 28px rgba(86,140,255,0.1), 0 4px 20px rgba(0,0,0,0.3)`
     : "0 2px 12px rgba(0,0,0,0.25)";
 
   return (
     <div
-      className="concept-card-root"
       onClick={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
-        border: `1px solid ${isSelected ? Z.borderActive : isHovered ? "rgba(120,160,255,0.3)" : Z.borderSubtle}`,
+        border: isSelected
+          ? "1.5px solid rgba(86,140,255,0.6)"
+          : `1px solid ${isHovered ? "rgba(120,160,255,0.3)" : Z.borderSubtle}`,
         borderRadius: 18,
         overflow: "hidden",
         cursor: "pointer",
-        transition: "all 0.2s ease",
+        transition: "all 0.22s ease",
         boxShadow: cardGlow,
-        transform: isSelected ? "scale(1.012)" : "scale(1)",
-        maxWidth: 420,
+        transform: isHovered && !isSelected ? "translateY(-3px)" : "translateY(0)",
         width: "100%",
       }}
     >
-      {/* ── Preview area ── */}
+      {/* Preview area */}
       <ConceptPreview index={index} isSelected={isSelected} />
 
-      {/* ── Card body ── */}
-      <div style={{ padding: 16 }}>
+      {/* Card body */}
+      <div style={{ padding: "16px 16px 22px" }}>
 
-        {/* Number badge + selected indicator */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.1em",
-              color: isSelected ? "#93c5fd" : Z.textMuted,
-              background: isSelected ? "rgba(59,130,246,0.12)" : "rgba(255,255,255,0.05)",
-              border: `1px solid ${isSelected ? "rgba(59,130,246,0.25)" : "rgba(255,255,255,0.07)"}`,
-              borderRadius: 6,
-              padding: "3px 8px",
-            }}
-          >
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          {isSelected && (
+        {/* Selected pill (only when selected) */}
+        {isSelected && (
+          <div style={{ marginBottom: 10 }}>
             <span
               style={{
                 fontSize: 11,
                 fontWeight: 700,
                 color: "#93c5fd",
                 background: "rgba(59,130,246,0.1)",
-                border: "1px solid rgba(59,130,246,0.25)",
+                border: "1px solid rgba(59,130,246,0.28)",
                 borderRadius: 20,
                 padding: "3px 9px",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
-                boxShadow: Z.glowPrimary,
+                boxShadow: "0 0 12px rgba(86,140,255,0.2)",
               }}
             >
               ✓ Selected
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Title */}
         <div
           style={{
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: 700,
             color: Z.textPrimary,
             marginBottom: 8,
@@ -431,7 +480,7 @@ function ConceptCardView({
         {/* Description */}
         <div
           style={{
-            fontSize: 13.5,
+            fontSize: 15,
             color: Z.textSecondary,
             lineHeight: 1.6,
             marginBottom: 14,
@@ -447,7 +496,7 @@ function ConceptCardView({
               display: "flex",
               flexWrap: "wrap",
               gap: 8,
-              marginBottom: 16,
+              marginBottom: 14,
             }}
           >
             {tags.map((tag, i) => (
@@ -456,22 +505,21 @@ function ConceptCardView({
           </div>
         )}
 
-        {/* Score bars — collapsed when not selected */}
+        {/* Strength bars — only on selected card */}
         {isSelected && (
           <div style={{ marginBottom: 14 }}>
-            <ScoreBar label="Text Accuracy"   value={concept.scores.textAccuracy}   color={Z.accentBlue}   />
-            <ScoreBar label="Cinematic Impact" value={concept.scores.cinematicImpact} color={Z.accentViolet} />
-            <ScoreBar label="Design Control"  value={concept.scores.designControl}  color={Z.accentCyan}   />
-            <ScoreBar label="Speed"           value={concept.scores.speed}          color="#10B981"        />
+            <StrengthBar label="Creativity"        value={concept.scores.cinematicImpact} />
+            <StrengthBar label="Commercial Appeal" value={concept.scores.designControl}   />
+            <StrengthBar label="Visual Impact"     value={concept.scores.textAccuracy}    />
           </div>
         )}
 
-        {/* Actions row */}
+        {/* Actions */}
         <div
           style={{ display: "flex", gap: 8 }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Select Concept — primary */}
+          {/* Select Concept — dominant CTA */}
           <button
             onClick={onSelect}
             onMouseEnter={() => setHoveredAction("select")}
@@ -483,24 +531,26 @@ function ConceptCardView({
               fontWeight: 700,
               borderRadius: 10,
               border: isSelected
-                ? `1px solid ${Z.borderActive}`
-                : `1px solid rgba(59,130,246,0.3)`,
-              background: isSelected
-                ? "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(79,70,229,0.2))"
+                ? "1px solid rgba(86,140,255,0.5)"
                 : hoveredAction === "select"
-                ? "rgba(59,130,246,0.15)"
-                : "rgba(59,130,246,0.08)",
-              color: isSelected ? "#93c5fd" : Z.textSecondary,
+                ? "1px solid rgba(59,130,246,0.5)"
+                : "1px solid rgba(59,130,246,0.3)",
+              background: isSelected
+                ? "linear-gradient(135deg, rgba(59,130,246,0.28), rgba(79,70,229,0.22))"
+                : hoveredAction === "select"
+                ? "rgba(59,130,246,0.18)"
+                : "rgba(59,130,246,0.1)",
+              color: isSelected ? "#93c5fd" : "#6BA8FF",
               cursor: "pointer",
               transition: "all 0.15s ease",
-              boxShadow: isSelected ? Z.glowPrimary : "none",
+              boxShadow: isSelected ? "0 0 12px rgba(86,140,255,0.22)" : "none",
               letterSpacing: "0.01em",
             }}
           >
             {isSelected ? "✓ Selected" : "Select Concept"}
           </button>
 
-          {/* Preview (detail view) */}
+          {/* Preview — visually lighter / subordinate */}
           <button
             onClick={onExpand}
             onMouseEnter={() => setHoveredAction("preview")}
@@ -508,38 +558,21 @@ function ConceptCardView({
             style={{
               flex: 1,
               height: 38,
-              fontSize: 13,
-              fontWeight: 600,
+              fontSize: 12,
+              fontWeight: 500,
               borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.09)",
-              background: hoveredAction === "preview" ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-              color: Z.textSecondary,
+              border: "1px solid rgba(255,255,255,0.07)",
+              background: hoveredAction === "preview"
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.02)",
+              color: hoveredAction === "preview"
+                ? "rgba(255,255,255,0.5)"
+                : "rgba(255,255,255,0.28)",
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
           >
             Preview
-          </button>
-
-          {/* Refine */}
-          <button
-            onClick={onExpand}
-            onMouseEnter={() => setHoveredAction("refine")}
-            onMouseLeave={() => setHoveredAction(null)}
-            style={{
-              flex: 1,
-              height: 38,
-              fontSize: 13,
-              fontWeight: 600,
-              borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.09)",
-              background: hoveredAction === "refine" ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-              color: Z.textMuted,
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-          >
-            Refine
           </button>
         </div>
       </div>
@@ -611,10 +644,10 @@ function ConceptDetailPanel({
 
       {/* Detail sections */}
       {[
-        { label: "Rationale",            content: concept.rationale         },
-        { label: "Layout Strategy",      content: concept.layoutStrategy    },
+        { label: "Rationale",            content: concept.rationale          },
+        { label: "Layout Strategy",      content: concept.layoutStrategy     },
         { label: "Typography Approach",  content: concept.typographyStrategy },
-        { label: "Color Strategy",       content: concept.colorStrategy     },
+        { label: "Color Strategy",       content: concept.colorStrategy      },
         { label: "Recommended Use Case", content: concept.recommendedUseCase },
       ].map(({ label, content }) =>
         content ? (
@@ -728,11 +761,32 @@ export default function ConceptBoard({
       <style>{`
         @keyframes skeletonPulse {
           0%, 100% { opacity: 0.55; }
-          50% { opacity: 1; }
+          50%       { opacity: 1;    }
         }
         @keyframes ghostBreath {
           0%, 100% { opacity: var(--ghost-opacity); box-shadow: 0 0 0 0 rgba(120,160,255,0); }
-          50% { opacity: calc(var(--ghost-opacity) * 1.12); box-shadow: 0 0 14px rgba(120,160,255,0.08); }
+          50%       { opacity: calc(var(--ghost-opacity) * 1.12); box-shadow: 0 0 14px rgba(120,160,255,0.08); }
+        }
+        @keyframes conceptBlobA {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33%       { transform: translate(15px, -10px) scale(1.1); }
+          66%       { transform: translate(-10px, 12px) scale(0.95); }
+        }
+        @keyframes conceptBlobB {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33%       { transform: translate(-12px, 8px) scale(0.92); }
+          66%       { transform: translate(10px, -15px) scale(1.08); }
+        }
+        .concept-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        @media (max-width: 900px) {
+          .concept-grid { grid-template-columns: 1fr; }
+        }
+        @media (min-width: 1600px) {
+          .concept-grid { grid-template-columns: repeat(3, 1fr); }
         }
       `}</style>
 
@@ -750,7 +804,7 @@ export default function ConceptBoard({
                 height: 52,
                 borderRadius: 16,
                 background: "rgba(59,130,246,0.08)",
-                border: `1px solid rgba(120,160,255,0.2)`,
+                border: "1px solid rgba(120,160,255,0.2)",
                 fontSize: 22,
                 marginBottom: 16,
                 boxShadow: "0 0 20px rgba(59,130,246,0.08)",
@@ -783,31 +837,36 @@ export default function ConceptBoard({
           </div>
 
           {/* Value callout */}
-          <div style={{
-            display:        "flex",
-            alignItems:     "center",
-            justifyContent: "center",
-            gap:            7,
-            padding:        "9px 16px",
-            background:     "rgba(254,206,1,0.04)",
-            border:         "1px solid rgba(254,206,1,0.11)",
-            borderRadius:   10,
-            marginBottom:   16,
-          }}>
+          <div
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            7,
+              padding:        "14px 16px",
+              background:     "rgba(254,206,1,0.04)",
+              border:         "1px solid rgba(254,206,1,0.13)",
+              borderRadius:   10,
+              marginBottom:   16,
+              boxShadow:      "inset 0 1px 0 rgba(254,206,1,0.05)",
+            }}
+          >
             <span style={{ fontSize: 13, lineHeight: 1 }}>✨</span>
-            <span style={{
-              fontSize:      15,
-              fontWeight:    500,
-              color:         "rgba(252,211,77,0.68)",
-              letterSpacing: "0.01em",
-              lineHeight:    1,
-            }}>
+            <span
+              style={{
+                fontSize:      15,
+                fontWeight:    500,
+                color:         "rgba(252,211,77,0.68)",
+                letterSpacing: "0.01em",
+                lineHeight:    1,
+              }}
+            >
               AI will generate 3 strategic directions for your campaign
             </span>
           </div>
 
-          {/* Ghost cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Ghost cards — responsive grid */}
+          <div className="concept-grid">
             {[0, 1, 2].map((i) => (
               <GhostCard key={i} index={i} />
             ))}
@@ -818,7 +877,6 @@ export default function ConceptBoard({
       {/* ── Loading state ── */}
       {state === "loading" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {/* Header */}
           <div style={{ padding: "20px 0 24px" }}>
             <div
               style={{
@@ -846,7 +904,7 @@ export default function ConceptBoard({
               Thinking through concepts…
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="concept-grid">
             {[0, 1, 2].map((i) => (
               <SkeletonCard key={i} index={i} />
             ))}
@@ -857,7 +915,6 @@ export default function ConceptBoard({
       {/* ── Results state ── */}
       {state === "results" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {/* Header */}
           <div style={{ padding: "0 0 20px" }}>
             <div
               style={{
@@ -877,7 +934,7 @@ export default function ConceptBoard({
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="concept-grid">
             {concepts.map((concept, i) => (
               <ConceptCardView
                 key={concept.id}
