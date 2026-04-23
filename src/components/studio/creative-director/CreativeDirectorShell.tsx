@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/components/auth/AuthContext";
+import { supabase } from "@/lib/supabase";
 import Tooltip from "@/components/ui/Tooltip";
 import BriefBuilder, { type BriefState } from "./BriefBuilder";
 import ConceptBoard, { type ConceptCard } from "./ConceptBoard";
@@ -262,6 +263,9 @@ const TOAST_COPY: Record<string, string> = {
   "Format adaptation failed. Try again.":
     "Format adaptation failed. Please try again.",
 
+  // Auth failures
+  "Unauthorized": "Session expired — please refresh the page and try again.",
+
   // Generic fallbacks already shown with good copy — keep as-is
   "Failed to create project": "Failed to create project. Please try again.",
   "Failed to save brief": "Failed to save brief. Please try again.",
@@ -357,10 +361,31 @@ export default function CreativeDirectorShell() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  // Sync authHeader — used only in the poll loop (fire-and-forget, session stale is tolerable)
   const authHeader = useCallback((): HeadersInit => {
     if (!session?.access_token) return {};
     return { Authorization: `Bearer ${session.access_token}` };
   }, [session]);
+
+  // Async getAuthHeaders — used in all user-initiated action handlers.
+  // Reads the live token from supabase's in-memory state (handles auto-refresh).
+  // Falls back to React session state if supabase.auth.getSession() fails.
+  const getAuthHeaders = useCallback(
+    async (): Promise<HeadersInit> => {
+      try {
+        const { data: { session: live } } = await supabase.auth.getSession();
+        const token = live?.access_token ?? session?.access_token;
+        if (!token) return {};
+        return { Authorization: `Bearer ${token}` };
+      } catch {
+        const token = session?.access_token;
+        if (!token) return {};
+        return { Authorization: `Bearer ${token}` };
+      }
+    },
+    [session]
+  );
 
   const addToast = useCallback(
     (message: string, type: Toast["type"] = "error") => {
@@ -385,11 +410,18 @@ export default function CreativeDirectorShell() {
 
   // ── Generate concepts flow ────────────────────────────────────────────────────
   const handleGenerateConcepts = useCallback(async () => {
-    if (!session) {
-      addToast("Please sign in to generate concepts.", "warning");
+    if (isGeneratingConcepts) return;
+
+    // Get a live token once — used for all three requests in this flow.
+    // getAuthHeaders() reads from supabase's in-memory state which handles
+    // auto-refresh, so this is safe even if the React session state is stale.
+    const authH = await getAuthHeaders();
+    if (!("Authorization" in authH)) {
+      addToast("Session expired — please refresh the page and try again.", "warning");
       return;
     }
-    if (isGeneratingConcepts) return;
+
+    const jsonHeaders: HeadersInit = { "Content-Type": "application/json", ...authH };
 
     setIsGeneratingConcepts(true);
     setConceptBoardState("loading");
@@ -402,10 +434,7 @@ export default function CreativeDirectorShell() {
       if (!currentProjectId) {
         const projRes = await fetch("/api/creative-director/projects", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader(),
-          },
+          headers: jsonHeaders,
           body: JSON.stringify({
             title: projectName || brief.projectName || "Untitled Project",
             projectType: brief.projectType,
@@ -432,10 +461,7 @@ export default function CreativeDirectorShell() {
         `/api/creative-director/projects/${currentProjectId}/brief`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader(),
-          },
+          headers: jsonHeaders,
           body: JSON.stringify(serializeBriefForApi(brief)),
         }
       );
@@ -456,10 +482,7 @@ export default function CreativeDirectorShell() {
         `/api/creative-director/projects/${currentProjectId}/concepts`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader(),
-          },
+          headers: jsonHeaders,
         }
       );
       if (!conceptsRes.ok) {
@@ -483,25 +506,25 @@ export default function CreativeDirectorShell() {
       setIsGeneratingConcepts(false);
     }
   }, [
-    session,
     isGeneratingConcepts,
     projectId,
     briefId,
     projectName,
     brief,
-    authHeader,
+    getAuthHeaders,
     addToast,
     concepts.length,
   ]);
 
   // ── Improve brief ─────────────────────────────────────────────────────────────
   const handleImproveBrief = useCallback(async () => {
-    if (!session) {
-      addToast("Please sign in to use Improve Brief.", "warning");
-      return;
-    }
     if (!projectId) {
       addToast("Generate concepts first to unlock Improve Brief.", "warning");
+      return;
+    }
+    const authH = await getAuthHeaders();
+    if (!("Authorization" in authH)) {
+      addToast("Session expired — please refresh the page and try again.", "warning");
       return;
     }
     try {
@@ -509,10 +532,7 @@ export default function CreativeDirectorShell() {
         `/api/creative-director/projects/${projectId}/brief/improve`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader(),
-          },
+          headers: { "Content-Type": "application/json", ...authH },
           body: JSON.stringify(serializeBriefForApi(brief)),
         }
       );
@@ -525,7 +545,7 @@ export default function CreativeDirectorShell() {
     } catch {
       addToast("Improve Brief failed. Please try again.", "error");
     }
-  }, [session, projectId, brief, authHeader, addToast]);
+  }, [projectId, brief, getAuthHeaders, addToast]);
 
   // ── Poll generation status ────────────────────────────────────────────────────
   // Polls the studio job status endpoint. genId is the creative_generation.id
@@ -586,11 +606,13 @@ export default function CreativeDirectorShell() {
   // ── Generate outputs ───────────────────────────────────────────────────────────
   const handleGenerateConcept = useCallback(
     async (conceptId: string, dockSettings?: RenderDockSettings) => {
-      if (!session) {
-        addToast("Please sign in to generate outputs.", "warning");
+      if (isGeneratingOutputs) return;
+
+      const authH = await getAuthHeaders();
+      if (!("Authorization" in authH)) {
+        addToast("Session expired — please refresh the page and try again.", "warning");
         return;
       }
-      if (isGeneratingOutputs) return;
 
       setIsGeneratingOutputs(true);
 
@@ -598,7 +620,7 @@ export default function CreativeDirectorShell() {
         // 1. Select concept
         await fetch(`/api/creative-director/concepts/${conceptId}/select`, {
           method: "POST",
-          headers: authHeader(),
+          headers: authH,
         });
 
         // 2. Generate outputs — use dock settings if provided, else brief fallback
@@ -607,10 +629,7 @@ export default function CreativeDirectorShell() {
           `/api/creative-director/concepts/${conceptId}/generate`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeader(),
-            },
+            headers: { "Content-Type": "application/json", ...authH },
             body: JSON.stringify({
               count,
               model:        dockSettings?.model,
@@ -647,7 +666,7 @@ export default function CreativeDirectorShell() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session, isGeneratingOutputs, brief.outputCount, authHeader, addToast, pollGeneration]
+    [isGeneratingOutputs, brief.outputCount, getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Select / expand concept ────────────────────────────────────────────────────
@@ -693,11 +712,12 @@ export default function CreativeDirectorShell() {
             )
           );
           try {
+            const authH = await getAuthHeaders();
             const res = await fetch(
               `/api/creative-director/generations/${generationId}/regenerate`,
               {
                 method: "POST",
-                headers: authHeader(),
+                headers: authH,
               }
             );
             if (!res.ok) throw new Error("Regenerate failed");
@@ -758,23 +778,20 @@ export default function CreativeDirectorShell() {
           break;
       }
     },
-    [generations, authHeader, addToast, pollGeneration]
+    [generations, getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Variation flow ──────────────────────────────────────────────────────────────
   const handleVariation = useCallback(
     async (variationType: string, generationId: string) => {
-      if (!session) return;
       setActiveVariationTray(null);
+      const authH = await getAuthHeaders();
       try {
         const res = await fetch(
           `/api/creative-director/generations/${generationId}/variation`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeader(),
-            },
+            headers: { "Content-Type": "application/json", ...authH },
             body: JSON.stringify({ variationType }),
           }
         );
@@ -789,22 +806,19 @@ export default function CreativeDirectorShell() {
         addToast("Could not create a variation. Please try again.", "error");
       }
     },
-    [session, authHeader, addToast, pollGeneration]
+    [getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Format adaptation flow ──────────────────────────────────────────────────────
   const handleAdaptFormat = useCallback(
     async (format: string, generationId: string) => {
-      if (!session) return;
+      const authH = await getAuthHeaders();
       try {
         const res = await fetch(
           `/api/creative-director/generations/${generationId}/adapt-format`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeader(),
-            },
+            headers: { "Content-Type": "application/json", ...authH },
             body: JSON.stringify({ format }),
           }
         );
@@ -819,7 +833,7 @@ export default function CreativeDirectorShell() {
         addToast("Format adaptation failed. Please try again.", "error");
       }
     },
-    [session, authHeader, addToast, pollGeneration]
+    [getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Autosave project name ──────────────────────────────────────────────────────
