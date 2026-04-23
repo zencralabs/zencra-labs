@@ -351,7 +351,7 @@ export default function CreativeDirectorShell() {
   const [activeVariationTray, setActiveVariationTray] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("Untitled Project");
   const [autosaveState, setAutosaveState] = useState<"saved" | "saving" | "unsaved">("saved");
-  const [creditsEstimate, setCreditsEstimate] = useState<number | null>(0.5);
+  const [creditsEstimate, setCreditsEstimate] = useState<number | null>(1);
   const [isGeneratingConcepts, setIsGeneratingConcepts] = useState(false);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
