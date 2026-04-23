@@ -92,9 +92,8 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     reference_assets: (input.referenceAssets ?? []) as unknown[],
     advanced_settings: (input.advancedSettings ?? {}) as Record<string, unknown>,
     original_input: input.originalInput,
-    // parsed_brief_json is populated by the concepts route after parseBrief() succeeds.
-    // Pass empty object so the DB column is satisfied; concepts route overwrites on generation.
-    parsed_brief_json: {} as Record<string, unknown>,
+    // parsed_brief_json is intentionally omitted here.
+    // saveBrief defaults it to {} as a sentinel; the concepts route overwrites it with real data.
   };
 
   let brief: CreativeBriefRow;

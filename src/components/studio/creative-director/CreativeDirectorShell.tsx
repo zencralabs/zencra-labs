@@ -1076,6 +1076,7 @@ export default function CreativeDirectorShell() {
             onSelectConcept={handleSelectConcept}
             onGenerateConcept={handleGenerateConcept}
             onExpandConcept={handleExpandConcept}
+            hasGenerations={generations.length > 0}
           />
         </div>
 
@@ -1097,6 +1098,9 @@ export default function CreativeDirectorShell() {
             hasConceptsGenerated={conceptBoardState === "results" || conceptBoardState === "detail"}
             hasConceptSelected={!!selectedConceptId}
             selectedConceptTitle={concepts.find((c) => c.id === selectedConceptId)?.title}
+            selectedConceptIndex={concepts.findIndex((c) => c.id === selectedConceptId) >= 0
+              ? concepts.findIndex((c) => c.id === selectedConceptId)
+              : 0}
             onVariation={handleVariation}
             onAdaptFormat={handleAdaptFormat}
           />

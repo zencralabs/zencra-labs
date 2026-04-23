@@ -53,14 +53,14 @@ export async function POST(req: Request): Promise<Response> {
       status: "draft",
     });
 
-    // Create an empty brief shell
+    // Create an empty brief shell — parsed_brief_json intentionally omitted;
+    // the concepts route sets it after parseBrief() succeeds.
     const brief = await saveBrief({
       project_id: project.id,
       project_type: projectType,
       mood_tags: [],
       reference_assets: [],
       advanced_settings: {},
-      parsed_brief_json: {},
     });
 
     // Log project creation (fire-and-forget)

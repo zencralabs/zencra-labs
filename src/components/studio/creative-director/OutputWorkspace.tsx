@@ -40,7 +40,21 @@ interface OutputWorkspaceProps {
   hasConceptSelected?: boolean;
   /** Title of the selected concept — shown in the ready-to-render empty state */
   selectedConceptTitle?: string;
+  /** 0-based index of the selected concept — used to show matching gradient preview */
+  selectedConceptIndex?: number;
 }
+
+// Gradient/accent pairs — mirror ConceptBoard so the preview block feels connected
+const CONCEPT_GRADIENTS = [
+  "linear-gradient(148deg, #060E28 0%, #0C1E48 48%, #05112A 100%)",
+  "linear-gradient(148deg, #130930 0%, #240F56 48%, #0B0524 100%)",
+  "linear-gradient(148deg, #031419 0%, #072D35 48%, #020C10 100%)",
+];
+const CONCEPT_ACCENTS = [
+  { a: "rgba(37,99,235,0.55)", b: "rgba(6,182,212,0.3)"   },
+  { a: "rgba(109,40,217,0.55)", b: "rgba(219,39,119,0.28)" },
+  { a: "rgba(13,148,136,0.55)", b: "rgba(16,185,129,0.28)" },
+];
 
 // ── Zencra brand tokens ────────────────────────────────────────────────────────
 const Z = {
@@ -187,8 +201,8 @@ function GenerationCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Image area */}
-      <div style={{ position: "relative", aspectRatio: "1 / 1", background: "rgba(0,0,0,0.3)" }}>
+      {/* Image area — 4:3 ratio feels more generous in a single-col layout */}
+      <div style={{ position: "relative", aspectRatio: "4 / 3", background: "rgba(0,0,0,0.3)" }}>
         {isLoading && (
           <div
             style={{
@@ -595,6 +609,7 @@ export default function OutputWorkspace({
   hasConceptsGenerated = false,
   hasConceptSelected = false,
   selectedConceptTitle,
+  selectedConceptIndex = 0,
 }: OutputWorkspaceProps) {
   const isEmpty = generations.length === 0;
 
@@ -707,91 +722,129 @@ export default function OutputWorkspace({
       {/* ── Empty state — context-aware ── */}
       {isEmpty && (
         <>
-          {/* State A: concept selected — ready to render */}
+          {/* State A: concept selected — strong CTA with gradient preview */}
           {hasConceptSelected && (
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: 16 }}>
+              {/* Mini concept gradient preview */}
               <div
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: 11,
-                  background: "rgba(59,130,246,0.07)",
-                  border: "1px solid rgba(86,140,255,0.26)",
-                  boxShadow: "0 0 16px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
-                  marginBottom: 12,
+                  height: 100,
+                  borderRadius: "12px 12px 0 0",
+                  background: CONCEPT_GRADIENTS[selectedConceptIndex % 3],
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span
+                {/* Ambient blobs */}
+                <div
+                  style={{
+                    position: "absolute", width: 120, height: 120, borderRadius: "50%",
+                    background: CONCEPT_ACCENTS[selectedConceptIndex % 3].a,
+                    filter: "blur(40px)", top: -20, right: -20, pointerEvents: "none",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute", width: 90, height: 90, borderRadius: "50%",
+                    background: CONCEPT_ACCENTS[selectedConceptIndex % 3].b,
+                    filter: "blur(32px)", bottom: -14, left: -10, pointerEvents: "none",
+                  }}
+                />
+                {/* Center icon */}
+                <div
+                  style={{
+                    position: "absolute", inset: 0, display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <div
                     style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "rgba(59,130,246,0.18)",
-                      border: "1px solid rgba(86,140,255,0.4)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      color: "#93c5fd",
-                      fontWeight: 700,
-                      flexShrink: 0,
+                      width: 34, height: 34, borderRadius: 11,
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(86,140,255,0.35)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 15, color: "rgba(147,197,253,0.8)",
+                      boxShadow: "0 0 14px rgba(59,130,246,0.25)",
                     }}
                   >
-                    ✓
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#93c5fd" }}>
-                    Ready to render
-                  </span>
+                    ✦
+                  </div>
                 </div>
+                {/* Concept name chip — top right */}
                 {selectedConceptTitle && (
                   <div
                     style={{
-                      fontSize: 12,
-                      color: Z.textMuted,
-                      paddingLeft: 28,
-                      lineHeight: 1.45,
+                      position: "absolute", top: 8, right: 10,
+                      fontSize: 10, fontWeight: 600, color: "rgba(147,197,253,0.8)",
+                      background: "rgba(0,0,0,0.42)", border: "1px solid rgba(86,140,255,0.28)",
+                      borderRadius: 6, padding: "3px 8px", backdropFilter: "blur(4px)",
+                      maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}
                   >
-                    Concept: <span style={{ color: Z.textSecondary, fontWeight: 500 }}>{selectedConceptTitle}</span>
+                    {selectedConceptTitle}
                   </div>
                 )}
-                <div style={{ fontSize: 12, color: Z.textMuted, paddingLeft: 28, marginTop: 3 }}>
-                  Configure options in the dock below, then click <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Generate</span>
-                </div>
               </div>
-            </div>
-          )}
 
-          {/* State B: concepts generated but none selected */}
-          {hasConceptsGenerated && !hasConceptSelected && (
-            <div style={{ marginBottom: 14 }}>
+              {/* CTA panel */}
               <div
                 style={{
-                  padding: "12px 14px",
-                  borderRadius: 11,
-                  background: "rgba(255,255,255,0.025)",
-                  border: "1px solid rgba(120,160,255,0.16)",
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
-                  marginBottom: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
+                  padding: "14px 16px 16px",
+                  background: "rgba(59,130,246,0.06)",
+                  border: "1px solid rgba(86,140,255,0.22)",
+                  borderTop: "none",
+                  borderRadius: "0 0 12px 12px",
+                  boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.03)",
                 }}
               >
-                <span style={{ fontSize: 15, color: "rgba(120,160,255,0.5)", flexShrink: 0 }}>←</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: Z.textSecondary, marginBottom: 2 }}>
-                    Select a concept to begin
-                  </div>
-                  <div style={{ fontSize: 11, color: Z.textMuted, lineHeight: 1.4 }}>
-                    Choose a direction from the center panel to unlock rendering
-                  </div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: Z.textPrimary,
+                    marginBottom: 4,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Render this concept into visuals
+                </div>
+                <div style={{ fontSize: 12, color: Z.textMuted, lineHeight: 1.5 }}>
+                  Set your options in the dock below↓ and click{" "}
+                  <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Generate</span>.
+                  Your outputs will appear here.
                 </div>
               </div>
             </div>
           )}
 
-          {/* Slot grid — always shown in empty state */}
+          {/* State B: concepts generated, none selected */}
+          {hasConceptsGenerated && !hasConceptSelected && (
+            <div
+              style={{
+                padding: "14px 16px",
+                borderRadius: 11,
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(120,160,255,0.14)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                marginBottom: 14,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 18, color: "rgba(120,160,255,0.45)", flexShrink: 0, marginTop: 1 }}>←</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: Z.textSecondary, marginBottom: 3 }}>
+                  Select a concept to begin rendering
+                </div>
+                <div style={{ fontSize: 12, color: Z.textMuted, lineHeight: 1.5 }}>
+                  Choose one of the directions from the center panel — then come back here to generate visuals.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Slot grid */}
           <div
             style={{
               display: "grid",
@@ -804,67 +857,59 @@ export default function OutputWorkspace({
                 key={i}
                 style={{
                   aspectRatio: "1 / 1",
-                  background: hasConceptSelected
-                    ? "rgba(59,130,246,0.04)"
-                    : "rgba(120,160,255,0.04)",
+                  background: hasConceptSelected ? "rgba(59,130,246,0.04)" : "rgba(120,160,255,0.03)",
                   border: hasConceptSelected
-                    ? "1px dashed rgba(86,140,255,0.28)"
-                    : "1px dashed rgba(140,185,255,0.22)",
+                    ? "1px dashed rgba(86,140,255,0.25)"
+                    : "1px dashed rgba(140,185,255,0.18)",
                   borderRadius: 12,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
+                  gap: 7,
                   transition: "border-color 0.15s ease, background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
-                    ? "rgba(86,140,255,0.48)"
-                    : "rgba(140,185,255,0.38)";
+                    ? "rgba(86,140,255,0.42)"
+                    : "rgba(140,185,255,0.32)";
                   (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
                     ? "rgba(59,130,246,0.07)"
-                    : "rgba(120,160,255,0.07)";
+                    : "rgba(120,160,255,0.06)";
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
-                    ? "rgba(86,140,255,0.28)"
-                    : "rgba(140,185,255,0.22)";
+                    ? "rgba(86,140,255,0.25)"
+                    : "rgba(140,185,255,0.18)";
                   (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
                     ? "rgba(59,130,246,0.04)"
-                    : "rgba(120,160,255,0.04)";
+                    : "rgba(120,160,255,0.03)";
                 }}
               >
                 <div
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 9,
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
                     border: hasConceptSelected
-                      ? "1px dashed rgba(86,140,255,0.35)"
-                      : "1px dashed rgba(120,160,255,0.25)",
-                    background: hasConceptSelected
-                      ? "rgba(59,130,246,0.1)"
-                      : "rgba(120,160,255,0.07)",
+                      ? "1px dashed rgba(86,140,255,0.3)"
+                      : "1px dashed rgba(120,160,255,0.2)",
+                    background: "transparent",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: hasConceptSelected
-                      ? "rgba(147,197,253,0.55)"
-                      : "rgba(120,160,255,0.35)",
-                    fontSize: 14,
+                    color: hasConceptSelected ? "rgba(147,197,253,0.4)" : "rgba(120,160,255,0.25)",
+                    fontSize: 13,
                   }}
                 >
                   ✦
                 </div>
                 <span
                   style={{
-                    fontSize: 11,
-                    color: hasConceptSelected
-                      ? "rgba(147,197,253,0.4)"
-                      : "rgba(167,176,197,0.3)",
+                    fontSize: 10,
+                    color: hasConceptSelected ? "rgba(147,197,253,0.3)" : "rgba(167,176,197,0.25)",
                     fontWeight: 500,
-                    letterSpacing: "0.02em",
+                    letterSpacing: "0.03em",
                   }}
                 >
                   {i === 0 ? "Output 1" : `Slot ${i + 1}`}
@@ -875,26 +920,44 @@ export default function OutputWorkspace({
         </>
       )}
 
-      {/* ── Generation grid ── */}
+      {/* ── Generation grid — 1 item: full width, 2+: 2 cols ── */}
       {!isEmpty && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
-          {generations.map((gen) => (
-            <GenerationCard
-              key={gen.id}
-              gen={gen}
-              isVariationTrayOpen={activeVariationTray === gen.id}
-              onAction={(action) => onAction(action, gen.id)}
-              onVariation={(variationType) => onVariation(variationType, gen.id)}
-              onAdaptFormat={(format) => onAdaptFormat(format, gen.id)}
-            />
-          ))}
-        </div>
+        <>
+          {/* "Your outputs appear here" micro-guidance — subtle, first load only */}
+          {generations.length > 0 && generations.every((g) => g.status === "processing" || g.status === "queued") && (
+            <div
+              style={{
+                fontSize: 12,
+                color: Z.textMuted,
+                marginBottom: 12,
+                padding: "8px 12px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              Your outputs will appear here as they complete.
+            </div>
+          )}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: generations.length === 1 ? "1fr" : "1fr 1fr",
+              gap: 10,
+            }}
+          >
+            {generations.map((gen) => (
+              <GenerationCard
+                key={gen.id}
+                gen={gen}
+                isVariationTrayOpen={activeVariationTray === gen.id}
+                onAction={(action) => onAction(action, gen.id)}
+                onVariation={(variationType) => onVariation(variationType, gen.id)}
+                onAdaptFormat={(format) => onAdaptFormat(format, gen.id)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

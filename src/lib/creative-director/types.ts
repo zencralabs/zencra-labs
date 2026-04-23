@@ -204,7 +204,9 @@ export interface CreativeBriefRow {
   aspect_ratio?: string;
   reference_assets: unknown[];
   advanced_settings: Record<string, unknown>;
-  parsed_brief_json: Record<string, unknown>;
+  // null = not yet parsed (brief saved before concept generation).
+  // Only populated by the concepts route after parseBrief() succeeds.
+  parsed_brief_json: Record<string, unknown> | null;
   concepting_session_key?: string;
   created_at: string;
   updated_at: string;

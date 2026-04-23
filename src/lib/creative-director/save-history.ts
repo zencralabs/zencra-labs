@@ -79,7 +79,11 @@ export async function updateProject(
  * Uses insert; callers should check for existing brief and update instead.
  */
 export async function saveBrief(
-  data: Omit<CreativeBriefRow, "id" | "created_at" | "updated_at">
+  // parsed_brief_json is intentionally optional — the brief route never pre-populates it.
+  // The concepts route sets it to real data after parseBrief() succeeds. Until then, the
+  // column holds {} as a safe sentinel. Callers must NOT rely on it before concept generation.
+  data: Omit<CreativeBriefRow, "id" | "created_at" | "updated_at" | "parsed_brief_json">
+        & { parsed_brief_json?: Record<string, unknown> | null }
 ): Promise<CreativeBriefRow> {
   const { data: row, error } = await supabaseAdmin
     .from("creative_briefs")

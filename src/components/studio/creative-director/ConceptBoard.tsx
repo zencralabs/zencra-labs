@@ -31,6 +31,8 @@ interface ConceptBoardProps {
   onSelectConcept: (id: string) => void;
   onGenerateConcept: (id: string) => void;
   onExpandConcept: (id: string) => void;
+  /** Whether any renders have been produced — used to determine flow step 4/5 */
+  hasGenerations?: boolean;
 }
 
 // ── Zencra tokens ─────────────────────────────────────────────────────────────
@@ -383,6 +385,121 @@ function GhostCard({ index }: { index: number }) {
   );
 }
 
+// ── Flow strip — 5-step progress indicator ────────────────────────────────────
+function FlowStrip({
+  state,
+  selectedConceptId,
+  hasGenerations,
+}: {
+  state: ConceptBoardProps["state"];
+  selectedConceptId: string | null;
+  hasGenerations: boolean;
+}) {
+  // Derive active step (0-indexed)
+  // 0=Brief, 1=Concepts, 2=Select, 3=Render, 4=Outputs
+  let activeStep = 0;
+  if (state === "loading") activeStep = 1;
+  else if (state === "results" || state === "detail") {
+    if (!selectedConceptId) activeStep = 2;
+    else if (!hasGenerations) activeStep = 3;
+    else activeStep = 4;
+  }
+
+  const steps = ["Brief", "Concepts", "Select", "Render", "Outputs"];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0,
+        padding: "10px 0 16px",
+        overflowX: "auto",
+        scrollbarWidth: "none",
+      }}
+    >
+      {steps.map((label, i) => {
+        const isDone    = i < activeStep;
+        const isCurrent = i === activeStep;
+        const isFuture  = i > activeStep;
+
+        return (
+          <div key={label} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            {/* Step node */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  transition: "all 0.2s ease",
+                  background: isDone
+                    ? "rgba(59,130,246,0.25)"
+                    : isCurrent
+                    ? "rgba(59,130,246,0.18)"
+                    : "rgba(255,255,255,0.04)",
+                  border: isDone
+                    ? "1px solid rgba(86,140,255,0.45)"
+                    : isCurrent
+                    ? "1.5px solid rgba(86,140,255,0.55)"
+                    : "1px solid rgba(255,255,255,0.1)",
+                  color: isDone
+                    ? "#93c5fd"
+                    : isCurrent
+                    ? "#93c5fd"
+                    : Z.textMuted,
+                  boxShadow: isCurrent ? "0 0 8px rgba(59,130,246,0.3)" : "none",
+                }}
+              >
+                {isDone ? "✓" : String(i + 1)}
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: isCurrent ? 600 : 500,
+                  color: isDone
+                    ? Z.textSecondary
+                    : isCurrent
+                    ? "#93c5fd"
+                    : isFuture
+                    ? "rgba(111,120,147,0.55)"
+                    : Z.textMuted,
+                  letterSpacing: "0.01em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </span>
+            </div>
+
+            {/* Connector */}
+            {i < steps.length - 1 && (
+              <div
+                style={{
+                  width: 18,
+                  height: 1,
+                  margin: "0 4px",
+                  background: i < activeStep
+                    ? "rgba(86,140,255,0.3)"
+                    : "rgba(255,255,255,0.07)",
+                  flexShrink: 0,
+                  transition: "background 0.3s ease",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Full concept card ─────────────────────────────────────────────────────────
 function ConceptCardView({
   concept,
@@ -402,17 +519,18 @@ function ConceptCardView({
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
 
-  const tags: { label: string; color?: string }[] = [
-    { label: concept.recommendedProvider, color: Z.accentViolet },
-    ...(concept.recommendedUseCase ? [{ label: concept.recommendedUseCase }] : []),
-    ...(concept.scores.cinematicImpact >= 8 ? [{ label: "Cinematic", color: Z.accentCyan }] : []),
-    ...(concept.scores.textAccuracy >= 8 ? [{ label: "Text-first" }] : []),
-  ].slice(0, 3);
+  // Visual attribute tags (separate from provider)
+  const attributeTags: string[] = [
+    ...(concept.scores.cinematicImpact >= 8 ? ["High Impact"] : []),
+    ...(concept.scores.textAccuracy >= 8 ? ["Text-first"] : []),
+    ...(concept.scores.designControl >= 8 ? ["Design-led"] : []),
+    ...(concept.recommendedUseCase ? [concept.recommendedUseCase] : []),
+  ].slice(0, 2);
 
   const cardGlow = isSelected
-    ? `0 0 0 0px transparent, 0 0 28px rgba(86,140,255,0.28), 0 8px 32px rgba(0,0,0,0.45)`
+    ? `0 0 0 1.5px rgba(86,140,255,0.5), 0 0 32px rgba(59,130,246,0.2), 0 12px 40px rgba(0,0,0,0.5)`
     : isHovered
-    ? `0 0 0 0px transparent, 0 8px 28px rgba(86,140,255,0.1), 0 4px 20px rgba(0,0,0,0.3)`
+    ? `0 0 0 1px rgba(120,160,255,0.2), 0 8px 28px rgba(86,140,255,0.1), 0 4px 20px rgba(0,0,0,0.3)`
     : "0 2px 12px rgba(0,0,0,0.25)";
 
   return (
@@ -423,94 +541,138 @@ function ConceptCardView({
       style={{
         background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
         border: isSelected
-          ? "1.5px solid rgba(86,140,255,0.6)"
-          : `1px solid ${isHovered ? "rgba(120,160,255,0.3)" : Z.borderSubtle}`,
+          ? "1.5px solid rgba(86,140,255,0.55)"
+          : `1px solid ${isHovered ? "rgba(120,160,255,0.28)" : Z.borderSubtle}`,
         borderRadius: 18,
         overflow: "hidden",
         cursor: "pointer",
         transition: "all 0.22s ease",
         boxShadow: cardGlow,
-        transform: isHovered && !isSelected ? "translateY(-3px)" : "translateY(0)",
+        transform: isSelected
+          ? "translateY(-2px)"
+          : isHovered
+          ? "translateY(-3px)"
+          : "translateY(0)",
         width: "100%",
       }}
     >
       {/* Preview area */}
       <ConceptPreview index={index} isSelected={isSelected} />
 
-      {/* Card body */}
-      <div style={{ padding: "16px 16px 22px" }}>
-
-        {/* Selected pill (only when selected) */}
-        {isSelected && (
-          <div style={{ marginBottom: 10 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "#93c5fd",
-                background: "rgba(59,130,246,0.1)",
-                border: "1px solid rgba(59,130,246,0.28)",
-                borderRadius: 20,
-                padding: "3px 9px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                boxShadow: "0 0 12px rgba(86,140,255,0.2)",
-              }}
-            >
-              ✓ Selected
-            </span>
-          </div>
-        )}
-
-        {/* Title */}
+      {/* Selected banner — full-width, sits between preview and body */}
+      {isSelected && (
         <div
           style={{
-            fontSize: 18,
+            background: "linear-gradient(90deg, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 100%)",
+            borderBottom: "1px solid rgba(86,140,255,0.25)",
+            padding: "8px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "rgba(59,130,246,0.3)",
+              border: "1px solid rgba(86,140,255,0.6)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 9,
+              color: "#93c5fd",
+              fontWeight: 800,
+              flexShrink: 0,
+            }}
+          >
+            ✓
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#93c5fd", letterSpacing: "0.03em" }}>
+            Direction Selected
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(147,197,253,0.55)", marginLeft: 2 }}>
+            — use the dock below to render
+          </span>
+        </div>
+      )}
+
+      {/* Card body */}
+      <div style={{ padding: "14px 16px 18px" }}>
+
+        {/* Provider row — prominent, top of body */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "3px 9px",
+              borderRadius: 20,
+              background: "rgba(139,92,246,0.15)",
+              border: "1px solid rgba(139,92,246,0.32)",
+              color: "#c4b5fd",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {concept.recommendedProvider}
+          </span>
+          {attributeTags.map((tag) => (
+            <span
+              key={tag}
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                padding: "3px 9px",
+                borderRadius: 20,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                color: Z.textMuted,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        {/* Title — the real creative direction name */}
+        <div
+          style={{
+            fontSize: 19,
             fontWeight: 700,
             color: Z.textPrimary,
             marginBottom: 8,
-            lineHeight: 1.3,
-            letterSpacing: "-0.01em",
+            lineHeight: 1.25,
+            letterSpacing: "-0.02em",
           }}
         >
           {concept.title}
         </div>
 
-        {/* Description */}
+        {/* Summary — 3 lines max, readable color */}
         <div
           style={{
-            fontSize: 15,
-            color: Z.textSecondary,
-            lineHeight: 1.6,
+            fontSize: 13.5,
+            color: "#B8C4DA",
+            lineHeight: 1.65,
             marginBottom: 14,
-          }}
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          } as React.CSSProperties}
         >
           {concept.summary}
         </div>
 
-        {/* Tag chips */}
-        {tags.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginBottom: 14,
-            }}
-          >
-            {tags.map((tag, i) => (
-              <Chip key={i} label={tag.label} color={tag.color} />
-            ))}
-          </div>
-        )}
-
-        {/* Strength bars — only on selected card */}
+        {/* Strength bars — only when selected */}
         {isSelected && (
           <div style={{ marginBottom: 14 }}>
-            <StrengthBar label="Creativity"        value={concept.scores.cinematicImpact} />
-            <StrengthBar label="Commercial Appeal" value={concept.scores.designControl}   />
-            <StrengthBar label="Visual Impact"     value={concept.scores.textAccuracy}    />
+            <StrengthBar label="Creative Impact"   value={concept.scores.cinematicImpact} />
+            <StrengthBar label="Brand Alignment"   value={concept.scores.designControl}   />
+            <StrengthBar label="Text Precision"    value={concept.scores.textAccuracy}    />
           </div>
         )}
 
@@ -519,60 +681,58 @@ function ConceptCardView({
           style={{ display: "flex", gap: 8 }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Select Concept — dominant CTA */}
           <button
             onClick={onSelect}
             onMouseEnter={() => setHoveredAction("select")}
             onMouseLeave={() => setHoveredAction(null)}
             style={{
               flex: 1.6,
-              height: 38,
+              height: 36,
               fontSize: 13,
               fontWeight: 700,
-              borderRadius: 10,
+              borderRadius: 9,
               border: isSelected
-                ? "1px solid rgba(86,140,255,0.5)"
+                ? "1px solid rgba(86,140,255,0.45)"
                 : hoveredAction === "select"
                 ? "1px solid rgba(59,130,246,0.5)"
-                : "1px solid rgba(59,130,246,0.3)",
+                : "1px solid rgba(59,130,246,0.28)",
               background: isSelected
-                ? "linear-gradient(135deg, rgba(59,130,246,0.28), rgba(79,70,229,0.22))"
+                ? "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(79,70,229,0.18))"
                 : hoveredAction === "select"
-                ? "rgba(59,130,246,0.18)"
-                : "rgba(59,130,246,0.1)",
+                ? "rgba(59,130,246,0.16)"
+                : "rgba(59,130,246,0.09)",
               color: isSelected ? "#93c5fd" : "#6BA8FF",
               cursor: "pointer",
               transition: "all 0.15s ease",
-              boxShadow: isSelected ? "0 0 12px rgba(86,140,255,0.22)" : "none",
+              boxShadow: isSelected ? "0 0 14px rgba(86,140,255,0.2)" : "none",
               letterSpacing: "0.01em",
             }}
           >
-            {isSelected ? "✓ Selected" : "Select Concept"}
+            {isSelected ? "✓ Selected" : "Select Direction"}
           </button>
 
-          {/* Preview — visually lighter / subordinate */}
           <button
             onClick={onExpand}
-            onMouseEnter={() => setHoveredAction("preview")}
+            onMouseEnter={() => setHoveredAction("details")}
             onMouseLeave={() => setHoveredAction(null)}
             style={{
               flex: 1,
-              height: 38,
+              height: 36,
               fontSize: 12,
               fontWeight: 500,
-              borderRadius: 10,
+              borderRadius: 9,
               border: "1px solid rgba(255,255,255,0.07)",
-              background: hoveredAction === "preview"
+              background: hoveredAction === "details"
                 ? "rgba(255,255,255,0.06)"
                 : "rgba(255,255,255,0.02)",
-              color: hoveredAction === "preview"
+              color: hoveredAction === "details"
                 ? "rgba(255,255,255,0.5)"
-                : "rgba(255,255,255,0.28)",
+                : "rgba(255,255,255,0.25)",
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
           >
-            Preview
+            Details
           </button>
         </div>
       </div>
@@ -745,6 +905,7 @@ export default function ConceptBoard({
   onSelectConcept,
   onGenerateConcept,
   onExpandConcept,
+  hasGenerations = false,
 }: ConceptBoardProps) {
   const selectedConcept = concepts.find((c) => c.id === selectedConceptId) ?? null;
   const selectedIndex   = concepts.findIndex((c) => c.id === selectedConceptId);
@@ -789,6 +950,13 @@ export default function ConceptBoard({
           .concept-grid { grid-template-columns: repeat(3, 1fr); }
         }
       `}</style>
+
+      {/* ── Flow strip — always visible ── */}
+      <FlowStrip
+        state={state}
+        selectedConceptId={selectedConceptId}
+        hasGenerations={hasGenerations}
+      />
 
       {/* ── Empty state ── */}
       {state === "empty" && (
@@ -963,10 +1131,10 @@ export default function ConceptBoard({
                 </span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#93c5fd", lineHeight: 1.35 }}>
-                    Concept selected — ready to render
+                    Now render this concept into visuals
                   </div>
                   <div style={{ fontSize: 11, color: Z.textMuted, marginTop: 2 }}>
-                    Set your options in the dock below and click Generate
+                    Set your options in the dock below, then click Generate
                   </div>
                 </div>
               </div>
