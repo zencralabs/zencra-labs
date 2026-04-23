@@ -616,7 +616,7 @@ export default function OutputWorkspace({
           <h3
             style={{
               fontSize: 18,
-              fontWeight: 600,
+              fontWeight: 700,
               color: Z.textPrimary,
               margin: 0,
               letterSpacing: "-0.01em",

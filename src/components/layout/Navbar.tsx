@@ -296,7 +296,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
                   onMouseEnter={() => setActiveIdx(idx)}
                   className="group flex items-center gap-3 rounded-xl transition-all duration-150"
                   style={{
-                    padding: "10px 12px",
+                    padding: "11px 13px",
                     background: isActive ? `${data.color}16` : "transparent",
                     color: isActive ? "#F8FAFC" : "#94A3B8",
                     opacity: isSoon && !isActive ? 0.72 : 1,
@@ -317,7 +317,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
                   {/* Label + desc */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{feat.label}</span>
+                      <span style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.2 }}>{feat.label}</span>
                       {feat.badge && (
                         <span
                           className="rounded-full font-bold uppercase"
@@ -502,7 +502,7 @@ function MobileMenu({
         borderColor: "var(--border-subtle)",
         background: "rgba(8,14,28,0.98)",
         backdropFilter: "blur(20px)",
-        maxHeight: "calc(100vh - 72px)",
+        maxHeight: "calc(100vh - 76px)",
         overflowY: "auto",
       }}
     >
@@ -542,7 +542,7 @@ function MobileMenu({
                     <button
                       onClick={() => openSection(link.dropdownKey!)}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 font-medium transition-colors"
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "15px" }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px" }}
                       onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
                       onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                     >
@@ -558,7 +558,7 @@ function MobileMenu({
                       href={link.href}
                       onClick={onClose}
                       className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
-                      style={{ color: "#94A3B8", fontSize: "15px" }}
+                      style={{ color: "#94A3B8", fontSize: "16px" }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
                     >
@@ -576,7 +576,7 @@ function MobileMenu({
                 href="/studio/cinema"
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
-                style={{ color: "#94A3B8", fontSize: "15px" }}
+                style={{ color: "#94A3B8", fontSize: "16px" }}
               >
                 <Clapperboard size={14} style={{ color: "#A855F7", flexShrink: 0 }} />
                 <span className="flex-1">Cinema Studio</span>
@@ -590,7 +590,7 @@ function MobileMenu({
             <button
               onClick={() => { onClose(); onAuthModal("login"); }}
               className="block text-center rounded-xl font-medium w-full transition-colors"
-              style={{ padding: "12px", fontSize: "15px", color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
+              style={{ padding: "12px", fontSize: "16px", color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
             >
               Login
             </button>
@@ -598,7 +598,7 @@ function MobileMenu({
               href="/studio/image"
               onClick={onClose}
               className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white w-full"
-              style={{ padding: "13px 16px", fontSize: "15px", background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", textDecoration: "none" }}
+              style={{ padding: "13px 16px", fontSize: "16px", background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", textDecoration: "none" }}
             >
               <Zap size={14} /> Try Free
             </Link>
@@ -618,7 +618,7 @@ function MobileMenu({
                   key={feat.label}
                   onClick={() => setDetail(idx)}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 transition-all duration-150"
-                  style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", color: isSoon ? "#64748B" : "#94A3B8", fontSize: "15px" }}
+                  style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", color: isSoon ? "#64748B" : "#94A3B8", fontSize: "16px" }}
                   onMouseEnter={e => (e.currentTarget.style.background = `${sectionData.color}10`)}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                 >
@@ -661,7 +661,7 @@ function MobileMenu({
               href={sectionData.features[detail].href}
               onClick={onClose}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl font-semibold"
-              style={{ padding: "13px 16px", fontSize: "15px", background: `linear-gradient(135deg, ${sectionData.color}, ${sectionData.color}bb)`, color: "#fff", textDecoration: "none" }}
+              style={{ padding: "13px 16px", fontSize: "16px", background: `linear-gradient(135deg, ${sectionData.color}, ${sectionData.color}bb)`, color: "#fff", textDecoration: "none" }}
             >
               Open {sectionData.features[detail].label}
               <ChevronRight size={14} />
@@ -751,13 +751,13 @@ export function Navbar() {
         }}
       >
         <div className="container-site">
-          <nav className="flex h-[72px] items-center justify-between">
+          <nav className="flex h-[76px] items-center justify-between">
 
             {/* Logo — size="lg" for increased presence */}
             <Logo size="lg" />
 
             {/* ── Desktop nav ── */}
-            <ul className="hidden items-center gap-0.5 lg:flex">
+            <ul className="hidden items-center gap-1 lg:flex">
               {navLinks.map((link) => {
                 const isDropdown = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
                 const dropKey    = link.dropdownKey as DropdownKey;
@@ -787,8 +787,8 @@ export function Navbar() {
                         onClick={() => isOpen ? setActiveDropdown(null) : openDropdown(dropKey)}
                         className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
                         style={{
-                          padding: "9px 14px",
-                          fontSize: "15px",
+                          padding: "10px 15px",
+                          fontSize: "16px",
                           background: isActive && catData ? `${catData.color}12` : "none",
                           border: "none",
                           cursor: "pointer",
@@ -808,8 +808,8 @@ export function Navbar() {
                         href={link.href}
                         className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
                         style={{
-                          padding: "9px 14px",
-                          fontSize: "15px",
+                          padding: "10px 15px",
+                          fontSize: "16px",
                           color: isPathActive ? "#F8FAFC" : "#94A3B8",
                           background: isPathActive ? "rgba(255,255,255,0.06)" : "transparent",
                           borderRadius: 8,
@@ -842,7 +842,7 @@ export function Navbar() {
                 <Link
                   href="/studio/cinema"
                   className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
-                  style={{ padding: "9px 14px", fontSize: "15px", color: "#94A3B8" }}
+                  style={{ padding: "10px 15px", fontSize: "16px", color: "#94A3B8" }}
                   onMouseEnter={e => (e.currentTarget.style.color = "#C084FC")}
                   onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                 >
@@ -918,7 +918,7 @@ export function Navbar() {
                 <>
                   <button
                     onClick={() => setAuthModal("login")}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "15px", fontWeight: 500, transition: "color 0.2s" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
                     onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                   >
@@ -927,7 +927,7 @@ export function Navbar() {
                   <Link
                     href="/studio/image"
                     className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
-                    style={{ padding: "11px 22px", fontSize: "15px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
+                    style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                   >
