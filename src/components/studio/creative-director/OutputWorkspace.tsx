@@ -34,6 +34,12 @@ interface OutputWorkspaceProps {
   onAction: (action: OutputAction, generationId: string) => void;
   onVariation: (variationType: string, generationId: string) => void;
   onAdaptFormat: (format: string, generationId: string) => void;
+  /** Whether the user has generated concepts yet — drives context-aware empty state */
+  hasConceptsGenerated?: boolean;
+  /** Whether the user has selected a concept — drives context-aware empty state */
+  hasConceptSelected?: boolean;
+  /** Title of the selected concept — shown in the ready-to-render empty state */
+  selectedConceptTitle?: string;
 }
 
 // ── Zencra brand tokens ────────────────────────────────────────────────────────
@@ -586,6 +592,9 @@ export default function OutputWorkspace({
   onAction,
   onVariation,
   onAdaptFormat,
+  hasConceptsGenerated = false,
+  hasConceptSelected = false,
+  selectedConceptTitle,
 }: OutputWorkspaceProps) {
   const isEmpty = generations.length === 0;
 
@@ -695,80 +704,175 @@ export default function OutputWorkspace({
         </p>
       </div>
 
-      {/* ── Empty state ── */}
+      {/* ── Empty state — context-aware ── */}
       {isEmpty && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              style={{
-                aspectRatio: "1 / 1",
-                background: "rgba(120,160,255,0.05)",
-                border: "1px dashed rgba(140,185,255,0.32)",
-                borderRadius: 12,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                boxShadow: "0 0 12px rgba(86,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.04)",
-                transition: "border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(140,185,255,0.52)";
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.09)";
-                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 18px rgba(86,140,255,0.14), inset 0 1px 0 rgba(255,255,255,0.05)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(140,185,255,0.32)";
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(120,160,255,0.05)";
-                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 12px rgba(86,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.04)";
-              }}
-            >
+        <>
+          {/* State A: concept selected — ready to render */}
+          {hasConceptSelected && (
+            <div style={{ marginBottom: 14 }}>
               <div
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  border: "1px dashed rgba(120,160,255,0.35)",
-                  background: "rgba(120,160,255,0.1)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "rgba(120,160,255,0.5)",
-                  fontSize: 16,
+                  padding: "14px 16px",
+                  borderRadius: 11,
+                  background: "rgba(59,130,246,0.07)",
+                  border: "1px solid rgba(86,140,255,0.26)",
+                  boxShadow: "0 0 16px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+                  marginBottom: 12,
                 }}
               >
-                ✦
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "rgba(59,130,246,0.18)",
+                      border: "1px solid rgba(86,140,255,0.4)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      color: "#93c5fd",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                  >
+                    ✓
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#93c5fd" }}>
+                    Ready to render
+                  </span>
+                </div>
+                {selectedConceptTitle && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: Z.textMuted,
+                      paddingLeft: 28,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Concept: <span style={{ color: Z.textSecondary, fontWeight: 500 }}>{selectedConceptTitle}</span>
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: Z.textMuted, paddingLeft: 28, marginTop: 3 }}>
+                  Configure options in the dock below, then click <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Generate</span>
+                </div>
               </div>
-              {i === 0 && (
-                <span
+            </div>
+          )}
+
+          {/* State B: concepts generated but none selected */}
+          {hasConceptsGenerated && !hasConceptSelected && (
+            <div style={{ marginBottom: 14 }}>
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 11,
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid rgba(120,160,255,0.16)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                  marginBottom: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 15, color: "rgba(120,160,255,0.5)", flexShrink: 0 }}>←</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: Z.textSecondary, marginBottom: 2 }}>
+                    Select a concept to begin
+                  </div>
+                  <div style={{ fontSize: 11, color: Z.textMuted, lineHeight: 1.4 }}>
+                    Choose a direction from the center panel to unlock rendering
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Slot grid — always shown in empty state */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+            }}
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{
+                  aspectRatio: "1 / 1",
+                  background: hasConceptSelected
+                    ? "rgba(59,130,246,0.04)"
+                    : "rgba(120,160,255,0.04)",
+                  border: hasConceptSelected
+                    ? "1px dashed rgba(86,140,255,0.28)"
+                    : "1px dashed rgba(140,185,255,0.22)",
+                  borderRadius: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "border-color 0.15s ease, background 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
+                    ? "rgba(86,140,255,0.48)"
+                    : "rgba(140,185,255,0.38)";
+                  (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
+                    ? "rgba(59,130,246,0.07)"
+                    : "rgba(120,160,255,0.07)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
+                    ? "rgba(86,140,255,0.28)"
+                    : "rgba(140,185,255,0.22)";
+                  (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
+                    ? "rgba(59,130,246,0.04)"
+                    : "rgba(120,160,255,0.04)";
+                }}
+              >
+                <div
                   style={{
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: "rgba(167,176,197,0.55)",
-                    textAlign: "center",
-                    maxWidth: 110,
-                    lineHeight: 1.45,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 9,
+                    border: hasConceptSelected
+                      ? "1px dashed rgba(86,140,255,0.35)"
+                      : "1px dashed rgba(120,160,255,0.25)",
+                    background: hasConceptSelected
+                      ? "rgba(59,130,246,0.1)"
+                      : "rgba(120,160,255,0.07)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: hasConceptSelected
+                      ? "rgba(147,197,253,0.55)"
+                      : "rgba(120,160,255,0.35)",
+                    fontSize: 14,
                   }}
                 >
-                  Output slot {i + 1}
+                  ✦
+                </div>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: hasConceptSelected
+                      ? "rgba(147,197,253,0.4)"
+                      : "rgba(167,176,197,0.3)",
+                    fontWeight: 500,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {i === 0 ? "Output 1" : `Slot ${i + 1}`}
                 </span>
-              )}
-              {i !== 0 && (
-                <span style={{ fontSize: 13, color: "rgba(167,176,197,0.38)", fontWeight: 500 }}>
-                  Slot {i + 1}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* ── Generation grid ── */}

@@ -1094,6 +1094,9 @@ export default function CreativeDirectorShell() {
             generations={generations}
             activeVariationTray={activeVariationTray}
             onAction={handleOutputAction}
+            hasConceptsGenerated={conceptBoardState === "results" || conceptBoardState === "detail"}
+            hasConceptSelected={!!selectedConceptId}
+            selectedConceptTitle={concepts.find((c) => c.id === selectedConceptId)?.title}
             onVariation={handleVariation}
             onAdaptFormat={handleAdaptFormat}
           />

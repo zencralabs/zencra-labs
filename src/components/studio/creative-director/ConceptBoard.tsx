@@ -915,23 +915,113 @@ export default function ConceptBoard({
       {/* ── Results state ── */}
       {state === "results" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          <div style={{ padding: "0 0 20px" }}>
+          <div style={{ padding: "0 0 16px" }}>
             <div
               style={{
                 fontSize: 18,
                 fontWeight: 700,
                 color: Z.textPrimary,
-                marginBottom: 6,
+                marginBottom: 12,
                 letterSpacing: "-0.01em",
               }}
             >
               {concepts.length} Creative Direction{concepts.length !== 1 ? "s" : ""}
             </div>
-            <div style={{ fontSize: 13, color: Z.textMuted, lineHeight: 1.5 }}>
-              {selectedConceptId
-                ? "Concept selected — use the dock below to render."
-                : "Select a concept to begin rendering."}
-            </div>
+
+            {/* Step indicator — changes based on selection state */}
+            {selectedConceptId ? (
+              /* Selected: confirmation banner */
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "rgba(59,130,246,0.08)",
+                  border: "1px solid rgba(86,140,255,0.28)",
+                  boxShadow: "0 0 18px rgba(59,130,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: "rgba(59,130,246,0.18)",
+                    border: "1px solid rgba(86,140,255,0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    color: "#93c5fd",
+                    flexShrink: 0,
+                    fontWeight: 700,
+                  }}
+                >
+                  ✓
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#93c5fd", lineHeight: 1.35 }}>
+                    Concept selected — ready to render
+                  </div>
+                  <div style={{ fontSize: 11, color: Z.textMuted, marginTop: 2 }}>
+                    Set your options in the dock below and click Generate
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Not selected: directive prompt */
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.025)",
+                  border: "1px solid rgba(120,160,255,0.18)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+                }}
+              >
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: "rgba(120,160,255,0.1)",
+                    border: "1px solid rgba(120,160,255,0.28)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 13,
+                    color: Z.textMuted,
+                    flexShrink: 0,
+                    fontWeight: 600,
+                  }}
+                >
+                  2
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: Z.textSecondary, lineHeight: 1.35 }}>
+                    Select a concept to continue
+                  </div>
+                  <div style={{ fontSize: 11, color: Z.textMuted, marginTop: 2 }}>
+                    Pick the direction that best fits your brief, then render it
+                  </div>
+                </div>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 16,
+                    color: "rgba(120,160,255,0.35)",
+                    flexShrink: 0,
+                  }}
+                >
+                  →
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="concept-grid">
