@@ -1251,7 +1251,7 @@ export default function CreativeRenderDock({
               flexShrink:     0,
               boxShadow:      ctaMode === "select-concept"
                 ? "none"
-                : "0 0 10px rgba(86,140,255,0.25), 0 4px 18px rgba(0,0,0,0.5)",
+                : "0 0 10px rgba(86,140,255,0.25), 0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
               transition:     "all 0.18s ease",
             }}
           >
@@ -1275,14 +1275,19 @@ export default function CreativeRenderDock({
             {/* ── Active: LEFT text block + RIGHT credit block ── */}
             {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
               <>
-                {/* LEFT: two-line action + context, same size and weight */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* LEFT: two deliberate lines, vertically centered as a block */}
+                <div style={{
+                  display:        "flex",
+                  flexDirection:  "column",
+                  justifyContent: "center",
+                  gap:            2,
+                }}>
                   <span style={{
                     fontSize:      16,
                     fontWeight:    600,
                     color:         "#ffffff",
-                    lineHeight:    1.2,
-                    letterSpacing: "-0.01em",
+                    lineHeight:    "18px",
+                    letterSpacing: "0.2px",
                   }}>
                     {ctaMode === "generate-concepts" ? "Generate"
                       : isVariationMode           ? "Generate"
@@ -1292,23 +1297,33 @@ export default function CreativeRenderDock({
                     fontSize:      16,
                     fontWeight:    600,
                     color:         "#ffffff",
-                    lineHeight:    1.2,
-                    letterSpacing: "-0.01em",
+                    lineHeight:    "18px",
+                    letterSpacing: "0.2px",
                   }}>
                     {ctaMode === "generate-concepts" ? "Concepts"
                       : isVariationMode           ? "Variation"
                       : "Concept"}
                   </span>
                 </div>
-                {/* RIGHT: ⚡ credit, vertically centered between both lines */}
-                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                {/* RIGHT: ⚡ credit — self-centered against full button height */}
+                <div style={{
+                  display:        "flex",
+                  alignItems:     "center",
+                  justifyContent: "flex-end",
+                  alignSelf:      "center",
+                  minWidth:       64,
+                  gap:            6,
+                  flexShrink:     0,
+                }}>
                   <Zap size={15} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                   <span style={{
-                    fontSize:   15,
-                    fontWeight: 600,
-                    color:      "rgba(255,255,255,0.9)",
-                    lineHeight: 1,
-                    whiteSpace: "nowrap",
+                    fontSize:      15,
+                    fontWeight:    600,
+                    color:         "rgba(255,255,255,0.9)",
+                    lineHeight:    1,
+                    whiteSpace:    "nowrap",
+                    letterSpacing: "0.2px",
+                    textAlign:     "right",
                   }}>
                     {ctaMode === "generate-concepts" ? "1 cr" : `${creditEstimate} cr`}
                   </span>
