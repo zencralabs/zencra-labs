@@ -1230,9 +1230,9 @@ export default function CreativeRenderDock({
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept"}
             style={{
-              height:         50,
-              minWidth:       ctaMode === "select-concept" ? 168 : 162,
-              padding:        "0 24px",
+              height:         56,
+              minWidth:       ctaMode === "select-concept" ? 168 : 192,
+              padding:        "0 20px",
               borderRadius:   12,
               marginLeft:     12,
               border:         ctaMode === "select-concept"
@@ -1244,9 +1244,10 @@ export default function CreativeRenderDock({
               color:          ctaMode === "select-concept" ? Z.textMuted : "#ffffff",
               cursor:         ctaMode === "select-concept" ? "default" : "pointer",
               display:        "flex",
-              flexDirection:  "column",
-              alignItems:     "stretch",
-              justifyContent: "center",
+              flexDirection:  "row",
+              alignItems:     "center",
+              justifyContent: "space-between",
+              gap:            14,
               flexShrink:     0,
               boxShadow:      ctaMode === "select-concept"
                 ? "none"
@@ -1256,14 +1257,14 @@ export default function CreativeRenderDock({
           >
             {/* ── Disabled: select-concept ── */}
             {ctaMode === "select-concept" && (
-              <span style={{ fontSize: 14, fontWeight: 600, textAlign: "center", letterSpacing: "0.01em" }}>
+              <span style={{ fontSize: 14, fontWeight: 600, textAlign: "center", letterSpacing: "0.01em", width: "100%" }}>
                 Select a Concept
               </span>
             )}
 
             {/* ── Loading state ── */}
             {ctaMode !== "select-concept" && (isGenerating || isGeneratingConcepts) && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}>
                 <span style={{ animation: "rdSpin 0.8s linear infinite", display: "inline-block", fontSize: 16, lineHeight: 1 }}>⟳</span>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>
                   {isGeneratingConcepts ? "Generating Concepts…" : "Generating…"}
@@ -1271,34 +1272,45 @@ export default function CreativeRenderDock({
               </div>
             )}
 
-            {/* ── Active: stacked two-line layout ── */}
+            {/* ── Active: LEFT text block + RIGHT credit block ── */}
             {ctaMode !== "select-concept" && !isGenerating && !isGeneratingConcepts && (
               <>
-                {/* Row 1: primary verb + icon + credit */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, lineHeight: 1 }}>
-                  <span style={{ flex: 1, fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>
+                {/* LEFT: two-line action + context, same size and weight */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <span style={{
+                    fontSize:      16,
+                    fontWeight:    600,
+                    color:         "#ffffff",
+                    lineHeight:    1.2,
+                    letterSpacing: "-0.01em",
+                  }}>
                     {ctaMode === "generate-concepts" ? "Generate"
                       : isVariationMode           ? "Generate"
                       : "Render"}
                   </span>
-                  <Zap size={11} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                   <span style={{
-                    fontSize:      12,
-                    fontWeight:    500,
-                    color:         "rgba(255,255,255,0.62)",
-                    letterSpacing: "0em",
-                    lineHeight:    1,
-                    flexShrink:    0,
+                    fontSize:      16,
+                    fontWeight:    600,
+                    color:         "#ffffff",
+                    lineHeight:    1.2,
+                    letterSpacing: "-0.01em",
                   }}>
-                    {ctaMode === "generate-concepts" ? "1 cr" : `${creditEstimate} cr`}
-                  </span>
-                </div>
-                {/* Row 2: context noun */}
-                <div style={{ lineHeight: 1, marginTop: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.78, letterSpacing: "0.005em" }}>
                     {ctaMode === "generate-concepts" ? "Concepts"
                       : isVariationMode           ? "Variation"
                       : "Concept"}
+                  </span>
+                </div>
+                {/* RIGHT: ⚡ credit, vertically centered between both lines */}
+                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                  <Zap size={15} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
+                  <span style={{
+                    fontSize:   15,
+                    fontWeight: 600,
+                    color:      "rgba(255,255,255,0.9)",
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {ctaMode === "generate-concepts" ? "1 cr" : `${creditEstimate} cr`}
                   </span>
                 </div>
               </>
