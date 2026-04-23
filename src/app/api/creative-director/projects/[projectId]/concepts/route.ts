@@ -106,7 +106,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
       return NextResponse.json({
         concepts: existingConcepts,
         parsedBrief: brief.parsed_brief_json,
-        estimatedGenerationCredits: estimate,
+        estimatedGenerationCredits: estimate.generationPerOutput,
         idempotent: true,
       });
     }
@@ -247,7 +247,7 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     stylePreset: parsedBrief.stylePreset ?? undefined,
     projectType: parsedBrief.projectType,
   });
-  const estimatedGenerationCredits = estimateCredits(defaultProvider, 1);
+  const estimatedGenerationCredits = estimateCredits(defaultProvider, 1).generationPerOutput;
 
   // ── Log activity (fire-and-forget) ────────────────────────────────────────
   void logActivity(projectId, user.id, "concepts_generated", {
