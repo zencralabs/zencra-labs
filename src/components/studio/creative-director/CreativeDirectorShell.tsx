@@ -57,6 +57,26 @@ function serializeBriefForApi(b: BriefState): Record<string, unknown> {
   };
 }
 
+// ── Generation row → GenerationResult mapper ─────────────────────────────────
+// All CD generation API routes return raw DB rows (snake_case).
+// GenerationResult is camelCase. This mapper normalises at the shell boundary.
+// The `url` field comes from the image generate route for synchronous providers
+// (e.g. GPT Image). Async providers (NB, Kling) return null initially; the
+// poll loop fills it in once the job completes.
+function mapGenerationRow(row: Record<string, unknown>): GenerationResult {
+  return {
+    id:             String(row.id ?? ""),
+    url:            typeof row.url === "string" ? row.url : null,
+    status:         (row.status as GenerationResult["status"]) ?? "processing",
+    provider:       String(row.provider ?? ""),
+    model:          String(row.model ?? ""),
+    creditCost:     typeof row.credit_cost === "number" ? row.credit_cost : 0,
+    variationType:  typeof row.variation_type === "string" ? row.variation_type : undefined,
+    generationType: (row.generation_type as GenerationResult["generationType"]) ?? "base",
+    assetId:        typeof row.asset_id === "string" ? row.asset_id : undefined,
+  };
+}
+
 // ── DB row → UI type mapper ───────────────────────────────────────────────────
 // The concepts API returns raw snake_case DB rows (CreativeConceptRow).
 // ConceptCard is camelCase. This mapper normalises at the shell boundary.
@@ -508,8 +528,15 @@ export default function CreativeDirectorShell() {
   }, [session, projectId, brief, authHeader, addToast]);
 
   // ── Poll generation status ────────────────────────────────────────────────────
+  // Polls the studio job status endpoint. genId is the creative_generation.id
+  // used to find the card in state. assetId is the assets table row ID that the
+  // status route actually expects — for async providers these are different.
+  // The status route returns: { success: true, data: { status: "success"|"pending"|"failed", url? } }
   const pollGeneration = useCallback(
-    async (genId: string) => {
+    async (genId: string, assetId?: string) => {
+      // Without an assetId we can't poll — the status route requires it
+      if (!assetId) return;
+
       const MAX_POLLS = 60;
       let polls = 0;
       const interval = setInterval(async () => {
@@ -524,24 +551,29 @@ export default function CreativeDirectorShell() {
           return;
         }
         try {
-          const res = await fetch(`/api/studio/jobs/${genId}/status`, {
+          const res = await fetch(`/api/studio/jobs/${assetId}/status`, {
             headers: authHeader(),
           });
           if (!res.ok) return;
-          const data = (await res.json()) as {
-            status: GenerationResult["status"];
-            url?: string;
+          const envelope = (await res.json()) as {
+            success?: boolean;
+            data?: { status?: string; url?: string };
           };
-          if (data.status === "completed" || data.status === "failed") {
+          const jobStatus = envelope.data?.status;
+          if (jobStatus === "success" || jobStatus === "failed") {
             clearInterval(interval);
+            const cdStatus: GenerationResult["status"] =
+              jobStatus === "success" ? "completed" : "failed";
+            const url = envelope.data?.url ?? null;
             setGenerations((prev) =>
               prev.map((g) =>
                 g.id === genId
-                  ? { ...g, status: data.status, url: data.url ?? g.url }
+                  ? { ...g, status: cdStatus, url: url ?? g.url }
                   : g
               )
             );
           }
+          // "pending" → keep polling
         } catch {
           // silent poll failure — keep polling
         }
@@ -596,14 +628,14 @@ export default function CreativeDirectorShell() {
           throw new Error((err as { error?: string }).error ?? "Failed to start generation");
         }
 
-        const data = (await res.json()) as { generations: GenerationResult[] };
-        const newGens = data.generations ?? [];
+        const data = (await res.json()) as { generations: Record<string, unknown>[] };
+        const newGens = (data.generations ?? []).map(mapGenerationRow);
         setGenerations((prev) => [...newGens, ...prev]);
 
-        // 3. Poll each
+        // 3. Poll each async generation (sync providers already have status=completed + url)
         newGens.forEach((g) => {
-          if (g.status === "queued" || g.status === "processing") {
-            pollGeneration(g.id);
+          if ((g.status === "queued" || g.status === "processing") && g.assetId) {
+            pollGeneration(g.id, g.assetId);
           }
         });
       } catch (err) {
@@ -669,19 +701,27 @@ export default function CreativeDirectorShell() {
               }
             );
             if (!res.ok) throw new Error("Regenerate failed");
-            const data = (await res.json()) as { generationId?: string };
+            const data = (await res.json()) as {
+              generationId?: string;
+              generation?: Record<string, unknown>;
+            };
             const newId = data.generationId ?? generationId;
+            const newGen = data.generation ? mapGenerationRow(data.generation) : null;
             if (newId !== generationId) {
               setGenerations((prev) =>
                 prev.map((g) =>
                   g.id === generationId
-                    ? { ...g, id: newId, status: "processing" }
+                    ? (newGen ?? { ...g, id: newId, status: "processing", url: null })
                     : g
                 )
               );
-              pollGeneration(newId);
+              if (newGen?.status === "processing" && newGen.assetId) {
+                pollGeneration(newId, newGen.assetId);
+              }
             } else {
-              pollGeneration(generationId);
+              // Same ID (shouldn't happen), just poll with existing assetId
+              const existing = generations.find((g) => g.id === generationId);
+              if (existing?.assetId) pollGeneration(generationId, existing.assetId);
             }
           } catch {
             setGenerations((prev) =>
@@ -739,11 +779,11 @@ export default function CreativeDirectorShell() {
           }
         );
         if (!res.ok) throw new Error("Variation failed");
-        const data = (await res.json()) as { generation: GenerationResult };
-        const newGen = data.generation;
+        const data = (await res.json()) as { generation: Record<string, unknown> };
+        const newGen = mapGenerationRow(data.generation);
         setGenerations((prev) => [newGen, ...prev]);
-        if (newGen.status === "queued" || newGen.status === "processing") {
-          pollGeneration(newGen.id);
+        if ((newGen.status === "queued" || newGen.status === "processing") && newGen.assetId) {
+          pollGeneration(newGen.id, newGen.assetId);
         }
       } catch {
         addToast("Could not create a variation. Please try again.", "error");
@@ -769,11 +809,11 @@ export default function CreativeDirectorShell() {
           }
         );
         if (!res.ok) throw new Error("Adapt format failed");
-        const data = (await res.json()) as { generation: GenerationResult };
-        const newGen = data.generation;
+        const data = (await res.json()) as { generation: Record<string, unknown> };
+        const newGen = mapGenerationRow(data.generation);
         setGenerations((prev) => [newGen, ...prev]);
-        if (newGen.status === "queued" || newGen.status === "processing") {
-          pollGeneration(newGen.id);
+        if ((newGen.status === "queued" || newGen.status === "processing") && newGen.assetId) {
+          pollGeneration(newGen.id, newGen.assetId);
         }
       } catch {
         addToast("Format adaptation failed. Please try again.", "error");

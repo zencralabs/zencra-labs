@@ -165,13 +165,15 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
         }
 
         const genData = (await genRes.json()) as {
-          data?: { assetId?: string };
+          data?: { assetId?: string; url?: string; status?: string };
         };
 
         const assetId = genData.data?.assetId;
-        const status = assetId ? "completed" : "failed";
+        const imageUrl = genData.data?.url ?? null;
+        const jobStatus = genData.data?.status;
+        const status = jobStatus === "pending" ? "processing" : assetId ? "completed" : "failed";
         await updateGenerationStatus(gen.id, status, assetId);
-        return { ...gen, status, asset_id: assetId };
+        return { ...gen, status, asset_id: assetId, url: imageUrl };
       } catch (err) {
         const errMsg =
           err instanceof Error ? err.message : "Unknown dispatch error";

@@ -308,10 +308,14 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
         };
 
         const assetId = genData.data?.assetId;
-        const status = assetId ? "completed" : "failed";
+        const imageUrl = genData.data?.url ?? null;
+        // "pending" status from async providers means the job is still in flight
+        const jobStatus = genData.data?.status;
+        const status: CreativeGenerationRow["status"] =
+          jobStatus === "pending" ? "processing" : assetId ? "completed" : "failed";
 
         await updateGenerationStatus(gen.id, status, assetId);
-        return { ...gen, status, asset_id: assetId };
+        return { ...gen, status, asset_id: assetId, url: imageUrl };
       } catch (err) {
         const errMsg =
           err instanceof Error ? err.message : "Unknown dispatch error";

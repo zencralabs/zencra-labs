@@ -24,6 +24,8 @@ export interface GenerationResult {
   creditCost: number;
   variationType?: string;
   generationType: "base" | "variation" | "adaptation" | "fork";
+  /** The assets table ID — used by the shell to poll job status for async providers */
+  assetId?: string;
 }
 
 interface OutputWorkspaceProps {
