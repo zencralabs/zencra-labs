@@ -14,6 +14,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
 import { logActivity } from "@/lib/creative-director/activity-log";
 import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estimator";
+import { studioDispatch } from "@/lib/api/studio-dispatch";
+import { getClientIp } from "@/lib/security/rate-limit";
 import type { CreativeGenerationRow } from "@/lib/creative-director/types";
 
 export const runtime = "nodejs";
@@ -126,40 +128,26 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     return NextResponse.json({ error: "Failed to create generation record" }, { status: 500 });
   }
 
-  // ── Dispatch to image generation stack ────────────────────────────────────
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const authHeader = req.headers.get("authorization") ?? "";
+  // ── Dispatch directly via studioDispatch (no HTTP hop — avoids auth forwarding issues) ───
+  // Credits are already deducted above via spend_credits, so skipCredits=true prevents double-charge.
+  const clientIp = getClientIp(req);
 
   try {
-    const genRes = await fetch(`${siteUrl}/api/studio/image/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: authHeader,
-      },
-      body: JSON.stringify({
-        modelKey:    parent.model,
-        prompt:      promptString,
-        aspectRatio,
-        ...(payload.blendMode ? { blendMode: payload.blendMode } : {}),
-        ...(payload.locks     ? { locks:     payload.locks     } : {}),
-      }),
+    const { job, assetId } = await studioDispatch({
+      userId:      user.id,
+      ip:          clientIp,
+      studio:      "image",
+      modelKey:    parent.model,
+      prompt:      promptString,
+      aspectRatio,
+      skipCredits: true, // CD route already deducted via spend_credits RPC
     });
 
-    if (!genRes.ok) {
-      const errBody = await genRes.text();
-      throw new Error(`Studio dispatch failed (${genRes.status}): ${errBody}`);
-    }
-
-    const genData = (await genRes.json()) as {
-      data?: { assetId?: string; url?: string; status?: string };
-    };
-
-    const assetId = genData.data?.assetId;
-    const imageUrl = genData.data?.url ?? null;
-    const jobStatus = genData.data?.status;
+    const imageUrl = job.result?.url ?? null;
     const status: CreativeGenerationRow["status"] =
-      jobStatus === "pending" ? "processing" : assetId ? "completed" : "failed";
+      job.status === "pending"  ? "processing" :
+      job.status === "success"  ? "completed"  : "failed";
+
     await updateGenerationStatus(newGen.id, status, assetId);
 
     // Log activity (fire-and-forget)

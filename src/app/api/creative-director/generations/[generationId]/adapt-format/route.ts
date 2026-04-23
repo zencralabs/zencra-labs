@@ -16,6 +16,8 @@ import { normalizedPromptToString } from "@/lib/creative-director/prompt-compose
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
 import { logActivity } from "@/lib/creative-director/activity-log";
 import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estimator";
+import { studioDispatch } from "@/lib/api/studio-dispatch";
+import { getClientIp } from "@/lib/security/rate-limit";
 import type {
   CreativeGenerationRow,
   NormalizedCreativeRenderPrompt,
@@ -140,41 +142,32 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     }
   }
 
-  // ── Dispatch to existing image generation stack ───────────────────────────
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const authHeader = req.headers.get("authorization") ?? "";
+  // ── Dispatch directly via studioDispatch (no HTTP hop — avoids auth forwarding issues) ───
+  // Credits are already deducted above via spend_credits, so skipCredits=true prevents double-charge.
+  const clientIp = getClientIp(req);
 
   const dispatchResults = await Promise.allSettled(
     generationRecords.map(async (gen) => {
       try {
-        const genRes = await fetch(`${siteUrl}/api/studio/image/generate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({
-            modelKey: source.model,
-            prompt: promptString,
-            aspectRatio: targetAspectRatio,
-          }),
+        const { job, assetId } = await studioDispatch({
+          userId:      user.id,
+          ip:          clientIp,
+          studio:      "image",
+          modelKey:    source.model,
+          prompt:      promptString,
+          aspectRatio: targetAspectRatio,
+          skipCredits: true, // CD route already deducted via spend_credits RPC
         });
 
-        if (!genRes.ok) {
-          throw new Error(`Studio dispatch failed (${genRes.status})`);
-        }
+        const imageUrl = job.result?.url ?? null;
+        const status: CreativeGenerationRow["status"] =
+          job.status === "pending"  ? "processing" :
+          job.status === "success"  ? "completed"  : "failed";
 
-        const genData = (await genRes.json()) as {
-          data?: { assetId?: string };
-        };
-
-        const assetId = genData.data?.assetId;
-        const status = assetId ? "completed" : "failed";
         await updateGenerationStatus(gen.id, status, assetId);
-        return { ...gen, status, asset_id: assetId };
+        return { ...gen, status, asset_id: assetId, url: imageUrl };
       } catch (err) {
-        const errMsg =
-          err instanceof Error ? err.message : "Unknown dispatch error";
+        const errMsg = err instanceof Error ? err.message : "Unknown dispatch error";
         await updateGenerationStatus(gen.id, "failed", undefined, errMsg);
         return { ...gen, status: "failed", error_message: errMsg };
       }

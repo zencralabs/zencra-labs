@@ -27,6 +27,8 @@ import { selectCreativeProvider } from "@/lib/creative-director/provider-router"
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
 import { logActivity } from "@/lib/creative-director/activity-log";
 import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estimator";
+import { studioDispatch } from "@/lib/api/studio-dispatch";
+import { getClientIp } from "@/lib/security/rate-limit";
 import type {
   CreativeBriefRow,
   CreativeConceptRow,
@@ -273,52 +275,36 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
     }
   }
 
-  // ── Dispatch to existing image generation stack ───────────────────────────
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const authHeader = req.headers.get("authorization") ?? "";
+  // ── Dispatch directly via studioDispatch (no HTTP hop — avoids auth forwarding issues) ───
+  // Credits are already deducted above via spend_credits, so skipCredits=true prevents double-charge.
+  const clientIp = getClientIp(req);
 
   const dispatchResults = await Promise.allSettled(
     generationRecords.map(async (gen) => {
       try {
-        const genRes = await fetch(`${siteUrl}/api/studio/image/generate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: authHeader,
-          },
-          body: JSON.stringify({
-            modelKey: providerDecision.model,
-            prompt: promptString,
-            aspectRatio: effectiveAspectRatio,
-            ...(referenceImages && referenceImages.length > 0
-              ? { referenceImages }
-              : {}),
-            ...(blendMode ? { blendMode } : {}),
-            ...(locks ? { locks } : {}),
-          }),
+        const { job, assetId } = await studioDispatch({
+          userId:      user.id,
+          ip:          clientIp,
+          studio:      "image",
+          modelKey:    providerDecision.model,
+          prompt:      promptString,
+          aspectRatio: effectiveAspectRatio,
+          // Pass first reference image as imageUrl (GPT Image edit mode)
+          ...(referenceImages && referenceImages.length > 0
+            ? { imageUrl: referenceImages[0].url }
+            : {}),
+          skipCredits: true, // CD route already deducted via spend_credits RPC
         });
 
-        if (!genRes.ok) {
-          const errBody = await genRes.text();
-          throw new Error(`Studio dispatch failed (${genRes.status}): ${errBody}`);
-        }
-
-        const genData = (await genRes.json()) as {
-          data?: { assetId?: string; url?: string; status?: string };
-        };
-
-        const assetId = genData.data?.assetId;
-        const imageUrl = genData.data?.url ?? null;
-        // "pending" status from async providers means the job is still in flight
-        const jobStatus = genData.data?.status;
+        const imageUrl = job.result?.url ?? null;
         const status: CreativeGenerationRow["status"] =
-          jobStatus === "pending" ? "processing" : assetId ? "completed" : "failed";
+          job.status === "pending"  ? "processing" :
+          job.status === "success"  ? "completed"  : "failed";
 
         await updateGenerationStatus(gen.id, status, assetId);
         return { ...gen, status, asset_id: assetId, url: imageUrl };
       } catch (err) {
-        const errMsg =
-          err instanceof Error ? err.message : "Unknown dispatch error";
+        const errMsg = err instanceof Error ? err.message : "Unknown dispatch error";
         await updateGenerationStatus(gen.id, "failed", undefined, errMsg);
         return { ...gen, status: "failed", error_message: errMsg };
       }
