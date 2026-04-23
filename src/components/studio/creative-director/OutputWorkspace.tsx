@@ -30,6 +30,8 @@ export interface GenerationResult {
   conceptId?: string;
   conceptTitle?: string;
   conceptIndex?: number;
+  /** Local-only published state — no DB change */
+  published?: boolean;
 }
 
 interface OutputWorkspaceProps {
@@ -50,6 +52,8 @@ interface OutputWorkspaceProps {
   isGeneratingOutputs?: boolean;
   /** Called when user clicks a generation card to re-open the preview modal */
   onOpenPreview?: (generationId: string) => void;
+  /** Called when user selects "Retry with another model" from a failed card */
+  onRetryWithModel?: (generationId: string, model: string) => void;
 }
 
 // Gradient/accent pairs — mirror ConceptBoard so the preview block feels connected
@@ -169,6 +173,15 @@ function TypeBadge({ type }: { type: GenerationResult["generationType"] }) {
   );
 }
 
+// Model options for "retry with another model" dropdown
+const RETRY_MODELS = [
+  { value: "gpt-image-1",     label: "GPT Image 2"       },
+  { value: "nano-banana-pro", label: "Nano Banana Pro"   },
+  { value: "nano-banana-2",   label: "Nano Banana 2"     },
+  { value: "seedream-v5",     label: "Seedream 5.0 Lite" },
+  { value: "flux-kontext",    label: "Flux Kontext Max"  },
+];
+
 // ── Single generation card ────────────────────────────────────────────────────
 function GenerationCard({
   gen,
@@ -176,21 +189,22 @@ function GenerationCard({
   onAction,
   onVariation,
   onAdaptFormat,
+  onRetryWithModel,
 }: {
   gen: GenerationResult;
   isVariationTrayOpen: boolean;
   onAction: (action: OutputAction) => void;
   onVariation: (variationType: string) => void;
   onAdaptFormat: (format: string) => void;
+  onRetryWithModel?: (model: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null);
-  const [publishPulse, setPublishPulse] = useState(false);
+  const [isPublished, setIsPublished] = useState(gen.published ?? false);
+  const [showRetryMenu, setShowRetryMenu] = useState(false);
 
   function handlePublish() {
-    if (publishPulse) return;
-    setPublishPulse(true);
-    setTimeout(() => setPublishPulse(false), 2000);
+    setIsPublished(true);
   }
 
   const isLoading = gen.status === "queued" || gen.status === "processing";
@@ -251,28 +265,103 @@ function GenerationCard({
               justifyContent: "center",
               gap: 8,
               background: "rgba(5,8,22,0.85)",
+              padding: "0 16px",
             }}
           >
             <span style={{ fontSize: 20 }}>⚠</span>
-            <span style={{ fontSize: 11, color: "rgba(248,113,113,0.8)", fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: "rgba(248,113,113,0.8)", fontWeight: 600, textAlign: "center" }}>
               Generation failed
             </span>
-            <button
-              onClick={() => onAction("regenerate")}
-              style={{
-                marginTop: 4,
-                padding: "5px 12px",
-                fontSize: 11,
-                fontWeight: 600,
-                borderRadius: 6,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.06)",
-                color: "rgba(255,255,255,0.5)",
-                cursor: "pointer",
-              }}
-            >
-              Retry
-            </button>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+              <button
+                onClick={() => onAction("regenerate")}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.5)",
+                  cursor: "pointer",
+                }}
+              >
+                Retry
+              </button>
+              {onRetryWithModel && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setShowRetryMenu((v) => !v)}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 6,
+                      border: "1px solid rgba(120,160,255,0.22)",
+                      background: "rgba(37,99,235,0.1)",
+                      color: "rgba(147,197,253,0.8)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    Try another model
+                    <span style={{ fontSize: 9 }}>▾</span>
+                  </button>
+                  {showRetryMenu && (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 490 }}
+                        onClick={() => setShowRetryMenu(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 6px)",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          background: "#0A1120",
+                          border: "1px solid rgba(120,160,255,0.18)",
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          zIndex: 495,
+                          minWidth: 160,
+                          boxShadow: "0 16px 40px rgba(0,0,0,0.75)",
+                        }}
+                      >
+                        {RETRY_MODELS.filter((m) => m.value !== gen.model).map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() => {
+                              setShowRetryMenu(false);
+                              onRetryWithModel(m.value);
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              display: "block",
+                              padding: "9px 14px",
+                              border: "none",
+                              background: "transparent",
+                              color: "rgba(245,247,255,0.8)",
+                              fontSize: 12,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "background 0.1s ease",
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,99,235,0.15)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -332,32 +421,31 @@ function GenerationCard({
               </Tooltip>
             ))}
 
-            {/* Publish — coming soon */}
-            <Tooltip content="Gallery publish coming soon">
+            {/* Publish to Image Studio */}
+            <Tooltip content={isPublished ? "Published to Image Studio" : "Publish to Image Studio"}>
               <button
                 onClick={handlePublish}
                 style={{
                   width: 36,
                   height: 36,
                   borderRadius: 8,
-                  border: publishPulse
-                    ? "1px solid rgba(251,191,36,0.4)"
+                  border: isPublished
+                    ? "1px solid rgba(52,211,153,0.5)"
                     : "1px solid rgba(251,191,36,0.2)",
-                  background: publishPulse
-                    ? "rgba(251,191,36,0.15)"
+                  background: isPublished
+                    ? "rgba(5,150,105,0.2)"
                     : "rgba(251,191,36,0.06)",
-                  color: publishPulse ? "rgba(251,191,36,0.9)" : "rgba(251,191,36,0.5)",
-                  fontSize: publishPulse ? 9 : 13,
+                  color: isPublished ? "rgba(52,211,153,0.9)" : "rgba(251,191,36,0.5)",
+                  fontSize: isPublished ? 14 : 13,
                   fontWeight: 700,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   transition: "all 0.18s ease",
-                  letterSpacing: publishPulse ? "0.03em" : "0",
                 }}
               >
-                {publishPulse ? "Soon" : "↑"}
+                {isPublished ? "✓" : "↑"}
               </button>
             </Tooltip>
           </div>
@@ -446,8 +534,8 @@ function GenerationCard({
           </Tooltip>
         ))}
 
-        {/* Publish pill — coming soon */}
-        <Tooltip content="Gallery publish coming soon">
+        {/* Publish pill */}
+        <Tooltip content={isPublished ? "Published to Image Studio" : "Publish to Image Studio"}>
           <button
             onClick={handlePublish}
             onMouseEnter={() => setHoveredBtn("publish")}
@@ -456,22 +544,22 @@ function GenerationCard({
               padding: "0 9px",
               height: 28,
               borderRadius: 6,
-              border: publishPulse
-                ? "1px solid rgba(251,191,36,0.38)"
+              border: isPublished
+                ? "1px solid rgba(52,211,153,0.45)"
                 : hoveredBtn === "publish"
                 ? "1px solid rgba(251,191,36,0.28)"
                 : "1px solid rgba(251,191,36,0.16)",
-              background: publishPulse
-                ? "rgba(251,191,36,0.12)"
+              background: isPublished
+                ? "rgba(5,150,105,0.15)"
                 : hoveredBtn === "publish"
                 ? "rgba(251,191,36,0.08)"
                 : "rgba(251,191,36,0.04)",
-              color: publishPulse
-                ? "rgba(251,191,36,0.9)"
+              color: isPublished
+                ? "rgba(52,211,153,0.9)"
                 : "rgba(251,191,36,0.45)",
               fontSize: 11,
               fontWeight: 600,
-              cursor: "pointer",
+              cursor: isPublished ? "default" : "pointer",
               display: "flex",
               alignItems: "center",
               gap: 4,
@@ -479,7 +567,7 @@ function GenerationCard({
               letterSpacing: "0.01em",
             }}
           >
-            {publishPulse ? "Coming soon" : "↑ Publish"}
+            {isPublished ? "✓ Published" : "↑ Publish"}
           </button>
         </Tooltip>
 
@@ -620,6 +708,7 @@ export default function OutputWorkspace({
   selectedConceptIndex = 0,
   isGeneratingOutputs = false,
   onOpenPreview,
+  onRetryWithModel,
 }: OutputWorkspaceProps) {
   const isEmpty = generations.length === 0;
 
@@ -736,7 +825,7 @@ export default function OutputWorkspace({
                 (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.02)";
               }}
             >
-              Gallery →
+              Image Studio →
             </a>
 
             {/* Download all */}
@@ -911,79 +1000,38 @@ export default function OutputWorkspace({
             </div>
           )}
 
-          {/* Slot grid */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-            }}
-          >
-            {[0, 1, 2, 3].map((i) => (
+          {/* Calm empty hint — no slot grid */}
+          {!hasConceptSelected && !hasConceptsGenerated && (
+            <div
+              style={{
+                padding: "32px 16px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+                opacity: 0.5,
+              }}
+            >
               <div
-                key={i}
                 style={{
-                  aspectRatio: "1 / 1",
-                  background: hasConceptSelected ? "rgba(59,130,246,0.04)" : "rgba(120,160,255,0.03)",
-                  border: hasConceptSelected
-                    ? "1px dashed rgba(86,140,255,0.25)"
-                    : "1px dashed rgba(140,185,255,0.18)",
+                  width: 40,
+                  height: 40,
                   borderRadius: 12,
+                  border: "1px dashed rgba(120,160,255,0.25)",
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 7,
-                  transition: "border-color 0.15s ease, background 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
-                    ? "rgba(86,140,255,0.42)"
-                    : "rgba(140,185,255,0.32)";
-                  (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
-                    ? "rgba(59,130,246,0.07)"
-                    : "rgba(120,160,255,0.06)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = hasConceptSelected
-                    ? "rgba(86,140,255,0.25)"
-                    : "rgba(140,185,255,0.18)";
-                  (e.currentTarget as HTMLDivElement).style.background = hasConceptSelected
-                    ? "rgba(59,130,246,0.04)"
-                    : "rgba(120,160,255,0.03)";
+                  fontSize: 16,
+                  color: "rgba(120,160,255,0.4)",
                 }}
               >
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    border: hasConceptSelected
-                      ? "1px dashed rgba(86,140,255,0.3)"
-                      : "1px dashed rgba(120,160,255,0.2)",
-                    background: "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: hasConceptSelected ? "rgba(147,197,253,0.4)" : "rgba(120,160,255,0.25)",
-                    fontSize: 13,
-                  }}
-                >
-                  ✦
-                </div>
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: hasConceptSelected ? "rgba(147,197,253,0.3)" : "rgba(167,176,197,0.25)",
-                    fontWeight: 500,
-                    letterSpacing: "0.03em",
-                  }}
-                >
-                  {i === 0 ? "Output 1" : `Slot ${i + 1}`}
-                </span>
+                ✦
               </div>
-            ))}
-          </div>
+              <span style={{ fontSize: 12, color: "rgba(167,176,197,0.45)", fontWeight: 500, textAlign: "center" }}>
+                Your renders will appear here
+              </span>
+            </div>
+          )}
         </>
       )}
 
@@ -1044,8 +1092,8 @@ export default function OutputWorkspace({
 
             return groups.map((group, gi) => (
               <div key={group.conceptId ?? gi} style={{ marginBottom: gi < groups.length - 1 ? 20 : 0 }}>
-                {/* Concept group label — only shown when there are 2+ groups */}
-                {groups.length > 1 && group.conceptTitle && (
+                {/* Concept group label — always shown when a title exists */}
+                {group.conceptTitle && (
                   <div
                     style={{
                       display: "flex",
@@ -1123,6 +1171,7 @@ export default function OutputWorkspace({
                       }}
                       onVariation={(variationType) => onVariation(variationType, gen.id)}
                       onAdaptFormat={(format) => onAdaptFormat(format, gen.id)}
+                      onRetryWithModel={onRetryWithModel ? (model) => onRetryWithModel(gen.id, model) : undefined}
                     />
                   ))}
                 </div>

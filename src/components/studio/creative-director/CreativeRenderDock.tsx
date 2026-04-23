@@ -297,6 +297,8 @@ export default function CreativeRenderDock({
   onCancel,
 }: CreativeRenderDockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDockCollapsed,    setIsDockCollapsed]    = useState(false);
+  const [showCancelConfirm,  setShowCancelConfirm]  = useState(false);
 
   const [model,       setModel]       = useState<string>("gpt-image-1");
   const [quality,     setQuality]     = useState<"low" | "medium" | "high">("medium");
@@ -464,24 +466,77 @@ export default function CreativeRenderDock({
       ═══════════════════════════════════════════════════════════════ */}
       <div
         style={{
-          position:        "fixed",
-          bottom:          24,
-          left:            "50%",
-          transform:       "translateX(-50%)",
-          width:           "clamp(840px, calc(100vw - 720px), 1080px)",
-          zIndex:          300,
-          background:      `${Z.bgDock}f8`,
-          backdropFilter:  "blur(36px)",
-          WebkitBackdropFilter: "blur(36px)",
-          border:          "1px solid rgba(255,255,255,0.16)",
-          borderRadius:    24,
-          boxShadow:       "inset 0 1px 0 rgba(255,255,255,0.09), 0 0 28px rgba(140,180,255,0.22), 0 14px 44px rgba(0,0,0,0.6), 0 0 70px rgba(86,140,255,0.14)",
-          padding:         "16px 20px",
-          display:         "flex",
-          flexDirection:   "column",
-          gap:             12,
+          position:  "fixed",
+          bottom:    24,
+          left:      "50%",
+          transform: "translateX(-50%)",
+          width:     "clamp(840px, calc(100vw - 720px), 1080px)",
+          zIndex:    300,
+          display:   "flex",
+          flexDirection: "column",
+          alignItems:    "center",
+          gap:           0,
         }}
       >
+        {/* ── Collapse toggle tab — always visible ── */}
+        <button
+          className="rd-collapse-toggle"
+          onClick={() => setIsDockCollapsed((v) => !v)}
+          title={isDockCollapsed ? "Expand dock" : "Collapse dock"}
+          style={{
+            height:       20,
+            padding:      "0 18px",
+            borderRadius: "8px 8px 0 0",
+            border:       "1px solid rgba(255,255,255,0.1)",
+            borderBottom: "none",
+            background:   isDockCollapsed ? "rgba(86,140,255,0.1)" : `${Z.bgDock}f8`,
+            color:        isDockCollapsed ? "rgba(147,197,253,0.7)" : "rgba(120,140,180,0.5)",
+            cursor:       "pointer",
+            fontSize:     11,
+            fontWeight:   700,
+            letterSpacing: "0.08em",
+            display:      "flex",
+            alignItems:   "center",
+            gap:          6,
+            transition:   "all 0.18s ease",
+            backdropFilter: "blur(36px)",
+            WebkitBackdropFilter: "blur(36px)",
+          }}
+        >
+          <span style={{
+            display: "inline-block",
+            transform: isDockCollapsed ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.25s ease",
+            fontSize: 9,
+          }}>▼</span>
+          {isDockCollapsed ? "SHOW DOCK" : "HIDE"}
+        </button>
+
+        {/* ── Animated dock content ── */}
+        <div
+          style={{
+            width:          "100%",
+            overflow:       "hidden",
+            maxHeight:      isDockCollapsed ? 0 : 500,
+            opacity:        isDockCollapsed ? 0 : 1,
+            transition:     "max-height 0.3s ease, opacity 0.22s ease",
+            pointerEvents:  isDockCollapsed ? "none" : "auto",
+          }}
+        >
+        <div
+          style={{
+            background:      `${Z.bgDock}f8`,
+            backdropFilter:  "blur(36px)",
+            WebkitBackdropFilter: "blur(36px)",
+            border:          "1px solid rgba(255,255,255,0.16)",
+            borderRadius:    isDockCollapsed ? 24 : "0 0 24px 24px",
+            boxShadow:       "inset 0 1px 0 rgba(255,255,255,0.09), 0 0 28px rgba(140,180,255,0.22), 0 14px 44px rgba(0,0,0,0.6), 0 0 70px rgba(86,140,255,0.14)",
+            padding:         "16px 20px",
+            display:         "flex",
+            flexDirection:   "column",
+            gap:             12,
+          }}
+        >
         <style>{`
           .rd-pill:hover:not([disabled]) { border-color: ${Z.borderActive} !important; background: ${Z.bgHover} !important; }
           .rd-pill[disabled] { opacity: 0.36; cursor: default !important; }
@@ -505,6 +560,11 @@ export default function CreativeRenderDock({
           @keyframes rdSpin { to { transform: rotate(360deg); } }
           @keyframes rdFadeIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
           @keyframes rdSlideIn { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 36px; } }
+          @keyframes rdCollapseIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+          .rd-collapse-toggle:hover { background: rgba(120,160,255,0.1) !important; border-color: rgba(120,160,255,0.22) !important; color: rgba(200,215,255,0.8) !important; }
+          .rd-cancel-btn:hover { background: rgba(255,80,80,0.1) !important; border-color: rgba(255,100,100,0.35) !important; color: rgba(248,113,113,0.9) !important; }
+          .rd-cancel-confirm:hover { background: rgba(255,80,80,0.14) !important; }
+          .rd-cancel-keep:hover { background: rgba(255,255,255,0.08) !important; }
         `}</style>
 
         {/* ── ROW 1: Upload chips + Prompt bar ─────────────────────────── */}
@@ -984,7 +1044,7 @@ export default function CreativeRenderDock({
               }}
             >
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: Z.textMuted, textTransform: "uppercase" }}>Model</span>
-              <span style={{ flex: 1, color: Z.textPrimary }}>{selectedModel.label}</span>
+              <span style={{ flex: 1, color: Z.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>{selectedModel.label}</span>
               {manualModelOverride && <span style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700 }}>⚡</span>}
               <span style={{ fontSize: 10, color: Z.textMuted }}>▾</span>
             </button>
@@ -1231,7 +1291,8 @@ export default function CreativeRenderDock({
           {/* Cancel — only visible while generating, slides in to the left of Render */}
           {isGenerating && (
             <button
-              onClick={onCancel}
+              className="rd-cancel-btn"
+              onClick={() => setShowCancelConfirm(true)}
               style={{
                 height:       56,
                 padding:      "0 18px",
@@ -1246,16 +1307,6 @@ export default function CreativeRenderDock({
                 whiteSpace:   "nowrap",
                 transition:   "all 0.15s ease",
                 letterSpacing: "0.01em",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,80,80,0.1)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,100,100,0.3)";
-                (e.currentTarget as HTMLButtonElement).style.color = "rgba(248,113,113,0.85)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)";
-                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.55)";
               }}
             >
               Cancel
@@ -1373,6 +1424,108 @@ export default function CreativeRenderDock({
             )}
           </button>
         </div>
+        </div>{/* end animated dock content wrapper */}
+        </div>{/* end animated dock inner */}
+
+        {/* ── Cancel confirmation modal ── */}
+        {showCancelConfirm && (
+          <div
+            onClick={() => setShowCancelConfirm(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 500,
+              background: "rgba(0,0,0,0.55)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#0A1120",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 18,
+                padding: "28px 30px",
+                width: "min(400px, calc(100vw - 40px))",
+                boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+                animation: "rdCollapseIn 0.18s ease",
+              }}
+            >
+              <div style={{ marginBottom: 16 }}>
+                <div style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#F5F7FF",
+                  marginBottom: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 9,
+                }}>
+                  <span style={{ fontSize: 18, opacity: 0.7 }}>⚠</span>
+                  Cancel this render?
+                </div>
+                <ul style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  listStyle: "disc",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 7,
+                }}>
+                  <li style={{ fontSize: 13, color: "rgba(167,176,197,0.8)", lineHeight: 1.5 }}>
+                    Credits may not be refunded if the provider has already started rendering
+                  </li>
+                  <li style={{ fontSize: 13, color: "rgba(167,176,197,0.8)", lineHeight: 1.5 }}>
+                    The generation may still complete in the background and appear in your history
+                  </li>
+                </ul>
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  className="rd-cancel-keep"
+                  onClick={() => setShowCancelConfirm(false)}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: 9,
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.04)",
+                    color: "rgba(255,255,255,0.6)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.14s ease",
+                  }}
+                >
+                  Keep Rendering
+                </button>
+                <button
+                  className="rd-cancel-confirm"
+                  onClick={() => {
+                    setShowCancelConfirm(false);
+                    onCancel?.();
+                  }}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: 9,
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    background: "rgba(239,68,68,0.08)",
+                    color: "rgba(248,113,113,0.85)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.14s ease",
+                  }}
+                >
+                  Cancel Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

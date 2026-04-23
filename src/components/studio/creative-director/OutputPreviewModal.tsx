@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GenerationResult } from "./OutputWorkspace";
+
+// Models available for retry
+const RETRY_MODELS = [
+  { value: "gpt-image-1",     label: "GPT Image 2"       },
+  { value: "nano-banana-pro", label: "Nano Banana Pro"   },
+  { value: "nano-banana-2",   label: "Nano Banana 2"     },
+  { value: "seedream-v5",     label: "Seedream 5.0 Lite" },
+  { value: "flux-kontext",    label: "Flux Kontext Max"  },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OutputPreviewModal — Instant-open preview overlay
@@ -20,6 +29,10 @@ interface OutputPreviewModalProps {
   onClose: () => void;
   onDownload: (id: string) => void;
   onVariation: (genId: string) => void;
+  /** Retry with a different model — fires when user picks from the retry menu in failed state */
+  onRetryWithModel?: (model: string) => void;
+  /** Whether this generation has been published (local state, no DB change) */
+  published?: boolean;
 }
 
 export default function OutputPreviewModal({
@@ -31,8 +44,12 @@ export default function OutputPreviewModal({
   onClose,
   onDownload,
   onVariation,
+  onRetryWithModel,
+  published = false,
 }: OutputPreviewModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const [isPublished, setIsPublished] = useState(published);
+  const [showRetryMenu, setShowRetryMenu] = useState(false);
 
   // Escape key closes modal
   useEffect(() => {
@@ -371,9 +388,89 @@ export default function OutputPreviewModal({
                   Generation failed
                 </div>
                 <div style={{ fontSize: 13, color: "rgba(110,130,165,0.6)", maxWidth: 260, lineHeight: 1.5 }}>
-                  This can happen with complex prompts or provider timeouts. Close and try again.
+                  This can happen with complex prompts or provider timeouts.
                 </div>
               </div>
+
+              {/* Retry with another model picker */}
+              {onRetryWithModel && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setShowRetryMenu((v) => !v)}
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      borderRadius: 8,
+                      border: "1px solid rgba(120,160,255,0.3)",
+                      background: "rgba(37,99,235,0.12)",
+                      color: "rgba(147,197,253,0.9)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.14s ease",
+                    }}
+                  >
+                    Try another model
+                    <span style={{ fontSize: 10, transform: showRetryMenu ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
+                  </button>
+                  {showRetryMenu && (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 1090 }}
+                        onClick={() => setShowRetryMenu(false)}
+                      />
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "calc(100% + 8px)",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          background: "#0A1120",
+                          border: "1px solid rgba(120,160,255,0.18)",
+                          borderRadius: 12,
+                          overflow: "hidden",
+                          zIndex: 1095,
+                          minWidth: 180,
+                          boxShadow: "0 20px 48px rgba(0,0,0,0.85)",
+                        }}
+                      >
+                        <div style={{ padding: "8px 14px 6px", fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", color: "rgba(120,140,180,0.5)", textTransform: "uppercase" }}>
+                          Select model
+                        </div>
+                        {RETRY_MODELS.filter((m) => m.value !== generation?.model).map((m) => (
+                          <button
+                            key={m.value}
+                            onClick={() => {
+                              setShowRetryMenu(false);
+                              onRetryWithModel(m.value);
+                              onClose();
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              display: "block",
+                              padding: "9px 14px",
+                              border: "none",
+                              background: "transparent",
+                              color: "rgba(245,247,255,0.85)",
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "background 0.1s ease",
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,99,235,0.15)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -479,24 +576,31 @@ export default function OutputPreviewModal({
             </button>
 
             <button
-              className="pm-pub"
+              className={isPublished ? undefined : "pm-pub"}
+              onClick={() => setIsPublished(true)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
                 padding: "8px 16px",
                 borderRadius: 9,
-                border: "1px solid rgba(251,191,36,0.2)",
-                background: "rgba(251,191,36,0.05)",
-                color: "rgba(251,191,36,0.48)",
+                border: isPublished
+                  ? "1px solid rgba(52,211,153,0.45)"
+                  : "1px solid rgba(251,191,36,0.2)",
+                background: isPublished
+                  ? "rgba(5,150,105,0.18)"
+                  : "rgba(251,191,36,0.05)",
+                color: isPublished
+                  ? "rgba(52,211,153,0.9)"
+                  : "rgba(251,191,36,0.48)",
                 fontSize: 13,
                 fontWeight: 600,
-                cursor: "pointer",
+                cursor: isPublished ? "default" : "pointer",
                 transition: "all 0.15s ease",
                 whiteSpace: "nowrap",
               }}
             >
-              ↑ Publish
+              {isPublished ? "✓ Published" : "↑ Publish"}
             </button>
           </div>
         </div>

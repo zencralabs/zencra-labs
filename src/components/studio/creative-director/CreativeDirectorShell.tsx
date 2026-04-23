@@ -1005,6 +1005,63 @@ export default function CreativeDirectorShell() {
     [generations, getAuthHeaders, addToast, pollGeneration]
   );
 
+  // ── Retry with another model ──────────────────────────────────────────────────
+  const handleRetryWithModel = useCallback(
+    async (generationId: string, modelKey: string) => {
+      // Find the failed generation to get its conceptId
+      const gen = generations.find((g) => g.id === generationId);
+      if (!gen?.conceptId) {
+        addToast("Could not find concept for this generation.", "error");
+        return;
+      }
+      const conceptId = gen.conceptId;
+      const selectedConceptObj = concepts.find((c) => c.id === conceptId);
+      const selectedConceptIdx = concepts.findIndex((c) => c.id === conceptId);
+
+      const providerOverride = ((): string => {
+        if (modelKey === "gpt-image-1")                               return "openai";
+        if (modelKey === "nano-banana-pro" || modelKey === "nano-banana-2") return "nano-banana";
+        if (modelKey.startsWith("seedream"))                          return "seedream";
+        if (modelKey.startsWith("flux"))                              return "flux";
+        return "openai";
+      })();
+
+      try {
+        const authH = await getAuthHeaders();
+        const res = await fetch(
+          `/api/creative-director/concepts/${conceptId}/generate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authH },
+            body: JSON.stringify({
+              count: 1,
+              modelOverride: modelKey,
+              providerOverride,
+            }),
+          }
+        );
+        if (!res.ok) throw new Error("Retry generation failed");
+        const data = (await res.json()) as { generations: Record<string, unknown>[] };
+        const newGens = (data.generations ?? []).map((row) => ({
+          ...mapGenerationRow(row),
+          conceptId,
+          conceptTitle: selectedConceptObj?.title,
+          conceptIndex: selectedConceptIdx >= 0 ? selectedConceptIdx : 0,
+        }));
+        setGenerations((prev) => [...newGens, ...prev]);
+        newGens.forEach((g) => {
+          if ((g.status === "queued" || g.status === "processing") && g.assetId) {
+            pollGeneration(g.id, g.assetId);
+          }
+        });
+        addToast(`Retrying with ${modelKey}…`, "info");
+      } catch {
+        addToast("Could not retry with that model. Please try again.", "error");
+      }
+    },
+    [generations, concepts, getAuthHeaders, addToast, pollGeneration]
+  );
+
   // ── Variation flow ──────────────────────────────────────────────────────────────
   const handleVariation = useCallback(
     async (variationType: string, generationId: string) => {
@@ -1335,6 +1392,7 @@ export default function CreativeDirectorShell() {
               setPreviewFocusId(genId);
               setPreviewOpen(true);
             }}
+            onRetryWithModel={(genId, model) => handleRetryWithModel(genId, model)}
           />
         </div>
       </div>
@@ -1388,6 +1446,12 @@ export default function CreativeDirectorShell() {
               setPreviewOpen(false);
               setPreviewFocusId(null);
               setActiveVariationTray(id);
+            }}
+            onRetryWithModel={(model) => {
+              const focusId = previewFocusId ?? previewBatchIds[0] ?? null;
+              if (focusId) handleRetryWithModel(focusId, model);
+              setPreviewOpen(false);
+              setPreviewFocusId(null);
             }}
           />
         );
