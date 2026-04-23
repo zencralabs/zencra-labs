@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BriefBuilder — Left column of the AI Creative Director
+// BriefBuilder — Guided Creative Briefing Experience
+// Redesigned as a premium guided system, not a plain form.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface BriefState {
@@ -36,9 +37,12 @@ interface BriefBuilderProps {
   onChange: (updates: Partial<BriefState>) => void;
   onImproveBrief: () => void;
   isLoading: boolean;
-  /** True once the first round of concepts has been generated — unlocks Improve Brief */
   hasConceptsGenerated?: boolean;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PROJECT_TYPES = [
   "Poster", "Ad Creative", "Product Banner", "Instagram Post",
@@ -58,77 +62,296 @@ const MOOD_TAGS = [
 const INTENSITY_LABELS = ["Clean", "Balanced", "Bold", "Extreme"];
 
 const TEXT_RENDERING_OPTIONS = [
-  { value: "none", label: "No text" },
-  { value: "minimal", label: "Minimal text" },
-  { value: "ad_text", label: "Ad text" },
-  { value: "poster_text", label: "Poster text" },
+  { value: "none",             label: "No text" },
+  { value: "minimal",          label: "Minimal text" },
+  { value: "ad_text",          label: "Ad text" },
+  { value: "poster_text",      label: "Poster text" },
   { value: "typography_first", label: "Typography-first" },
 ];
 
 const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:5", "3:4", "4:3"];
 
-const PROVIDERS = ["Auto", "GPT Image", "Nano Banana", "Nano Banana Pro", "Nano Banana 2"];
+const PROVIDERS = [
+  "Auto", "GPT Image", "Nano Banana", "Nano Banana Pro", "Nano Banana 2",
+];
 
-// ── Style constants — Zencra refined typography ────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DESIGN TOKENS
+// ─────────────────────────────────────────────────────────────────────────────
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "rgba(255,255,255,0.65)",
-  display: "block",
-  marginBottom: 8,
-};
+const PAD = "0 20px";        // horizontal padding for all sections
+const SEC_PY = "22px 20px";  // section block padding top/bottom
 
-const inputStyle: React.CSSProperties = {
+// Input base
+const inputBase: React.CSSProperties = {
   width: "100%",
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(120,160,255,0.14)",
   borderRadius: 10,
-  padding: "10px 14px",
+  padding: "11px 14px",
   color: "#F5F7FF",
   fontSize: 16,
   outline: "none",
   boxSizing: "border-box",
   transition: "border-color 0.15s ease",
-};
-
-const textareaStyle: React.CSSProperties = {
-  ...inputStyle,
-  resize: "vertical",
-  minHeight: 72,
   fontFamily: "inherit",
-  lineHeight: 1.5,
 };
 
-const selectStyle: React.CSSProperties = {
-  ...inputStyle,
+const selectBase: React.CSSProperties = {
+  ...inputBase,
   appearance: "none",
   WebkitAppearance: "none",
   cursor: "pointer",
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
   backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 10px center",
-  paddingRight: 30,
+  backgroundPosition: "right 12px center",
+  paddingRight: 34,
 };
 
-const sectionStyle: React.CSSProperties = {
-  borderTop: "1px solid rgba(120,160,255,0.1)",
-  padding: "28px 20px",
+const textareaBase: React.CSSProperties = {
+  ...inputBase,
+  resize: "vertical",
+  lineHeight: 1.55,
 };
 
-const sectionHeaderStyle: React.CSSProperties = {
-  fontSize: 15,
-  fontWeight: 600,
-  letterSpacing: "0.04em",
-  color: "rgba(167,176,197,0.55)",
-  marginBottom: 16,
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// SUB-COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
 
-const fieldStyle: React.CSSProperties = {
-  marginBottom: 16,
-};
+/** Section divider line */
+function SectionDivider() {
+  return (
+    <div
+      style={{
+        height: 1,
+        background: "linear-gradient(90deg, transparent, rgba(120,160,255,0.12) 20%, rgba(120,160,255,0.12) 80%, transparent)",
+        margin: "0 20px",
+      }}
+    />
+  );
+}
+
+/** Section title — 15px, 600, white */
+function SectionTitle({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        fontSize: 15,
+        fontWeight: 600,
+        color: "#E8EEFF",
+        letterSpacing: "0.01em",
+        marginBottom: 12,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Field label — 13px, 600, muted */
+function FieldLabel({
+  children,
+  required,
+  optional,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+  optional?: boolean;
+}) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        color: "rgba(167,176,197,0.8)",
+        marginBottom: 6,
+        textTransform: "uppercase",
+      }}
+    >
+      {children}
+      {required && (
+        <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 14, letterSpacing: 0, textTransform: "none" }}>*</span>
+      )}
+      {optional && (
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.25)",
+            textTransform: "none",
+            letterSpacing: "0.02em",
+          }}
+        >
+          optional
+        </span>
+      )}
+    </label>
+  );
+}
+
+/** Subtle helper text — 13px */
+function HelperText({ children }: { children: React.ReactNode }) {
+  return (
+    <p
+      style={{
+        margin: "6px 0 0",
+        fontSize: 13,
+        color: "rgba(148,163,184,0.7)",
+        lineHeight: 1.45,
+      }}
+    >
+      {children}
+    </p>
+  );
+}
+
+/** Field wrapper — consistent 12px bottom gap */
+function Field({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div style={{ marginBottom: 12, ...style }}>{children}</div>
+  );
+}
+
+/** Chip button — style + mood presets */
+function Chip({
+  active,
+  disabled,
+  onClick,
+  color = "blue",
+  children,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  color?: "blue" | "violet";
+  children: React.ReactNode;
+}) {
+  const borderActive =
+    color === "violet"
+      ? "1px solid rgba(124,58,237,0.6)"
+      : "1px solid rgba(37,99,235,0.6)";
+  const bgActive =
+    color === "violet"
+      ? "rgba(124,58,237,0.15)"
+      : "rgba(37,99,235,0.15)";
+  const textActive = color === "violet" ? "#c4b5fd" : "#93c5fd";
+
+  return (
+    <button
+      className="brief-chip"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: "7px 13px",
+        fontSize: 12,
+        fontWeight: 600,
+        borderRadius: 7,
+        border: active ? borderActive : "1px solid rgba(255,255,255,0.1)",
+        background: active ? bgActive : "rgba(255,255,255,0.04)",
+        color: active ? textActive : disabled ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.5)",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        transition: "all 0.15s ease",
+        whiteSpace: "nowrap",
+        lineHeight: 1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Collapsible toggle header */
+function CollapsibleHeader({
+  isOpen,
+  onToggle,
+  title,
+  subtitle,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        width: "100%",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        textAlign: "left",
+        gap: 12,
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: "#E8EEFF",
+            letterSpacing: "0.01em",
+            marginBottom: 3,
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: "rgba(148,163,184,0.6)",
+            lineHeight: 1.4,
+          }}
+        >
+          {subtitle}
+        </div>
+      </div>
+      <div
+        style={{
+          flexShrink: 0,
+          marginTop: 3,
+          width: 20,
+          height: 20,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(255,255,255,0.35)",
+          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+          transition: "transform 0.22s ease",
+          fontSize: 14,
+        }}
+      >
+        ▾
+      </div>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function BriefBuilder({
   brief,
@@ -137,6 +360,8 @@ export default function BriefBuilder({
   isLoading,
   hasConceptsGenerated = false,
 }: BriefBuilderProps) {
+  // Message section collapsed by default — purely UI state
+  const [messageOpen, setMessageOpen] = useState(false);
 
   const toggleMoodTag = (tag: string) => {
     const current = brief.moodTags;
@@ -147,8 +372,11 @@ export default function BriefBuilder({
     }
   };
 
-  const intensityIndex = INTENSITY_LABELS.indexOf(
-    brief.visualIntensity.charAt(0).toUpperCase() + brief.visualIntensity.slice(1)
+  const intensityIndex = Math.max(
+    0,
+    INTENSITY_LABELS.indexOf(
+      brief.visualIntensity.charAt(0).toUpperCase() + brief.visualIntensity.slice(1)
+    )
   );
 
   return (
@@ -163,47 +391,104 @@ export default function BriefBuilder({
     >
       <style>{`
         .brief-builder-scroll::-webkit-scrollbar { display: none; }
-        .brief-chip:hover { border-color: rgba(37,99,235,0.5) !important; background: rgba(37,99,235,0.1) !important; }
-        .brief-input:focus { border-color: rgba(37,99,235,0.4) !important; outline: none; }
-        .brief-action-btn:hover { background: rgba(37,99,235,0.14) !important; border-color: rgba(86,140,255,0.45) !important; box-shadow: 0 0 16px rgba(59,130,246,0.2), inset 0 1px 0 rgba(255,255,255,0.07) !important; }
+
+        .brief-chip:not(:disabled):hover {
+          border-color: rgba(37,99,235,0.5) !important;
+          background: rgba(37,99,235,0.1) !important;
+        }
+
+        .brief-input:focus {
+          border-color: rgba(37,99,235,0.45) !important;
+          box-shadow: 0 0 0 2px rgba(37,99,235,0.1) !important;
+          outline: none;
+        }
+
+        .brief-goal-input:focus {
+          border-color: rgba(86,140,255,0.55) !important;
+          box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+          outline: none;
+        }
+
+        .brief-action-btn:not(:disabled):hover {
+          background: rgba(37,99,235,0.14) !important;
+          border-color: rgba(86,140,255,0.45) !important;
+          box-shadow: 0 0 16px rgba(59,130,246,0.2), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+        }
+
+        .bb-slider {
+          width: 100%;
+          accent-color: #2563EB;
+          cursor: pointer;
+          height: 4px;
+        }
       `}</style>
 
-      {/* ── Helper banner — always visible onboarding hint ── */}
-      <div
-        style={{
-          margin: "16px 20px 0",
-          padding: "10px 14px",
-          borderRadius: 8,
-          background: "rgba(37,99,235,0.06)",
-          border: "1px solid rgba(86,140,255,0.18)",
-        }}
-      >
-        <p style={{ fontSize: 13, color: "rgba(180,196,230,0.85)", margin: 0, lineHeight: 1.55 }}>
-          Fill key fields below. <span style={{ color: "rgba(255,255,255,0.5)" }}>Optional fields can be skipped — AI will handle the rest.</span>
-        </p>
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 0 — INTRO
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: "20px 20px 18px" }}>
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: "#F0F4FF",
+            letterSpacing: "-0.01em",
+            marginBottom: 6,
+          }}
+        >
+          Create your campaign brief
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            color: "rgba(167,176,197,0.7)",
+            lineHeight: 1.5,
+          }}
+        >
+          Start simple. You can refine later —{" "}
+          <span style={{ color: "rgba(167,176,197,0.45)" }}>
+            AI will guide you.
+          </span>
+        </div>
       </div>
 
-      {/* ── B1: Project Basics ── */}
-      <div style={{ padding: "20px 20px 0" }}>
-        <div style={sectionHeaderStyle}>Project Basics</div>
+      <SectionDivider />
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Project Name</label>
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 1 — WHAT ARE YOU CREATING?
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: SEC_PY }}>
+        <SectionTitle>What are you creating?</SectionTitle>
+        <div
+          style={{
+            fontSize: 13,
+            color: "rgba(148,163,184,0.6)",
+            marginBottom: 16,
+            lineHeight: 1.4,
+          }}
+        >
+          Define the core context of your campaign.
+        </div>
+
+        {/* Project Name */}
+        <Field>
+          <FieldLabel>Project Name</FieldLabel>
           <input
             className="brief-input"
-            style={inputStyle}
+            style={inputBase}
             type="text"
-            placeholder="e.g. Summer Campaign"
+            placeholder="e.g. Summer Launch Campaign"
             value={brief.projectName}
             onChange={(e) => onChange({ projectName: e.target.value })}
           />
-        </div>
+        </Field>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Project Type</label>
+        {/* Project Type */}
+        <Field>
+          <FieldLabel>Project Type</FieldLabel>
           <select
             className="brief-input"
-            style={selectStyle}
+            style={selectBase}
             value={brief.projectType}
             onChange={(e) => onChange({ projectType: e.target.value })}
           >
@@ -212,244 +497,281 @@ export default function BriefBuilder({
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
-        </div>
+        </Field>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Brand Name</label>
-            <input
-              className="brief-input"
-              style={inputStyle}
-              type="text"
-              placeholder="Your brand"
-              value={brief.brandName}
-              onChange={(e) => onChange({ brandName: e.target.value })}
-            />
+        {/* Brand + Audience — 2-col */}
+        <Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <FieldLabel optional>Brand Name</FieldLabel>
+              <input
+                className="brief-input"
+                style={inputBase}
+                type="text"
+                placeholder="Your brand"
+                value={brief.brandName}
+                onChange={(e) => onChange({ brandName: e.target.value })}
+              />
+            </div>
+            <div>
+              <FieldLabel optional>Audience</FieldLabel>
+              <input
+                className="brief-input"
+                style={inputBase}
+                type="text"
+                placeholder="Who's it for?"
+                value={brief.audience}
+                onChange={(e) => onChange({ audience: e.target.value })}
+              />
+            </div>
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Audience</label>
-            <input
-              className="brief-input"
-              style={inputStyle}
-              type="text"
-              placeholder="Who's it for?"
-              value={brief.audience}
-              onChange={(e) => onChange({ audience: e.target.value })}
-            />
-          </div>
-        </div>
+        </Field>
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Platform</label>
+        {/* Platform */}
+        <Field style={{ marginBottom: 0 }}>
+          <FieldLabel optional>Platform</FieldLabel>
           <input
             className="brief-input"
-            style={inputStyle}
+            style={inputBase}
             type="text"
             placeholder="e.g. Instagram, Billboard, Website"
             value={brief.platform}
             onChange={(e) => onChange({ platform: e.target.value })}
           />
-        </div>
+        </Field>
       </div>
 
-      {/* ── B2: Message Inputs ── */}
-      <div style={sectionStyle}>
-        <div style={sectionHeaderStyle}>Message Inputs</div>
+      <SectionDivider />
 
-        <div style={fieldStyle}>
-          <label style={labelStyle}>
-            Campaign Goal{" "}
-            <span style={{ color: "#60a5fa", fontWeight: 700 }}>*</span>
-          </label>
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 2 — CAMPAIGN GOAL (PRIMARY — highlighted)
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: SEC_PY }}>
+        <SectionTitle>Campaign Goal</SectionTitle>
+        <div
+          style={{
+            fontSize: 13,
+            color: "rgba(148,163,184,0.6)",
+            marginBottom: 16,
+            lineHeight: 1.4,
+          }}
+        >
+          What should this creative achieve? This directly shapes your concepts.
+        </div>
+
+        {/* Highlighted goal block */}
+        <div
+          style={{
+            padding: "16px",
+            borderRadius: 12,
+            background: "rgba(37,99,235,0.05)",
+            border: "1px solid rgba(86,140,255,0.24)",
+            boxShadow: "0 0 0 1px rgba(37,99,235,0.08), 0 0 24px rgba(37,99,235,0.07)",
+          }}
+        >
+          <FieldLabel required>Campaign Goal</FieldLabel>
           <textarea
-            className="brief-input"
-            style={textareaStyle}
-            placeholder="What should this creative achieve?"
+            className="brief-input brief-goal-input"
+            style={{
+              ...textareaBase,
+              minHeight: 80,
+              border: "1px solid rgba(86,140,255,0.2)",
+              background: "rgba(255,255,255,0.04)",
+            }}
+            placeholder="Describe the result you want this campaign to achieve"
             value={brief.goal}
             onChange={(e) => onChange({ goal: e.target.value })}
           />
-          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
-            e.g. get signups, drive clicks, promote a product
-          </p>
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>
-            Headline{" "}
-            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
-          </label>
-          <input
-            className="brief-input"
-            style={inputStyle}
-            type="text"
-            placeholder="Main headline text"
-            value={brief.headline}
-            onChange={(e) => onChange({ headline: e.target.value })}
-          />
-          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
-            The primary text that will appear on the creative
-          </p>
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>
-            Subheadline{" "}
-            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
-          </label>
-          <input
-            className="brief-input"
-            style={inputStyle}
-            type="text"
-            placeholder="Supporting line"
-            value={brief.subheadline}
-            onChange={(e) => onChange({ subheadline: e.target.value })}
-          />
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>
-            Call to Action{" "}
-            <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, fontWeight: 500, letterSpacing: "0.03em", textTransform: "none" }}>optional</span>
-          </label>
-          <input
-            className="brief-input"
-            style={inputStyle}
-            type="text"
-            placeholder="e.g. Shop Now, Learn More"
-            value={brief.cta}
-            onChange={(e) => onChange({ cta: e.target.value })}
-          />
-          <p style={{ fontSize: 12, color: "rgba(148,163,184,0.7)", margin: "5px 0 0", lineHeight: 1.4 }}>
-            The action button text shown on the creative
-          </p>
-        </div>
-
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Additional Notes</label>
-          <textarea
-            className="brief-input"
-            style={{ ...textareaStyle, minHeight: 60 }}
-            placeholder="Any extra context, references, or constraints"
-            value={brief.additionalNotes}
-            onChange={(e) => onChange({ additionalNotes: e.target.value })}
-          />
+          <HelperText>e.g. get signups, drive clicks, promote a product</HelperText>
         </div>
       </div>
 
-      {/* ── B3: Style Controls ── */}
-      <div style={sectionStyle}>
-        <div style={sectionHeaderStyle}>Style Controls</div>
+      <SectionDivider />
 
-        {/* Style Presets */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Style Preset</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {STYLE_PRESETS.map((preset) => {
-              const active = brief.stylePreset === preset;
-              return (
-                <button
-                  key={preset}
-                  className="brief-chip"
-                  onClick={() => onChange({ stylePreset: active ? "" : preset })}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    borderRadius: 6,
-                    border: active
-                      ? "1px solid rgba(37,99,235,0.6)"
-                      : "1px solid rgba(255,255,255,0.1)",
-                    background: active
-                      ? "rgba(37,99,235,0.15)"
-                      : "rgba(255,255,255,0.04)",
-                    color: active ? "#93c5fd" : "rgba(255,255,255,0.55)",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {preset}
-                </button>
-              );
-            })}
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 3 — MESSAGE (collapsible, default closed)
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: SEC_PY }}>
+        <CollapsibleHeader
+          isOpen={messageOpen}
+          onToggle={() => setMessageOpen((v) => !v)}
+          title="Message details"
+          subtitle="Add headline, supporting copy, CTA, and notes"
+        />
+
+        <div
+          style={{
+            maxHeight: messageOpen ? "600px" : "0",
+            overflow: "hidden",
+            transition: "max-height 0.28s ease",
+          }}
+        >
+          <div style={{ paddingTop: 20 }}>
+
+            {/* Headline */}
+            <Field>
+              <FieldLabel optional>Headline</FieldLabel>
+              <input
+                className="brief-input"
+                style={inputBase}
+                type="text"
+                placeholder="Main headline text"
+                value={brief.headline}
+                onChange={(e) => onChange({ headline: e.target.value })}
+              />
+              <HelperText>The primary text that may appear on the creative</HelperText>
+            </Field>
+
+            {/* Subheadline */}
+            <Field>
+              <FieldLabel optional>Subheadline</FieldLabel>
+              <input
+                className="brief-input"
+                style={inputBase}
+                type="text"
+                placeholder="Supporting line"
+                value={brief.subheadline}
+                onChange={(e) => onChange({ subheadline: e.target.value })}
+              />
+            </Field>
+
+            {/* Call to Action */}
+            <Field>
+              <FieldLabel optional>Call to Action</FieldLabel>
+              <input
+                className="brief-input"
+                style={inputBase}
+                type="text"
+                placeholder="e.g. Shop Now, Learn More"
+                value={brief.cta}
+                onChange={(e) => onChange({ cta: e.target.value })}
+              />
+              <HelperText>The action text shown to the viewer</HelperText>
+            </Field>
+
+            {/* Additional Notes */}
+            <Field style={{ marginBottom: 0 }}>
+              <FieldLabel optional>Additional Notes</FieldLabel>
+              <textarea
+                className="brief-input"
+                style={{ ...textareaBase, minHeight: 60 }}
+                placeholder="Any extra context, references, or constraints"
+                value={brief.additionalNotes}
+                onChange={(e) => onChange({ additionalNotes: e.target.value })}
+              />
+              <HelperText>Extra context, references, or constraints</HelperText>
+            </Field>
           </div>
         </div>
+      </div>
 
-        {/* Mood Tags */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>
+      <SectionDivider />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 4 — STYLE DIRECTION
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: SEC_PY }}>
+        <SectionTitle>Style Direction</SectionTitle>
+        <div
+          style={{
+            fontSize: 13,
+            color: "rgba(148,163,184,0.6)",
+            marginBottom: 16,
+            lineHeight: 1.4,
+          }}
+        >
+          Define how the campaign should feel visually.
+        </div>
+
+        {/* 4A — Style Presets */}
+        <Field>
+          <FieldLabel optional>Style Preset</FieldLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {STYLE_PRESETS.map((preset) => (
+              <Chip
+                key={preset}
+                active={brief.stylePreset === preset}
+                color="blue"
+                onClick={() =>
+                  onChange({ stylePreset: brief.stylePreset === preset ? "" : preset })
+                }
+              >
+                {preset}
+              </Chip>
+            ))}
+          </div>
+          <HelperText>Choose the overall visual language for your creative</HelperText>
+        </Field>
+
+        {/* 4B — Mood Tags */}
+        <Field>
+          <FieldLabel optional>
             Mood Tags{" "}
-            <span style={{ color: "rgba(255,255,255,0.2)", fontWeight: 400 }}>
-              (max 4)
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 400,
+                color: "rgba(255,255,255,0.2)",
+                textTransform: "none",
+                letterSpacing: 0,
+              }}
+            >
+              (pick up to 4)
             </span>
-          </label>
+          </FieldLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {MOOD_TAGS.map((tag) => {
               const active = brief.moodTags.includes(tag);
               const disabled = !active && brief.moodTags.length >= 4;
               return (
-                <button
+                <Chip
                   key={tag}
-                  className="brief-chip"
-                  onClick={() => toggleMoodTag(tag)}
+                  active={active}
                   disabled={disabled}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    borderRadius: 5,
-                    border: active
-                      ? "1px solid rgba(124,58,237,0.6)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    background: active
-                      ? "rgba(124,58,237,0.15)"
-                      : "rgba(255,255,255,0.03)",
-                    color: active
-                      ? "#c4b5fd"
-                      : disabled
-                      ? "rgba(255,255,255,0.2)"
-                      : "rgba(255,255,255,0.5)",
-                    cursor: disabled ? "default" : "pointer",
-                    opacity: disabled ? 0.5 : 1,
-                    transition: "all 0.15s ease",
-                  }}
+                  color="violet"
+                  onClick={() => toggleMoodTag(tag)}
                 >
                   {tag}
-                </button>
+                </Chip>
               );
             })}
           </div>
-        </div>
+        </Field>
 
-        {/* Visual Intensity */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Visual Intensity</label>
-          <div style={{ position: "relative", padding: "0 2px" }}>
+        {/* 4C — Visual Intensity */}
+        <Field>
+          <FieldLabel optional>Visual Intensity</FieldLabel>
+          <div style={{ padding: "4px 2px 0" }}>
             <input
               type="range"
+              className="bb-slider"
               min={0}
               max={3}
               step={1}
-              value={Math.max(0, intensityIndex)}
+              value={intensityIndex}
               onChange={(e) => {
                 const idx = parseInt(e.target.value, 10);
                 onChange({ visualIntensity: INTENSITY_LABELS[idx].toLowerCase() });
               }}
-              style={{
-                width: "100%",
-                accentColor: "#2563EB",
-                cursor: "pointer",
-              }}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 6,
+              }}
+            >
               {INTENSITY_LABELS.map((label, i) => (
                 <span
                   key={label}
                   style={{
-                    fontSize: 10,
-                    color: i === Math.max(0, intensityIndex)
-                      ? "rgba(255,255,255,0.7)"
-                      : "rgba(255,255,255,0.25)",
-                    fontWeight: i === Math.max(0, intensityIndex) ? 700 : 400,
+                    fontSize: 12,
+                    color:
+                      i === intensityIndex
+                        ? "rgba(255,255,255,0.75)"
+                        : "rgba(255,255,255,0.28)",
+                    fontWeight: i === intensityIndex ? 700 : 400,
+                    transition: "color 0.15s ease",
                   }}
                 >
                   {label}
@@ -457,14 +779,14 @@ export default function BriefBuilder({
               ))}
             </div>
           </div>
-        </div>
+        </Field>
 
-        {/* Text Rendering Intent */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Text Rendering</label>
+        {/* 4D — Text Rendering */}
+        <Field>
+          <FieldLabel optional>Text Rendering</FieldLabel>
           <select
             className="brief-input"
-            style={selectStyle}
+            style={selectBase}
             value={brief.textRenderingIntent}
             onChange={(e) => onChange({ textRenderingIntent: e.target.value })}
           >
@@ -472,66 +794,83 @@ export default function BriefBuilder({
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-        </div>
+          <HelperText>How much text should appear in the generated visual</HelperText>
+        </Field>
 
-        {/* Realism vs Design Slider */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Realism vs Design</label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={brief.realismVsDesign}
-            onChange={(e) => onChange({ realismVsDesign: parseInt(e.target.value, 10) })}
-            style={{ width: "100%", accentColor: "#2563EB", cursor: "pointer" }}
-          />
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Design</span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Realism</span>
+        {/* 4E — Realism vs Design */}
+        <Field>
+          <FieldLabel optional>Realism vs Design</FieldLabel>
+          <div style={{ padding: "4px 2px 0" }}>
+            <input
+              type="range"
+              className="bb-slider"
+              min={0}
+              max={100}
+              value={brief.realismVsDesign}
+              onChange={(e) =>
+                onChange({ realismVsDesign: parseInt(e.target.value, 10) })
+              }
+            />
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: 6,
+              }}
+            >
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
+                Graphic / Design
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>
+                Photorealistic
+              </span>
+            </div>
           </div>
-        </div>
+        </Field>
 
-        {/* Color Preference */}
-        <div style={fieldStyle}>
-          <label style={labelStyle}>Color Preference</label>
+        {/* 4F — Color Preference */}
+        <Field style={{ marginBottom: 0 }}>
+          <FieldLabel optional>Color Preference</FieldLabel>
           <input
             className="brief-input"
-            style={inputStyle}
+            style={inputBase}
             type="text"
             placeholder="e.g. Monochrome, Deep blues, Brand red"
             value={brief.colorPreference}
             onChange={(e) => onChange({ colorPreference: e.target.value })}
           />
-        </div>
+          <HelperText>Dominant palette or brand color direction</HelperText>
+        </Field>
       </div>
 
-      {/* ── B4: Advanced Controls ── */}
-      <div style={sectionStyle}>
-        <button
-          onClick={() => onChange({ advancedOpen: !brief.advancedOpen })}
+      <SectionDivider />
+
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 5 — ADVANCED CONTROLS (collapsible, default closed)
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: SEC_PY }}>
+        <CollapsibleHeader
+          isOpen={brief.advancedOpen}
+          onToggle={() => onChange({ advancedOpen: !brief.advancedOpen })}
+          title="Advanced Controls"
+          subtitle="Provider, ratio, output count, exclusions, composition"
+        />
+
+        <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: 0,
-            marginBottom: brief.advancedOpen ? 14 : 0,
+            maxHeight: brief.advancedOpen ? "700px" : "0",
+            overflow: "hidden",
+            transition: "max-height 0.28s ease",
           }}
         >
-          <span style={sectionHeaderStyle}>Advanced Controls</span>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", transform: brief.advancedOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
-        </button>
+          <div style={{ paddingTop: 20 }}>
 
-        {brief.advancedOpen && (
-          <div>
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Preferred Provider</label>
+            {/* Preferred Provider */}
+            <Field>
+              <FieldLabel optional>Preferred Provider</FieldLabel>
               <select
                 className="brief-input"
-                style={selectStyle}
+                style={selectBase}
                 value={brief.preferredProvider}
                 onChange={(e) => onChange({ preferredProvider: e.target.value })}
               >
@@ -539,177 +878,170 @@ export default function BriefBuilder({
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
-            </div>
+              <HelperText>The AI model used to generate concept visuals</HelperText>
+            </Field>
 
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Aspect Ratio</label>
+            {/* Aspect Ratio */}
+            <Field>
+              <FieldLabel optional>Aspect Ratio</FieldLabel>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {ASPECT_RATIOS.map((ar) => {
-                  const active = brief.aspectRatio === ar;
-                  return (
-                    <button
-                      key={ar}
-                      className="brief-chip"
-                      onClick={() => onChange({ aspectRatio: ar })}
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        border: active
-                          ? "1px solid rgba(37,99,235,0.6)"
-                          : "1px solid rgba(255,255,255,0.1)",
-                        background: active
-                          ? "rgba(37,99,235,0.15)"
-                          : "rgba(255,255,255,0.04)",
-                        color: active ? "#93c5fd" : "rgba(255,255,255,0.5)",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {ar}
-                    </button>
-                  );
-                })}
+                {ASPECT_RATIOS.map((ar) => (
+                  <Chip
+                    key={ar}
+                    active={brief.aspectRatio === ar}
+                    color="blue"
+                    onClick={() => onChange({ aspectRatio: ar })}
+                  >
+                    {ar}
+                  </Chip>
+                ))}
               </div>
-            </div>
+            </Field>
 
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Output Count</label>
+            {/* Output Count */}
+            <Field>
+              <FieldLabel optional>Output Count</FieldLabel>
               <div style={{ display: "flex", gap: 8 }}>
-                {[1, 2, 3, 4].map((n) => {
-                  const active = brief.outputCount === n;
-                  return (
-                    <button
-                      key={n}
-                      className="brief-chip"
-                      onClick={() => onChange({ outputCount: n })}
-                      style={{
-                        flex: 1,
-                        padding: "6px 0",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        border: active
-                          ? "1px solid rgba(37,99,235,0.6)"
-                          : "1px solid rgba(255,255,255,0.1)",
-                        background: active
-                          ? "rgba(37,99,235,0.15)"
-                          : "rgba(255,255,255,0.04)",
-                        color: active ? "#93c5fd" : "rgba(255,255,255,0.5)",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {n}
-                    </button>
-                  );
-                })}
+                {[1, 2, 3, 4].map((n) => (
+                  <Chip
+                    key={n}
+                    active={brief.outputCount === n}
+                    color="blue"
+                    onClick={() => onChange({ outputCount: n })}
+                  >
+                    {String(n)}
+                  </Chip>
+                ))}
               </div>
-            </div>
+              <HelperText>How many images to generate per render</HelperText>
+            </Field>
 
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Avoid Elements</label>
+            {/* Avoid Elements */}
+            <Field>
+              <FieldLabel optional>Avoid Elements</FieldLabel>
               <input
                 className="brief-input"
-                style={inputStyle}
+                style={inputBase}
                 type="text"
                 placeholder="e.g. People, busy backgrounds, red tones"
                 value={brief.avoidElements}
                 onChange={(e) => onChange({ avoidElements: e.target.value })}
               />
-            </div>
+              <HelperText>Elements you don't want in the generated creative</HelperText>
+            </Field>
 
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Composition Preference</label>
+            {/* Composition Preference */}
+            <Field style={{ marginBottom: 0 }}>
+              <FieldLabel optional>Composition Preference</FieldLabel>
               <input
                 className="brief-input"
-                style={inputStyle}
+                style={inputBase}
                 type="text"
                 placeholder="e.g. Rule of thirds, centered product, full bleed"
                 value={brief.compositionPreference}
                 onChange={(e) => onChange({ compositionPreference: e.target.value })}
               />
-            </div>
+              <HelperText>How elements should be arranged in the frame</HelperText>
+            </Field>
           </div>
-        )}
+        </div>
       </div>
 
-      {/* ── B5: Brief support actions (Generate via dock below) ── */}
-      <div style={{ padding: "16px 20px 20px", marginTop: "auto" }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          {/* Improve Brief — only active once concepts have been generated */}
-          <div
-            style={{ flex: 1, position: "relative" }}
-            title={
-              !hasConceptsGenerated
-                ? "Generate concepts first — then AI will refine your brief based on them"
-                : "Refine your brief using AI feedback from your concepts"
-            }
-          >
-            <button
-              className="brief-action-btn"
-              onClick={onImproveBrief}
-              disabled={isLoading || !hasConceptsGenerated}
-              style={{
-                width: "100%",
-                padding: "11px 0",
-                background: hasConceptsGenerated
-                  ? "rgba(37,99,235,0.07)"
-                  : "rgba(255,255,255,0.03)",
-                border: hasConceptsGenerated
-                  ? "1px solid rgba(86,140,255,0.28)"
-                  : "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 8,
-                color: hasConceptsGenerated
-                  ? "rgba(255,255,255,0.72)"
-                  : "rgba(255,255,255,0.28)",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: (isLoading || !hasConceptsGenerated) ? "default" : "pointer",
-                transition: "all 0.18s ease",
-                boxShadow: hasConceptsGenerated
-                  ? "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)"
-                  : "none",
-              }}
-            >
-              ✨ Improve Brief
-            </button>
-          </div>
+      <SectionDivider />
 
-          {/* Randomize — always available */}
-          <div
-            style={{ flex: 1 }}
-            title="Auto-fill style fields with a creative starting point"
+      {/* ══════════════════════════════════════════════════════════════
+          SECTION 6 — ACTIONS
+      ══════════════════════════════════════════════════════════════ */}
+      <div style={{ padding: "20px 20px 24px", marginTop: "auto" }}>
+
+        {/* Improve Brief */}
+        <div
+          title={
+            !hasConceptsGenerated
+              ? "Generate concepts first — then AI will refine your brief based on them"
+              : "Refine your brief using AI feedback from your concepts"
+          }
+          style={{ marginBottom: 8 }}
+        >
+          <button
+            className="brief-action-btn"
+            onClick={onImproveBrief}
+            disabled={isLoading || !hasConceptsGenerated}
+            style={{
+              width: "100%",
+              padding: "12px 0",
+              background: hasConceptsGenerated
+                ? "rgba(37,99,235,0.08)"
+                : "rgba(255,255,255,0.03)",
+              border: hasConceptsGenerated
+                ? "1px solid rgba(86,140,255,0.3)"
+                : "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 9,
+              color: hasConceptsGenerated
+                ? "rgba(255,255,255,0.8)"
+                : "rgba(255,255,255,0.25)",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: isLoading || !hasConceptsGenerated ? "default" : "pointer",
+              transition: "all 0.18s ease",
+              boxShadow: hasConceptsGenerated
+                ? "0 0 12px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.05)"
+                : "none",
+              letterSpacing: "0.01em",
+            }}
           >
-            <button
-              className="brief-action-btn"
-              onClick={() => {
-                const shuffled = [...MOOD_TAGS].sort(() => Math.random() - 0.5);
-                const randomPreset = STYLE_PRESETS[Math.floor(Math.random() * STYLE_PRESETS.length)];
-                onChange({
-                  moodTags: shuffled.slice(0, 2),
-                  stylePreset: randomPreset,
-                  visualIntensity: INTENSITY_LABELS[Math.floor(Math.random() * INTENSITY_LABELS.length)].toLowerCase(),
-                });
-              }}
+            ✨ Improve Brief
+          </button>
+          {!hasConceptsGenerated && (
+            <p
               style={{
-                width: "100%",
-                padding: "11px 0",
-                background: "rgba(37,99,235,0.07)",
-                border: "1px solid rgba(86,140,255,0.28)",
-                borderRadius: 8,
-                color: "rgba(255,255,255,0.72)",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.18s ease",
-                boxShadow: "0 0 10px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
+                margin: "6px 0 0",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.45)",
+                textAlign: "center",
+                lineHeight: 1.4,
               }}
             >
-              ⟳ Randomize
-            </button>
-          </div>
+              Generate concepts first to unlock this
+            </p>
+          )}
+        </div>
+
+        {/* Randomize */}
+        <div title="Auto-fill style fields with a creative starting point">
+          <button
+            className="brief-action-btn"
+            onClick={() => {
+              const shuffled = [...MOOD_TAGS].sort(() => Math.random() - 0.5);
+              const randomPreset =
+                STYLE_PRESETS[Math.floor(Math.random() * STYLE_PRESETS.length)];
+              onChange({
+                moodTags: shuffled.slice(0, 2),
+                stylePreset: randomPreset,
+                visualIntensity:
+                  INTENSITY_LABELS[
+                    Math.floor(Math.random() * INTENSITY_LABELS.length)
+                  ].toLowerCase(),
+              });
+            }}
+            style={{
+              width: "100%",
+              padding: "12px 0",
+              background: "rgba(37,99,235,0.07)",
+              border: "1px solid rgba(86,140,255,0.28)",
+              borderRadius: 9,
+              color: "rgba(255,255,255,0.72)",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+              boxShadow:
+                "0 0 12px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.05)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            ⟳ Randomize Style
+          </button>
         </div>
       </div>
     </div>
