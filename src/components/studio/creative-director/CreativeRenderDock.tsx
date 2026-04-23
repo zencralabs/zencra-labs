@@ -1290,7 +1290,7 @@ export default function CreativeRenderDock({
                     lineHeight:    1,
                     flexShrink:    0,
                   }}>
-                    {ctaMode === "generate-concepts" ? "0.5 cr" : `${creditEstimate} cr`}
+                    {ctaMode === "generate-concepts" ? "1 cr" : `${creditEstimate} cr`}
                   </span>
                 </div>
                 {/* Row 2: context noun */}

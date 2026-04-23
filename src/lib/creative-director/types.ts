@@ -282,7 +282,7 @@ export type CreativeEventType =
 
 /** Credit cost breakdown for the Creative Director workflow */
 export interface CDCreditEstimate {
-  concepting: number;          // always 0.5 cr
+  concepting: number;          // always 1 cr
   generationPerOutput: number; // provider-based
   totalForFourOutputs: number; // concepting + 4 * generationPerOutput
   variationPerOutput: number;  // 75% of base generation cost

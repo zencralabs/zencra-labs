@@ -2,7 +2,7 @@
  * Credit Estimator — Creative Director
  *
  * Calculates credit costs for the Creative Director workflow.
- * Concepting always costs 0.5 credits.
+ * Concepting always costs 1 credit.
  * Generation cost is provider/model based.
  * Variations are 75% of base generation cost.
  * Format adaptations are 80% of base generation cost.
@@ -15,7 +15,7 @@ import type { CDCreditEstimate, CDProviderDecision } from "./types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Fixed concepting cost — deducted when generating concepts (V1) */
-const CONCEPTING_COST = 0.5;
+const CONCEPTING_COST = 1;
 
 /** Variation discount multiplier (75% of base) */
 const VARIATION_DISCOUNT = 0.75;
@@ -45,7 +45,7 @@ const DEFAULT_COST = 4;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * getConceptingCost — Always returns the concepting cost (0.5 cr).
+ * getConceptingCost — Always returns the concepting cost (1 cr).
  * Used by the concept generation route to deduct before calling GPT.
  */
 export function getConceptingCost(): number {
