@@ -11,6 +11,7 @@ import OutputWorkspace, {
   type OutputAction,
 } from "./OutputWorkspace";
 import CreativeRenderDock, { type RenderDockSettings } from "./CreativeRenderDock";
+import OutputPreviewModal from "./OutputPreviewModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeDirectorShell — AI Creative Director main layout + state
@@ -363,6 +364,23 @@ export default function CreativeDirectorShell() {
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // ── Output Preview Modal ──────────────────────────────────────────────────────
+  const [previewOpen, setPreviewOpen] = useState(false);
+  /** IDs of the most recent render batch — used to track the modal's generation */
+  const [previewBatchIds, setPreviewBatchIds] = useState<string[]>([]);
+  /** ID the user clicked to re-open the preview from the right panel */
+  const [previewFocusId, setPreviewFocusId] = useState<string | null>(null);
+
+  // ── Render cancel support ─────────────────────────────────────────────────────
+  const renderControllerRef = useRef<AbortController | null>(null);
+
+  const handleCancelRender = useCallback(() => {
+    renderControllerRef.current?.abort();
+    renderControllerRef.current = null;
+    setIsGeneratingOutputs(false);
+    // Don't close the modal — let user see the failed state
+  }, []);
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   // Sync authHeader — used only in the poll loop (fire-and-forget, session stale is tolerable)
@@ -413,6 +431,53 @@ export default function CreativeDirectorShell() {
     },
     []
   );
+
+  // ── Session persistence — localStorage ───────────────────────────────────────
+  // Load saved session on first mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("zencra-cd-session");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        projectId?: string;
+        briefId?: string;
+        projectName?: string;
+        brief?: Partial<BriefState>;
+        concepts?: ConceptCard[];
+        generations?: GenerationResult[];
+        selectedConceptId?: string | null;
+        conceptBoardState?: "empty" | "loading" | "results" | "detail";
+      };
+      if (!saved.projectId) return;
+      setProjectId(saved.projectId);
+      if (saved.briefId) setBriefId(saved.briefId);
+      if (saved.projectName) setProjectName(saved.projectName);
+      if (saved.brief) setBrief((prev) => ({ ...prev, ...saved.brief }));
+      if (saved.concepts?.length) {
+        setConcepts(saved.concepts);
+        setConceptBoardState(saved.conceptBoardState ?? "results");
+      }
+      if (saved.generations?.length) setGenerations(saved.generations);
+      if (saved.selectedConceptId) setSelectedConceptId(saved.selectedConceptId);
+    } catch {
+      // corrupt localStorage — ignore silently
+    }
+  }, []); // only on mount
+
+  // Save session whenever key state changes
+  useEffect(() => {
+    if (!projectId) return; // nothing to save yet
+    try {
+      const toSave = {
+        projectId, briefId, projectName, brief,
+        concepts, generations,
+        selectedConceptId, conceptBoardState,
+      };
+      localStorage.setItem("zencra-cd-session", JSON.stringify(toSave));
+    } catch {
+      // localStorage full or unavailable — ignore
+    }
+  }, [projectId, briefId, projectName, brief, concepts, generations, selectedConceptId, conceptBoardState]);
 
   // Brief change handler — marks unsaved
   const handleBriefChange = useCallback((updates: Partial<BriefState>) => {
@@ -679,15 +744,24 @@ export default function CreativeDirectorShell() {
         return;
       }
 
-      // ── Show loading state IMMEDIATELY — before any async work ──────────────
+      // ── Open preview modal IMMEDIATELY — before any async work ───────────────
+      // This is the key UX upgrade: user gets instant visual feedback on click.
+      setPreviewBatchIds([]);    // clear prior batch
+      setPreviewFocusId(null);
+      setPreviewOpen(true);
       setIsGeneratingOutputs(true);
-      console.log("[CD] render: loading state set — fetching auth");
+      console.log("[CD] render: loading state set + preview modal open");
 
       // 90-second hard abort for the entire render flow
       const renderController = new AbortController();
+      renderControllerRef.current = renderController;
       const renderTimeout = setTimeout(() => {
         renderController.abort();
       }, 90_000);
+
+      // Resolve concept metadata for enriching generation records
+      const selectedConceptObj = concepts.find((c) => c.id === conceptId);
+      const selectedConceptIdx = concepts.findIndex((c) => c.id === conceptId);
 
       try {
         const authH = await getAuthHeaders();
@@ -734,9 +808,21 @@ export default function CreativeDirectorShell() {
 
         const data = (await res.json()) as { generations: Record<string, unknown>[] };
         console.log("[CD] render: generations received", data.generations?.length ?? 0);
-        const newGens = (data.generations ?? []).map(mapGenerationRow);
+
+        // Enrich each generation with concept metadata for grouping in the stream
+        const newGens = (data.generations ?? []).map((row) => ({
+          ...mapGenerationRow(row),
+          conceptId:    conceptId,
+          conceptTitle: selectedConceptObj?.title,
+          conceptIndex: selectedConceptIdx >= 0 ? selectedConceptIdx : 0,
+        }));
+
         setGenerations((prev) => [...newGens, ...prev]);
-        console.log("[CD] render: state updated — outputs appended");
+
+        // Track this batch so the preview modal can show the first generation
+        const batchIds = newGens.map((g) => g.id);
+        setPreviewBatchIds(batchIds);
+        console.log("[CD] render: state updated — outputs appended, batch tracked", batchIds.length);
 
         // 3. Poll each async generation (sync providers already have status=completed + url)
         newGens.forEach((g) => {
@@ -751,14 +837,16 @@ export default function CreativeDirectorShell() {
           : err instanceof Error ? err.message : "Generation failed. Please try again.";
         console.error("[CD] handleGenerateConcept failed:", isAbort ? "timeout (90s)" : message);
         addToast(message, "error");
+        // Don't auto-close modal on failure — let user see the failed state and dismiss
       } finally {
         clearTimeout(renderTimeout);
+        renderControllerRef.current = null;
         setIsGeneratingOutputs(false);
         console.log("[CD] render: finally — loading cleared");
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isGeneratingOutputs, brief.outputCount, getAuthHeaders, addToast, pollGeneration]
+    [isGeneratingOutputs, brief.outputCount, concepts, getAuthHeaders, addToast, pollGeneration]
   );
 
   // ── Select / expand concept ────────────────────────────────────────────────────
@@ -1099,6 +1187,10 @@ export default function CreativeDirectorShell() {
               setConceptBoardState("empty");
               setProjectName("Untitled Project");
               setAutosaveState("saved");
+              setPreviewOpen(false);
+              setPreviewBatchIds([]);
+              // Clear persisted session so we start fresh
+              try { localStorage.removeItem("zencra-cd-session"); } catch { /* ignore */ }
             }}
             style={{
               padding: "7px 14px",
@@ -1194,6 +1286,11 @@ export default function CreativeDirectorShell() {
               : 0}
             onVariation={handleVariation}
             onAdaptFormat={handleAdaptFormat}
+            isGeneratingOutputs={isGeneratingOutputs}
+            onOpenPreview={(genId) => {
+              setPreviewFocusId(genId);
+              setPreviewOpen(true);
+            }}
           />
         </div>
       </div>
@@ -1213,12 +1310,44 @@ export default function CreativeDirectorShell() {
         conceptsExist={concepts.length > 0}
         isGeneratingConcepts={isGeneratingConcepts}
         onGenerateConcepts={handleGenerateConcepts}
+        onCancel={handleCancelRender}
         onGenerate={(settings) => {
           if (selectedConceptId) {
             handleGenerateConcept(selectedConceptId, settings);
           }
         }}
       />
+
+      {/* ── Output Preview Modal — instant-open on Render click ── */}
+      {(() => {
+        // Determine which generation to preview:
+        // 1. If user clicked a specific card → show that generation
+        // 2. Otherwise show first generation from the latest render batch
+        const focusId = previewFocusId ?? previewBatchIds[0] ?? null;
+        const previewGen = focusId ? (generations.find((g) => g.id === focusId) ?? null) : null;
+        const previewConcept = previewGen?.conceptTitle
+          ?? (selectedConceptId ? concepts.find((c) => c.id === selectedConceptId)?.title : undefined);
+
+        return (
+          <OutputPreviewModal
+            isOpen={previewOpen}
+            generation={previewGen}
+            batchCount={previewBatchIds.length}
+            conceptTitle={previewConcept}
+            modelLabel={previewGen?.model}
+            onClose={() => {
+              setPreviewOpen(false);
+              setPreviewFocusId(null);
+            }}
+            onDownload={(id) => handleOutputAction("download", id)}
+            onVariation={(id) => {
+              setPreviewOpen(false);
+              setPreviewFocusId(null);
+              setActiveVariationTray(id);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

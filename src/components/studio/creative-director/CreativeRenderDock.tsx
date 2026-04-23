@@ -59,6 +59,8 @@ export interface CreativeRenderDockProps {
   onGenerate: (settings: RenderDockSettings) => void;
   onGenerateConcepts?: () => void;  // called when dock CTA = "Generate Concepts"
   onReferenceUpload?: (file: File) => Promise<string>;
+  /** Called when user clicks Cancel while a render is in progress */
+  onCancel?: () => void;
 }
 
 // ── Zencra color tokens ────────────────────────────────────────────────────────
@@ -292,6 +294,7 @@ export default function CreativeRenderDock({
   onGenerate,
   onGenerateConcepts,
   onReferenceUpload,
+  onCancel,
 }: CreativeRenderDockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1224,17 +1227,53 @@ export default function CreativeRenderDock({
             }}>MODE: VARIATION</span>
           )}
 
-          {/* ── 6. Context CTA — Zencra signature trigger button ── */}
+          {/* ── 6. Context CTA — Cancel + Render button group ── */}
+          {/* Cancel — only visible while generating, slides in to the left of Render */}
+          {isGenerating && (
+            <button
+              onClick={onCancel}
+              style={{
+                height:       56,
+                padding:      "0 18px",
+                borderRadius: 12,
+                border:       "1px solid rgba(255,255,255,0.14)",
+                background:   "rgba(255,255,255,0.05)",
+                color:        "rgba(255,255,255,0.55)",
+                fontSize:     14,
+                fontWeight:   600,
+                cursor:       "pointer",
+                flexShrink:   0,
+                whiteSpace:   "nowrap",
+                transition:   "all 0.15s ease",
+                letterSpacing: "0.01em",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,80,80,0.1)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,100,100,0.3)";
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(248,113,113,0.85)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)";
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.55)";
+              }}
+            >
+              Cancel
+            </button>
+          )}
+
           <button
             className="rd-gen"
             onClick={handleGenerate}
             disabled={ctaMode === "select-concept" || isGeneratingConcepts || isGenerating}
             style={{
               height:         56,
-              minWidth:       ctaMode === "select-concept" ? 168 : 192,
+              /* FIXED width — never changes so dock never shifts layout */
+              minWidth:       192,
+              maxWidth:       192,
               padding:        "0 20px 0 22px",
               borderRadius:   12,
-              marginLeft:     12,
+              marginLeft:     isGenerating ? 8 : 12,
               border:         (ctaMode === "select-concept" || isGeneratingConcepts || isGenerating)
                 ? `1px solid ${Z.borderSubtle}`
                 : "1px solid rgba(255,255,255,0.18)",

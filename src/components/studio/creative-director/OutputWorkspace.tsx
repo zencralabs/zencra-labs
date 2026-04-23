@@ -26,6 +26,10 @@ export interface GenerationResult {
   generationType: "base" | "variation" | "adaptation" | "fork";
   /** The assets table ID — used by the shell to poll job status for async providers */
   assetId?: string;
+  /** Concept this output was generated from — for grouping in the stream */
+  conceptId?: string;
+  conceptTitle?: string;
+  conceptIndex?: number;
 }
 
 interface OutputWorkspaceProps {
@@ -42,6 +46,10 @@ interface OutputWorkspaceProps {
   selectedConceptTitle?: string;
   /** 0-based index of the selected concept — used to show matching gradient preview */
   selectedConceptIndex?: number;
+  /** True while a render is actively in progress — shows skeleton hint */
+  isGeneratingOutputs?: boolean;
+  /** Called when user clicks a generation card to re-open the preview modal */
+  onOpenPreview?: (generationId: string) => void;
 }
 
 // Gradient/accent pairs — mirror ConceptBoard so the preview block feels connected
@@ -610,6 +618,8 @@ export default function OutputWorkspace({
   hasConceptSelected = false,
   selectedConceptTitle,
   selectedConceptIndex = 0,
+  isGeneratingOutputs = false,
+  onOpenPreview,
 }: OutputWorkspaceProps) {
   const isEmpty = generations.length === 0;
 
@@ -665,59 +675,116 @@ export default function OutputWorkspace({
                 {generations.length}
               </span>
             )}
+            {/* Live rendering pulse dot */}
+            {isGeneratingOutputs && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "rgba(96,165,250,0.85)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#3B82F6",
+                    animation: "cdPulse 1.2s ease-in-out infinite",
+                    display: "inline-block",
+                  }}
+                />
+                Rendering
+              </span>
+            )}
           </h3>
-          {generations.length > 0 && (
-            <button
+
+          {/* Header actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* View full gallery */}
+            <a
+              href="/studio/image?source=creative-director"
               style={{
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: 600,
-                padding: "5px 12px",
+                padding: "4px 10px",
                 borderRadius: 7,
                 border: `1px solid ${Z.borderSubtle}`,
-                background: "rgba(255,255,255,0.03)",
-                color: Z.textSecondary,
+                background: "rgba(255,255,255,0.02)",
+                color: "rgba(147,197,253,0.6)",
                 cursor: "pointer",
                 letterSpacing: "0.01em",
                 transition: "all 0.15s ease",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = "rgba(147,197,253,0.9)";
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(86,140,255,0.28)";
+                (e.currentTarget as HTMLAnchorElement).style.background = "rgba(37,99,235,0.08)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = "rgba(147,197,253,0.6)";
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = Z.borderSubtle;
+                (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.02)";
               }}
             >
-              ↓ Download All
-            </button>
-          )}
+              Gallery →
+            </a>
+
+            {/* Download all */}
+            {generations.length > 0 && (
+              <button
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: "4px 10px",
+                  borderRadius: 7,
+                  border: `1px solid ${Z.borderSubtle}`,
+                  background: "rgba(255,255,255,0.03)",
+                  color: Z.textSecondary,
+                  cursor: "pointer",
+                  letterSpacing: "0.01em",
+                  transition: "all 0.15s ease",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.15)";
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = Z.borderSubtle;
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.03)";
+                  (e.currentTarget as HTMLButtonElement).style.color = Z.textSecondary;
+                }}
+              >
+                ↓ All
+              </button>
+            )}
+          </div>
         </div>
         <p
           style={{
-            fontSize: 15,
+            fontSize: 13,
             color: Z.textMuted,
             margin: 0,
             lineHeight: 1.6,
           }}
         >
-          Generated concept outputs appear here and are saved to your project.
+          Outputs are saved to your project and{" "}
+          <span style={{ color: "#93c5fd", fontWeight: 600 }}>Image Studio → History</span>.
         </p>
       </div>
 
-      {/* ── CD output destination note ── */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 14px",
-          borderRadius: 10,
-          background: "rgba(59,130,246,0.07)",
-          border: "1px solid rgba(120,160,255,0.22)",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: 10,
-        }}
-      >
-        <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>◈</span>
-        <p style={{ fontSize: 14, color: Z.textSecondary, margin: 0, lineHeight: 1.65 }}>
-          Outputs are saved to this project and also appear in{" "}
-          <span style={{ color: "#93c5fd", fontWeight: 600 }}>Image Studio → History</span>{" "}
-          tagged with <span style={{ color: Z.textSecondary, fontWeight: 600 }}>Creative Director</span> so you can find them anytime.
-        </p>
-      </div>
+      {/* spacer — the destination note is now inline in the header subtitle */}
 
       {/* ── Empty state — context-aware ── */}
       {isEmpty && (
@@ -920,11 +987,11 @@ export default function OutputWorkspace({
         </>
       )}
 
-      {/* ── Generation grid — 1 item: full width, 2+: 2 cols ── */}
+      {/* ── Generation stream — grouped by concept ── */}
       {!isEmpty && (
         <>
-          {/* "Your outputs appear here" micro-guidance — subtle, first load only */}
-          {generations.length > 0 && generations.every((g) => g.status === "processing" || g.status === "queued") && (
+          {/* All-processing hint — shown only when every output is still queued/processing */}
+          {generations.every((g) => g.status === "processing" || g.status === "queued") && (
             <div
               style={{
                 fontSize: 12,
@@ -934,29 +1001,134 @@ export default function OutputWorkspace({
                 borderRadius: 8,
                 background: "rgba(255,255,255,0.02)",
                 border: "1px solid rgba(255,255,255,0.05)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              Your outputs will appear here as they complete.
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#60a5fa",
+                  animation: "cdPulse 1.4s ease-in-out infinite",
+                  display: "inline-block",
+                  flexShrink: 0,
+                }}
+              />
+              Rendering in progress — outputs will appear here as they complete.
             </div>
           )}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: generations.length === 1 ? "1fr" : "1fr 1fr",
-              gap: 10,
-            }}
-          >
-            {generations.map((gen) => (
-              <GenerationCard
-                key={gen.id}
-                gen={gen}
-                isVariationTrayOpen={activeVariationTray === gen.id}
-                onAction={(action) => onAction(action, gen.id)}
-                onVariation={(variationType) => onVariation(variationType, gen.id)}
-                onAdaptFormat={(format) => onAdaptFormat(format, gen.id)}
-              />
-            ))}
-          </div>
+
+          {(() => {
+            // Group generations by concept (preserve insertion order per group)
+            const groups: Array<{ conceptId?: string; conceptTitle?: string; conceptIndex: number; items: GenerationResult[] }> = [];
+            const seenConcepts = new Map<string, number>(); // conceptId → group index
+
+            for (const gen of generations) {
+              const key = gen.conceptId ?? "__ungrouped__";
+              if (seenConcepts.has(key)) {
+                groups[seenConcepts.get(key)!].items.push(gen);
+              } else {
+                const idx = groups.length;
+                seenConcepts.set(key, idx);
+                groups.push({
+                  conceptId:    gen.conceptId,
+                  conceptTitle: gen.conceptTitle,
+                  conceptIndex: gen.conceptIndex ?? 0,
+                  items:        [gen],
+                });
+              }
+            }
+
+            return groups.map((group, gi) => (
+              <div key={group.conceptId ?? gi} style={{ marginBottom: gi < groups.length - 1 ? 20 : 0 }}>
+                {/* Concept group label — only shown when there are 2+ groups */}
+                {groups.length > 1 && group.conceptTitle && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 8,
+                      paddingBottom: 8,
+                      borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    {/* Mini concept accent dot */}
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        background: [
+                          "rgba(37,99,235,0.8)",
+                          "rgba(109,40,217,0.8)",
+                          "rgba(13,148,136,0.8)",
+                        ][group.conceptIndex % 3],
+                        boxShadow: [
+                          "0 0 8px rgba(37,99,235,0.4)",
+                          "0 0 8px rgba(109,40,217,0.4)",
+                          "0 0 8px rgba(13,148,136,0.4)",
+                        ][group.conceptIndex % 3],
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "rgba(167,176,197,0.65)",
+                        letterSpacing: "0.01em",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {group.conceptTitle}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "rgba(100,120,155,0.5)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {group.items.length} output{group.items.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                )}
+
+                {/* Grid for this group */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: group.items.length === 1 ? "1fr" : "1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  {group.items.map((gen) => (
+                    <GenerationCard
+                      key={gen.id}
+                      gen={gen}
+                      isVariationTrayOpen={activeVariationTray === gen.id}
+                      onAction={(action) => {
+                        // Re-open the preview modal when clicking fullscreen on a completed card
+                        if (action === "fullscreen" && onOpenPreview) {
+                          onOpenPreview(gen.id);
+                          return;
+                        }
+                        onAction(action, gen.id);
+                      }}
+                      onVariation={(variationType) => onVariation(variationType, gen.id)}
+                      onAdaptFormat={(format) => onAdaptFormat(format, gen.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ));
+          })()}
         </>
       )}
     </div>
