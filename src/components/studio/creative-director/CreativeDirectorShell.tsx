@@ -5,6 +5,7 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
 import Tooltip from "@/components/ui/Tooltip";
 import BriefBuilder, { type BriefState } from "./BriefBuilder";
+import { CharacterPanel } from "./CharacterPanel";
 import ConceptBoard, { type ConceptCard } from "./ConceptBoard";
 import OutputWorkspace, {
   type GenerationResult,
@@ -96,10 +97,35 @@ interface ConceptRow {
   recommended_provider?: string | null;
   recommended_use_case?: string | null;
   scores?: Record<string, number> | null;
+  concept_payload?: Record<string, unknown> | null;
 }
 
 function mapConceptRowToCard(row: ConceptRow): ConceptCard {
-  const scores = (row.scores ?? {}) as Record<string, number>;
+  const scores   = (row.scores ?? {}) as Record<string, number>;
+  const payload  = (row.concept_payload ?? {}) as Record<string, unknown>;
+
+  // Extract cinematic 2.0 fields from concept_payload (if the LLM included them)
+  // Fall back gracefully: derive angles from rationale if payload doesn't have them
+  const payloadAngles = Array.isArray(payload.executionAngles)
+    ? (payload.executionAngles as string[])
+    : null;
+  const derivedAngles = row.rationale
+    ? row.rationale
+        .split(/[.!?]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 12)
+        .slice(0, 3)
+    : [];
+  const executionAngles = payloadAngles ?? (derivedAngles.length > 0 ? derivedAngles : undefined);
+
+  const narrativeStory = (payload.narrativeStory as string | undefined)
+    ?? row.rationale
+    ?? undefined;
+
+  const bestFor = (payload.bestFor as string | undefined)
+    ?? row.recommended_use_case
+    ?? undefined;
+
   return {
     id:                   row.id,
     title:                row.title,
@@ -116,6 +142,9 @@ function mapConceptRowToCard(row: ConceptRow): ConceptCard {
       designControl:     scores.designControl     ?? 0,
       speed:             scores.speed             ?? 0,
     },
+    narrativeStory,
+    executionAngles,
+    bestFor,
   };
 }
 
@@ -363,6 +392,12 @@ export default function CreativeDirectorShell() {
   const [isGeneratingConcepts, setIsGeneratingConcepts] = useState(false);
   const [isGeneratingOutputs, setIsGeneratingOutputs] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // ── Character / Soul ID state ─────────────────────────────────────────────────
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+
+  // ── Left panel tab ─────────────────────────────────────────────────────────────
+  const [leftTab, setLeftTab] = useState<"brief" | "characters">("brief");
 
   // ── Output Preview Modal ──────────────────────────────────────────────────────
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -1322,24 +1357,88 @@ export default function CreativeDirectorShell() {
           background: "#050816",
         }}
       >
-        {/* Left: BriefBuilder — paddingBottom leaves space for dock */}
+        {/* Left: BriefBuilder + CharacterPanel (tabbed) */}
         <div
           className="cd-col"
           style={{
             borderRadius: "0 0 12px 12px",
-            overflowY: "auto",
+            overflowY: "hidden",
             scrollbarWidth: "none",
             background: "#0B1022",
-            paddingBottom: 176,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <BriefBuilder
-            brief={brief}
-            onChange={handleBriefChange}
-            onImproveBrief={handleImproveBrief}
-            isLoading={isGeneratingConcepts}
-            hasConceptsGenerated={concepts.length > 0}
-          />
+          {/* Tab strip */}
+          <div
+            style={{
+              display: "flex",
+              gap: 2,
+              padding: "10px 16px 0",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              flexShrink: 0,
+            }}
+          >
+            {(["brief", "characters"] as const).map((tab) => {
+              const isActive = leftTab === tab;
+              const label = tab === "brief" ? "Brief" : "Characters";
+              const badge = tab === "characters" && selectedCharacterId ? "●" : null;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setLeftTab(tab)}
+                  style={{
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: isActive ? 700 : 500,
+                    borderRadius: "7px 7px 0 0",
+                    border: "none",
+                    background: isActive
+                      ? "rgba(59,130,246,0.12)"
+                      : "transparent",
+                    color: isActive ? "#93c5fd" : "rgba(140,165,200,0.5)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    borderBottom: isActive ? "2px solid rgba(86,140,255,0.6)" : "2px solid transparent",
+                    display: "flex", alignItems: "center", gap: 6,
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {label}
+                  {badge && (
+                    <span style={{ fontSize: 8, color: "#6ee7b7", lineHeight: 1 }}>{badge}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab content — scrollable */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              scrollbarWidth: "none",
+              paddingBottom: 176,
+              padding: leftTab === "brief" ? "0 0 176px" : "16px 16px 176px",
+            }}
+          >
+            {leftTab === "brief" ? (
+              <BriefBuilder
+                brief={brief}
+                onChange={handleBriefChange}
+                onImproveBrief={handleImproveBrief}
+                isLoading={isGeneratingConcepts}
+                hasConceptsGenerated={concepts.length > 0}
+              />
+            ) : (
+              <CharacterPanel
+                getAuthHeaders={getAuthHeaders as () => Promise<Record<string, string>>}
+                selectedCharacterId={selectedCharacterId}
+                onSelectCharacter={setSelectedCharacterId}
+              />
+            )}
+          </div>
         </div>
 
         {/* Center: ConceptBoard */}

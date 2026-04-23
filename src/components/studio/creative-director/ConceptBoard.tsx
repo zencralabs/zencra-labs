@@ -22,6 +22,16 @@ export interface ConceptCard {
     designControl: number;
     speed: number;
   };
+  // ── Cinematic 2.0 fields (optional — populated from concept_payload if present) ──
+  /** Full narrative story for this concept direction */
+  narrativeStory?: string;
+  /** 2–3 concrete execution ideas/angles */
+  executionAngles?: string[];
+  /** Best suited use-case context (e.g. "Ads / Social", "Brand Film", "Landing") */
+  bestFor?: string;
+  /** Applied character Soul ID — optional cross-studio identity linkage */
+  appliedCharacterId?: string;
+  appliedCharacterName?: string;
 }
 
 interface ConceptBoardProps {
@@ -33,6 +43,10 @@ interface ConceptBoardProps {
   onExpandConcept: (id: string) => void;
   /** Whether any renders have been produced — used to determine flow step 4/5 */
   hasGenerations?: boolean;
+  /** Apply a character to a concept — wires Soul ID to concept for render */
+  onApplyCharacter?: (conceptId: string, characterId: string | null) => void;
+  /** Currently applied character name (for display in concept card) */
+  appliedCharacterName?: string;
 }
 
 // ── Zencra tokens ─────────────────────────────────────────────────────────────
@@ -156,7 +170,7 @@ function Chip({ label, color }: { label: string; color?: string }) {
 }
 
 // ── Animated concept preview ──────────────────────────────────────────────────
-function ConceptPreview({ index, isSelected }: { index: number; isSelected: boolean }) {
+function ConceptPreview({ index, isSelected, isHovered }: { index: number; isSelected: boolean; isHovered?: boolean }) {
   const grad     = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
   const acc      = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
   const blobPos  = BLOB_CONFIGS[index % BLOB_CONFIGS.length];
@@ -201,6 +215,31 @@ function ConceptPreview({ index, isSelected }: { index: number; isSelected: bool
           animation: `conceptBlobB 10s ease-in-out ${blobDelay} infinite`,
         }}
       />
+
+      {/* Cinematic light-shift sweep — slow, always on */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(108deg, transparent 15%, rgba(255,255,255,0.055) 50%, transparent 85%)",
+          animation: `lightShift 10s ease-in-out ${index * 2.2}s infinite`,
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+      {/* Hover shimmer — faster pulse on hover */}
+      {isHovered && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(108deg, transparent 10%, rgba(255,255,255,0.04) 50%, transparent 90%)",
+            animation: "lightShift 3.5s ease-in-out infinite",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+      )}
 
       {/* Number badge — top-left */}
       <div
@@ -500,6 +539,251 @@ function FlowStrip({
   );
 }
 
+// ── Story Preview Modal ────────────────────────────────────────────────────────
+function StoryPreviewModal({
+  concept,
+  index,
+  onClose,
+}: {
+  concept: ConceptCard;
+  index: number;
+  onClose: () => void;
+}) {
+  const grad = PREVIEW_GRADIENTS[index % PREVIEW_GRADIENTS.length];
+  const acc  = PREVIEW_ACCENTS[index % PREVIEW_ACCENTS.length];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(4, 6, 18, 0.88)",
+        backdropFilter: "blur(14px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(600px, 100%)",
+          maxHeight: "82vh",
+          overflowY: "auto",
+          scrollbarWidth: "none",
+          background: "linear-gradient(180deg, #0F1629 0%, #09101F 100%)",
+          border: "1px solid rgba(86,140,255,0.3)",
+          borderRadius: 20,
+          boxShadow:
+            "0 0 0 1px rgba(86,140,255,0.08), 0 40px 80px rgba(0,0,0,0.85), 0 0 60px rgba(59,130,246,0.14)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Hero */}
+        <div
+          style={{
+            height: 130,
+            background: grad,
+            position: "relative",
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              width: 200, height: 200, borderRadius: "50%",
+              background: acc.a, filter: "blur(60px)",
+              top: -50, left: "20%", pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              width: 150, height: 150, borderRadius: "50%",
+              background: acc.b, filter: "blur(48px)",
+              bottom: -40, right: "12%", pointerEvents: "none",
+            }}
+          />
+          {/* Light shift */}
+          <div
+            style={{
+              position: "absolute", inset: 0,
+              background: "linear-gradient(108deg, transparent 15%, rgba(255,255,255,0.06) 50%, transparent 85%)",
+              animation: "lightShift 7s ease-in-out infinite",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+          {/* Number */}
+          <div
+            style={{
+              position: "absolute", top: 14, left: 16, zIndex: 3,
+              fontSize: 11, fontWeight: 800, letterSpacing: "0.1em",
+              color: "#93c5fd",
+              background: "rgba(59,130,246,0.22)",
+              border: "1px solid rgba(59,130,246,0.4)",
+              borderRadius: 6, padding: "3px 8px",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            {String(index + 1).padStart(2, "0")}
+          </div>
+          {/* Close */}
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute", top: 12, right: 12, zIndex: 3,
+              width: 30, height: 30, borderRadius: "50%",
+              background: "rgba(0,0,0,0.45)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.65)",
+              fontSize: 13, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.15s ease",
+            }}
+          >
+            ✕
+          </button>
+          {/* Center diamond */}
+          <div
+            style={{
+              position: "absolute", inset: 0, zIndex: 2,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: 46, height: 46, borderRadius: 14,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(86,140,255,0.42)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 20, boxShadow: "0 0 28px rgba(86,140,255,0.32)",
+              }}
+            >
+              ✦
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "22px 26px 30px" }}>
+
+          {/* Provider + Best For */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
+                background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.32)",
+                color: "#c4b5fd", letterSpacing: "0.02em",
+              }}
+            >
+              {concept.recommendedProvider}
+            </span>
+            {concept.bestFor && (
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 20,
+                  background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.28)",
+                  color: "#6ee7b7", letterSpacing: "0.01em",
+                }}
+              >
+                Best for: {concept.bestFor}
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <div
+            style={{
+              fontSize: 22, fontWeight: 800, color: Z.textPrimary,
+              marginBottom: 14, lineHeight: 1.2, letterSpacing: "-0.025em",
+            }}
+          >
+            {concept.title}
+          </div>
+
+          {/* Narrative */}
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
+                color: "rgba(160,180,210,0.45)", textTransform: "uppercase", marginBottom: 8,
+              }}
+            >
+              Concept Narrative
+            </div>
+            <div
+              style={{
+                fontSize: 14, color: "#B8C8DE", lineHeight: 1.72,
+                fontStyle: "italic",
+              }}
+            >
+              {concept.narrativeStory ?? concept.summary}
+            </div>
+          </div>
+
+          {/* Execution angles */}
+          {concept.executionAngles && concept.executionAngles.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
+                  color: "rgba(160,180,210,0.45)", textTransform: "uppercase", marginBottom: 10,
+                }}
+              >
+                Creative Angles
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {concept.executionAngles.map((angle, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <span
+                      style={{
+                        width: 20, height: 20, borderRadius: 6,
+                        background: "rgba(86,140,255,0.12)",
+                        border: "1px solid rgba(86,140,255,0.28)",
+                        color: "#93c5fd", fontSize: 10, fontWeight: 700,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, marginTop: 1,
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span style={{ fontSize: 13.5, color: "#A8BECC", lineHeight: 1.58 }}>{angle}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Scores */}
+          <div
+            style={{
+              paddingTop: 16,
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.09em",
+                color: "rgba(160,180,210,0.45)", textTransform: "uppercase", marginBottom: 10,
+              }}
+            >
+              Signal Scores
+            </div>
+            <StrengthBar label="Creative Impact" value={concept.scores.cinematicImpact} />
+            <StrengthBar label="Brand Fit"       value={concept.scores.designControl}   />
+            <StrengthBar label="Clarity"         value={concept.scores.textAccuracy}    />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Full concept card ─────────────────────────────────────────────────────────
 function ConceptCardView({
   concept,
@@ -516,16 +800,9 @@ function ConceptCardView({
   onGenerate: () => void;
   onExpand: () => void;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHovered,     setIsHovered]     = useState(false);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
-
-  // Visual attribute tags (separate from provider)
-  const attributeTags: string[] = [
-    ...(concept.scores.cinematicImpact >= 8 ? ["High Impact"] : []),
-    ...(concept.scores.textAccuracy >= 8 ? ["Text-first"] : []),
-    ...(concept.scores.designControl >= 8 ? ["Design-led"] : []),
-    ...(concept.recommendedUseCase ? [concept.recommendedUseCase] : []),
-  ].slice(0, 2);
+  const [showStory,     setShowStory]     = useState(false);
 
   const cardGlow = isSelected
     ? `0 0 0 1.5px rgba(86,140,255,0.5), 0 0 32px rgba(59,130,246,0.2), 0 12px 40px rgba(0,0,0,0.5)`
@@ -533,210 +810,273 @@ function ConceptCardView({
     ? `0 0 0 1px rgba(120,160,255,0.2), 0 8px 28px rgba(86,140,255,0.1), 0 4px 20px rgba(0,0,0,0.3)`
     : "0 2px 12px rgba(0,0,0,0.25)";
 
-  return (
-    <div
-      onClick={onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
-        border: isSelected
-          ? "1.5px solid rgba(86,140,255,0.55)"
-          : `1px solid ${isHovered ? "rgba(120,160,255,0.28)" : Z.borderSubtle}`,
-        borderRadius: 18,
-        overflow: "hidden",
-        cursor: "pointer",
-        transition: "all 0.22s ease",
-        boxShadow: cardGlow,
-        transform: isSelected
-          ? "translateY(-2px)"
-          : isHovered
-          ? "translateY(-3px)"
-          : "translateY(0)",
-        width: "100%",
-      }}
-    >
-      {/* Preview area */}
-      <ConceptPreview index={index} isSelected={isSelected} />
+  const hasAngles = concept.executionAngles && concept.executionAngles.length > 0;
 
-      {/* Selected banner — full-width, sits between preview and body */}
-      {isSelected && (
-        <div
-          style={{
-            background: "linear-gradient(90deg, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 100%)",
-            borderBottom: "1px solid rgba(86,140,255,0.25)",
-            padding: "8px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <span
-            style={{
-              width: 16,
-              height: 16,
-              borderRadius: "50%",
-              background: "rgba(59,130,246,0.3)",
-              border: "1px solid rgba(86,140,255,0.6)",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 9,
-              color: "#93c5fd",
-              fontWeight: 800,
-              flexShrink: 0,
-            }}
-          >
-            ✓
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#93c5fd", letterSpacing: "0.03em" }}>
-            Direction Selected
-          </span>
-          <span style={{ fontSize: 11, color: "rgba(147,197,253,0.55)", marginLeft: 2 }}>
-            — use the dock below to render
-          </span>
-        </div>
+  return (
+    <>
+      {showStory && (
+        <StoryPreviewModal
+          concept={concept}
+          index={index}
+          onClose={() => setShowStory(false)}
+        />
       )}
 
-      {/* Card body */}
-      <div style={{ padding: "14px 16px 18px" }}>
+      <div
+        onClick={onSelect}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          background: "linear-gradient(180deg, #0F1629 0%, #0B1022 100%)",
+          border: isSelected
+            ? "1.5px solid rgba(86,140,255,0.55)"
+            : `1px solid ${isHovered ? "rgba(120,160,255,0.28)" : Z.borderSubtle}`,
+          borderRadius: 18,
+          overflow: "hidden",
+          cursor: "pointer",
+          transition: "all 0.22s ease",
+          boxShadow: cardGlow,
+          transform: isSelected
+            ? "translateY(-2px)"
+            : isHovered
+            ? "translateY(-3px)"
+            : "translateY(0)",
+          width: "100%",
+        }}
+      >
+        {/* Hero — animated with light shift */}
+        <ConceptPreview index={index} isSelected={isSelected} isHovered={isHovered} />
 
-        {/* Provider row — prominent, top of body */}
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
-          <span
+        {/* Selected banner */}
+        {isSelected && (
+          <div
             style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "3px 9px",
-              borderRadius: 20,
-              background: "rgba(139,92,246,0.15)",
-              border: "1px solid rgba(139,92,246,0.32)",
-              color: "#c4b5fd",
-              letterSpacing: "0.02em",
-              whiteSpace: "nowrap",
+              background: "linear-gradient(90deg, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 100%)",
+              borderBottom: "1px solid rgba(86,140,255,0.25)",
+              padding: "8px 16px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            {concept.recommendedProvider}
-          </span>
-          {attributeTags.map((tag) => (
             <span
-              key={tag}
               style={{
-                fontSize: 11,
-                fontWeight: 500,
-                padding: "3px 9px",
-                borderRadius: 20,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.09)",
-                color: Z.textMuted,
-                whiteSpace: "nowrap",
+                width: 16, height: 16, borderRadius: "50%",
+                background: "rgba(59,130,246,0.3)",
+                border: "1px solid rgba(86,140,255,0.6)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                fontSize: 9, color: "#93c5fd", fontWeight: 800, flexShrink: 0,
               }}
             >
-              {tag}
+              ✓
             </span>
-          ))}
-        </div>
-
-        {/* Title — the real creative direction name */}
-        <div
-          style={{
-            fontSize: 19,
-            fontWeight: 700,
-            color: Z.textPrimary,
-            marginBottom: 8,
-            lineHeight: 1.25,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {concept.title}
-        </div>
-
-        {/* Summary — 3 lines max, readable color */}
-        <div
-          style={{
-            fontSize: 13.5,
-            color: "#B8C4DA",
-            lineHeight: 1.65,
-            marginBottom: 14,
-            display: "-webkit-box",
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          } as React.CSSProperties}
-        >
-          {concept.summary}
-        </div>
-
-        {/* Strength bars — only when selected */}
-        {isSelected && (
-          <div style={{ marginBottom: 14 }}>
-            <StrengthBar label="Creative Impact"   value={concept.scores.cinematicImpact} />
-            <StrengthBar label="Brand Alignment"   value={concept.scores.designControl}   />
-            <StrengthBar label="Text Precision"    value={concept.scores.textAccuracy}    />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#93c5fd", letterSpacing: "0.03em" }}>
+              Direction Selected
+            </span>
+            <span style={{ fontSize: 11, color: "rgba(147,197,253,0.55)", marginLeft: 2 }}>
+              — use the dock below to render
+            </span>
           </div>
         )}
 
-        {/* Actions */}
-        <div
-          style={{ display: "flex", gap: 8 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={onSelect}
-            onMouseEnter={() => setHoveredAction("select")}
-            onMouseLeave={() => setHoveredAction(null)}
-            style={{
-              flex: 1.6,
-              height: 36,
-              fontSize: 13,
-              fontWeight: 700,
-              borderRadius: 9,
-              border: isSelected
-                ? "1px solid rgba(86,140,255,0.45)"
-                : hoveredAction === "select"
-                ? "1px solid rgba(59,130,246,0.5)"
-                : "1px solid rgba(59,130,246,0.28)",
-              background: isSelected
-                ? "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(79,70,229,0.18))"
-                : hoveredAction === "select"
-                ? "rgba(59,130,246,0.16)"
-                : "rgba(59,130,246,0.09)",
-              color: isSelected ? "#93c5fd" : "#6BA8FF",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              boxShadow: isSelected ? "0 0 14px rgba(86,140,255,0.2)" : "none",
-              letterSpacing: "0.01em",
-            }}
-          >
-            {isSelected ? "✓ Selected" : "Select Direction"}
-          </button>
+        {/* Card body */}
+        <div style={{ padding: "14px 16px 18px" }}>
 
-          <button
-            onClick={onExpand}
-            onMouseEnter={() => setHoveredAction("details")}
-            onMouseLeave={() => setHoveredAction(null)}
+          {/* Provider row + Best For tag */}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
+                background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.32)",
+                color: "#c4b5fd", letterSpacing: "0.02em", whiteSpace: "nowrap",
+              }}
+            >
+              {concept.recommendedProvider}
+            </span>
+            {concept.bestFor && (
+              <span
+                style={{
+                  fontSize: 10.5, fontWeight: 600, padding: "3px 8px", borderRadius: 20,
+                  background: "rgba(16,185,129,0.09)", border: "1px solid rgba(16,185,129,0.26)",
+                  color: "#6ee7b7", letterSpacing: "0.01em", whiteSpace: "nowrap",
+                }}
+              >
+                Best for: {concept.bestFor}
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <div
             style={{
-              flex: 1,
-              height: 36,
-              fontSize: 12,
-              fontWeight: 500,
-              borderRadius: 9,
-              border: "1px solid rgba(255,255,255,0.07)",
-              background: hoveredAction === "details"
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(255,255,255,0.02)",
-              color: hoveredAction === "details"
-                ? "rgba(255,255,255,0.5)"
-                : "rgba(255,255,255,0.25)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
+              fontSize: 18, fontWeight: 700, color: Z.textPrimary,
+              marginBottom: 9, lineHeight: 1.25, letterSpacing: "-0.02em",
             }}
           >
-            Details
-          </button>
+            {concept.title}
+          </div>
+
+          {/* Concept Narrative — replaces plain summary */}
+          <div style={{ marginBottom: 11 }}>
+            <div
+              style={{
+                fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em",
+                color: "rgba(160,185,215,0.38)", textTransform: "uppercase", marginBottom: 5,
+              }}
+            >
+              Concept Narrative
+            </div>
+            <div
+              style={{
+                fontSize: 13, color: "#9AAEC0", lineHeight: 1.62,
+                fontStyle: "italic",
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              } as React.CSSProperties}
+            >
+              {concept.narrativeStory ?? concept.summary}
+            </div>
+          </div>
+
+          {/* Execution angles — 2–3 bullet ideas */}
+          {hasAngles && (
+            <div style={{ marginBottom: 13 }}>
+              <div
+                style={{
+                  fontSize: 9.5, fontWeight: 700, letterSpacing: "0.1em",
+                  color: "rgba(160,185,215,0.38)", textTransform: "uppercase", marginBottom: 6,
+                }}
+              >
+                Creative Angles
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {concept.executionAngles!.slice(0, 3).map((angle, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                    <span
+                      style={{
+                        width: 4, height: 4, borderRadius: "50%",
+                        background: "rgba(86,140,255,0.55)",
+                        flexShrink: 0, marginTop: 7,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 12, color: "#7A96B0", lineHeight: 1.52,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      } as React.CSSProperties}
+                    >
+                      {angle}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Score bars — always visible, cinematic labels */}
+          <div style={{ marginBottom: 14 }}>
+            <StrengthBar label="Creative Impact" value={concept.scores.cinematicImpact} />
+            <StrengthBar label="Brand Fit"       value={concept.scores.designControl}   />
+            <StrengthBar label="Clarity"         value={concept.scores.textAccuracy}    />
+          </div>
+
+          {/* Actions */}
+          <div
+            style={{ display: "flex", gap: 7 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Select Direction */}
+            <button
+              onClick={onSelect}
+              onMouseEnter={() => setHoveredAction("select")}
+              onMouseLeave={() => setHoveredAction(null)}
+              style={{
+                flex: 1.4,
+                height: 34,
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: 9,
+                border: isSelected
+                  ? "1px solid rgba(86,140,255,0.45)"
+                  : hoveredAction === "select"
+                  ? "1px solid rgba(59,130,246,0.5)"
+                  : "1px solid rgba(59,130,246,0.28)",
+                background: isSelected
+                  ? "linear-gradient(135deg, rgba(59,130,246,0.25), rgba(79,70,229,0.18))"
+                  : hoveredAction === "select"
+                  ? "rgba(59,130,246,0.16)"
+                  : "rgba(59,130,246,0.09)",
+                color: isSelected ? "#93c5fd" : "#6BA8FF",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                boxShadow: isSelected ? "0 0 14px rgba(86,140,255,0.2)" : "none",
+                letterSpacing: "0.01em",
+              }}
+            >
+              {isSelected ? "✓ Selected" : "Select Direction"}
+            </button>
+
+            {/* Preview Story */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowStory(true); }}
+              onMouseEnter={() => setHoveredAction("story")}
+              onMouseLeave={() => setHoveredAction(null)}
+              style={{
+                flex: 1.1,
+                height: 34,
+                fontSize: 11.5,
+                fontWeight: 600,
+                borderRadius: 9,
+                border: hoveredAction === "story"
+                  ? "1px solid rgba(139,92,246,0.45)"
+                  : "1px solid rgba(139,92,246,0.22)",
+                background: hoveredAction === "story"
+                  ? "rgba(139,92,246,0.14)"
+                  : "rgba(139,92,246,0.07)",
+                color: hoveredAction === "story"
+                  ? "#c4b5fd"
+                  : "rgba(185,160,240,0.55)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Preview Story
+            </button>
+
+            {/* Details */}
+            <button
+              onClick={onExpand}
+              onMouseEnter={() => setHoveredAction("details")}
+              onMouseLeave={() => setHoveredAction(null)}
+              style={{
+                flex: 0.75,
+                height: 34,
+                fontSize: 11,
+                fontWeight: 500,
+                borderRadius: 9,
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: hoveredAction === "details"
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(255,255,255,0.02)",
+                color: hoveredAction === "details"
+                  ? "rgba(255,255,255,0.5)"
+                  : "rgba(255,255,255,0.22)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              Details
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -937,6 +1277,13 @@ export default function ConceptBoard({
           0%, 100% { transform: translate(0, 0) scale(1); }
           33%       { transform: translate(-12px, 8px) scale(0.92); }
           66%       { transform: translate(10px, -15px) scale(1.08); }
+        }
+        @keyframes lightShift {
+          0%    { transform: translateX(-100%); opacity: 0;   }
+          12%   { opacity: 1; }
+          50%   { transform: translateX(110%);  opacity: 0.9; }
+          65%   { opacity: 0; }
+          100%  { transform: translateX(110%);  opacity: 0;   }
         }
         .concept-grid {
           display: grid;
