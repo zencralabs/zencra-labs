@@ -507,17 +507,15 @@ export default function CreativeDirectorShell() {
       return;
     }
 
-    const authH = await getAuthHeaders();
-    console.log("[CD] getAuthHeaders result:", "Authorization" in authH ? "✓ token present" : "✗ no token");
-
-    if (!("Authorization" in authH)) {
-      setIsGeneratingConcepts(false);
-      setConceptBoardState(concepts.length > 0 ? "results" : "empty");
-      addToast("Session expired — please sign in and try again.", "error");
-      return;
-    }
-
-    const jsonHeaders: HeadersInit = { "Content-Type": "application/json", ...authH };
+    // ── Set up abort controller BEFORE auth so the 2-min timeout ALWAYS fires.
+    // Critical: getAuthHeaders() can internally call supabase.auth.refreshSession()
+    // which may hang on a slow network — without an outer guard the button stays
+    // locked forever. By creating the controller first, flowTimeout is guaranteed
+    // to fire regardless of whether auth completes.
+    const flowController = new AbortController();
+    const flowTimeout = setTimeout(() => {
+      flowController.abort();
+    }, 120_000);
 
     // 8-second toast — surface a "still working" message so the UI never
     // looks frozen during the AI inference phase.
@@ -525,12 +523,42 @@ export default function CreativeDirectorShell() {
       addToast("Still working… AI is thinking through your concepts.", "info");
     }, 8000);
 
-    // 2-minute hard abort — if the entire flow hasn't resolved by then,
-    // kill the request and show a clear timeout error so the button unlocks.
-    const flowController = new AbortController();
-    const flowTimeout = setTimeout(() => {
-      flowController.abort();
-    }, 120_000);
+    // Resolve auth with a 15-second cap so a hung Supabase refreshSession()
+    // never freezes the button permanently.
+    let authH: HeadersInit;
+    try {
+      authH = await Promise.race([
+        getAuthHeaders(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("auth-timeout")), 15_000)
+        ),
+      ]);
+    } catch (authErr) {
+      clearTimeout(slowTimer);
+      clearTimeout(flowTimeout);
+      setIsGeneratingConcepts(false);
+      setConceptBoardState(concepts.length > 0 ? "results" : "empty");
+      const isAuthTimeout = authErr instanceof Error && authErr.message === "auth-timeout";
+      addToast(
+        isAuthTimeout
+          ? "Session check timed out — please refresh the page and try again."
+          : "Session expired — please sign in and try again.",
+        "error"
+      );
+      return;
+    }
+    console.log("[CD] getAuthHeaders result:", "Authorization" in authH ? "✓ token present" : "✗ no token");
+
+    if (!("Authorization" in authH)) {
+      clearTimeout(slowTimer);
+      clearTimeout(flowTimeout);
+      setIsGeneratingConcepts(false);
+      setConceptBoardState(concepts.length > 0 ? "results" : "empty");
+      addToast("Session expired — please sign in and try again.", "error");
+      return;
+    }
+
+    const jsonHeaders: HeadersInit = { "Content-Type": "application/json", ...authH };
 
     try {
       let currentProjectId = projectId;
