@@ -454,11 +454,18 @@ export default function CreativeDirectorShell() {
 
     const jsonHeaders: HeadersInit = { "Content-Type": "application/json", ...authH };
 
-    // 8-second timeout fallback — if the API hasn't responded, surface a
-    // "still working" info toast so the UI never looks completely frozen.
+    // 8-second toast — surface a "still working" message so the UI never
+    // looks frozen during the AI inference phase.
     const slowTimer = setTimeout(() => {
-      addToast("Still working… this may take a few seconds longer.", "info");
+      addToast("Still working… AI is thinking through your concepts.", "info");
     }, 8000);
+
+    // 2-minute hard abort — if the entire flow hasn't resolved by then,
+    // kill the request and show a clear timeout error so the button unlocks.
+    const flowController = new AbortController();
+    const flowTimeout = setTimeout(() => {
+      flowController.abort();
+    }, 120_000);
 
     try {
       let currentProjectId = projectId;
@@ -471,6 +478,7 @@ export default function CreativeDirectorShell() {
         const projRes = await fetch("/api/creative-director/projects", {
           method: "POST",
           headers: jsonHeaders,
+          signal: flowController.signal,
           body: JSON.stringify({
             title: projectName || brief.projectName || "Untitled Project",
             projectType: brief.projectType,
@@ -503,6 +511,7 @@ export default function CreativeDirectorShell() {
         {
           method: "POST",
           headers: jsonHeaders,
+          signal: flowController.signal,
           body: JSON.stringify(serializeBriefForApi(brief)),
         }
       );
@@ -523,12 +532,13 @@ export default function CreativeDirectorShell() {
 
       console.log("[CD] step 3: generate concepts", { currentProjectId });
 
-      // 3. Generate concepts
+      // 3. Generate concepts (two sequential OpenAI calls — can take 30–90s)
       const conceptsRes = await fetch(
         `/api/creative-director/projects/${currentProjectId}/concepts`,
         {
           method: "POST",
           headers: jsonHeaders,
+          signal: flowController.signal,
         }
       );
 
@@ -548,13 +558,18 @@ export default function CreativeDirectorShell() {
       setConceptBoardState("results");
       setAutosaveState("saved");
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong generating concepts.";
-      console.error("[CD] handleGenerateConcepts failed:", message);
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const message = isAbort
+        ? "Concept generation timed out — please try again."
+        : err instanceof Error
+          ? err.message
+          : "Something went wrong generating concepts.";
+      console.error("[CD] handleGenerateConcepts failed:", isAbort ? "timeout (2 min)" : message);
       addToast(message, "error");
       setConceptBoardState(concepts.length > 0 ? "results" : "empty");
     } finally {
       clearTimeout(slowTimer);
+      clearTimeout(flowTimeout);
       setIsGeneratingConcepts(false);
     }
   }, [
