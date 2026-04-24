@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Zap } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
+import { useAuth } from "@/components/auth/AuthContext";
+import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeRenderDock — Floating render command bar (Zencra-branded)
@@ -297,6 +299,8 @@ export default function CreativeRenderDock({
   onCancel,
 }: CreativeRenderDockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { session } = useAuth();
+
   const [isDockCollapsed,    setIsDockCollapsed]    = useState(false);
   const [showCancelConfirm,  setShowCancelConfirm]  = useState(false);
 
@@ -401,6 +405,31 @@ export default function CreativeRenderDock({
     : "render";
 
   const isRenderDisabled = ctaMode !== "render" || isGenerating;
+
+  // ── Prompt enhancer ─────────────────────────────────────────────────────────
+  const [rdEnhancing,       setRdEnhancing]       = useState(false);
+  const [rdEnhancerOpen,    setRdEnhancerOpen]    = useState(false);
+  const [rdEnhancedResult,  setRdEnhancedResult]  = useState<string | null>(null);
+
+  const handleEnhanceDockPrompt = useCallback(async () => {
+    const raw = promptText.trim();
+    if (!raw || rdEnhancing) return;
+    setRdEnhancerOpen(true);
+    setRdEnhancedResult(null);
+    setRdEnhancing(true);
+    try {
+      const res = await fetch("/api/studio/prompt/enhance", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body:    JSON.stringify({ prompt: raw, studioType: "image", modelHint: model }),
+      });
+      const json = await res.json() as { enhancedPrompt?: string; error?: string };
+      if (res.ok && json.enhancedPrompt) { setRdEnhancedResult(json.enhancedPrompt); }
+      else { setRdEnhancedResult(null); }
+    } catch { setRdEnhancedResult(null); }
+    finally  { setRdEnhancing(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptText, model, rdEnhancing, session]);
 
   const handleModelChange = useCallback((value: string) => {
     const m = CD_MODELS.find((x) => x.value === value);
@@ -1010,6 +1039,52 @@ export default function CreativeRenderDock({
             />
           </div>
 
+          {/* Enhance prompt */}
+          {promptText.trim() && (
+            <Tooltip content="AI-enhance this prompt">
+            <button
+              onClick={handleEnhanceDockPrompt}
+              disabled={rdEnhancing}
+              style={{
+                flexShrink: 0, height: 32, padding: "0 10px",
+                borderRadius: 9, fontSize: 11.5, fontWeight: 600,
+                border: "1px solid rgba(139,92,246,0.35)",
+                background: rdEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
+                color: rdEnhancing ? "rgba(167,139,250,0.45)" : "rgba(167,139,250,0.85)",
+                cursor: rdEnhancing ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "all 0.15s", letterSpacing: "0.01em", whiteSpace: "nowrap",
+              }}
+              onMouseEnter={e => {
+                if (!rdEnhancing) {
+                  (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.55)";
+                  (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                }
+              }}
+              onMouseLeave={e => {
+                if (!rdEnhancing) {
+                  (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.10)";
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
+                  (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.85)";
+                }
+              }}
+            >
+              {rdEnhancing ? (
+                <>
+                  <div style={{
+                    width: 9, height: 9, borderRadius: "50%",
+                    border: "1.5px solid rgba(167,139,250,0.2)",
+                    borderTopColor: "rgba(167,139,250,0.65)",
+                    animation: "rdSpin 0.7s linear infinite", flexShrink: 0,
+                  }} />
+                  Enhancing…
+                </>
+              ) : "✦ Enhance"}
+            </button>
+            </Tooltip>
+          )}
+
           {/* Clear prompt */}
           {promptText && (
             <Tooltip content="Clear prompt">
@@ -1028,6 +1103,24 @@ export default function CreativeRenderDock({
             </Tooltip>
           )}
         </div>
+
+        {/* Prompt enhancer panel — slides in below the prompt row */}
+        <PromptEnhancerPanel
+          open={rdEnhancerOpen}
+          originalPrompt={promptText}
+          enhancedPrompt={rdEnhancedResult}
+          isLoading={rdEnhancing}
+          onEnhance={handleEnhanceDockPrompt}
+          onApply={(enhanced) => {
+            setPromptText(enhanced);
+            setRdEnhancerOpen(false);
+            setRdEnhancedResult(null);
+          }}
+          onClose={() => {
+            setRdEnhancerOpen(false);
+            setRdEnhancedResult(null);
+          }}
+        />
 
         {/* ── ROW 2: Render controls ────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

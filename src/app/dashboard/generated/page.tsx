@@ -1137,7 +1137,7 @@ export default function GeneratedPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <ImageIcon size={16} style={{ color: "#2563EB" }} />
             <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Output Library
+              Your Library
             </span>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Generated</h1>

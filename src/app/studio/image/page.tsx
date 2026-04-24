@@ -2040,6 +2040,23 @@ function ImageStudioInner() {
           );
 
           return (
+            <>
+            {/* Working Canvas label */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 12,
+            }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.28)", textTransform: "uppercase",
+              }}>
+                Working Canvas
+              </span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", letterSpacing: "0.02em" }}>
+                {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
+              </span>
+            </div>
             <div style={{
               display: "grid",
               gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
@@ -2148,6 +2165,7 @@ function ImageStudioInner() {
                 </div>
               ))}
             </div>
+            </>
           );
         })()}
       </div>
@@ -2878,6 +2896,14 @@ function ImageStudioInner() {
             }}
             title="Project folders coming soon"
           >Move to Project</button>
+          <button
+            style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+              color: "rgba(255,255,255,0.4)", cursor: "not-allowed",
+            }}
+            title="Gallery publishing coming soon"
+          >Make Public</button>
           <button
             onClick={() => setSelectedImageIds(new Set())}
             style={{

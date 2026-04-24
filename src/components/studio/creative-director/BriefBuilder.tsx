@@ -371,6 +371,50 @@ export default function BriefBuilder({
   const [notesEnhancerOpen, setNotesEnhancerOpen]   = useState(false);
   const [notesEnhancedResult, setNotesEnhancedResult] = useState<string | null>(null);
 
+  // ── Campaign goal enhance ──────────────────────────────────────────────────
+  const [goalEnhancing, setGoalEnhancing]           = useState(false);
+  const [goalEnhancerOpen, setGoalEnhancerOpen]     = useState(false);
+  const [goalEnhancedResult, setGoalEnhancedResult] = useState<string | null>(null);
+
+  const handleEnhanceGoal = useCallback(async () => {
+    const raw = brief.goal.trim();
+    if (!raw || goalEnhancing) return;
+
+    setGoalEnhancerOpen(true);
+    setGoalEnhancedResult(null);
+    setGoalEnhancing(true);
+
+    try {
+      const res = await fetch("/api/studio/prompt/enhance", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({
+          prompt:     raw,
+          studioType: "image",
+          modelHint:  brief.preferredProvider ?? "",
+        }),
+      });
+
+      const json = await res.json() as { enhancedPrompt?: string; error?: string };
+
+      if (res.ok && json.enhancedPrompt) {
+        setGoalEnhancedResult(json.enhancedPrompt);
+      } else {
+        console.warn("[goal-enhance] failed:", json.error);
+        setGoalEnhancedResult(null);
+      }
+    } catch (err) {
+      console.warn("[goal-enhance] network error:", err);
+      setGoalEnhancedResult(null);
+    } finally {
+      setGoalEnhancing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brief.goal, brief.preferredProvider, goalEnhancing, session]);
+
   const handleEnhanceNotes = useCallback(async () => {
     const raw = brief.additionalNotes.trim();
     if (!raw || notesEnhancing) return;
@@ -616,7 +660,50 @@ export default function BriefBuilder({
             boxShadow: "0 0 0 1px rgba(37,99,235,0.08), 0 0 24px rgba(37,99,235,0.07)",
           }}
         >
-          <FieldLabel required>Campaign Goal</FieldLabel>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <FieldLabel required>Campaign Goal</FieldLabel>
+            {brief.goal.trim() && (
+              <button
+                onClick={handleEnhanceGoal}
+                disabled={goalEnhancing}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                  border: "1px solid rgba(139,92,246,0.35)",
+                  background: goalEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
+                  color: goalEnhancing ? "rgba(167,139,250,0.45)" : "rgba(167,139,250,0.85)",
+                  cursor: goalEnhancing ? "not-allowed" : "pointer",
+                  transition: "all 0.15s", letterSpacing: "0.01em",
+                }}
+                onMouseEnter={e => {
+                  if (!goalEnhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.55)";
+                    (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!goalEnhancing) {
+                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.10)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
+                    (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.85)";
+                  }
+                }}
+              >
+                {goalEnhancing ? (
+                  <>
+                    <div style={{
+                      width: 9, height: 9, borderRadius: "50%",
+                      border: "1.5px solid rgba(167,139,250,0.2)",
+                      borderTopColor: "rgba(167,139,250,0.65)",
+                      animation: "bbEnhSpin 0.7s linear infinite", flexShrink: 0,
+                    }} />
+                    Enhancing…
+                  </>
+                ) : "✦ Enhance"}
+              </button>
+            )}
+          </div>
           <textarea
             className="brief-input brief-goal-input"
             style={{
@@ -630,6 +717,22 @@ export default function BriefBuilder({
             onChange={(e) => onChange({ goal: e.target.value })}
           />
           <HelperText>e.g. get signups, drive clicks, promote a product</HelperText>
+          <PromptEnhancerPanel
+            open={goalEnhancerOpen}
+            originalPrompt={brief.goal}
+            enhancedPrompt={goalEnhancedResult}
+            isLoading={goalEnhancing}
+            onEnhance={handleEnhanceGoal}
+            onApply={(enhanced) => {
+              onChange({ goal: enhanced });
+              setGoalEnhancerOpen(false);
+              setGoalEnhancedResult(null);
+            }}
+            onClose={() => {
+              setGoalEnhancerOpen(false);
+              setGoalEnhancedResult(null);
+            }}
+          />
         </div>
       </div>
 
