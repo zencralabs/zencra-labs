@@ -14,6 +14,7 @@ import OutputWorkspace, {
 } from "./OutputWorkspace";
 import CreativeRenderDock, { type RenderDockSettings } from "./CreativeRenderDock";
 import OutputPreviewModal from "./OutputPreviewModal";
+import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeDirectorShell — AI Creative Director main layout + state
@@ -409,6 +410,13 @@ export default function CreativeDirectorShell() {
   const [previewBatchIds, setPreviewBatchIds] = useState<string[]>([]);
   /** ID the user clicked to re-open the preview from the right panel */
   const [previewFocusId, setPreviewFocusId] = useState<string | null>(null);
+
+  // ── Workflow transition modal ─────────────────────────────────────────────────
+  const [workflowModal, setWorkflowModal] = useState<{
+    open: boolean;
+    defaultFlow: WorkflowFlow;
+    asset: WorkflowTransitionAsset | null;
+  }>({ open: false, defaultFlow: "animate", asset: null });
 
   // ── Render cancel support ─────────────────────────────────────────────────────
   const renderControllerRef = useRef<AbortController | null>(null);
@@ -1099,26 +1107,29 @@ export default function CreativeDirectorShell() {
           addToast("Saved to your library.", "info"); // already clear
           break;
         }
+        case "video_animate":
         case "video_start_frame":
         case "video_end_frame": {
-          // ── Workflow: send CD output to Video Studio as start or end frame ──────
+          // ── Workflow: open transition modal to send CD output to Video Studio ──
           const gen = generations.find((g) => g.id === generationId);
           if (!gen?.url) {
             addToast("Output is not yet ready to animate.", "error");
             return;
           }
-          const frameKey = action === "video_start_frame" ? "startFrame" : "endFrame";
-          const p = new URLSearchParams({
-            from: "creative-director",
-            flow: action === "video_start_frame" ? "start-frame" : "end-frame",
+          const flow: WorkflowFlow =
+            action === "video_animate"     ? "animate"      :
+            action === "video_start_frame" ? "start-frame"  : "end-frame";
+          setWorkflowModal({
+            open: true,
+            defaultFlow: flow,
+            asset: {
+              url:       gen.url,
+              assetId:   gen.assetId   || undefined,
+              conceptId: gen.conceptId || undefined,
+              projectId: projectId     || undefined,
+              sessionId: sessionId     || undefined,
+            },
           });
-          p.set(frameKey, gen.url);
-          // Propagate full context — never omit any available ID
-          if (gen.assetId)  p.set("assetId",   gen.assetId);
-          if (gen.conceptId) p.set("conceptId", gen.conceptId);
-          if (projectId)    p.set("projectId",  projectId);
-          if (sessionId)    p.set("sessionId",  sessionId);
-          router.push(`/studio/video?${p.toString()}`);
           break;
         }
         default:
@@ -1644,6 +1655,15 @@ export default function CreativeDirectorShell() {
           />
         );
       })()}
+
+      {/* ── Workflow Transition Modal ─────────────────────────────────────────── */}
+      <WorkflowTransitionModal
+        open={workflowModal.open}
+        onClose={() => setWorkflowModal(s => ({ ...s, open: false }))}
+        origin="creative-director"
+        asset={workflowModal.asset}
+        defaultFlow={workflowModal.defaultFlow}
+      />
     </div>
   );
 }

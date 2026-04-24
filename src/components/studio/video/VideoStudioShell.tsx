@@ -912,29 +912,75 @@ export default function VideoStudioShell() {
           transition: "filter 0.35s ease",
           filter: cinemaModeActive ? "brightness(1.04)" : "brightness(1)",
         }}>
-          {/* Source badge — shown when arriving from any studio via Animate / frame action */}
-          {fromStudio && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "6px 12px 6px 10px",
-              marginBottom: 8,
-              borderRadius: 8,
-              background: fromParam === "creative-director" ? "rgba(14,165,160,0.10)" : "rgba(99,102,241,0.10)",
-              border: `1px solid ${fromParam === "creative-director" ? "rgba(14,165,160,0.25)" : "rgba(99,102,241,0.22)"}`,
-              width: "fit-content",
-            }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                stroke={fromParam === "creative-director" ? "rgba(94,234,212,0.9)" : "rgba(165,180,252,0.9)"}
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: fromParam === "creative-director" ? "rgba(94,234,212,0.85)" : "rgba(165,180,252,0.85)", letterSpacing: "0.01em" }}>
-                {fromStudioLabel}
-              </span>
-            </div>
-          )}
+          {/* ── Premium arrival banner — shown when arriving from any studio ─── */}
+          {fromStudio && (() => {
+            const isCD     = fromParam === "creative-director";
+            const accent   = isCD ? "#0EA5A0" : "#6366F1";
+            const accentLo = isCD ? "rgba(14,165,160,0.14)" : "rgba(99,102,241,0.12)";
+            const accentBd = isCD ? "rgba(14,165,160,0.28)" : "rgba(99,102,241,0.26)";
+            const accentTx = isCD ? "rgba(94,234,212,0.9)"  : "rgba(165,180,252,0.9)";
+            const originLabel = isCD ? "Creative Director" : "Image Studio";
+            const flowLabel   =
+              flowParam === "start-frame" ? "Start Frame loaded" :
+              flowParam === "end-frame"   ? "End Frame loaded"   :
+              "Image loaded — ready to animate";
+            return (
+              <div style={{
+                marginBottom: 10,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: accentLo,
+                border: `1px solid ${accentBd}`,
+                boxShadow: `0 0 24px ${accentLo}`,
+                animation: "vsArrivalFadeIn 0.4s ease",
+              }}>
+                {/* Breadcrumb row */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  marginBottom: 5,
+                }}>
+                  <span style={{ fontSize: 10.5, color: accentTx, fontWeight: 500, opacity: 0.75 }}>
+                    {originLabel}
+                  </span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                  </svg>
+                  <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
+                    Video Studio
+                  </span>
+                </div>
+                {/* Status row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: accent,
+                    boxShadow: `0 0 8px ${accent}`,
+                    flexShrink: 0,
+                  }} />
+                  <span style={{
+                    fontSize: 12, fontWeight: 500,
+                    color: accentTx,
+                    letterSpacing: "0.01em",
+                  }}>
+                    {flowLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+          <style>{`
+            @keyframes vsArrivalFadeIn {
+              from { opacity: 0; transform: translateY(-6px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes importedFrameGlow {
+              0%   { box-shadow: 0 0 0 2px rgba(99,102,241,0.6), 0 0 24px rgba(99,102,241,0.3); }
+              50%  { box-shadow: 0 0 0 2px rgba(99,102,241,0.9), 0 0 40px rgba(99,102,241,0.5); }
+              100% { box-shadow: 0 0 0 2px rgba(99,102,241,0.6), 0 0 24px rgba(99,102,241,0.3); }
+            }
+          `}</style>
           {model && !model.available ? (
             <ComingSoonScreen model={model} />
           ) : model && model.apiModelId === "" ? (

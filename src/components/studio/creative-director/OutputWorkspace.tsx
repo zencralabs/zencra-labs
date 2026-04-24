@@ -14,6 +14,8 @@ export type OutputAction =
   | "regenerate"
   | "variation_tray"
   | "adapt_format"
+  /** Workflow: animate — open Video Studio with this image as start frame (auto-animate) */
+  | "video_animate"
   /** Workflow: send output to Video Studio as start frame */
   | "video_start_frame"
   /** Workflow: send output to Video Studio as end frame */

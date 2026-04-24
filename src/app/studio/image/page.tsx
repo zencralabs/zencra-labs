@@ -18,6 +18,7 @@ import CreativeDirectorShell from "@/components/studio/creative-director/Creativ
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
+import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -545,6 +546,7 @@ function ImageCard({
   onDelete,
   onEnhance,
   onCancel,
+  onOpenWorkflow,
   hideHoverActions = false,
 }: {
   img: GeneratedImage;
@@ -554,9 +556,9 @@ function ImageCard({
   onDelete?: (id: string, assetId?: string) => void;
   onEnhance?: () => void;
   onCancel?: () => void;
+  onOpenWorkflow?: (flow: WorkflowFlow) => void;
   hideHoverActions?: boolean;
 }) {
-  const router = useRouter();
   const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} onCancel={onCancel} />;
@@ -664,16 +666,8 @@ function ImageCard({
                 key={param}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const p = new URLSearchParams({
-                    from: "image-studio",
-                    flow: param === "startFrame" ? "start-frame" : "end-frame",
-                  });
-                  p.set(param, img.url!);
-                  if (img.prompt)     p.set("prompt",    img.prompt);
-                  if (img.assetId)    p.set("assetId",   img.assetId);
-                  if (img.project_id) p.set("projectId", img.project_id);
                   setCardAnimateOpen(false);
-                  router.push(`/studio/video?${p.toString()}`);
+                  onOpenWorkflow?.(param === "startFrame" ? "start-frame" : "end-frame");
                 }}
                 style={{
                   width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
@@ -807,6 +801,27 @@ function ImageStudioInner() {
   const [panelLoading, setPanelLoading]     = useState(false);
   const [panelAnimateOpen, setPanelAnimateOpen] = useState(false);   // animate dropdown
   const [panelMetaExpanded, setPanelMetaExpanded] = useState(false); // metadata accordion
+
+  // ── Workflow transition modal ──────────────────────────────────────────────────
+  const [workflowModal, setWorkflowModal] = useState<{
+    open: boolean;
+    defaultFlow: WorkflowFlow;
+    asset: WorkflowTransitionAsset | null;
+  }>({ open: false, defaultFlow: "animate", asset: null });
+
+  const openVideoWorkflow = useCallback((img: GeneratedImage, flow: WorkflowFlow) => {
+    if (!img.url) return;
+    setWorkflowModal({
+      open: true,
+      defaultFlow: flow,
+      asset: {
+        url: img.url,
+        prompt:    img.prompt    || undefined,
+        assetId:   img.assetId   || undefined,
+        projectId: img.project_id || undefined,
+      },
+    });
+  }, []);
 
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
@@ -2092,6 +2107,7 @@ function ImageStudioInner() {
                     onDelete={handleDeleteCard}
                     onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                     onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
+                    onOpenWorkflow={(flow) => openVideoWorkflow(img, flow)}
                   />
 
                   {/* ── Sequence number — bottom-right, below the 3-dot button ── */}
@@ -3270,16 +3286,8 @@ function ImageStudioInner() {
                       <button
                         key={param}
                         onClick={() => {
-                          const p = new URLSearchParams({
-                            from: "image-studio",
-                            flow: param === "startFrame" ? "start-frame" : "end-frame",
-                          });
-                          p.set(param, selectedImage.url!);
-                          if (selectedImage.prompt)     p.set("prompt",    selectedImage.prompt);
-                          if (selectedImage.assetId)    p.set("assetId",   selectedImage.assetId);
-                          if (selectedImage.project_id) p.set("projectId", selectedImage.project_id);
                           setPanelAnimateOpen(false);
-                          router.push(`/studio/video?${p.toString()}`);
+                          openVideoWorkflow(selectedImage, param === "startFrame" ? "start-frame" : "end-frame");
                         }}
                         style={{
                           width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
@@ -3509,6 +3517,14 @@ function ImageStudioInner() {
         </div>
       </>
     )}
+      {/* ── Workflow Transition Modal ─────────────────────────────────────────── */}
+      <WorkflowTransitionModal
+        open={workflowModal.open}
+        onClose={() => setWorkflowModal(s => ({ ...s, open: false }))}
+        origin="image-studio"
+        asset={workflowModal.asset}
+        defaultFlow={workflowModal.defaultFlow}
+      />
     </>
   );
 }
