@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -17,7 +17,7 @@ import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
-import { HERO_IMAGES } from "@/config/heroImages";
+import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -865,6 +865,10 @@ function ImageStudioInner() {
 
   // ── Hero strip hover state (empty state only) ────────────────────────────────
   const [hoveredHeroIdx, setHoveredHeroIdx] = useState<number | null>(null);
+
+  // ── Style Preview System — derives hero images + label from selected model ────
+  const heroImages    = useMemo(() => getHeroImagesForModel(model), [model]);
+  const heroModelLabel = useMemo(() => getHeroModelLabel(model), [model]);
 
   // ── Cancel flow — tracks which placeholder IDs the user has cancelled ─────────
   // cancelledRef is a ref (not state) so the polling loop can read it synchronously.
@@ -1781,12 +1785,13 @@ function ImageStudioInner() {
           </div>
         )}
 
-        {/* ── STATE 2: Empty (logged in + history loaded, or logged out) ───── */}
+        {/* ── STATE 2: Style Preview System — visible only when images.length === 0 ── */}
         {(!user || historyLoaded) && images.length === 0 && !historyError && (() => {
           // ── Hero strip layout config ──────────────────────────────────────
           // Compute per-card rotation / Y offset / z-index from center outward.
           // Works for 3–5 images (clamp to what's configured in heroImages.ts).
-          const heroImgs  = HERO_IMAGES.slice(0, 5);
+          // heroImages is derived from the selected model via useMemo.
+          const heroImgs  = heroImages.slice(0, 5);
           const n         = heroImgs.length;
           const centerIdx = Math.floor(n / 2);
 
@@ -1809,13 +1814,38 @@ function ImageStudioInner() {
           const FLOAT_DUR = [7000, 7800, 7200, 8000, 7500]; // ms — stagger per card
 
           return (
-            <div style={{
+            // key=model forces React to remount the whole empty state when model changes,
+            // which re-triggers the fadeIn animation for a smooth cross-fade on model switch.
+            <div key={model} style={{
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "center",
               gap: 0,
               minHeight: "calc(100vh - 58px - 100px)",
               padding: "48px 24px 40px",
+              animation: "fadeIn 0.25s ease forwards",
             }}>
+
+              {/* ── Style Preview label ──────────────────────────────────── */}
+              <div style={{
+                marginBottom: 20,
+                animation: "fadeIn 0.4s ease forwards",
+                opacity: 0,
+              }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "4px 12px",
+                  borderRadius: 20,
+                  border: "1px solid rgba(37,99,235,0.35)",
+                  background: "rgba(37,99,235,0.08)",
+                  fontSize: 13, fontWeight: 500,
+                  color: "rgba(96,165,250,0.9)",
+                  letterSpacing: "0.01em",
+                  boxShadow: "0 0 12px rgba(37,99,235,0.12)",
+                }}>
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>●</span>
+                  Preview style: {heroModelLabel}
+                </span>
+              </div>
 
               {/* ── Hero image strip ─────────────────────────────────────── */}
               <div style={{
@@ -1825,7 +1855,7 @@ function ImageStudioInner() {
                 marginBottom: 32,
                 // Negative margin collapses overlap between cards
                 gap: 0,
-                animation: "fadeIn 0.4s ease forwards",
+                animation: "fadeIn 0.4s ease 0.05s forwards",
                 opacity: 0,
               }}>
                 {heroImgs.map((src, i) => {
