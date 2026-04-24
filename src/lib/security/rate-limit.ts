@@ -186,3 +186,45 @@ export async function checkAuthRateLimit(ip: string): Promise<Response | null> {
     "auth",
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPLOAD REFERENCE — 30 uploads per hour per user
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UPLOAD_REF_WINDOW_S = 3600; // 1 hour
+const UPLOAD_REF_MAX_REQ  = 30;
+
+/**
+ * Rate-limits POST /api/studio/upload-reference.
+ * 30 uploads per hour per user.
+ */
+export async function checkUploadReferenceRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `upload_ref:${userId}`,
+    UPLOAD_REF_WINDOW_S,
+    UPLOAD_REF_MAX_REQ,
+    `Upload limit reached. You can upload ${UPLOAD_REF_MAX_REQ} reference images per hour.`,
+    "upload_ref",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BRIEF IMPROVE — 10 requests per hour per user
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BRIEF_IMPROVE_WINDOW_S = 3600; // 1 hour
+const BRIEF_IMPROVE_MAX_REQ  = 10;
+
+/**
+ * Rate-limits POST /api/creative-director/projects/[id]/brief/improve.
+ * 10 requests per hour per user (calls OpenAI).
+ */
+export async function checkBriefImproveRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `brief_improve:${userId}`,
+    BRIEF_IMPROVE_WINDOW_S,
+    BRIEF_IMPROVE_MAX_REQ,
+    `Brief improvement limit reached. You can improve ${BRIEF_IMPROVE_MAX_REQ} briefs per hour.`,
+    "brief_improve",
+  );
+}

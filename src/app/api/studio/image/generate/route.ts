@@ -36,6 +36,8 @@ import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
                                      from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
+import { assertModelRouteIntegrity, ProviderMismatchError }
+                                     from "@/lib/providers/core/model-integrity";
 
 // Runtime key presence check — runs once per cold start, not per request
 if (!process.env.OPENAI_API_KEY) {
@@ -83,6 +85,16 @@ export async function POST(req: Request): Promise<Response> {
 
   const { value: modelKey, fieldError: mkErr } = requireField(body!, "modelKey");
   if (mkErr) return mkErr;
+
+  // ── Model integrity ──────────────────────────────────────────────────────────
+  // Validates: exists in registry, active, belongs to image studio, has providerFamily.
+  // Catches studio mismatch (e.g. video model sent to image route) before credits reserve.
+  try {
+    assertModelRouteIntegrity(modelKey!, "image");
+  } catch (err) {
+    if (err instanceof ProviderMismatchError) return invalidInput(err.detail);
+    return serverErr();
+  }
 
   const { value: prompt, fieldError: pErr } = requireField(body!, "prompt");
   if (pErr) return pErr;

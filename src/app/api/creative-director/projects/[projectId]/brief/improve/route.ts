@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getAuthUser } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkBriefImproveRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,10 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // ── Rate limit (calls OpenAI — 10/hour/user) ────────────────────────────────
+  const rateLimitError = await checkBriefImproveRateLimit(user.id);
+  if (rateLimitError) return rateLimitError;
 
   const { projectId } = await params;
 

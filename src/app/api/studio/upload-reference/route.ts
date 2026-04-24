@@ -20,8 +20,9 @@
  *   502 STORAGE_ERROR
  */
 
-import { requireAuthUser }  from "@/lib/supabase/server";
-import { supabaseAdmin }    from "@/lib/supabase/admin";
+import { requireAuthUser }              from "@/lib/supabase/server";
+import { supabaseAdmin }               from "@/lib/supabase/admin";
+import { checkUploadReferenceRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,10 @@ export async function POST(req: Request): Promise<Response> {
   const { user, authError } = await requireAuthUser(req);
   if (authError) return authError;
   const userId = user!.id;
+
+  // ── Rate limit ─────────────────────────────────────────────────────────────────
+  const rateLimitError = await checkUploadReferenceRateLimit(userId);
+  if (rateLimitError) return rateLimitError;
 
   // ── Parse multipart form ──────────────────────────────────────────────────────
   let formData: FormData;

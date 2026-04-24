@@ -40,6 +40,8 @@ import { accepted, serverErr, invalidInput, parseBody, requireField }
 import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
+import { assertModelRouteIntegrity, ProviderMismatchError }
+                                     from "@/lib/providers/core/model-integrity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,6 +78,14 @@ export async function POST(req: Request): Promise<Response> {
 
   const { value: modelKey, fieldError: mkErr } = requireField(body!, "modelKey");
   if (mkErr) return mkErr;
+
+  // ── Model integrity ──────────────────────────────────────────────────────────
+  try {
+    assertModelRouteIntegrity(modelKey!, "ugc");
+  } catch (err) {
+    if (err instanceof ProviderMismatchError) return invalidInput(err.detail);
+    return serverErr();
+  }
 
   // UGC requires either a prompt or a script — at least one must be present
   const prompt     = typeof body!.prompt     === "string" ? body!.prompt.trim()     : "";

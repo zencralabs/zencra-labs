@@ -31,12 +31,14 @@ import { requireAuthUser }           from "@/lib/supabase/server";
 import { guardStudio }               from "@/lib/api/feature-gate";
 import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
-import { accepted, serverErr, parseBody, requireField }
+import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
 import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
                                      from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
+import { assertModelRouteIntegrity, ProviderMismatchError }
+                                     from "@/lib/providers/core/model-integrity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,6 +79,14 @@ export async function POST(req: Request): Promise<Response> {
 
   const { value: modelKey, fieldError: mkErr } = requireField(body!, "modelKey");
   if (mkErr) return mkErr;
+
+  // ── Model integrity ──────────────────────────────────────────────────────────
+  try {
+    assertModelRouteIntegrity(modelKey!, "video");
+  } catch (err) {
+    if (err instanceof ProviderMismatchError) return invalidInput(err.detail);
+    return serverErr();
+  }
 
   const { value: prompt, fieldError: pErr } = requireField(body!, "prompt");
   if (pErr) return pErr;

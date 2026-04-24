@@ -58,6 +58,8 @@ import {
 } from "@/lib/api/route-utils";
 import type { ZProviderInput }       from "@/lib/providers/core/types";
 import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
+import { assertModelRouteIntegrity, ProviderMismatchError }
+                                     from "@/lib/providers/core/model-integrity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,6 +109,14 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!modelKey!.startsWith("fcs_")) {
     return invalidInput("FCS model keys must start with \"fcs_\".");
+  }
+
+  // ── Model integrity ──────────────────────────────────────────────────────────
+  try {
+    assertModelRouteIntegrity(modelKey!, "fcs");
+  } catch (err) {
+    if (err instanceof ProviderMismatchError) return invalidInput(err.detail);
+    return serverErr();
   }
 
   const { value: prompt, fieldError: pErr } = requireField(body!, "prompt");
