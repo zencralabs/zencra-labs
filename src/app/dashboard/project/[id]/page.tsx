@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft, ImageIcon, Clock, ChevronRight, Layers,
-  Zap, CheckCircle, Circle, Star,
+  Zap, CheckCircle, Circle, Star, Pencil, Check, X, Wand2, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -107,6 +107,61 @@ const STATUS_LABELS: Record<string, string> = {
   rendering:           "Rendering",
   completed:           "Completed",
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Editable project title
+// ─────────────────────────────────────────────────────────────────────────────
+
+function EditableTitle({ value, onSave }: { value: string; onSave: (next: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft,   setDraft]   = useState(value);
+  const [saving,  setSaving]  = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const commit = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === value) { setEditing(false); setDraft(value); return; }
+    setSaving(true);
+    try { await onSave(trimmed); } finally { setSaving(false); setEditing(false); }
+  };
+
+  const cancel = () => { setDraft(value); setEditing(false); };
+
+  if (editing) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") void commit(); if (e.key === "Escape") cancel(); }}
+          maxLength={80}
+          style={{
+            fontSize: 22, fontWeight: 800, color: "var(--page-text)",
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(37,99,235,0.5)",
+            borderRadius: 8, padding: "4px 10px", outline: "none", width: "320px",
+          }}
+        />
+        <button onClick={() => void commit()} disabled={saving} style={{ background: "rgba(37,99,235,0.2)", border: "1px solid rgba(37,99,235,0.4)", borderRadius: 8, padding: "5px 9px", cursor: "pointer", color: "#60A5FA" }}>
+          <Check size={13} />
+        </button>
+        <button onClick={cancel} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "5px 9px", cursor: "pointer", color: "#64748B" }}>
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={() => setEditing(true)} title="Click to rename"
+      style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>{value}</h1>
+      <Pencil size={13} style={{ color: "#475569", opacity: 0.7, flexShrink: 0 }} />
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Asset thumbnail
@@ -223,31 +278,37 @@ function SessionRow({ session, conceptCount, assetCount }: {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EmptyOutputs({ projectId, onOpen }: { projectId: string; onOpen: () => void }) {
+  void projectId; // used via onOpen closure
   return (
     <div style={{
-      padding: "40px 24px", textAlign: "center",
-      border: "1px dashed rgba(255,255,255,0.1)",
-      borderRadius: 14,
+      padding: "48px 24px", textAlign: "center",
+      border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 14,
+      background: "rgba(255,255,255,0.01)",
     }}>
-      <ImageIcon size={28} style={{ color: "rgba(255,255,255,0.15)", marginBottom: 12 }} />
-      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--page-text)", marginBottom: 6 }}>No outputs yet</div>
-      <div style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
-        Generate concepts and render outputs in the Creative Director.
+      <div style={{
+        width: 64, height: 64, borderRadius: 18, margin: "0 auto 16px",
+        background: "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(14,165,160,0.1))",
+        border: "1px solid rgba(37,99,235,0.25)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Sparkles size={28} style={{ color: "#2563EB" }} />
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--page-text)", marginBottom: 8 }}>No outputs yet</div>
+      <div style={{ fontSize: 13, color: "#64748B", marginBottom: 20, maxWidth: 280, margin: "0 auto 20px", lineHeight: 1.6 }}>
+        Start creating inside this project to see your generated images and videos here.
       </div>
       <button
         onClick={onOpen}
         style={{
           display: "inline-flex", alignItems: "center", gap: 7,
-          padding: "9px 18px", borderRadius: 9,
-          background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)",
-          color: "#60A5FA", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          padding: "10px 22px", borderRadius: 10,
+          background: "linear-gradient(135deg, #2563EB, #1d4ed8)",
+          border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
         }}
       >
-        <Layers size={14} />
-        Open in Creative Director
+        <Wand2 size={14} />
+        Start creating inside this project
       </button>
-      {/* Suppress unused var warning */}
-      <span style={{ display: "none" }}>{projectId}</span>
     </div>
   );
 }
@@ -296,10 +357,11 @@ export default function ProjectDetailPage() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
 
-  const [data, setData] = useState<OverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [data, setData]             = useState<OverviewData | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string>("");
 
   // Guard against unresolved route params (literal "[id]" in the URL)
   const isInvalidId = !projectId || projectId === "[id]" || !/^[0-9a-f-]{36}$/.test(projectId);
@@ -320,6 +382,7 @@ export default function ProjectDetailPage() {
       if (!res.ok) throw new Error("Failed to load project");
       const json = (await res.json()) as { success: boolean; data: OverviewData };
       setData(json.data);
+      setProjectName(json.data.project.name);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -328,6 +391,21 @@ export default function ProjectDetailPage() {
   }, [session, projectId, isInvalidId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const renameProject = async (name: string) => {
+    const { data: { session: live } } = await supabase.auth.getSession();
+    const token = live?.access_token ?? session?.access_token;
+    if (!token) return;
+    const res = await fetch(`/api/projects/${projectId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      setProjectName(name);
+      setData(prev => prev ? { ...prev, project: { ...prev.project, name } } : prev);
+    }
+  };
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
   if (loading) {
@@ -388,14 +466,24 @@ export default function ProjectDetailPage() {
       <div style={{
         background: "var(--page-bg-2)", border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 14, padding: "20px 24px", marginBottom: 24,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--page-text)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {project.name}
-          </h1>
+          {/* Visibility badge + label */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Creative Project</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, borderRadius: 6, padding: "2px 8px",
+              color: project.visibility === "public" ? "#10B981" : "#64748B",
+              background: project.visibility === "public" ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${project.visibility === "public" ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.1)"}`,
+            }}>
+              {project.visibility === "public" ? "Public" : "Private"}
+            </span>
+          </div>
+          <EditableTitle value={projectName || project.name} onSave={renameProject} />
           {project.description && (
-            <p style={{ fontSize: 13, color: "#64748B", margin: "6px 0 0" }}>{project.description}</p>
+            <p style={{ fontSize: 13, color: "#64748B", margin: "6px 0 0", lineHeight: 1.6, maxWidth: 580 }}>{project.description}</p>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
             {[
@@ -408,25 +496,38 @@ export default function ProjectDetailPage() {
                 <strong style={{ color: "var(--page-text)", fontWeight: 700 }}>{value}</strong> {label}
               </div>
             ))}
-            <span style={{ fontSize: 11, color: "#334155", marginLeft: 8, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ fontSize: 11, color: "#334155", display: "flex", alignItems: "center", gap: 3 }}>
               <Clock size={10} />
               Updated {timeAgo(project.updated_at)}
             </span>
           </div>
         </div>
-        <button
-          onClick={() => router.push("/tools/creative-director")}
-          style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "10px 18px", borderRadius: 10,
-            background: "linear-gradient(135deg, #2563EB, #1d4ed8)",
-            border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
-            flexShrink: 0, marginLeft: 24,
-          }}
-        >
-          <Layers size={14} />
-          Open in CD
-        </button>
+        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          <button
+            onClick={() => router.push(`/tools/creative-director?project=${project.id}`)}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "10px 18px", borderRadius: 10,
+              background: "linear-gradient(135deg, #2563EB, #1d4ed8)",
+              border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <Wand2 size={13} />
+            Continue in CD
+          </button>
+          <button
+            onClick={() => router.push(`/studio/image?project=${project.id}`)}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "10px 16px", borderRadius: 10,
+              background: "rgba(14,165,160,0.12)", border: "1px solid rgba(14,165,160,0.25)",
+              color: "#2DD4BF", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <ImageIcon size={13} />
+            Image Studio
+          </button>
+        </div>
       </div>
 
       {/* ── Two-column layout ── */}
@@ -469,7 +570,7 @@ export default function ProjectDetailPage() {
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--page-text)" }}>Outputs</span>
               {assets.length > 0 && (
                 <button
-                  onClick={() => router.push("/dashboard/generated")}
+                  onClick={() => router.push(`/dashboard/generated?project_id=${project.id}`)}
                   style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "#60A5FA", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
                 >
                   View all <ChevronRight size={12} />
@@ -480,7 +581,7 @@ export default function ProjectDetailPage() {
               {assets.length === 0 ? (
                 <EmptyOutputs
                   projectId={project.id}
-                  onOpen={() => router.push("/tools/creative-director")}
+                  onOpen={() => router.push(`/tools/creative-director?project=${project.id}`)}
                 />
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
