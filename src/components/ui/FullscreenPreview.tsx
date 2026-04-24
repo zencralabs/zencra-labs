@@ -5,23 +5,6 @@
 //
 // Renders images OR videos in a cinematic overlay with an optional right-side
 // metadata panel. ESC or backdrop click closes it.
-//
-// Usage (image):
-//   <FullscreenPreview
-//     type="image"
-//     url={img.url}
-//     metadata={{ prompt: img.prompt, modelName: img.modelName, ... }}
-//     onClose={() => setViewing(null)}
-//   />
-//
-// Usage (video):
-//   <FullscreenPreview
-//     type="video"
-//     url={vid.url}
-//     thumbnailUrl={vid.thumbnailUrl}
-//     metadata={{ prompt: vid.prompt, modelName: vid.modelName, ... }}
-//     onClose={() => setViewing(null)}
-//   />
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useCallback } from "react";
@@ -29,23 +12,34 @@ import { useEffect, useRef, useCallback } from "react";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface FullscreenMeta {
-  prompt?:      string;
-  modelName?:   string;
-  aspectRatio?: string;
-  createdAt?:   number;   // ms timestamp
-  creditsUsed?: number;
-  visibility?:  string;
-  duration?:    number;   // seconds (video only)
+  prompt?:       string;
+  modelName?:    string;
+  /** Muted provider attribution — shown as "Zencra Render Engine" not raw brand */
+  provider?:     string;
+  aspectRatio?:  string;
+  resolution?:   string;    // e.g. "1024×1024" or "1080p"
+  quality?:      string;    // e.g. "High", "Standard", "Pro"
+  createdAt?:    number;    // ms timestamp
+  creditsUsed?:  number;
+  visibility?:   string;    // "public" | "private"
+  duration?:     number;    // seconds (video only)
+  // Project context
+  projectId?:    string;
+  projectName?:  string;
+  // Source studio label
+  sourceStudio?: string;    // "Image Studio" | "Creative Director" | "Upload"
 }
 
 export interface FullscreenPreviewProps {
-  type:          "image" | "video";
-  url:           string;
-  thumbnailUrl?: string;          // poster for video
-  metadata?:     FullscreenMeta;
-  onClose:       () => void;
+  type:             "image" | "video";
+  url:              string;
+  thumbnailUrl?:    string;          // poster for video
+  metadata?:        FullscreenMeta;
+  onClose:          () => void;
+  /** Opens Move to Project selector from parent; if undefined shows disabled pill */
+  onMoveToProject?: () => void;
   /** Override z-index (default 9800) */
-  zIndex?:       number;
+  zIndex?:          number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -60,7 +54,12 @@ function timeAgo(ts: number): string {
 
 // ── Meta row ──────────────────────────────────────────────────────────────────
 
-function MetaRow({ label, value, accent }: { label: string; value: React.ReactNode; accent?: boolean }) {
+function MetaRow({ label, value, accent, muted }: {
+  label:   string;
+  value:   React.ReactNode;
+  accent?: boolean;
+  muted?:  boolean;
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <div style={{
@@ -70,7 +69,8 @@ function MetaRow({ label, value, accent }: { label: string; value: React.ReactNo
         {label}
       </div>
       <div style={{
-        fontSize: 13, fontWeight: 500, color: accent ? "#22D3EE" : "#CBD5F5",
+        fontSize: 13, fontWeight: 500,
+        color: muted ? "#334155" : accent ? "#22D3EE" : "#CBD5F5",
         lineHeight: 1.45, wordBreak: "break-word",
       }}>
         {value}
@@ -79,13 +79,153 @@ function MetaRow({ label, value, accent }: { label: string; value: React.ReactNo
   );
 }
 
+// ── Settings block — aspect ratio + resolution + quality grouped ──────────────
+
+function SettingsGroup({ aspectRatio, resolution, quality }: {
+  aspectRatio?: string;
+  resolution?:  string;
+  quality?:     string;
+}) {
+  const rows: { label: string; val: string }[] = [];
+  if (aspectRatio) rows.push({ label: "Aspect ratio", val: aspectRatio });
+  if (resolution)  rows.push({ label: "Resolution",   val: resolution });
+  if (quality)     rows.push({ label: "Quality",       val: quality });
+  if (rows.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, color: "#4E6275",
+        letterSpacing: "0.09em", textTransform: "uppercase",
+      }}>
+        Settings
+      </div>
+      <div style={{
+        background: "rgba(255,255,255,0.03)", borderRadius: 8,
+        border: "1px solid rgba(255,255,255,0.05)",
+        padding: "8px 10px",
+        display: "flex", flexDirection: "column", gap: 5,
+      }}>
+        {rows.map(({ label, val }) => (
+          <div key={label} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            fontSize: 12,
+          }}>
+            <span style={{ color: "#4E6275", fontWeight: 500 }}>{label}</span>
+            <span style={{ color: "#94A3B8", fontWeight: 600 }}>{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Project row ───────────────────────────────────────────────────────────────
+
+function ProjectRow({ projectId, projectName, onMoveToProject }: {
+  projectId?:       string;
+  projectName?:     string;
+  onMoveToProject?: () => void;
+}) {
+  // Asset is in a project — show clickable breadcrumb
+  if (projectId && projectName) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 700, color: "#4E6275",
+          letterSpacing: "0.09em", textTransform: "uppercase",
+        }}>
+          Project
+        </div>
+        <a
+          href={`/dashboard/project/${projectId}`}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            fontSize: 13, fontWeight: 500, color: "#60A5FA",
+            textDecoration: "none", transition: "color 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#93C5FD")}
+          onMouseLeave={e => (e.currentTarget.style.color = "#60A5FA")}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          </svg>
+          {projectName}
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ opacity: 0.5 }}>
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </a>
+      </div>
+    );
+  }
+
+  // Asset not yet in a project
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, color: "#4E6275",
+        letterSpacing: "0.09em", textTransform: "uppercase",
+      }}>
+        Project
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>
+          Not linked to a project
+        </span>
+        {onMoveToProject ? (
+          <button
+            onClick={onMoveToProject}
+            style={{
+              padding: "3px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+              background: "rgba(37,99,235,0.12)",
+              border: "1px solid rgba(37,99,235,0.28)",
+              color: "#60A5FA", cursor: "pointer", transition: "all 0.15s",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.22)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.5)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.28)";
+            }}
+          >
+            Move to Project
+          </button>
+        ) : (
+          <span
+            title="Use gallery actions to move to a project"
+            style={{
+              padding: "3px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              color: "#334155", cursor: "default",
+            }}
+          >
+            Move to Project
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function FullscreenPreview({
-  type, url, thumbnailUrl, metadata, onClose, zIndex = 9800,
+  type, url, thumbnailUrl, metadata, onClose, onMoveToProject, zIndex = 9800,
 }: FullscreenPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hasMeta  = !!(metadata?.prompt || metadata?.modelName || metadata?.aspectRatio || metadata?.creditsUsed);
+
+  // Panel visible when ANY meaningful field has data
+  const hasMeta = !!(
+    metadata?.prompt     || metadata?.modelName   || metadata?.aspectRatio  ||
+    metadata?.creditsUsed != null || metadata?.resolution || metadata?.quality ||
+    metadata?.projectId !== undefined || metadata?.sourceStudio || metadata?.visibility
+  );
 
   // ESC closes
   useEffect(() => {
@@ -220,20 +360,34 @@ export function FullscreenPreview({
             Generation Details
           </div>
 
-          {/* Meta rows */}
+          {/* Meta rows — ordered by importance */}
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
             {metadata?.prompt && (
               <MetaRow label="Prompt" value={metadata.prompt} />
             )}
+
             {metadata?.modelName && (
               <MetaRow label="Model" value={metadata.modelName} accent />
             )}
-            {metadata?.aspectRatio && (
-              <MetaRow label="Aspect Ratio" value={metadata.aspectRatio} />
+
+            {/* Provider — always muted, internal-facing only */}
+            {metadata?.provider && (
+              <MetaRow label="Provider" value={metadata.provider} muted />
             )}
+
+            {/* Settings — aspect ratio + resolution + quality grouped */}
+            <SettingsGroup
+              aspectRatio={metadata?.aspectRatio}
+              resolution={metadata?.resolution}
+              quality={metadata?.quality}
+            />
+
+            {/* Duration (video only) */}
             {metadata?.duration != null && (
               <MetaRow label="Duration" value={`${metadata.duration}s`} />
             )}
+
             {metadata?.creditsUsed != null && (
               <MetaRow label="Credits Used" value={
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -244,9 +398,7 @@ export function FullscreenPreview({
                 </span>
               } accent />
             )}
-            {metadata?.createdAt != null && (
-              <MetaRow label="Created" value={timeAgo(metadata.createdAt)} />
-            )}
+
             {metadata?.visibility && (
               <MetaRow label="Visibility" value={
                 <span style={{
@@ -259,6 +411,21 @@ export function FullscreenPreview({
                   {metadata.visibility === "public" ? "🌐 Public" : "🔒 Private"}
                 </span>
               } />
+            )}
+
+            {/* Project breadcrumb — always rendered (shows "Not linked" fallback) */}
+            <ProjectRow
+              projectId={metadata?.projectId}
+              projectName={metadata?.projectName}
+              onMoveToProject={onMoveToProject}
+            />
+
+            {metadata?.sourceStudio && (
+              <MetaRow label="Source" value={metadata.sourceStudio} muted />
+            )}
+
+            {metadata?.createdAt != null && (
+              <MetaRow label="Created" value={timeAgo(metadata.createdAt)} />
             )}
           </div>
 

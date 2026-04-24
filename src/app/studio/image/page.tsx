@@ -972,6 +972,8 @@ function ImageStudioInner() {
 
   // ── Auto-scroll to top of gallery on generate ────────────────────────────────
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+  // Card-level scroll targeting — keyed by image id
+  const imageCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [generateGlow, setGenerateGlow] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
@@ -1218,6 +1220,12 @@ function ImageStudioInner() {
       m.provider.toLowerCase().includes(modelSearch.toLowerCase())
   );
 
+  // ── Scroll helpers ─────────────────────────────────────────────────────────
+  function isImageElementMostlyVisible(el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    return rect.top >= 80 && rect.bottom <= window.innerHeight - 120;
+  }
+
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = useCallback(async (overrides?: { prompt?: string; model?: string; aspectRatio?: string }) => {
     const activePrompt = overrides?.prompt     ?? prompt;
@@ -1259,10 +1267,19 @@ function ImageStudioInner() {
     }));
     setImages((prev) => [...placeholders, ...prev]);
 
-    // Scroll gallery to top so user immediately sees the generating cards
+    // Scroll to the first placeholder card (card-level precision)
     setTimeout(() => {
-      galleryScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    }, 80);
+      const firstId = placeholders[0]?.id;
+      if (firstId) {
+        const cardEl = imageCardRefs.current[firstId];
+        if (cardEl && !isImageElementMostlyVisible(cardEl)) {
+          cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (!cardEl) {
+          // Fallback: scroll gallery container to top
+          galleryScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }
+    }, 120);
     // Glow pulse: highlight the gallery for 700ms
     setGenerateGlow(true);
     setTimeout(() => setGenerateGlow(false), 700);
@@ -2166,6 +2183,7 @@ function ImageStudioInner() {
               {images.map((img, index) => (
                 <div
                   key={img.id}
+                  ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
                     minWidth: 0,

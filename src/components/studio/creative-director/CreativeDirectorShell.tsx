@@ -418,6 +418,9 @@ export default function CreativeDirectorShell() {
     asset: WorkflowTransitionAsset | null;
   }>({ open: false, defaultFlow: "animate", asset: null });
 
+  // ── Output column scroll ref ──────────────────────────────────────────────────
+  const outputColRef = useRef<HTMLDivElement>(null);
+
   // ── Render cancel support ─────────────────────────────────────────────────────
   const renderControllerRef = useRef<AbortController | null>(null);
 
@@ -963,6 +966,9 @@ export default function CreativeDirectorShell() {
 
         setGenerations((prev) => [...newGens, ...prev]);
 
+        // Scroll output column to top so new generations are visible
+        setTimeout(() => { outputColRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, 80);
+
         // Track this batch so the preview modal can show the first generation
         const batchIds = newGens.map((g) => g.id);
         setPreviewBatchIds(batchIds);
@@ -1184,6 +1190,8 @@ export default function CreativeDirectorShell() {
           conceptIndex: selectedConceptIdx >= 0 ? selectedConceptIdx : 0,
         }));
         setGenerations((prev) => [...newGens, ...prev]);
+        // Scroll output column to top so retry output is visible
+        setTimeout(() => { outputColRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, 80);
         newGens.forEach((g) => {
           if ((g.status === "queued" || g.status === "processing") && g.assetId) {
             pollGeneration(g.id, g.assetId);
@@ -1565,6 +1573,7 @@ export default function CreativeDirectorShell() {
 
         {/* Right: OutputWorkspace */}
         <div
+          ref={outputColRef}
           className="cd-col"
           style={{
             borderRadius: "0 0 12px 12px",

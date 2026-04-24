@@ -25,7 +25,7 @@ import type { LipSyncQuality } from "@/lib/lipsync/status";
 import { useAuth }             from "@/components/auth/AuthContext";
 import { AuthModal }           from "@/components/auth/AuthModal";
 import VideoLeftRail       from "./VideoLeftRail";
-import VideoCanvas         from "./VideoCanvas";
+import VideoCanvas, { MotionFlowStrip } from "./VideoCanvas";
 import VideoPromptPanel    from "./VideoPromptPanel";
 import VideoResultsLibrary from "./VideoResultsLibrary";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
@@ -625,6 +625,8 @@ export default function VideoStudioShell() {
   const samplePromptIndexRef  = useRef(0);
   // Auto-scroll to gallery on generate
   const videoResultsRef  = useRef<HTMLDivElement>(null);
+  // Card-level scroll targeting — keyed by video id
+  const videoCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [videoGlow,  setVideoGlow]  = useState(false);
   // Fullscreen video preview
   const [viewingVideo, setViewingVideo] = useState<GeneratedVideo | null>(null);
@@ -686,6 +688,11 @@ export default function VideoStudioShell() {
   }, [selectedModelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Generate — routes to Lip Sync or Kling
+  function isElementMostlyVisible(el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    return rect.top >= 80 && rect.bottom <= window.innerHeight - 120;
+  }
+
   const handleGenerate = useCallback(async () => {
     // Auth gate — non-members see sign-up modal, no API call is made
     if (!user) {
@@ -707,16 +714,6 @@ export default function VideoStudioShell() {
     }
 
     setGenerating(true);
-    // Scroll to results section + glow pulse
-    setTimeout(() => {
-      const el = videoResultsRef.current;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        if (rect.top > window.innerHeight * 0.6 || rect.top < 0) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }
-    }, 80);
     setVideoGlow(true);
     setTimeout(() => setVideoGlow(false), 700);
 
@@ -733,6 +730,18 @@ export default function VideoStudioShell() {
       isPublic: false,
     };
     setVideos(prev => [newVideo, ...prev]);
+
+    // Scroll to the new card after React paints it
+    setTimeout(() => {
+      const cardEl = videoCardRefs.current[newVideo.id];
+      if (cardEl && !isElementMostlyVisible(cardEl)) {
+        cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (!cardEl) {
+        // Fallback to gallery container if card ref not mounted yet
+        const el = videoResultsRef.current;
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 120);
 
     try {
       // motion_control routes to its own dedicated backend provider — do NOT send to kling-30
@@ -1019,6 +1028,14 @@ export default function VideoStudioShell() {
               100% { box-shadow: 0 0 0 2px rgba(99,102,241,0.6), 0 0 24px rgba(99,102,241,0.3); }
             }
           `}</style>
+          {/* ── Motion Flow strip — workflow context above canvas ─── */}
+          <MotionFlowStrip
+            frameMode={frameMode}
+            endFrameEnabled={model?.capabilities.endFrame}
+            hasStartSlot={!!startSlot.url}
+            hasEndSlot={!!endSlot.url}
+          />
+
           {model && !model.available ? (
             <ComingSoonScreen model={model} />
           ) : model && model.apiModelId === "" ? (
@@ -1114,6 +1131,7 @@ export default function VideoStudioShell() {
           onDelete={handleDelete}
           onAuthRequired={() => setAuthModalOpen(true)}
           onPreview={(v) => setViewingVideo(v)}
+          onCardRef={(id, el) => { videoCardRefs.current[id] = el; }}
         />
       </div>
 

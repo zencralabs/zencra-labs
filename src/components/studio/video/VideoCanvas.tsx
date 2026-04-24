@@ -14,7 +14,7 @@
 //   • All text: upgraded by 2–3px per design system
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef, useCallback, useEffect, useId } from "react";
+import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
 import type { FrameMode, ImageSlot, AudioSlot } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 
@@ -659,11 +659,36 @@ function AudioUploadZone({
   );
 }
 
-// ── Generating overlay — cinematic timeline shimmer ───────────────────────────
+// ── Generating overlay — cinematic timeline shimmer + staged messages ─────────
 
 const TIMELINE_BARS = [0.35, 0.65, 0.45, 0.85, 0.55, 0.75, 0.40, 0.90, 0.60, 0.50, 0.80, 0.45, 0.70, 0.38, 0.88];
 
+// Staged message thresholds (seconds elapsed)
+const STAGED_MESSAGES = [
+  { after: 0,  label: "Analyzing source frame…",  sub: "Reading composition and depth" },
+  { after: 4,  label: "Building motion path…",    sub: "Tracking motion vectors frame by frame" },
+  { after: 12, label: "Rendering final video…",   sub: "Cinematic render in progress · 1–3 min" },
+] as const;
+
 function GeneratingOverlay() {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const stage = useMemo(() => {
+    let current: typeof STAGED_MESSAGES[number] = STAGED_MESSAGES[0];
+    for (const s of STAGED_MESSAGES) {
+      if (elapsed >= s.after) current = s;
+    }
+    return current;
+  }, [elapsed]);
+
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 20,
@@ -691,13 +716,17 @@ function GeneratingOverlay() {
         ))}
       </div>
 
-      {/* Label + subtext */}
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: T.textPrimary, marginBottom: 5, letterSpacing: "-0.01em" }}>
-          Generating…
+      {/* Stage-aware label */}
+      <div style={{ textAlign: "center", minHeight: 44 }}>
+        <div key={stage.label} style={{
+          fontSize: 17, fontWeight: 700, color: T.textPrimary,
+          marginBottom: 5, letterSpacing: "-0.01em",
+          transition: "opacity 0.4s ease",
+        }}>
+          {stage.label}
         </div>
         <div style={{ fontSize: 13, color: "#4E6275" }}>
-          Cinematic rendering · 1–3 min
+          {stage.sub}
         </div>
       </div>
 
@@ -720,6 +749,102 @@ function GeneratingOverlay() {
         @keyframes cvBar     { from{transform:scaleY(0.55)} to{transform:scaleY(1)} }
         @keyframes cvShimmer { 0%{transform:translateX(-200%)} 100%{transform:translateX(400%)} }
       `}</style>
+    </div>
+  );
+}
+
+// ── Motion Flow strip — contextual cinematic workflow indicator ────────────────
+
+export function MotionFlowStrip({ frameMode, endFrameEnabled, hasStartSlot, hasEndSlot }: {
+  frameMode:      FrameMode;
+  endFrameEnabled?: boolean;
+  hasStartSlot?:  boolean;
+  hasEndSlot?:    boolean;
+}) {
+  type PillDef = { label: string; dim?: boolean };
+
+  let pills: PillDef[];
+
+  if (frameMode === "start_frame" && endFrameEnabled) {
+    pills = [
+      { label: "Start Frame", dim: !hasStartSlot },
+      { label: "Motion Path" },
+      { label: "End Frame", dim: !hasEndSlot },
+    ];
+  } else if (frameMode === "start_frame") {
+    pills = [
+      { label: "Source Frame", dim: !hasStartSlot },
+      { label: "Motion Path" },
+      { label: "Output" },
+    ];
+  } else if (frameMode === "motion_control") {
+    pills = [
+      { label: "Subject" },
+      { label: "Motion Reference" },
+      { label: "Output" },
+    ];
+  } else if (frameMode === "extend") {
+    pills = [
+      { label: "Source Clip" },
+      { label: "Extend" },
+      { label: "Output" },
+    ];
+  } else if (frameMode === "lip_sync") {
+    pills = [
+      { label: "Face" },
+      { label: "Audio" },
+      { label: "Output" },
+    ];
+  } else {
+    // text_to_video
+    pills = [
+      { label: "Prompt" },
+      { label: "Motion" },
+      { label: "Output" },
+    ];
+  }
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 0,
+      paddingBottom: 10,
+    }}>
+      {pills.map((p, i) => (
+        <div key={p.label} style={{ display: "flex", alignItems: "center" }}>
+          {/* Connector line */}
+          {i > 0 && (
+            <div style={{
+              width: 28, height: 1,
+              background: "linear-gradient(90deg, rgba(14,165,160,0.15), rgba(34,211,238,0.35), rgba(14,165,160,0.15))",
+              flexShrink: 0,
+            }}>
+              <svg width="28" height="8" viewBox="0 0 28 8"
+                style={{ display: "block", marginTop: -4 }}>
+                <path d="M0 4 L22 4 L18 2 M22 4 L18 6"
+                  stroke="rgba(34,211,238,0.3)" strokeWidth="1"
+                  fill="none" strokeLinecap="round"/>
+              </svg>
+            </div>
+          )}
+          {/* Pill */}
+          <div style={{
+            padding: "3px 10px", borderRadius: 20,
+            background: p.dim
+              ? "rgba(255,255,255,0.02)"
+              : "rgba(14,165,160,0.08)",
+            border: p.dim
+              ? "1px solid rgba(255,255,255,0.06)"
+              : "1px solid rgba(34,211,238,0.2)",
+            fontSize: 11, fontWeight: 600,
+            color: p.dim ? "#2D3A4A" : "#22D3EE",
+            letterSpacing: "0.02em",
+            transition: "all 0.3s ease",
+            whiteSpace: "nowrap",
+          }}>
+            {p.label}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

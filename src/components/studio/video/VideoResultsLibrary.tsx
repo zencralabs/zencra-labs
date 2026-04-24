@@ -49,12 +49,23 @@ function StatusBadge({ status }: { status: GeneratedVideo["status"] }) {
 
 // ── Video card ────────────────────────────────────────────────────────────────
 
-function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview }: {
+// ── Mode/source display labels ────────────────────────────────────────────────
+
+const MODE_DISPLAY: Partial<Record<string, string>> = {
+  text_to_video:  "Prompt",
+  start_frame:    "Source Frame",
+  extend:         "Extend",
+  lip_sync:       "Lip Sync",
+  motion_control: "Motion Control",
+};
+
+function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCardRef }: {
   video: GeneratedVideo;
   onReuse: (v: GeneratedVideo) => void;
   onDelete: (id: string) => void;
   onAuthRequired?: () => void;
   onPreview?: (v: GeneratedVideo) => void;
+  onCardRef?: (id: string, el: HTMLDivElement | null) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied]   = useState(false);
@@ -99,6 +110,7 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview }: {
 
   return (
     <div
+      ref={el => onCardRef?.(video.id, el)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={{
@@ -251,6 +263,32 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview }: {
           {video.prompt || <span style={{ color: "#4E6275", fontStyle: "italic" }}>No prompt</span>}
         </div>
 
+        {/* Mode / source chip row */}
+        {(video.frameMode || video.modelName) && (
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+            {video.frameMode && MODE_DISPLAY[video.frameMode] && (
+              <span style={{
+                padding: "1px 6px", borderRadius: 5,
+                background: "rgba(14,165,160,0.08)", border: "1px solid rgba(34,211,238,0.15)",
+                fontSize: 9, fontWeight: 700, color: "#22D3EE",
+                letterSpacing: "0.04em", textTransform: "uppercase",
+              }}>
+                {MODE_DISPLAY[video.frameMode]}
+              </span>
+            )}
+            {video.provider && (
+              <span style={{
+                padding: "1px 6px", borderRadius: 5,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+                fontSize: 9, fontWeight: 600, color: "#3A4F62",
+                letterSpacing: "0.03em",
+              }}>
+                {video.provider === "kling" ? "Kling" : video.provider === "seedance" ? "Seedance" : video.provider}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Timestamp */}
         <div style={{ fontSize: 10, color: "#4E6275", marginBottom: 10 }}>{timeAgo(video.createdAt)}</div>
 
@@ -305,6 +343,8 @@ interface Props {
   onAuthRequired?: () => void;
   /** Called when user clicks a done video card to open fullscreen preview */
   onPreview?: (v: GeneratedVideo) => void;
+  /** Ref callback so parent can scroll to a specific card by id */
+  onCardRef?: (id: string, el: HTMLDivElement | null) => void;
 }
 
 // ── Filter / sort types ───────────────────────────────────────────────────────
@@ -315,7 +355,7 @@ type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired, onPreview }: Props) {
+export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired, onPreview, onCardRef }: Props) {
   const [filter, setFilter]     = useState<FilterTab>("all");
   const [sort, setSort]         = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
@@ -531,6 +571,7 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
               onDelete={onDelete ?? (() => {})}
               onAuthRequired={onAuthRequired}
               onPreview={onPreview}
+              onCardRef={onCardRef}
             />
           ))}
         </div>
