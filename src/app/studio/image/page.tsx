@@ -1795,14 +1795,17 @@ function ImageStudioInner() {
             const offset  = i - centerIdx;          // -2..+2 for n=5
             const rotate  = offset * 3;             // -6..+6 deg
             const baseY   = Math.abs(offset) * 5;  // 0..10 px
-            const zIdx    = n - Math.abs(offset);   // center highest
+            // Layer hierarchy: center=30, adjacent=20, outer=10
+            const absOff  = Math.abs(offset);
+            const zIdx    = absOff === 0 ? 30 : absOff === 1 ? 20 : 10;
             const scale   = offset === 0 ? 1.05 : 1;
             return { rotate, baseY, zIdx, scale };
           });
 
           const CARD_W    = 152;   // px — portrait card width
           const CARD_H    = 204;   // px — ~4:3 portrait height
-          const OVERLAP   = 32;    // px — how much cards overlap
+          // Responsive overlap: tighter on smaller screens
+          const OVERLAP   = typeof window !== "undefined" && window.innerWidth < 1200 ? 24 : 32;
           const FLOAT_DUR = [7000, 7800, 7200, 8000, 7500]; // ms — stagger per card
 
           return (
@@ -1822,23 +1825,19 @@ function ImageStudioInner() {
                 marginBottom: 32,
                 // Negative margin collapses overlap between cards
                 gap: 0,
+                animation: "fadeIn 0.4s ease forwards",
+                opacity: 0,
               }}>
                 {heroImgs.map((src, i) => {
                   const cfg     = cardConfig[i];
                   const isHover = hoveredHeroIdx === i;
 
-                  // Hover: lift upward, intensify rotation slightly, scale up
-                  const hoverRotateDelta = cfg.rotate >= 0 ? 1.5 : -1.5;
-                  const baseTransform    = `rotate(${cfg.rotate}deg) translateY(${cfg.baseY}px) scale(${cfg.scale})`;
-                  const hoverTransform   = `rotate(${cfg.rotate + hoverRotateDelta}deg) translateY(${cfg.baseY - 8}px) scale(${(cfg.scale * 1.03).toFixed(3)})`;
+                  // Hover: lift only — rotation stays constant, no spring overshoot
+                  const baseTransform  = `rotate(${cfg.rotate}deg) translateY(${cfg.baseY}px) scale(${cfg.scale})`;
+                  const hoverTransform = `rotate(${cfg.rotate}deg) translateY(-6px) scale(1.03)`;
 
-                  const baseShadow  = "0 10px 40px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.15)";
-                  const hoverShadow = "0 20px 60px rgba(0,0,0,0.65), 0 0 40px rgba(59,130,246,0.38)";
-
-                  // Center card has no rotation delta on hover — just lifts
-                  const finalHoverTransform = cfg.rotate === 0
-                    ? `translateY(-8px) scale(${(cfg.scale * 1.03).toFixed(3)})`
-                    : hoverTransform;
+                  const baseShadow  = "0 10px 40px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.12)";
+                  const hoverShadow = "0 20px 60px rgba(0,0,0,0.65), 0 0 40px rgba(59,130,246,0.28)";
 
                   return (
                     <div
@@ -1853,9 +1852,9 @@ function ImageStudioInner() {
                         // Overlap: pull cards left except the first
                         marginLeft: i === 0 ? 0 : -OVERLAP,
                         // Base transform + hover override
-                        transform: isHover ? finalHoverTransform : baseTransform,
-                        transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s ease",
-                        zIndex: isHover ? n + 5 : cfg.zIdx,
+                        transform: isHover ? hoverTransform : baseTransform,
+                        transition: "transform 0.35s ease-out, box-shadow 0.35s ease",
+                        zIndex: isHover ? 40 : cfg.zIdx,
                         borderRadius: 20,
                         overflow: "hidden",
                         border: "1px solid rgba(255,255,255,0.08)",
@@ -1904,7 +1903,7 @@ function ImageStudioInner() {
               </div>
 
               {/* ── Headline + subtitle ─────────────────────────────────── */}
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ textAlign: "center", marginBottom: 20, animation: "fadeIn 0.4s ease 0.12s forwards", opacity: 0 }}>
                 <p style={{
                   fontSize: 22, fontWeight: 700,
                   color: "rgba(255,255,255,0.88)",
@@ -1921,7 +1920,7 @@ function ImageStudioInner() {
               </div>
 
               {/* ── Suggestion chips ────────────────────────────────────── */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 560 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 560, animation: "fadeIn 0.4s ease 0.22s forwards", opacity: 0 }}>
                 {[
                   "Cinematic portrait in golden hour light",
                   "Futuristic city at night, neon reflections",

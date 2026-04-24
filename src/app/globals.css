@@ -329,8 +329,8 @@
 /* ── Hero image strip — idle float animation (empty state) ─────────────────── */
 /* Applied to the INNER wrapper so the outer card's base tilt is unaffected.    */
 @keyframes heroFloat {
-  0%, 100% { transform: translateY(0px);  }
-  50%       { transform: translateY(-3px); }
+  0%, 100% { transform: translateY(0);    }
+  50%       { transform: translateY(-2px); }
 }
 
 /* ── Image Studio gallery card overlays ────────────────────────────────────── */
