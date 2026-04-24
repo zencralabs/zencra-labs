@@ -16,6 +16,7 @@ import NextStepPanel from "@/components/studio/flow/NextStepPanel";
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
 import Tooltip from "@/components/ui/Tooltip";
+import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -326,7 +327,7 @@ function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
     <div style={{ position: "relative", width: "100%", paddingBottom, borderRadius: 10, overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(110deg, #1a1a2e 25%, #16213e 50%, #1a1a2e 75%)",
+        background: "linear-gradient(110deg, #060D1A 25%, #0B1530 50%, #060D1A 75%)",
         backgroundSize: "200% 100%",
         animation: "shimmer 1.5s infinite",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
@@ -712,14 +713,37 @@ function ImageStudioInner() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
-  const [referenceImageUrl,      setReferenceImageUrl]      = useState<string>("");
-  const [referencePreviewUrl,    setReferencePreviewUrl]    = useState<string>("");  // blob URL for <img>, not sent to backend
-  const [referenceUploading,     setReferenceUploading]     = useState(false);
-  // Character Consistency
+
+  // ── Multi-image reference state ───────────────────────────────────────────────
+  const [referenceImages, setReferenceImages] = useState<Array<{
+    id: string;
+    previewUrl: string;   // blob URL for display
+    cdnUrl: string;       // real CDN URL — empty while uploading
+    uploading: boolean;
+  }>>([]);
+
+  // Derived values from referenceImages array
+  const referenceUploading = referenceImages.some(r => r.uploading);
+  const referenceImageUrls = referenceImages.filter(r => r.cdnUrl).map(r => r.cdnUrl);
+  // Backward compat for character lock logic (uses first image):
+  const referenceImageUrl = referenceImageUrls[0] ?? "";
+  const referencePreviewUrl = referenceImages[0]?.previewUrl ?? "";
+
+  // ── Dock collapse state ───────────────────────────────────────────────────────
+  const [isDockCollapsed, setIsDockCollapsed] = useState(false);
+
+  // ── Gallery multi-select ──────────────────────────────────────────────────────
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+
+  // ── Character Consistency
   const [refFaceDetected,     setRefFaceDetected]     = useState(false);
   const [characterLock,       setCharacterLock]       = useState(false);
   const [consistencyStrength, setConsistencyStrength] = useState<"low" | "medium" | "high">("medium");
   const currentModel = MODELS.find((m) => m.id === model) ?? MODELS[0];
+
+  // ── Upload cap for current model ──────────────────────────────────────────────
+  const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
+  const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
   // Grid column sizing based on zoom level
   const ZOOM_SIZES = [160, 220, 300, 400, 520];
@@ -740,14 +764,15 @@ function ImageStudioInner() {
   }, []);
 
   // ── Character Consistency: detect face when CDN URL becomes available ────────
+  const firstRefCdnUrl = referenceImages[0]?.cdnUrl ?? "";
   useEffect(() => {
-    if (!referenceImageUrl) { setRefFaceDetected(false); setCharacterLock(false); return; }
+    if (!firstRefCdnUrl) { setRefFaceDetected(false); setCharacterLock(false); return; }
     (async () => {
       try {
         if (typeof window === "undefined" || !("FaceDetector" in window)) return;
         const img = new window.Image();
         img.crossOrigin = "anonymous";
-        img.src = referenceImageUrl;
+        img.src = firstRefCdnUrl;
         await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const det = new (window as any).FaceDetector({ fastMode: true });
@@ -755,7 +780,7 @@ function ImageStudioInner() {
         setRefFaceDetected(faces.length > 0);
       } catch { /* FaceDetector unavailable — no-op */ }
     })();
-  }, [referenceImageUrl]);
+  }, [firstRefCdnUrl]);
 
   // ── Load user's image history on mount (once auth is ready) ─────────────────
   useEffect(() => {
@@ -1011,9 +1036,9 @@ function ImageStudioInner() {
           if (modelKey === "nano-banana-2") {
             nbParams.outputFormat = outputFormat;
           }
-          if (referenceImageUrl) {
-            // Single reference — passed as referenceUrls so provider builds imageUrls[] array
-            nbParams.referenceUrls = [referenceImageUrl];
+          if (referenceImageUrls.length > 0) {
+            // Multi-reference — pass all CDN URLs; provider builds imageUrls[] array
+            nbParams.referenceUrls = referenceImageUrls;
           }
           body.providerParams = nbParams;
         }
@@ -1181,7 +1206,8 @@ function ImageStudioInner() {
 
     // Refresh credit balance so the pill reflects the new total
     await refreshUser();
-  }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, outputFormat, batchSize, model, editImageUrl, referenceImageUrl, recordFlowStep]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt, user, refreshUser, currentModel, aspectRatio, quality, outputFormat, batchSize, model, editImageUrl, referenceImageUrl, referenceImageUrls, recordFlowStep]);
 
   // ── Delete failed card ────────────────────────────────────────────────────────
   // Removes a failed card from local state and marks the DB asset as "deleted".
@@ -1299,7 +1325,7 @@ function ImageStudioInner() {
     <>
     <div style={{
       position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 40,
-      background: "#0A0A0A",
+      background: "linear-gradient(165deg, #060810 0%, #080B18 50%, #07091A 100%)",
       display: "flex", flexDirection: "column",
       fontFamily: "var(--font-body, system-ui, sans-serif)",
       color: "#fff",
@@ -1532,7 +1558,7 @@ function ImageStudioInner() {
           3. has images                       → masonry grid with progressive fade-in
       */}
       {studioMode === "standard" && (
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 100px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: `24px 24px ${isDockCollapsed ? "48px" : "160px"}` }}>
 
         {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
         {user && !historyLoaded && images.length === 0 && (
@@ -1591,10 +1617,10 @@ function ImageStudioInner() {
           }}>
             <div style={{
               width: 72, height: 72, borderRadius: 20,
-              background: "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(14,165,160,0.15))",
+              background: "linear-gradient(135deg, rgba(37,99,235,0.28), rgba(14,165,160,0.18))",
               border: "1px solid rgba(37,99,235,0.35)",
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
-              boxShadow: "0 0 40px rgba(37,99,235,0.15)",
+              boxShadow: "0 0 60px rgba(37,99,235,0.25), 0 0 120px rgba(37,99,235,0.08)",
             }}>
               🎨
             </div>
@@ -1647,14 +1673,43 @@ function ImageStudioInner() {
             {images.map((img, index) => (
               <div
                 key={img.id}
+                className="img-card-wrapper"
                 style={{
                   breakInside: "avoid", marginBottom: 8,
+                  position: "relative",
                   // Progressive reveal: each card fades in with a small stagger.
                   // Generating placeholders (shimmer) skip the delay so they appear instantly.
                   opacity: 0,
                   animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                  boxShadow: selectedImageIds.has(img.id) ? "0 0 0 2px rgba(37,99,235,0.7)" : "none",
+                  borderRadius: 10,
                 }}
               >
+                {/* Checkbox for multi-select */}
+                {img.status === "done" && (
+                  <div
+                    style={{
+                      position: "absolute", top: 8, left: 8, zIndex: 5,
+                      opacity: selectedImageIds.has(img.id) ? 1 : 0,
+                      transition: "opacity 0.15s",
+                    }}
+                    className="img-checkbox"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedImageIds.has(img.id)}
+                      onChange={() => {
+                        setSelectedImageIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(img.id)) next.delete(img.id); else next.add(img.id);
+                          return next;
+                        });
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563EB" }}
+                    />
+                  </div>
+                )}
                 <ImageCard
                   img={img}
                   hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
@@ -1674,6 +1729,19 @@ function ImageStudioInner() {
                   onDelete={handleDeleteCard}
                   onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                 />
+                {/* Sequence number badge — only for completed images */}
+                {img.status === "done" && (
+                  <div className="img-seq-num" style={{
+                    position: "absolute", top: 8, right: 8,
+                    fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.7)",
+                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
+                    borderRadius: 5, padding: "2px 6px",
+                    pointerEvents: "none", letterSpacing: "0.04em",
+                    opacity: 0, transition: "opacity 0.15s",
+                  }}>
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1689,12 +1757,39 @@ function ImageStudioInner() {
         zIndex: 50,
         pointerEvents: "none",
       }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", pointerEvents: "all" }}>
+          {/* Collapse toggle */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 0 }}>
+            <button
+              onClick={() => setIsDockCollapsed(v => !v)}
+              style={{
+                background: "rgba(6,10,24,0.85)", backdropFilter: "blur(8px)",
+                border: "1px solid rgba(60,100,255,0.15)",
+                borderRadius: "10px 10px 0 0",
+                padding: "3px 16px 2px",
+                color: "rgba(255,255,255,0.3)",
+                fontSize: 10, fontWeight: 600, cursor: "pointer",
+                letterSpacing: "0.08em", textTransform: "uppercase",
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.65)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+            >
+              {isDockCollapsed ? "▲ Show Dock" : "▼ Hide Dock"}
+            </button>
+          </div>
+          {/* Collapse animation wrapper — no overflow:hidden to avoid clipping dropdowns */}
+          <div style={{
+            maxHeight: isDockCollapsed ? 0 : 400,
+            opacity: isDockCollapsed ? 0 : 1,
+            transition: "max-height 0.3s ease, opacity 0.22s ease",
+            pointerEvents: isDockCollapsed ? "none" : "auto",
+          }}>
         <div style={{
-          maxWidth: 960, margin: "0 auto",
-          background: "rgba(12,12,18,0.97)", backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.12)",
+          background: "rgba(6,10,24,0.97)", backdropFilter: "blur(24px)",
+          border: "1px solid rgba(60,100,255,0.18)",
           borderRadius: 20,
-          boxShadow: "0 8px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+          boxShadow: "0 8px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 40px rgba(37,99,235,0.08)",
           overflow: "visible",
           pointerEvents: "all",
         }}>
@@ -1711,11 +1806,14 @@ function ImageStudioInner() {
                 if (!file || !user) return;
                 e.target.value = "";
 
-                // Show a local preview immediately while upload is in progress
+                if (referenceImages.length >= maxRefs) {
+                  showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
+                  return;
+                }
+
+                const id = `ref-${Date.now()}-${Math.random()}`;
                 const blobPreview = URL.createObjectURL(file);
-                setReferencePreviewUrl(blobPreview);
-                setReferenceImageUrl("");        // clear any prior CDN URL
-                setReferenceUploading(true);
+                setReferenceImages(prev => [...prev, { id, previewUrl: blobPreview, cdnUrl: "", uploading: true }]);
 
                 try {
                   const form = new FormData();
@@ -1727,80 +1825,51 @@ function ImageStudioInner() {
                   });
                   const json = await res.json();
                   if (res.ok && json.url) {
-                    setReferenceImageUrl(json.url);   // real CDN URL — safe for backend
+                    setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
                   } else {
-                    console.error("[ref upload] failed:", json.error);
-                    // Clear preview on failure so user knows it didn't work
                     URL.revokeObjectURL(blobPreview);
-                    setReferencePreviewUrl("");
+                    setReferenceImages(prev => prev.filter(r => r.id !== id));
+                    showToast("Upload failed — please try again");
                   }
-                } catch (err) {
-                  console.error("[ref upload] network error:", err);
+                } catch {
                   URL.revokeObjectURL(blobPreview);
-                  setReferencePreviewUrl("");
-                } finally {
-                  setReferenceUploading(false);
+                  setReferenceImages(prev => prev.filter(r => r.id !== id));
+                  showToast("Upload failed — network error");
                 }
               }}
             />
-            {/* Reference image slot: uploading spinner → ready thumbnail → empty + button */}
-            {referenceUploading ? (
-              /* ── Uploading state: spinner overlay on the blob preview ── */
-              <div style={{ position: "relative", flexShrink: 0, marginTop: 2, width: 36, height: 36 }}>
-                {referencePreviewUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={referencePreviewUrl}
-                    alt="Uploading…"
-                    style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", opacity: 0.4 }}
-                  />
-                )}
-                {/* Spinner ring */}
-                <div style={{
-                  position: "absolute", inset: 0, borderRadius: 10,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: referencePreviewUrl ? "transparent" : "rgba(37,99,235,0.15)",
-                  border: "1px solid rgba(37,99,235,0.35)",
-                }}>
-                  <div style={{
-                    width: 16, height: 16, borderRadius: "50%",
-                    border: "2px solid rgba(96,165,250,0.25)",
-                    borderTopColor: "#60A5FA",
-                    animation: "spin 0.7s linear infinite",
-                  }} />
-                </div>
-              </div>
-            ) : referenceImageUrl ? (
-              /* ── Ready: thumbnail with remove button + character lock ── */
-              <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, marginTop: 2 }}>
-                <div style={{ position: "relative" }} title="Reference image ready — click to replace">
+            {/* Reference images: thumbnails row + add button */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 2, flexShrink: 0 }}>
+              {referenceImages.map((ref, idx) => (
+                <div key={ref.id} style={{ position: "relative", flexShrink: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={referencePreviewUrl || referenceImageUrl}
-                    alt="Reference"
-                    onClick={() => referenceInputRef.current?.click()}
+                    src={ref.previewUrl || ref.cdnUrl}
+                    alt={`Reference ${idx + 1}`}
                     style={{
-                      width: 36, height: 36, borderRadius: 10, objectFit: "cover", cursor: "pointer",
-                      border: characterLock && refFaceDetected
-                        ? "1.5px solid rgba(245,158,11,0.75)"
-                        : "1px solid rgba(245,158,11,0.6)",
-                      boxShadow: characterLock && refFaceDetected
-                        ? "0 0 0 2px rgba(245,158,11,0.35), 0 0 12px rgba(245,158,11,0.25)"
-                        : "none",
-                      transition: "box-shadow 0.18s ease, border-color 0.18s ease",
+                      width: 52, height: 52, borderRadius: 10, objectFit: "cover",
+                      border: ref.cdnUrl ? "1.5px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.2)",
+                      opacity: ref.uploading ? 0.45 : 1,
+                      transition: "opacity 0.2s",
                     }}
                   />
-                  {/* CHARACTER badge — shown when face locked */}
-                  {characterLock && refFaceDetected ? (
+                  {/* Upload spinner */}
+                  {ref.uploading && (
                     <div style={{
-                      position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
-                      fontSize: 7, fontWeight: 800, letterSpacing: "0.08em",
-                      color: "#fff", background: "rgba(245,158,11,0.92)",
-                      borderRadius: 3, padding: "1px 4px", lineHeight: 1.3,
-                      whiteSpace: "nowrap", pointerEvents: "none",
-                    }}>CHARACTER</div>
-                  ) : (
-                    /* Checkmark badge — confirms CDN URL is set */
+                      position: "absolute", inset: 0, borderRadius: 10,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "rgba(0,0,0,0.4)",
+                    }}>
+                      <div style={{
+                        width: 16, height: 16, borderRadius: "50%",
+                        border: "2px solid rgba(96,165,250,0.25)",
+                        borderTopColor: "#60A5FA",
+                        animation: "spin 0.7s linear infinite",
+                      }} />
+                    </div>
+                  )}
+                  {/* Green check — uploaded */}
+                  {ref.cdnUrl && !ref.uploading && (
                     <div style={{
                       position: "absolute", bottom: -4, right: -4,
                       width: 14, height: 14, borderRadius: "50%",
@@ -1809,9 +1878,12 @@ function ImageStudioInner() {
                       fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
                     }}>✓</div>
                   )}
-                  <Tooltip content="Remove reference image">
+                  {/* Remove button */}
                   <button
-                    onClick={(e) => { e.stopPropagation(); setReferenceImageUrl(""); setReferencePreviewUrl(""); }}
+                    onClick={() => {
+                      URL.revokeObjectURL(ref.previewUrl);
+                      setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
+                    }}
                     style={{
                       position: "absolute", top: -6, right: -6,
                       width: 16, height: 16, borderRadius: "50%",
@@ -1820,14 +1892,33 @@ function ImageStudioInner() {
                       display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
                     }}
                   >×</button>
-                  </Tooltip>
                 </div>
-                {/* Character lock toggle — only when face detected */}
-                {refFaceDetected && (
-                  <Tooltip content="Lock character face identity across generations">
+              ))}
+
+              {/* Add button — hidden when at cap */}
+              {referenceImages.length < maxRefs && (
+                <Tooltip content={`Add reference image (${referenceImages.length}/${maxRefs})`}>
+                  <button
+                    onClick={() => referenceInputRef.current?.click()}
+                    style={{
+                      width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                      background: "rgba(255,255,255,0.05)", border: "1.5px dashed rgba(60,100,255,0.35)",
+                      color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 22,
+                      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; }}
+                  >+</button>
+                </Tooltip>
+              )}
+
+              {/* Character lock toggle — shown when first image has a face detected */}
+              {referenceImages.length > 0 && referenceImages[0]?.cdnUrl && refFaceDetected && (
+                <Tooltip content="Lock character face identity across generations">
                   <button
                     onClick={() => setCharacterLock((prev) => !prev)}
                     style={{
+                      alignSelf: "flex-end", marginBottom: 2,
                       height: 18, padding: "0 6px",
                       borderRadius: 10,
                       border: characterLock
@@ -1848,27 +1939,9 @@ function ImageStudioInner() {
                     <span style={{ fontSize: 9 }}>{characterLock ? "◉" : "○"}</span>
                     Lock
                   </button>
-                  </Tooltip>
-                )}
-              </div>
-            ) : (
-              /* ── Empty: add button ── */
-              <Tooltip content="Add reference image">
-              <button
-                onClick={() => referenceInputRef.current?.click()}
-                style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0, marginTop: 2,
-                  background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
-                  color: "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: 20,
-                  display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-              >
-                +
-              </button>
-              </Tooltip>
-            )}
+                </Tooltip>
+              )}
+            </div>
 
             {/* Prompt textarea */}
             <textarea
@@ -2328,7 +2401,57 @@ function ImageStudioInner() {
             Upload a source image to use {currentModel.name}
           </p>
         )}
-      </div>
+      </div>{/* end collapse animation wrapper */}
+        </div>{/* end maxWidth container */}
+      </div>{/* end fixed dock outer */}
+
+      {/* ── MULTI-SELECT BULK ACTION BAR ─────────────────────────────────── */}
+      {selectedImageIds.size > 0 && (
+        <div style={{
+          position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)",
+          zIndex: 200,
+          background: "rgba(6,10,24,0.97)", backdropFilter: "blur(16px)",
+          border: "1px solid rgba(60,100,255,0.3)",
+          borderRadius: 14, padding: "10px 16px",
+          display: "flex", alignItems: "center", gap: 10,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", minWidth: 80 }}>
+            {selectedImageIds.size} selected
+          </span>
+          <button
+            onClick={() => {
+              selectedImageIds.forEach(id => {
+                const img = images.find(i => i.id === id);
+                if (img) handleDeleteCard(img.id, img.assetId);
+              });
+              setSelectedImageIds(new Set());
+            }}
+            style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)",
+              color: "#FCA5A5", cursor: "pointer",
+            }}
+          >Delete</button>
+          <button
+            style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+              color: "rgba(255,255,255,0.4)", cursor: "not-allowed",
+            }}
+            title="Project folders coming soon"
+          >Move to Project</button>
+          <button
+            onClick={() => setSelectedImageIds(new Set())}
+            style={{
+              width: 26, height: 26, borderRadius: "50%", border: "none",
+              background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)",
+              cursor: "pointer", fontSize: 13,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >✕</button>
+        </div>
+      )}
 
       {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────── */}
       {/* position: fixed with top:64 keeps it below the navbar (64px height).          */}
@@ -2463,6 +2586,8 @@ function ImageStudioInner() {
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         @keyframes spin { to{transform:rotate(360deg)} }
+        .img-card-wrapper:hover .img-seq-num { opacity: 1 !important; }
+        .img-card-wrapper:hover .img-checkbox { opacity: 1 !important; }
       `}</style>
       </>)} {/* end studioMode === "standard" generate bar + modals */}
     </div> {/* end MAIN FIXED CONTAINER */}
