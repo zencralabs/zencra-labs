@@ -38,6 +38,8 @@ import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
                                      from "@/lib/providers/core/model-integrity";
+import { getModelCapabilities }       from "@/lib/studio/model-capabilities";
+import { apiErr }                     from "@/lib/api/route-utils";
 
 // Runtime key presence check — runs once per cold start, not per request
 if (!process.env.OPENAI_API_KEY) {
@@ -107,6 +109,23 @@ export async function POST(req: Request): Promise<Response> {
   const providerParams = typeof body!.providerParams === "object" && body!.providerParams !== null
     ? body!.providerParams as Record<string, unknown>
     : undefined;
+
+  // ── Reference image cap ──────────────────────────────────────────────────────
+  // Enforce server-side cap before any credit reserve or DB write.
+  // Cap comes from MODEL_CAPABILITIES (product-configured, not provider hard limits).
+  if (providerParams) {
+    const refs = providerParams.referenceUrls;
+    if (Array.isArray(refs) && refs.length > 0) {
+      const cap = getModelCapabilities(modelKey!);
+      if (refs.length > cap.maxReferenceImages) {
+        return apiErr(
+          "TOO_MANY_REFERENCE_IMAGES",
+          `Too many reference images: ${refs.length} provided, maximum is ${cap.maxReferenceImages} for model "${modelKey}". ${cap.uploadCapLabel}.`,
+          400
+        );
+      }
+    }
+  }
 
   // ── Dispatch ─────────────────────────────────────────────────────────────────
   try {

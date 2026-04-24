@@ -249,7 +249,10 @@ async function liveRun(tc: TestCase): Promise<TestResult> {
       method:  "POST",
       headers,
       body:    JSON.stringify(tc.body),
-      signal:  AbortSignal.timeout(30_000),
+      // "Should pass" cases (202) need a longer timeout because GPT Image is
+      // synchronous — the server waits for the full generation (15-60s typical)
+      // before returning. Validation-only rejections (4xx) return in < 1s.
+      signal:  AbortSignal.timeout(tc.expectedStatus === 202 ? 90_000 : 30_000),
     });
 
     const json = await response.json().catch(() => ({})) as Record<string, unknown>;

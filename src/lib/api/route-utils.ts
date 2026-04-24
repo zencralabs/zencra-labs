@@ -26,7 +26,8 @@ export type ApiErrorCode =
   | "JOB_NOT_FOUND"
   | "NOT_OWNER"
   | "WEBHOOK_INVALID"
-  | "SERVER_ERROR";
+  | "SERVER_ERROR"
+  | "TOO_MANY_REFERENCE_IMAGES";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RESPONSE BUILDERS

@@ -49,7 +49,8 @@ async function sendGenerateRequest(
         "Authorization": `Bearer ${TEST_JWT}`,
       },
       body: JSON.stringify({ modelKey, prompt }),
-      signal: AbortSignal.timeout(30_000),
+      // GPT Image generation is synchronous (15-60s typical) — 30s is too short.
+      signal: AbortSignal.timeout(90_000),
     });
     const body = await res.json().catch(() => ({})) as Record<string, unknown>;
     return { status: res.status, body, latencyMs: Date.now() - start };
@@ -68,7 +69,14 @@ async function getCreditsBalance(): Promise<number | null> {
       headers: { Authorization: `Bearer ${TEST_JWT}` },
     });
     const json = await res.json() as Record<string, unknown>;
-    const balance = json.balance ?? json.credits ?? json.data;
+    // Route returns: { success: true, data: { available: number } }
+    const data = json.data;
+    if (typeof data === "object" && data !== null) {
+      const available = (data as Record<string, unknown>).available;
+      if (typeof available === "number") return available;
+    }
+    // Legacy fallback for any alternate shapes
+    const balance = json.balance ?? json.credits;
     return typeof balance === "number" ? balance : null;
   } catch { return null; }
 }
