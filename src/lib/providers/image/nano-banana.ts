@@ -31,6 +31,115 @@ import { newJobId } from "../core/job-lifecycle";
 import { getNanoBananaEnv } from "../core/env";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// STRUCTURED PROVIDER ERROR
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type NBErrorCode =
+  | "PROVIDER_TIMEOUT"
+  | "PROVIDER_RATE_LIMIT"
+  | "PROVIDER_CONFIG_ERROR"
+  | "PROVIDER_BAD_REQUEST"
+  | "PROVIDER_UNKNOWN";
+
+export class NanoBananaError extends Error {
+  readonly code: NBErrorCode;
+  readonly provider = "nano-banana" as const;
+  readonly model: string;
+  readonly retryable: boolean;
+  readonly suggestion?: string;
+
+  constructor(
+    message: string,
+    code: NBErrorCode,
+    model: string,
+    retryable: boolean,
+    suggestion?: string
+  ) {
+    super(message);
+    this.name = "NanoBananaError";
+    this.code      = code;
+    this.model     = model;
+    this.retryable = retryable;
+    if (suggestion) this.suggestion = suggestion;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RETRY HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * HTTP status codes that are safe to retry (transient failures).
+ * Do NOT retry on 400, 401, 403, 422 — those are permanent failures.
+ */
+const RETRYABLE_HTTP_STATUS = new Set([429, 500, 502, 503, 504]);
+
+interface RetryOptions {
+  maxRetries?: number;        // default 2
+  baseDelayMs?: number;       // default 1000 ms
+  label?: string;             // for logging
+}
+
+/**
+ * Wraps a fetch-style async function with exponential-backoff retry.
+ * Retries only on network errors and RETRYABLE_HTTP_STATUS codes.
+ * Never retries on AbortError (timeout) on the final attempt —
+ * callers receive a NanoBananaError with code PROVIDER_TIMEOUT.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  isRetryable: (err: unknown) => boolean,
+  opts: RetryOptions = {}
+): Promise<T> {
+  const maxRetries = opts.maxRetries ?? 2;
+  const baseDelay  = opts.baseDelayMs ?? 1000;
+  const label      = opts.label ?? "nano-banana";
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+
+      const retry = attempt < maxRetries && isRetryable(err);
+      if (!retry) break;
+
+      const delay = baseDelay * Math.pow(2, attempt); // 1s, 2s
+      console.warn(
+        `[${label}] attempt ${attempt + 1}/${maxRetries + 1} failed — ` +
+        `retrying in ${delay}ms. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Classify whether an error from a fetch call is retryable.
+ */
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof Error) {
+    // AbortError = timeout — retryable (provider may have been slow)
+    if (err.name === "AbortError" || err.name === "TimeoutError") return true;
+    // Network-level errors (ECONNRESET, ENOTFOUND, etc.)
+    if (err.message.includes("fetch failed") ||
+        err.message.includes("network") ||
+        err.message.includes("ECONNRESET")) return true;
+    // HTTP errors embedded in message (our throw pattern)
+    const statusMatch = err.message.match(/HTTP (\d+)/);
+    if (statusMatch) {
+      const status = parseInt(statusMatch[1], 10);
+      return RETRYABLE_HTTP_STATUS.has(status);
+    }
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // VARIANT CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -291,15 +400,56 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
       const fullUrl = `${baseUrl}${endpoint}`;
       console.log(`[nano-banana] variant=${variant} POST ${fullUrl}`);
 
-      const res = await fetch(fullUrl, {
-        method:  "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type":  "application/json",
-          "Accept":        "application/json",
-        },
-        body:   JSON.stringify(payload),
-        signal: AbortSignal.timeout(30_000),
+      // ── Submit with retry (exponential backoff, max 2 retries) ────────────────
+      const res = await withRetry(
+        () => fetch(fullUrl, {
+          method:  "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type":  "application/json",
+            "Accept":        "application/json",
+          },
+          body:   JSON.stringify(payload),
+          signal: AbortSignal.timeout(90_000), // 90s provider timeout (Phase 1 standard)
+        }),
+        isRetryableError,
+        { label: `nano-banana[${variant}] submit`, maxRetries: 2, baseDelayMs: 1000 }
+      ).catch((err) => {
+        // Classify the final error into a structured NanoBananaError
+        const isTimeout  = err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError");
+        const httpMatch  = err instanceof Error ? err.message.match(/HTTP (\d+)/) : null;
+        const httpStatus = httpMatch ? parseInt(httpMatch[1], 10) : 0;
+
+        if (isTimeout) {
+          throw new NanoBananaError(
+            `Nano Banana timed out after 90s. Try again or switch to GPT Image.`,
+            "PROVIDER_TIMEOUT", modelKey, true,
+            "Nano Banana is slow to respond. GPT Image may be faster right now."
+          );
+        }
+        if (httpStatus === 429) {
+          throw new NanoBananaError(
+            `Nano Banana rate limit reached. Please wait a moment and try again.`,
+            "PROVIDER_RATE_LIMIT", modelKey, true
+          );
+        }
+        if (httpStatus === 401 || httpStatus === 403) {
+          throw new NanoBananaError(
+            `Nano Banana API key is invalid or expired.`,
+            "PROVIDER_CONFIG_ERROR", modelKey, false
+          );
+        }
+        if (httpStatus === 400 || httpStatus === 422) {
+          throw new NanoBananaError(
+            `Nano Banana rejected the request payload.`,
+            "PROVIDER_BAD_REQUEST", modelKey, false
+          );
+        }
+        throw new NanoBananaError(
+          `Nano Banana submit failed. ${err instanceof Error ? err.message : String(err)}`,
+          "PROVIDER_UNKNOWN", modelKey, false,
+          "Nano Banana is unavailable. Try GPT Image instead."
+        );
       });
 
       if (!res.ok) {
@@ -310,7 +460,15 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
           `url=${fullUrl}`,
           `responseBody=${errBody.slice(0, 600)}`
         );
-        throw new Error(`Nano Banana submit HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+        // Classify permanent vs retryable HTTP errors
+        const isPermanent = res.status === 400 || res.status === 401 || res.status === 403 || res.status === 422;
+        throw new NanoBananaError(
+          `Nano Banana submit HTTP ${res.status}: ${errBody.slice(0, 200)}`,
+          isPermanent ? "PROVIDER_BAD_REQUEST" : "PROVIDER_UNKNOWN",
+          modelKey,
+          !isPermanent,
+          isPermanent ? undefined : "Nano Banana is unavailable. Try GPT Image instead."
+        );
       }
 
       const rawText = await res.text();
@@ -378,13 +536,24 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
 
     async getJobStatus(externalJobId: string): Promise<ZJobStatus> {
       const { apiKey, baseUrl } = getNanoBananaEnv();
-      const res = await fetch(
-        `${baseUrl}${NB_ENDPOINTS.task}?taskId=${encodeURIComponent(externalJobId)}`,
-        {
-          headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
-          signal:  AbortSignal.timeout(15_000),
-        }
-      );
+      let res: Response;
+      try {
+        res = await withRetry(
+          () => fetch(
+            `${baseUrl}${NB_ENDPOINTS.task}?taskId=${encodeURIComponent(externalJobId)}`,
+            {
+              headers: { "Authorization": `Bearer ${apiKey}`, "Accept": "application/json" },
+              signal:  AbortSignal.timeout(15_000),
+            }
+          ),
+          isRetryableError,
+          { label: `nano-banana poll[${externalJobId}]`, maxRetries: 2, baseDelayMs: 1000 }
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[nano-banana] poll failed for taskId=${externalJobId}:`, msg);
+        return { jobId: externalJobId, status: "error", error: `Poll failed: ${msg}` };
+      }
       if (!res.ok) {
         console.error(`[nano-banana] poll HTTP ${res.status} for taskId=${externalJobId}`);
         return { jobId: externalJobId, status: "error", error: `HTTP ${res.status}` };
