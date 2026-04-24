@@ -293,9 +293,9 @@ function EmptyOutputs({ projectId, onOpen }: { projectId: string; onOpen: () => 
       }}>
         <Sparkles size={28} style={{ color: "#2563EB" }} />
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--page-text)", marginBottom: 8 }}>No outputs yet</div>
-      <div style={{ fontSize: 13, color: "#64748B", marginBottom: 20, maxWidth: 280, margin: "0 auto 20px", lineHeight: 1.6 }}>
-        Start creating inside this project to see your generated images and videos here.
+      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--page-text)", marginBottom: 8 }}>This project is empty</div>
+      <div style={{ fontSize: 13, color: "#64748B", marginBottom: 20, maxWidth: 300, margin: "0 auto 20px", lineHeight: 1.6 }}>
+        Open Creative Director to start building here — your generated outputs will be linked to this project automatically.
       </div>
       <button
         onClick={onOpen}

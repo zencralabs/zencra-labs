@@ -834,12 +834,12 @@ function EmptyGenerated({ hasFilters, onGenerate, onReset }: { hasFilters: boole
         <ImageIcon size={28} style={{ color: "#2563EB" }} />
       </div>
       <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--page-text)", margin: 0 }}>
-        {hasFilters ? "No matching outputs" : "No outputs yet"}
+        {hasFilters ? "No matching outputs" : "Nothing generated yet"}
       </h2>
-      <p style={{ fontSize: 13, color: "#64748B", marginTop: 8, maxWidth: 320, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: "#64748B", marginTop: 8, maxWidth: 340, lineHeight: 1.6 }}>
         {hasFilters
-          ? "Try adjusting your filters to find what you're looking for."
-          : "Your generated images and videos will appear here once created."
+          ? "Try clearing a filter or two — your outputs might be hiding behind the wrong criteria."
+          : "Every image, video, and audio output you create across all studios lands here — organised, searchable, and ready to share."
         }
       </p>
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>

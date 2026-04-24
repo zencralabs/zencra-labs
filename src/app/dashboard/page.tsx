@@ -183,7 +183,11 @@ export default function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
 
         {/* Credits */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div
+          style={{ backgroundColor: "var(--page-bg-2)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)", transition: "box-shadow 0.2s, border-color 0.2s", cursor: "default" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 1px rgba(168,85,247,0.25), 0 0 24px rgba(168,85,247,0.1)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(168,85,247,0.25)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Credits</span>
             <div style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -192,7 +196,7 @@ export default function DashboardPage() {
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</div>
           <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: 12 }}>
-            <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 2 }} />
+            <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 2, boxShadow: "0 0 8px rgba(168,85,247,0.5)" }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
             <span style={{ fontSize: 11, color: "#475569" }}>credits remaining</span>
@@ -206,7 +210,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Plan */}
-        <div style={{ borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, #0A1122 0%, #0d1533 100%)" }}>
+        <div
+          style={{ borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, #0A1122 0%, #0d1533 100%)", transition: "box-shadow 0.2s, border-color 0.2s", cursor: "default" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 1px rgba(37,99,235,0.4), 0 0 28px rgba(37,99,235,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.4)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.2)"; }}
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Plan</span>
             <div style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: "rgba(37,99,235,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -225,7 +233,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Referrals */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div
+          style={{ backgroundColor: "var(--page-bg-2)", borderRadius: 14, padding: "20px 22px", border: "1px solid rgba(255,255,255,0.06)", transition: "box-shadow 0.2s, border-color 0.2s", cursor: "default" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 1px rgba(245,158,11,0.25), 0 0 24px rgba(245,158,11,0.1)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.25)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "none"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em" }}>Referrals</span>
             <div style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -259,11 +271,13 @@ export default function DashboardPage() {
                 transition: "all 0.15s",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = `${color}40`;
+                (e.currentTarget as HTMLElement).style.borderColor = `${color}50`;
+                (e.currentTarget as HTMLElement).style.boxShadow  = `0 0 16px ${color}18`;
                 (e.currentTarget as HTMLElement).style.transform   = "translateY(-2px)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
+                (e.currentTarget as HTMLElement).style.boxShadow  = "none";
                 (e.currentTarget as HTMLElement).style.transform   = "translateY(0)";
               }}
             >
