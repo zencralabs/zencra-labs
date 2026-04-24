@@ -48,7 +48,49 @@ interface ErrorInfo {
 function classifyError(raw: string | undefined): ErrorInfo {
   const lower = (raw ?? "").toLowerCase();
 
-  // Policy / safety block
+  // ── Auth / session expired ────────────────────────────────────────────────────
+  if (
+    lower.includes("unauthorized") ||
+    lower.includes("valid session") ||
+    lower.includes("session expired") ||
+    lower.includes("sign in") ||
+    lower.includes("unauthenticated")
+  ) {
+    return {
+      icon:   "🔑",
+      title:  "Session expired",
+      detail: "Please sign in again and retry.",
+    };
+  }
+
+  // ── Subscription / billing gate ───────────────────────────────────────────────
+  if (
+    lower.includes("no active subscription") ||
+    lower.includes("subscription has ended") ||
+    lower.includes("subscription") ||
+    lower.includes("upgrade to") ||
+    lower.includes("resubscribe") ||
+    lower.includes("trial has ended") ||
+    lower.includes("trial expired") ||
+    lower.includes("plan")
+  ) {
+    return {
+      icon:   "🔒",
+      title:  "Subscription required",
+      detail: "An active plan is needed to generate images. Upgrade in your account settings.",
+    };
+  }
+
+  // ── Trial usage exhausted ─────────────────────────────────────────────────────
+  if (lower.includes("trial") || lower.includes("exhausted")) {
+    return {
+      icon:   "⏳",
+      title:  "Trial limit reached",
+      detail: "You've used all your trial generations. Upgrade to continue.",
+    };
+  }
+
+  // ── Policy / safety block ─────────────────────────────────────────────────────
   if (
     lower.includes("prohibited use policy") ||
     lower.includes("safety policy") ||
@@ -64,8 +106,7 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
-  // Timeout / too slow — MUST come before credit check because the timeout
-  // message includes "Credits refunded" which would otherwise match the credit rule.
+  // ── Timeout / too slow — MUST come before credit check ────────────────────────
   if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("taking longer")) {
     return {
       icon:   "⏱",
@@ -74,16 +115,78 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
-  // Credit / quota exhausted
-  if (lower.includes("credit") || lower.includes("quota") || lower.includes("not enough")) {
+  // ── Credit / quota exhausted ──────────────────────────────────────────────────
+  if (
+    lower.includes("insufficient credit") ||
+    lower.includes("not enough credit") ||
+    lower.includes("quota") ||
+    lower.includes("insufficient funds") ||
+    lower.includes("credit reserve failed")
+  ) {
     return {
       icon:   "⚡",
-      title:  "Not enough credits",
-      detail: "You don't have enough credits for this generation.",
+      title:  "Insufficient credits",
+      detail: "You don't have enough credits for this generation. Top up in your account.",
     };
   }
 
-  // Job record lost
+  // ── Model configuration issue ──────────────────────────────────────────────────
+  if (
+    lower.includes("model not found") ||
+    lower.includes("model_not_found") ||
+    lower.includes("not registered") ||
+    lower.includes("not active") ||
+    lower.includes("model configuration") ||
+    lower.includes("coming-soon")
+  ) {
+    return {
+      icon:   "⚙️",
+      title:  "Model configuration issue",
+      detail: "This model is not currently available. Try a different model.",
+    };
+  }
+
+  // ── Rate limit ────────────────────────────────────────────────────────────────
+  if (lower.includes("rate limit") || lower.includes("too many request") || lower.includes("concurrent")) {
+    return {
+      icon:   "🕐",
+      title:  "Too many requests",
+      detail: "You've hit a rate limit. Wait a moment then try again.",
+    };
+  }
+
+  // ── Asset / storage save failed ───────────────────────────────────────────────
+  if (
+    lower.includes("asset save") ||
+    lower.includes("persist") ||
+    lower.includes("storage upload") ||
+    lower.includes("storage failed")
+  ) {
+    return {
+      icon:   "💾",
+      title:  "Asset save failed",
+      detail: "The image was generated but could not be saved. Please try again.",
+    };
+  }
+
+  // ── Provider / upstream error ─────────────────────────────────────────────────
+  if (
+    lower.includes("provider") ||
+    lower.includes("upstream") ||
+    lower.includes("http 5") ||
+    lower.includes("502") ||
+    lower.includes("503") ||
+    lower.includes("provider_error") ||
+    lower.includes("api error")
+  ) {
+    return {
+      icon:   "🌐",
+      title:  "Provider unavailable",
+      detail: "The AI provider returned an error. Please try again in a moment.",
+    };
+  }
+
+  // ── Job record lost ───────────────────────────────────────────────────────────
   if (lower.includes("job record not found") || lower.includes("generation was lost")) {
     return {
       icon:   "🔍",
@@ -92,7 +195,7 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
-  // Generic fallback — no raw text exposed
+  // ── Generic fallback — no raw text exposed ────────────────────────────────────
   return {
     icon:   "⚠️",
     title:  "Generation failed",
@@ -1081,16 +1184,22 @@ function ImageStudioInner() {
           body: JSON.stringify(body),
         });
 
-        if (res.status === 402) {
-          const errData = await res.json();
-          const needed = errData.data?.required ?? "?";
-          const have   = errData.data?.available ?? "?";
-          throw new Error(`Not enough credits — need ${needed}, you have ${have}`);
+        // ── HTTP error handling — extract the real server message ─────────────
+        if (res.status === 401) {
+          // Session expired or missing — don't parse body, just throw clearly
+          throw new Error("Session expired — please sign in again");
         }
 
         const data = await res.json();
-        // data.data?.error holds the real provider error; data.error is a top-level fallback
-        if (!res.ok) throw new Error(data.data?.error ?? data.error ?? "Generation failed");
+
+        if (res.status === 402) {
+          // Insufficient credits / trial exhausted — server returns { error: "...", code: "..." }
+          throw new Error(data.error ?? "Insufficient credits — add credits to continue");
+        }
+
+        // All other non-ok statuses: surface the server error message directly
+        // Server returns { success: false, error: "...", code: "..." }
+        if (!res.ok) throw new Error(data.error ?? data.data?.error ?? "Generation failed");
 
         // ── Synchronous success (DALL-E, etc.) ─────────────────────────────
         if (data.data?.url) {
@@ -1657,28 +1766,79 @@ function ImageStudioInner() {
         {(!user || historyLoaded) && images.length === 0 && !historyError && (
           <div style={{
             height: "100%", display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 16,
+            alignItems: "center", justifyContent: "center", gap: 20,
             minHeight: "calc(100vh - 58px - 100px)",
             padding: "40px 24px",
+            position: "relative",
           }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: 20,
-              background: "linear-gradient(135deg, rgba(37,99,235,0.28), rgba(14,165,160,0.18))",
-              border: "1px solid rgba(37,99,235,0.35)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30,
-              boxShadow: "0 0 60px rgba(37,99,235,0.25), 0 0 120px rgba(37,99,235,0.08)",
-            }}>
-              🎨
+            {/* ── Floating abstract tiles — visible only in empty state ── */}
+            {/* These give depth and communicate "this is an image space" */}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+              {/* Tile 1 — top-left, tilted */}
+              <div style={{
+                position: "absolute", top: "8%", left: "6%",
+                width: 130, height: 160, borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(99,102,241,0.10) 50%, rgba(14,165,160,0.08) 100%)",
+                border: "1px solid rgba(96,165,250,0.14)",
+                transform: "rotate(-8deg)",
+                boxShadow: "0 8px 40px rgba(37,99,235,0.10)",
+                backdropFilter: "blur(2px)",
+              }}>
+                <div style={{ height: "100%", background: "repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 12px)", borderRadius: 14 }} />
+              </div>
+              {/* Tile 2 — top-right, opposite tilt */}
+              <div style={{
+                position: "absolute", top: "5%", right: "8%",
+                width: 110, height: 140, borderRadius: 12,
+                background: "linear-gradient(145deg, rgba(124,58,237,0.12) 0%, rgba(37,99,235,0.08) 100%)",
+                border: "1px solid rgba(139,92,246,0.14)",
+                transform: "rotate(6deg)",
+                boxShadow: "0 8px 40px rgba(124,58,237,0.08)",
+              }}>
+                <div style={{ height: "100%", background: "repeating-linear-gradient(-45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 14px)", borderRadius: 12 }} />
+              </div>
+              {/* Tile 3 — bottom-left, horizontal */}
+              <div style={{
+                position: "absolute", bottom: "15%", left: "9%",
+                width: 160, height: 110, borderRadius: 12,
+                background: "linear-gradient(125deg, rgba(14,165,160,0.10) 0%, rgba(37,99,235,0.09) 100%)",
+                border: "1px solid rgba(45,212,191,0.12)",
+                transform: "rotate(4deg)",
+                boxShadow: "0 8px 40px rgba(14,165,160,0.08)",
+              }}>
+                <div style={{ height: "100%", background: "repeating-linear-gradient(30deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 16px)", borderRadius: 12 }} />
+              </div>
+              {/* Tile 4 — bottom-right, square-ish */}
+              <div style={{
+                position: "absolute", bottom: "12%", right: "7%",
+                width: 120, height: 130, borderRadius: 14,
+                background: "linear-gradient(155deg, rgba(37,99,235,0.11) 0%, rgba(99,102,241,0.07) 100%)",
+                border: "1px solid rgba(96,165,250,0.12)",
+                transform: "rotate(-5deg)",
+                boxShadow: "0 8px 40px rgba(37,99,235,0.07)",
+              }}>
+                <div style={{ height: "100%", background: "repeating-linear-gradient(60deg, rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 10px)", borderRadius: 14 }} />
+              </div>
+              {/* Ambient blue radial glow behind center */}
+              <div style={{
+                position: "absolute", top: "50%", left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 400, height: 400,
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%)",
+                pointerEvents: "none",
+              }} />
             </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 8 }}>
+            {/* Center text block */}
+            <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
+              <p style={{ fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 10 }}>
                 Describe what you want to create
               </p>
-              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.65 }}>
                 Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
               </p>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4, maxWidth: 560 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4, maxWidth: 560, position: "relative", zIndex: 1 }}>
               {[
                 "Cinematic portrait in golden hour light",
                 "Futuristic city at night, neon reflections",
@@ -1766,7 +1926,10 @@ function ImageStudioInner() {
                   }}
                   onOpen={() => {
                     if (img.status === "done") {
+                      // Open both the fullscreen preview AND the right detail panel together.
+                      // Panel stays open inside the fullscreen overlay for a premium preview UX.
                       setSelectedImage(img);
+                      setViewingImage(img);
                       setPanelDetails(null);
                       setPanelAnimateOpen(false);
                       setPanelMetaExpanded(false);
@@ -1810,19 +1973,26 @@ function ImageStudioInner() {
             <button
               onClick={() => setIsDockCollapsed(v => !v)}
               style={{
-                background: "rgba(6,10,24,0.85)", backdropFilter: "blur(8px)",
-                border: "1px solid rgba(60,100,255,0.15)",
+                background: "rgba(6,10,24,0.9)", backdropFilter: "blur(8px)",
+                border: "1px solid rgba(96,165,250,0.25)",
                 borderRadius: "10px 10px 0 0",
-                padding: "3px 16px 2px",
-                color: "rgba(255,255,255,0.3)",
-                fontSize: 10, fontWeight: 600, cursor: "pointer",
+                padding: "4px 20px 3px",
+                color: isDockCollapsed ? "rgba(96,165,250,0.8)" : "rgba(255,255,255,0.45)",
+                fontSize: 10, fontWeight: 700, cursor: "pointer",
                 letterSpacing: "0.08em", textTransform: "uppercase",
-                transition: "color 0.15s",
+                transition: "all 0.15s",
+                boxShadow: "0 -4px 16px rgba(37,99,235,0.12)",
               }}
-              onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.65)")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.color = "#93C5FD";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.5)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.color = isDockCollapsed ? "rgba(96,165,250,0.8)" : "rgba(255,255,255,0.45)";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(96,165,250,0.25)";
+              }}
             >
-              {isDockCollapsed ? "▲ Show Dock" : "▼ Hide Dock"}
+              {isDockCollapsed ? "▲  Show Dock" : "▼  Hide Dock"}
             </button>
           </div>
           {/* Collapse animation wrapper — no overflow:hidden to avoid clipping dropdowns */}
@@ -1833,10 +2003,17 @@ function ImageStudioInner() {
             pointerEvents: isDockCollapsed ? "none" : "auto",
           }}>
         <div style={{
-          background: "rgba(6,10,24,0.97)", backdropFilter: "blur(24px)",
-          border: "1px solid rgba(60,100,255,0.18)",
+          background: "rgba(4,8,20,0.98)", backdropFilter: "blur(24px)",
+          // Deep navy with blue-silver gradient border:
+          border: "1px solid rgba(96,165,250,0.28)",
           borderRadius: 20,
-          boxShadow: "0 8px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 40px rgba(37,99,235,0.08)",
+          boxShadow: [
+            "0 8px 80px rgba(0,0,0,0.85)",
+            "0 0 0 1px rgba(147,197,253,0.12)",          // outer silver highlight ring
+            "inset 0 1px 0 rgba(255,255,255,0.07)",       // top inner highlight
+            "0 0 60px rgba(37,99,235,0.18)",              // blue ambient glow
+            "0 0 120px rgba(37,99,235,0.06)",             // wider soft halo
+          ].join(", "),
           overflow: "visible",
           pointerEvents: "all",
         }}>
@@ -2500,56 +2677,60 @@ function ImageStudioInner() {
         </div>
       )}
 
-      {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────── */}
-      {/* position: fixed with top:64 keeps it below the navbar (64px height).          */}
-      {/* Background is semi-transparent so the studio remains ~12% visible — cinematic. */}
+      {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────────
+           z-index stacking:
+             9000 — blur overlay backdrop (full screen, dismisses on click)
+             9010 — image frame (center-stage)
+             9020 — right detail panel (visible above backdrop — see panel below)
+             9030 — close button (always on top, always clickable)
+      ─────────────────────────────────────────────────────────────────────── */}
       {viewingImage?.url && (
         <div
           onClick={() => setViewingImage(null)}
           style={{
             position: "fixed",
-            top: 64, left: 0,
-            // Shrink canvas right edge when right panel is open so image + close button
-            // are never obscured by the 360px panel (z:9981).
-            right: selectedImage ? 360 : 0,
-            bottom: 0,
-            zIndex: 9999,
-            background: "rgba(0,0,0,0.82)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "32px 40px",
+            top: 64, left: 0, right: 0, bottom: 0,
+            zIndex: 9000,
+            background: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            display: "flex", alignItems: "center",
+            // Shift image left of the panel when panel is open
+            justifyContent: selectedImage ? "flex-start" : "center",
+            paddingLeft: selectedImage ? "clamp(40px, 5vw, 80px)" : 0,
+            paddingRight: selectedImage ? "380px" : 0,
+            paddingTop: "32px", paddingBottom: "32px",
           }}
         >
-          {/* Image frame wrapper — close button lives inside this, top-right corner */}
+          {/* Image frame wrapper — stop propagation so clicks don't close fullscreen */}
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ position: "relative", lineHeight: 0 }}
+            style={{ position: "relative", lineHeight: 0, zIndex: 9010 }}
           >
-            {/* Close button — anchored to top-right of image frame */}
+            {/* Close button — z:9030, always above right panel and always clickable */}
             <button
               onClick={() => setViewingImage(null)}
               title="Close (Esc)"
               style={{
-                position: "absolute", top: -14, right: -14,
-                width: 32, height: 32, borderRadius: "50%",
-                background: "rgba(20,20,20,0.9)", border: "1px solid rgba(255,255,255,0.18)",
-                color: "#fff", fontSize: 14, cursor: "pointer",
+                position: "fixed", top: 80, right: selectedImage ? 376 : 24,
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(15,15,25,0.92)", border: "1px solid rgba(255,255,255,0.18)",
+                color: "#fff", fontSize: 16, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s", zIndex: 10,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+                transition: "all 0.15s", zIndex: 9030,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
               }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.85)";
                 (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.6)";
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(20,20,20,0.9)";
+                (e.currentTarget as HTMLElement).style.background = "rgba(15,15,25,0.92)";
                 (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
               }}
             >✕</button>
 
-            {/* Image — constrained to the available canvas width (panel excluded) */}
+            {/* Image — constrained so it fits beside the panel when it is open */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={viewingImage.url}
@@ -2557,11 +2738,11 @@ function ImageStudioInner() {
               style={{
                 display: "block",
                 maxWidth: selectedImage
-                  ? "min(calc(100vw - 360px - 80px), 1100px)"
-                  : "min(82vw, 1100px)",
+                  ? "min(calc(100vw - 360px - 120px), 1000px)"
+                  : "min(82vw, 1200px)",
                 maxHeight: "calc(100vh - 64px - 80px)",
                 objectFit: "contain",
-                borderRadius: 12,
+                borderRadius: 14,
                 boxShadow: "0 24px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07)",
               }}
             />
@@ -2694,29 +2875,35 @@ function ImageStudioInner() {
     {/* ── Creative Flow overlays — rendered OUTSIDE the gallery div so they
          are not trapped inside its stacking context (zIndex: 40). Being at
          the root Fragment level lets their own zIndex values compete freely
-         with the navbar and other page-level layers. ─────────────────────── */}
-    <FlowBar />
-    <NextStepPanel onVariation={handleVariation} />
+         with the navbar and other page-level layers.
+         RULE: FlowBar and NextStepPanel only appear in standard mode.
+         They must never overlap the Creative Director tabs or Quick Gen toggle. ── */}
+    {studioMode === "standard" && <FlowBar />}
+    {studioMode === "standard" && <NextStepPanel onVariation={handleVariation} />}
 
     {/* ── RIGHT ACTION PANEL ───────────────────────────────────────────── */}
     {/* position:fixed slide-in from right; rendered OUTSIDE gallery div   */}
     {/* to avoid being clipped by the gallery's stacking context (z:40).  */}
     {selectedImage && selectedImage.status === "done" && (
       <>
-        {/* Backdrop — close on outside click */}
-        <div
-          onClick={() => {
-            setSelectedImage(null); setPanelDetails(null);
-            setPanelAnimateOpen(false); setPanelMetaExpanded(false);
-          }}
-          style={{ position: "fixed", inset: 0, zIndex: 9980, background: "transparent" }}
-        />
+        {/* Backdrop — close on outside click (hidden when fullscreen is active so
+            the fullscreen backdrop at z:9000 handles dismissal instead) */}
+        {!viewingImage && (
+          <div
+            onClick={() => {
+              setSelectedImage(null); setPanelDetails(null);
+              setPanelAnimateOpen(false); setPanelMetaExpanded(false);
+            }}
+            style={{ position: "fixed", inset: 0, zIndex: 9005, background: "transparent" }}
+          />
+        )}
 
-        {/* Panel */}
+        {/* Panel — sits at z:9020, above the fullscreen backdrop (z:9000) but
+            below the close button (z:9030), so it remains accessible in both modes */}
         <div
           style={{
             position: "fixed", top: 64, right: 0, bottom: 0,
-            width: 360, zIndex: 9981,
+            width: 360, zIndex: 9020,
             background: "linear-gradient(170deg, rgba(9,9,18,0.99) 0%, rgba(12,10,22,0.99) 50%, rgba(8,9,16,0.99) 100%)",
             backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)",
             borderLeft: "1px solid rgba(255,255,255,0.07)",
