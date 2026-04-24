@@ -1134,11 +1134,16 @@ export default function GeneratedPage() {
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <ImageIcon size={16} style={{ color: "#2563EB" }} />
-            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Your Library
-            </span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
+            <ImageIcon size={16} style={{ color: "#2563EB", marginTop: 2 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Your Library
+              </span>
+              <span style={{ fontSize: 11, color: "#475569", letterSpacing: "0.01em" }}>
+                Saved assets across your projects
+              </span>
+            </div>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Generated</h1>
           <p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>

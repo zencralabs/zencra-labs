@@ -662,10 +662,14 @@ export default function BriefBuilder({
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <FieldLabel required>Campaign Goal</FieldLabel>
-            {brief.goal.trim() && (
+            <div style={{
+              opacity: brief.goal.trim() ? 1 : 0,
+              pointerEvents: brief.goal.trim() ? "auto" : "none",
+              transition: "opacity 0.15s ease-out",
+            }}>
               <button
                 onClick={handleEnhanceGoal}
-                disabled={goalEnhancing}
+                disabled={goalEnhancing || !brief.goal.trim()}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
                   padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
@@ -702,7 +706,7 @@ export default function BriefBuilder({
                   </>
                 ) : "✦ Enhance"}
               </button>
-            )}
+            </div>
           </div>
           <textarea
             className="brief-input brief-goal-input"
@@ -803,10 +807,14 @@ export default function BriefBuilder({
             <Field style={{ marginBottom: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <FieldLabel optional>Additional Notes</FieldLabel>
-                {brief.additionalNotes.trim() && (
+                <div style={{
+                  opacity: brief.additionalNotes.trim() ? 1 : 0,
+                  pointerEvents: brief.additionalNotes.trim() ? "auto" : "none",
+                  transition: "opacity 0.15s ease-out",
+                }}>
                   <button
                     onClick={handleEnhanceNotes}
-                    disabled={notesEnhancing}
+                    disabled={notesEnhancing || !brief.additionalNotes.trim()}
                     style={{
                       display: "flex", alignItems: "center", gap: 5,
                       padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
@@ -843,7 +851,7 @@ export default function BriefBuilder({
                       </>
                     ) : "✦ Enhance"}
                   </button>
-                )}
+                </div>
               </div>
               <textarea
                 className="brief-input"

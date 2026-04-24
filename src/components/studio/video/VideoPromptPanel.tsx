@@ -744,11 +744,15 @@ export default function VideoPromptPanel({
             Prompt
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* ✦ Enhance button — visible when prompt has content */}
-            {prompt.trim() && (
+            {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
+            <div style={{
+              opacity: prompt.trim() ? 1 : 0,
+              pointerEvents: prompt.trim() ? "auto" : "none",
+              transition: "opacity 0.15s ease-out",
+            }}>
               <button
                 onClick={() => void handleEnhance()}
-                disabled={enhancing}
+                disabled={enhancing || !prompt.trim()}
                 title={enhancing ? "Enhancing…" : "Enhance prompt with AI"}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
@@ -784,11 +788,9 @@ export default function VideoPromptPanel({
                     }} />
                     Enhancing…
                   </>
-                ) : (
-                  <>✦ Enhance</>
-                )}
+                ) : <>✦ Enhance</>}
               </button>
-            )}
+            </div>
             <button
               onClick={() => setShowPresets(v => !v)}
               style={{

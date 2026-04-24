@@ -2044,14 +2044,19 @@ function ImageStudioInner() {
             {/* Working Canvas label */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
-              marginBottom: 12,
+              marginBottom: 14,
             }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-                color: "rgba(255,255,255,0.28)", textTransform: "uppercase",
-              }}>
-                Working Canvas
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+                  color: "rgba(255,255,255,0.28)", textTransform: "uppercase",
+                }}>
+                  Working Canvas
+                </span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.01em" }}>
+                  Recent creations
+                </span>
+              </div>
               <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", letterSpacing: "0.02em" }}>
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
@@ -2404,21 +2409,25 @@ function ImageStudioInner() {
               }}
             />
 
-            {/* ✦ Enhance button — visible when prompt has content */}
-            {prompt.trim() && (
+            {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
+            <div style={{
+              flexShrink: 0, alignSelf: "center", marginRight: 4,
+              opacity: prompt.trim() ? 1 : 0,
+              pointerEvents: prompt.trim() ? "auto" : "none",
+              transition: "opacity 0.15s ease-out",
+            }}>
               <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}>
               <button
                 onClick={handleEnhance}
-                disabled={enhancing}
+                disabled={enhancing || !prompt.trim()}
                 style={{
-                  flexShrink: 0, alignSelf: "center",
                   display: "flex", alignItems: "center", gap: 5,
                   padding: "6px 11px", borderRadius: 9, fontSize: 12, fontWeight: 600,
                   border: "1px solid rgba(139,92,246,0.35)",
                   background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
                   color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
                   cursor: enhancing ? "not-allowed" : "pointer",
-                  transition: "all 0.15s", marginRight: 4, letterSpacing: "0.01em",
+                  transition: "all 0.15s", letterSpacing: "0.01em",
                 }}
                 onMouseEnter={e => {
                   if (!enhancing) {
@@ -2445,12 +2454,10 @@ function ImageStudioInner() {
                     }} />
                     Enhancing…
                   </>
-                ) : (
-                  <>✦ Enhance</>
-                )}
+                ) : <>✦ Enhance</>}
               </button>
               </Tooltip>
-            )}
+            </div>
           </div>
 
           {/* ── Prompt Enhancer Panel ───────────────────────────────────────── */}
@@ -2896,14 +2903,28 @@ function ImageStudioInner() {
             }}
             title="Project folders coming soon"
           >Move to Project</button>
+          <Tooltip content="Coming soon — share your creations publicly">
           <button
+            aria-disabled="true"
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
               border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
-              color: "rgba(255,255,255,0.4)", cursor: "not-allowed",
+              color: "rgba(255,255,255,0.38)", cursor: "not-allowed",
+              opacity: 0.55, display: "flex", alignItems: "center", gap: 5,
+              transition: "box-shadow 0.15s ease-out, border-color 0.15s ease-out",
             }}
-            title="Gallery publishing coming soon"
-          >Make Public</button>
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 10px rgba(139,92,246,0.18)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.28)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.boxShadow = "none";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+            }}
+          >
+            <span style={{ fontSize: 11 }}>🔒</span>Make Public
+          </button>
+          </Tooltip>
           <button
             onClick={() => setSelectedImageIds(new Set())}
             style={{

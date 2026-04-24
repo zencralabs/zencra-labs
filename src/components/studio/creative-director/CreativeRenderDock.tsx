@@ -1039,14 +1039,19 @@ export default function CreativeRenderDock({
             />
           </div>
 
-          {/* Enhance prompt */}
-          {promptText.trim() && (
+          {/* Enhance prompt — always rendered, fades in when prompt has content */}
+          <div style={{
+            flexShrink: 0,
+            opacity: promptText.trim() ? 1 : 0,
+            pointerEvents: promptText.trim() ? "auto" : "none",
+            transition: "opacity 0.15s ease-out",
+          }}>
             <Tooltip content="AI-enhance this prompt">
             <button
               onClick={handleEnhanceDockPrompt}
-              disabled={rdEnhancing}
+              disabled={rdEnhancing || !promptText.trim()}
               style={{
-                flexShrink: 0, height: 32, padding: "0 10px",
+                height: 32, padding: "0 10px",
                 borderRadius: 9, fontSize: 11.5, fontWeight: 600,
                 border: "1px solid rgba(139,92,246,0.35)",
                 background: rdEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
@@ -1083,7 +1088,7 @@ export default function CreativeRenderDock({
               ) : "✦ Enhance"}
             </button>
             </Tooltip>
-          )}
+          </div>
 
           {/* Clear prompt */}
           {promptText && (
