@@ -49,6 +49,11 @@ export interface MediaCardProps {
    */
   hideHoverActions?: boolean;
   /**
+   * When true, suppresses the top-left VisibilityBadge so the parent can render
+   * its own project/visibility overlay in the correct stacking position.
+   */
+  hideVisibilityBadge?: boolean;
+  /**
    * Aspect ratio of the generated image (e.g. "16:9", "9:16", "1:1").
    * When provided the media container adopts this ratio so the card shape
    * matches the actual output — critical for NB2 non-square generations.
@@ -336,6 +341,7 @@ export default function MediaCard({
   isOwner = false,
   compact = false,
   hideHoverActions = false,
+  hideVisibilityBadge = false,
   aspectRatio: aspectRatioProp,
   onRegenerate,
   onReusePrompt,
@@ -542,8 +548,8 @@ export default function MediaCard({
           </div>
         )}
 
-        {/* Visibility badge — top left (hidden at low zoom) */}
-        {!hideHoverActions && (
+        {/* Visibility badge — top left (hidden at low zoom or when parent provides its own) */}
+        {!hideHoverActions && !hideVisibilityBadge && (
           <div
             style={{
               position:   "absolute",

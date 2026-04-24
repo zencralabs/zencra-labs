@@ -315,3 +315,19 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skeletonSweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Image Studio gallery card overlays ────────────────────────────────────── */
+/* Checkbox: visible when selected (JS-controlled) or on card hover */
+.img-card-wrapper:hover .img-checkbox { opacity: 1 !important; }
+/* Sequence number badge: visible on card hover */
+.img-card-wrapper:hover .img-seq-num  { opacity: 1 !important; }

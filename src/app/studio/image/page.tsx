@@ -35,6 +35,10 @@ interface GeneratedImage {
   aspectRatio: string;
   status: "generating" | "done" | "error";
   error?: string;
+  /** ISO timestamp — used to compute stable global sequence numbers */
+  createdAt?: string;
+  /** Project ID — if set, image was saved to a project; badge links to /dashboard/project/{id} */
+  project_id?: string | null;
 }
 
 // ── Provider error classifier ─────────────────────────────────────────────────
@@ -523,10 +527,12 @@ function toPublicAsset(img: GeneratedImage): PublicAsset {
     prompt:        img.prompt,
     result_url:    img.url,
     result_urls:   img.url ? [img.url] : null,
-    visibility:    "project",   // newly generated → in user's project by default
-    project_id:    null,
+    // Only show "project" visibility if actually linked to a project.
+    // "private" means no badge is shown in the card overlay we render in page.tsx.
+    visibility:    img.project_id ? "project" : "private",
+    project_id:    img.project_id ?? null,
     credits_used:  0,
-    created_at:    new Date().toISOString(),
+    created_at:    img.createdAt ?? new Date().toISOString(),
   };
 }
 
@@ -627,6 +633,7 @@ function ImageCard({
         isOwner
         aspectRatio={img.aspectRatio && img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
         hideHoverActions={hideHoverActions}
+        hideVisibilityBadge={true}
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
@@ -988,6 +995,8 @@ function ImageStudioInner() {
           result_url: string | null;
           error_message?: string | null;
           parameters?: { aspectRatio?: string } | null;
+          project_id?: string | null;
+          created_at?: string | null;
         }>)
           .filter((row) => row.status === "completed" || row.status === "failed")
           .map((row) => {
@@ -1003,6 +1012,8 @@ function ImageStudioInner() {
               aspectRatio: (row.parameters?.aspectRatio ?? "Auto") as AspectRatio,
               status:      (isFailed ? "error" : "done") as GeneratedImage["status"],
               error:       isFailed ? (row.error_message ?? undefined) : undefined,
+              createdAt:   row.created_at ?? undefined,
+              project_id:  row.project_id ?? null,
             };
           });
 
@@ -1717,9 +1728,13 @@ function ImageStudioInner() {
 
         {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
         {user && !historyLoaded && images.length === 0 && (
-          <div style={{ columns: `${gridMinSize}px`, columnGap: 8 }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
+            gap: 8,
+          }}>
             {SKELETON_RATIOS.map((_, i) => (
-              <div key={i} style={{ breakInside: "avoid", marginBottom: 8 }}>
+              <div key={i} style={{ minWidth: 0 }}>
                 <SkeletonCard index={i} />
               </div>
             ))}
@@ -1873,89 +1888,128 @@ function ImageStudioInner() {
           </div>
         )}
 
-        {/* ── STATE 3: Masonry image grid — staggered fade-in ──────────────── */}
-        {images.length > 0 && (
-          <div style={{ columns: `${gridMinSize}px`, columnGap: 8 }}>
-            {images.map((img, index) => (
-              <div
-                key={img.id}
-                className="img-card-wrapper"
-                style={{
-                  breakInside: "avoid", marginBottom: 8,
-                  position: "relative",
-                  // Progressive reveal: each card fades in with a small stagger.
-                  // Generating placeholders (shimmer) skip the delay so they appear instantly.
-                  opacity: 0,
-                  animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
-                  boxShadow: selectedImageIds.has(img.id) ? "0 0 0 2px rgba(37,99,235,0.7)" : "none",
-                  borderRadius: 10,
-                }}
-              >
-                {/* Checkbox for multi-select */}
-                {img.status === "done" && (
-                  <div
-                    style={{
-                      position: "absolute", top: 8, left: 8, zIndex: 5,
-                      opacity: selectedImageIds.has(img.id) ? 1 : 0,
-                      transition: "opacity 0.15s",
-                    }}
-                    className="img-checkbox"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedImageIds.has(img.id)}
-                      onChange={() => {
-                        setSelectedImageIds(prev => {
-                          const next = new Set(prev);
-                          if (next.has(img.id)) next.delete(img.id); else next.add(img.id);
-                          return next;
-                        });
+        {/* ── STATE 3: CSS grid — left-to-right, newest first ──────────────── */}
+        {images.length > 0 && (() => {
+          // Compute stable global sequence numbers for done images.
+          // images[] is ordered newest-first (prepend for new gens, history appended newest-first).
+          // doneImages[0] = newest → gets seqNum = totalDone (highest)
+          // doneImages[N-1] = oldest → gets seqNum = 1
+          const doneImages = images.filter(i => i.status === "done");
+          const totalDone  = doneImages.length;
+          const seqMap     = new Map<string, number>(
+            doneImages.map((img, i) => [img.id, totalDone - i])
+          );
+
+          return (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
+              gap: 8,
+            }}>
+              {images.map((img, index) => (
+                <div
+                  key={img.id}
+                  className="img-card-wrapper"
+                  style={{
+                    minWidth: 0,
+                    position: "relative",
+                    opacity: 0,
+                    animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                    boxShadow: selectedImageIds.has(img.id) ? "0 0 0 2px rgba(37,99,235,0.7)" : "none",
+                    borderRadius: 10,
+                  }}
+                >
+                  {/* ── Checkbox — top-left, clear of badge ── */}
+                  {img.status === "done" && (
+                    <div
+                      className="img-checkbox"
+                      style={{
+                        position: "absolute", top: 12, left: 12, zIndex: 10,
+                        opacity: selectedImageIds.has(img.id) ? 1 : 0,
+                        transition: "opacity 0.15s",
                       }}
-                      onClick={e => e.stopPropagation()}
-                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563EB" }}
-                    />
-                  </div>
-                )}
-                <ImageCard
-                  img={img}
-                  hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
-                  onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
-                  onReusePrompt={(p) => {
-                    setPrompt(p);
-                    promptRef.current?.focus();
-                  }}
-                  onOpen={() => {
-                    if (img.status === "done") {
-                      // Open both the fullscreen preview AND the right detail panel together.
-                      // Panel stays open inside the fullscreen overlay for a premium preview UX.
-                      setSelectedImage(img);
-                      setViewingImage(img);
-                      setPanelDetails(null);
-                      setPanelAnimateOpen(false);
-                      setPanelMetaExpanded(false);
-                    }
-                  }}
-                  onDelete={handleDeleteCard}
-                  onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
-                  onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
-                />
-                {/* Sequence number badge — only for completed images */}
-                {img.status === "done" && (
-                  <div className="img-seq-num" style={{
-                    position: "absolute", top: 8, right: 8,
-                    fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.7)",
-                    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
-                    borderRadius: 5, padding: "2px 6px",
-                    pointerEvents: "none", letterSpacing: "0.04em",
-                    opacity: 0, transition: "opacity 0.15s",
-                  }}>
-                    {String(index + 1).padStart(2, "0")}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedImageIds.has(img.id)}
+                        onChange={() => {
+                          setSelectedImageIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(img.id)) next.delete(img.id); else next.add(img.id);
+                            return next;
+                          });
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563EB" }}
+                      />
+                    </div>
+                  )}
+
+                  {/* ── "In Project" badge — only when project_id exists ── */}
+                  {img.status === "done" && img.project_id && (
+                    <div
+                      style={{
+                        position: "absolute", top: 12, left: 48, zIndex: 10,
+                      }}
+                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/project/${img.project_id}`); }}
+                      title="Open project"
+                    >
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "2px 7px", borderRadius: 20,
+                        background: "rgba(59,130,246,0.18)",
+                        color: "#60a5fa",
+                        fontSize: 10, fontWeight: 600, letterSpacing: "0.03em",
+                        backdropFilter: "blur(4px)",
+                        cursor: "pointer",
+                        border: "1px solid rgba(96,165,250,0.2)",
+                      }}>
+                        In Project
+                      </span>
+                    </div>
+                  )}
+
+                  <ImageCard
+                    img={img}
+                    hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
+                    onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
+                    onReusePrompt={(p) => {
+                      setPrompt(p);
+                      promptRef.current?.focus();
+                    }}
+                    onOpen={() => {
+                      if (img.status === "done") {
+                        setSelectedImage(img);
+                        setViewingImage(img);
+                        setPanelDetails(null);
+                        setPanelAnimateOpen(false);
+                        setPanelMetaExpanded(false);
+                      }
+                    }}
+                    onDelete={handleDeleteCard}
+                    onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
+                    onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
+                  />
+
+                  {/* ── Sequence number — bottom-right, below the 3-dot button ── */}
+                  {img.status === "done" && (
+                    <div className="img-seq-num" style={{
+                      position: "absolute", bottom: 10, right: 8,
+                      fontSize: 13, fontWeight: 700, color: "#fff",
+                      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 6, padding: "2px 7px",
+                      pointerEvents: "none", letterSpacing: "0.04em",
+                      opacity: 0, transition: "opacity 0.15s",
+                    }}>
+                      {String(seqMap.get(img.id) ?? (index + 1)).padStart(2, "0")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
       )} {/* end studioMode === "standard" gallery scroll div */}
 
