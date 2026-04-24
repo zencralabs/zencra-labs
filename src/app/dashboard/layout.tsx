@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, User, CreditCard, Gift, Users, Tag,
-  Zap, LogOut, ChevronRight, Settings
+  Zap, LogOut, ChevronRight, Settings, FolderOpen, ImageIcon,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import AccountCompletionBanner from "@/components/auth/AccountCompletionBanner";
@@ -16,6 +16,8 @@ import AccountCompletionBanner from "@/components/auth/AccountCompletionBanner";
 
 const NAV = [
   { href: "/dashboard",              icon: LayoutDashboard, label: "Overview"     },
+  { href: "/dashboard/projects",     icon: FolderOpen,      label: "Projects"     },
+  { href: "/dashboard/generated",    icon: ImageIcon,       label: "Generated"    },
   { href: "/dashboard/profile",      icon: User,            label: "Profile"      },
   { href: "/dashboard/subscription", icon: CreditCard,      label: "Subscription" },
   { href: "/dashboard/credits",      icon: Zap,             label: "Credits"      },
@@ -95,7 +97,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Nav */}
         <nav style={{ flex: 1, padding: "12px 12px" }}>
           {NAV.map(({ href, icon: Icon, label }) => {
-            const active = pathname === href;
+            // Projects detail pages (/dashboard/project/[id]) highlight the Projects nav item
+          const active = pathname === href ||
+            (href === "/dashboard/projects" && pathname.startsWith("/dashboard/project/"));
             return (
               <Link key={href} href={href} style={{ textDecoration: "none" }}>
                 <div style={{
