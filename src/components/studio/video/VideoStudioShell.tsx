@@ -483,14 +483,36 @@ export default function VideoStudioShell() {
   // Auth gate — opened when non-member tries to generate/download
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  // "imageUrl" param: pre-populate the Start Frame slot when coming from Image Studio Animate
-  const imageUrlParam = searchParams.get("imageUrl") ?? "";
-  // "from" param: visual indicator that user arrived via Image Studio → Animate
-  const fromImageStudio = searchParams.get("from") === "image-studio" && !!imageUrlParam;
+  // ── Workflow context from URL params ──────────────────────────────────────────
+  // Supports "startFrame" (new) and legacy "imageUrl" (backward compat) for the start image.
+  // All state is seeded ONCE via useState initial values — user edits are never overwritten.
+  const startFrameParam = searchParams.get("startFrame") || searchParams.get("imageUrl") || "";
+  const endFrameParam   = searchParams.get("endFrame")   || "";
+  const flowParam       = searchParams.get("flow")       || "";
+  const fromParam       = searchParams.get("from")       || "";
+
+  // Context metadata carried from the originating studio — stored for telemetry / future use
+  const [flowContext] = useState({
+    assetId:   searchParams.get("assetId")   || null,
+    projectId: searchParams.get("projectId") || null,
+    sessionId: searchParams.get("sessionId") || null,
+    conceptId: searchParams.get("conceptId") || null,
+    from:      fromParam,
+    flow:      flowParam,
+  });
+  void flowContext; // currently consumed by future workflow persistence; avoids lint warning
+
+  // Source badge — shown when arriving from any studio's animate flow
+  const fromStudio = fromParam === "image-studio" || fromParam === "creative-director";
+  const fromStudioLabel = fromParam === "creative-director"
+    ? "Image loaded from Creative Director — ready to animate"
+    : "Image loaded from Image Studio — ready to animate";
 
   // Controls
-  // If an imageUrl is provided, open in Image Reference (start_frame) mode automatically
-  const [frameMode,      setFrameMode]      = useState<FrameMode>(imageUrlParam ? "start_frame" : "text_to_video");
+  // Open in start_frame mode when a start image is provided or flow indicates frame-level use
+  const [frameMode,      setFrameMode]      = useState<FrameMode>(
+    (startFrameParam || flowParam === "animate" || flowParam === "start-frame") ? "start_frame" : "text_to_video"
+  );
   const [aspectRatio,    setAspectRatio]    = useState<VideoAR>("16:9");
   const [quality,        setQuality]        = useState<Quality>("std");
   const [duration,       setDuration]       = useState<number>(5);
@@ -499,16 +521,20 @@ export default function VideoStudioShell() {
   const [motionArea,     setMotionArea]     = useState("full_body");
   const [resolution,     setResolution]     = useState<string>("720p");
 
-  // Canvas slots — pre-fill Start Frame from URL param when present
+  // Canvas slots — pre-fill from URL params (one-time init via useState)
   const [startSlot,       setStartSlot]       = useState<ImageSlot>(
-    imageUrlParam ? { url: imageUrlParam, preview: imageUrlParam } : EMPTY_SLOT
+    startFrameParam ? { url: startFrameParam, preview: startFrameParam } : EMPTY_SLOT
   );
-  const [endSlot,         setEndSlot]         = useState<ImageSlot>(EMPTY_SLOT);
+  // endFrame: pre-populate the end slot; generation payload already gates endImageUrl
+  // via model.capabilities.endFrame — safe to set the slot regardless of selected model
+  const [endSlot,         setEndSlot]         = useState<ImageSlot>(
+    endFrameParam ? { url: endFrameParam, preview: endFrameParam } : EMPTY_SLOT
+  );
   const [audioSlot,       setAudioSlot]       = useState<AudioSlot>(EMPTY_AUDIO);
   const [motionVideoUrl,  setMotionVideoUrl]  = useState<string | null>(null);
   const [motionVideoName, setMotionVideoName] = useState<string | null>(null);
 
-  // Prompt — pre-fill from URL param when coming from Image Studio
+  // Prompt — pre-fill from URL param (works from any studio source)
   const [prompt,    setPrompt]    = useState(searchParams.get("prompt") ?? "");
   const [negPrompt, setNegPrompt] = useState("");
 
@@ -886,25 +912,26 @@ export default function VideoStudioShell() {
           transition: "filter 0.35s ease",
           filter: cinemaModeActive ? "brightness(1.04)" : "brightness(1)",
         }}>
-          {/* "From Image Studio" source badge — shown only when arriving via Animate */}
-          {fromImageStudio && (
+          {/* Source badge — shown when arriving from any studio via Animate / frame action */}
+          {fromStudio && (
             <div style={{
               display: "flex", alignItems: "center", gap: 7,
               padding: "6px 12px 6px 10px",
               marginBottom: 8,
               borderRadius: 8,
-              background: "rgba(99,102,241,0.10)",
-              border: "1px solid rgba(99,102,241,0.22)",
+              background: fromParam === "creative-director" ? "rgba(14,165,160,0.10)" : "rgba(99,102,241,0.10)",
+              border: `1px solid ${fromParam === "creative-director" ? "rgba(14,165,160,0.25)" : "rgba(99,102,241,0.22)"}`,
               width: "fit-content",
             }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(165,180,252,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                stroke={fromParam === "creative-director" ? "rgba(94,234,212,0.9)" : "rgba(165,180,252,0.9)"}
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
-              <span style={{ fontSize: 11.5, fontWeight: 500, color: "rgba(165,180,252,0.85)", letterSpacing: "0.01em" }}>
-                Image loaded from Image Studio — ready to animate
+              <span style={{ fontSize: 11.5, fontWeight: 500, color: fromParam === "creative-director" ? "rgba(94,234,212,0.85)" : "rgba(165,180,252,0.85)", letterSpacing: "0.01em" }}>
+                {fromStudioLabel}
               </span>
             </div>
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
 import Tooltip from "@/components/ui/Tooltip";
@@ -374,6 +375,7 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
 // ── Main shell ─────────────────────────────────────────────────────────────────
 export default function CreativeDirectorShell() {
   const { session } = useAuth();
+  const router       = useRouter();
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [brief, setBrief] = useState<BriefState>(DEFAULT_BRIEF);
@@ -1097,11 +1099,34 @@ export default function CreativeDirectorShell() {
           addToast("Saved to your library.", "info"); // already clear
           break;
         }
+        case "video_start_frame":
+        case "video_end_frame": {
+          // ── Workflow: send CD output to Video Studio as start or end frame ──────
+          const gen = generations.find((g) => g.id === generationId);
+          if (!gen?.url) {
+            addToast("Output is not yet ready to animate.", "error");
+            return;
+          }
+          const frameKey = action === "video_start_frame" ? "startFrame" : "endFrame";
+          const p = new URLSearchParams({
+            from: "creative-director",
+            flow: action === "video_start_frame" ? "start-frame" : "end-frame",
+          });
+          p.set(frameKey, gen.url);
+          // Propagate full context — never omit any available ID
+          if (gen.assetId)  p.set("assetId",   gen.assetId);
+          if (gen.conceptId) p.set("conceptId", gen.conceptId);
+          if (projectId)    p.set("projectId",  projectId);
+          if (sessionId)    p.set("sessionId",  sessionId);
+          router.push(`/studio/video?${p.toString()}`);
+          break;
+        }
         default:
           break;
       }
     },
-    [generations, getAuthHeaders, addToast, pollGeneration]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [generations, getAuthHeaders, addToast, pollGeneration, projectId, sessionId, router]
   );
 
   // ── Retry with another model ──────────────────────────────────────────────────

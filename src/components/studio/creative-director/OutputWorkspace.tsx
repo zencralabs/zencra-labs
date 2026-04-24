@@ -13,7 +13,11 @@ export type OutputAction =
   | "save"
   | "regenerate"
   | "variation_tray"
-  | "adapt_format";
+  | "adapt_format"
+  /** Workflow: send output to Video Studio as start frame */
+  | "video_start_frame"
+  /** Workflow: send output to Video Studio as end frame */
+  | "video_end_frame";
 
 export interface GenerationResult {
   id: string;
@@ -202,6 +206,7 @@ function GenerationCard({
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(gen.published ?? false);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
+  const [animateOpen, setAnimateOpen] = useState(false);
 
   function handlePublish() {
     setIsPublished(true);
@@ -570,6 +575,81 @@ function GenerationCard({
             {isPublished ? "✓ Published" : "↑ Publish"}
           </button>
         </Tooltip>
+
+        {/* Animate → Video Studio button + dropdown */}
+        {isCompleted && (
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setAnimateOpen(v => !v)}
+              onMouseEnter={() => setHoveredBtn("animate")}
+              onMouseLeave={() => setHoveredBtn(null)}
+              style={{
+                padding: "0 9px",
+                height: 28,
+                borderRadius: 6,
+                border: animateOpen
+                  ? "1px solid rgba(14,165,160,0.5)"
+                  : hoveredBtn === "animate"
+                  ? "1px solid rgba(14,165,160,0.35)"
+                  : "1px solid rgba(14,165,160,0.2)",
+                background: animateOpen
+                  ? "rgba(14,165,160,0.15)"
+                  : hoveredBtn === "animate"
+                  ? "rgba(14,165,160,0.1)"
+                  : "rgba(14,165,160,0.05)",
+                color: "rgba(94,234,212,0.85)",
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                transition: "all 0.12s ease",
+              }}
+            >
+              ▶ Animate
+              <span style={{ fontSize: 8, transform: animateOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+            </button>
+            {animateOpen && (
+              <>
+                {/* Close backdrop */}
+                <div
+                  style={{ position: "fixed", inset: 0, zIndex: 300 }}
+                  onClick={() => setAnimateOpen(false)}
+                />
+                <div style={{
+                  position: "absolute", bottom: "calc(100% + 5px)", left: 0,
+                  background: "#141420",
+                  border: "1px solid rgba(14,165,160,0.3)",
+                  borderRadius: 8, overflow: "hidden", zIndex: 301,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.7)",
+                  minWidth: 160,
+                }}>
+                  {[
+                    { action: "video_start_frame" as const, label: "Use as Start Frame", desc: "Opens as first frame" },
+                    { action: "video_end_frame"   as const, label: "Use as End Frame",   desc: "Opens as last frame"  },
+                  ].map(({ action, label, desc }, idx) => (
+                    <button
+                      key={action}
+                      onClick={() => { setAnimateOpen(false); onAction(action); }}
+                      style={{
+                        width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
+                        padding: "9px 12px", border: "none", background: "transparent",
+                        color: "#fff", cursor: "pointer", transition: "background 0.1s",
+                        borderBottom: idx === 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.12)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 600 }}>{label}</span>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Variations button */}
         <button

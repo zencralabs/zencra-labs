@@ -664,11 +664,16 @@ function ImageCard({
                 key={param}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
-                  params.set(param, img.url!);
-                  if (img.prompt) params.set("prompt", img.prompt);
+                  const p = new URLSearchParams({
+                    from: "image-studio",
+                    flow: param === "startFrame" ? "start-frame" : "end-frame",
+                  });
+                  p.set(param, img.url!);
+                  if (img.prompt)     p.set("prompt",    img.prompt);
+                  if (img.assetId)    p.set("assetId",   img.assetId);
+                  if (img.project_id) p.set("projectId", img.project_id);
                   setCardAnimateOpen(false);
-                  router.push(`/studio/video?${params.toString()}`);
+                  router.push(`/studio/video?${p.toString()}`);
                 }}
                 style={{
                   width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
@@ -3265,11 +3270,16 @@ function ImageStudioInner() {
                       <button
                         key={param}
                         onClick={() => {
-                          const params = new URLSearchParams({ model: "kling-30", from: "image-studio" });
-                          params.set(param, selectedImage.url!);
-                          if (selectedImage.prompt) params.set("prompt", selectedImage.prompt);
+                          const p = new URLSearchParams({
+                            from: "image-studio",
+                            flow: param === "startFrame" ? "start-frame" : "end-frame",
+                          });
+                          p.set(param, selectedImage.url!);
+                          if (selectedImage.prompt)     p.set("prompt",    selectedImage.prompt);
+                          if (selectedImage.assetId)    p.set("assetId",   selectedImage.assetId);
+                          if (selectedImage.project_id) p.set("projectId", selectedImage.project_id);
                           setPanelAnimateOpen(false);
-                          router.push(`/studio/video?${params.toString()}`);
+                          router.push(`/studio/video?${p.toString()}`);
                         }}
                         style={{
                           width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
