@@ -2053,7 +2053,7 @@ function ImageStudioInner() {
                 }}>
                   Working Canvas
                 </span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.01em" }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
                   Recent creations
                 </span>
               </div>
@@ -2412,7 +2412,7 @@ function ImageStudioInner() {
             {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
             <div style={{
               flexShrink: 0, alignSelf: "center", marginRight: 4,
-              opacity: prompt.trim() ? 1 : 0,
+              opacity: prompt.trim() ? 1 : 0.35,
               pointerEvents: prompt.trim() ? "auto" : "none",
               transition: "opacity 0.15s ease-out",
             }}>
@@ -2422,7 +2422,7 @@ function ImageStudioInner() {
                 disabled={enhancing || !prompt.trim()}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
-                  padding: "6px 11px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
                   border: "1px solid rgba(139,92,246,0.35)",
                   background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
                   color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
@@ -2903,12 +2903,12 @@ function ImageStudioInner() {
             }}
             title="Project folders coming soon"
           >Move to Project</button>
-          <Tooltip content="Coming soon — share your creations publicly">
+          <Tooltip content="Coming soon — publish your creations">
           <button
             aria-disabled="true"
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+              border: "1px dashed rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.03)",
               color: "rgba(255,255,255,0.38)", cursor: "not-allowed",
               opacity: 0.55, display: "flex", alignItems: "center", gap: 5,
               transition: "box-shadow 0.15s ease-out, border-color 0.15s ease-out",

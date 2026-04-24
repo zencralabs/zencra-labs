@@ -1140,7 +1140,7 @@ export default function GeneratedPage() {
               <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Your Library
               </span>
-              <span style={{ fontSize: 11, color: "#475569", letterSpacing: "0.01em" }}>
+              <span style={{ fontSize: 11, color: "#475569", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
                 Saved assets across your projects
               </span>
             </div>

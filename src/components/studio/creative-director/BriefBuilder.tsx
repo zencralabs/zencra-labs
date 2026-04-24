@@ -663,7 +663,7 @@ export default function BriefBuilder({
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <FieldLabel required>Campaign Goal</FieldLabel>
             <div style={{
-              opacity: brief.goal.trim() ? 1 : 0,
+              opacity: brief.goal.trim() ? 1 : 0.35,
               pointerEvents: brief.goal.trim() ? "auto" : "none",
               transition: "opacity 0.15s ease-out",
             }}>
@@ -672,7 +672,7 @@ export default function BriefBuilder({
                 disabled={goalEnhancing || !brief.goal.trim()}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
-                  padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
                   border: "1px solid rgba(139,92,246,0.35)",
                   background: goalEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
                   color: goalEnhancing ? "rgba(167,139,250,0.45)" : "rgba(167,139,250,0.85)",
@@ -808,7 +808,7 @@ export default function BriefBuilder({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <FieldLabel optional>Additional Notes</FieldLabel>
                 <div style={{
-                  opacity: brief.additionalNotes.trim() ? 1 : 0,
+                  opacity: brief.additionalNotes.trim() ? 1 : 0.35,
                   pointerEvents: brief.additionalNotes.trim() ? "auto" : "none",
                   transition: "opacity 0.15s ease-out",
                 }}>
@@ -817,7 +817,7 @@ export default function BriefBuilder({
                     disabled={notesEnhancing || !brief.additionalNotes.trim()}
                     style={{
                       display: "flex", alignItems: "center", gap: 5,
-                      padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                      padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
                       border: "1px solid rgba(139,92,246,0.35)",
                       background: notesEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
                       color: notesEnhancing ? "rgba(167,139,250,0.45)" : "rgba(167,139,250,0.85)",

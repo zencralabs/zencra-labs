@@ -746,7 +746,7 @@ export default function VideoPromptPanel({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
             <div style={{
-              opacity: prompt.trim() ? 1 : 0,
+              opacity: prompt.trim() ? 1 : 0.35,
               pointerEvents: prompt.trim() ? "auto" : "none",
               transition: "opacity 0.15s ease-out",
             }}>
@@ -756,7 +756,7 @@ export default function VideoPromptPanel({
                 title={enhancing ? "Enhancing…" : "Enhance prompt with AI"}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
-                  padding: "6px 11px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
                   border: "1px solid rgba(139,92,246,0.35)",
                   background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
                   color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
