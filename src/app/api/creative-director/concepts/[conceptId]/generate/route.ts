@@ -291,9 +291,15 @@ export async function POST(req: Request, { params }: RouteContext): Promise<Resp
           modelKey:    providerDecision.model,
           prompt:      promptString,
           aspectRatio: effectiveAspectRatio,
-          // Pass first reference image as imageUrl (GPT Image edit mode)
+          // Reference image routing — provider-specific:
+          //   Nano Banana (all variants): multi-ref array via providerParams.referenceUrls
+          //     → resolveReferenceUrls() reads this first before falling back to imageUrl
+          //   GPT Image: single imageUrl → triggers /v1/images/edits endpoint
+          //   Seedream / Flux: single imageUrl (single-ref only, same as GPT path)
           ...(referenceImages && referenceImages.length > 0
-            ? { imageUrl: referenceImages[0].url }
+            ? providerDecision.provider === "nano-banana"
+              ? { providerParams: { referenceUrls: referenceImages.map(r => r.url) } }
+              : { imageUrl: referenceImages[0].url }
             : {}),
           skipCredits: true, // CD route already deducted via spend_credits RPC
         });

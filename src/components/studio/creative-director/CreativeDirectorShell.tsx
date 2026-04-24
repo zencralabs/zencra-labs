@@ -907,10 +907,10 @@ export default function CreativeDirectorShell() {
         const modelOverride = modelKey ?? undefined;
         const providerOverride = modelKey
           ? ((): string => {
-              if (modelKey === "gpt-image-1")                          return "openai";
-              if (modelKey === "nano-banana-pro" || modelKey === "nano-banana-2") return "nano-banana";
-              if (modelKey.startsWith("seedream"))                     return "seedream";
-              if (modelKey.startsWith("flux"))                         return "flux";
+              if (modelKey === "gpt-image-1")                                                    return "openai";
+              if (modelKey === "nano-banana-pro" || modelKey === "nano-banana-2" || modelKey === "nano-banana-standard") return "nano-banana";
+              if (modelKey.startsWith("seedream"))                                            return "seedream";
+              if (modelKey.startsWith("flux"))                                                return "flux";
               return "openai";
             })()
           : undefined;

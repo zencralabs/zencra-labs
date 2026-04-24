@@ -315,7 +315,7 @@ function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
 }
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
-function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
+function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: () => void }) {
   const ratioMap: Record<string, number> = {
     Auto: 1, "1:1": 1, "3:4": 4 / 3, "4:3": 3 / 4, "2:3": 3 / 2, "3:2": 2 / 3,
     "9:16": 16 / 9, "16:9": 9 / 16, "5:4": 4 / 5, "4:5": 5 / 4, "21:9": 9 / 21,
@@ -344,6 +344,21 @@ function GeneratingPlaceholder({ ar }: { ar: AspectRatio }) {
           animation: "spin 0.9s linear infinite",
         }} />
         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>Generating…</span>
+        {onCancel && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCancel(); }}
+            title="Cancel generation"
+            style={{
+              marginTop: 4,
+              padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600,
+              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.35)", cursor: "pointer", letterSpacing: "0.02em",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.15)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(252,165,165,0.9)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+          >Cancel</button>
+        )}
       </div>
     </div>
   );
@@ -419,6 +434,7 @@ function ImageCard({
   onOpen,
   onDelete,
   onEnhance,
+  onCancel,
   hideHoverActions = false,
 }: {
   img: GeneratedImage;
@@ -427,12 +443,13 @@ function ImageCard({
   onOpen?: () => void;
   onDelete?: (id: string, assetId?: string) => void;
   onEnhance?: () => void;
+  onCancel?: () => void;
   hideHoverActions?: boolean;
 }) {
   const router = useRouter();
   const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
-    return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} />;
+    return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} onCancel={onCancel} />;
   }
 
   if (img.status === "error") {
@@ -734,6 +751,11 @@ function ImageStudioInner() {
 
   // ── Gallery multi-select ──────────────────────────────────────────────────────
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+
+  // ── Cancel flow — tracks which placeholder IDs the user has cancelled ─────────
+  // cancelledRef is a ref (not state) so the polling loop can read it synchronously.
+  const cancelledRef = useRef<Set<string>>(new Set());
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
   // ── Character Consistency
   const [refFaceDetected,     setRefFaceDetected]     = useState(false);
@@ -1119,6 +1141,12 @@ function ImageStudioInner() {
           while (Date.now() < deadline) {
             await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 
+            // ── User cancelled this generation — break immediately ──────────
+            if (cancelledRef.current.has(ph.id)) {
+              cancelledRef.current.delete(ph.id);
+              break; // card is already in "error" state from handleCancelGeneration
+            }
+
             try {
               const statusRes  = await fetch(
                 `/api/studio/jobs/${jobId}/status`,
@@ -1229,6 +1257,24 @@ function ImageStudioInner() {
       console.warn("[ImageStudio] Failed to mark asset as deleted:", assetId);
     }
   }, [user]);
+
+  // ── Cancel flow — marks a generating placeholder as cancelled ────────────────
+  // Sets the card to error state immediately; the polling loop checks cancelledRef
+  // and breaks out on the next tick, so no further state mutations happen after.
+  const handleCancelGeneration = useCallback((id: string) => {
+    cancelledRef.current.add(id);
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === id
+          ? {
+              ...img,
+              status: "error" as const,
+              error:  "Generation cancelled. Credits may not be refunded if the job had already started on the provider.",
+            }
+          : img
+      )
+    );
+  }, []);
 
   // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
   const handleVariation = useCallback((step: FlowStep) => {
@@ -1728,6 +1774,7 @@ function ImageStudioInner() {
                   }}
                   onDelete={handleDeleteCard}
                   onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
+                  onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
                 />
                 {/* Sequence number badge — only for completed images */}
                 {img.status === "done" && (
@@ -1780,9 +1827,9 @@ function ImageStudioInner() {
           </div>
           {/* Collapse animation wrapper — no overflow:hidden to avoid clipping dropdowns */}
           <div style={{
-            maxHeight: isDockCollapsed ? 0 : 400,
+            maxHeight: isDockCollapsed ? 0 : 700,
             opacity: isDockCollapsed ? 0 : 1,
-            transition: "max-height 0.3s ease, opacity 0.22s ease",
+            transition: "max-height 0.35s ease, opacity 0.22s ease",
             pointerEvents: isDockCollapsed ? "none" : "auto",
           }}>
         <div style={{
@@ -2524,6 +2571,58 @@ function ImageStudioInner() {
 
       {/* Auth modal */}
       {authModal && <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />}
+
+      {/* ── Cancel generation confirmation modal ─────────────────────────── */}
+      {cancelConfirmId && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)",
+        }}>
+          <div style={{
+            background: "#0A0F1E",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 16,
+            padding: "28px 32px",
+            maxWidth: 400,
+            width: "calc(100% - 48px)",
+            textAlign: "center",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+          }}>
+            <p style={{ color: "#F5F7FF", fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+              Cancel generation?
+            </p>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.55, marginBottom: 24 }}>
+              Credits may not be refunded if the job has already started on the provider.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button
+                onClick={() => {
+                  handleCancelGeneration(cancelConfirmId);
+                  setCancelConfirmId(null);
+                }}
+                style={{
+                  padding: "10px 24px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)",
+                  color: "rgba(252,165,165,0.9)", transition: "background 0.15s",
+                }}
+              >
+                Yes, cancel
+              </button>
+              <button
+                onClick={() => setCancelConfirmId(null)}
+                style={{
+                  padding: "10px 24px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.6)", transition: "background 0.15s",
+                }}
+              >
+                No, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Zoom hint — fades in briefly when user zooms below action threshold ── */}
       {zoomHint && (
