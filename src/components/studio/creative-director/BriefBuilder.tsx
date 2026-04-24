@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useAuth } from "@/components/auth/AuthContext";
+import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BriefBuilder — Guided Creative Briefing Experience
@@ -363,6 +365,51 @@ export default function BriefBuilder({
   // Message section collapsed by default — purely UI state
   const [messageOpen, setMessageOpen] = useState(false);
 
+  // ── Additional notes enhance ────────────────────────────────────────────────
+  const { session } = useAuth();
+  const [notesEnhancing, setNotesEnhancing]         = useState(false);
+  const [notesEnhancerOpen, setNotesEnhancerOpen]   = useState(false);
+  const [notesEnhancedResult, setNotesEnhancedResult] = useState<string | null>(null);
+
+  const handleEnhanceNotes = useCallback(async () => {
+    const raw = brief.additionalNotes.trim();
+    if (!raw || notesEnhancing) return;
+
+    setNotesEnhancerOpen(true);
+    setNotesEnhancedResult(null);
+    setNotesEnhancing(true);
+
+    try {
+      const res = await fetch("/api/studio/prompt/enhance", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({
+          prompt:     raw,
+          studioType: "image",
+          modelHint:  brief.preferredProvider ?? "",
+        }),
+      });
+
+      const json = await res.json() as { enhancedPrompt?: string; error?: string };
+
+      if (res.ok && json.enhancedPrompt) {
+        setNotesEnhancedResult(json.enhancedPrompt);
+      } else {
+        console.warn("[brief-enhance] failed:", json.error);
+        setNotesEnhancedResult(null);
+      }
+    } catch (err) {
+      console.warn("[brief-enhance] network error:", err);
+      setNotesEnhancedResult(null);
+    } finally {
+      setNotesEnhancing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brief.additionalNotes, brief.preferredProvider, notesEnhancing, session]);
+
   const toggleMoodTag = (tag: string) => {
     const current = brief.moodTags;
     if (current.includes(tag)) {
@@ -651,7 +698,50 @@ export default function BriefBuilder({
 
             {/* Additional Notes */}
             <Field style={{ marginBottom: 0 }}>
-              <FieldLabel optional>Additional Notes</FieldLabel>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <FieldLabel optional>Additional Notes</FieldLabel>
+                {brief.additionalNotes.trim() && (
+                  <button
+                    onClick={handleEnhanceNotes}
+                    disabled={notesEnhancing}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "4px 10px", borderRadius: 7, fontSize: 11.5, fontWeight: 600,
+                      border: "1px solid rgba(139,92,246,0.35)",
+                      background: notesEnhancing ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.10)",
+                      color: notesEnhancing ? "rgba(167,139,250,0.45)" : "rgba(167,139,250,0.85)",
+                      cursor: notesEnhancing ? "not-allowed" : "pointer",
+                      transition: "all 0.15s", letterSpacing: "0.01em",
+                    }}
+                    onMouseEnter={e => {
+                      if (!notesEnhancing) {
+                        (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.55)";
+                        (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!notesEnhancing) {
+                        (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.10)";
+                        (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
+                        (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.85)";
+                      }
+                    }}
+                  >
+                    {notesEnhancing ? (
+                      <>
+                        <div style={{
+                          width: 9, height: 9, borderRadius: "50%",
+                          border: "1.5px solid rgba(167,139,250,0.2)",
+                          borderTopColor: "rgba(167,139,250,0.65)",
+                          animation: "bbEnhSpin 0.7s linear infinite", flexShrink: 0,
+                        }} />
+                        Enhancing…
+                      </>
+                    ) : "✦ Enhance"}
+                  </button>
+                )}
+              </div>
               <textarea
                 className="brief-input"
                 style={{ ...textareaBase, minHeight: 60 }}
@@ -660,6 +750,28 @@ export default function BriefBuilder({
                 onChange={(e) => onChange({ additionalNotes: e.target.value })}
               />
               <HelperText>Extra context, references, or constraints</HelperText>
+              {/* Enhancer panel — slides in below the textarea */}
+              <PromptEnhancerPanel
+                open={notesEnhancerOpen}
+                originalPrompt={brief.additionalNotes}
+                enhancedPrompt={notesEnhancedResult}
+                isLoading={notesEnhancing}
+                onEnhance={handleEnhanceNotes}
+                onApply={(enhanced) => {
+                  onChange({ additionalNotes: enhanced });
+                  setNotesEnhancerOpen(false);
+                  setNotesEnhancedResult(null);
+                }}
+                onClose={() => {
+                  setNotesEnhancerOpen(false);
+                  setNotesEnhancedResult(null);
+                }}
+              />
+              <style>{`
+                @keyframes bbEnhSpin {
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
             </Field>
           </div>
         </div>

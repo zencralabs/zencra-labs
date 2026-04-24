@@ -12,6 +12,7 @@ import type { FrameMode } from "./types";
 import type { LipSyncState } from "@/hooks/useLipSync";
 import type { LipSyncQuality } from "@/lib/lipsync/status";
 import { useAuth } from "@/components/auth/AuthContext";
+import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
 
 // ── Credit estimation ─────────────────────────────────────────────────────────
 
@@ -662,11 +663,17 @@ export default function VideoPromptPanel({
   const [enhancing, setEnhancing]               = useState(false);
   const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
   const [enhanceError, setEnhanceError]         = useState<string | null>(null);
+  // Panel state — never auto-replaces prompt
+  const [enhancerOpen, setEnhancerOpen]     = useState(false);
+  const [enhancedResult, setEnhancedResult] = useState<string | null>(null);
 
   const handleEnhance = useCallback(async () => {
     if (!prompt.trim() || enhancing) return;
     if (!user) return; // auth guard — VideoStudioShell handles login prompt elsewhere
 
+    // Open panel immediately — loading state shows right away
+    setEnhancerOpen(true);
+    setEnhancedResult(null);
     setPreEnhancePrompt(prompt);
     setEnhanceError(null);
     setEnhancing(true);
@@ -688,21 +695,28 @@ export default function VideoPromptPanel({
       const json = await res.json() as { enhancedPrompt?: string; error?: string };
 
       if (res.ok && json.enhancedPrompt) {
-        setPrompt(json.enhancedPrompt);
+        setEnhancedResult(json.enhancedPrompt);
         setEnhanceError(null);
       } else {
         console.warn("[video-prompt-enhance] failed:", json.error);
-        setPreEnhancePrompt(null);
+        setEnhancedResult(null);
         setEnhanceError("Enhancement failed — please try again");
       }
     } catch (err) {
       console.warn("[video-prompt-enhance] network error:", err);
-      setPreEnhancePrompt(null);
+      setEnhancedResult(null);
       setEnhanceError("Network error — please check your connection");
     } finally {
       setEnhancing(false);
     }
-  }, [prompt, enhancing, user, model, setPrompt]);
+  }, [prompt, enhancing, user, model]);
+
+  const handleApplyEnhanced = useCallback((enhanced: string) => {
+    setPrompt(enhanced);
+    setEnhancerOpen(false);
+    setEnhancedResult(null);
+    setPreEnhancePrompt(null);
+  }, [setPrompt]);
 
   const chips = model?.promptChips ?? [
     "cinematic lighting", "slow motion", "aerial shot",
@@ -801,6 +815,21 @@ export default function VideoPromptPanel({
             )}
           </div>
         </div>
+
+        {/* ── Prompt Enhancer Panel ─────────────────────────────────────────── */}
+        <PromptEnhancerPanel
+          open={enhancerOpen}
+          originalPrompt={preEnhancePrompt ?? prompt}
+          enhancedPrompt={enhancedResult}
+          isLoading={enhancing}
+          onEnhance={handleEnhance}
+          onApply={handleApplyEnhanced}
+          onClose={() => {
+            setEnhancerOpen(false);
+            setEnhancedResult(null);
+            setPreEnhancePrompt(null);
+          }}
+        />
 
         {/* Presets dropdown */}
         {showPresets && (

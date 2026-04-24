@@ -19,6 +19,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
 import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
+import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -791,6 +792,9 @@ function ImageStudioInner() {
   const [enhancing, setEnhancing] = useState(false);
   const [preEnhancePrompt, setPreEnhancePrompt] = useState<string | null>(null);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
+  // Panel state — never auto-replaces prompt
+  const [enhancerOpen, setEnhancerOpen]         = useState(false);
+  const [enhancedResult, setEnhancedResult]     = useState<string | null>(null);
 
   // ── Fullscreen viewer ────────────────────────────────────────────────────────
   const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
@@ -1445,7 +1449,9 @@ function ImageStudioInner() {
     if (!prompt.trim() || enhancing) return;
     if (!user) { setAuthModal(true); return; }
 
-    // Save original so the user can undo — also clears prior undo and error state
+    // Open panel immediately — show loading state right away
+    setEnhancerOpen(true);
+    setEnhancedResult(null);
     setPreEnhancePrompt(prompt);
     setEnhanceError(null);
     setEnhancing(true);
@@ -1467,29 +1473,44 @@ function ImageStudioInner() {
       const json = await res.json() as { enhancedPrompt?: string; error?: string };
 
       if (res.ok && json.enhancedPrompt) {
-        setPrompt(json.enhancedPrompt);
+        setEnhancedResult(json.enhancedPrompt);
         setEnhanceError(null);
-        // Resize textarea to fit new content
-        if (promptRef.current) {
-          promptRef.current.style.height = "auto";
-          promptRef.current.style.height =
-            Math.min(promptRef.current.scrollHeight, 140) + "px";
-        }
       } else {
-        // Use warn (not error) to avoid triggering the Next.js red dev overlay
         console.warn("[prompt-enhance] failed:", json.error);
-        setPreEnhancePrompt(null);
         setEnhanceError("Enhancement failed — please try again");
+        setEnhancedResult(null);
       }
     } catch (err) {
       console.warn("[prompt-enhance] network error:", err);
-      setPreEnhancePrompt(null);
       setEnhanceError("Network error — please check your connection");
+      setEnhancedResult(null);
     } finally {
       setEnhancing(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt, enhancing, user, model]);
+
+  /** Apply the enhanced prompt — replaces field + flash highlight */
+  const handleApplyEnhanced = useCallback((enhanced: string) => {
+    setPrompt(enhanced);
+    setEnhancerOpen(false);
+    setEnhancedResult(null);
+    setPreEnhancePrompt(null);
+    // Resize textarea
+    if (promptRef.current) {
+      promptRef.current.style.height = "auto";
+      promptRef.current.style.height = Math.min(promptRef.current.scrollHeight, 140) + "px";
+      // Flash highlight
+      promptRef.current.style.borderColor = "rgba(99,179,237,0.8)";
+      promptRef.current.style.boxShadow   = "0 0 20px rgba(59,130,246,0.3)";
+      setTimeout(() => {
+        if (promptRef.current) {
+          promptRef.current.style.borderColor = "";
+          promptRef.current.style.boxShadow   = "";
+        }
+      }, 600);
+    }
+  }, []);
 
   // ── Styles ──────────────────────────────────────────────────────────────────
   const ctrlBtn = (active?: boolean): React.CSSProperties => ({
@@ -2413,6 +2434,25 @@ function ImageStudioInner() {
               </Tooltip>
             )}
           </div>
+
+          {/* ── Prompt Enhancer Panel ───────────────────────────────────────── */}
+          {enhancerOpen && (
+            <div style={{ padding: "0 14px" }}>
+              <PromptEnhancerPanel
+                open={enhancerOpen}
+                originalPrompt={preEnhancePrompt ?? prompt}
+                enhancedPrompt={enhancedResult}
+                isLoading={enhancing}
+                onEnhance={handleEnhance}
+                onApply={handleApplyEnhanced}
+                onClose={() => {
+                  setEnhancerOpen(false);
+                  setEnhancedResult(null);
+                  setPreEnhancePrompt(null);
+                }}
+              />
+            </div>
+          )}
 
           {/* Controls row */}
           <div style={{
