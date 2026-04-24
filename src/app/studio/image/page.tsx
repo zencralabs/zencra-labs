@@ -17,6 +17,7 @@ import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
+import { HERO_IMAGES } from "@/config/heroImages";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -861,6 +862,9 @@ function ImageStudioInner() {
 
   // ── Gallery multi-select ──────────────────────────────────────────────────────
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
+
+  // ── Hero strip hover state (empty state only) ────────────────────────────────
+  const [hoveredHeroIdx, setHoveredHeroIdx] = useState<number | null>(null);
 
   // ── Cancel flow — tracks which placeholder IDs the user has cancelled ─────────
   // cancelledRef is a ref (not state) so the polling loop can read it synchronously.
@@ -1778,115 +1782,180 @@ function ImageStudioInner() {
         )}
 
         {/* ── STATE 2: Empty (logged in + history loaded, or logged out) ───── */}
-        {(!user || historyLoaded) && images.length === 0 && !historyError && (
-          <div style={{
-            height: "100%", display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 20,
-            minHeight: "calc(100vh - 58px - 100px)",
-            padding: "40px 24px",
-            position: "relative",
-          }}>
-            {/* ── Floating abstract tiles — visible only in empty state ── */}
-            {/* These give depth and communicate "this is an image space" */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-              {/* Tile 1 — top-left, tilted */}
+        {(!user || historyLoaded) && images.length === 0 && !historyError && (() => {
+          // ── Hero strip layout config ──────────────────────────────────────
+          // Compute per-card rotation / Y offset / z-index from center outward.
+          // Works for 3–5 images (clamp to what's configured in heroImages.ts).
+          const heroImgs  = HERO_IMAGES.slice(0, 5);
+          const n         = heroImgs.length;
+          const centerIdx = Math.floor(n / 2);
+
+          // Per-card base config (indexed 0..n-1)
+          const cardConfig = heroImgs.map((_, i) => {
+            const offset  = i - centerIdx;          // -2..+2 for n=5
+            const rotate  = offset * 3;             // -6..+6 deg
+            const baseY   = Math.abs(offset) * 5;  // 0..10 px
+            const zIdx    = n - Math.abs(offset);   // center highest
+            const scale   = offset === 0 ? 1.05 : 1;
+            return { rotate, baseY, zIdx, scale };
+          });
+
+          const CARD_W    = 152;   // px — portrait card width
+          const CARD_H    = 204;   // px — ~4:3 portrait height
+          const OVERLAP   = 32;    // px — how much cards overlap
+          const FLOAT_DUR = [7000, 7800, 7200, 8000, 7500]; // ms — stagger per card
+
+          return (
+            <div style={{
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: 0,
+              minHeight: "calc(100vh - 58px - 100px)",
+              padding: "48px 24px 40px",
+            }}>
+
+              {/* ── Hero image strip ─────────────────────────────────────── */}
               <div style={{
-                position: "absolute", top: "8%", left: "6%",
-                width: 130, height: 160, borderRadius: 14,
-                background: "linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(99,102,241,0.10) 50%, rgba(14,165,160,0.08) 100%)",
-                border: "1px solid rgba(96,165,250,0.14)",
-                transform: "rotate(-8deg)",
-                boxShadow: "0 8px 40px rgba(37,99,235,0.10)",
-                backdropFilter: "blur(2px)",
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                marginBottom: 32,
+                // Negative margin collapses overlap between cards
+                gap: 0,
               }}>
-                <div style={{ height: "100%", background: "repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 12px)", borderRadius: 14 }} />
+                {heroImgs.map((src, i) => {
+                  const cfg     = cardConfig[i];
+                  const isHover = hoveredHeroIdx === i;
+
+                  // Hover: lift upward, intensify rotation slightly, scale up
+                  const hoverRotateDelta = cfg.rotate >= 0 ? 1.5 : -1.5;
+                  const baseTransform    = `rotate(${cfg.rotate}deg) translateY(${cfg.baseY}px) scale(${cfg.scale})`;
+                  const hoverTransform   = `rotate(${cfg.rotate + hoverRotateDelta}deg) translateY(${cfg.baseY - 8}px) scale(${(cfg.scale * 1.03).toFixed(3)})`;
+
+                  const baseShadow  = "0 10px 40px rgba(0,0,0,0.5), 0 0 30px rgba(59,130,246,0.15)";
+                  const hoverShadow = "0 20px 60px rgba(0,0,0,0.65), 0 0 40px rgba(59,130,246,0.38)";
+
+                  // Center card has no rotation delta on hover — just lifts
+                  const finalHoverTransform = cfg.rotate === 0
+                    ? `translateY(-8px) scale(${(cfg.scale * 1.03).toFixed(3)})`
+                    : hoverTransform;
+
+                  return (
+                    <div
+                      key={src}
+                      onMouseEnter={() => setHoveredHeroIdx(i)}
+                      onMouseLeave={() => setHoveredHeroIdx(null)}
+                      style={{
+                        // Outer — base tilt + overlap
+                        width: CARD_W,
+                        height: CARD_H,
+                        flexShrink: 0,
+                        // Overlap: pull cards left except the first
+                        marginLeft: i === 0 ? 0 : -OVERLAP,
+                        // Base transform + hover override
+                        transform: isHover ? finalHoverTransform : baseTransform,
+                        transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s ease",
+                        zIndex: isHover ? n + 5 : cfg.zIdx,
+                        borderRadius: 20,
+                        overflow: "hidden",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        boxShadow: isHover ? hoverShadow : baseShadow,
+                        cursor: "default",
+                        position: "relative",
+                      }}
+                    >
+                      {/* Inner — idle float animation only (no base tilt conflict) */}
+                      <div style={{
+                        width: "100%", height: "100%",
+                        animation: `heroFloat ${FLOAT_DUR[i] ?? 7500}ms ease-in-out ${i * 400}ms infinite`,
+                        // Pause float on hover for a clean lift feel
+                        animationPlayState: isHover ? "paused" : "running",
+                      }}>
+                        {/* Placeholder gradient — shows when image hasn't loaded */}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: `linear-gradient(${150 + i * 30}deg,
+                            rgba(37,${80 + i * 8},235,0.22) 0%,
+                            rgba(${60 + i * 15},${40 + i * 5},180,0.18) 50%,
+                            rgba(14,${100 + i * 10},160,0.14) 100%)`,
+                          borderRadius: 20,
+                        }} />
+                        {/* Actual hero image */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={`Hero preview ${i + 1}`}
+                          style={{
+                            width: "100%", height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                            borderRadius: 20,
+                            position: "relative", zIndex: 1,
+                          }}
+                          onError={(e) => {
+                            // Hide broken image — placeholder gradient shows through
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              {/* Tile 2 — top-right, opposite tilt */}
-              <div style={{
-                position: "absolute", top: "5%", right: "8%",
-                width: 110, height: 140, borderRadius: 12,
-                background: "linear-gradient(145deg, rgba(124,58,237,0.12) 0%, rgba(37,99,235,0.08) 100%)",
-                border: "1px solid rgba(139,92,246,0.14)",
-                transform: "rotate(6deg)",
-                boxShadow: "0 8px 40px rgba(124,58,237,0.08)",
-              }}>
-                <div style={{ height: "100%", background: "repeating-linear-gradient(-45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 14px)", borderRadius: 12 }} />
+
+              {/* ── Headline + subtitle ─────────────────────────────────── */}
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <p style={{
+                  fontSize: 22, fontWeight: 700,
+                  color: "rgba(255,255,255,0.88)",
+                  letterSpacing: "-0.01em", marginBottom: 10,
+                }}>
+                  Describe what you want to create
+                </p>
+                <p style={{
+                  fontSize: 14, color: "rgba(255,255,255,0.3)",
+                  maxWidth: 400, lineHeight: 1.65,
+                }}>
+                  Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
+                </p>
               </div>
-              {/* Tile 3 — bottom-left, horizontal */}
-              <div style={{
-                position: "absolute", bottom: "15%", left: "9%",
-                width: 160, height: 110, borderRadius: 12,
-                background: "linear-gradient(125deg, rgba(14,165,160,0.10) 0%, rgba(37,99,235,0.09) 100%)",
-                border: "1px solid rgba(45,212,191,0.12)",
-                transform: "rotate(4deg)",
-                boxShadow: "0 8px 40px rgba(14,165,160,0.08)",
-              }}>
-                <div style={{ height: "100%", background: "repeating-linear-gradient(30deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 16px)", borderRadius: 12 }} />
+
+              {/* ── Suggestion chips ────────────────────────────────────── */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 560 }}>
+                {[
+                  "Cinematic portrait in golden hour light",
+                  "Futuristic city at night, neon reflections",
+                  "Abstract liquid chrome, iridescent colors",
+                  "Lone figure on a cliff overlooking a stormy sea",
+                  "A cyberpunk street market at dusk",
+                ].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => { setPrompt(p); promptRef.current?.focus(); }}
+                    style={{
+                      padding: "8px 16px", borderRadius: 24, fontSize: 12, fontWeight: 500,
+                      border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+                      color: "rgba(255,255,255,0.6)", cursor: "pointer", transition: "all 0.15s",
+                      letterSpacing: "0.01em",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.35)";
+                      (e.currentTarget as HTMLElement).style.color = "#fff";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+                      (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
               </div>
-              {/* Tile 4 — bottom-right, square-ish */}
-              <div style={{
-                position: "absolute", bottom: "12%", right: "7%",
-                width: 120, height: 130, borderRadius: 14,
-                background: "linear-gradient(155deg, rgba(37,99,235,0.11) 0%, rgba(99,102,241,0.07) 100%)",
-                border: "1px solid rgba(96,165,250,0.12)",
-                transform: "rotate(-5deg)",
-                boxShadow: "0 8px 40px rgba(37,99,235,0.07)",
-              }}>
-                <div style={{ height: "100%", background: "repeating-linear-gradient(60deg, rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 10px)", borderRadius: 14 }} />
-              </div>
-              {/* Ambient blue radial glow behind center */}
-              <div style={{
-                position: "absolute", top: "50%", left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 400, height: 400,
-                borderRadius: "50%",
-                background: "radial-gradient(circle, rgba(37,99,235,0.07) 0%, transparent 70%)",
-                pointerEvents: "none",
-              }} />
             </div>
-            {/* Center text block */}
-            <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-              <p style={{ fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", marginBottom: 10 }}>
-                Describe what you want to create
-              </p>
-              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", maxWidth: 400, lineHeight: 1.65 }}>
-                Your generated images will appear here. Type a prompt below and hit Generate — or choose a suggestion to get started.
-              </p>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4, maxWidth: 560, position: "relative", zIndex: 1 }}>
-              {[
-                "Cinematic portrait in golden hour light",
-                "Futuristic city at night, neon reflections",
-                "Abstract liquid chrome, iridescent colors",
-                "Lone figure on a cliff overlooking a stormy sea",
-                "A cyberpunk street market at dusk",
-              ].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => { setPrompt(p); promptRef.current?.focus(); }}
-                  style={{
-                    padding: "8px 16px", borderRadius: 24, fontSize: 12, fontWeight: 500,
-                    border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
-                    color: "rgba(255,255,255,0.6)", cursor: "pointer", transition: "all 0.15s",
-                    letterSpacing: "0.01em",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.15)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(37,99,235,0.35)";
-                    (e.currentTarget as HTMLElement).style.color = "#fff";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-                    (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── STATE 3: CSS grid — left-to-right, newest first ──────────────── */}
         {images.length > 0 && (() => {

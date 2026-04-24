@@ -326,6 +326,13 @@
   100% { background-position: -200% 0; }
 }
 
+/* ── Hero image strip — idle float animation (empty state) ─────────────────── */
+/* Applied to the INNER wrapper so the outer card's base tilt is unaffected.    */
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-3px); }
+}
+
 /* ── Image Studio gallery card overlays ────────────────────────────────────── */
 /* Checkbox: visible when selected (JS-controlled) or on card hover */
 .img-card-wrapper:hover .img-checkbox { opacity: 1 !important; }
