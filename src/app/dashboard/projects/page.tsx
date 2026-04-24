@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useAuth }  from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useToast, ToastStack } from "@/components/ui/Toast";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -34,6 +35,15 @@ interface DashboardStats {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Deterministic gradient from project name — makes the card grid feel alive. */
+function projectGradient(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const hue  = Math.abs(hash) % 360;
+  const hue2 = (hue + 40) % 360;
+  return `linear-gradient(135deg, hsl(${hue},55%,12%) 0%, hsl(${hue2},60%,8%) 100%)`;
+}
 
 function timeAgo(iso: string): string {
   const diff  = Date.now() - new Date(iso).getTime();
@@ -360,10 +370,19 @@ function ProjectCard({
         height: 120,
         background: project.cover_url
           ? `url(${project.cover_url}) center/cover no-repeat`
-          : "linear-gradient(135deg, #0d1533 0%, #0B1022 100%)",
+          : projectGradient(project.name),
         position: "relative", display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        {!project.cover_url && <FolderOpen size={28} style={{ color: "rgba(37,99,235,0.35)" }} />}
+        {!project.cover_url && (
+          <div style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: "rgba(0,0,0,0.25)", backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <FolderOpen size={20} style={{ color: "rgba(255,255,255,0.5)" }} />
+          </div>
+        )}
 
         {/* Visibility badge */}
         <span style={{
@@ -486,6 +505,7 @@ function StatsBar({ stats }: { stats: DashboardStats }) {
 export default function ProjectsPage() {
   const { session } = useAuth();
   const router = useRouter();
+  const { toasts, toast, dismiss } = useToast();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats]       = useState<DashboardStats>({ total_projects: 0, total_outputs: 0, total_favorites: 0 });
@@ -528,13 +548,16 @@ export default function ProjectsPage() {
     setProjects(prev => [p, ...prev]);
     setStats(prev => ({ ...prev, total_projects: prev.total_projects + 1 }));
     setShowCreate(false);
+    toast.success(`Project "${p.name}" created`);
     router.push(`/dashboard/project/${p.id}`);
   };
 
   const handleDeleted = (id: string) => {
+    const name = projects.find(p => p.id === id)?.name ?? "Project";
     setProjects(prev => prev.filter(p => p.id !== id));
     setStats(prev => ({ ...prev, total_projects: Math.max(0, prev.total_projects - 1) }));
     setDeleteTarget(null);
+    toast.success(`"${name}" deleted`);
   };
 
   const handleRename = async (id: string, name: string) => {
@@ -547,6 +570,9 @@ export default function ProjectsPage() {
     });
     if (res.ok) {
       setProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p));
+      toast.success("Project renamed");
+    } else {
+      toast.error("Rename failed — please try again");
     }
   };
 
@@ -660,6 +686,8 @@ export default function ProjectsPage() {
           getToken={getToken}
         />
       )}
+
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

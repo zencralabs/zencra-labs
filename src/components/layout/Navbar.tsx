@@ -52,7 +52,7 @@ const navCategories: Record<string, NavCategory> = {
         right: { type: "models", heading: "Image Models", models: imageModels },
       },
       {
-        icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/studio/image",
+        icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/tools/creative-director",
         right: { type: "soon", title: "Creative Director", badge: "NEW", desc: "Brief your campaign, receive 3 distinct creative concepts from an AI art director, then render any concept into production-ready visuals — all in one workflow.", bullets: ["AI-generated creative concepts", "Multi-provider smart routing", "Variation engine (5 passes)", "Format adaptation (Story, Square, Banner)"] },
       },
       {
@@ -104,7 +104,7 @@ const navCategories: Record<string, NavCategory> = {
     label: "Audio Tools",
     features: [
       {
-        icon: Mic, label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "/studio?mode=audio",
+        icon: Mic, label: "AI Voiceover", desc: "Generate speech from text", badge: "NEW", href: "/studio/audio",
         right: { type: "models", heading: "Voice Models", models: audioModels },
       },
       {

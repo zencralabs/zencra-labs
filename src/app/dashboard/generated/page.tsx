@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useToast, ToastStack } from "@/components/ui/Toast";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -869,6 +870,7 @@ const DEFAULT_FILTERS: Filters = {
 export default function GeneratedPage() {
   const { session } = useAuth();
   const router     = useRouter();
+  const { toasts, toast, dismiss } = useToast();
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [assets,     setAssets]     = useState<Asset[]>([]);
@@ -889,6 +891,8 @@ export default function GeneratedPage() {
   const [deleteTarget,    setDeleteTarget]    = useState<Set<string>>(new Set());  // ids to delete
   const [showMoveModal,   setShowMoveModal]   = useState(false);
   const [moveTarget,      setMoveTarget]      = useState<Set<string>>(new Set());  // ids to move
+  // Public confirmation step: assetId → pending visibility=public action
+  const [pendingPublic,   setPendingPublic]   = useState<string | null>(null);
 
   // ── Auth token ────────────────────────────────────────────────────────────
   const getToken = useCallback(async (): Promise<string | null> => {
@@ -1023,12 +1027,16 @@ export default function GeneratedPage() {
 
   // Favorite toggle (single)
   const handleFavorite = useCallback(async (asset: Asset) => {
-    const ok = await patchAsset(asset.id, { is_favorite: !asset.is_favorite });
+    const newVal = !asset.is_favorite;
+    const ok = await patchAsset(asset.id, { is_favorite: newVal });
     if (ok) {
-      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, is_favorite: !a.is_favorite } : a));
-      if (lightboxAsset?.id === asset.id) setLightboxAsset((prev) => prev ? { ...prev, is_favorite: !prev.is_favorite } : null);
+      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, is_favorite: newVal } : a));
+      if (lightboxAsset?.id === asset.id) setLightboxAsset((prev) => prev ? { ...prev, is_favorite: newVal } : null);
+      toast.success(newVal ? "Added to favorites" : "Removed from favorites");
+    } else {
+      toast.error("Couldn't update favorite — please try again");
     }
-  }, [patchAsset, lightboxAsset]);
+  }, [patchAsset, lightboxAsset, toast]);
 
   // Delete (single or bulk)
   const promptDelete = (ids: Set<string>) => {
@@ -1036,28 +1044,59 @@ export default function GeneratedPage() {
     setShowDelete(true);
   };
   const confirmDelete = async () => {
+    const count = deleteTarget.size;
     setShowDelete(false);
     if (lightboxAsset && deleteTarget.has(lightboxAsset.id)) setLightboxAsset(null);
-    await deleteAssets(deleteTarget);
+    try {
+      await deleteAssets(deleteTarget);
+      toast.success(count === 1 ? "Output deleted" : `${count} outputs deleted`);
+    } catch {
+      toast.error("Delete failed — please try again");
+    }
     setDeleteTarget(new Set());
   };
 
-  // Visibility (single)
+  // Visibility (single) — with public confirmation via pendingPublic
   const handleVisibility = useCallback(async (asset: Asset, vis: "private" | "public") => {
+    if (vis === "public" && asset.visibility !== "public") {
+      // Show inline confirmation before making public
+      setPendingPublic(asset.id);
+      return;
+    }
     const ok = await patchAsset(asset.id, { visibility: vis });
     if (ok) {
       setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, visibility: vis } : a));
       if (lightboxAsset?.id === asset.id) setLightboxAsset((prev) => prev ? { ...prev, visibility: vis } : null);
+      toast.success(vis === "public" ? "Asset is now public" : "Asset set to private");
+    } else {
+      toast.error("Visibility update failed");
     }
-  }, [patchAsset, lightboxAsset]);
+  }, [patchAsset, lightboxAsset, toast]);
+
+  // Confirm making public (after pendingPublic prompt)
+  const confirmMakePublic = useCallback(async () => {
+    if (!pendingPublic) return;
+    const asset = assets.find((a) => a.id === pendingPublic);
+    setPendingPublic(null);
+    if (!asset) return;
+    const ok = await patchAsset(asset.id, { visibility: "public" });
+    if (ok) {
+      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, visibility: "public" } : a));
+      if (lightboxAsset?.id === asset.id) setLightboxAsset((prev) => prev ? { ...prev, visibility: "public" } : null);
+      toast.success("Asset is now public");
+    } else {
+      toast.error("Visibility update failed");
+    }
+  }, [pendingPublic, assets, patchAsset, lightboxAsset, toast]);
 
   // Bulk visibility
   const handleBulkVisibility = useCallback(async (vis: "private" | "public") => {
     const ids = Array.from(selected);
     await Promise.all(ids.map((id) => patchAsset(id, { visibility: vis })));
     setAssets((prev) => prev.map((a) => selected.has(a.id) ? { ...a, visibility: vis } : a));
+    toast.success(vis === "public" ? `${ids.length} outputs made public` : `${ids.length} outputs set to private`);
     clearSelection();
-  }, [selected, patchAsset]);
+  }, [selected, patchAsset, toast]);
 
   // Move to project
   const promptMove = (ids: Set<string>) => {
@@ -1079,9 +1118,11 @@ export default function GeneratedPage() {
     if (lightboxAsset && moveTarget.has(lightboxAsset.id)) {
       setLightboxAsset((prev) => prev ? { ...prev, visibility: body.visibility as string, project_id: body.project_id ?? null } : null);
     }
+    const projectName = projectId ? projects.find((p) => p.id === projectId)?.name : null;
+    toast.success(projectName ? `Moved to "${projectName}"` : "Removed from project");
     clearSelection();
     setMoveTarget(new Set());
-  }, [moveTarget, patchAsset, lightboxAsset]);
+  }, [moveTarget, patchAsset, lightboxAsset, projects, toast]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -1260,6 +1301,29 @@ export default function GeneratedPage() {
           onClose={() => { setShowMoveModal(false); setMoveTarget(new Set()); }}
         />
       )}
+
+      {/* ── Public confirmation prompt ── */}
+      {pendingPublic && (
+        <div onClick={() => setPendingPublic(null)} style={{ position: "fixed", inset: 0, zIndex: 9997, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, padding: 24, background: "#0F172A", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 16 }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--page-text)" }}>Make this asset public?</h3>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "#64748B", lineHeight: 1.6 }}>
+              Public assets are visible to anyone with the link. You can make it private again at any time.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => setPendingPublic(null)} style={{ padding: "8px 16px", borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", fontSize: 13, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={() => void confirmMakePublic()} style={{ padding: "8px 16px", borderRadius: 9, background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34D399", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Make Public
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toasts ── */}
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

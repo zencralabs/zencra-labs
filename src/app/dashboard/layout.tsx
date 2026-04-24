@@ -38,17 +38,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router   = useRouter();
   const pathname = usePathname();
 
-  // Redirect to home if not logged in
+  // Redirect to sign-in if session is gone
   useEffect(() => {
-    if (!loading && !user) router.push("/");
+    if (!loading && !user) {
+      // Brief delay so the "session expired" message is visible
+      const t = setTimeout(() => router.push("/?signin=session-expired"), 1800);
+      return () => clearTimeout(t);
+    }
   }, [user, loading, router]);
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div style={{ minHeight: "100vh", backgroundColor: "var(--page-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
-          <div style={{ width: "40px", height: "40px", borderRadius: "50%", border: "3px solid rgba(37,99,235,0.3)", borderTopColor: "#2563EB", animation: "spin 0.8s linear infinite"  /* defined in globals.css */ }} />
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", border: "3px solid rgba(37,99,235,0.3)", borderTopColor: "#2563EB", animation: "spin 0.8s linear infinite" }} />
           <p style={{ color: "#475569", fontSize: "13px" }}>Loading your workspace…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "var(--page-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", textAlign: "center" }}>
+          <div style={{ width: "48px", height: "48px", borderRadius: 14, background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Zap size={22} style={{ color: "#2563EB" }} />
+          </div>
+          <div>
+            <p style={{ color: "#F8FAFC", fontSize: "15px", fontWeight: 700, margin: "0 0 6px" }}>Session expired</p>
+            <p style={{ color: "#64748B", fontSize: "13px", margin: 0 }}>Signing you back in…</p>
+          </div>
         </div>
       </div>
     );
