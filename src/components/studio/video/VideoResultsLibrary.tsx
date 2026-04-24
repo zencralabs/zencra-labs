@@ -49,11 +49,12 @@ function StatusBadge({ status }: { status: GeneratedVideo["status"] }) {
 
 // ── Video card ────────────────────────────────────────────────────────────────
 
-function VideoCard({ video, onReuse, onDelete, onAuthRequired }: {
+function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview }: {
   video: GeneratedVideo;
   onReuse: (v: GeneratedVideo) => void;
   onDelete: (id: string) => void;
   onAuthRequired?: () => void;
+  onPreview?: (v: GeneratedVideo) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied]   = useState(false);
@@ -102,30 +103,53 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired }: {
       onMouseLeave={handleMouseLeave}
       style={{
         position: "relative",
-        borderRadius: 12,
+        borderRadius: 14,
         overflow: "hidden",
-        border: hovered ? "1px solid rgba(34,211,238,0.3)" : "1px solid rgba(255,255,255,0.07)",
+        border: hovered ? "1px solid rgba(34,211,238,0.4)" : "1px solid rgba(255,255,255,0.07)",
         background: "rgba(255,255,255,0.025)",
-        transition: "border-color 0.2s, transform 0.2s, box-shadow 0.2s",
-        transform: hovered ? "translateY(-2px)" : "none",
-        boxShadow: hovered ? "0 8px 32px rgba(0,0,0,0.5), 0 0 16px rgba(14,165,160,0.08)" : "0 2px 8px rgba(0,0,0,0.3)",
+        transition: "border-color 0.25s, transform 0.25s, box-shadow 0.25s",
+        transform: hovered ? "translateY(-3px) scale(1.008)" : "none",
+        boxShadow: hovered
+          ? "0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(14,165,160,0.12), 0 0 0 1px rgba(34,211,238,0.08)"
+          : "0 2px 10px rgba(0,0,0,0.35)",
         breakInside: "avoid",
-        marginBottom: 14,
+        marginBottom: 16,
         cursor: "pointer",
       }}
     >
-      {/* Thumbnail / video */}
-      <div style={{ position: "relative", aspectRatio: video.aspectRatio?.replace(":", " / ") ?? "16 / 9", background: "#0a0f1a" }}>
+      {/* Thumbnail / video — with zoom on hover; click opens fullscreen */}
+      <div
+        onClick={isDone ? () => onPreview?.(video) : undefined}
+        style={{
+          position: "relative",
+          aspectRatio: video.aspectRatio?.replace(":", " / ") ?? "16 / 9",
+          background: "#0a0f1a",
+          overflow: "hidden",
+          cursor: isDone ? "zoom-in" : "default",
+        }}
+      >
         {video.url && isDone ? (
           <video
             ref={videoRef}
             src={video.url}
             muted loop playsInline
             poster={video.thumbnailUrl ?? undefined}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{
+              width: "100%", height: "100%", objectFit: "cover", display: "block",
+              transform: hovered ? "scale(1.04)" : "scale(1)",
+              transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
+            }}
           />
         ) : video.thumbnailUrl ? (
-          <img src={video.thumbnailUrl} alt="thumbnail" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          <img
+            src={video.thumbnailUrl}
+            alt="thumbnail"
+            style={{
+              width: "100%", height: "100%", objectFit: "cover", display: "block",
+              transform: hovered ? "scale(1.04)" : "scale(1)",
+              transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
+            }}
+          />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.02)" }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -134,7 +158,7 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired }: {
           </div>
         )}
 
-        {/* Center play icon — always visible when done, not hovering */}
+        {/* Center play icon — idle state (not hovering), done */}
         {isDone && !hovered && (
           <div style={{
             position: "absolute", inset: 0,
@@ -142,13 +166,39 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired }: {
             pointerEvents: "none",
           }}>
             <div style={{
-              width: 36, height: 36, borderRadius: "50%",
-              background: "rgba(2,6,23,0.55)",
-              border: "1px solid rgba(255,255,255,0.15)",
+              width: 42, height: 42, borderRadius: "50%",
+              background: "rgba(2,6,23,0.6)",
+              border: "1.5px solid rgba(255,255,255,0.2)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              backdropFilter: "blur(4px)",
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
             }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="#E2E8F0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="#E2E8F0">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* Hover play overlay — teal ring with animated pulse */}
+        {isDone && hovered && (
+          <div style={{
+            position: "absolute", inset: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            pointerEvents: "none",
+          }}>
+            <div style={{
+              width: 50, height: 50, borderRadius: "50%",
+              background: "rgba(14,165,160,0.2)",
+              border: "2px solid rgba(34,211,238,0.7)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 0 24px rgba(34,211,238,0.35)",
+              animation: "vcPlayPulse 1.6s ease-in-out infinite",
+            }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="#22D3EE">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
             </div>
           </div>
         )}
@@ -253,6 +303,8 @@ interface Props {
   onDelete?:      (id: string) => void;
   /** Called when a non-member tries a protected action (Download, Extend, etc.) */
   onAuthRequired?: () => void;
+  /** Called when user clicks a done video card to open fullscreen preview */
+  onPreview?: (v: GeneratedVideo) => void;
 }
 
 // ── Filter / sort types ───────────────────────────────────────────────────────
@@ -263,7 +315,7 @@ type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired }: Props) {
+export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired, onPreview }: Props) {
   const [filter, setFilter]     = useState<FilterTab>("all");
   const [sort, setSort]         = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
@@ -455,11 +507,22 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
 
       {/* ── Masonry grid ────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
-        <div style={{ fontSize: 13, color: "#334155", textAlign: "center", padding: "32px 0" }}>
-          No videos in this filter.
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+          padding: "36px 0", textAlign: "center",
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(100,116,139,0.3)" strokeWidth="1.5"
+            strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>
+            No videos match this filter
+          </span>
         </div>
       ) : (
-        <div style={{ columns: "280px", columnGap: 16 }}>
+        <div style={{ columns: "320px", columnGap: 18 }}>
           {filtered.map(v => (
             <VideoCard
               key={v.id}
@@ -467,13 +530,15 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
               onReuse={onReusePrompt}
               onDelete={onDelete ?? (() => {})}
               onAuthRequired={onAuthRequired}
+              onPreview={onPreview}
             />
           ))}
         </div>
       )}
 
       <style>{`
-        @keyframes libPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes libPulse   { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes vcPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.35)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.6)} }
       `}</style>
     </div>
   );

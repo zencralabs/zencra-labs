@@ -20,6 +20,7 @@ import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
 import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
 import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
+import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -42,6 +43,8 @@ interface GeneratedImage {
   createdAt?: string;
   /** Project ID — if set, image was saved to a project; badge links to /dashboard/project/{id} */
   project_id?: string | null;
+  /** Visibility — updated optimistically after Make Public action */
+  visibility?: "private" | "public" | "project";
 }
 
 // ── Provider error classifier ─────────────────────────────────────────────────
@@ -830,11 +833,13 @@ function ImageStudioInner() {
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
 
-  // ── Toast ─────────────────────────────────────────────────────────────────────
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const showToast = useCallback((msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+  // ── Toast — lightweight, variant-aware ───────────────────────────────────────
+  const [toastState, setToastState] = useState<{ msg: string; variant: "success" | "error" | "info" } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string, variant: "success" | "error" | "info" = "info") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastState({ msg, variant });
+    toastTimerRef.current = setTimeout(() => setToastState(null), 3200);
   }, []);
 
   // ── Zoom hint — one-shot tip shown when user zooms below threshold ─────────────
@@ -887,6 +892,73 @@ function ImageStudioInner() {
   // ── Gallery multi-select ──────────────────────────────────────────────────────
   const [selectedImageIds, setSelectedImageIds] = useState<Set<string>>(new Set());
 
+  // ── Real gallery actions — Make Public / Move to Project ─────────────────────
+  const [makePublicModal,    setMakePublicModal]    = useState(false);
+  const [makePublicLoading,  setMakePublicLoading]  = useState(false);
+  const [moveProjectModal,   setMoveProjectModal]   = useState(false);
+  const [userProjects,       setUserProjects]       = useState<{ id: string; name: string }[]>([]);
+  const [projectsLoading,    setProjectsLoading]    = useState(false);
+  const [moveProjectLoading, setMoveProjectLoading] = useState(false);
+
+  const fetchUserProjects = useCallback(async () => {
+    if (!session?.access_token || userProjects.length > 0) return;
+    setProjectsLoading(true);
+    try {
+      const res = await fetch("/api/projects", { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const json = await res.json() as { data?: { id: string; name: string }[] };
+      setUserProjects(json.data ?? []);
+    } catch { /* silent */ }
+    finally { setProjectsLoading(false); }
+  }, [session?.access_token, userProjects.length]);
+
+  const handleBulkMakePublic = useCallback(async () => {
+    if (!session?.access_token) return;
+    setMakePublicLoading(true);
+    const targets = images.filter(img => selectedImageIds.has(img.id) && img.assetId && img.status === "done");
+    let success = 0;
+    await Promise.all(targets.map(async (img) => {
+      try {
+        const res = await fetch(`/api/assets/${img.assetId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ visibility: "public" }),
+        });
+        if (res.ok) {
+          setImages(prev => prev.map(i => i.id === img.id ? { ...i, visibility: "public" as const } : i));
+          success++;
+        }
+      } catch { /* silent */ }
+    }));
+    setMakePublicLoading(false);
+    setMakePublicModal(false);
+    setSelectedImageIds(new Set());
+    showToast(success > 0 ? `${success} image${success === 1 ? "" : "s"} made public` : "No changes made", success > 0 ? "success" : "info");
+  }, [session?.access_token, images, selectedImageIds, showToast]);
+
+  const handleBulkMoveToProject = useCallback(async (projectId: string, projectName: string) => {
+    if (!session?.access_token) return;
+    setMoveProjectLoading(true);
+    const targets = images.filter(img => selectedImageIds.has(img.id) && img.assetId && img.status === "done");
+    let success = 0;
+    await Promise.all(targets.map(async (img) => {
+      try {
+        const res = await fetch(`/api/assets/${img.assetId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ visibility: "project", project_id: projectId }),
+        });
+        if (res.ok) {
+          setImages(prev => prev.map(i => i.id === img.id ? { ...i, project_id: projectId } : i));
+          success++;
+        }
+      } catch { /* silent */ }
+    }));
+    setMoveProjectLoading(false);
+    setMoveProjectModal(false);
+    setSelectedImageIds(new Set());
+    showToast(success > 0 ? `Moved to "${projectName}"` : "No changes made", success > 0 ? "success" : "info");
+  }, [session?.access_token, images, selectedImageIds, showToast]);
+
   // ── Hero strip hover state (empty state only) ────────────────────────────────
   const [hoveredHeroIdx, setHoveredHeroIdx] = useState<number | null>(null);
 
@@ -897,6 +969,10 @@ function ImageStudioInner() {
   // ── Cancel flow — tracks which placeholder IDs the user has cancelled ─────────
   // cancelledRef is a ref (not state) so the polling loop can read it synchronously.
   const cancelledRef = useRef<Set<string>>(new Set());
+
+  // ── Auto-scroll to top of gallery on generate ────────────────────────────────
+  const galleryScrollRef = useRef<HTMLDivElement>(null);
+  const [generateGlow, setGenerateGlow] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
 
   // ── Character Consistency
@@ -1182,6 +1258,14 @@ function ImageStudioInner() {
       status: "generating" as const,
     }));
     setImages((prev) => [...placeholders, ...prev]);
+
+    // Scroll gallery to top so user immediately sees the generating cards
+    setTimeout(() => {
+      galleryScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }, 80);
+    // Glow pulse: highlight the gallery for 700ms
+    setGenerateGlow(true);
+    setTimeout(() => setGenerateGlow(false), 700);
 
     for (let i = 0; i < count; i++) {
       const ph = placeholders[i];
@@ -1559,6 +1643,11 @@ function ImageStudioInner() {
           0%   { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
+        @keyframes generateGlowPulse {
+          0%   { box-shadow: inset 0 0 0 2px rgba(59,130,246,0.4), inset 0 0 28px rgba(59,130,246,0.15); }
+          50%  { box-shadow: inset 0 0 0 2px rgba(59,130,246,0.6), inset 0 0 40px rgba(59,130,246,0.22); }
+          100% { box-shadow: inset 0 0 0 2px rgba(59,130,246,0), inset 0 0 0 rgba(59,130,246,0); }
+        }
       `}</style>
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <div style={{
@@ -1773,7 +1862,14 @@ function ImageStudioInner() {
           3. has images                       → masonry grid with progressive fade-in
       */}
       {studioMode === "standard" && (
-      <div style={{ flex: 1, overflowY: "auto", padding: `24px 24px ${isDockCollapsed ? "48px" : "160px"}` }}>
+      <div
+        ref={galleryScrollRef}
+        style={{
+          flex: 1, overflowY: "auto",
+          padding: `24px 24px ${isDockCollapsed ? "48px" : "160px"}`,
+          animation: generateGlow ? "generateGlowPulse 0.7s ease-out forwards" : "none",
+        }}
+      >
 
         {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
         {user && !historyLoaded && images.length === 0 && (
@@ -2270,12 +2366,12 @@ function ImageStudioInner() {
                   } else {
                     URL.revokeObjectURL(blobPreview);
                     setReferenceImages(prev => prev.filter(r => r.id !== id));
-                    showToast("Upload failed — please try again");
+                    showToast("Upload failed — please try again", "error");
                   }
                 } catch {
                   URL.revokeObjectURL(blobPreview);
                   setReferenceImages(prev => prev.filter(r => r.id !== id));
-                  showToast("Upload failed — network error");
+                  showToast("Upload failed — network error", "error");
                 }
               }}
             />
@@ -2877,10 +2973,13 @@ function ImageStudioInner() {
           borderRadius: 14, padding: "10px 16px",
           display: "flex", alignItems: "center", gap: 10,
           boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+          animation: "fadeIn 0.18s ease",
         }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", minWidth: 80 }}>
             {selectedImageIds.size} selected
           </span>
+
+          {/* Delete */}
           <button
             onClick={() => {
               selectedImageIds.forEach(id => {
@@ -2892,39 +2991,40 @@ function ImageStudioInner() {
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
               border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)",
-              color: "#FCA5A5", cursor: "pointer",
+              color: "#FCA5A5", cursor: "pointer", transition: "all 0.15s",
             }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; }}
           >Delete</button>
+
+          {/* Move to Project */}
           <button
+            onClick={() => { fetchUserProjects().catch(() => {}); setMoveProjectModal(true); }}
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
-              color: "rgba(255,255,255,0.4)", cursor: "not-allowed",
+              border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.06)",
+              color: "rgba(255,255,255,0.75)", cursor: "pointer", transition: "all 0.15s",
             }}
-            title="Project folders coming soon"
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.11)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
           >Move to Project</button>
-          <Tooltip content="Coming soon — publish your creations">
+
+          {/* Make Public */}
           <button
-            aria-disabled="true"
+            onClick={() => setMakePublicModal(true)}
             style={{
               padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              border: "1px dashed rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.03)",
-              color: "rgba(255,255,255,0.38)", cursor: "not-allowed",
-              opacity: 0.55, display: "flex", alignItems: "center", gap: 5,
-              transition: "box-shadow 0.15s ease-out, border-color 0.15s ease-out",
+              border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)",
+              color: "rgba(167,139,250,0.9)", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 5, transition: "all 0.15s",
             }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 10px rgba(139,92,246,0.18)";
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.28)";
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "none";
-              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.2)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.1)"; }}
           >
-            <span style={{ fontSize: 11 }}>🔒</span>Make Public
+            <span style={{ fontSize: 11 }}>🌐</span>Make Public
           </button>
-          </Tooltip>
+
+          {/* Clear */}
           <button
             onClick={() => setSelectedImageIds(new Set())}
             style={{
@@ -2937,77 +3037,148 @@ function ImageStudioInner() {
         </div>
       )}
 
-      {/* ── FULLSCREEN IMAGE VIEWER ───────────────────────────────────────────
-           z-index stacking:
-             9000 — blur overlay backdrop (full screen, dismisses on click)
-             9010 — image frame (center-stage)
-             9020 — right detail panel (visible above backdrop — see panel below)
-             9030 — close button (always on top, always clickable)
-      ─────────────────────────────────────────────────────────────────────── */}
-      {viewingImage?.url && (
+      {/* ── MAKE PUBLIC CONFIRMATION MODAL ────────────────────────────────── */}
+      {makePublicModal && (
         <div
-          onClick={() => setViewingImage(null)}
+          onClick={() => !makePublicLoading && setMakePublicModal(false)}
           style={{
-            position: "fixed",
-            top: 64, left: 0, right: 0, bottom: 0,
-            zIndex: 9000,
-            background: "rgba(0,0,0,0.85)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            display: "flex", alignItems: "center",
-            // Shift image left of the panel when panel is open
-            justifyContent: selectedImage ? "flex-start" : "center",
-            paddingLeft: selectedImage ? "clamp(40px, 5vw, 80px)" : 0,
-            paddingRight: selectedImage ? "380px" : 0,
-            paddingTop: "32px", paddingBottom: "32px",
+            position: "fixed", inset: 0, zIndex: 9100,
+            background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          {/* Image frame wrapper — stop propagation so clicks don't close fullscreen */}
           <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ position: "relative", lineHeight: 0, zIndex: 9010 }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#0A1120", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 18, padding: "28px 30px",
+              width: "min(400px, calc(100vw - 40px))",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+              animation: "fadeIn 0.18s ease",
+            }}
           >
-            {/* Close button — z:9030, always above right panel and always clickable */}
-            <button
-              onClick={() => setViewingImage(null)}
-              title="Close (Esc)"
-              style={{
-                position: "fixed", top: 80, right: selectedImage ? 376 : 24,
-                width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(15,15,25,0.92)", border: "1px solid rgba(255,255,255,0.18)",
-                color: "#fff", fontSize: 16, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s", zIndex: 9030,
-                boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.85)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.6)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(15,15,25,0.92)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
-              }}
-            >✕</button>
-
-            {/* Image — constrained so it fits beside the panel when it is open */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={viewingImage.url}
-              alt="Full size"
-              style={{
-                display: "block",
-                maxWidth: selectedImage
-                  ? "min(calc(100vw - 360px - 120px), 1000px)"
-                  : "min(82vw, 1200px)",
-                maxHeight: "calc(100vh - 64px - 80px)",
-                objectFit: "contain",
-                borderRadius: 14,
-                boxShadow: "0 24px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07)",
-              }}
-            />
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#F5F7FF", marginBottom: 10 }}>
+              Make {selectedImageIds.size} image{selectedImageIds.size === 1 ? "" : "s"} public?
+            </div>
+            <p style={{ fontSize: 13, color: "rgba(167,176,197,0.8)", lineHeight: 1.55, marginBottom: 22 }}>
+              These creations will be visible to others in the Zencra Gallery once it launches. You can change this later.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setMakePublicModal(false)}
+                disabled={makePublicLoading}
+                style={{
+                  padding: "9px 18px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.55)", cursor: "pointer",
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => { handleBulkMakePublic().catch(() => {}); }}
+                disabled={makePublicLoading}
+                style={{
+                  padding: "9px 20px", borderRadius: 9, fontSize: 13, fontWeight: 700,
+                  border: "1px solid rgba(139,92,246,0.45)", background: makePublicLoading ? "rgba(139,92,246,0.1)" : "rgba(139,92,246,0.22)",
+                  color: makePublicLoading ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.95)",
+                  cursor: makePublicLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                {makePublicLoading ? (
+                  <><span style={{ animation: "spin 0.8s linear infinite", display: "inline-block" }}>⟳</span> Publishing…</>
+                ) : "🌐 Make Public"}
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* ── MOVE TO PROJECT MODAL ─────────────────────────────────────────── */}
+      {moveProjectModal && (
+        <div
+          onClick={() => !moveProjectLoading && setMoveProjectModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9100,
+            background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#0A1120", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 18, padding: "24px 28px",
+              width: "min(420px, calc(100vw - 40px))",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+              animation: "fadeIn 0.18s ease",
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#F5F7FF", marginBottom: 16 }}>
+              Move {selectedImageIds.size} image{selectedImageIds.size === 1 ? "" : "s"} to a project
+            </div>
+            {projectsLoading ? (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.35)", fontSize: 13 }}>
+                Loading projects…
+              </div>
+            ) : userProjects.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <p style={{ fontSize: 13, color: "rgba(167,176,197,0.6)", marginBottom: 14 }}>
+                  You don&apos;t have any projects yet.
+                </p>
+                <a href="/dashboard/projects" style={{ fontSize: 13, color: "#60A5FA", textDecoration: "none", fontWeight: 600 }}>
+                  Create a project →
+                </a>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+                {userProjects.map(proj => (
+                  <button
+                    key={proj.id}
+                    onClick={() => { handleBulkMoveToProject(proj.id, proj.name).catch(() => {}); }}
+                    disabled={moveProjectLoading}
+                    style={{
+                      width: "100%", padding: "11px 14px", borderRadius: 10, textAlign: "left",
+                      border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+                      color: "#E2E8F0", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: 8, transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.1)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(59,130,246,0.3)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+                  >
+                    <span style={{ fontSize: 15 }}>📁</span>
+                    {proj.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button
+                onClick={() => setMoveProjectModal(false)}
+                style={{
+                  padding: "8px 16px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
+                  color: "rgba(255,255,255,0.5)", cursor: "pointer",
+                }}
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FULLSCREEN IMAGE VIEWER — unified FullscreenPreview component ─── */}
+      {viewingImage?.url && (
+        <FullscreenPreview
+          type="image"
+          url={viewingImage.url}
+          metadata={{
+            prompt:      viewingImage.prompt,
+            modelName:   viewingImage.model,
+            aspectRatio: viewingImage.aspectRatio,
+            createdAt:   viewingImage.createdAt ? new Date(viewingImage.createdAt).getTime() : undefined,
+            visibility:  viewingImage.visibility,
+          }}
+          onClose={() => setViewingImage(null)}
+          zIndex={9000}
+        />
       )}
 
       {/* Auth modal */}
@@ -3090,22 +3261,32 @@ function ImageStudioInner() {
       )}
 
       {/* ── Toast notification ────────────────────────────────────────────── */}
-      {toastMsg && (
-        <div style={{
-          position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
-          zIndex: 99999,
-          background: "rgba(20,20,28,0.96)", backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          borderRadius: 12, padding: "10px 20px",
-          fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.88)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-          animation: "fadeIn 0.2s ease",
-          whiteSpace: "nowrap",
-          pointerEvents: "none",
-        }}>
-          {toastMsg}
-        </div>
-      )}
+      {toastState && (() => {
+        const VARIANT_STYLES = {
+          success: { border: "rgba(16,185,129,0.45)", bg: "rgba(16,185,129,0.10)", dot: "#34D399" },
+          error:   { border: "rgba(239,68,68,0.45)",  bg: "rgba(239,68,68,0.10)",  dot: "#FCA5A5" },
+          info:    { border: "rgba(37,99,235,0.35)",  bg: "rgba(37,99,235,0.10)",  dot: "#60A5FA" },
+        };
+        const vs = VARIANT_STYLES[toastState.variant];
+        return (
+          <div style={{
+            position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+            zIndex: 99999,
+            background: vs.bg, backdropFilter: "blur(14px)",
+            border: `1px solid ${vs.border}`,
+            borderRadius: 12, padding: "10px 18px",
+            fontSize: 13, fontWeight: 500, color: "#F1F5F9",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            animation: "fadeIn 0.18s ease",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: vs.dot, flexShrink: 0 }} />
+            {toastState.msg}
+          </div>
+        );
+      })()}
 
       <style>{`
         input[type=range]::-webkit-slider-thumb {

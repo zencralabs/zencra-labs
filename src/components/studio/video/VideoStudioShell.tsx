@@ -6,7 +6,7 @@
 // Cinema focus mode: canvas glow intensifies on active mode
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useFlowStore } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
@@ -28,6 +28,7 @@ import VideoLeftRail       from "./VideoLeftRail";
 import VideoCanvas         from "./VideoCanvas";
 import VideoPromptPanel    from "./VideoPromptPanel";
 import VideoResultsLibrary from "./VideoResultsLibrary";
+import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -621,8 +622,29 @@ export default function VideoStudioShell() {
     "A samurai stands at the edge of a cliff overlooking misty mountains, wind moving through tall grass, epic wide shot",
   ] as const;
 
-  const samplePromptIndexRef = useRef(0);
+  const samplePromptIndexRef  = useRef(0);
+  // Auto-scroll to gallery on generate
+  const videoResultsRef  = useRef<HTMLDivElement>(null);
+  const [videoGlow,  setVideoGlow]  = useState(false);
+  // Fullscreen video preview
+  const [viewingVideo, setViewingVideo] = useState<GeneratedVideo | null>(null);
   const [mascotSamplePrompt, setMascotSamplePrompt] = useState<string | undefined>(undefined);
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const [toastState, setToastState] = useState<{ msg: string; variant: "success" | "error" | "info" } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string, variant: "success" | "error" | "info" = "info") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastState({ msg, variant });
+    toastTimerRef.current = setTimeout(() => setToastState(null), 3200);
+  }, []);
+
+  // Pre-compute variant styles outside JSX (avoids recalculation every render)
+  const TOAST_VARIANT_STYLES = useMemo(() => ({
+    success: { border: "rgba(16,185,129,0.45)", bg: "rgba(16,185,129,0.10)", dot: "#34D399" },
+    error:   { border: "rgba(239,68,68,0.45)",  bg: "rgba(239,68,68,0.10)",  dot: "#FCA5A5" },
+    info:    { border: "rgba(37,99,235,0.35)",  bg: "rgba(37,99,235,0.10)",  dot: "#60A5FA" },
+  }), []);
 
   const handleSamplePrompt = useCallback(() => {
     const idx = samplePromptIndexRef.current % CINEMATIC_PROMPTS.length;
@@ -685,6 +707,18 @@ export default function VideoStudioShell() {
     }
 
     setGenerating(true);
+    // Scroll to results section + glow pulse
+    setTimeout(() => {
+      const el = videoResultsRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top > window.innerHeight * 0.6 || rect.top < 0) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
+    }, 80);
+    setVideoGlow(true);
+    setTimeout(() => setVideoGlow(false), 700);
 
     const newVideo: GeneratedVideo = {
       id: crypto.randomUUID(),
@@ -762,6 +796,7 @@ export default function VideoStudioShell() {
           setVideos(prev => prev.map(v =>
             v.id === newVideo.id ? { ...v, status: "error", error: "Timed out" } : v,
           ));
+          showToast("Generation timed out — please try again", "error");
           setGenerating(false);
           return;
         }
@@ -795,6 +830,7 @@ export default function VideoStudioShell() {
             setVideos(prev => prev.map(v =>
               v.id === newVideo.id ? { ...v, status: "error", error: errMsg } : v,
             ));
+            showToast("Generation failed — please try again", "error");
             setGenerating(false);
           }
         } catch { /* ignore transient poll errors */ }
@@ -803,12 +839,13 @@ export default function VideoStudioShell() {
       setVideos(prev => prev.map(v =>
         v.id === newVideo.id ? { ...v, status: "error", error: String(err) } : v,
       ));
+      showToast("Generation failed — please try again", "error");
       setGenerating(false);
     }
   }, [
     user, frameMode, model, generating, prompt, negPrompt, duration, aspectRatio,
     quality, resolution, cameraPreset, startSlot, endSlot, motionVideoUrl,
-    motionStrength, motionArea, lipSyncCreate, recordFlowStep,
+    motionStrength, motionArea, lipSyncCreate, recordFlowStep, showToast,
   ]);
 
 
@@ -819,7 +856,8 @@ export default function VideoStudioShell() {
 
   const handleDelete = useCallback((id: string) => {
     setVideos(prev => prev.filter(v => v.id !== id));
-  }, []);
+    showToast("Video removed from session", "info");
+  }, [showToast]);
 
   // Cinema focus mode — canvas glows more when actively working
   const cinemaModeActive = frameMode !== "text_to_video";
@@ -1050,15 +1088,20 @@ export default function VideoStudioShell() {
       </div>
 
       {/* ── Gallery — full viewport width ──────────────────────── */}
-      <div style={{
-        width: "100%",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        paddingTop: 28,
-        paddingLeft: SIDE_GUTTER,
-        paddingRight: SIDE_GUTTER,
-        paddingBottom: 48,
-        boxSizing: "border-box",
-      }}>
+      <div
+        ref={videoResultsRef}
+        style={{
+          width: "100%",
+          borderTop: videoGlow ? "1px solid rgba(59,130,246,0.45)" : "1px solid rgba(255,255,255,0.06)",
+          paddingTop: 28,
+          paddingLeft: SIDE_GUTTER,
+          paddingRight: SIDE_GUTTER,
+          paddingBottom: 48,
+          boxSizing: "border-box",
+          transition: "border-color 0.6s ease-out",
+          boxShadow: videoGlow ? "0 0 28px rgba(59,130,246,0.14)" : "none",
+        }}
+      >
         <div style={{
           fontSize: 13, fontWeight: 700, color: "#475569",
           letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 20,
@@ -1070,8 +1113,50 @@ export default function VideoStudioShell() {
           onReusePrompt={handleReusePrompt}
           onDelete={handleDelete}
           onAuthRequired={() => setAuthModalOpen(true)}
+          onPreview={(v) => setViewingVideo(v)}
         />
       </div>
+
+      {/* ── Fullscreen video preview ─────────────────────────────────────── */}
+      {viewingVideo?.url && (
+        <FullscreenPreview
+          type="video"
+          url={viewingVideo.url}
+          thumbnailUrl={viewingVideo.thumbnailUrl ?? undefined}
+          metadata={{
+            prompt:      viewingVideo.prompt,
+            modelName:   viewingVideo.modelName,
+            aspectRatio: viewingVideo.aspectRatio,
+            creditsUsed: viewingVideo.creditsUsed,
+            createdAt:   viewingVideo.createdAt,
+            duration:    viewingVideo.duration,
+          }}
+          onClose={() => setViewingVideo(null)}
+          zIndex={9800}
+        />
+      )}
+
+      {/* ── Toast notification ────────────────────────────────────────────── */}
+      {toastState && (() => {
+        const vs = TOAST_VARIANT_STYLES[toastState.variant];
+        return (
+          <div style={{
+            position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)",
+            zIndex: 99999,
+            background: vs.bg, backdropFilter: "blur(14px)",
+            border: `1px solid ${vs.border}`,
+            borderRadius: 12, padding: "10px 18px",
+            fontSize: 13, fontWeight: 500, color: "#F1F5F9",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            animation: "fadeIn 0.18s ease",
+            whiteSpace: "nowrap", pointerEvents: "none",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: vs.dot, flexShrink: 0 }} />
+            {toastState.msg}
+          </div>
+        );
+      })()}
 
       {/* ── Auth gate modal — opens when non-member clicks Generate ── */}
       {authModalOpen && (

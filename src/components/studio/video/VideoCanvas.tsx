@@ -659,44 +659,65 @@ function AudioUploadZone({
   );
 }
 
-// ── Generating overlay ────────────────────────────────────────────────────────
+// ── Generating overlay — cinematic timeline shimmer ───────────────────────────
+
+const TIMELINE_BARS = [0.35, 0.65, 0.45, 0.85, 0.55, 0.75, 0.40, 0.90, 0.60, 0.50, 0.80, 0.45, 0.70, 0.38, 0.88];
 
 function GeneratingOverlay() {
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 20,
-      background: "rgba(2,6,23,0.8)", backdropFilter: "blur(6px)",
+      background: "rgba(2,6,23,0.82)", backdropFilter: "blur(8px)",
       borderRadius: "inherit",
       display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", gap: 18,
+      justifyContent: "center", gap: 22,
     }}>
-      <div style={{ position: "relative" }}>
-        <div style={{
-          width: 54, height: 54, borderRadius: "50%",
-          border: "2.5px solid rgba(14,165,160,0.2)",
-          borderTopColor: "#22D3EE",
-          animation: "cvSpin 0.8s linear infinite",
-        }} />
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          boxShadow: "0 0 24px rgba(34,211,238,0.3)",
-          animation: "cvPing 1.2s ease-out infinite",
-        }} />
+      {/* Film strip accent line — top */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3,
+        background: "linear-gradient(90deg, transparent 0%, rgba(34,211,238,0.35) 40%, rgba(34,211,238,0.6) 50%, rgba(34,211,238,0.35) 60%, transparent 100%)",
+        animation: "cvSweep 2.4s ease-in-out infinite" }} />
+
+      {/* Timeline motion bars */}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
+        {TIMELINE_BARS.map((h, i) => (
+          <div key={i} style={{
+            width: 4, borderRadius: 2,
+            background: `linear-gradient(to top, rgba(14,165,160,0.5), #22D3EE)`,
+            height: `${h * 100}%`,
+            animation: `cvBar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
+            animationDelay: `${(i * 0.07).toFixed(2)}s`,
+            boxShadow: "0 0 6px rgba(34,211,238,0.3)",
+          }} />
+        ))}
       </div>
+
+      {/* Label + subtext */}
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 5 }}>Generating…</div>
-        <div style={{ fontSize: 14, color: T.textFaint }}>This may take 1–2 minutes</div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: T.textPrimary, marginBottom: 5, letterSpacing: "-0.01em" }}>
+          Generating…
+        </div>
+        <div style={{ fontSize: 13, color: "#4E6275" }}>
+          Cinematic rendering · 1–3 min
+        </div>
       </div>
-      <div style={{ width: 200, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+
+      {/* Shimmer progress track */}
+      <div style={{ width: 180, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
         <div style={{
-          height: "100%", width: "40%",
-          background: "linear-gradient(90deg, transparent, #22D3EE, transparent)",
-          animation: "cvShimmer 1.5s ease-in-out infinite", borderRadius: 2,
+          height: "100%", width: "45%",
+          background: "linear-gradient(90deg, transparent, rgba(34,211,238,0.8), transparent)",
+          animation: "cvShimmer 1.8s ease-in-out infinite", borderRadius: 2,
         }} />
       </div>
+
+      {/* Film strip accent line — bottom */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
+        background: "linear-gradient(90deg, transparent 0%, rgba(14,165,160,0.25) 40%, rgba(14,165,160,0.45) 50%, rgba(14,165,160,0.25) 60%, transparent 100%)",
+        animation: "cvSweep 2.4s ease-in-out infinite", animationDirection: "reverse" }} />
+
       <style>{`
-        @keyframes cvSpin    { to { transform: rotate(360deg); } }
-        @keyframes cvPing    { 0%,100%{opacity:0;transform:scale(1)} 50%{opacity:.3;transform:scale(1.15)} }
+        @keyframes cvSweep   { 0%{backgroundPosition:-200% 0} 100%{backgroundPosition:200% 0} }
+        @keyframes cvBar     { from{transform:scaleY(0.55)} to{transform:scaleY(1)} }
         @keyframes cvShimmer { 0%{transform:translateX(-200%)} 100%{transform:translateX(400%)} }
       `}</style>
     </div>
@@ -868,7 +889,7 @@ export default function VideoCanvas({
           );
         }
 
-        // Model supports only first-frame input — show Start Frame zone only
+        // Model supports only first-frame input — show Source Frame zone only
         return (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
             padding: "16px 32px", width: "100%", height: "100%" }}>
@@ -880,16 +901,16 @@ export default function VideoCanvas({
                 ...FRAME_GLOW,
               }}>
                 <UploadZone
-                  slot={startSlot} label="Start Frame" aspectRatio={aspectRatio}
-                  onUpload={onStartSlot} hint="Upload the first frame of your video"
+                  slot={startSlot} label="Source Frame" aspectRatio={aspectRatio}
+                  onUpload={onStartSlot} hint="Upload the image to animate"
                   fillParent
                 />
               </div>
             ) : (
               <div style={{ maxWidth: arMaxW(aspectRatio), width: "100%", ...FRAME_GLOW }}>
                 <UploadZone
-                  slot={startSlot} label="Start Frame" aspectRatio={aspectRatio}
-                  onUpload={onStartSlot} hint="Upload the first frame of your video"
+                  slot={startSlot} label="Source Frame" aspectRatio={aspectRatio}
+                  onUpload={onStartSlot} hint="Upload the image to animate"
                 />
               </div>
             )}

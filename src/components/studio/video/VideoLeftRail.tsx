@@ -51,10 +51,18 @@ const MODE_ICONS: Record<FrameMode, React.ReactNode> = {
 
 const MODE_LABELS: Record<FrameMode, string> = {
   text_to_video:  "Text to Video",
-  start_frame:    "Start + End",   // Label: "Start + End" — End Frame zone appears when model supports it
+  start_frame:    "Source Frame",  // Image → Video. End Frame zone shown conditionally inside this mode.
   extend:         "Extend Video",
   lip_sync:       "Lip Sync",
   motion_control: "Motion Control",
+};
+
+const MODE_SUBLABELS: Partial<Record<FrameMode, string>> = {
+  text_to_video:  "Prompt → video",
+  start_frame:    "Image → video",
+  extend:         "Continue a clip",
+  lip_sync:       "Face + audio",
+  motion_control: "Kling 3.0",
 };
 
 // ── Camera preset icons ───────────────────────────────────────────────────────
@@ -405,60 +413,97 @@ export default function VideoLeftRail({
       {/* ── Mode ─────────────────────────────────────────────────────────── */}
       <div>
         <SLabel>Mode</SLabel>
-        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {MODES.map(mode => {
             const allowed = modeAllowed[mode];
             const active  = frameMode === mode;
+            const sub     = MODE_SUBLABELS[mode];
             return (
               <button
                 key={mode}
                 onClick={() => allowed && onFrameMode(mode)}
                 style={{
-                  width: "100%", padding: "9px 10px", borderRadius: 8,
+                  width: "100%", padding: "8px 10px", borderRadius: 9,
                   border: active
                     ? "1px solid rgba(14,165,160,0.65)"
-                    : "1px solid transparent",
+                    : "1px solid rgba(255,255,255,0.06)",
                   background: active
-                    ? "rgba(14,165,160,0.15)"
-                    : "transparent",
+                    ? "rgba(14,165,160,0.14)"
+                    : "rgba(255,255,255,0.02)",
                   display: "flex", alignItems: "center", gap: 9,
                   cursor: allowed ? "pointer" : "not-allowed",
                   opacity: allowed ? 1 : 0.22,
-                  transition: "all 0.2s ease",
-                  color: active ? "#F8FAFC" : "#94A3B8",
-                  fontSize: 14, fontWeight: active ? 700 : 400,
+                  transition: "all 0.18s ease",
                   boxShadow: active
-                    ? "0 0 0 1px rgba(14,165,160,0.12) inset, 0 0 16px rgba(14,165,160,0.18)"
+                    ? "0 0 0 1px rgba(14,165,160,0.10) inset, 0 0 14px rgba(14,165,160,0.15)"
                     : "none",
+                  textAlign: "left",
                 }}
                 onMouseEnter={e => {
                   if (allowed && !active) {
-                    (e.currentTarget as HTMLElement).style.color = "#F8FAFC";
-                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
                   }
                 }}
                 onMouseLeave={e => {
                   if (allowed && !active) {
-                    (e.currentTarget as HTMLElement).style.color = "#94A3B8";
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
+                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)";
                   }
                 }}
               >
-                <span style={{ flexShrink: 0, lineHeight: 0 }}>{MODE_ICONS[mode]}</span>
-                {MODE_LABELS[mode]}
+                {/* Icon box */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: active ? "rgba(14,165,160,0.22)" : "rgba(255,255,255,0.04)",
+                  border: active ? "1px solid rgba(34,211,238,0.25)" : "1px solid rgba(255,255,255,0.07)",
+                  color: active ? "#22D3EE" : "#64748B",
+                  transition: "all 0.18s",
+                }}>
+                  {MODE_ICONS[mode]}
+                </div>
+
+                {/* Labels */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: active ? 700 : 500,
+                    color: active ? "#F8FAFC" : "#94A3B8",
+                    lineHeight: 1.2, transition: "color 0.18s",
+                  }}>
+                    {MODE_LABELS[mode]}
+                  </div>
+                  {sub && (
+                    <div style={{
+                      fontSize: 11, color: active ? "rgba(34,211,238,0.65)" : "#475569",
+                      marginTop: 1, fontWeight: 400,
+                    }}>
+                      {sub}
+                    </div>
+                  )}
+                </div>
+
+                {/* Badge for locked/special modes */}
                 {!allowed && (
                   <span style={{
-                    marginLeft: "auto",
-                    fontSize: 9,
+                    fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
                     color: mode === "motion_control" ? "#7C5ABF" : "#3A4F62",
-                    fontWeight: 700,
-                    letterSpacing: "0.05em",
-                    background: mode === "motion_control" ? "rgba(124,90,191,0.12)" : "transparent",
+                    background: mode === "motion_control" ? "rgba(124,90,191,0.15)" : "transparent",
                     borderRadius: 4,
-                    padding: mode === "motion_control" ? "2px 5px" : undefined,
+                    padding: mode === "motion_control" ? "2px 5px" : "0",
+                    flexShrink: 0,
                   }}>
                     {mode === "motion_control" ? "Kling 3.0" : mode === "start_frame" ? "No I2V" : "N/A"}
                   </span>
+                )}
+
+                {/* Active indicator dot */}
+                {active && (
+                  <div style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: "#22D3EE", flexShrink: 0,
+                    boxShadow: "0 0 6px rgba(34,211,238,0.6)",
+                  }} />
                 )}
               </button>
             );
