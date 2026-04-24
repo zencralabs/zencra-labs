@@ -25,16 +25,18 @@ const ADAPTATION_DISCOUNT = 0.80;
 
 /**
  * Base cost per model (credits per output image).
- * Keys match Zencra's internal model registry keys.
+ * Keys MUST match Zencra's internal model registry keys (core/registry.ts).
+ * Never use provider API endpoint strings here — computeTotalGenerationCost
+ * is called with the Zencra model key, not the upstream API path.
  */
 const BASE_COSTS: Record<string, number> = {
-  "gpt-image-1": 4,
-  "nano-banana-pro": 8,
+  "gpt-image-1":          4,
+  "nano-banana-pro":      8,
   "nano-banana-standard": 2,
-  "nano-banana-2": 4,
-  "fal-ai/seedream-3": 2,
-  "fal-ai/seedream-v4-5": 2,
-  "fal-ai/flux-pro/kontext": 3,
+  "nano-banana-2":        4,
+  "seedream-v5":          2,   // fal-ai/seedream-3 upstream — key is Zencra registry key
+  "seedream-4-5":         2,   // fal-ai/seedream-v4-5 upstream
+  "flux-kontext":         3,   // fal-ai/flux-pro/kontext upstream
 };
 
 /** Fallback cost when model is not in BASE_COSTS */

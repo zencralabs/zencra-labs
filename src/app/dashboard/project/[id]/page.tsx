@@ -301,7 +301,11 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // Guard against unresolved route params (literal "[id]" in the URL)
+  const isInvalidId = !projectId || projectId === "[id]" || !/^[0-9a-f-]{36}$/.test(projectId);
+
   const load = useCallback(async () => {
+    if (isInvalidId) { setLoading(false); setError("Invalid project link — please go back and select a project."); return; }
     setLoading(true);
     setError(null);
     try {
@@ -321,7 +325,7 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [session, projectId]);
+  }, [session, projectId, isInvalidId]);
 
   useEffect(() => { void load(); }, [load]);
 

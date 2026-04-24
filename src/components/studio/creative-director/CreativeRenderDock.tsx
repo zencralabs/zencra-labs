@@ -516,8 +516,9 @@ export default function CreativeRenderDock({
         <div
           style={{
             width:          "100%",
-            overflow:       "hidden",
-            maxHeight:      isDockCollapsed ? 0 : 500,
+            // overflow:hidden removed — it was clipping absolutely-positioned dropdowns.
+            // maxHeight + opacity animate collapse fine without it.
+            maxHeight:      isDockCollapsed ? 0 : 600,
             opacity:        isDockCollapsed ? 0 : 1,
             transition:     "max-height 0.3s ease, opacity 0.22s ease",
             pointerEvents:  isDockCollapsed ? "none" : "auto",

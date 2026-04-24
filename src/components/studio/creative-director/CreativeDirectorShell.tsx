@@ -635,47 +635,39 @@ export default function CreativeDirectorShell() {
         console.log("[CD] project created:", currentProjectId);
       }
 
-      // 1b. Create unified project + session if this is a fresh run.
-      // Uses the separate /api/projects + /api/sessions routes (project_sessions table).
-      // Non-fatal: if these calls fail we log a warning and continue — CD still works.
+      // 1b. Atomically create project + session via /api/projects/ensure-session.
+      // A single round-trip guarantees both records exist together — no orphaned projects.
+      // Non-fatal: if this call fails we log a warning and continue — CD still works.
       let currentSessionId = sessionId;
       if (!currentSessionId) {
         try {
-          const uniProjRes = await fetch("/api/projects", {
+          const ensureRes = await fetch("/api/projects/ensure-session", {
             method: "POST",
             headers: jsonHeaders,
             signal: flowController.signal,
             body: JSON.stringify({
-              name: projectName || brief.projectName || "Untitled Project",
+              name:        projectName || brief.projectName || "Untitled Project",
               description: brief.goal || "",
+              sessionType: "creative-director",
+              sessionName: projectName || brief.projectName || "Session 1",
             }),
           });
-          if (uniProjRes.ok) {
-            const uniProjData = (await uniProjRes.json()) as { project?: { id: string } };
-            const uniProjectId = uniProjData.project?.id;
-            if (uniProjectId) {
-              const sessRes = await fetch("/api/sessions", {
-                method: "POST",
-                headers: jsonHeaders,
-                signal: flowController.signal,
-                body: JSON.stringify({
-                  project_id: uniProjectId,
-                  type: "creative-director",
-                  name: projectName || brief.projectName || "Session 1",
-                }),
-              });
-              if (sessRes.ok) {
-                const sessData = (await sessRes.json()) as { session?: { id: string } };
-                currentSessionId = sessData.session?.id ?? null;
-                if (currentSessionId) {
-                  setSessionId(currentSessionId);
-                  console.log("[CD] session created:", currentSessionId);
-                }
-              }
+          if (ensureRes.ok) {
+            const ensureData = (await ensureRes.json()) as {
+              success: boolean;
+              project?: { id: string };
+              session?: { id: string };
+            };
+            if (ensureData.success && ensureData.project?.id && ensureData.session?.id) {
+              currentSessionId = ensureData.session.id;
+              setSessionId(currentSessionId);
+              console.log("[CD] project+session created:", ensureData.project.id, currentSessionId);
             }
+          } else {
+            console.warn("[CD] non-fatal: ensure-session returned", ensureRes.status);
           }
         } catch (sessionErr) {
-          console.warn("[CD] non-fatal: failed to create unified session —", sessionErr);
+          console.warn("[CD] non-fatal: failed to create project+session —", sessionErr);
         }
       }
 

@@ -14,8 +14,16 @@
  * 7. Default → openai gpt-image-1
  */
 
-import { FAL_MODEL_IDS } from "@/lib/providers/core/env";
 import type { CDProviderDecision } from "./types";
+
+// ── Zencra registry model keys (must match MODEL_REGISTRY in core/registry.ts) ──
+// Never use FAL_MODEL_IDS here — those are provider API endpoint strings,
+// not Zencra routing keys. getModel() looks up by key, not apiModelId.
+const ZENCRA_KEYS = {
+  seedreamV5:  "seedream-v5",
+  seedream45:  "seedream-4-5",
+  fluxKontext: "flux-kontext",
+} as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTER INPUT
@@ -116,20 +124,18 @@ export function selectCreativeProvider(
 
   // ── Priority 4: Speed priority → seedream ────────────────────────────────
   if (input.speedPriority) {
-    const seedreamModel = FAL_MODEL_IDS.seedreamV5;
     return buildDecision(
       "seedream",
-      seedreamModel,
+      ZENCRA_KEYS.seedreamV5,
       "Speed priority enabled — routing to Seedream for fastest turnaround"
     );
   }
 
   // ── Priority 5: Editorial/Fantasy/Streetwear → flux ──────────────────────
   if (FLUX_PRESETS.has(styleLower)) {
-    const fluxModel = FAL_MODEL_IDS.fluxKontext;
     return buildDecision(
       "flux",
-      fluxModel,
+      ZENCRA_KEYS.fluxKontext,
       `Style "${input.stylePreset}" routes to Flux Kontext for artistic control`
     );
   }
@@ -178,9 +184,9 @@ function defaultModelForProvider(provider: string): string {
     case "nano-banana":
       return "nano-banana-pro";
     case "seedream":
-      return FAL_MODEL_IDS.seedreamV5;
+      return ZENCRA_KEYS.seedreamV5;
     case "flux":
-      return FAL_MODEL_IDS.fluxKontext;
+      return ZENCRA_KEYS.fluxKontext;
     default:
       return "gpt-image-1"; // Safe fallback
   }
@@ -205,15 +211,15 @@ function resolveModelKey(provider: string, rawModel: string): string {
   }
 
   if (provLower === "seedream") {
-    // Use env-configured model IDs
+    // Must return Zencra registry key — NOT the fal.ai endpoint string
     if (modelLower.includes("v4") || modelLower.includes("4.5")) {
-      return FAL_MODEL_IDS.seedream45;
+      return ZENCRA_KEYS.seedream45;
     }
-    return FAL_MODEL_IDS.seedreamV5;
+    return ZENCRA_KEYS.seedreamV5;
   }
 
   if (provLower === "flux") {
-    return FAL_MODEL_IDS.fluxKontext;
+    return ZENCRA_KEYS.fluxKontext;
   }
 
   // Unknown provider — return as-is and let registry handle it
