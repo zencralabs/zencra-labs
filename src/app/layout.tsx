@@ -3,7 +3,7 @@ import { Familjen_Grotesk, Syne } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
+import { FooterConditional } from "@/components/layout/FooterConditional";
 import "./globals.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ export default function RootLayout({
               <main className="flex-1">
                 {children}
               </main>
-              <Footer />
+              <FooterConditional />
             </div>
           </AuthProvider>
         </ThemeProvider>

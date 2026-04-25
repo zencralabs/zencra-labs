@@ -1,10 +1,10 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CharacterBuilder — flat Identity Builder left panel (Phase 3D)
-// All sections visible at once. Section headings + breathing spacing.
-// Style DNA as 2-col mini cards. Enhance Identity + Generate pinned bottom.
-// No accordion. No step navigation. Props + BuildPayload UNCHANGED.
+// CharacterBuilder — flat Identity Builder left panel (Phase 3D visual tuning)
+// Typography: 13-14px section headings, 14-15px body, 13px chips, 14px inputs
+// All sections visible at once. Premium amber Generate button.
+// Props + BuildPayload UNCHANGED.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
@@ -35,7 +35,7 @@ const T = {
   amber:       "#f59e0b",
   amberDim:    "#b45309",
   amberBg:     "rgba(245,158,11,0.10)",
-  amberBorder: "rgba(245,158,11,0.28)",
+  amberBorder: "rgba(245,158,11,0.30)",
   border:      "#1a2035",
   textPrimary: "#e8eaf0",
   textSec:     "#8b92a8",
@@ -78,9 +78,9 @@ function toggle<T extends string>(arr: T[], val: T): T[] {
 function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
-      fontSize: 10, fontWeight: 900, color: T.textMuted,
-      letterSpacing: "0.12em", textTransform: "uppercase",
-      marginBottom: 10, paddingBottom: 8,
+      fontSize: 12, fontWeight: 800, color: T.textMuted,
+      letterSpacing: "0.10em", textTransform: "uppercase",
+      marginBottom: 12, paddingBottom: 9,
       borderBottom: `1px solid ${T.border}`,
     }}>
       {label}
@@ -96,18 +96,18 @@ function ChipGroup({
   options: string[]; selected: string[]; onToggle: (v: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
       {options.map(opt => {
         const active = selected.includes(opt);
         return (
           <button key={opt}
             onClick={() => onToggle(opt)}
             style={{
-              padding: "6px 12px", borderRadius: 20,
+              padding: "7px 14px", borderRadius: 20,
               border: active ? `1px solid ${T.amberDim}` : `1px solid ${T.border}`,
               background: active ? T.amberBg : "transparent",
               color: active ? T.amber : T.textSec,
-              fontSize: 12, fontWeight: active ? 700 : 400,
+              fontSize: 13, fontWeight: active ? 700 : 400,
               cursor: "pointer", transition: "all 0.15s",
             }}
           >
@@ -132,8 +132,8 @@ function StyleCard({
     <button
       onClick={onToggle}
       style={{
-        padding: "10px 11px", borderRadius: 9,
-        border: selected ? `1px solid ${card.color}50` : `1px solid ${T.border}`,
+        padding: "12px 12px", borderRadius: 10,
+        border: selected ? `1px solid ${card.color}55` : `1px solid ${T.border}`,
         background: selected ? card.gradient : "rgba(9,12,19,0.5)",
         cursor: "pointer", textAlign: "left",
         transition: "all 0.15s", position: "relative",
@@ -141,25 +141,25 @@ function StyleCard({
     >
       {selected && (
         <div style={{
-          position: "absolute", top: 6, right: 6,
-          width: 14, height: 14, borderRadius: "50%",
+          position: "absolute", top: 7, right: 7,
+          width: 16, height: 16, borderRadius: "50%",
           background: card.color,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
             stroke="#000" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
       )}
       <div style={{
-        fontSize: 12, fontWeight: 700,
+        fontSize: 13, fontWeight: 700,
         color: selected ? card.color : T.textSec,
-        marginBottom: 2,
+        marginBottom: 3,
       }}>
         {card.label}
       </div>
-      <div style={{ fontSize: 10, color: selected ? `${card.color}88` : T.textGhost, lineHeight: 1.4 }}>
+      <div style={{ fontSize: 11, color: selected ? `${card.color}88` : T.textGhost, lineHeight: 1.45 }}>
         {card.description}
       </div>
     </button>
@@ -187,25 +187,26 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
   const inputStyle: React.CSSProperties = {
     width: "100%", background: "#090c13",
     border: `1px solid ${T.border}`,
-    borderRadius: 8, padding: "10px 12px",
-    color: T.textPrimary, fontSize: 13,
+    borderRadius: 9, padding: "11px 14px",
+    color: T.textPrimary, fontSize: 14,
     outline: "none", boxSizing: "border-box",
     fontFamily: "inherit",
     transition: "border-color 0.15s",
+    lineHeight: 1.5,
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
 
       {/* Panel header */}
       <div>
         <div style={{
           fontSize: 11, fontWeight: 900, color: T.textGhost,
-          letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 4,
+          letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 5,
         }}>
           Identity Builder
         </div>
-        <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.5 }}>
           Build your Soul ID identity
         </div>
       </div>
@@ -228,7 +229,7 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
         />
         {name && (
           <div style={{
-            marginTop: 6, fontSize: 10, fontFamily: "monospace",
+            marginTop: 7, fontSize: 11, fontFamily: "monospace",
             color: T.amber, letterSpacing: "0.08em",
           }}>
             SOUL ID: {name.toUpperCase().replace(/\s/g, "-").slice(0, 12)}-{Math.random().toString(36).slice(2, 6).toUpperCase()}
@@ -249,7 +250,7 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
       {/* ── Core Traits ── */}
       <div>
         <SectionLabel label="Core Traits" />
-        <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 12 }}>
           Personality — select all that apply
         </div>
         <ChipGroup
@@ -262,10 +263,10 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
       {/* ── Style DNA ── */}
       <div>
         <SectionLabel label="Style DNA" />
-        <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
+        <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 12 }}>
           Visual aesthetic — pick all that resonate
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {STYLE_DNA_CARDS.map(card => (
             <StyleCard
               key={card.id}
@@ -285,7 +286,7 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
           placeholder="Describe appearance, vibe, specific features…"
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
-          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.65 }}
           onFocus={e => {
             (e.currentTarget as HTMLElement).style.borderColor = T.amberBorder;
           }}
@@ -305,13 +306,13 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
         />
       </div>
 
-      {/* ── Summary strip (when data entered) ── */}
+      {/* ── Summary strip ── */}
       {(name || charType.length > 0 || styleDna.length > 0) && (
         <div style={{
-          padding: "12px 14px", borderRadius: 9,
+          padding: "13px 16px", borderRadius: 10,
           background: "rgba(245,158,11,0.05)",
-          border: "1px solid rgba(245,158,11,0.12)",
-          fontSize: 12, color: T.textMuted, lineHeight: 1.8,
+          border: "1px solid rgba(245,158,11,0.14)",
+          fontSize: 13, color: T.textMuted, lineHeight: 1.85,
         }}>
           {name && <div>Name: <span style={{ color: T.textSec, fontWeight: 600 }}>{name}</span></div>}
           {charType[0] && <div>Type: <span style={{ color: T.textSec, fontWeight: 600 }}>{charType[0]}</span></div>}
@@ -323,12 +324,12 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
       {/* ── Enhance Identity ── */}
       <button
         style={{
-          padding: "11px 14px", borderRadius: 9, width: "100%",
-          border: `1px solid rgba(245,158,11,0.22)`,
+          padding: "12px 16px", borderRadius: 10, width: "100%",
+          border: `1px solid rgba(245,158,11,0.24)`,
           background: "transparent", color: T.textSec,
-          fontSize: 13, fontWeight: 600, cursor: "pointer",
+          fontSize: 14, fontWeight: 600, cursor: "pointer",
           letterSpacing: "0.02em", transition: "all 0.15s",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
         }}
         onMouseEnter={e => {
           (e.currentTarget as HTMLElement).style.color = T.amber;
@@ -337,11 +338,11 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.color = T.textSec;
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.22)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.24)";
           (e.currentTarget as HTMLElement).style.background = "transparent";
         }}
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" />
         </svg>
@@ -354,21 +355,26 @@ export default function CharacterBuilder({ mode, onGenerate, isGenerating }: Cha
           onClick={handleGenerate}
           disabled={isGenerating}
           style={{
-            padding: "14px 16px", borderRadius: 10, width: "100%",
+            padding: "16px 18px", borderRadius: 11, width: "100%",
             background: isGenerating
-              ? "rgba(245,158,11,0.22)"
-              : "linear-gradient(135deg, #b45309, #f59e0b)",
+              ? "rgba(245,158,11,0.20)"
+              : "linear-gradient(135deg, #92400e, #b45309 40%, #f59e0b)",
             border: "none",
-            color: isGenerating ? "rgba(255,255,255,0.32)" : "#090c13",
-            fontSize: 14, fontWeight: 800,
+            color: isGenerating ? "rgba(255,255,255,0.30)" : "#060810",
+            fontSize: 15, fontWeight: 800,
             cursor: isGenerating ? "not-allowed" : "pointer",
             letterSpacing: "0.02em", transition: "all 0.2s",
-            boxShadow: isGenerating ? "none" : "0 0 28px rgba(245,158,11,0.28)",
+            boxShadow: isGenerating
+              ? "none"
+              : "0 0 36px rgba(245,158,11,0.32), 0 4px 20px rgba(0,0,0,0.4)",
           }}
         >
           {isGenerating ? "Generating…" : "✦  Generate Character"}
         </button>
-        <div style={{ fontSize: 11, color: T.textGhost, textAlign: "center", marginTop: 8 }}>
+        <div style={{
+          fontSize: 12, color: T.textGhost,
+          textAlign: "center", marginTop: 9,
+        }}>
           ≈ 8 credits · base generation
         </div>
       </div>
