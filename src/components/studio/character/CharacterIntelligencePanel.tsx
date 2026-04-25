@@ -1,15 +1,15 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CharacterIntelligencePanel — right panel
-// Version Timeline (with thumbnail slots) + Intelligence scores (6px bars)
-// + Embedding + Recent Outputs image grid
+// CharacterIntelligencePanel — right panel (Phase 3D layout rebuild)
+// Section order: Latest Outputs → Version History → Character Intelligence → Metadata
+// Outputs always visible (rich placeholders when empty)
+// Version rows with 48×56px thumbnail slots
 // Props UNCHANGED from Phase 3A
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
-import type { SoulId, CharacterVersion } from "@/lib/character";
-import type { CharacterAsset } from "@/lib/character";
+import type { SoulId, CharacterVersion, CharacterAsset } from "@/lib/character";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -17,7 +17,6 @@ const T = {
   amber:       "#f59e0b",
   amberDim:    "rgba(245,158,11,0.15)",
   amberBorder: "rgba(245,158,11,0.28)",
-  surface:     "#0b0e17",
   border:      "#1a2035",
   textPrimary: "#e8eaf0",
   textSec:     "#8b92a8",
@@ -27,37 +26,191 @@ const T = {
 
 // ── Section heading ────────────────────────────────────────────────────────────
 
-function SectionHeading({ label }: { label: string }) {
+function SectionHeading({ label, count }: { label: string; count?: number }) {
   return (
     <div style={{
-      fontSize: 10, fontWeight: 900, color: T.textMuted,
-      letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12,
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      marginBottom: 14,
     }}>
-      {label}
+      <div style={{
+        fontSize: 10, fontWeight: 900, color: T.textMuted,
+        letterSpacing: "0.12em", textTransform: "uppercase",
+      }}>
+        {label}
+      </div>
+      {count !== undefined && count > 0 && (
+        <div style={{
+          padding: "2px 7px", borderRadius: 10,
+          background: T.amberDim, border: `1px solid ${T.amberBorder}`,
+          fontSize: 10, fontWeight: 700, color: T.amber,
+        }}>
+          {count}
+        </div>
+      )}
     </div>
+  );
+}
+
+// ── Output thumbnail (with rich placeholder when no URL) ──────────────────────
+
+const PLACEHOLDER_GRADIENTS = [
+  "linear-gradient(135deg, #1a120a 0%, #0d0a06 100%)",
+  "linear-gradient(135deg, #0a0d1a 0%, #060810 100%)",
+  "linear-gradient(135deg, #120a1a 0%, #0a0610 100%)",
+  "linear-gradient(135deg, #071510 0%, #040d09 100%)",
+];
+
+const PLACEHOLDER_COLORS = [
+  "rgba(245,158,11,0.25)",
+  "rgba(59,130,246,0.20)",
+  "rgba(168,85,247,0.20)",
+  "rgba(52,211,153,0.20)",
+];
+
+function OutputThumbnail({ asset, idx }: { asset?: CharacterAsset; idx: number }) {
+  const gradient = PLACEHOLDER_GRADIENTS[idx % 4];
+  const color    = PLACEHOLDER_COLORS[idx % 4];
+
+  return (
+    <div style={{
+      aspectRatio: "3/4",
+      borderRadius: 9, overflow: "hidden",
+      border: `1px solid ${T.border}`,
+      background: asset?.url ? "#090c13" : gradient,
+      cursor: "pointer", position: "relative",
+      transition: "border-color 0.15s, transform 0.15s",
+    }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = T.amberBorder;
+        (e.currentTarget as HTMLElement).style.transform = "scale(1.02)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = T.border;
+        (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+      }}
+    >
+      {asset?.url ? (
+        <img src={asset.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{
+          width: "100%", height: "100%",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 6,
+        }}>
+          {/* Atmospheric silhouette suggestion */}
+          <div style={{
+            width: 28, height: 36,
+            background: `radial-gradient(ellipse at center, ${color} 0%, transparent 70%)`,
+            borderRadius: "50% 50% 40% 40%",
+          }} />
+          <div style={{
+            width: 42, height: 28,
+            background: `radial-gradient(ellipse at center, ${color.replace("0.20", "0.12").replace("0.25", "0.14")} 0%, transparent 70%)`,
+            borderRadius: "40% 40% 50% 50%",
+            marginTop: -8,
+          }} />
+          {/* Label */}
+          <div style={{
+            position: "absolute", bottom: 8, left: 0, right: 0,
+            textAlign: "center",
+            fontSize: 9, color: T.textGhost, fontWeight: 600,
+            letterSpacing: "0.06em", textTransform: "uppercase",
+          }}>
+            Output {idx + 1}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Version row with thumbnail ─────────────────────────────────────────────────
+
+function VersionRow({
+  version, isActive, onClick,
+}: {
+  version: CharacterVersion; isActive: boolean; onClick: () => void;
+}) {
+  const label = version.version_name ?? (version.mode ?? "base");
+  const date  = new Date(version.created_at).toLocaleDateString("en-US", {
+    month: "short", day: "numeric",
+  });
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 11,
+        width: "100%", textAlign: "left",
+        padding: "9px 10px", borderRadius: 10,
+        border: isActive ? `1px solid ${T.amberBorder}` : `1px solid ${T.border}`,
+        background: isActive ? T.amberDim : "transparent",
+        cursor: "pointer", transition: "all 0.15s", marginBottom: 6,
+      }}
+    >
+      {/* Thumbnail slot — 44×56px */}
+      <div style={{
+        width: 44, height: 56, borderRadius: 7, flexShrink: 0,
+        background: isActive
+          ? "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(180,83,9,0.12))"
+          : "rgba(255,255,255,0.03)",
+        border: `1px solid ${isActive ? T.amberBorder : T.border}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "hidden",
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke={isActive ? T.amber : T.textGhost} strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" opacity={0.6}>
+          <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
+          <path d="M20 21a8 8 0 1 0-16 0" />
+        </svg>
+      </div>
+
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          {isActive && (
+            <div style={{
+              width: 5, height: 5, borderRadius: "50%",
+              background: T.amber, boxShadow: `0 0 6px ${T.amber}`,
+              flexShrink: 0,
+            }} />
+          )}
+          <span style={{
+            fontSize: 13, fontWeight: isActive ? 700 : 500,
+            color: isActive ? T.amber : T.textSec,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {label}
+          </span>
+        </div>
+        <div style={{ fontSize: 11, color: T.textGhost }}>{date}</div>
+      </div>
+
+      {/* Chevron */}
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+        stroke={isActive ? T.amber : T.textGhost} strokeWidth="2.5" strokeLinecap="round">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
   );
 }
 
 // ── Score bar ─────────────────────────────────────────────────────────────────
 
-function ScoreBar({
-  label, value, color, hint,
-}: {
+function ScoreBar({ label, value, color, hint }: {
   label: string; value: number; color: string; hint?: string;
 }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: T.textSec }}>{label}</span>
-        <span style={{ fontSize: 15, fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>
-          {value}<span style={{ fontSize: 11 }}>%</span>
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.textSec }}>{label}</span>
+        <span style={{ fontSize: 16, fontWeight: 900, color, fontVariantNumeric: "tabular-nums" }}>
+          {value}<span style={{ fontSize: 12, fontWeight: 700 }}>%</span>
         </span>
       </div>
-      {/* 6px bar — upgrade from 4px */}
-      <div style={{
-        height: 6, background: "rgba(255,255,255,0.05)",
-        borderRadius: 3, overflow: "hidden",
-      }}>
+      <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
         <div style={{
           height: "100%", width: `${value}%`,
           background: color, borderRadius: 3,
@@ -74,75 +227,6 @@ function ScoreBar({
   );
 }
 
-// ── Version card ──────────────────────────────────────────────────────────────
-
-function VersionCard({
-  version, isActive, onClick,
-}: {
-  version: CharacterVersion;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  const label = version.version_name ?? (version.mode ?? "base");
-  const date  = new Date(version.created_at).toLocaleDateString("en-US", {
-    month: "short", day: "numeric",
-  });
-
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        width: "100%", textAlign: "left",
-        padding: "9px 10px", borderRadius: 9,
-        border: isActive ? `1px solid ${T.amberBorder}` : `1px solid ${T.border}`,
-        background: isActive ? T.amberDim : "transparent",
-        cursor: "pointer", transition: "all 0.15s", marginBottom: 6,
-      }}
-    >
-      {/* Thumbnail slot */}
-      <div style={{
-        width: 36, height: 44, borderRadius: 6, flexShrink: 0,
-        background: isActive
-          ? "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(180,83,9,0.1))"
-          : "rgba(255,255,255,0.03)",
-        border: `1px solid ${isActive ? T.amberBorder : T.border}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        overflow: "hidden",
-      }}>
-        {/* If version ever has an image URL, render it here */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke={isActive ? T.amber : T.textGhost} strokeWidth="1.5"
-          strokeLinecap="round" strokeLinejoin="round" opacity={0.6}>
-          <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
-          <path d="M20 21a8 8 0 1 0-16 0" />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-          {isActive && (
-            <div style={{
-              width: 5, height: 5, borderRadius: "50%",
-              background: T.amber, boxShadow: `0 0 6px ${T.amber}`,
-              flexShrink: 0,
-            }} />
-          )}
-          <span style={{
-            fontSize: 12, fontWeight: isActive ? 700 : 500,
-            color: isActive ? T.amber : T.textSec,
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>
-            {label}
-          </span>
-        </div>
-        <div style={{ fontSize: 10, color: T.textGhost }}>{date}</div>
-      </div>
-    </button>
-  );
-}
-
 // ── Embedding status dot ──────────────────────────────────────────────────────
 
 function StatusDot({ status }: { status: string }) {
@@ -153,8 +237,7 @@ function StatusDot({ status }: { status: string }) {
   return (
     <div style={{
       width: 7, height: 7, borderRadius: "50%",
-      background: color, boxShadow: `0 0 6px ${color}`,
-      flexShrink: 0,
+      background: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0,
     }} />
   );
 }
@@ -174,52 +257,82 @@ export interface CharacterIntelligencePanelProps {
 export default function CharacterIntelligencePanel({
   soul, versions, activeVersionId, onVersionSelect, assets,
 }: CharacterIntelligencePanelProps) {
-  const [embeddingExpanded, setEmbeddingExpanded] = useState(false);
+  const [scoresOpen, setScoresOpen] = useState(true);
+  const [metaOpen,   setMetaOpen]   = useState(false);
 
   const consistency = soul?.consistency_score ? Math.round(soul.consistency_score * 100) : 87;
   const identity    = soul?.identity_strength ? Math.round(soul.identity_strength * 100) : 92;
   const styleMatch  = soul?.style_match_score ? Math.round(soul.style_match_score * 100) : 78;
 
-  const sectionStyle: React.CSSProperties = {
-    padding: "16px 0",
-    borderBottom: `1px solid ${T.border}`,
+  const sectionDivider: React.CSSProperties = {
+    borderTop: `1px solid ${T.border}`,
+    paddingTop: 20, marginTop: 4,
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+  // Show 4 slots always — real assets + placeholders
+  const outputSlots = Array.from({ length: 4 }, (_, i) => assets[i]);
 
-      {/* ── Version Timeline ── */}
-      <div style={sectionStyle}>
-        <SectionHeading label="Version Timeline" />
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+
+      {/* ── LATEST OUTPUTS — always first, always visible ── */}
+      <div style={{ paddingBottom: 20 }}>
+        <SectionHeading label="Latest Outputs" count={assets.length > 0 ? assets.length : undefined} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {outputSlots.map((asset, i) => (
+            <OutputThumbnail key={asset?.id ?? `placeholder-${i}`} asset={asset} idx={i} />
+          ))}
+        </div>
+        {assets.length > 4 && (
+          <button style={{
+            display: "block", width: "100%", marginTop: 10,
+            background: "transparent", border: "none",
+            color: T.amber, fontSize: 12, cursor: "pointer",
+            textAlign: "center", fontWeight: 600,
+          }}>
+            + {assets.length - 4} more
+          </button>
+        )}
+      </div>
+
+      {/* ── VERSION HISTORY ── */}
+      <div style={sectionDivider}>
+        <SectionHeading label="Version History" count={versions.length > 0 ? versions.length : undefined} />
         {versions.length === 0 ? (
           <div style={{
-            fontSize: 11, color: T.textGhost,
-            textAlign: "center", padding: "14px 0",
-            lineHeight: 1.6,
+            padding: "14px 12px", borderRadius: 9,
+            background: "rgba(255,255,255,0.02)",
+            border: `1px dashed ${T.border}`,
+            textAlign: "center",
           }}>
-            No versions yet
-            <div style={{ fontSize: 10, color: T.textGhost, marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: T.textGhost, marginBottom: 4 }}>
+              No versions yet
+            </div>
+            <div style={{ fontSize: 11, color: T.textGhost, opacity: 0.6 }}>
               Generate to create your first version
             </div>
           </div>
         ) : (
-          versions.map(v => (
-            <VersionCard
-              key={v.id}
-              version={v}
-              isActive={v.id === activeVersionId}
-              onClick={() => onVersionSelect(v.id)}
-            />
-          ))
+          <>
+            {versions.map(v => (
+              <VersionRow
+                key={v.id}
+                version={v}
+                isActive={v.id === activeVersionId}
+                onClick={() => onVersionSelect(v.id)}
+              />
+            ))}
+          </>
         )}
-        <button
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "transparent", border: `1px dashed ${T.border}`,
-            borderRadius: 9, width: "100%", padding: "8px 10px",
-            color: T.textGhost, fontSize: 11, cursor: "pointer",
-            transition: "all 0.15s",
-          }}
+
+        {/* Add version button */}
+        <button style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "transparent", border: `1px dashed ${T.border}`,
+          borderRadius: 10, width: "100%", padding: "9px 10px",
+          color: T.textGhost, fontSize: 12, cursor: "pointer",
+          transition: "all 0.15s", marginTop: 6,
+        }}
           onMouseEnter={e => {
             (e.currentTarget as HTMLElement).style.borderColor = T.amberBorder;
             (e.currentTarget as HTMLElement).style.color = T.amber;
@@ -231,155 +344,105 @@ export default function CharacterIntelligencePanel({
         >
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           Add version
         </button>
       </div>
 
-      {/* ── Character Intelligence ── */}
-      <div style={sectionStyle}>
-        <SectionHeading label="Character Intelligence" />
-        <ScoreBar
-          label="Consistency Score" value={consistency} color={T.amber}
-          hint={consistency < 90 ? "Add side angle for better stability" : "Excellent consistency"}
-        />
-        <ScoreBar
-          label="Identity Strength" value={identity} color="#3b82f6"
-          hint={identity >= 90 ? "Strong — ready for lookbook" : "Add more reference angles"}
-        />
-        <ScoreBar
-          label="Style Match" value={styleMatch} color="#10b981"
-          hint={styleMatch < 85 ? "Try adding Editorial style" : "Style well matched"}
-        />
-      </div>
-
-      {/* ── Embedding ── */}
-      <div style={sectionStyle}>
+      {/* ── CHARACTER INTELLIGENCE — collapsible ── */}
+      <div style={sectionDivider}>
         <button
-          onClick={() => setEmbeddingExpanded(e => !e)}
+          onClick={() => setScoresOpen(o => !o)}
           style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", background: "transparent", border: "none", cursor: "pointer",
-            padding: 0, marginBottom: embeddingExpanded ? 12 : 0,
+            display: "flex", width: "100%", background: "transparent", border: "none",
+            cursor: "pointer", padding: 0, marginBottom: scoresOpen ? 14 : 0,
+            alignItems: "center", justifyContent: "space-between",
           }}
         >
-          <SectionHeading label="Embedding" />
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 900, color: T.textMuted,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+          }}>
+            Character Intelligence
+          </div>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+            stroke={T.textGhost} strokeWidth="2.5" strokeLinecap="round"
+            style={{ transform: scoresOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+
+        {scoresOpen && (
+          <>
+            <ScoreBar
+              label="Consistency Score" value={consistency} color={T.amber}
+              hint={consistency < 90 ? "Add side angle for better stability" : "Excellent consistency"}
+            />
+            <ScoreBar
+              label="Identity Strength" value={identity} color="#3b82f6"
+              hint={identity >= 90 ? "Strong — ready for lookbook" : "Add more reference angles"}
+            />
+            <ScoreBar
+              label="Style Match" value={styleMatch} color="#10b981"
+              hint={styleMatch < 85 ? "Try adding Editorial style" : "Style well matched"}
+            />
+          </>
+        )}
+      </div>
+
+      {/* ── METADATA — collapsible ── */}
+      <div style={sectionDivider}>
+        <button
+          onClick={() => setMetaOpen(o => !o)}
+          style={{
+            display: "flex", width: "100%", background: "transparent", border: "none",
+            cursor: "pointer", padding: 0, marginBottom: metaOpen ? 14 : 0,
+            alignItems: "center", justifyContent: "space-between",
+          }}
+        >
+          <div style={{
+            fontSize: 10, fontWeight: 900, color: T.textMuted,
+            letterSpacing: "0.12em", textTransform: "uppercase",
+          }}>
+            Embedding Metadata
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <StatusDot status={soul?.embedding_status ?? "pending"} />
-            <span style={{ fontSize: 10, color: T.textMuted }}>
-              {soul?.embedding_status ?? "pending"}
-            </span>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
               stroke={T.textGhost} strokeWidth="2.5" strokeLinecap="round"
-              style={{
-                transform: embeddingExpanded ? "rotate(180deg)" : "none",
-                transition: "transform 0.15s",
-              }}>
+              style={{ transform: metaOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </div>
         </button>
 
-        {embeddingExpanded && (
+        {metaOpen && (
           <div style={{
-            padding: "11px 13px", borderRadius: 9,
+            padding: "12px 14px", borderRadius: 9,
             background: "rgba(9,12,19,0.6)",
             border: `1px solid ${T.border}`,
-            fontSize: 11, lineHeight: 2,
+            fontSize: 12, lineHeight: 2,
           }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: T.textMuted }}>Provider</span>
-              <span style={{ color: T.textSec, fontFamily: "monospace" }}>
-                {soul?.embedding_provider ?? "fal-v2"}
-              </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ color: T.textMuted }}>Version</span>
-              <span style={{ color: T.textSec, fontFamily: "monospace" }}>
-                {soul?.embedding_version ?? "flux-char-1"}
-              </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: T.textMuted }}>Status</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <StatusDot status={soul?.embedding_status ?? "pending"} />
-                <span style={{ color: T.textSec }}>{soul?.embedding_status ?? "pending"}</span>
+            {[
+              { label: "Provider", value: soul?.embedding_provider ?? "fal-v2" },
+              { label: "Version",  value: soul?.embedding_version  ?? "flux-char-1" },
+              { label: "Status",   value: soul?.embedding_status   ?? "pending", isStatus: true },
+            ].map(row => (
+              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ color: T.textMuted }}>{row.label}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  {row.isStatus && <StatusDot status={row.value} />}
+                  <span style={{ color: T.textSec, fontFamily: "monospace", fontSize: 11 }}>
+                    {row.value}
+                  </span>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* ── Recent Outputs ── */}
-      <div style={{ paddingTop: 16 }}>
-        <SectionHeading label="Recent Outputs" />
-        {assets.length === 0 ? (
-          <div style={{
-            fontSize: 11, color: T.textGhost, textAlign: "center",
-            padding: "14px 0", lineHeight: 1.6,
-          }}>
-            No outputs yet
-            <div style={{ fontSize: 10, marginTop: 4 }}>
-              Generated assets will appear here
-            </div>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-              {assets.slice(0, 4).map(asset => (
-                <div key={asset.id} style={{
-                  aspectRatio: "3/4",
-                  borderRadius: 9, overflow: "hidden",
-                  border: `1px solid ${T.border}`,
-                  background: "#090c13",
-                  cursor: "pointer", position: "relative",
-                  transition: "border-color 0.15s",
-                }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = T.amberBorder;
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = T.border;
-                  }}
-                >
-                  {asset.url ? (
-                    <img
-                      src={asset.url}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: "100%", height: "100%",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "linear-gradient(135deg, #0b0e17, #0d1020)",
-                    }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" opacity={0.18}>
-                        <rect x="3" y="3" width="18" height="18" rx="3"
-                          stroke={T.amber} strokeWidth="1.5" />
-                        <circle cx="8.5" cy="8.5" r="1.5" fill={T.amber} />
-                        <path d="M21 15l-5-5L5 21" stroke={T.amber} strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {assets.length > 4 && (
-              <button style={{
-                display: "block", width: "100%", marginTop: 10,
-                background: "transparent", border: "none",
-                color: T.amber, fontSize: 11, cursor: "pointer",
-                textAlign: "center", fontWeight: 600,
-              }}>
-                + {assets.length - 4} more
-              </button>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }

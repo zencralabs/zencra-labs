@@ -1,35 +1,44 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CharacterStudioShell — Master layout for Character Studio
-// Grid: 280px 1fr 320px — no hard panel borders, glow system
-// State, routing, API, and prop interfaces ALL UNCHANGED from Phase 3A
+// CharacterStudioShell — Master layout (Phase 3D layout rebuild)
+//
+// STRUCTURE:
+//   height: 100vh, paddingTop: 80px (navbar), overflow: hidden
+//   └── TopBar          (flexShrink: 0, ~50px)
+//   └── SoulCommandBar  (flexShrink: 0, only when character active)
+//   └── Three panels    (flex: 1, overflow: hidden)
+//       ├── Left  320px  — CharacterBuilder (scrollable internally)
+//       ├── Center 1fr   — CharacterCanvas  (fills height)
+//       └── Right 360px  — CharacterIntelligencePanel (scrollable internally)
+//   └── WorkflowStrip   (flexShrink: 0, always visible at bottom)
+//
+// StarterCharacters moved into left panel compact section.
+// No page scroll. No footer visible within studio.
+// Grid: 320px minmax(0,1fr) 360px
+// State, API, props, routing all UNCHANGED.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback } from "react";
-import { useAuth }      from "@/components/auth/AuthContext";
-import { supabase }     from "@/lib/supabase";
-import { useEffect }    from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useAuth }  from "@/components/auth/AuthContext";
+import { supabase } from "@/lib/supabase";
 import type { CharacterMode, Character, SoulId, CharacterVersion } from "@/lib/character";
 import type { CharacterAsset } from "@/lib/character";
 
-import CharacterCanvas        from "./CharacterCanvas";
-import CharacterBuilder       from "./CharacterBuilder";
-import type { BuildPayload }  from "./CharacterBuilder";
+import CharacterCanvas            from "./CharacterCanvas";
+import CharacterBuilder           from "./CharacterBuilder";
+import type { BuildPayload }      from "./CharacterBuilder";
 import CharacterIntelligencePanel from "./CharacterIntelligencePanel";
-import SoulCommandBar         from "./SoulCommandBar";
-import WorkflowStrip          from "./WorkflowStrip";
-import StarterCharacters      from "./StarterCharacters";
-import CrossStudioBridge      from "./CrossStudioBridge";
+import SoulCommandBar             from "./SoulCommandBar";
+import WorkflowStrip              from "./WorkflowStrip";
+import CrossStudioBridge          from "./CrossStudioBridge";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const T = {
   body:        "#090c13",
-  panel:       "#0b0e17",
   topBar:      "#0a0d1a",
   border:      "#1a2035",
-  borderAmber: "#3d2800",
   amber:       "#f59e0b",
   amberDim:    "rgba(245,158,11,0.10)",
   amberBorder: "rgba(245,158,11,0.25)",
@@ -49,6 +58,60 @@ const MODES: Array<{ key: CharacterMode; label: string }> = [
   { key: "motion",   label: "Animate"  },
 ];
 
+// ── Compact starter row (inside left panel) ───────────────────────────────────
+
+const QUICK_STARTERS = [
+  { name: "Nova Reyes", type: "AI Influencer", color: "#f59e0b" },
+  { name: "Marcus Veld", type: "Brand Avatar",  color: "#3b82f6" },
+  { name: "Zara Onyx",  type: "AI Influencer", color: "#a855f7" },
+] as const;
+
+function QuickStartRow({ onSelect }: {
+  onSelect: (name: string, type: string) => void;
+}) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{
+        fontSize: 10, fontWeight: 900, color: T.textGhost,
+        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10,
+      }}>
+        Quick Start
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {QUICK_STARTERS.map(s => (
+          <button key={s.name}
+            onClick={() => onSelect(s.name, s.type)}
+            style={{
+              flex: 1, padding: "8px 4px", borderRadius: 8,
+              border: `1px solid ${s.color}22`,
+              background: `${s.color}08`,
+              color: s.color, fontSize: 11, fontWeight: 700,
+              cursor: "pointer", textAlign: "center",
+              transition: "all 0.15s", lineHeight: 1.4,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = `${s.color}16`;
+              (e.currentTarget as HTMLElement).style.borderColor = `${s.color}38`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = `${s.color}08`;
+              (e.currentTarget as HTMLElement).style.borderColor = `${s.color}22`;
+            }}
+          >
+            {s.name.split(" ")[0]}
+          </button>
+        ))}
+      </div>
+      <div style={{
+        marginTop: 10, fontSize: 10, color: T.textGhost,
+        textAlign: "center",
+      }}>
+        or build from scratch below
+      </div>
+    </div>
+  );
+}
+
 // ── Top bar ────────────────────────────────────────────────────────────────────
 
 function TopBar({
@@ -61,19 +124,15 @@ function TopBar({
 }) {
   return (
     <div style={{
-      width: "100%",
-      background: T.topBar,
+      width: "100%", background: T.topBar,
       borderBottom: `1px solid ${T.border}`,
       display: "flex", alignItems: "center",
       padding: "10px 24px", gap: 16,
-      position: "sticky", top: 80, zIndex: 100,
-      boxSizing: "border-box",
+      flexShrink: 0, boxSizing: "border-box",
       backdropFilter: "blur(12px)",
     }}>
-      {/* Character identity pill */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
-      }}>
+      {/* Character identity */}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
         <div style={{
           width: 9, height: 9, borderRadius: "50%",
           background: character ? T.amber : T.textGhost,
@@ -81,7 +140,7 @@ function TopBar({
           transition: "all 0.3s ease",
         }} />
         <span style={{
-          fontSize: 14, fontWeight: 700,
+          fontSize: 15, fontWeight: 700,
           color: character ? T.textPrimary : T.textMuted,
         }}>
           {character?.name ?? "New Character"}
@@ -100,6 +159,14 @@ function TopBar({
         </div>
       )}
 
+      {/* Studio label */}
+      <div style={{
+        fontSize: 11, color: T.textGhost,
+        fontWeight: 600, letterSpacing: "0.06em",
+      }}>
+        Character Studio
+      </div>
+
       {/* Mode tabs */}
       <div style={{ display: "flex", gap: 2, marginLeft: "auto" }}>
         {MODES.map(m => {
@@ -114,7 +181,6 @@ function TopBar({
                 color: active ? T.amber : T.textMuted,
                 fontSize: 12, fontWeight: active ? 700 : 500,
                 cursor: "pointer", transition: "all 0.15s",
-                letterSpacing: "0.02em",
               }}
             >
               {m.label}
@@ -128,17 +194,15 @@ function TopBar({
         onClick={onSave}
         disabled={!character}
         style={{
-          padding: "7px 16px", borderRadius: 8,
-          border: "none",
+          padding: "7px 18px", borderRadius: 8, border: "none",
           background: character
             ? "linear-gradient(135deg, #b45309, #f59e0b)"
             : "rgba(255,255,255,0.04)",
           color: character ? "#090c13" : T.textGhost,
           fontSize: 12, fontWeight: 700,
           cursor: character ? "pointer" : "not-allowed",
-          letterSpacing: "0.03em", flexShrink: 0,
-          transition: "all 0.2s",
-          boxShadow: character ? "0 0 14px rgba(245,158,11,0.2)" : "none",
+          letterSpacing: "0.03em", flexShrink: 0, transition: "all 0.2s",
+          boxShadow: character ? "0 0 14px rgba(245,158,11,0.22)" : "none",
         }}
       >
         Save
@@ -150,17 +214,16 @@ function TopBar({
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function CharacterStudioShell() {
-  const { user, session }  = useAuth();
+  const { user, session } = useAuth();
 
   // ── Core state — UNCHANGED ──────────────────────────────────────────────────
-  const [activeMode,       setActiveMode]      = useState<CharacterMode>("base");
-  const [activeCharacter,  setActiveCharacter] = useState<Character | null>(null);
-  const [activeSoul,       setActiveSoul]      = useState<SoulId | null>(null);
-  const [isGenerating,     setIsGenerating]    = useState(false);
-  const [showStarterStrip, setShowStarterStrip] = useState(true);
-  const [versions,         setVersions]        = useState<CharacterVersion[]>([]);
-  const [activeVersionId,  setActiveVersionId] = useState<string | null>(null);
-  const [assets,           setAssets]          = useState<CharacterAsset[]>([]);
+  const [activeMode,      setActiveMode]      = useState<CharacterMode>("base");
+  const [activeCharacter, setActiveCharacter] = useState<Character | null>(null);
+  const [activeSoul,      setActiveSoul]      = useState<SoulId | null>(null);
+  const [isGenerating,    setIsGenerating]    = useState(false);
+  const [versions,        setVersions]        = useState<CharacterVersion[]>([]);
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+  const [assets,          setAssets]          = useState<CharacterAsset[]>([]);
 
   // ── Auth token — UNCHANGED ──────────────────────────────────────────────────
   const [authToken, setAuthToken] = useState<string | null>(null);
@@ -179,7 +242,6 @@ export default function CharacterStudioShell() {
   const handleGenerate = useCallback(async (payload: BuildPayload) => {
     if (!user || isGenerating) return;
     setIsGenerating(true);
-
     try {
       const res = await fetch("/api/studio/character/generate", {
         method: "POST",
@@ -197,20 +259,14 @@ export default function CharacterStudioShell() {
           mode:              payload.mode,
         }),
       });
-
       if (!res.ok) {
         console.warn("[CharacterStudio] generation failed:", res.status);
       } else {
         const data = await res.json() as {
           data?: { character?: Character; soul?: SoulId; version?: CharacterVersion };
         };
-        if (data.data?.character) {
-          setActiveCharacter(data.data.character);
-          setShowStarterStrip(false);
-        }
-        if (data.data?.soul) {
-          setActiveSoul(data.data.soul);
-        }
+        if (data.data?.character) setActiveCharacter(data.data.character);
+        if (data.data?.soul)      setActiveSoul(data.data.soul);
         if (data.data?.version) {
           const v = data.data.version;
           setVersions(prev => [v, ...prev]);
@@ -239,12 +295,6 @@ export default function CharacterStudioShell() {
       updated_at:      new Date().toISOString(),
     };
     setActiveCharacter(provisional);
-    setShowStarterStrip(false);
-    setActiveMode("base");
-  }
-
-  function handleBuildOwn() {
-    setShowStarterStrip(false);
     setActiveMode("base");
   }
 
@@ -252,24 +302,28 @@ export default function CharacterStudioShell() {
     console.info("[CharacterStudio] Save triggered for:", activeCharacter?.name);
   }
 
-  const SIDE_GUTTER = 24;
+  const GUTTER = 20;
 
   return (
     <div style={{
-      minHeight: "100vh", width: "100%",
+      // Fixed-height app container — fills viewport minus navbar
+      height: "100vh",
+      paddingTop: 80,         // account for fixed navbar
+      boxSizing: "border-box",
+      overflow: "hidden",     // NO page scroll — studio fills screen
+      display: "flex",
+      flexDirection: "column",
+      // Cinematic background
       background: [
-        "radial-gradient(ellipse at 12% 20%, rgba(245,158,11,0.07), transparent 40%)",
-        "radial-gradient(ellipse at 88% 80%, rgba(180,83,9,0.05), transparent 40%)",
-        "radial-gradient(ellipse at 50% 50%, rgba(9,12,19,0.0), transparent)",
+        "radial-gradient(ellipse at 14% 18%, rgba(245,158,11,0.07), transparent 42%)",
+        "radial-gradient(ellipse at 86% 82%, rgba(180,83,9,0.05), transparent 42%)",
         T.body,
       ].join(", "),
       color: T.textPrimary,
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-      paddingTop: 80,
-      boxSizing: "border-box",
     }}>
 
-      {/* ── Top bar ─────────────────────────────────────────────────── */}
+      {/* ── TopBar — fixed height ─────────────────────────────────── */}
       <TopBar
         character={activeCharacter}
         activeMode={activeMode}
@@ -277,63 +331,58 @@ export default function CharacterStudioShell() {
         onSave={handleSave}
       />
 
-      {/* ── Soul command bar + starter strip ──────────────────────── */}
-      <div style={{ paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingTop: 12 }}>
-        <SoulCommandBar
-          soul={activeSoul}
-          character={activeCharacter}
-          onNewSoul={() => {
-            setActiveSoul(null);
-            setActiveVersionId(null);
-          }}
-          onSwitchCharacter={() => {
-            setActiveCharacter(null);
-            setActiveSoul(null);
-            setVersions([]);
-            setShowStarterStrip(true);
-          }}
-        />
-
-        {showStarterStrip && (
-          <StarterCharacters
-            onSelectStarter={handleSelectStarter}
-            onBuildOwn={handleBuildOwn}
+      {/* ── Soul command bar — only when character active ─────────── */}
+      {activeCharacter && (
+        <div style={{ flexShrink: 0, padding: `6px ${GUTTER}px 0` }}>
+          <SoulCommandBar
+            soul={activeSoul}
+            character={activeCharacter}
+            onNewSoul={() => {
+              setActiveSoul(null);
+              setActiveVersionId(null);
+            }}
+            onSwitchCharacter={() => {
+              setActiveCharacter(null);
+              setActiveSoul(null);
+              setVersions([]);
+            }}
           />
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* ── Three-panel workspace ─────────────────────────────────── */}
-      {/* Grid UPGRADED: 280px 1fr 320px (was 220px 1fr 200px) */}
+      {/* ── Three-panel grid — fills remaining vertical space ─────── */}
       <div style={{
+        flex: 1,
+        minHeight: 0,          // critical for flex child to shrink
+        overflow: "hidden",
         display: "grid",
-        gridTemplateColumns: "280px 1fr 320px",
-        columnGap: 12,
-        alignItems: "start",
-        width: "100%",
-        paddingBottom: 24,
+        // 320px left | flexible center (≥ remaining) | 360px right
+        gridTemplateColumns: "320px minmax(0, 1fr) 360px",
+        columnGap: 10,
+        padding: `10px ${GUTTER}px 0`,
         boxSizing: "border-box",
       }}>
 
-        {/* ── Left — Character Builder ── */}
-        {/* No hard border — uses subtle background glow instead */}
+        {/* ── Left — Identity Builder ─────────────────────────────── */}
         <div style={{
-          paddingLeft: SIDE_GUTTER,
-          paddingRight: 10,
-          paddingTop: 16, paddingBottom: 16,
-          position: "sticky", top: 130, zIndex: 10,
-          maxHeight: "calc(100vh - 144px)",
+          height: "100%",
           overflowY: "auto",
+          overflowX: "hidden",
           scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          // Glow instead of hard border
-          background: "rgba(11,14,23,0.7)",
-          borderRadius: 14,
+          scrollbarColor: "rgba(255,255,255,0.05) transparent",
+          background: "rgba(11,14,23,0.65)",
+          borderRadius: "14px 14px 0 0",
           boxShadow: [
             "inset 0 0 0 1px rgba(255,255,255,0.03)",
-            "0 0 40px rgba(0,0,0,0.3)",
+            "0 0 32px rgba(0,0,0,0.28)",
           ].join(", "),
+          padding: "18px 16px 20px 18px",
           boxSizing: "border-box",
         }}>
+          {/* Quick-start row — only when no character */}
+          {!activeCharacter && (
+            <QuickStartRow onSelect={handleSelectStarter} />
+          )}
           <CharacterBuilder
             mode={activeMode}
             onGenerate={handleGenerate}
@@ -342,8 +391,8 @@ export default function CharacterStudioShell() {
           />
         </div>
 
-        {/* ── Center — Canvas ── */}
-        <div style={{ minWidth: 0, paddingTop: 16, paddingBottom: 16 }}>
+        {/* ── Center — Canvas (hero, fills height) ────────────────── */}
+        <div style={{ height: "100%", overflow: "hidden", minWidth: 0 }}>
           <CharacterCanvas
             mode={activeMode}
             character={activeCharacter}
@@ -356,24 +405,20 @@ export default function CharacterStudioShell() {
           />
         </div>
 
-        {/* ── Right — Intelligence Panel ── */}
-        {/* No hard border — uses subtle background glow instead */}
+        {/* ── Right — Intelligence Panel ──────────────────────────── */}
         <div style={{
-          paddingRight: SIDE_GUTTER,
-          paddingLeft: 10,
-          paddingTop: 16, paddingBottom: 16,
-          position: "sticky", top: 130,
-          maxHeight: "calc(100vh - 144px)",
+          height: "100%",
           overflowY: "auto",
+          overflowX: "hidden",
           scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          // Glow instead of hard border
-          background: "rgba(11,14,23,0.55)",
-          borderRadius: 14,
+          scrollbarColor: "rgba(255,255,255,0.05) transparent",
+          background: "rgba(11,14,23,0.45)",
+          borderRadius: "14px 14px 0 0",
           boxShadow: [
             "inset 0 0 0 1px rgba(255,255,255,0.025)",
-            "0 0 40px rgba(0,0,0,0.25)",
+            "0 0 32px rgba(0,0,0,0.22)",
           ].join(", "),
+          padding: "18px 18px 20px 14px",
           boxSizing: "border-box",
         }}>
           <CharacterIntelligencePanel
@@ -386,15 +431,21 @@ export default function CharacterStudioShell() {
         </div>
       </div>
 
-      {/* ── Workflow strip + bridge ───────────────────────────────── */}
+      {/* ── WorkflowStrip — fixed at bottom inside studio ─────────── */}
       <div style={{
-        paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingBottom: 56,
+        flexShrink: 0,
+        padding: `10px ${GUTTER}px 14px`,
+        background: T.body,
       }}>
         <WorkflowStrip
           activeMode={activeMode}
           onStepClick={m => setActiveMode(m)}
           character={activeCharacter}
         />
+      </div>
+
+      {/* CrossStudioBridge — outside visible viewport, available for routing */}
+      <div style={{ display: "none" }}>
         <CrossStudioBridge
           character={activeCharacter}
           soul={activeSoul}
