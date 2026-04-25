@@ -39,6 +39,7 @@ import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
                                      from "@/lib/providers/core/model-integrity";
+import { CharacterOrchestrator }     from "@/lib/character";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,6 +102,11 @@ export async function POST(req: Request): Promise<Response> {
     ? body!.providerParams as Record<string, unknown>
     : undefined;
 
+  // Character Studio context — optional pass-through fields
+  const character_id = typeof body!.character_id === "string" ? body!.character_id : undefined;
+  const soul_id      = typeof body!.soul_id      === "string" ? body!.soul_id      : undefined;
+  const mode         = typeof body!.mode         === "string" ? body!.mode         : undefined;
+
   // durationSeconds — validate range 1–120
   let durationSeconds: number | undefined;
   if (body!.durationSeconds !== undefined) {
@@ -131,6 +137,11 @@ export async function POST(req: Request): Promise<Response> {
       seed,
       providerParams,
     });
+
+    // ── Character job linking (non-blocking fire-and-forget) ──────────────────
+    if (character_id) {
+      void CharacterOrchestrator.linkJobToCharacter(job.id, character_id, soul_id, mode);
+    }
 
     // ── Trial usage consumption (fire-and-forget) ─────────────────────────────
     if (entitlement.path === "trial" && entitlement.trialEndsAt) {

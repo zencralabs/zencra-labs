@@ -82,6 +82,12 @@ const COST_RATES: Record<string, ProviderCostRate> = {
   "runway-gen4":            { providerKey: "runway",       costUsd: 0.20  },
   "heygen-ugc":             { providerKey: "heygen",       costUsd: 0.50  },
   "creatify-ugc":           { providerKey: "creatify",     costUsd: 0.40  },
+
+  // ── Character Studio providers ────────────────────────────────────────────
+  // FLUX character generation via fal.ai (identity creation, lookbook, hero)
+  "flux-character":         { providerKey: "fal",          costUsd: 0.05  },
+  // Stability AI character refinement (inpaint, outpaint, upscale, scene)
+  "stability-character":    { providerKey: "stability",    costUsd: 0.04  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
