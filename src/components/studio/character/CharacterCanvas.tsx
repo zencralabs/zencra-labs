@@ -115,7 +115,7 @@ function EmptyCanvas() {
       {/* Animated silhouette placeholder */}
       <div style={{
         width: 80, height: 100, position: "relative",
-        opacity: 0.18,
+        opacity: 0.42,
         animation: "ccPulse 3s ease-in-out infinite",
       }}>
         <svg viewBox="0 0 80 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -123,14 +123,14 @@ function EmptyCanvas() {
           <path d="M10 90 C10 65 30 52 40 52 C50 52 70 65 70 90" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         <style>{`
-          @keyframes ccPulse { 0%,100%{opacity:0.14} 50%{opacity:0.24} }
+          @keyframes ccPulse { 0%,100%{opacity:0.32} 50%{opacity:0.52} }
         `}</style>
       </div>
       <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: T.textMuted, marginBottom: 6 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: T.textSec, marginBottom: 6 }}>
           No character selected
         </div>
-        <div style={{ fontSize: 12, color: T.textGhost, maxWidth: 200, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12, color: T.textMuted, maxWidth: 200, lineHeight: 1.6 }}>
           Select a starter or build your own character to begin
         </div>
       </div>
@@ -301,9 +301,11 @@ export default function CharacterCanvas({
   return (
     <div
       style={{
-        position: "relative", width: "100%",
-        aspectRatio: "3 / 4",
+        position: "relative",
+        width: "100%",
+        height: "calc(100vh - 220px)",
         minHeight: 400,
+        maxHeight: 800,
         borderRadius: 14,
         border: `1px solid ${T.border}`,
         background: T.surface,
