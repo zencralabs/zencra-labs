@@ -40,8 +40,9 @@ export class CharacterOrchestrator {
 
     if (options.soul_id) {
       try {
-        soulRecord = await SoulService.getSoul(options.soul_id) as Record<string, unknown>;
-        const soul = soulRecord as { identity_prompt?: string; style_dna?: Record<string, unknown> };
+        const soulData = await SoulService.getSoul(options.soul_id);
+        soulRecord = soulData as unknown as Record<string, unknown>;
+        const soul = soulData as { identity_prompt?: string; style_dna?: Record<string, unknown> };
         if (soul.identity_prompt) {
           enrichedPrompt = `${soul.identity_prompt}. ${enrichedPrompt}`;
         }
