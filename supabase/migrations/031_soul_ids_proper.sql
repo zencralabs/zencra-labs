@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS soul_ids (
   identity_prompt      text,
   style_dna            jsonb DEFAULT '{}',
   reference_asset_ids  uuid[] DEFAULT '{}',
-  embedding_ref        text,
+  embedding_provider   text,
+  embedding_id         text,
+  embedding_version    text,
   consistency_score    numeric,
   created_at           timestamptz NOT NULL DEFAULT now(),
   updated_at           timestamptz NOT NULL DEFAULT now()

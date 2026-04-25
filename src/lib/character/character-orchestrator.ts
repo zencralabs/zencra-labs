@@ -71,9 +71,20 @@ export class CharacterOrchestrator {
     });
   }
 
-  static async linkJobToCharacter(jobId: string, characterId: string, soulId?: string, jobContext?: string) {
+  static async linkJobToCharacter(
+    jobId: string,
+    characterId: string,
+    soulId?: string,
+    jobContext?: string
+  ) {
     try {
       const supabase = supabaseAdmin;
+
+      // Asset integrity rule: if job_context is 'character', both character_id and soul_id must exist
+      if (jobContext === 'character' && !soulId) {
+        throw new Error('[CharacterOrchestrator] Asset integrity violation: job_context="character" requires soul_id');
+      }
+
       await supabase
         .from('generation_jobs')
         .update({
@@ -82,9 +93,35 @@ export class CharacterOrchestrator {
           job_context: jobContext ?? null,
         })
         .eq('id', jobId);
-    } catch {
-      // Non-fatal — job linking should not block the response
-      console.error('[CharacterOrchestrator] Failed to link job to character');
+
+      // Note: assets table does not have a job_id column in this phase.
+      // Asset linking by job is deferred to Phase 3B when job_id is added to assets.
+      // If soul_id is present, assets will be linked at that point.
+    } catch (err) {
+      console.error('[CharacterOrchestrator] Failed to link job to character:', err);
+      // Re-throw integrity violations, swallow others
+      if (err instanceof Error && err.message.includes('Asset integrity violation')) {
+        throw err;
+      }
     }
+  }
+
+  /**
+   * Consistency Engine Hook — Phase 3A stub
+   * Evaluates how consistent a new asset is with the character's existing soul/style.
+   * Returns a score 0.0–1.0. Full implementation in Phase 3B.
+   */
+  static async evaluateCharacterConsistency(
+    characterId: string,
+    assetId: string
+  ): Promise<{ score: number; evaluated: boolean; reason: string }> {
+    // Phase 3A stub — returns a neutral score
+    // Phase 3B will: load soul embeddings, compare asset embedding, compute cosine similarity
+    console.info(`[ConsistencyEngine] Stub evaluation for character=${characterId} asset=${assetId}`);
+    return {
+      score: 0.5,
+      evaluated: false,
+      reason: 'Consistency engine not yet active (Phase 3B)',
+    };
   }
 }

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export type VersionType = 'base' | 'refinement' | 'lookbook' | 'scene' | 'upscale' | 'motion';
+export type VersionType = 'base' | 'refine' | 'lookbook' | 'scene' | 'upscale' | 'motion';
 
 export class VersionService {
   static async getVersionsForCharacter(characterId: string) {

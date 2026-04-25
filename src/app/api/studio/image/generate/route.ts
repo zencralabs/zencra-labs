@@ -116,6 +116,17 @@ export async function POST(req: Request): Promise<Response> {
   const soul_id      = typeof body!.soul_id      === "string" ? body!.soul_id      : undefined;
   const mode         = typeof body!.mode         === "string" ? body!.mode         : undefined;
 
+  // ── Character mode validation ────────────────────────────────────────────────
+  const VALID_CHARACTER_MODES = ['base', 'lookbook', 'refine', 'scene', 'upscale', 'motion'] as const;
+  type CharacterMode = typeof VALID_CHARACTER_MODES[number];
+
+  if (mode && !VALID_CHARACTER_MODES.includes(mode as CharacterMode)) {
+    return Response.json(
+      { success: false, error: `Invalid character mode. Allowed: ${VALID_CHARACTER_MODES.join(', ')}`, code: 'INVALID_CHARACTER_MODE' },
+      { status: 400 }
+    );
+  }
+
   // ── Reference image cap ──────────────────────────────────────────────────────
   // Enforce server-side cap before any credit reserve or DB write.
   // Cap comes from MODEL_CAPABILITIES (product-configured, not provider hard limits).

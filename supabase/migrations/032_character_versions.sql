@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS character_versions (
   soul_id            uuid REFERENCES soul_ids(id) ON DELETE SET NULL,
   parent_version_id  uuid REFERENCES character_versions(id) ON DELETE SET NULL,
   asset_id           uuid REFERENCES assets(id) ON DELETE SET NULL,
-  version_type       text NOT NULL CHECK (version_type IN ('base','refinement','lookbook','scene','upscale','motion')),
+  version_type       text NOT NULL CHECK (version_type IN ('base','refine','lookbook','scene','upscale','motion')),
   metadata           jsonb DEFAULT '{}',
   created_at         timestamptz NOT NULL DEFAULT now()
 );

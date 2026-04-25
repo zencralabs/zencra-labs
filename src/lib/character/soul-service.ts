@@ -51,6 +51,9 @@ export class SoulService {
     style_dna?: Record<string, unknown>;
     reference_asset_ids?: string[];
     consistency_score?: number;
+    embedding_provider?: string;
+    embedding_id?: string;
+    embedding_version?: string;
   }) {
     const supabase = supabaseAdmin;
     const { data, error } = await supabase

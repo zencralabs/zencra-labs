@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       name?: string;
       description?: string;
-      character_type?: string;
       platform_intent?: string;
       project_id?: string;
     };
@@ -50,7 +49,6 @@ export async function POST(req: NextRequest) {
     const character = await CharacterService.createCharacter(user.id, {
       name: body.name,
       description: body.description,
-      character_type: body.character_type,
       platform_intent: body.platform_intent,
       project_id: body.project_id,
     });

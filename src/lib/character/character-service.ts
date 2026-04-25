@@ -30,7 +30,6 @@ export class CharacterService {
   static async createCharacter(userId: string, payload: {
     name: string;
     description?: string;
-    character_type?: string;
     platform_intent?: string;
     project_id?: string;
   }) {
@@ -44,7 +43,6 @@ export class CharacterService {
         user_id: userId,
         name: payload.name,
         description: payload.description,
-        character_type: payload.character_type,
         platform_intent: payload.platform_intent,
         project_id: payload.project_id,
         status: 'active',

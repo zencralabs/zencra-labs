@@ -25,7 +25,9 @@ export interface CharacterIdentity {
 
   // Reference data for consistency scoring
   reference_urls: string[];       // source identity images used for generation
-  embedding_ref?: string;         // future: embedding vector reference
+  embedding_provider?: string;    // provider used to generate the embedding
+  embedding_id?: string;          // external embedding identifier
+  embedding_version?: string;     // embedding model version
 
   // Cross-studio availability
   available_in_image:   boolean;
