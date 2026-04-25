@@ -2,8 +2,8 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CharacterStudioShell — Master layout for Character Studio
-// Three-panel grid + top bar + soul bar + workflow strip
-// Design: dark navy/amber — matches Zencra Video Studio cinematic feel
+// Grid: 280px 1fr 320px — no hard panel borders, glow system
+// State, routing, API, and prop interfaces ALL UNCHANGED from Phase 3A
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback } from "react";
@@ -27,7 +27,7 @@ import CrossStudioBridge      from "./CrossStudioBridge";
 const T = {
   body:        "#090c13",
   panel:       "#0b0e17",
-  topBar:      "#0c1020",
+  topBar:      "#0a0d1a",
   border:      "#1a2035",
   borderAmber: "#3d2800",
   amber:       "#f59e0b",
@@ -61,35 +61,40 @@ function TopBar({
 }) {
   return (
     <div style={{
-      width: "100%", background: T.topBar,
+      width: "100%",
+      background: T.topBar,
       borderBottom: `1px solid ${T.border}`,
       display: "flex", alignItems: "center",
-      padding: "10px 20px", gap: 14,
+      padding: "10px 24px", gap: 16,
       position: "sticky", top: 80, zIndex: 100,
       boxSizing: "border-box",
+      backdropFilter: "blur(12px)",
     }}>
-      {/* Character name */}
+      {/* Character identity pill */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+        display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
       }}>
         <div style={{
-          width: 8, height: 8, borderRadius: "50%",
+          width: 9, height: 9, borderRadius: "50%",
           background: character ? T.amber : T.textGhost,
-          boxShadow: character ? `0 0 8px ${T.amber}` : "none",
+          boxShadow: character ? `0 0 10px ${T.amber}` : "none",
+          transition: "all 0.3s ease",
         }} />
-        <span style={{ fontSize: 14, fontWeight: 700, color: character ? T.textPrimary : T.textMuted }}>
+        <span style={{
+          fontSize: 14, fontWeight: 700,
+          color: character ? T.textPrimary : T.textMuted,
+        }}>
           {character?.name ?? "New Character"}
         </span>
       </div>
 
-      {/* Soul pill */}
+      {/* Soul ID pill */}
       {character && (
         <div style={{
-          padding: "3px 10px", borderRadius: 20,
+          padding: "3px 11px", borderRadius: 20,
           background: T.amberDim, border: `1px solid ${T.amberBorder}`,
-          fontSize: 10, fontWeight: 700, color: T.amber,
-          letterSpacing: "0.06em", textTransform: "uppercase",
-          flexShrink: 0,
+          fontSize: 10, fontWeight: 800, color: T.amber,
+          letterSpacing: "0.07em", textTransform: "uppercase", flexShrink: 0,
         }}>
           SOUL ID Active
         </div>
@@ -103,12 +108,13 @@ function TopBar({
             <button key={m.key}
               onClick={() => onModeChange(m.key)}
               style={{
-                padding: "6px 12px", borderRadius: 7,
+                padding: "6px 14px", borderRadius: 8,
                 border: active ? `1px solid ${T.amberBorder}` : `1px solid transparent`,
                 background: active ? T.amberDim : "transparent",
                 color: active ? T.amber : T.textMuted,
                 fontSize: 12, fontWeight: active ? 700 : 500,
                 cursor: "pointer", transition: "all 0.15s",
+                letterSpacing: "0.02em",
               }}
             >
               {m.label}
@@ -117,18 +123,22 @@ function TopBar({
         })}
       </div>
 
-      {/* Save button */}
+      {/* Save */}
       <button
         onClick={onSave}
         disabled={!character}
         style={{
-          padding: "7px 14px", borderRadius: 8,
+          padding: "7px 16px", borderRadius: 8,
           border: "none",
-          background: character ? "linear-gradient(135deg, #b45309, #f59e0b)" : "rgba(255,255,255,0.05)",
+          background: character
+            ? "linear-gradient(135deg, #b45309, #f59e0b)"
+            : "rgba(255,255,255,0.04)",
           color: character ? "#090c13" : T.textGhost,
-          fontSize: 12, fontWeight: 700, cursor: character ? "pointer" : "not-allowed",
+          fontSize: 12, fontWeight: 700,
+          cursor: character ? "pointer" : "not-allowed",
           letterSpacing: "0.03em", flexShrink: 0,
           transition: "all 0.2s",
+          boxShadow: character ? "0 0 14px rgba(245,158,11,0.2)" : "none",
         }}
       >
         Save
@@ -142,17 +152,17 @@ function TopBar({
 export default function CharacterStudioShell() {
   const { user, session }  = useAuth();
 
-  // ── Core state ─────────────────────────────────────────────────────────────
-  const [activeMode,      setActiveMode]      = useState<CharacterMode>("base");
-  const [activeCharacter, setActiveCharacter] = useState<Character | null>(null);
-  const [activeSoul,      setActiveSoul]      = useState<SoulId | null>(null);
-  const [isGenerating,    setIsGenerating]    = useState(false);
+  // ── Core state — UNCHANGED ──────────────────────────────────────────────────
+  const [activeMode,       setActiveMode]      = useState<CharacterMode>("base");
+  const [activeCharacter,  setActiveCharacter] = useState<Character | null>(null);
+  const [activeSoul,       setActiveSoul]      = useState<SoulId | null>(null);
+  const [isGenerating,     setIsGenerating]    = useState(false);
   const [showStarterStrip, setShowStarterStrip] = useState(true);
-  const [versions,        setVersions]        = useState<CharacterVersion[]>([]);
-  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
-  const [assets,          setAssets]          = useState<CharacterAsset[]>([]);
+  const [versions,         setVersions]        = useState<CharacterVersion[]>([]);
+  const [activeVersionId,  setActiveVersionId] = useState<string | null>(null);
+  const [assets,           setAssets]          = useState<CharacterAsset[]>([]);
 
-  // ── Auth token ─────────────────────────────────────────────────────────────
+  // ── Auth token — UNCHANGED ──────────────────────────────────────────────────
   const [authToken, setAuthToken] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -163,9 +173,9 @@ export default function CharacterStudioShell() {
     });
     return () => subscription.unsubscribe();
   }, []);
-  void session; // used implicitly via authToken
+  void session;
 
-  // ── Generate handler ───────────────────────────────────────────────────────
+  // ── Generate handler — UNCHANGED ────────────────────────────────────────────
   const handleGenerate = useCallback(async (payload: BuildPayload) => {
     if (!user || isGenerating) return;
     setIsGenerating(true);
@@ -214,9 +224,8 @@ export default function CharacterStudioShell() {
     }
   }, [user, authToken, isGenerating]);
 
-  // ── Starter select ─────────────────────────────────────────────────────────
+  // ── Starter select — UNCHANGED ──────────────────────────────────────────────
   function handleSelectStarter(name: string, type: string) {
-    // Create a provisional character from starter
     const provisional: Character = {
       id:              crypto.randomUUID(),
       user_id:         user?.id ?? "",
@@ -240,18 +249,18 @@ export default function CharacterStudioShell() {
   }
 
   function handleSave() {
-    // No backend save in Phase 3B UI — show toast in future
     console.info("[CharacterStudio] Save triggered for:", activeCharacter?.name);
   }
 
-  const SIDE_GUTTER = 20;
+  const SIDE_GUTTER = 24;
 
   return (
     <div style={{
       minHeight: "100vh", width: "100%",
       background: [
-        "radial-gradient(circle at 15% 25%, rgba(245,158,11,0.06), transparent 35%)",
-        "radial-gradient(circle at 85% 75%, rgba(180,83,9,0.04), transparent 35%)",
+        "radial-gradient(ellipse at 12% 20%, rgba(245,158,11,0.07), transparent 40%)",
+        "radial-gradient(ellipse at 88% 80%, rgba(180,83,9,0.05), transparent 40%)",
+        "radial-gradient(ellipse at 50% 50%, rgba(9,12,19,0.0), transparent)",
         T.body,
       ].join(", "),
       color: T.textPrimary,
@@ -260,7 +269,7 @@ export default function CharacterStudioShell() {
       boxSizing: "border-box",
     }}>
 
-      {/* ── Top bar ─────────────────────────────────────────────── */}
+      {/* ── Top bar ─────────────────────────────────────────────────── */}
       <TopBar
         character={activeCharacter}
         activeMode={activeMode}
@@ -268,8 +277,8 @@ export default function CharacterStudioShell() {
         onSave={handleSave}
       />
 
-      {/* ── Soul command bar ──────────────────────────────────── */}
-      <div style={{ paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingTop: 10 }}>
+      {/* ── Soul command bar + starter strip ──────────────────────── */}
+      <div style={{ paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingTop: 12 }}>
         <SoulCommandBar
           soul={activeSoul}
           character={activeCharacter}
@@ -285,7 +294,6 @@ export default function CharacterStudioShell() {
           }}
         />
 
-        {/* ── Starter strip ── */}
         {showStarterStrip && (
           <StarterCharacters
             onSelectStarter={handleSelectStarter}
@@ -294,30 +302,36 @@ export default function CharacterStudioShell() {
         )}
       </div>
 
-      {/* ── Three-panel workspace ──────────────────────────────── */}
+      {/* ── Three-panel workspace ─────────────────────────────────── */}
+      {/* Grid UPGRADED: 280px 1fr 320px (was 220px 1fr 200px) */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "220px 1fr 200px",
-        columnGap: 14,
+        gridTemplateColumns: "280px 1fr 320px",
+        columnGap: 12,
         alignItems: "start",
         width: "100%",
         paddingBottom: 24,
         boxSizing: "border-box",
       }}>
 
-        {/* Left — Character Builder */}
+        {/* ── Left — Character Builder ── */}
+        {/* No hard border — uses subtle background glow instead */}
         <div style={{
           paddingLeft: SIDE_GUTTER,
-          paddingRight: 8,
-          paddingTop: 14, paddingBottom: 14,
+          paddingRight: 10,
+          paddingTop: 16, paddingBottom: 16,
           position: "sticky", top: 130, zIndex: 10,
-          maxHeight: "calc(100vh - 140px)",
+          maxHeight: "calc(100vh - 144px)",
           overflowY: "auto",
           scrollbarWidth: "thin",
           scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          background: "rgba(0,0,0,0.18)",
-          borderRadius: 12,
-          borderRight: `1px solid ${T.border}`,
+          // Glow instead of hard border
+          background: "rgba(11,14,23,0.7)",
+          borderRadius: 14,
+          boxShadow: [
+            "inset 0 0 0 1px rgba(255,255,255,0.03)",
+            "0 0 40px rgba(0,0,0,0.3)",
+          ].join(", "),
           boxSizing: "border-box",
         }}>
           <CharacterBuilder
@@ -328,8 +342,8 @@ export default function CharacterStudioShell() {
           />
         </div>
 
-        {/* Center — Canvas */}
-        <div style={{ minWidth: 0, paddingTop: 14, paddingBottom: 14 }}>
+        {/* ── Center — Canvas ── */}
+        <div style={{ minWidth: 0, paddingTop: 16, paddingBottom: 16 }}>
           <CharacterCanvas
             mode={activeMode}
             character={activeCharacter}
@@ -342,19 +356,24 @@ export default function CharacterStudioShell() {
           />
         </div>
 
-        {/* Right — Intelligence Panel */}
+        {/* ── Right — Intelligence Panel ── */}
+        {/* No hard border — uses subtle background glow instead */}
         <div style={{
           paddingRight: SIDE_GUTTER,
-          paddingLeft: 8,
-          paddingTop: 14, paddingBottom: 14,
+          paddingLeft: 10,
+          paddingTop: 16, paddingBottom: 16,
           position: "sticky", top: 130,
-          maxHeight: "calc(100vh - 140px)",
+          maxHeight: "calc(100vh - 144px)",
           overflowY: "auto",
           scrollbarWidth: "thin",
           scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          background: "rgba(0,0,0,0.14)",
-          borderRadius: 12,
-          borderLeft: `1px solid ${T.border}`,
+          // Glow instead of hard border
+          background: "rgba(11,14,23,0.55)",
+          borderRadius: 14,
+          boxShadow: [
+            "inset 0 0 0 1px rgba(255,255,255,0.025)",
+            "0 0 40px rgba(0,0,0,0.25)",
+          ].join(", "),
           boxSizing: "border-box",
         }}>
           <CharacterIntelligencePanel
@@ -367,13 +386,13 @@ export default function CharacterStudioShell() {
         </div>
       </div>
 
-      {/* ── Workflow strip + bridge ─────────────────────────────── */}
+      {/* ── Workflow strip + bridge ───────────────────────────────── */}
       <div style={{
-        paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingBottom: 48,
+        paddingLeft: SIDE_GUTTER, paddingRight: SIDE_GUTTER, paddingBottom: 56,
       }}>
         <WorkflowStrip
           activeMode={activeMode}
-          onStepClick={m => { setActiveMode(m); }}
+          onStepClick={m => setActiveMode(m)}
           character={activeCharacter}
         />
         <CrossStudioBridge
