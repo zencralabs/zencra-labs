@@ -126,6 +126,10 @@ const navCategories: Record<string, NavCategory> = {
     label: "Character Tools",
     features: [
       {
+        icon: UserCircle2, label: "Character Studio", desc: "Build AI characters with Soul ID", badge: "NEW", href: "/studio/character",
+        right: { type: "soon", title: "Character Studio", badge: "NEW", desc: "Build persistent AI characters with Soul ID identity anchoring. Generate, refine, and deploy across Image, Video, and Audio studios.", bullets: ["Soul ID identity system", "5-step guided builder", "Cross-studio deployment", "Consistency scoring"] },
+      },
+      {
         icon: UserCircle2, label: "AI Influencer", desc: "Consistent AI persona for socials", badge: "SOON", href: "#",
         right: { type: "soon", title: "AI Influencer", badge: "COMING SOON", desc: "Build a persistent AI character that posts, speaks, and evolves — for Instagram, TikTok, and beyond.", bullets: ["Face & voice consistency", "Automated content calendar", "Platform-ready formats", "Soul ID powered"] },
       },
@@ -160,7 +164,7 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Image Studio",  href: "/studio/image", hasDropdown: true,  dropdownKey: "Image"     },
   { label: "Video Studio",  href: "/studio/video", hasDropdown: true,  dropdownKey: "Video"     },
   { label: "Audio Studio",  href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
-  { label: "Character",     href: "#",             hasDropdown: true,  dropdownKey: "Character" },
+  { label: "Character",     href: "/studio/character", hasDropdown: true,  dropdownKey: "Character" },
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
   { label: "Pricing",       href: "/pricing",      hasDropdown: false },
 ];
