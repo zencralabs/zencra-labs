@@ -50,18 +50,25 @@ export function buildCharacterPrompt({
   // 3. Mode instruction
   parts.push(MODE_INSTRUCTIONS[mode]);
 
-  // 4. Style DNA from soul
+  // 4. Identity lock — inject for all non-base modes to enforce consistency
+  if (mode !== 'base') {
+    parts.push(
+      'Same person. Same face. Same identity. Do not change facial structure, age, or identity.'
+    );
+  }
+
+  // 5. Style DNA from soul
   const styleDna = soul.style_dna as Record<string, string>;
   if (styleDna.visual) parts.push(styleDna.visual);
   if (styleDna.lighting) parts.push(styleDna.lighting);
   if (styleDna.mood) parts.push(styleDna.mood);
 
-  // 5. Applied styles
+  // 6. Applied styles
   for (const style of styles) {
     if (style.prompt_template) parts.push(style.prompt_template);
   }
 
-  // 6. User prompt
+  // 7. User prompt
   if (userPrompt.trim()) parts.push(userPrompt.trim());
 
   // Negative prompt aggregation

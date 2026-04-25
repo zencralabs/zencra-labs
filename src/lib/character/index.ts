@@ -7,6 +7,10 @@ export { SafetyGate } from './safety-gate';
 export { evaluateCharacterConsistency } from './consistency-service';
 export { validateCharacterPrompt, validateReferenceConsent, logReferenceConsent } from './character-safety';
 export { buildCharacterPrompt } from './character-prompt-builder';
+export { getCharacterAssets, getCharacterAssetsByMode } from './character-asset-service';
+export type { CharacterAsset } from './character-asset-service';
+export { getCharacterContext } from './character-context-service';
+export type { CharacterContext as CharacterContextFull } from './character-context-service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type {

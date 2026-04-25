@@ -62,7 +62,7 @@ export class StyleService {
     const { data: char } = await supabase.from('characters').select('id').eq('id', characterId).eq('user_id', userId).single();
     if (!char) throw new Error('Character not found or unauthorized');
 
-    const weight = Math.min(2.0, Math.max(0, options?.weight ?? 1.0));
+    const weight = Math.min(1.0, Math.max(0, options?.weight ?? 1.0));
 
     // If setting as primary, unset existing primary
     if (options?.is_primary) {

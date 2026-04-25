@@ -3,11 +3,9 @@ import type { SoulId } from './types';
 
 function generateSoulCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = 'SOUL-';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
+  const randomSegment = (len: number) =>
+    Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `SOUL-${randomSegment(6)}-${randomSegment(4)}`;
 }
 
 export class SoulService {

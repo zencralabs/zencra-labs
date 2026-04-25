@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS character_styles (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   character_id uuid NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
   style_id     uuid NOT NULL REFERENCES styles(id) ON DELETE CASCADE,
-  weight       numeric NOT NULL DEFAULT 1.0 CHECK (weight >= 0 AND weight <= 2.0),
+  weight       numeric NOT NULL DEFAULT 1.0 CHECK (weight >= 0 AND weight <= 1.0),
   is_primary   boolean NOT NULL DEFAULT false,
   created_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE(character_id, style_id)
