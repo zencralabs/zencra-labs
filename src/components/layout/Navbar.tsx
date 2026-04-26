@@ -126,12 +126,12 @@ const navCategories: Record<string, NavCategory> = {
     label: "Character Tools",
     features: [
       {
-        icon: UserCircle2, label: "Character Studio", desc: "Build AI characters with Soul ID", badge: "NEW", href: "/studio/character",
-        right: { type: "soon", title: "Character Studio", badge: "NEW", desc: "Build persistent AI characters with Soul ID identity anchoring. Generate, refine, and deploy across Image, Video, and Audio studios.", bullets: ["Soul ID identity system", "5-step guided builder", "Cross-studio deployment", "Consistency scoring"] },
+        icon: UserCircle2, label: "AI Influencer", desc: "Build a persistent digital human", badge: "NEW", href: "/studio/character/ai-influencer",
+        right: { type: "soon", title: "AI Influencer Builder", badge: "NEW", desc: "Create a persistent digital human with a locked identity. Generate content packs — looks, scenes, poses, social formats — all anchored to the same face, every time.", bullets: ["Identity lock system", "5 content pack types", "Face-consistent generation", "Social-ready formats"] },
       },
       {
-        icon: UserCircle2, label: "AI Influencer", desc: "Consistent AI persona for socials", badge: "SOON", href: "#",
-        right: { type: "soon", title: "AI Influencer", badge: "COMING SOON", desc: "Build a persistent AI character that posts, speaks, and evolves — for Instagram, TikTok, and beyond.", bullets: ["Face & voice consistency", "Automated content calendar", "Platform-ready formats", "Soul ID powered"] },
+        icon: UserCircle2, label: "Character Studio", desc: "Build AI characters with Soul ID", badge: "LEGACY", href: "/studio/character/ai-influencer",
+        right: { type: "soon", title: "Character Studio", badge: "LEGACY", desc: "Build persistent AI characters with Soul ID identity anchoring. Generate, refine, and deploy across Image, Video, and Audio studios.", bullets: ["Soul ID identity system", "5-step guided builder", "Cross-studio deployment", "Consistency scoring"] },
       },
       {
         icon: Layers, label: "Face Swap", desc: "Seamless image face swap", badge: "SOON", href: "#",
