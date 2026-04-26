@@ -4,6 +4,26 @@
 
 export type InfluencerStatus = "draft" | "active" | "archived";
 
+// ── Style category — controls all visual rendering language ───────────────────
+export type StyleCategory =
+  | "hyper-real"        // photorealistic, camera lens language, natural skin
+  | "3d-animation"      // Pixar-quality render, smooth textures, stylized proportions
+  | "anime-manga"       // 2D cel-shaded, line art, stylized expressions
+  | "fine-art"          // oil painting / watercolor, classical composition
+  | "game-concept"      // cinematic concept art, high detail, fantasy/sci-fi
+  | "physical-texture"  // clay / wool / fabric / craft material rendering
+  | "retro-pixel";      // 8-bit / 16-bit pixel art, retro game aesthetic
+
+export const STYLE_CATEGORY_VALUES: StyleCategory[] = [
+  "hyper-real",
+  "3d-animation",
+  "anime-manga",
+  "fine-art",
+  "game-concept",
+  "physical-texture",
+  "retro-pixel",
+];
+
 export type AssetType =
   | "candidate"
   | "hero"
@@ -46,9 +66,16 @@ export interface AppearanceSignature {
   eye_area?: string;
   age_range?: string;
   gender?: string;
+  appearance_notes?: string;
 }
 
 export interface StyleSignature {
+  // Style category — the primary visual rendering mode
+  category: StyleCategory;
+  rendering_style: string;   // e.g. "photorealistic, shot on Sony A7R V, 85mm f/1.4"
+  texture_type: string;      // e.g. "real skin pores, fabric weave visible"
+  shading_style: string;     // e.g. "realistic lighting, subsurface scattering"
+  // Profile-level style data
   fashion_style?: string;
   realism_level?: string;
   mood?: string[];
@@ -68,6 +95,7 @@ export interface AIInfluencer {
   user_id: string;
   name: string;
   status: InfluencerStatus;
+  style_category: StyleCategory;
   hero_asset_id: string | null;
   identity_lock_id: string | null;
   thumbnail_url: string | null;

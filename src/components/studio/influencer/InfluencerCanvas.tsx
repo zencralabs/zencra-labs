@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
-import type { PackType } from "@/lib/influencer/types";
+import type { PackType, StyleCategory } from "@/lib/influencer/types";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -22,6 +22,22 @@ const T = {
   amber:   "#f59e0b",
   green:   "#10b981",
 } as const;
+
+// ── Category visual palette ───────────────────────────────────────────────────
+
+const CATEGORY_ACCENT: Record<StyleCategory, string> = {
+  "hyper-real":       "#f59e0b",
+  "3d-animation":     "#38bdf8",
+  "anime-manga":      "#f472b6",
+  "fine-art":         "#d4a054",
+  "game-concept":     "#8b5cf6",
+  "physical-texture": "#c2715a",
+  "retro-pixel":      "#84cc16",
+};
+
+function getCategoryAccent(cat?: StyleCategory | null): string {
+  return cat ? (CATEGORY_ACCENT[cat] ?? "#f59e0b") : "#f59e0b";
+}
 
 // ── Pack action definitions ───────────────────────────────────────────────────
 
@@ -151,6 +167,25 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
     [canvasState],
   );
 
+  // ── Derive accent from current category ─────────────────────────────────────
+
+  const currentAccent = (() => {
+    if (canvasState.phase === "generating" || canvasState.phase === "candidates") {
+      return getCategoryAccent(canvasState.style_category);
+    }
+    if (canvasState.phase === "selected") {
+      return getCategoryAccent(canvasState.active.influencer.style_category);
+    }
+    return "#f59e0b"; // empty — default amber
+  })();
+
+  const isPixelArt =
+    (canvasState.phase === "generating" || canvasState.phase === "candidates")
+      ? canvasState.style_category === "retro-pixel"
+      : canvasState.phase === "selected"
+        ? canvasState.active.influencer.style_category === "retro-pixel"
+        : false;
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -162,13 +197,19 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
         background: T.bg,
         display: "flex",
         flexDirection: "column",
+        // Subtle pixel grid overlay for retro-pixel category
+        backgroundImage: isPixelArt
+          ? "linear-gradient(rgba(132,204,22,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(132,204,22,0.04) 1px, transparent 1px)"
+          : undefined,
+        backgroundSize: isPixelArt ? "8px 8px" : undefined,
       }}
     >
-      {canvasState.phase === "empty"      && <EmptyState />}
+      {canvasState.phase === "empty"      && <EmptyState accent={currentAccent} />}
       {canvasState.phase === "generating" && (
         <GeneratingState
           influencer_id={canvasState.influencer_id}
           jobIds={canvasState.jobs}
+          accent={currentAccent}
           onReady={onCandidatesReady}
         />
       )}
@@ -176,12 +217,14 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
         <CandidatesState
           influencer_id={canvasState.influencer_id}
           candidates={canvasState.candidates}
+          accent={currentAccent}
           onSelected={onSelected}
         />
       )}
       {canvasState.phase === "selected" && (
         <SelectedState
           active={canvasState.active}
+          accent={currentAccent}
           packOutputs={packOutputs}
           activePack={activePack}
           onTriggerPack={handleTriggerPack}
@@ -194,29 +237,31 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
 
 // ── STATE 1: Empty ────────────────────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ accent }: { accent: string }) {
   return (
     <div style={{
       flex: 1, display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: "40px 32px", textAlign: "center",
     }}>
-      {/* Ambient glow */}
+      {/* Ambient glow — color adapts to selected category */}
       <div style={{
         width: 120, height: 120, borderRadius: "50%", marginBottom: 32,
-        background: "radial-gradient(ellipse, rgba(245,158,11,0.10) 0%, transparent 70%)",
+        background: `radial-gradient(ellipse, ${accent}18 0%, transparent 70%)`,
         display: "flex", alignItems: "center", justifyContent: "center",
         position: "relative",
+        transition: "background 0.4s ease",
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: 18,
-          background: "rgba(245,158,11,0.07)",
-          border: "1px solid rgba(245,158,11,0.18)",
+          background: `${accent}10`,
+          border: `1px solid ${accent}2e`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 0 40px rgba(245,158,11,0.12)",
+          boxShadow: `0 0 40px ${accent}1e`,
+          transition: "all 0.4s ease",
         }}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-            stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
             <path d="M20 21a8 8 0 1 0-16 0" />
           </svg>
@@ -244,10 +289,12 @@ function EmptyState() {
 function GeneratingState({
   influencer_id,
   jobIds,
+  accent,
   onReady,
 }: {
   influencer_id: string;
   jobIds: string[];
+  accent: string;
   onReady: (influencer_id: string, urls: string[]) => void;
 }) {
   const [progress,   setProgress]   = useState(0);
@@ -301,7 +348,7 @@ function GeneratingState({
       alignItems: "center", justifyContent: "center",
       padding: "40px 32px", textAlign: "center", gap: 24,
     }}>
-      {/* Animated ring */}
+      {/* Animated ring — accent color per category */}
       <div style={{
         width: 80, height: 80, position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -312,12 +359,12 @@ function GeneratingState({
         }}>
           <circle
             cx="40" cy="40" r="34"
-            fill="none" stroke="#f59e0b" strokeWidth="2"
+            fill="none" stroke={accent} strokeWidth="2"
             strokeDasharray="60 160" strokeLinecap="round"
           />
         </svg>
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-          stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round">
+          stroke={accent} strokeWidth="1.5" strokeLinecap="round">
           <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
           <path d="M20 21a8 8 0 1 0-16 0" />
         </svg>
@@ -335,7 +382,7 @@ function GeneratingState({
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — accent color per category */}
       <div style={{
         width: 240, height: 2, borderRadius: 2,
         background: "rgba(255,255,255,0.06)",
@@ -343,7 +390,7 @@ function GeneratingState({
       }}>
         <div style={{
           height: "100%", borderRadius: 2,
-          background: "#f59e0b",
+          background: accent,
           width: `${displayProgress}%`,
           transition: "width 0.8s ease",
         }} />
@@ -357,10 +404,12 @@ function GeneratingState({
 function CandidatesState({
   influencer_id,
   candidates,
+  accent,
   onSelected,
 }: {
   influencer_id: string;
   candidates: string[];
+  accent: string;
   onSelected: (active: ActiveInfluencer) => void;
 }) {
   const [selecting, setSelecting] = useState<string | null>(null);
@@ -414,6 +463,7 @@ function CandidatesState({
             index={i + 1}
             selecting={selecting === url}
             disabled={!!selecting && selecting !== url}
+            accent={accent}
             onSelect={() => handleSelect(url)}
           />
         ))}
@@ -435,9 +485,9 @@ function CandidatesState({
 }
 
 function CandidateCard({
-  url, index, selecting, disabled, onSelect,
+  url, index, selecting, disabled, accent, onSelect,
 }: {
-  url: string; index: number; selecting: boolean; disabled: boolean; onSelect: () => void;
+  url: string; index: number; selecting: boolean; disabled: boolean; accent: string; onSelect: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -447,11 +497,11 @@ function CandidateCard({
         position: "relative", aspectRatio: "2/3",
         borderRadius: 12, overflow: "hidden",
         cursor: disabled ? "not-allowed" : "pointer",
-        border: selecting ? "2px solid #f59e0b" : "1px solid rgba(255,255,255,0.07)",
+        border: selecting ? `2px solid ${accent}` : "1px solid rgba(255,255,255,0.07)",
         opacity: disabled && !selecting ? 0.5 : 1,
         transition: "all 0.2s ease",
         transform: hovered && !disabled ? "translateY(-2px)" : "none",
-        boxShadow: selecting ? "0 0 20px rgba(245,158,11,0.25)" : "none",
+        boxShadow: selecting ? `0 0 20px ${accent}40` : "none",
       }}
       onMouseEnter={() => !disabled && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -466,7 +516,7 @@ function CandidateCard({
         <div style={{
           position: "absolute", inset: 0,
           background: selecting
-            ? "rgba(245,158,11,0.12)"
+            ? `${accent}1e`
             : "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%)",
           display: "flex", alignItems: "flex-end", justifyContent: "center",
           paddingBottom: 14,
@@ -474,7 +524,7 @@ function CandidateCard({
           {!selecting ? (
             <div style={{
               padding: "7px 16px", borderRadius: 20,
-              background: "rgba(245,158,11,0.92)",
+              background: `${accent}eb`,
               color: "#060810", fontSize: 12, fontWeight: 800,
               letterSpacing: "0.02em",
             }}>
@@ -483,7 +533,7 @@ function CandidateCard({
           ) : (
             <div style={{
               width: 24, height: 24, borderRadius: "50%",
-              border: "2px solid #f59e0b", borderTopColor: "transparent",
+              border: `2px solid ${accent}`, borderTopColor: "transparent",
               animation: "spin 0.8s linear infinite",
             }} />
           )}
@@ -497,12 +547,14 @@ function CandidateCard({
 
 function SelectedState({
   active,
+  accent,
   packOutputs,
   activePack,
   onTriggerPack,
   packSectionRef,
 }: {
   active: ActiveInfluencer;
+  accent: string;
   packOutputs: PackOutput[];
   activePack: PackType | null;
   onTriggerPack: (type: PackType) => void;
@@ -512,7 +564,7 @@ function SelectedState({
     <div style={{ display: "flex", flexDirection: "column" }}>
 
       {/* ── Hero image — dominant ────────────────────────────────────── */}
-      <HeroSection active={active} />
+      <HeroSection active={active} accent={accent} />
 
       {/* ── Pack action buttons ──────────────────────────────────────── */}
       <PackActions
@@ -543,15 +595,16 @@ function SelectedState({
 
 // ── Hero section ───────────────────────────────────────────────────────────────
 
-function HeroSection({ active }: { active: ActiveInfluencer }) {
+function HeroSection({ active, accent }: { active: ActiveInfluencer; accent: string }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <div style={{
       width: "100%",
-      background: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.06) 0%, transparent 60%), #07090f",
+      background: `radial-gradient(ellipse at 50% 0%, ${accent}0f 0%, transparent 60%), #07090f`,
       display: "flex", justifyContent: "center",
       padding: "28px 24px 0",
+      transition: "background 0.4s ease",
     }}>
 
       {/* Influencer name above */}
@@ -577,15 +630,16 @@ function HeroSection({ active }: { active: ActiveInfluencer }) {
           <div style={{
             aspectRatio: "2/3", borderRadius: 16, overflow: "hidden",
             background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "0 0 60px rgba(245,158,11,0.08), 0 20px 60px rgba(0,0,0,0.5)",
+            border: `1px solid ${accent}20`,
+            boxShadow: `0 0 60px ${accent}14, 0 20px 60px rgba(0,0,0,0.5)`,
+            transition: "border-color 0.4s ease, box-shadow 0.4s ease",
           }}>
             {active.hero_url ? (
               <>
                 {!imgLoaded && (
                   <div style={{
                     width: "100%", height: "100%",
-                    background: "radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.10), transparent 60%)",
+                    background: `radial-gradient(ellipse at 50% 30%, ${accent}18, transparent 60%)`,
                     animation: "pulse 1.8s ease-in-out infinite",
                   }} />
                 )}
@@ -603,7 +657,7 @@ function HeroSection({ active }: { active: ActiveInfluencer }) {
             ) : (
               <div style={{
                 width: "100%", height: "100%",
-                background: "radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.12), transparent 65%)",
+                background: `radial-gradient(ellipse at 50% 30%, ${accent}1e, transparent 65%)`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none"

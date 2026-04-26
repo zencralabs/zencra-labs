@@ -5,8 +5,10 @@
 
 import { requireAuthUser }  from "@/lib/supabase/server";
 import { supabaseAdmin }    from "@/lib/supabase/admin";
-import { ok, serverErr, invalidInput, unauthorized } from "@/lib/api/route-utils";
+import { ok, serverErr, invalidInput } from "@/lib/api/route-utils";
 import { parseBody }        from "@/lib/api/route-utils";
+import { STYLE_CATEGORY_VALUES } from "@/lib/influencer/types";
+import type { StyleCategory }    from "@/lib/influencer/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +44,12 @@ export async function POST(req: Request): Promise<Response> {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) return invalidInput("name is required");
 
+  // Style category — validated against allowed values; defaults to hyper-real
+  const rawCategory = typeof body?.style_category === "string" ? body.style_category : "hyper-real";
+  const style_category: StyleCategory = STYLE_CATEGORY_VALUES.includes(rawCategory as StyleCategory)
+    ? (rawCategory as StyleCategory)
+    : "hyper-real";
+
   // Profile fields (all optional at creation)
   const profile = {
     gender:           typeof body?.gender         === "string" ? body.gender         : null,
@@ -58,7 +66,7 @@ export async function POST(req: Request): Promise<Response> {
   // Create influencer
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
-    .insert({ user_id: userId, name, status: "draft" })
+    .insert({ user_id: userId, name, status: "draft", style_category })
     .select()
     .single();
 

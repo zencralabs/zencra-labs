@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<Response> {
   // ── Verify influencer ownership ─────────────────────────────────────────────
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
-    .select("id, user_id, name")
+    .select("id, user_id, name, style_category")
     .eq("id", influencer_id)
     .eq("user_id", userId)
     .single();
@@ -77,13 +77,14 @@ export async function POST(req: Request): Promise<Response> {
     .eq("influencer_id", influencer_id)
     .single();
 
-  // Build generation prompt from profile (no identity anchor — this is initial generation)
+  // Build generation prompt — style_category shapes the rendering language
   const generationPrompt = buildGenerationPrompt(
     (profile ?? {
       gender: null, age_range: null, skin_tone: null, face_structure: null,
       fashion_style: null, realism_level: "photorealistic", mood: [], platform_intent: [],
       appearance_notes: null,
     }) as AIInfluencerProfile,
+    influencer.style_category ?? "hyper-real",
   );
 
   // ── Billing entitlement ──────────────────────────────────────────────────────

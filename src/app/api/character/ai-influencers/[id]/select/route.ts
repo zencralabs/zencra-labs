@@ -47,7 +47,7 @@ export async function POST(
   // ── Verify ownership ─────────────────────────────────────────────────────────
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
-    .select("id, user_id")
+    .select("id, user_id, style_category")
     .eq("id", influencer_id)
     .eq("user_id", userId)
     .single();
@@ -66,6 +66,7 @@ export async function POST(
     const result = await createIdentityLock({
       influencer_id,
       candidate_url,
+      style_category: influencer.style_category ?? "hyper-real",
       profile: profile ?? {
         id: "", influencer_id,
         gender: null, age_range: null, skin_tone: null, face_structure: null,

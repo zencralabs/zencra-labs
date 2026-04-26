@@ -8,16 +8,17 @@
 
 import { useState } from "react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
-import type { AIInfluencer } from "@/lib/influencer/types";
+import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
+import { STYLE_CATEGORY_VALUES } from "@/lib/influencer/types";
 
 const T = {
-  border:  "#111827",
-  surface: "#0b0e17",
-  text:    "#e8eaf0",
-  muted:   "#8b92a8",
-  ghost:   "#3d4560",
-  amber:   "#f59e0b",
-  amberBg: "rgba(245,158,11,0.09)",
+  border:      "#111827",
+  surface:     "#0b0e17",
+  text:        "#e8eaf0",
+  muted:       "#8b92a8",
+  ghost:       "#3d4560",
+  amber:       "#f59e0b",
+  amberBg:     "rgba(245,158,11,0.09)",
   amberBorder: "rgba(245,158,11,0.22)",
 } as const;
 
@@ -85,6 +86,153 @@ export default function InfluencerControls({ canvasState, activeInfluencer, onCr
   );
 }
 
+// ── Style category definitions ────────────────────────────────────────────────
+
+interface CategoryDef {
+  value:    StyleCategory;
+  label:    string;
+  emoji:    string;
+  desc:     string;
+  accent:   string;
+}
+
+const CATEGORIES: CategoryDef[] = [
+  {
+    value:  "hyper-real",
+    label:  "Hyper Real",
+    emoji:  "📷",
+    desc:   "Photorealistic · Camera-rendered",
+    accent: "#f59e0b",
+  },
+  {
+    value:  "3d-animation",
+    label:  "3D Animation",
+    emoji:  "🎬",
+    desc:   "Pixar-style · Rendered 3D",
+    accent: "#38bdf8",
+  },
+  {
+    value:  "anime-manga",
+    label:  "Anime",
+    emoji:  "✦",
+    desc:   "Cel-shaded · 2D Japanese",
+    accent: "#f472b6",
+  },
+  {
+    value:  "fine-art",
+    label:  "Fine Art",
+    emoji:  "🖼",
+    desc:   "Oil · Watercolor · Painterly",
+    accent: "#d4a054",
+  },
+  {
+    value:  "game-concept",
+    label:  "Game Art",
+    emoji:  "⚔",
+    desc:   "Fantasy · Hero · Concept",
+    accent: "#8b5cf6",
+  },
+  {
+    value:  "physical-texture",
+    label:  "Texture",
+    emoji:  "◈",
+    desc:   "Fabric · Clay · Tactile",
+    accent: "#c2715a",
+  },
+  {
+    value:  "retro-pixel",
+    label:  "Pixel Art",
+    emoji:  "▪",
+    desc:   "8-bit · Retro · Grid",
+    accent: "#84cc16",
+  },
+];
+
+// ── Category card selector ────────────────────────────────────────────────────
+
+function CategorySelector({
+  value,
+  onChange,
+}: {
+  value: StyleCategory;
+  onChange: (v: StyleCategory) => void;
+}) {
+  return (
+    <section>
+      <SectionLabel label="Style" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {CATEGORIES.map(cat => {
+          const selected = value === cat.value;
+          return (
+            <button
+              key={cat.value}
+              onClick={() => onChange(cat.value)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 11,
+                padding: "9px 12px",
+                borderRadius: 9,
+                border: selected
+                  ? `1px solid ${cat.accent}55`
+                  : `1px solid ${T.border}`,
+                background: selected
+                  ? `${cat.accent}10`
+                  : "rgba(255,255,255,0.02)",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.14s",
+                width: "100%",
+                boxShadow: selected ? `0 0 12px ${cat.accent}14` : "none",
+              }}
+            >
+              {/* Emoji / icon */}
+              <div style={{
+                width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+                background: selected ? `${cat.accent}18` : "rgba(255,255,255,0.05)",
+                border: selected ? `1px solid ${cat.accent}30` : `1px solid ${T.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13,
+                transition: "all 0.14s",
+              }}>
+                {cat.emoji}
+              </div>
+
+              {/* Text */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: selected ? 700 : 500,
+                  color: selected ? cat.accent : T.text,
+                  letterSpacing: "0.01em",
+                  transition: "color 0.14s",
+                }}>
+                  {cat.label}
+                </div>
+                <div style={{ fontSize: 11, color: T.ghost, marginTop: 1 }}>
+                  {cat.desc}
+                </div>
+              </div>
+
+              {/* Selected check */}
+              {selected && (
+                <div style={{
+                  width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                  background: cat.accent,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <polyline points="2,5 4.2,7.5 8,3" stroke="#060810" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ── Builder tab ───────────────────────────────────────────────────────────────
 
 function BuilderTab({
@@ -94,18 +242,22 @@ function BuilderTab({
   activeInfluencer: ActiveInfluencer | null;
   onCreated: (influencer: AIInfluencer, jobIds: string[]) => void;
 }) {
-  const [name,       setName]       = useState("");
-  const [gender,     setGender]     = useState("");
-  const [ageRange,   setAgeRange]   = useState("");
-  const [skinTone,   setSkinTone]   = useState("");
-  const [faceStruct, setFaceStruct] = useState("");
-  const [fashion,    setFashion]    = useState("");
-  const [realism,    setRealism]    = useState("photorealistic");
-  const [mood,       setMood]       = useState<string[]>([]);
-  const [platforms,  setPlatforms]  = useState<string[]>([]);
-  const [notes,      setNotes]      = useState("");
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const [styleCategory, setStyleCategory] = useState<StyleCategory>("hyper-real");
+  const [name,          setName]          = useState("");
+  const [gender,        setGender]        = useState("");
+  const [ageRange,      setAgeRange]      = useState("");
+  const [skinTone,      setSkinTone]      = useState("");
+  const [faceStruct,    setFaceStruct]    = useState("");
+  const [fashion,       setFashion]       = useState("");
+  const [realism,       setRealism]       = useState("photorealistic");
+  const [mood,          setMood]          = useState<string[]>([]);
+  const [platforms,     setPlatforms]     = useState<string[]>([]);
+  const [notes,         setNotes]         = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+
+  // Accent color for selected style
+  const selectedCat = CATEGORIES.find(c => c.value === styleCategory)!;
 
   // If we're generating or have a selected influencer, show a compact status view
   if (canvasState.phase === "generating") {
@@ -117,15 +269,37 @@ function BuilderTab({
   }
 
   if (activeInfluencer) {
+    // Derive category info for the active influencer
+    const activeCat = CATEGORIES.find(
+      c => c.value === activeInfluencer.influencer.style_category,
+    ) ?? CATEGORIES[0];
+
     return (
       <div style={{ padding: "24px 18px" }}>
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: T.ghost, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 900, color: T.ghost,
+            letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8,
+          }}>
             Active Influencer
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 6 }}>
             {activeInfluencer.influencer.name}
           </div>
+
+          {/* Style badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "4px 10px", borderRadius: 20, marginBottom: 10,
+            background: `${activeCat.accent}12`,
+            border: `1px solid ${activeCat.accent}30`,
+          }}>
+            <span style={{ fontSize: 10 }}>{activeCat.emoji}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: activeCat.accent, letterSpacing: "0.04em" }}>
+              {activeCat.label}
+            </span>
+          </div>
+
           <StatusNote icon="●" color="#10b981" text="Identity locked — packs are available" />
         </div>
         <div style={{
@@ -146,13 +320,14 @@ function BuilderTab({
     setLoading(true);
 
     try {
-      // Step 1: Create influencer record
+      // Step 1: Create influencer record (with style_category)
       const createRes = await fetch("/api/character/ai-influencers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           name: name.trim(),
+          style_category: styleCategory,
           gender, age_range: ageRange, skin_tone: skinTone,
           face_structure: faceStruct, fashion_style: fashion,
           realism_level: realism, mood, platform_intent: platforms,
@@ -212,6 +387,12 @@ function BuilderTab({
   return (
     <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 22 }}>
 
+      {/* ── Style Category — first decision ─────────────────────────── */}
+      <CategorySelector value={styleCategory} onChange={setStyleCategory} />
+
+      {/* ── Divider ─────────────────────────────────────────────────── */}
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
+
       {/* Name */}
       <section>
         <SectionLabel label="Name" />
@@ -219,7 +400,7 @@ function BuilderTab({
           type="text" placeholder="e.g. Nova Reyes"
           value={name} onChange={e => setName(e.target.value)}
           style={inputStyle}
-          onFocus={e => (e.currentTarget.style.borderColor = T.amberBorder)}
+          onFocus={e => (e.currentTarget.style.borderColor = selectedCat.accent + "55")}
           onBlur={e => (e.currentTarget.style.borderColor = T.border)}
         />
       </section>
@@ -251,22 +432,36 @@ function BuilderTab({
         </div>
       </section>
 
-      {/* Style */}
-      <section>
-        <SectionLabel label="Style" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Style details — only show for hyper-real (realism level doesn't apply to stylized) */}
+      {styleCategory === "hyper-real" && (
+        <section>
+          <SectionLabel label="Rendering" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <SelectField
+              label="Fashion Style" value={fashion} onChange={setFashion}
+              options={["", "Cinematic", "Editorial", "Streetwear", "Fashion", "Minimal", "Casual", "Formal"]}
+              style={inputStyle}
+            />
+            <SelectField
+              label="Realism Level" value={realism} onChange={setRealism}
+              options={["photorealistic", "cinematic", "stylized", "hyper-realistic"]}
+              style={inputStyle}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Fashion style for non-hyper-real categories */}
+      {styleCategory !== "hyper-real" && (
+        <section>
+          <SectionLabel label="Fashion Style" />
           <SelectField
             label="Fashion Style" value={fashion} onChange={setFashion}
             options={["", "Cinematic", "Editorial", "Streetwear", "Fashion", "Minimal", "Casual", "Formal"]}
             style={inputStyle}
           />
-          <SelectField
-            label="Realism Level" value={realism} onChange={setRealism}
-            options={["photorealistic", "cinematic", "stylized", "hyper-realistic"]}
-            style={inputStyle}
-          />
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Mood */}
       <section>
@@ -275,6 +470,7 @@ function BuilderTab({
           options={["Confident", "Bold", "Cinematic", "Warm", "Edgy", "Minimal"]}
           selected={mood}
           onToggle={toggleMood}
+          accent={selectedCat.accent}
         />
       </section>
 
@@ -285,6 +481,7 @@ function BuilderTab({
           options={["Instagram", "TikTok", "YouTube", "Brand"]}
           selected={platforms}
           onToggle={togglePlatform}
+          accent={selectedCat.accent}
         />
       </section>
 
@@ -296,7 +493,7 @@ function BuilderTab({
           placeholder="Specific features, vibe, references…"
           value={notes} onChange={e => setNotes(e.target.value)}
           style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-          onFocus={e => (e.currentTarget.style.borderColor = T.amberBorder)}
+          onFocus={e => (e.currentTarget.style.borderColor = selectedCat.accent + "55")}
           onBlur={e => (e.currentTarget.style.borderColor = T.border)}
         />
       </section>
@@ -306,21 +503,21 @@ function BuilderTab({
         <div style={{ fontSize: 12, color: "#ef4444" }}>{error}</div>
       )}
 
-      {/* CTA */}
+      {/* CTA — accent matches selected style */}
       <button
         onClick={handleCreate}
         disabled={loading}
         style={{
           padding: "14px 18px", borderRadius: 10, width: "100%",
           background: loading
-            ? "rgba(245,158,11,0.20)"
-            : "linear-gradient(135deg, #92400e, #b45309 40%, #f59e0b)",
+            ? `${selectedCat.accent}33`
+            : `linear-gradient(135deg, ${selectedCat.accent}99, ${selectedCat.accent})`,
           border: "none",
           color: loading ? "rgba(255,255,255,0.30)" : "#060810",
           fontSize: 14, fontWeight: 800,
           cursor: loading ? "not-allowed" : "pointer",
           letterSpacing: "0.02em",
-          boxShadow: loading ? "none" : "0 0 28px rgba(245,158,11,0.28), 0 4px 16px rgba(0,0,0,0.4)",
+          boxShadow: loading ? "none" : `0 0 28px ${selectedCat.accent}40, 0 4px 16px rgba(0,0,0,0.4)`,
           transition: "all 0.2s",
         }}
       >
@@ -351,14 +548,17 @@ function PacksInfoTab({ active }: { active: ActiveInfluencer | null }) {
 
   return (
     <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 900, color: T.ghost, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 900, color: T.ghost,
+        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4,
+      }}>
         Available Packs
       </div>
       {packs.map(p => (
         <div key={p.label} style={{
           padding: "11px 13px", borderRadius: 9,
           background: "rgba(255,255,255,0.03)",
-          border: `1px solid rgba(255,255,255,0.07)`,
+          border: "1px solid rgba(255,255,255,0.07)",
           display: "flex", flexDirection: "column", gap: 3,
         }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: p.accent }}>{p.label}</div>
@@ -385,7 +585,10 @@ function RefineTab({ active }: { active: ActiveInfluencer | null }) {
 
   return (
     <div style={{ padding: "20px 18px" }}>
-      <div style={{ fontSize: 11, fontWeight: 900, color: T.ghost, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 900, color: T.ghost,
+        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14,
+      }}>
         Refine Identity
       </div>
       <div style={{ fontSize: 13, color: T.ghost, lineHeight: 1.65, marginBottom: 20 }}>
@@ -410,7 +613,10 @@ function RefineTab({ active }: { active: ActiveInfluencer | null }) {
 function AdvancedTab() {
   return (
     <div style={{ padding: "20px 18px" }}>
-      <div style={{ fontSize: 11, fontWeight: 900, color: T.ghost, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 900, color: T.ghost,
+        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14,
+      }}>
         Advanced
       </div>
       <div style={{ fontSize: 13, color: T.ghost, lineHeight: 1.65 }}>
@@ -454,9 +660,9 @@ function SelectField({
 }
 
 function ChipGroup({
-  options, selected, onToggle,
+  options, selected, onToggle, accent = T.amber,
 }: {
-  options: string[]; selected: string[]; onToggle: (v: string) => void;
+  options: string[]; selected: string[]; onToggle: (v: string) => void; accent?: string;
 }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -468,9 +674,11 @@ function ChipGroup({
             onClick={() => onToggle(opt)}
             style={{
               padding: "6px 12px", borderRadius: 20,
-              border: active ? `1px solid rgba(245,158,11,0.35)` : `1px solid ${T.border}`,
-              background: active ? T.amberBg : "transparent",
-              color: active ? T.amber : T.muted,
+              border: active
+                ? `1px solid ${accent}55`
+                : `1px solid ${T.border}`,
+              background: active ? `${accent}12` : "transparent",
+              color: active ? accent : T.muted,
               fontSize: 12, fontWeight: active ? 700 : 400,
               cursor: "pointer", transition: "all 0.15s",
             }}
@@ -494,3 +702,6 @@ function StatusNote({ icon, color, text }: { icon: string; color: string; text: 
     </div>
   );
 }
+
+// Suppress unused-import warning for STYLE_CATEGORY_VALUES (used for type narrowing reference)
+void STYLE_CATEGORY_VALUES;

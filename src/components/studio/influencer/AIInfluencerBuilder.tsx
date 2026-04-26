@@ -10,7 +10,7 @@ import { useState, useCallback } from "react";
 import InfluencerLibrary from "./InfluencerLibrary";
 import InfluencerCanvas  from "./InfluencerCanvas";
 import InfluencerControls from "./InfluencerControls";
-import type { AIInfluencer, InfluencerAsset, IdentityLock } from "@/lib/influencer/types";
+import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -37,8 +37,8 @@ export interface ActiveInfluencer {
 
 export type CanvasState =
   | { phase: "empty" }
-  | { phase: "generating"; influencer_id: string; jobs: string[] }
-  | { phase: "candidates"; influencer_id: string; candidates: string[] }
+  | { phase: "generating"; influencer_id: string; jobs: string[]; style_category: StyleCategory }
+  | { phase: "candidates"; influencer_id: string; candidates: string[]; style_category: StyleCategory }
   | { phase: "selected"; active: ActiveInfluencer };
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -49,15 +49,21 @@ export default function AIInfluencerBuilder() {
 
   const handleCreated = useCallback((influencer: AIInfluencer, jobIds: string[]) => {
     setCanvasState({
-      phase: "generating",
-      influencer_id: influencer.id,
-      jobs: jobIds,
+      phase:          "generating",
+      influencer_id:  influencer.id,
+      jobs:           jobIds,
+      style_category: influencer.style_category ?? "hyper-real",
     });
   }, []);
 
   const handleCandidatesReady = useCallback(
     (influencer_id: string, candidateUrls: string[]) => {
-      setCanvasState({ phase: "candidates", influencer_id, candidates: candidateUrls });
+      setCanvasState(prev => ({
+        phase:          "candidates",
+        influencer_id,
+        candidates:     candidateUrls,
+        style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
+      }));
     },
     [],
   );

@@ -2,12 +2,13 @@
 // Identity Lock Service
 //
 // Handles:
-//   - Building identity signatures from profile data
+//   - Building identity signatures from profile data + style category
 //   - Creating the identity_lock record at selection time
 //   - Updating ai_influencers with hero_asset_id + identity_lock_id
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { STYLE_CATALOGUE } from "./pack-prompts";
 import type {
   AIInfluencer,
   AIInfluencerProfile,
@@ -17,6 +18,7 @@ import type {
   StyleSignature,
   BodySignature,
   FaceEmbedding,
+  StyleCategory,
 } from "./types";
 
 // ── Signature builders ────────────────────────────────────────────────────────
@@ -27,15 +29,25 @@ function buildAppearanceSignature(profile: AIInfluencerProfile): AppearanceSigna
     face_structure: profile.face_structure ?? undefined,
     age_range:     profile.age_range     ?? undefined,
     gender:        profile.gender        ?? undefined,
-    // hair and eye_area: derived from appearance_notes if present
     ...(profile.appearance_notes
       ? { appearance_notes: profile.appearance_notes }
       : {}),
   };
 }
 
-function buildStyleSignature(profile: AIInfluencerProfile): StyleSignature {
+function buildStyleSignature(
+  profile: AIInfluencerProfile,
+  category: StyleCategory,
+): StyleSignature {
+  const style = STYLE_CATALOGUE[category];
+
   return {
+    // Category + rendering fields (the new core)
+    category,
+    rendering_style: style.renderingBase,
+    texture_type:    style.texture,
+    shading_style:   style.shading,
+    // Profile-level style data (still tracked for future refinement)
     fashion_style:   profile.fashion_style   ?? undefined,
     realism_level:   profile.realism_level   ?? undefined,
     mood:            profile.mood.length > 0  ? profile.mood            : undefined,
@@ -46,7 +58,6 @@ function buildStyleSignature(profile: AIInfluencerProfile): StyleSignature {
 function buildBodySignature(profile: AIInfluencerProfile): BodySignature {
   return {
     gender_presentation: profile.gender ?? undefined,
-    // height_estimate and build: stubs — future embedding provider fills these
     build:            "standard",
     height_estimate:  "medium",
   };
@@ -62,14 +73,15 @@ const STUB_FACE_EMBEDDING: FaceEmbedding = {
 // ── Create identity lock (called at selection time) ───────────────────────────
 
 export interface CreateIdentityLockInput {
-  influencer_id: string;
-  candidate_url: string;
-  profile: AIInfluencerProfile;
+  influencer_id:  string;
+  candidate_url:  string;
+  profile:        AIInfluencerProfile;
+  style_category: StyleCategory;
 }
 
 export interface CreateIdentityLockResult {
-  asset: InfluencerAsset;
-  lock: IdentityLock;
+  asset:      InfluencerAsset;
+  lock:       IdentityLock;
   influencer: AIInfluencer;
 }
 
@@ -77,18 +89,18 @@ export async function createIdentityLock(
   input: CreateIdentityLockInput,
 ): Promise<CreateIdentityLockResult> {
   const supabase = supabaseAdmin;
-  const { influencer_id, candidate_url, profile } = input;
+  const { influencer_id, candidate_url, profile, style_category } = input;
 
   // ── 1. Persist candidate as hero asset ────────────────────────────────────
   const { data: asset, error: assetErr } = await supabase
     .from("influencer_assets")
     .insert({
       influencer_id,
-      asset_type: "candidate",
-      url: candidate_url,
+      asset_type:    "candidate",
+      url:           candidate_url,
       thumbnail_url: candidate_url,
-      is_hero: true,
-      metadata: { selected_at: new Date().toISOString() },
+      is_hero:       true,
+      metadata:      { selected_at: new Date().toISOString(), style_category },
     })
     .select()
     .single();
@@ -97,9 +109,9 @@ export async function createIdentityLock(
     throw new Error(`Failed to persist candidate asset: ${assetErr?.message}`);
   }
 
-  // ── 2. Build identity signatures from profile ─────────────────────────────
+  // ── 2. Build identity signatures ──────────────────────────────────────────
   const appearance_signature = buildAppearanceSignature(profile);
-  const style_signature      = buildStyleSignature(profile);
+  const style_signature      = buildStyleSignature(profile, style_category);
   const body_signature       = buildBodySignature(profile);
 
   // ── 3. Create identity lock ───────────────────────────────────────────────
@@ -107,9 +119,9 @@ export async function createIdentityLock(
     .from("identity_locks")
     .insert({
       influencer_id,
-      canonical_asset_id:    asset.id,
-      reference_asset_ids:   [asset.id],
-      face_embedding:        STUB_FACE_EMBEDDING,
+      canonical_asset_id:      asset.id,
+      reference_asset_ids:     [asset.id],
+      face_embedding:          STUB_FACE_EMBEDDING,
       appearance_signature,
       style_signature,
       body_signature,
@@ -147,8 +159,8 @@ export async function createIdentityLock(
   }
 
   return {
-    asset: asset as InfluencerAsset,
-    lock:  lock  as IdentityLock,
+    asset:      asset as InfluencerAsset,
+    lock:       lock  as IdentityLock,
     influencer: influencer as AIInfluencer,
   };
 }
