@@ -10,7 +10,7 @@ import { useState } from "react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 import { STYLE_CATEGORY_VALUES } from "@/lib/influencer/types";
-import { formatHandle } from "@/lib/ai-influencer/name-generator";
+import { formatHandle } from "@/lib/ai-influencer/format-handle";
 
 const T = {
   border:      "#111827",

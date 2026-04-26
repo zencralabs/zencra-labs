@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
-import { formatHandle } from "@/lib/ai-influencer/name-generator";
+import { formatHandle } from "@/lib/ai-influencer/format-handle";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 

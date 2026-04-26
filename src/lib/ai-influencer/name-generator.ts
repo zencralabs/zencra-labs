@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabase/admin";
+export { formatHandle } from "@/lib/ai-influencer/format-handle";
 
 // ── Curated name pool ─────────────────────────────────────────────────────────
 
@@ -85,12 +86,3 @@ export async function generateUniqueHandle(userId: string): Promise<{
   return { handle: `creator_${ts}`, displayName: `Creator${ts}` };
 }
 
-/**
- * Formats a handle for display — always prefixed with @, title-cased.
- * e.g. "nova" → "@Nova"
- */
-export function formatHandle(handle: string | null | undefined): string {
-  if (!handle) return "@Creator";
-  const clean = handle.replace(/^@/, "");
-  return `@${clean.charAt(0).toUpperCase()}${clean.slice(1)}`;
-}
