@@ -6,5 +6,16 @@ export const metadata = {
 };
 
 export default function AIInfluencerPage() {
-  return <AIInfluencerBuilder />;
+  return (
+    // Navbar is h-[76px]. This wrapper fills the remaining viewport height
+    // exactly, preventing any overlap with the top nav.
+    <div style={{
+      height: "calc(100dvh - 76px)",
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
+    }}>
+      <AIInfluencerBuilder />
+    </div>
+  );
 }

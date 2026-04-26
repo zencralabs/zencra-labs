@@ -93,7 +93,9 @@ export interface BodySignature {
 export interface AIInfluencer {
   id: string;
   user_id: string;
-  name: string;
+  name: string;           // legacy / internal name field (still in DB)
+  handle: string | null;  // e.g. "nova" — stored without @, displayed as @Nova
+  display_name: string | null;  // e.g. "Nova"
   status: InfluencerStatus;
   style_category: StyleCategory;
   hero_asset_id: string | null;

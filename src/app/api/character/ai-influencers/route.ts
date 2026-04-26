@@ -1,6 +1,6 @@
 /**
  * GET  /api/character/ai-influencers  — list user's influencers
- * POST /api/character/ai-influencers  — create new influencer + profile
+ * POST /api/character/ai-influencers  — create new influencer + profile (handle auto-generated)
  */
 
 import { requireAuthUser }  from "@/lib/supabase/server";
@@ -9,6 +9,7 @@ import { ok, serverErr, invalidInput } from "@/lib/api/route-utils";
 import { parseBody }        from "@/lib/api/route-utils";
 import { STYLE_CATEGORY_VALUES } from "@/lib/influencer/types";
 import type { StyleCategory }    from "@/lib/influencer/types";
+import { generateUniqueHandle }  from "@/lib/ai-influencer/name-generator";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,32 +42,48 @@ export async function POST(req: Request): Promise<Response> {
   const { body, parseError } = await parseBody(req);
   if (parseError) return parseError;
 
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  if (!name) return invalidInput("name is required");
-
   // Style category — validated against allowed values; defaults to hyper-real
   const rawCategory = typeof body?.style_category === "string" ? body.style_category : "hyper-real";
   const style_category: StyleCategory = STYLE_CATEGORY_VALUES.includes(rawCategory as StyleCategory)
     ? (rawCategory as StyleCategory)
     : "hyper-real";
 
+  // Auto-generate a unique handle for this user (no user-facing name field)
+  let handle: string;
+  let display_name: string;
+  try {
+    const generated = await generateUniqueHandle(userId);
+    handle       = generated.handle;
+    display_name = generated.displayName;
+  } catch (err) {
+    console.error("[POST /api/character/ai-influencers] handle generation failed:", err);
+    return serverErr("Failed to generate influencer handle");
+  }
+
   // Profile fields (all optional at creation)
   const profile = {
-    gender:           typeof body?.gender         === "string" ? body.gender         : null,
-    age_range:        typeof body?.age_range       === "string" ? body.age_range       : null,
-    skin_tone:        typeof body?.skin_tone       === "string" ? body.skin_tone       : null,
-    face_structure:   typeof body?.face_structure  === "string" ? body.face_structure  : null,
-    fashion_style:    typeof body?.fashion_style   === "string" ? body.fashion_style   : null,
-    realism_level:    typeof body?.realism_level   === "string" ? body.realism_level   : null,
-    mood:             Array.isArray(body?.mood)            ? (body.mood as string[])            : [],
-    platform_intent:  Array.isArray(body?.platform_intent) ? (body.platform_intent as string[]) : [],
-    appearance_notes: typeof body?.appearance_notes === "string" ? body.appearance_notes : null,
+    gender:           typeof body?.gender           === "string" ? body.gender           : null,
+    age_range:        typeof body?.age_range         === "string" ? body.age_range         : null,
+    skin_tone:        typeof body?.skin_tone         === "string" ? body.skin_tone         : null,
+    face_structure:   typeof body?.face_structure    === "string" ? body.face_structure    : null,
+    fashion_style:    typeof body?.fashion_style     === "string" ? body.fashion_style     : null,
+    realism_level:    typeof body?.realism_level     === "string" ? body.realism_level     : null,
+    mood:             Array.isArray(body?.mood)             ? (body.mood as string[])             : [],
+    platform_intent:  Array.isArray(body?.platform_intent)  ? (body.platform_intent as string[])  : [],
+    appearance_notes: typeof body?.appearance_notes  === "string" ? body.appearance_notes  : null,
   };
 
-  // Create influencer
+  // Create influencer — name mirrors display_name for backwards compatibility
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
-    .insert({ user_id: userId, name, status: "draft", style_category })
+    .insert({
+      user_id:      userId,
+      name:         display_name,   // internal name = display name (e.g. "Nova")
+      handle,                       // stored without @ (e.g. "nova")
+      display_name,                 // clean display (e.g. "Nova")
+      status:       "draft",
+      style_category,
+    })
     .select()
     .single();
 
@@ -87,3 +104,6 @@ export async function POST(req: Request): Promise<Response> {
 
   return ok({ influencer });
 }
+
+// Satisfy unused import check
+void invalidInput;

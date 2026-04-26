@@ -7,8 +7,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
+import { formatHandle } from "@/lib/ai-influencer/name-generator";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ interface Props {
   canvasState:        CanvasState;
   onCandidatesReady:  (influencer_id: string, candidateUrls: string[]) => void;
   onSelected:         (active: ActiveInfluencer) => void;
+  onCreateClick:      () => void;   // triggers Builder tab in Controls to run creation
 }
 
 // ── Pack output state ─────────────────────────────────────────────────────────
@@ -76,7 +79,7 @@ interface PackOutput {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSelected }: Props) {
+export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSelected, onCreateClick }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
   const packSectionRef = useRef<HTMLDivElement>(null);
@@ -186,51 +189,99 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
         ? canvasState.active.influencer.style_category === "retro-pixel"
         : false;
 
+  // ── Cross-studio routing ────────────────────────────────────────────────────
+
+  const router = useRouter();
+
+  function goImageFlow() {
+    if (canvasState.phase === "selected") {
+      const { active } = canvasState;
+      const params = new URLSearchParams({
+        influencer_id:    active.influencer.id,
+        identity_lock_id: active.identity_lock_id ?? "",
+      });
+      router.push(`/studio/image?${params.toString()}`);
+    } else {
+      router.push("/studio/image");
+    }
+  }
+
+  function goVideoFlow() {
+    if (canvasState.phase === "selected") {
+      const { active } = canvasState;
+      const params = new URLSearchParams({
+        influencer_id:    active.influencer.id,
+        identity_lock_id: active.identity_lock_id ?? "",
+        mode:             "start-frame",
+      });
+      router.push(`/studio/video?${params.toString()}`);
+    } else {
+      router.push("/studio/video");
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const hasSelected = canvasState.phase === "selected";
+
   return (
-    <div
-      ref={canvasRef}
-      style={{
-        height: "100%",
-        overflowY: "auto",
-        background: T.bg,
-        display: "flex",
-        flexDirection: "column",
-        // Subtle pixel grid overlay for retro-pixel category
-        backgroundImage: isPixelArt
-          ? "linear-gradient(rgba(132,204,22,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(132,204,22,0.04) 1px, transparent 1px)"
-          : undefined,
-        backgroundSize: isPixelArt ? "8px 8px" : undefined,
-      }}
-    >
-      {canvasState.phase === "empty"      && <EmptyState accent={currentAccent} />}
-      {canvasState.phase === "generating" && (
-        <GeneratingState
-          influencer_id={canvasState.influencer_id}
-          jobIds={canvasState.jobs}
-          accent={currentAccent}
-          onReady={onCandidatesReady}
-        />
-      )}
-      {canvasState.phase === "candidates" && (
-        <CandidatesState
-          influencer_id={canvasState.influencer_id}
-          candidates={canvasState.candidates}
-          accent={currentAccent}
-          onSelected={onSelected}
-        />
-      )}
-      {canvasState.phase === "selected" && (
-        <SelectedState
-          active={canvasState.active}
-          accent={currentAccent}
-          packOutputs={packOutputs}
-          activePack={activePack}
-          onTriggerPack={handleTriggerPack}
-          packSectionRef={packSectionRef}
-        />
-      )}
+    <div style={{ height: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
+
+      {/* Scrollable canvas area */}
+      <div
+        ref={canvasRef}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          background: T.bg,
+          display: "flex",
+          flexDirection: "column",
+          // Subtle pixel grid overlay for retro-pixel category
+          backgroundImage: isPixelArt
+            ? "linear-gradient(rgba(132,204,22,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(132,204,22,0.04) 1px, transparent 1px)"
+            : undefined,
+          backgroundSize: isPixelArt ? "8px 8px" : undefined,
+          paddingBottom: 80, // room for the dock
+        }}
+      >
+        {canvasState.phase === "empty"      && <EmptyState accent={currentAccent} />}
+        {canvasState.phase === "generating" && (
+          <GeneratingState
+            influencer_id={canvasState.influencer_id}
+            jobIds={canvasState.jobs}
+            accent={currentAccent}
+            onReady={onCandidatesReady}
+          />
+        )}
+        {canvasState.phase === "candidates" && (
+          <CandidatesState
+            influencer_id={canvasState.influencer_id}
+            candidates={canvasState.candidates}
+            accent={currentAccent}
+            onSelected={onSelected}
+          />
+        )}
+        {canvasState.phase === "selected" && (
+          <SelectedState
+            active={canvasState.active}
+            accent={currentAccent}
+            packOutputs={packOutputs}
+            activePack={activePack}
+            onTriggerPack={handleTriggerPack}
+            packSectionRef={packSectionRef}
+          />
+        )}
+      </div>
+
+      {/* ── Floating Action Dock ──────────────────────────────────────── */}
+      <CanvasDock
+        phase={canvasState.phase}
+        accent={currentAccent}
+        hasSelected={hasSelected}
+        onImageFlow={goImageFlow}
+        onVideoFlow={goVideoFlow}
+        onCreateClick={onCreateClick}
+      />
     </div>
   );
 }
@@ -616,10 +667,10 @@ function HeroSection({ active, accent }: { active: ActiveInfluencer; accent: str
           Identity
         </div>
         <div style={{
-          fontSize: 26, fontWeight: 800, color: T.text,
+          fontSize: 28, fontWeight: 800, color: T.text,
           letterSpacing: "-0.02em", marginBottom: 20,
         }}>
-          {active.influencer.name}
+          {formatHandle(active.influencer.handle)}
         </div>
 
         {/* Hero image container */}
@@ -951,6 +1002,159 @@ function SaveIdentityBar({ influencer_id }: { influencer_id: string }) {
         {saved ? "✓ Identity saved" : saving ? "Saving…" : "Save Identity"}
       </button>
     </div>
+  );
+}
+
+// ── Floating Action Dock ───────────────────────────────────────────────────────
+
+function CanvasDock({
+  phase,
+  accent,
+  hasSelected,
+  onImageFlow,
+  onVideoFlow,
+  onCreateClick,
+}: {
+  phase: CanvasState["phase"];
+  accent: string;
+  hasSelected: boolean;
+  onImageFlow: () => void;
+  onVideoFlow: () => void;
+  onCreateClick: () => void;
+}) {
+  const isGenerating = phase === "generating";
+
+  return (
+    <div style={{
+      position: "absolute", bottom: 0, left: 0, right: 0,
+      display: "flex", justifyContent: "center", alignItems: "center",
+      padding: "14px 24px 18px",
+      background: "linear-gradient(to top, rgba(7,9,15,0.98) 0%, rgba(7,9,15,0.82) 70%, transparent 100%)",
+      zIndex: 10,
+    }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "10px 14px", borderRadius: 16,
+        background: "rgba(11,14,23,0.88)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
+        backdropFilter: "blur(12px)",
+      }}>
+
+        {/* Image Flow — left */}
+        <DockButton
+          icon={
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          }
+          label="Image Flow"
+          onClick={onImageFlow}
+          active={hasSelected}
+          accent={hasSelected ? "#38bdf8" : undefined}
+          tip={hasSelected ? "Open in Image Studio with identity context" : "Go to Image Studio"}
+        />
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
+
+        {/* Create Influencer — center, primary */}
+        <button
+          onClick={onCreateClick}
+          disabled={isGenerating}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "10px 20px", borderRadius: 11,
+            background: isGenerating
+              ? `${accent}22`
+              : `linear-gradient(135deg, ${accent}99, ${accent})`,
+            border: "none",
+            color: isGenerating ? `${accent}66` : "#060810",
+            fontSize: 13, fontWeight: 800,
+            cursor: isGenerating ? "not-allowed" : "pointer",
+            letterSpacing: "0.02em",
+            boxShadow: isGenerating ? "none" : `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)`,
+            transition: "all 0.2s",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M20 21a8 8 0 1 0-16 0" />
+            <line x1="18" y1="8" x2="22" y2="8" />
+            <line x1="20" y1="6" x2="20" y2="10" />
+          </svg>
+          {isGenerating ? "Creating…" : phase === "selected" ? "New Influencer" : "Create Influencer"}
+        </button>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
+
+        {/* Video Flow — right */}
+        <DockButton
+          icon={
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7" />
+              <rect x="1" y="5" width="15" height="14" rx="2" />
+            </svg>
+          }
+          label="Video Flow"
+          onClick={onVideoFlow}
+          active={hasSelected}
+          accent={hasSelected ? "#a855f7" : undefined}
+          tip={hasSelected ? "Open in Video Studio as start frame" : "Go to Video Studio"}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DockButton({
+  icon, label, onClick, active, accent, tip,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  accent?: string;
+  tip?: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      title={tip}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+        padding: "8px 12px", borderRadius: 10,
+        background: hovered && active
+          ? `${accent}18`
+          : hovered
+            ? "rgba(255,255,255,0.06)"
+            : "transparent",
+        border: "none",
+        color: active ? (accent ?? "#e8eaf0") : "#4a5168",
+        cursor: "pointer",
+        transition: "all 0.15s",
+        minWidth: 60,
+      }}
+    >
+      {icon}
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+        whiteSpace: "nowrap",
+      }}>
+        {label}
+      </span>
+    </button>
   );
 }
 

@@ -6,7 +6,7 @@
 // Fixed-height viewport — no scrolling at the shell level.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import InfluencerLibrary from "./InfluencerLibrary";
 import InfluencerCanvas  from "./InfluencerCanvas";
 import InfluencerControls from "./InfluencerControls";
@@ -27,9 +27,9 @@ const T = {
 // ── Active influencer state ───────────────────────────────────────────────────
 
 export interface ActiveInfluencer {
-  influencer: AIInfluencer;
-  hero_url: string | null;
-  identity_lock_id: string | null;
+  influencer:         AIInfluencer;
+  hero_url:           string | null;
+  identity_lock_id:   string | null;
   canonical_asset_id: string | null;
 }
 
@@ -45,7 +45,11 @@ export type CanvasState =
 
 export default function AIInfluencerBuilder() {
   const [canvasState, setCanvasState] = useState<CanvasState>({ phase: "empty" });
-  const [libraryKey, setLibraryKey]   = useState(0);   // bump to refresh library
+  const [libraryKey, setLibraryKey]   = useState(0);
+
+  // Ref to trigger creation from the Canvas dock Create button
+  // The dock's "Create Influencer" button calls onCreateClick which invokes this
+  const createTriggerRef = useRef<(() => void) | null>(null);
 
   const handleCreated = useCallback((influencer: AIInfluencer, jobIds: string[]) => {
     setCanvasState({
@@ -94,12 +98,22 @@ export default function AIInfluencerBuilder() {
     }
   }, []);
 
+  // When dock "Create Influencer" is clicked:
+  // If currently selected, reset to empty so user can build a new one
+  const handleCreateClick = useCallback(() => {
+    if (canvasState.phase === "selected") {
+      setCanvasState({ phase: "empty" });
+    }
+    // If already empty or candidates, the Builder tab CTA in Controls handles it
+    // The dock button provides a shortcut — user's eye goes to Canvas first
+  }, [canvasState.phase]);
+
   const activeInfluencer =
     canvasState.phase === "selected" ? canvasState.active : null;
 
   return (
     <div style={{
-      height: "calc(100vh - 64px)",    // subtract navbar height
+      height: "100%",                  // fills the page wrapper (100dvh - 76px)
       display: "flex",
       background: T.bg,
       overflow: "hidden",
@@ -132,6 +146,7 @@ export default function AIInfluencerBuilder() {
           canvasState={canvasState}
           onCandidatesReady={handleCandidatesReady}
           onSelected={handleSelected}
+          onCreateClick={handleCreateClick}
         />
       </div>
 
@@ -151,4 +166,6 @@ export default function AIInfluencerBuilder() {
 
     </div>
   );
+
+  void createTriggerRef; // used for future direct trigger wiring
 }
