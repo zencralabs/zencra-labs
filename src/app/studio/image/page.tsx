@@ -482,7 +482,8 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
 //   • the grid cell shape exactly matches the image's natural aspect ratio,
 //     eliminating black dead-space without needing object-contain
 //
-// baseColumnWidth = 180 matches gridTemplateColumns: repeat(auto-fill, minmax(180px, 1fr))
+// baseColumnWidth should equal gridMinSize (ZOOM_SIZES[zoomLevel-1]) so row spans
+//   scale correctly when the user zooms in or out.
 // rowHeight      = 8   matches gridAutoRows: "8px"
 
 function parseAspectRatioParts(ar: string | undefined): [number, number] {
@@ -1928,13 +1929,13 @@ function ImageStudioInner() {
         {user && !historyLoaded && images.length === 0 && (
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+            gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
             gridAutoRows: "8px",
             gridAutoFlow: "dense",
             gap: 0,
           }}>
             {SKELETON_RATIOS.map((ar, i) => {
-              const { colSpan, rowSpan } = getGallerySpans(ar);
+              const { colSpan, rowSpan } = getGallerySpans(ar, gridMinSize);
               return (
                 <div key={i} style={{
                   minWidth: 0,
@@ -2224,13 +2225,13 @@ function ImageStudioInner() {
             </div>
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
               gridAutoRows: "8px",
               gridAutoFlow: "dense",
               gap: 0,
             }}>
               {images.map((img, index) => {
-                const { colSpan, rowSpan } = getGallerySpans(img.aspectRatio);
+                const { colSpan, rowSpan } = getGallerySpans(img.aspectRatio, gridMinSize);
                 return (
                 <div
                   key={img.id}
