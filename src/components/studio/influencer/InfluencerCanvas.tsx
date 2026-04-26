@@ -333,46 +333,132 @@ export default function InfluencerCanvas({
 function EmptyState({ accent }: { accent: string }) {
   return (
     <div style={{
-      flex: 1, display: "flex", flexDirection: "column",
+      flex: 1, position: "relative",
+      display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: "40px 32px", textAlign: "center",
+      overflow: "hidden",
     }}>
-      {/* Ambient glow — color adapts to selected category */}
+
+      {/* ── Layer 1: dual radial spotlight ──────────────────────────── */}
       <div style={{
-        width: 120, height: 120, borderRadius: "50%", marginBottom: 32,
-        background: `radial-gradient(ellipse, ${accent}18 0%, transparent 70%)`,
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: [
+          "radial-gradient(circle at 50% 42%, rgba(245,158,11,0.14), transparent 30%)",
+          "radial-gradient(circle at 50% 80%, rgba(59,130,246,0.10), transparent 42%)",
+        ].join(", "),
+      }} />
+
+      {/* ── Layer 2: faint cinematic grid ───────────────────────────── */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: [
+          "linear-gradient(to right,  rgba(255,255,255,0.035) 1px, transparent 1px)",
+          "linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)",
+        ].join(", "),
+        backgroundSize: "96px 96px",
+        opacity: 0.12,
+      }} />
+
+      {/* ── Layer 3: horizon glow line ───────────────────────────────── */}
+      <div style={{
+        position: "absolute", left: 0, right: 0, bottom: 120,
+        height: 1, pointerEvents: "none",
+        background: "linear-gradient(to right, transparent, rgba(245,158,11,0.25), transparent)",
+      }} />
+
+      {/* ── Layer 4: bottom vignette ─────────────────────────────────── */}
+      <div style={{
+        position: "absolute", inset: "auto 0 0 0",
+        height: 288, pointerEvents: "none",
+        background: "linear-gradient(to top, rgba(0,0,0,0.60), transparent)",
+      }} />
+
+      {/* ── Ghost composition frames ─────────────────────────────────── */}
+      {/* Three subtle frames communicate supported output formats.
+          z-0, pointer-events-none — pure visual depth, no interaction. */}
+      <div style={{
+        position: "absolute", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
-        position: "relative",
-        transition: "background 0.4s ease",
+        gap: 28, pointerEvents: "none", zIndex: 0,
       }}>
+        {/* 9:16 vertical — influencer / full-body */}
         <div style={{
-          width: 64, height: 64, borderRadius: 18,
-          background: `${accent}10`,
-          border: `1px solid ${accent}2e`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: `0 0 40px ${accent}1e`,
-          transition: "all 0.4s ease",
-        }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-            stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
-            <path d="M20 21a8 8 0 1 0-16 0" />
-          </svg>
-        </div>
+          width: 140, height: 249, flexShrink: 0,
+          border: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.015)",
+          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
+          opacity: 0.5,
+          alignSelf: "center",
+        }} />
+
+        {/* 1:1 square — profile / social avatar */}
+        <div style={{
+          width: 210, height: 210, flexShrink: 0,
+          border: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.015)",
+          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
+          opacity: 0.5,
+          alignSelf: "center",
+        }} />
+
+        {/* 16:9 cinematic — scene / campaign frame */}
+        <div style={{
+          width: 300, height: 169, flexShrink: 0,
+          border: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.015)",
+          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
+          opacity: 0.5,
+          alignSelf: "center",
+        }} />
       </div>
 
-      <h2 style={{
-        fontSize: 22, fontWeight: 800, color: T.text,
-        letterSpacing: "-0.02em", marginBottom: 10,
-      }}>
-        Your AI Influencer lives here
-      </h2>
-      <p style={{
-        fontSize: 15, color: T.muted, lineHeight: 1.65,
-        maxWidth: 380, marginBottom: 0,
-      }}>
-        Create a realistic digital creator and build content-ready visuals — reusable across every studio.
-      </p>
+      {/* ── Main content — above all layers ─────────────────────────── */}
+      <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+        {/* Icon halo + icon */}
+        <div style={{
+          width: 120, height: 120, borderRadius: "50%", marginBottom: 32,
+          background: `radial-gradient(ellipse, ${accent}22 0%, transparent 70%)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          position: "relative",
+          transition: "background 0.4s ease",
+        }}>
+          {/* Subtle halo ring */}
+          <div style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            boxShadow: `0 0 48px ${accent}1a`,
+            pointerEvents: "none",
+          }} />
+          <div style={{
+            width: 64, height: 64, borderRadius: 18,
+            background: `${accent}12`,
+            border: `1px solid ${accent}30`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 0 40px ${accent}22`,
+            transition: "all 0.4s ease",
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+              stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
+              <path d="M20 21a8 8 0 1 0-16 0" />
+            </svg>
+          </div>
+        </div>
+
+        <h2 style={{
+          fontSize: 22, fontWeight: 800, color: T.text,
+          letterSpacing: "-0.02em", marginBottom: 10,
+        }}>
+          Your AI Influencer lives here
+        </h2>
+        <p style={{
+          fontSize: 15, color: T.muted, lineHeight: 1.65,
+          maxWidth: 380, marginBottom: 0,
+        }}>
+          Create a realistic digital creator and build content-ready visuals — reusable across every studio.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1170,7 +1256,7 @@ function PackCard({
       onMouseLeave={() => setHovered(false)}
       style={{
         flexShrink: 0,
-        width: 148,
+        width: 160,
         padding: "14px 14px 12px",
         borderRadius: 14,
         border: `1px solid ${isLocked ? "rgba(255,255,255,0.04)" : (hovered || isActive ? borderColor : borderColor)}`,
