@@ -790,10 +790,11 @@ export default function MediaCard({
                 style={{
                   marginTop:     12,
                   fontSize:      15,
-                  fontWeight:    700,
-                  color:         "rgba(255,255,255,0.5)",
+                  fontWeight:    600,
+                  color:         "rgba(255,255,255,0.4)",
                   lineHeight:    1,
                   textAlign:     "center",
+                  letterSpacing: "0.02em",
                   pointerEvents: "none",
                   userSelect:    "none",
                 }}
