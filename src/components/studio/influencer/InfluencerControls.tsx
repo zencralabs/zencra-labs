@@ -3,13 +3,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Influencer Controls — Right panel
 // Tabs: Builder | Packs | Refine | Advanced
-// Builder shows creator form (no name — handle auto-assigned) or active info.
+//
+// Builder tab is a PURE INPUT UI — no API calls, no loading, no error state.
+// All form state lives in AIInfluencerBuilder (lifted) and is passed in.
+// Creation is triggered by the canvas dock button → handleCreateInfluencer().
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from "react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
-import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
+import type { StyleCategory } from "@/lib/influencer/types";
 import { STYLE_CATEGORY_VALUES } from "@/lib/influencer/types";
+import { useState } from "react";
 import { formatHandle } from "@/lib/ai-influencer/format-handle";
 
 const T = {
@@ -25,13 +28,47 @@ const T = {
 
 type ControlTab = "builder" | "packs" | "refine" | "advanced";
 
+// ── Props — all form state lifted from parent ─────────────────────────────────
+
 interface Props {
   canvasState:      CanvasState;
   activeInfluencer: ActiveInfluencer | null;
-  onCreated:        (influencer: AIInfluencer, jobIds: string[]) => void;
+  // Lifted form state
+  styleCategory:    StyleCategory;
+  setStyleCategory: (v: StyleCategory) => void;
+  gender:           string;
+  setGender:        (v: string) => void;
+  ageRange:         string;
+  setAgeRange:      (v: string) => void;
+  skinTone:         string;
+  setSkinTone:      (v: string) => void;
+  faceStruct:       string;
+  setFaceStruct:    (v: string) => void;
+  fashion:          string;
+  setFashion:       (v: string) => void;
+  realism:          string;
+  setRealism:       (v: string) => void;
+  mood:             string[];
+  setMood:          (v: string[]) => void;
+  platforms:        string[];
+  setPlatforms:     (v: string[]) => void;
+  notes:            string;
+  setNotes:         (v: string) => void;
 }
 
-export default function InfluencerControls({ canvasState, activeInfluencer, onCreated }: Props) {
+export default function InfluencerControls({
+  canvasState, activeInfluencer,
+  styleCategory, setStyleCategory,
+  gender, setGender,
+  ageRange, setAgeRange,
+  skinTone, setSkinTone,
+  faceStruct, setFaceStruct,
+  fashion, setFashion,
+  realism, setRealism,
+  mood, setMood,
+  platforms, setPlatforms,
+  notes, setNotes,
+}: Props) {
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
   const tabs: Array<{ id: ControlTab; label: string }> = [
@@ -76,7 +113,16 @@ export default function InfluencerControls({ canvasState, activeInfluencer, onCr
           <BuilderTab
             canvasState={canvasState}
             activeInfluencer={activeInfluencer}
-            onCreated={onCreated}
+            styleCategory={styleCategory}    setStyleCategory={setStyleCategory}
+            gender={gender}                  setGender={setGender}
+            ageRange={ageRange}              setAgeRange={setAgeRange}
+            skinTone={skinTone}              setSkinTone={setSkinTone}
+            faceStruct={faceStruct}          setFaceStruct={setFaceStruct}
+            fashion={fashion}                setFashion={setFashion}
+            realism={realism}                setRealism={setRealism}
+            mood={mood}                      setMood={setMood}
+            platforms={platforms}            setPlatforms={setPlatforms}
+            notes={notes}                    setNotes={setNotes}
           />
         )}
         {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
@@ -113,7 +159,7 @@ function CategorySelector({
   value,
   onChange,
 }: {
-  value: StyleCategory;
+  value:    StyleCategory;
   onChange: (v: StyleCategory) => void;
 }) {
   return (
@@ -129,7 +175,7 @@ function CategorySelector({
               style={{
                 display: "flex", alignItems: "center", gap: 11,
                 padding: "9px 12px", borderRadius: 9,
-                border: selected ? `1px solid ${cat.accent}55` : `1px solid ${T.border}`,
+                border:     selected ? `1px solid ${cat.accent}55` : `1px solid ${T.border}`,
                 background: selected ? `${cat.accent}10` : "rgba(255,255,255,0.02)",
                 cursor: "pointer", textAlign: "left",
                 transition: "all 0.14s", width: "100%",
@@ -177,29 +223,48 @@ function CategorySelector({
   );
 }
 
-// ── Builder tab ───────────────────────────────────────────────────────────────
+// ── Builder tab — pure input UI, no API calls ─────────────────────────────────
 
-export function BuilderTab({
-  canvasState, activeInfluencer, onCreated,
-}: {
+interface BuilderTabProps {
   canvasState:      CanvasState;
   activeInfluencer: ActiveInfluencer | null;
-  onCreated:        (influencer: AIInfluencer, jobIds: string[]) => void;
-}) {
-  const [styleCategory, setStyleCategory] = useState<StyleCategory>("hyper-real");
-  const [gender,        setGender]        = useState("");
-  const [ageRange,      setAgeRange]      = useState("");
-  const [skinTone,      setSkinTone]      = useState("");
-  const [faceStruct,    setFaceStruct]    = useState("");
-  const [fashion,       setFashion]       = useState("");
-  const [realism,       setRealism]       = useState("photorealistic");
-  const [mood,          setMood]          = useState<string[]>([]);
-  const [platforms,     setPlatforms]     = useState<string[]>([]);
-  const [notes,         setNotes]         = useState("");
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
+  styleCategory:    StyleCategory;
+  setStyleCategory: (v: StyleCategory) => void;
+  gender:           string;
+  setGender:        (v: string) => void;
+  ageRange:         string;
+  setAgeRange:      (v: string) => void;
+  skinTone:         string;
+  setSkinTone:      (v: string) => void;
+  faceStruct:       string;
+  setFaceStruct:    (v: string) => void;
+  fashion:          string;
+  setFashion:       (v: string) => void;
+  realism:          string;
+  setRealism:       (v: string) => void;
+  mood:             string[];
+  setMood:          (v: string[]) => void;
+  platforms:        string[];
+  setPlatforms:     (v: string[]) => void;
+  notes:            string;
+  setNotes:         (v: string) => void;
+}
 
-  // Accent for selected style
+export function BuilderTab({
+  canvasState, activeInfluencer,
+  styleCategory, setStyleCategory,
+  gender, setGender,
+  ageRange, setAgeRange,
+  skinTone, setSkinTone,
+  faceStruct, setFaceStruct,
+  fashion, setFashion,
+  realism, setRealism,
+  mood, setMood,
+  platforms, setPlatforms,
+  notes, setNotes,
+}: BuilderTabProps) {
+
+  // Accent for the currently selected style
   const selectedCat = CATEGORIES.find(c => c.value === styleCategory)!;
 
   // Show compact status while generating
@@ -228,15 +293,12 @@ export function BuilderTab({
           }}>
             Active Influencer
           </div>
-          {/* @Handle — the user-visible identity */}
           <div style={{
             fontSize: 22, fontWeight: 800, color: T.text,
             letterSpacing: "-0.01em", marginBottom: 6,
           }}>
             {handle}
           </div>
-
-          {/* Style badge */}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "4px 10px", borderRadius: 20, marginBottom: 10,
@@ -248,7 +310,6 @@ export function BuilderTab({
               {activeCat.label}
             </span>
           </div>
-
           <StatusNote icon="●" color="#10b981" text="Identity locked — packs are available" />
         </div>
         <div style={{
@@ -262,66 +323,13 @@ export function BuilderTab({
     );
   }
 
-  // ── Creation form — no name field, handle is auto-assigned ─────────────────
-
-  async function handleCreate() {
-    setError(null);
-    setLoading(true);
-
-    try {
-      // Step 1: Create influencer — backend auto-generates the handle
-      const createRes = await fetch("/api/character/ai-influencers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          style_category: styleCategory,
-          gender, age_range: ageRange, skin_tone: skinTone,
-          face_structure: faceStruct, fashion_style: fashion,
-          realism_level: realism, mood, platform_intent: platforms,
-          appearance_notes: notes,
-        }),
-      });
-
-      if (!createRes.ok) {
-        setError("Could not create influencer. Try again.");
-        return;
-      }
-
-      const createData = await createRes.json();
-      const influencer = createData.data?.influencer;
-      if (!influencer) { setError("Unexpected response."); return; }
-
-      // Step 2: Trigger generation — capture job IDs for polling
-      const generateRes = await fetch("/api/character/ai-influencers/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ influencer_id: influencer.id }),
-      });
-
-      let jobIds: string[] = [];
-      if (generateRes.ok) {
-        const generateData = await generateRes.json();
-        jobIds = (generateData.data?.jobs ?? []).map(
-          (j: { jobId: string }) => j.jobId,
-        );
-      }
-
-      onCreated(influencer, jobIds);
-    } catch (err) {
-      console.error(err);
-      setError("Something went wrong. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // ── Creation form — inputs only, no CTA here ───────────────────────────────
 
   function toggleMood(v: string) {
-    setMood(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+    setMood(mood.includes(v) ? mood.filter(x => x !== v) : [...mood, v]);
   }
   function togglePlatform(v: string) {
-    setPlatforms(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+    setPlatforms(platforms.includes(v) ? platforms.filter(x => x !== v) : [...platforms, v]);
   }
 
   const inputStyle: React.CSSProperties = {
@@ -346,10 +354,9 @@ export function BuilderTab({
         {" "}Your influencer receives a unique name when created.
       </div>
 
-      {/* ── Style Category — first decision ──────────────────────────── */}
+      {/* ── Style Category ─────────────────────────────────────────── */}
       <CategorySelector value={styleCategory} onChange={setStyleCategory} />
 
-      {/* ── Divider ──────────────────────────────────────────────────── */}
       <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
 
       {/* Identity */}
@@ -445,19 +452,7 @@ export function BuilderTab({
         />
       </section>
 
-      {/* Error — shown inline so user knows what went wrong without a duplicate CTA */}
-      {error && (
-        <div style={{
-          padding: "10px 13px", borderRadius: 8,
-          background: "rgba(239,68,68,0.08)",
-          border: "1px solid rgba(239,68,68,0.25)",
-          fontSize: 12, color: "#ef4444", lineHeight: 1.55,
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* CTA lives in the canvas dock — use the floating button there */}
+      {/* CTA pointer — creation is in the canvas dock button */}
       <div style={{
         padding: "10px 13px", borderRadius: 9,
         background: "rgba(255,255,255,0.03)",
@@ -614,9 +609,9 @@ function ChipGroup({
             onClick={() => onToggle(opt)}
             style={{
               padding: "6px 12px", borderRadius: 20,
-              border: active ? `1px solid ${accent}55` : `1px solid ${T.border}`,
+              border:     active ? `1px solid ${accent}55` : `1px solid ${T.border}`,
               background: active ? `${accent}12` : "transparent",
-              color: active ? accent : T.muted,
+              color:      active ? accent : T.muted,
               fontSize: 12, fontWeight: active ? 700 : 400,
               cursor: "pointer", transition: "all 0.15s",
             }}

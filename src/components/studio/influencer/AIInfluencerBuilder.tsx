@@ -4,12 +4,17 @@
 // AI Influencer Builder — Main Shell
 // 3-column layout: Library (260px) | Canvas (flex) | Controls (320px)
 // Fixed-height viewport — no scrolling at the shell level.
+//
+// Single source of truth for:
+//   • All influencer form state (lifted from BuilderTab)
+//   • handleCreateInfluencer() — the ONLY place where API calls happen
+//   • isCreating / createError — threaded down to Canvas dock button
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useRef } from "react";
-import InfluencerLibrary from "./InfluencerLibrary";
-import InfluencerCanvas  from "./InfluencerCanvas";
-import InfluencerControls from "./InfluencerControls";
+import { useState, useCallback } from "react";
+import InfluencerLibrary   from "./InfluencerLibrary";
+import InfluencerCanvas    from "./InfluencerCanvas";
+import InfluencerControls  from "./InfluencerControls";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -45,12 +50,25 @@ export type CanvasState =
 
 export default function AIInfluencerBuilder() {
   const [canvasState, setCanvasState] = useState<CanvasState>({ phase: "empty" });
-  const [libraryKey, setLibraryKey]   = useState(0);
+  const [libraryKey,  setLibraryKey]  = useState(0);
 
-  // Ref to trigger creation from the Canvas dock Create button
-  // The dock's "Create Influencer" button calls onCreateClick which invokes this
-  const createTriggerRef = useRef<(() => void) | null>(null);
+  // ── Lifted form state (shared between Controls → Canvas) ──────────────────
+  const [styleCategory, setStyleCategory] = useState<StyleCategory>("hyper-real");
+  const [gender,        setGender]        = useState("");
+  const [ageRange,      setAgeRange]      = useState("");
+  const [skinTone,      setSkinTone]      = useState("");
+  const [faceStruct,    setFaceStruct]    = useState("");
+  const [fashion,       setFashion]       = useState("");
+  const [realism,       setRealism]       = useState("photorealistic");
+  const [mood,          setMood]          = useState<string[]>([]);
+  const [platforms,     setPlatforms]     = useState<string[]>([]);
+  const [notes,         setNotes]         = useState("");
 
+  // ── Creation state — driven by canvas dock button ─────────────────────────
+  const [isCreating,  setIsCreating]  = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // ── Internal: transition canvas to generating state ───────────────────────
   const handleCreated = useCallback((influencer: AIInfluencer, jobIds: string[]) => {
     setCanvasState({
       phase:          "generating",
@@ -60,6 +78,69 @@ export default function AIInfluencerBuilder() {
     });
   }, []);
 
+  // ── SINGLE SOURCE OF TRUTH: all creation logic lives here ─────────────────
+  const handleCreateInfluencer = useCallback(async () => {
+    setCreateError(null);
+    setIsCreating(true);
+
+    try {
+      // Step 1: Create influencer record — backend auto-generates the handle
+      const createRes = await fetch("/api/character/ai-influencers", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          style_category:    styleCategory,
+          gender,
+          age_range:         ageRange,
+          skin_tone:         skinTone,
+          face_structure:    faceStruct,
+          fashion_style:     fashion,
+          realism_level:     realism,
+          mood,
+          platform_intent:   platforms,
+          appearance_notes:  notes,
+        }),
+      });
+
+      if (!createRes.ok) {
+        setCreateError("Could not create influencer. Try again.");
+        return;
+      }
+
+      const createData = await createRes.json();
+      const influencer = createData.data?.influencer;
+      if (!influencer) { setCreateError("Unexpected response."); return; }
+
+      // Step 2: Trigger generation — capture job IDs for polling
+      const generateRes = await fetch("/api/character/ai-influencers/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ influencer_id: influencer.id }),
+      });
+
+      let jobIds: string[] = [];
+      if (generateRes.ok) {
+        const generateData = await generateRes.json();
+        jobIds = (generateData.data?.jobs ?? []).map(
+          (j: { jobId: string }) => j.jobId,
+        );
+      }
+
+      handleCreated(influencer, jobIds);
+    } catch (err) {
+      console.error(err);
+      setCreateError("Something went wrong. Try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  }, [
+    styleCategory, gender, ageRange, skinTone, faceStruct,
+    fashion, realism, mood, platforms, notes, handleCreated,
+  ]);
+
+  // ── Canvas state transitions ──────────────────────────────────────────────
   const handleCandidatesReady = useCallback(
     (influencer_id: string, candidateUrls: string[]) => {
       setCanvasState(prev => ({
@@ -75,7 +156,7 @@ export default function AIInfluencerBuilder() {
   const handleSelected = useCallback(
     (active: ActiveInfluencer) => {
       setCanvasState({ phase: "selected", active });
-      setLibraryKey(k => k + 1);  // refresh library to show new active influencer
+      setLibraryKey(k => k + 1); // refresh library to show new active influencer
     },
     [],
   );
@@ -87,7 +168,7 @@ export default function AIInfluencerBuilder() {
   const handleSelectFromLibrary = useCallback((influencer: AIInfluencer) => {
     if (influencer.identity_lock_id && influencer.hero_asset_id) {
       setCanvasState({
-        phase: "selected",
+        phase:  "selected",
         active: {
           influencer,
           hero_url:           influencer.thumbnail_url,
@@ -98,27 +179,17 @@ export default function AIInfluencerBuilder() {
     }
   }, []);
 
-  // When dock "Create Influencer" is clicked:
-  // If currently selected, reset to empty so user can build a new one
-  const handleCreateClick = useCallback(() => {
-    if (canvasState.phase === "selected") {
-      setCanvasState({ phase: "empty" });
-    }
-    // If already empty or candidates, the Builder tab CTA in Controls handles it
-    // The dock button provides a shortcut — user's eye goes to Canvas first
-  }, [canvasState.phase]);
-
   const activeInfluencer =
     canvasState.phase === "selected" ? canvasState.active : null;
 
   return (
     <div style={{
-      height: "100%",                  // fills the page wrapper (100dvh - 76px)
-      display: "flex",
-      background: T.bg,
-      overflow: "hidden",
-      fontFamily: "var(--font-sans, system-ui, sans-serif)",
-      color: T.text,
+      height:      "100%",   // fills the page wrapper (100dvh - 76px)
+      display:     "flex",
+      background:  T.bg,
+      overflow:    "hidden",
+      fontFamily:  "var(--font-sans, system-ui, sans-serif)",
+      color:       T.text,
     }}>
 
       {/* ── Left: Influencer Library ─────────────────────────────────────── */}
@@ -146,7 +217,10 @@ export default function AIInfluencerBuilder() {
           canvasState={canvasState}
           onCandidatesReady={handleCandidatesReady}
           onSelected={handleSelected}
-          onCreateClick={handleCreateClick}
+          onCreateClick={handleCreateInfluencer}
+          isCreating={isCreating}
+          createError={createError}
+          selectedStyleCategory={styleCategory}
         />
       </div>
 
@@ -160,12 +234,19 @@ export default function AIInfluencerBuilder() {
         <InfluencerControls
           canvasState={canvasState}
           activeInfluencer={activeInfluencer}
-          onCreated={handleCreated}
+          styleCategory={styleCategory}    setStyleCategory={setStyleCategory}
+          gender={gender}                  setGender={setGender}
+          ageRange={ageRange}              setAgeRange={setAgeRange}
+          skinTone={skinTone}              setSkinTone={setSkinTone}
+          faceStruct={faceStruct}          setFaceStruct={setFaceStruct}
+          fashion={fashion}                setFashion={setFashion}
+          realism={realism}                setRealism={setRealism}
+          mood={mood}                      setMood={setMood}
+          platforms={platforms}            setPlatforms={setPlatforms}
+          notes={notes}                    setNotes={setNotes}
         />
       </div>
 
     </div>
   );
-
-  void createTriggerRef; // used for future direct trigger wiring
 }

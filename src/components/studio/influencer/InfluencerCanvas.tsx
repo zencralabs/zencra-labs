@@ -60,10 +60,13 @@ const PACK_ACTIONS: Array<{
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  canvasState:        CanvasState;
-  onCandidatesReady:  (influencer_id: string, candidateUrls: string[]) => void;
-  onSelected:         (active: ActiveInfluencer) => void;
-  onCreateClick:      () => void;   // triggers Builder tab in Controls to run creation
+  canvasState:           CanvasState;
+  onCandidatesReady:     (influencer_id: string, candidateUrls: string[]) => void;
+  onSelected:            (active: ActiveInfluencer) => void;
+  onCreateClick:         () => void;   // handleCreateInfluencer — single source of truth
+  isCreating:            boolean;      // true while API calls are in flight
+  createError:           string | null;
+  selectedStyleCategory: StyleCategory; // drives dock button color in empty phase
 }
 
 // ── Pack output state ─────────────────────────────────────────────────────────
@@ -79,7 +82,10 @@ interface PackOutput {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSelected, onCreateClick }: Props) {
+export default function InfluencerCanvas({
+  canvasState, onCandidatesReady, onSelected,
+  onCreateClick, isCreating, createError, selectedStyleCategory,
+}: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
   const packSectionRef = useRef<HTMLDivElement>(null);
@@ -171,6 +177,8 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
   );
 
   // ── Derive accent from current category ─────────────────────────────────────
+  // In empty phase, track the form's selected style category so the dock button
+  // colour updates live as the user picks a style in the right panel.
 
   const currentAccent = (() => {
     if (canvasState.phase === "generating" || canvasState.phase === "candidates") {
@@ -179,7 +187,8 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
     if (canvasState.phase === "selected") {
       return getCategoryAccent(canvasState.active.influencer.style_category);
     }
-    return "#f59e0b"; // empty — default amber
+    // empty — use the form's currently selected category
+    return getCategoryAccent(selectedStyleCategory);
   })();
 
   const isPixelArt =
@@ -281,6 +290,8 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
         onImageFlow={goImageFlow}
         onVideoFlow={goVideoFlow}
         onCreateClick={onCreateClick}
+        isCreating={isCreating}
+        createError={createError}
       />
     </div>
   );
@@ -1014,24 +1025,46 @@ function CanvasDock({
   onImageFlow,
   onVideoFlow,
   onCreateClick,
+  isCreating,
+  createError,
 }: {
-  phase: CanvasState["phase"];
-  accent: string;
-  hasSelected: boolean;
-  onImageFlow: () => void;
-  onVideoFlow: () => void;
+  phase:         CanvasState["phase"];
+  accent:        string;
+  hasSelected:   boolean;
+  onImageFlow:   () => void;
+  onVideoFlow:   () => void;
   onCreateClick: () => void;
+  isCreating:    boolean;
+  createError:   string | null;
 }) {
   const isGenerating = phase === "generating";
+  // Dock button is locked when either the canvas is polling jobs OR a create call is in flight
+  const locked = isGenerating || isCreating;
 
   return (
     <div style={{
       position: "absolute", bottom: 0, left: 0, right: 0,
-      display: "flex", justifyContent: "center", alignItems: "center",
+      display: "flex", flexDirection: "column", alignItems: "center",
       padding: "14px 24px 18px",
       background: "linear-gradient(to top, rgba(7,9,15,0.98) 0%, rgba(7,9,15,0.82) 70%, transparent 100%)",
       zIndex: 10,
     }}>
+      {/* Keyframes for the spinner — injected once per dock render */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Error message above the dock pill */}
+      {createError && (
+        <div style={{
+          marginBottom: 8,
+          padding: "7px 14px", borderRadius: 8,
+          background: "rgba(239,68,68,0.10)",
+          border: "1px solid rgba(239,68,68,0.28)",
+          fontSize: 12, color: "#ef4444", lineHeight: 1.5,
+          maxWidth: 440, textAlign: "center",
+        }}>
+          {createError}
+        </div>
+      )}
+
       <div style={{
         display: "flex", alignItems: "center", gap: 10,
         padding: "10px 14px", borderRadius: 16,
@@ -1061,34 +1094,45 @@ function CanvasDock({
         {/* Divider */}
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
 
-        {/* Create Influencer — center, primary */}
+        {/* Create Influencer — center, primary CTA — single source of truth */}
         <button
           onClick={onCreateClick}
-          disabled={isGenerating}
+          disabled={locked}
           style={{
             display: "flex", alignItems: "center", gap: 8,
             padding: "10px 20px", borderRadius: 11,
-            background: isGenerating
+            background: locked
               ? `${accent}22`
               : `linear-gradient(135deg, ${accent}99, ${accent})`,
             border: "none",
-            color: isGenerating ? `${accent}66` : "#060810",
+            color: locked ? `${accent}66` : "#060810",
             fontSize: 13, fontWeight: 800,
-            cursor: isGenerating ? "not-allowed" : "pointer",
+            cursor: locked ? "not-allowed" : "pointer",
             letterSpacing: "0.02em",
-            boxShadow: isGenerating ? "none" : `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)`,
+            boxShadow: locked ? "none" : `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)`,
             transition: "all 0.2s",
             whiteSpace: "nowrap",
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M20 21a8 8 0 1 0-16 0" />
-            <line x1="18" y1="8" x2="22" y2="8" />
-            <line x1="20" y1="6" x2="20" y2="10" />
-          </svg>
-          {isGenerating ? "Creating…" : phase === "selected" ? "New Influencer" : "Create Influencer"}
+          {isCreating ? (
+            /* Spinner while API call is in flight */
+            <span style={{
+              display: "inline-block", width: 14, height: 14,
+              border: `2px solid ${accent}44`,
+              borderTopColor: accent,
+              borderRadius: "50%",
+              animation: "spin 0.75s linear infinite",
+            }} />
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M20 21a8 8 0 1 0-16 0" />
+              <line x1="18" y1="8" x2="22" y2="8" />
+              <line x1="20" y1="6" x2="20" y2="10" />
+            </svg>
+          )}
+          {isCreating ? "Creating…" : isGenerating ? "Generating…" : phase === "selected" ? "New Influencer" : "Create Influencer"}
         </button>
 
         {/* Divider */}
