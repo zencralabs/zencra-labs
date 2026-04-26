@@ -1,0 +1,152 @@
+/**
+ * POST /api/character/ai-influencers/generate
+ *
+ * Generates 4–6 candidate images for a new AI influencer.
+ * This is the ONLY route that runs without an identity lock.
+ * All subsequent generation (packs, refine) requires identity_lock_id.
+ *
+ * Request body:
+ *   {
+ *     influencer_id: string,
+ *     model_key: string,
+ *     candidate_count?: number  (4–6, default 4)
+ *   }
+ *
+ * Response:
+ *   202 { success: true, data: { jobs: [...] } }
+ */
+
+import { requireAuthUser }   from "@/lib/supabase/server";
+import { supabaseAdmin }     from "@/lib/supabase/admin";
+import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
+                             from "@/lib/api/studio-dispatch";
+import { ok, accepted, invalidInput, serverErr, parseBody }
+                             from "@/lib/api/route-utils";
+import { checkEntitlement, consumeTrialUsage }
+                             from "@/lib/billing/entitlement";
+import { checkStudioRateLimit } from "@/lib/security/rate-limit";
+import { buildGenerationPrompt } from "@/lib/influencer/pack-prompts";
+import type { AIInfluencerProfile } from "@/lib/influencer/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const DEFAULT_CANDIDATE_COUNT = 4;
+const MAX_CANDIDATE_COUNT     = 6;
+const DEFAULT_MODEL_KEY       = "nb-standard";  // Nano Banana Standard
+const DEFAULT_ASPECT_RATIO    = "2:3";
+
+export async function POST(req: Request): Promise<Response> {
+  // ── Auth ────────────────────────────────────────────────────────────────────
+  const { user, authError } = await requireAuthUser(req);
+  if (authError) return authError;
+  const userId = user!.id;
+
+  // ── Rate limit ──────────────────────────────────────────────────────────────
+  const rateLimitError = await checkStudioRateLimit(userId);
+  if (rateLimitError) return rateLimitError;
+
+  // ── Parse body ──────────────────────────────────────────────────────────────
+  const { body, parseError } = await parseBody(req);
+  if (parseError) return parseError;
+
+  const influencer_id = typeof body?.influencer_id === "string" ? body.influencer_id : null;
+  if (!influencer_id) return invalidInput("influencer_id is required");
+
+  const candidateCount = Math.min(
+    typeof body?.candidate_count === "number" ? body.candidate_count : DEFAULT_CANDIDATE_COUNT,
+    MAX_CANDIDATE_COUNT,
+  );
+  const modelKey    = typeof body?.model_key    === "string" ? body.model_key    : DEFAULT_MODEL_KEY;
+  const aspectRatio = typeof body?.aspect_ratio === "string" ? body.aspect_ratio : DEFAULT_ASPECT_RATIO;
+
+  // ── Verify influencer ownership ─────────────────────────────────────────────
+  const { data: influencer, error: infErr } = await supabaseAdmin
+    .from("ai_influencers")
+    .select("id, user_id, name")
+    .eq("id", influencer_id)
+    .eq("user_id", userId)
+    .single();
+
+  if (infErr || !influencer) return invalidInput("Influencer not found");
+
+  // ── Fetch profile ────────────────────────────────────────────────────────────
+  const { data: profile } = await supabaseAdmin
+    .from("ai_influencer_profiles")
+    .select("*")
+    .eq("influencer_id", influencer_id)
+    .single();
+
+  // Build generation prompt from profile (no identity anchor — this is initial generation)
+  const generationPrompt = buildGenerationPrompt(
+    (profile ?? {
+      gender: null, age_range: null, skin_tone: null, face_structure: null,
+      fashion_style: null, realism_level: "photorealistic", mood: [], platform_intent: [],
+      appearance_notes: null,
+    }) as AIInfluencerProfile,
+  );
+
+  // ── Billing entitlement ──────────────────────────────────────────────────────
+  let entitlement: Awaited<ReturnType<typeof checkEntitlement>>;
+  try {
+    entitlement = await checkEntitlement(userId, "character");
+  } catch (err) {
+    if (err instanceof StudioDispatchError) {
+      return Response.json(
+        { success: false, error: err.message, code: err.code },
+        { status: dispatchErrorStatus(err.code) },
+      );
+    }
+    return serverErr();
+  }
+
+  // ── Dispatch candidate generation jobs ───────────────────────────────────────
+  const jobs: Array<{ jobId: string; externalJobId: string | null; status: string }> = [];
+
+  for (let i = 0; i < candidateCount; i++) {
+    try {
+      const { job } = await studioDispatch({
+        userId,
+        studio:      "character",
+        modelKey,
+        prompt:      generationPrompt,
+        aspectRatio,
+        identity:    { character_id: influencer_id },
+      });
+
+      // Record job in influencer_generation_jobs
+      await supabaseAdmin.from("influencer_generation_jobs").insert({
+        influencer_id,
+        identity_lock_id:  null,  // no lock yet — this is candidate generation
+        canonical_asset_id: null,
+        job_type:          "generate",
+        status:            job.status,
+        external_job_id:   job.externalJobId,
+        prompt:            generationPrompt,
+        pack_label:        `Candidate ${i + 1}`,
+        model_key:         modelKey,
+        aspect_ratio:      aspectRatio,
+        estimated_credits: job.estimatedCredits,
+        metadata:          { candidate_index: i },
+      });
+
+      jobs.push({
+        jobId:         job.id,
+        externalJobId: job.externalJobId ?? null,
+        status:        job.status,
+      });
+    } catch (err) {
+      console.error(`[generate] candidate ${i + 1} dispatch failed:`, err);
+      // Continue — partial batch is better than full failure
+    }
+  }
+
+  if (jobs.length === 0) return serverErr("All candidate jobs failed to dispatch");
+
+  // ── Trial usage (fire-and-forget) ────────────────────────────────────────────
+  if (entitlement.path === "trial" && entitlement.trialEndsAt) {
+    void consumeTrialUsage(userId, "character", entitlement.trialEndsAt);
+  }
+
+  return accepted({ jobs, influencer_id, candidate_count: jobs.length });
+}
