@@ -2645,7 +2645,7 @@ function ImageStudioInner() {
             </div>
           )}
 
-          {/* ── @Handle identity badges ──────────────────────────────────────── */}
+          {/* ── @Handle identity lock badges ─────────────────────────────────── */}
           {detectedHandles.length > 0 && (
             <div style={{
               display: "flex", flexWrap: "wrap", gap: 6,
@@ -2653,16 +2653,21 @@ function ImageStudioInner() {
             }}>
               {detectedHandles.map(handle => (
                 <div key={handle} style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "3px 9px", borderRadius: 20,
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "4px 10px", borderRadius: 20,
                   background: "rgba(245,158,11,0.10)",
-                  border: "1px solid rgba(245,158,11,0.28)",
-                  fontSize: 11, fontWeight: 600,
-                  color: "rgba(252,211,77,0.9)",
-                  letterSpacing: "0.01em",
+                  border: "1px solid rgba(245,158,11,0.32)",
+                  fontSize: 11, fontWeight: 700,
+                  color: "rgba(252,211,77,0.95)",
+                  letterSpacing: "0.02em",
                 }}>
-                  <span style={{ fontSize: 9, opacity: 0.7 }}>◉</span>
-                  Using @{handle} identity
+                  <span style={{ fontSize: 8, opacity: 0.85 }}>🔒</span>
+                  @{handle}
+                  <span style={{
+                    fontSize: 10, fontWeight: 400,
+                    color: "rgba(252,211,77,0.55)",
+                    letterSpacing: "0.01em",
+                  }}>• Identity Locked</span>
                 </div>
               ))}
             </div>
