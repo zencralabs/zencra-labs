@@ -429,15 +429,16 @@ function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
 function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: () => void }) {
-  const ratioMap: Record<string, number> = {
-    Auto: 1, "1:1": 1, "3:4": 4 / 3, "4:3": 3 / 4, "2:3": 3 / 2, "3:2": 2 / 3,
-    "9:16": 16 / 9, "16:9": 9 / 16, "5:4": 4 / 5, "4:5": 5 / 4, "21:9": 9 / 21,
-    "1:4": 4, "1:8": 8, "4:1": 1 / 4, "8:1": 1 / 8,
+  const cssARMap: Record<string, string> = {
+    Auto: "1 / 1", "1:1": "1 / 1", "3:4": "3 / 4", "4:3": "4 / 3",
+    "2:3": "2 / 3", "3:2": "3 / 2", "9:16": "9 / 16", "16:9": "16 / 9",
+    "5:4": "5 / 4", "4:5": "4 / 5", "21:9": "21 / 9",
+    "1:4": "1 / 4", "1:8": "1 / 8", "4:1": "4 / 1", "8:1": "8 / 1",
   };
-  const paddingBottom = `${(ratioMap[ar] ?? 1) * 100}%`;
+  const cssAR = cssARMap[ar] ?? "1 / 1";
 
   return (
-    <div style={{ position: "relative", width: "100%", paddingBottom, borderRadius: 10, overflow: "hidden" }}>
+    <div style={{ position: "relative", width: "100%", aspectRatio: cssAR, borderRadius: 0, overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0,
         background: "linear-gradient(110deg, #060D1A 25%, #0B1530 50%, #060D1A 75%)",
@@ -477,6 +478,23 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
   );
 }
 
+// ── Dense grid row-span helper ────────────────────────────────────────────────
+// Given an aspect-ratio string (e.g. "9:16") and the grid's column width in px,
+// returns the number of 8px row-tracks the card should span so images pack
+// edge-to-edge without gaps.
+function getGalleryRowSpan(aspectRatio: string | undefined, columnWidth: number): number {
+  const ROW_PX = 8;
+  let h2w = 1; // height-to-width ratio — default square
+  const ar = aspectRatio && aspectRatio !== "Auto" ? aspectRatio : "1:1";
+  const parts = ar.split(":");
+  if (parts.length === 2) {
+    const w = parseFloat(parts[0]);
+    const h = parseFloat(parts[1]);
+    if (w > 0 && h > 0) h2w = h / w;
+  }
+  return Math.ceil((columnWidth * h2w) / ROW_PX) + 1;
+}
+
 // ── Skeleton card (history loading) ──────────────────────────────────────────
 // Masonry-aware shimmer: cycles through common aspect ratios so the grid
 // looks like a real gallery in the loading state, not a column of lines.
@@ -485,29 +503,26 @@ const SKELETON_RATIOS = [
   "3:4", "1:1", "3:2", "4:3", "1:1",
 ];
 
-function SkeletonCard({ index }: { index: number }) {
-  const ratioMap: Record<string, number> = {
-    "1:1": 1, "3:4": 4/3, "4:3": 3/4, "2:3": 3/2, "3:2": 2/3,
-    "9:16": 16/9, "16:9": 9/16, "4:5": 5/4,
-  };
-  const ar = SKELETON_RATIOS[index % SKELETON_RATIOS.length];
-  const paddingBottom = `${(ratioMap[ar] ?? 1) * 100}%`;
+function SkeletonCard({ index, aspectRatio }: { index: number; aspectRatio: string }) {
   // Stagger capped at card 20 — beyond that all appear together
   const delay = `${Math.min(index, 20) * 40}ms`;
+  const parts = aspectRatio.split(":");
+  const w = parseFloat(parts[0]) || 1;
+  const h = parseFloat(parts[1]) || 1;
 
   return (
     <div style={{
-      position: "relative", width: "100%", paddingBottom,
-      borderRadius: 10,   // matches image card border-radius
+      position: "relative", width: "100%",
+      aspectRatio: `${w} / ${h}`,
+      borderRadius: 0,
       overflow: "hidden",
       opacity: 0,
       animation: `fadeIn 0.4s ease ${delay} forwards`,
     }}>
-      {/* Base layer — very faint white tint matching spec */}
+      {/* Base layer — very faint white tint */}
       <div style={{
         position: "absolute", inset: 0,
         background: "rgba(255,255,255,0.03)",
-        borderRadius: 10,
       }} />
       {/* Shimmer sweep overlay */}
       <div style={{
@@ -515,8 +530,6 @@ function SkeletonCard({ index }: { index: number }) {
         background: "linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.045) 50%, transparent 75%)",
         backgroundSize: "200% 100%",
         animation: `skeletonSweep 2.2s ease-in-out ${Math.min(index, 20) * 60}ms infinite`,
-        borderRadius: 10,
-        // Soft blur makes the card feel like frosted glass rather than a hard box
         filter: "blur(4px)",
       }} />
     </div>
@@ -570,9 +583,17 @@ function ImageCard({
 
   if (img.status === "error") {
     const { icon, title, detail } = classifyError(img.error);
+    const errCssAR = (() => {
+      const m: Record<string, string> = {
+        "1:1": "1 / 1", "4:3": "4 / 3", "3:4": "3 / 4", "16:9": "16 / 9",
+        "9:16": "9 / 16", "2:3": "2 / 3", "3:2": "3 / 2", "4:5": "4 / 5",
+        "5:4": "5 / 4", "21:9": "21 / 9",
+      };
+      return m[img.aspectRatio] ?? "1 / 1";
+    })();
     return (
       <div style={{
-        width: "100%", paddingBottom: "100%", borderRadius: 10, position: "relative",
+        width: "100%", aspectRatio: errCssAR, borderRadius: 0, position: "relative",
         background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.15)",
       }}>
         <div style={{
@@ -1893,11 +1914,16 @@ function ImageStudioInner() {
           <div style={{
             display: "grid",
             gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
-            gap: 8,
+            gridAutoRows: "8px",
+            gridAutoFlow: "dense",
+            gap: 0,
           }}>
-            {SKELETON_RATIOS.map((_, i) => (
-              <div key={i} style={{ minWidth: 0 }}>
-                <SkeletonCard index={i} />
+            {SKELETON_RATIOS.map((ar, i) => (
+              <div key={i} style={{
+                minWidth: 0,
+                gridRowEnd: `span ${getGalleryRowSpan(ar, gridMinSize)}`,
+              }}>
+                <SkeletonCard index={i} aspectRatio={ar} />
               </div>
             ))}
           </div>
@@ -2178,7 +2204,9 @@ function ImageStudioInner() {
             <div style={{
               display: "grid",
               gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
-              gap: 8,
+              gridAutoRows: "8px",
+              gridAutoFlow: "dense",
+              gap: 0,
             }}>
               {images.map((img, index) => (
                 <div
@@ -2191,7 +2219,7 @@ function ImageStudioInner() {
                     opacity: 0,
                     animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
                     boxShadow: selectedImageIds.has(img.id) ? "0 0 0 2px rgba(37,99,235,0.7)" : "none",
-                    borderRadius: 10,
+                    gridRowEnd: `span ${getGalleryRowSpan(img.aspectRatio, gridMinSize)}`,
                   }}
                 >
                   {/* ── Checkbox — top-left, clear of badge ── */}

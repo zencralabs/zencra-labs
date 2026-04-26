@@ -469,7 +469,7 @@ export default function MediaCard({
                 : "1 / 1",
           background:   "rgba(0,0,0,0.3)",
           overflow:     "hidden",
-          borderRadius: "inherit",   // clips image within card's border-radius
+          borderRadius: 0,   // sharp media corners — card border-radius stays on the card container
         }}
       >
         {mediaUrl ? (
