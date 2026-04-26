@@ -340,13 +340,10 @@ function EmptyState({ accent }: { accent: string }) {
       overflow: "hidden",
     }}>
 
-      {/* ── Layer 1: dual radial spotlight ──────────────────────────── */}
+      {/* ── Layer 1: soft amber radial behind center ─────────────────── */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
-        background: [
-          "radial-gradient(circle at 50% 42%, rgba(245,158,11,0.14), transparent 30%)",
-          "radial-gradient(circle at 50% 80%, rgba(59,130,246,0.10), transparent 42%)",
-        ].join(", "),
+        background: "radial-gradient(circle at 50% 46%, rgba(245,158,11,0.13), transparent 38%)",
       }} />
 
       {/* ── Layer 2: faint cinematic grid ───────────────────────────── */}
@@ -360,62 +357,57 @@ function EmptyState({ accent }: { accent: string }) {
         opacity: 0.12,
       }} />
 
-      {/* ── Layer 3: horizon glow line ───────────────────────────────── */}
-      <div style={{
-        position: "absolute", left: 0, right: 0, bottom: 120,
-        height: 1, pointerEvents: "none",
-        background: "linear-gradient(to right, transparent, rgba(245,158,11,0.25), transparent)",
-      }} />
-
-      {/* ── Layer 4: bottom vignette ─────────────────────────────────── */}
+      {/* ── Layer 3: bottom vignette ─────────────────────────────────── */}
       <div style={{
         position: "absolute", inset: "auto 0 0 0",
         height: 288, pointerEvents: "none",
         background: "linear-gradient(to top, rgba(0,0,0,0.60), transparent)",
       }} />
 
-      {/* ── Ghost composition frames ─────────────────────────────────── */}
-      {/* Three subtle frames communicate supported output formats.
-          z-0, pointer-events-none — pure visual depth, no interaction. */}
+      {/* ── Composition stage — 16:9 outer + inner guides ───────────── */}
+      {/* zIndex: 1 keeps this behind the message content at zIndex: 10  */}
       <div style={{
-        position: "absolute", inset: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 28, pointerEvents: "none", zIndex: 0,
+        position: "relative", zIndex: 1,
+        width: "min(72vw, 860px)",
+        aspectRatio: "16 / 9",
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.012)",
+        boxShadow: "0 0 90px rgba(245,158,11,0.06)",
+        flexShrink: 0,
+        pointerEvents: "none",
       }}>
-        {/* 9:16 vertical — influencer / full-body */}
+        {/* 9:16 vertical guide — influencer / full-body, left of center */}
         <div style={{
-          width: 140, height: 249, flexShrink: 0,
-          border: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.015)",
-          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
-          opacity: 0.5,
-          alignSelf: "center",
+          position: "absolute",
+          top: "50%", transform: "translateY(-50%)",
+          left: "34%",
+          height: "78%", aspectRatio: "9 / 16",
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.018)",
+          boxShadow: "inset 0 0 40px rgba(255,255,255,0.025)",
+          borderRadius: 0,
         }} />
 
-        {/* 1:1 square — profile / social avatar */}
+        {/* 1:1 square guide — social avatar / profile, right of center */}
         <div style={{
-          width: 210, height: 210, flexShrink: 0,
-          border: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.015)",
-          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
-          opacity: 0.5,
-          alignSelf: "center",
-        }} />
-
-        {/* 16:9 cinematic — scene / campaign frame */}
-        <div style={{
-          width: 300, height: 169, flexShrink: 0,
-          border: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.015)",
-          boxShadow: "0 0 60px rgba(245,158,11,0.05)",
-          opacity: 0.5,
-          alignSelf: "center",
+          position: "absolute",
+          top: "50%", transform: "translateY(-50%)",
+          left: "52%",
+          height: "48%", aspectRatio: "1 / 1",
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.018)",
+          boxShadow: "inset 0 0 40px rgba(255,255,255,0.025)",
+          borderRadius: 0,
         }} />
       </div>
 
-      {/* ── Main content — above all layers ─────────────────────────── */}
-      <div style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center" }}>
-
+      {/* ── Message — absolute over the stage, z-10 ──────────────────── */}
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        zIndex: 10, pointerEvents: "none",
+      }}>
         {/* Icon halo + icon */}
         <div style={{
           width: 120, height: 120, borderRadius: "50%", marginBottom: 32,
@@ -424,7 +416,6 @@ function EmptyState({ accent }: { accent: string }) {
           position: "relative",
           transition: "background 0.4s ease",
         }}>
-          {/* Subtle halo ring */}
           <div style={{
             position: "absolute", inset: 0, borderRadius: "50%",
             boxShadow: `0 0 48px ${accent}1a`,
@@ -449,16 +440,19 @@ function EmptyState({ accent }: { accent: string }) {
         <h2 style={{
           fontSize: 22, fontWeight: 800, color: T.text,
           letterSpacing: "-0.02em", marginBottom: 10,
+          pointerEvents: "auto",
         }}>
           Your AI Influencer lives here
         </h2>
         <p style={{
           fontSize: 15, color: T.muted, lineHeight: 1.65,
           maxWidth: 380, marginBottom: 0,
+          pointerEvents: "auto",
         }}>
           Create a realistic digital creator and build content-ready visuals — reusable across every studio.
         </p>
       </div>
+
     </div>
   );
 }
