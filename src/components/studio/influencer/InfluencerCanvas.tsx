@@ -398,7 +398,8 @@ function EmptyState({ accent }: { accent: string }) {
       {/* zIndex: 1 keeps this behind the message content at zIndex: 10  */}
       <div style={{
         position: "relative", zIndex: 1,
-        width: "min(72vw, 860px)",
+        width: "min(92%, 1280px)",
+        maxHeight: "85%",
         aspectRatio: "16 / 9",
         border: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(255,255,255,0.012)",
@@ -416,7 +417,7 @@ function EmptyState({ accent }: { accent: string }) {
           top: "50%",
           transform: "translateY(-50%) perspective(1200px) rotateX(2deg) scale(0.98)",
           left: "34%",
-          height: "78%", aspectRatio: "9 / 16",
+          height: "84%", aspectRatio: "9 / 16",
           border: "1px solid rgba(255,255,255,0.10)",
           background: "rgba(255,255,255,0.018)",
           borderRadius: 0,
@@ -432,7 +433,7 @@ function EmptyState({ accent }: { accent: string }) {
           top: "50%",
           transform: "translateY(-50%) perspective(1200px) rotateX(2deg) scale(0.98)",
           left: "52%",
-          height: "48%", aspectRatio: "1 / 1",
+          height: "56%", aspectRatio: "1 / 1",
           border: "1px solid rgba(255,255,255,0.10)",
           background: "rgba(255,255,255,0.018)",
           borderRadius: 0,
@@ -1695,7 +1696,8 @@ function CanvasDock({
 
       <div style={{
         display: "flex", alignItems: "center", gap: 10,
-        padding: "10px 14px", borderRadius: 16,
+        height: 80,
+        padding: "12px 18px", borderRadius: 24,
         background: "rgba(11,14,23,0.88)",
         border: "1px solid rgba(255,255,255,0.08)",
         boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
@@ -1734,7 +1736,8 @@ function CanvasDock({
             alignItems: "center",
             gap: 8,
             // Expand on creating — smooth padding growth
-            padding: isCreating ? "10px 26px" : "10px 20px",
+            padding: isCreating ? "0 36px" : "0 32px",
+            height: 50,
             borderRadius: 11,
             border: "none",
             whiteSpace: "nowrap",
@@ -1760,7 +1763,7 @@ function CanvasDock({
             // Animate glow pulse only when creating
             animation: isCreating ? "canvasDockGlow 1.2s ease-in-out infinite" : undefined,
             // Type
-            fontSize: 13,
+            fontSize: 15,
             fontWeight: 800,
             letterSpacing: "0.02em",
             cursor: locked ? "not-allowed" : "pointer",
@@ -1871,12 +1874,12 @@ function DockButton({
         color: active ? (accent ?? "#e8eaf0") : "#4a5168",
         cursor: "pointer",
         transition: "all 0.15s",
-        minWidth: 60,
+        minWidth: 120,
       }}
     >
       {icon}
       <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+        fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
         whiteSpace: "nowrap",
       }}>
         {label}
