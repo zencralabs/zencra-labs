@@ -41,6 +41,8 @@ import { assertModelRouteIntegrity, ProviderMismatchError }
 import { getModelCapabilities }       from "@/lib/studio/model-capabilities";
 import { apiErr }                     from "@/lib/api/route-utils";
 import { CharacterOrchestrator }      from "@/lib/character";
+import { resolveInfluencerHandles, injectIdentityIntoPrompt }
+                                     from "@/lib/ai-influencer/handle-resolver";
 
 // Runtime key presence check — runs once per cold start, not per request
 if (!process.env.OPENAI_API_KEY) {
@@ -144,6 +146,48 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  // ── AI Influencer @handle resolution ─────────────────────────────────────────
+  // Detects @Handle tokens in the prompt, resolves them to the user's active
+  // influencers, injects an identity anchor phrase, and optionally attaches
+  // the canonical hero asset as a reference image when the provider supports it
+  // and the user has not already provided their own reference.
+  let resolvedPrompt       = prompt!;
+  let dispatchImageUrl     = imageUrl;
+  let dispatchProviderParams = providerParams;
+
+  try {
+    const resolved = await resolveInfluencerHandles({ userId, prompt: prompt! });
+
+    if (resolved.hasInfluencers && resolved.primaryContext) {
+      const ctx = resolved.primaryContext;
+      resolvedPrompt = injectIdentityIntoPrompt(resolved.cleanedPrompt, ctx);
+
+      // Attach canonical asset only when:
+      //   1. The model supports at least one reference image
+      //   2. The user has NOT already provided any reference image (they take priority)
+      const caps           = getModelCapabilities(modelKey!);
+      const userHasImgRef  = typeof imageUrl === "string" && imageUrl.length > 0;
+      const userHasNbRefs  = Array.isArray(providerParams?.referenceUrls) &&
+                             (providerParams!.referenceUrls as unknown[]).length > 0;
+
+      if (caps.maxReferenceImages > 0 && !userHasImgRef && !userHasNbRefs && ctx.canonical_asset_url) {
+        if (modelKey === "gpt-image-1") {
+          // GPT Image uses imageUrl as the single reference
+          dispatchImageUrl = ctx.canonical_asset_url;
+        } else {
+          // Nano Banana family uses providerParams.referenceUrls
+          dispatchProviderParams = {
+            ...(providerParams ?? {}),
+            referenceUrls: [ctx.canonical_asset_url],
+          };
+        }
+      }
+    }
+  } catch (err) {
+    // Handle resolution is non-blocking — log and proceed with the original prompt
+    console.warn("[/api/studio/image/generate] handle resolution failed:", err);
+  }
+
   // ── Dispatch ─────────────────────────────────────────────────────────────────
   try {
     const { job, assetId } = await studioDispatch({
@@ -151,12 +195,12 @@ export async function POST(req: Request): Promise<Response> {
       ip:            clientIp,
       studio:        "image",
       modelKey:      modelKey!,
-      prompt:        prompt!,
+      prompt:        resolvedPrompt,
       negativePrompt,
-      imageUrl,
+      imageUrl:      dispatchImageUrl,
       aspectRatio,
       seed,
-      providerParams,
+      providerParams: dispatchProviderParams,
     });
 
     // ── Character job linking (non-blocking fire-and-forget) ──────────────────

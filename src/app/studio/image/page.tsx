@@ -205,6 +205,22 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
+  // ── AI Influencer handle errors ───────────────────────────────────────────────
+  if (lower.includes("handle") && (lower.includes("not found") || lower.includes("not recognized"))) {
+    return {
+      icon:   "👤",
+      title:  "Influencer not found",
+      detail: "The @handle in your prompt wasn't recognized. Make sure your AI Influencer is active and has an identity lock.",
+    };
+  }
+  if (lower.includes("identity lock") || lower.includes("no identity lock")) {
+    return {
+      icon:   "🔒",
+      title:  "No identity lock",
+      detail: "This influencer doesn't have an identity lock set up yet. Complete identity training in the AI Influencer studio first.",
+    };
+  }
+
   // ── Generic fallback — no raw text exposed ────────────────────────────────────
   return {
     icon:   "⚠️",
@@ -994,6 +1010,15 @@ function ImageStudioInner() {
   // ── Upload cap for current model ──────────────────────────────────────────────
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
+
+  // ── AI Influencer @handle detection (local only — no DB, no async) ───────────
+  // Purely syntactic: detects @Handle tokens in the current prompt so the UI can
+  // show "Using @[handle] identity" badges before the user hits Generate.
+  // The server-side resolveInfluencerHandles() is the authority for actual resolution.
+  const detectedHandles = useMemo(
+    () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
+    [prompt],
+  );
 
   // Masonry column class — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
   // Higher zoom → fewer columns → larger images.
@@ -2617,6 +2642,29 @@ function ImageStudioInner() {
                   setPreEnhancePrompt(null);
                 }}
               />
+            </div>
+          )}
+
+          {/* ── @Handle identity badges ──────────────────────────────────────── */}
+          {detectedHandles.length > 0 && (
+            <div style={{
+              display: "flex", flexWrap: "wrap", gap: 6,
+              padding: "0 14px 10px",
+            }}>
+              {detectedHandles.map(handle => (
+                <div key={handle} style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "3px 9px", borderRadius: 20,
+                  background: "rgba(245,158,11,0.10)",
+                  border: "1px solid rgba(245,158,11,0.28)",
+                  fontSize: 11, fontWeight: 600,
+                  color: "rgba(252,211,77,0.9)",
+                  letterSpacing: "0.01em",
+                }}>
+                  <span style={{ fontSize: 9, opacity: 0.7 }}>◉</span>
+                  Using @{handle} identity
+                </div>
+              ))}
             </div>
           )}
 
