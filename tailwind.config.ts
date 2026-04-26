@@ -72,18 +72,20 @@ const config: Config = {
       },
 
       // ─── Zencra Type Scale ───────────────────────────────────────────────
+      // Syne tracking is tuned per-step — at large sizes Syne opens up and
+      // needs aggressive negative tracking to read as cinematic/tight.
       fontSize: {
         // Display — hero headings, brand moments
-        "display-2xl": ["6rem",   { lineHeight: "0.92", letterSpacing: "-0.06em"  }], // 96px
-        "display-xl":  ["5rem",   { lineHeight: "0.95", letterSpacing: "-0.055em" }], // 80px
-        "display-lg":  ["4rem",   { lineHeight: "1",    letterSpacing: "-0.045em" }], // 64px
-        "display-md":  ["3.25rem",{ lineHeight: "1.04", letterSpacing: "-0.04em"  }], // 52px
-        "display-sm":  ["2.75rem",{ lineHeight: "1.08", letterSpacing: "-0.035em" }], // 44px
+        "display-2xl": ["6.25rem", { lineHeight: "0.9",  letterSpacing: "-0.075em" }], // 100px
+        "display-xl":  ["5.25rem", { lineHeight: "0.92", letterSpacing: "-0.07em"  }], // 84px
+        "display-lg":  ["4.35rem", { lineHeight: "0.96", letterSpacing: "-0.065em" }], // ~70px
+        "display-md":  ["3.5rem",  { lineHeight: "1",    letterSpacing: "-0.055em" }], // 56px
+        "display-sm":  ["2.9rem",  { lineHeight: "1.05", letterSpacing: "-0.045em" }], // ~46px
         // Headings — section titles, studio titles
-        "heading-xl":  ["2.5rem", { lineHeight: "1.1",  letterSpacing: "-0.035em" }], // 40px
-        "heading-lg":  ["2rem",   { lineHeight: "1.15", letterSpacing: "-0.03em"  }], // 32px
-        "heading-md":  ["1.625rem",{ lineHeight: "1.22",letterSpacing: "-0.02em"  }], // 26px
-        "heading-sm":  ["1.375rem",{ lineHeight: "1.25",letterSpacing: "-0.015em" }], // 22px
+        "heading-xl":  ["2.65rem", { lineHeight: "1.08", letterSpacing: "-0.045em" }], // ~42px
+        "heading-lg":  ["2.15rem", { lineHeight: "1.12", letterSpacing: "-0.04em"  }], // ~34px
+        "heading-md":  ["1.75rem", { lineHeight: "1.18", letterSpacing: "-0.03em"  }], // 28px
+        "heading-sm":  ["1.45rem", { lineHeight: "1.22", letterSpacing: "-0.02em"  }], // ~23px
         // Body — readable paragraph text
         "body-xl":     ["1.25rem",  { lineHeight: "1.65", letterSpacing: "-0.01em"  }], // 20px
         "body-lg":     ["1.125rem", { lineHeight: "1.65", letterSpacing: "-0.01em"  }], // 18px
