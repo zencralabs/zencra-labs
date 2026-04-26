@@ -117,7 +117,7 @@ export default function AIInfluencerBuilder() {
       display: "flex",
       background: T.bg,
       overflow: "hidden",
-      fontFamily: "var(--font-body), 'Inter', -apple-system, sans-serif",
+      fontFamily: "var(--font-sans, system-ui, sans-serif)",
       color: T.text,
     }}>
 

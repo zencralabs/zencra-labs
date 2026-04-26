@@ -58,14 +58,14 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-5 text-sm gap-2",
-  lg: "h-12 px-7 text-base gap-2.5",
+  sm: "h-8 px-3 text-ui-sm gap-1.5",
+  md: "h-10 px-5 text-ui-md gap-2",
+  lg: "h-12 px-7 text-ui-lg gap-2.5",
 };
 
 const baseClasses = [
   "inline-flex items-center justify-center",
-  "rounded-lg font-medium",
+  "rounded-lg font-medium font-sans",
   "transition-all duration-200",
   "cursor-pointer select-none",
   "disabled:opacity-50 disabled:cursor-not-allowed",

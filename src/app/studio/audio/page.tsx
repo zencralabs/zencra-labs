@@ -1066,7 +1066,7 @@ function AudioStudioInner() {
       width: "100%",
       background: "transparent", // AudioAmbientLayer provides the base color
       color: "#CBD5F5",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: "var(--font-sans, system-ui, sans-serif)",
       paddingTop: 80,
       boxSizing: "border-box",
       position: "relative",
@@ -1308,7 +1308,7 @@ function AudioStudioInner() {
                   color: "#F1F5F9",
                   fontSize: 15, lineHeight: 1.75,
                   padding: "28px 28px 20px",
-                  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                  fontFamily: "var(--font-sans, system-ui, sans-serif)",
                   opacity: tool.available ? 1 : 0.35,
                   caretColor: ACCENT,
                   minHeight: 380,
@@ -1701,7 +1701,7 @@ export default function AudioStudioPage() {
         background: BASE,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexDirection: "column", gap: 14,
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "var(--font-sans, system-ui, sans-serif)",
       }}>
         <div style={{
           position: "absolute", width: 240, height: 240, borderRadius: "50%",

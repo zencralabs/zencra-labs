@@ -320,7 +320,7 @@ export default function CharacterStudioShell() {
         T.body,
       ].join(", "),
       color: T.textPrimary,
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: "var(--font-sans, system-ui, sans-serif)",
     }}>
 
       {/* ── TopBar — fixed height ─────────────────────────────────── */}

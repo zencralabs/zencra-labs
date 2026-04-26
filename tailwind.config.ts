@@ -61,10 +61,39 @@ const config: Config = {
 
       // ─── Typography ──────────────────────────────────────────────────────
       fontFamily: {
-        sans:    ["var(--font-body)", "Familjen Grotesk", "system-ui", "sans-serif"],
-        body:    ["var(--font-body)", "Familjen Grotesk", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "Syne", "system-ui", "sans-serif"],
+        // Display / Headings — Clash Display (Space Grotesk stand-in)
+        display: ["var(--font-display)", "Space Grotesk", "system-ui", "sans-serif"],
+        // Body / UI / Forms — Neue Montreal (Familjen Grotesk stand-in)
+        sans:    ["var(--font-sans)", "Familjen Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
+        ui:      ["var(--font-sans)", "Familjen Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
+        // Legacy alias — kept for backwards compat; resolves same as font-sans
+        body:    ["var(--font-sans)", "Familjen Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
         mono:    ["JetBrains Mono", "monospace"],
+      },
+
+      // ─── Zencra Type Scale ───────────────────────────────────────────────
+      fontSize: {
+        // Display — hero headings, brand moments
+        "display-2xl": ["6rem",   { lineHeight: "0.92", letterSpacing: "-0.06em"  }], // 96px
+        "display-xl":  ["5rem",   { lineHeight: "0.95", letterSpacing: "-0.055em" }], // 80px
+        "display-lg":  ["4rem",   { lineHeight: "1",    letterSpacing: "-0.045em" }], // 64px
+        "display-md":  ["3.25rem",{ lineHeight: "1.04", letterSpacing: "-0.04em"  }], // 52px
+        "display-sm":  ["2.75rem",{ lineHeight: "1.08", letterSpacing: "-0.035em" }], // 44px
+        // Headings — section titles, studio titles
+        "heading-xl":  ["2.5rem", { lineHeight: "1.1",  letterSpacing: "-0.035em" }], // 40px
+        "heading-lg":  ["2rem",   { lineHeight: "1.15", letterSpacing: "-0.03em"  }], // 32px
+        "heading-md":  ["1.625rem",{ lineHeight: "1.22",letterSpacing: "-0.02em"  }], // 26px
+        "heading-sm":  ["1.375rem",{ lineHeight: "1.25",letterSpacing: "-0.015em" }], // 22px
+        // Body — readable paragraph text
+        "body-xl":     ["1.25rem",  { lineHeight: "1.65", letterSpacing: "-0.01em"  }], // 20px
+        "body-lg":     ["1.125rem", { lineHeight: "1.65", letterSpacing: "-0.01em"  }], // 18px
+        "body-md":     ["1rem",     { lineHeight: "1.65", letterSpacing: "-0.005em" }], // 16px
+        "body-sm":     ["0.9375rem",{ lineHeight: "1.55", letterSpacing: "0"        }], // 15px
+        // UI — controls, labels, nav, buttons
+        "ui-lg":       ["1rem",     { lineHeight: "1.35", letterSpacing: "-0.005em" }], // 16px
+        "ui-md":       ["0.9375rem",{ lineHeight: "1.35", letterSpacing: "0"        }], // 15px
+        "ui-sm":       ["0.875rem", { lineHeight: "1.35", letterSpacing: "0.005em"  }], // 14px
+        "caption":     ["0.8125rem",{ lineHeight: "1.4",  letterSpacing: "0.01em"   }], // 13px
       },
 
       // ─── Spacing & Sizing ────────────────────────────────────────────────

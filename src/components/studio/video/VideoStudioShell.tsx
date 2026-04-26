@@ -888,7 +888,7 @@ export default function VideoStudioShell() {
         "#020617",
       ].join(", "),
       color: "#CBD5F5",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: "var(--font-sans, system-ui, sans-serif)",
       paddingTop: 80,
       boxSizing: "border-box",
     }}>
