@@ -1049,8 +1049,19 @@ function CanvasDock({
       background: "linear-gradient(to top, rgba(7,9,15,0.98) 0%, rgba(7,9,15,0.82) 70%, transparent 100%)",
       zIndex: 10,
     }}>
-      {/* Keyframes for the spinner — injected once per dock render */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {/* Keyframes — spin + glow pulse + shimmer sweep */}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes canvasDockGlow {
+          0%   { box-shadow: 0 0 18px ${accent}44, 0 2px 12px rgba(0,0,0,0.42); }
+          50%  { box-shadow: 0 0 46px ${accent}99, 0 0 74px ${accent}33, 0 2px 20px rgba(0,0,0,0.55); }
+          100% { box-shadow: 0 0 18px ${accent}44, 0 2px 12px rgba(0,0,0,0.42); }
+        }
+        @keyframes canvasDockShimmer {
+          0%   { left: -80%; }
+          100% { left: 130%; }
+        }
+      `}</style>
       {/* Error message above the dock pill */}
       {createError && (
         <div style={{
@@ -1099,27 +1110,72 @@ function CanvasDock({
           onClick={onCreateClick}
           disabled={locked}
           style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "10px 20px", borderRadius: 11,
-            background: locked
-              ? `${accent}22`
-              : `linear-gradient(135deg, ${accent}99, ${accent})`,
+            // Layout
+            position: "relative",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            // Expand on creating — smooth padding growth
+            padding: isCreating ? "10px 26px" : "10px 20px",
+            borderRadius: 11,
             border: "none",
-            color: locked ? `${accent}66` : "#060810",
-            fontSize: 13, fontWeight: 800,
-            cursor: locked ? "not-allowed" : "pointer",
-            letterSpacing: "0.02em",
-            boxShadow: locked ? "none" : `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)`,
-            transition: "all 0.2s",
             whiteSpace: "nowrap",
+            // Color: full gradient when creating OR idle; dim ghost when generating-only
+            background: isCreating
+              ? `linear-gradient(135deg, ${accent}cc, ${accent})`
+              : isGenerating
+                ? `${accent}22`
+                : `linear-gradient(135deg, ${accent}99, ${accent})`,
+            color: isCreating
+              ? "#060810"
+              : isGenerating
+                ? `${accent}44`
+                : "#060810",
+            // Scale up on creating
+            transform: isCreating ? "scale(1.04)" : "scale(1)",
+            // Opacity: near-full while creating (just slightly reduced), dim while generating-only
+            opacity: isCreating ? 0.9 : isGenerating ? 0.45 : 1,
+            // Box-shadow: glow animation owns it when creating; static glow when idle; none when locked
+            boxShadow: isCreating
+              ? undefined  // keyframe canvasDockGlow takes over
+              : (!locked ? `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)` : "none"),
+            // Animate glow pulse only when creating
+            animation: isCreating ? "canvasDockGlow 1.2s ease-in-out infinite" : undefined,
+            // Type
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: "0.02em",
+            cursor: locked ? "not-allowed" : "pointer",
+            // Smooth all non-keyframe transitions
+            transition: [
+              "transform 0.22s ease-out",
+              "padding 0.22s ease-out",
+              "opacity 0.2s ease-out",
+              "background 0.2s ease-out",
+            ].join(", "),
           }}
         >
-          {isCreating ? (
-            /* Spinner while API call is in flight */
+          {/* Shimmer sweep — light pass across button while creating */}
+          {isCreating && (
             <span style={{
-              display: "inline-block", width: 14, height: 14,
-              border: `2px solid ${accent}44`,
-              borderTopColor: accent,
+              position: "absolute",
+              top: 0, bottom: 0,
+              width: "50%",
+              background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.20) 50%, transparent 100%)",
+              animation: "canvasDockShimmer 1.9s ease-in-out infinite",
+              pointerEvents: "none",
+            }} />
+          )}
+
+          {/* Icon: spinner when creating, person+ icon when idle */}
+          {isCreating ? (
+            <span style={{
+              display: "inline-block",
+              width: 14, height: 14,
+              flexShrink: 0,
+              border: "2px solid rgba(6,8,16,0.25)",
+              borderTopColor: "#060810",
               borderRadius: "50%",
               animation: "spin 0.75s linear infinite",
             }} />
@@ -1132,7 +1188,17 @@ function CanvasDock({
               <line x1="20" y1="6" x2="20" y2="10" />
             </svg>
           )}
-          {isCreating ? "Creating…" : isGenerating ? "Generating…" : phase === "selected" ? "New Influencer" : "Create Influencer"}
+
+          {/* Label */}
+          <span style={{ position: "relative" }}>
+            {isCreating
+              ? "Creating Influencer…"
+              : isGenerating
+                ? "Generating…"
+                : phase === "selected"
+                  ? "New Influencer"
+                  : "Create Influencer"}
+          </span>
         </button>
 
         {/* Divider */}
