@@ -99,10 +99,11 @@ export async function POST(req: Request): Promise<Response> {
   const referenceVideoUrl = typeof body!.referenceVideoUrl === "string" ? body!.referenceVideoUrl : undefined;
   const useIdentityStartFrame = body!.useIdentityStartFrame === true;
   // motionControl — prompt-layer cinematic movement instruction.
-  // preset: one of the MOTION_PRESET_PROMPTS keys (or "none" / absent = no injection).
+  // preset:    one of the MOTION_PRESET_PROMPTS keys (or "none" / absent = no injection).
+  // intensity: "low" | "medium" | "high" — defaults to "medium". Appended as a hint.
   // customNote: optional free-text rider appended after the preset instruction.
   const motionControl = (typeof body!.motionControl === "object" && body!.motionControl !== null)
-    ? body!.motionControl as { preset?: string; customNote?: string }
+    ? body!.motionControl as { preset?: string; intensity?: string; customNote?: string }
     : undefined;
   const aspectRatio       = typeof body!.aspectRatio       === "string" ? body!.aspectRatio       : undefined;
   const negativePrompt = typeof body!.negativePrompt === "string" ? body!.negativePrompt : undefined;
@@ -220,16 +221,20 @@ export async function POST(req: Request): Promise<Response> {
   // 4. End-frame identity constraint — "End frame must show the same person…" (when endImageUrl + @handle)
   // 5. Identity start-frame fallback resolved (imageUrl set to canonical_asset_url above)
   // 6. Motion instruction — cinematic direction from motionControl.preset ← HERE
+  // 6a. Motion intensity — "Use a {low|medium|high} intensity for camera movement." ← HERE
   // 7. Motion frame relationship — start/end frame anchors ← HERE
   // 8. Identity-safe motion rule — character consistency during motion ← HERE
+  // 8a. Identity-motion conflict guard — extra constraint for aggressive presets when @handle present ← HERE
   //
-  // FUTURE: Story Mode (multi-shot) — when implemented, insert AFTER step 8:
+  // FUTURE: Story Mode (multi-shot) — when implemented, insert AFTER step 8a:
   // "This is scene [N] of [total]. The character @handle must match exactly across
   //  all scenes: same costume, lighting context, and emotional arc continuity."
 
   const MOTION_PRESET_PROMPTS: Record<string, string> = {
     cinematic_push: "Camera slowly pushes in toward the subject with a smooth cinematic dolly movement.",
-    orbit:          "Camera performs a slow, smooth orbital arc around the subject.",
+    pull_back:      "Slow cinematic pull-back, gradually revealing more of the scene while keeping the subject stable.",
+    orbit_left:     "Subtle orbiting camera move to the left around the subject, maintaining consistent identity and composition.",
+    orbit_right:    "Subtle orbiting camera move to the right around the subject, maintaining consistent identity and composition.",
     walk_forward:   "Subject walks naturally forward toward the camera with fluid, grounded motion.",
     handheld:       "Subtle handheld camera movement with organic, naturally stabilized shake.",
     slow_drift:     "Gentle, slow camera drift across the scene.",
@@ -241,6 +246,10 @@ export async function POST(req: Request): Promise<Response> {
     if (motionLine) {
       // Step 6 — motion direction
       resolvedPrompt += ` ${motionLine}`;
+
+      // Step 6a — motion intensity
+      const intensity = motionControl.intensity ?? "medium";
+      resolvedPrompt += ` Use a ${intensity} intensity for camera movement.`;
 
       // Step 7 — frame relationship: anchor motion to start/end frames when present
       if (imageUrl) {
@@ -256,6 +265,14 @@ export async function POST(req: Request): Promise<Response> {
           " The same character must remain visually consistent during all motion." +
           " Do not change face, hairstyle, age, skin tone, body type, or identity." +
           " Do not introduce new faces or blend identities.";
+
+        // Step 8a — identity-motion conflict guard for aggressive presets
+        const AGGRESSIVE_MOTION_PRESETS = new Set(["orbit_left", "orbit_right", "walk_forward", "handheld"]);
+        if (AGGRESSIVE_MOTION_PRESETS.has(motionControl.preset)) {
+          resolvedPrompt +=
+            " Maintain strict facial consistency during motion." +
+            " Avoid distortion, duplication, or morphing of the subject.";
+        }
       }
 
       // Optional free-text rider (e.g. from future Director Panel)

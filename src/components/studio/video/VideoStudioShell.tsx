@@ -15,8 +15,8 @@ import { ChevronDown } from "lucide-react";
 import {
   VIDEO_MODEL_REGISTRY,
   type VideoModel,
-  type CameraPreset,
 } from "@/lib/ai/video-model-registry";
+import { getMotionPresetsForModel } from "./VideoLeftRail";
 import type { FrameMode, VideoAR, Quality, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import { EMPTY_SLOT, EMPTY_AUDIO } from "./types";
 import { supabase }            from "@/lib/supabase";
@@ -531,7 +531,6 @@ export default function VideoStudioShell() {
   const [aspectRatio,    setAspectRatio]    = useState<VideoAR>("16:9");
   const [quality,        setQuality]        = useState<Quality>("std");
   const [duration,       setDuration]       = useState<number>(5);
-  const [cameraPreset,   setCameraPreset]   = useState<CameraPreset | null>(null);
   // Motion preset — prompt-layer cinematic movement instruction.
   // "none" = no motion instruction injected. Any other value appends a direction to the prompt.
   // This is independent of frameMode — works across all modes (text_to_video, start_frame, etc.).
@@ -758,6 +757,14 @@ export default function VideoStudioShell() {
     if (caps.resolutions && caps.resolutions.length > 0 && !caps.resolutions.includes(resolution)) {
       setResolution(caps.resolutions[0]);
     }
+    // Reset motionPreset if the new model doesn't support the current preset.
+    // getMotionPresetsForModel returns [] for unavailable models, full list for Kling 3.0/Omni,
+    // and the limited set for Kling 2.6/2.5 and all Seedance models.
+    const supportedPresets = getMotionPresetsForModel(model);
+    if (motionPreset !== "none" && !supportedPresets.includes(motionPreset)) {
+      setMotionPreset("none");
+      showToast("Motion preset reset — not supported for this model", "info");
+    }
   }, [selectedModelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Generate — routes to Lip Sync or Kling
@@ -833,16 +840,17 @@ export default function VideoStudioShell() {
         aspectRatio,
         providerParams: {
           videoMode: quality,
-          ...(resolution   ? { resolution }   : {}),
-          ...(cameraPreset ? { cameraPreset } : {}),
+          ...(resolution ? { resolution } : {}),
         },
       };
 
-      // Motion preset — prompt-layer cinematic direction.
-      // Injected when a preset is selected; the backend appends the instruction to the prompt.
-      // Works across all frameModes. Identity-safe rule applied server-side when @handle present.
+      // Motion Control — prompt-layer cinematic direction.
+      // preset: unified key (e.g. "cinematic_push", "orbit_left") — no translation layer.
+      // intensity: defaults to "medium"; future UI will expose low/medium/high.
+      // Backend appends cinematography direction + intensity hint to resolvedPrompt.
+      // Identity-safe and aggressive-motion guard rules applied server-side when @handle present.
       if (motionPreset !== "none") {
-        body.motionControl = { preset: motionPreset };
+        body.motionControl = { preset: motionPreset, intensity: "medium" };
       }
 
       // start_frame = Image Reference. imageUrl = start frame; endImageUrl = end frame.
@@ -956,7 +964,7 @@ export default function VideoStudioShell() {
     }
   }, [
     user, frameMode, model, generating, prompt, negPrompt, duration, aspectRatio,
-    quality, resolution, cameraPreset, motionPreset, startSlot, endSlot, motionVideoUrl,
+    quality, resolution, motionPreset, startSlot, endSlot, motionVideoUrl,
     motionStrength, motionArea, lipSyncCreate, recordFlowStep, showToast,
     useStartFrame, detectedHandles,
   ]);
@@ -1042,7 +1050,6 @@ export default function VideoStudioShell() {
             quality={quality}
             duration={duration}
             resolution={resolution}
-            cameraPreset={cameraPreset}
             motionPreset={motionPreset}
             motionStrength={motionStrength}
             motionArea={motionArea}
@@ -1051,7 +1058,6 @@ export default function VideoStudioShell() {
             onQuality={setQuality}
             onDuration={setDuration}
             onResolution={setResolution}
-            onCameraPreset={setCameraPreset}
             onMotionPreset={setMotionPreset}
             onMotionStrength={setMotionStrength}
             onMotionArea={setMotionArea}

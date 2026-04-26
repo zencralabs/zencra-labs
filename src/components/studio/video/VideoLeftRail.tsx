@@ -1,12 +1,13 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoLeftRail — Controls: Mode, Duration, AR, Quality, Resolution, Camera, Motion
+// VideoLeftRail — Controls: Mode, Duration, AR, Quality, Resolution, Motion Control
 // Width 260px. No tool switcher. No credits (lives in right panel only).
+// Camera Motion (native API dropdown) and Motion Style (prompt chips) are
+// merged into a single "Motion Control" section — prompt-layer only.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useRef, useEffect } from "react";
-import { CAMERA_PRESET_LABELS, type VideoModel, type CameraPreset } from "@/lib/ai/video-model-registry";
+import { type VideoModel } from "@/lib/ai/video-model-registry";
 import type { FrameMode, VideoAR, Quality } from "./types";
 
 // ── Mode icons (inline SVG) ───────────────────────────────────────────────────
@@ -63,41 +64,6 @@ const MODE_SUBLABELS: Partial<Record<FrameMode, string>> = {
   extend:         "Continue a clip",
   lip_sync:       "Face + audio",
   motion_control: "Kling 3.0",
-};
-
-// ── Camera preset icons ───────────────────────────────────────────────────────
-
-const CAMERA_ICONS: Record<CameraPreset | "none", React.ReactNode> = {
-  none: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  ),
-  simple: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9" strokeDasharray="3 2"/>
-    </svg>
-  ),
-  down_back: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14"/><path d="M5 12l7 7 7-7"/>
-    </svg>
-  ),
-  forward_up: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
-    </svg>
-  ),
-  right_turn_forward: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
-    </svg>
-  ),
-  left_turn_forward: (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/>
-    </svg>
-  ),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,147 +125,60 @@ function PillRow<T extends string | number>({
 
 const Divider = () => <div style={{ height: 1, background: "rgba(255,255,255,0.09)", margin: "4px 0" }} />;
 
-// ── Camera Dropdown ───────────────────────────────────────────────────────────
+// ── Motion Control Preset System ──────────────────────────────────────────────
+// Unified cinematic movement system — prompt-layer only.
+// Replaces Camera Motion (native API dropdown) + Motion Style (old chip grid).
+// Capability gating via existing registry flags (cameraControl + motionControl).
+// Disabled presets rendered at opacity 0.35 with not-allowed cursor.
 
-function CameraDropdown({ presets, value, onChange }: {
-  presets: CameraPreset[];
-  value: CameraPreset | null;
-  onChange: (v: CameraPreset | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const selectedLabel = value ? CAMERA_PRESET_LABELS[value] : "None";
-  const selectedIcon  = CAMERA_ICONS[value ?? "none"];
-  const options: Array<CameraPreset | null> = [null, ...presets];
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      {/* Trigger */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "8px 10px", borderRadius: 8,
-          border: open ? "1px solid rgba(14,165,160,0.6)" : "1px solid rgba(255,255,255,0.12)",
-          background: open ? "rgba(14,165,160,0.1)" : "rgba(255,255,255,0.04)",
-          cursor: "pointer", transition: "all 0.15s",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 7, color: value ? "#94A3B8" : "#64748B" }}>
-          <span style={{ lineHeight: 0, color: value ? "#0EA5A0" : "#64748B" }}>{selectedIcon}</span>
-          <span style={{ fontSize: 13, fontWeight: value ? 600 : 400, color: value ? "#CBD5F5" : "#64748B" }}>
-            {selectedLabel}
-          </span>
-        </div>
-        <svg
-          width="11" height="11" viewBox="0 0 24 24" fill="none"
-          stroke="#475569" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}
-        >
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
-
-      {/* Dropdown panel */}
-      {open && (
-        <div
-          style={{
-            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 100,
-            background: "#0C1220",
-            border: "1px solid rgba(34,211,238,0.2)",
-            borderRadius: 10,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 16px rgba(14,165,160,0.08)",
-            overflow: "hidden",
-            animation: "dropdownIn 0.12s ease-out",
-          }}
-        >
-          {options.map(p => {
-            const label  = p ? CAMERA_PRESET_LABELS[p] : "None";
-            const icon   = CAMERA_ICONS[p ?? "none"];
-            const active = value === p;
-            return (
-              <button
-                key={p ?? "none"}
-                onClick={() => { onChange(p); setOpen(false); }}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 8,
-                  padding: "9px 12px",
-                  background: active ? "rgba(14,165,160,0.12)" : "transparent",
-                  border: "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.04)",
-                  cursor: "pointer", transition: "background 0.12s",
-                  color: active ? "#F8FAFC" : "#94A3B8",
-                  fontSize: 13, fontWeight: active ? 600 : 400,
-                  textAlign: "left",
-                }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <span style={{ lineHeight: 0, color: active ? "#22D3EE" : "#475569", flexShrink: 0 }}>{icon}</span>
-                {label}
-                {active && (
-                  <span style={{ marginLeft: "auto" }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <style>{`
-        @keyframes dropdownIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// ── Motion Preset Selector ────────────────────────────────────────────────────
-// Minimal cinematic movement picker — prompt-layer injection, not a frameMode.
-// Works across all frame modes. Selecting any preset sends motionControl: { preset }
-// to the backend, which appends the corresponding cinematography direction to the prompt.
-
-// Short labels for chips; full label in title tooltip.
 const MOTION_PRESETS: Array<{ value: string; label: string; fullLabel: string }> = [
-  { value: "none",          label: "None",     fullLabel: "No motion preset" },
-  { value: "cinematic_push",label: "Push",     fullLabel: "Cinematic Push — slow dolly in" },
-  { value: "orbit",         label: "Orbit",    fullLabel: "Orbit — camera arcs around subject" },
-  { value: "walk_forward",  label: "Walk",     fullLabel: "Walk Forward — subject moves toward camera" },
-  { value: "handheld",      label: "Handheld", fullLabel: "Handheld — organic stabilized shake" },
-  { value: "slow_drift",    label: "Drift",    fullLabel: "Slow Drift — gentle lateral camera drift" },
-  { value: "reveal",        label: "Reveal",   fullLabel: "Reveal — pull back to reveal full scene" },
+  { value: "none",          label: "None",      fullLabel: "No motion preset" },
+  { value: "cinematic_push",label: "Push In",   fullLabel: "Push In — slow cinematic dolly toward the subject" },
+  { value: "pull_back",     label: "Pull Back", fullLabel: "Pull Back — slow cinematic reveal of the scene" },
+  { value: "orbit_left",    label: "Orbit L",   fullLabel: "Orbit Left — camera arcs left around the subject" },
+  { value: "orbit_right",   label: "Orbit R",   fullLabel: "Orbit Right — camera arcs right around the subject" },
+  { value: "walk_forward",  label: "Walk",      fullLabel: "Walk Forward — subject moves naturally toward camera" },
+  { value: "handheld",      label: "Handheld",  fullLabel: "Handheld — organic stabilized camera shake" },
+  { value: "slow_drift",    label: "Drift",     fullLabel: "Slow Drift — gentle lateral camera drift" },
+  { value: "reveal",        label: "Reveal",    fullLabel: "Reveal — pulls back to unveil the full scene" },
 ];
 
-// 2-column chip grid — compact, premium glass style
-function MotionPresetSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+// ── Full set: cameraControl + motionControl both true (Kling 3.0 Omni, Kling 3.0)
+// ── Limited:  all other available models (Kling 2.6, Kling 2.5, Seedance family)
+// ── None:     model is null or not available
+export function getMotionPresetsForModel(model: VideoModel | null): string[] {
+  if (!model?.available) return [];
+  const caps = model.capabilities;
+  if (caps.cameraControl && caps.motionControl) {
+    // Full cinematic set — orbit, walk, handheld, reveal all enabled
+    return MOTION_PRESETS.map(p => p.value);
+  }
+  // Basic prompt-level motion only — camera push/pull/drift safe for all providers
+  return ["none", "cinematic_push", "pull_back", "slow_drift"];
+}
+
+// 2-column chip grid — compact premium glass style with per-model capability gating
+function MotionPresetSelector({
+  value,
+  onChange,
+  model,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  model: VideoModel | null;
+}) {
+  const enabledPresets = getMotionPresetsForModel(model);
+
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 5,
-    }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
       {MOTION_PRESETS.map(p => {
-        const active = value === p.value;
+        const active   = value === p.value;
+        const disabled = !enabledPresets.includes(p.value);
         return (
           <button
             key={p.value}
-            onClick={() => onChange(p.value)}
-            title={p.fullLabel}
+            onClick={() => { if (!disabled) onChange(p.value); }}
+            title={disabled ? "Not available for this model" : p.fullLabel}
             style={{
               height: 34,
               borderRadius: 10,
@@ -312,21 +191,22 @@ function MotionPresetSelector({ value, onChange }: { value: string; onChange: (v
               color: active ? "#F8FAFC" : "#94A3B8",
               fontSize: 12,
               fontWeight: active ? 700 : 400,
-              cursor: "pointer",
+              cursor: disabled ? "not-allowed" : "pointer",
+              opacity: disabled ? 0.35 : 1,
               transition: "all 0.15s ease",
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: active ? "0 0 10px rgba(14,165,160,0.28)" : "none",
               letterSpacing: active ? "0.01em" : "0",
             }}
             onMouseEnter={e => {
-              if (!active) {
+              if (!active && !disabled) {
                 (e.currentTarget as HTMLElement).style.color = "#CBD5F5";
                 (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
                 (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
               }
             }}
             onMouseLeave={e => {
-              if (!active) {
+              if (!active && !disabled) {
                 (e.currentTarget as HTMLElement).style.color = "#94A3B8";
                 (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
                 (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
@@ -420,32 +300,31 @@ function MotionAreaSelect({ value, onChange }: { value: string; onChange: (v: st
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  frameMode:    FrameMode;
-  aspectRatio:  VideoAR;
-  quality:      Quality;
-  duration:     number;
-  resolution:   string;
-  cameraPreset: CameraPreset | null;
-  // motionPreset — prompt-layer cinematic movement instruction ("none" = off)
+  frameMode:      FrameMode;
+  aspectRatio:    VideoAR;
+  quality:        Quality;
+  duration:       number;
+  resolution:     string;
+  // motionPreset — unified cinematic movement preset ("none" = off).
+  // Sent as motionControl: { preset, intensity } to backend for prompt-layer injection.
   motionPreset:   string;
   motionStrength: number;
-  motionArea:   string;
-  onFrameMode:  (m: FrameMode) => void;
-  onAspectRatio:(ar: VideoAR) => void;
-  onQuality:    (q: Quality) => void;
-  onDuration:   (d: number) => void;
-  onResolution: (r: string) => void;
-  onCameraPreset:(p: CameraPreset | null) => void;
-  onMotionPreset:(v: string) => void;
+  motionArea:     string;
+  onFrameMode:    (m: FrameMode) => void;
+  onAspectRatio:  (ar: VideoAR) => void;
+  onQuality:      (q: Quality) => void;
+  onDuration:     (d: number) => void;
+  onResolution:   (r: string) => void;
+  onMotionPreset: (v: string) => void;
   onMotionStrength: (v: number) => void;
-  onMotionArea: (v: string) => void;
-  model:        VideoModel | null;
+  onMotionArea:   (v: string) => void;
+  model:          VideoModel | null;
 }
 
 export default function VideoLeftRail({
-  frameMode, aspectRatio, quality, duration, resolution, cameraPreset,
+  frameMode, aspectRatio, quality, duration, resolution,
   motionPreset, motionStrength, motionArea,
-  onFrameMode, onAspectRatio, onQuality, onDuration, onResolution, onCameraPreset,
+  onFrameMode, onAspectRatio, onQuality, onDuration, onResolution,
   onMotionPreset, onMotionStrength, onMotionArea,
   model,
 }: Props) {
@@ -453,7 +332,6 @@ export default function VideoLeftRail({
   const availableARs   = (caps?.aspectRatios as VideoAR[]) ?? ["16:9"];
   const availableDurs  = caps?.durations ?? [5];
   const hasPro         = caps?.proMode ?? false;
-  const hasCamera      = (caps?.cameraControl && (caps?.cameraPresets?.length ?? 0) > 1) ?? false;
   const isMotionMode   = frameMode === "motion_control";
 
   // Resolution — show pill row only if model declares supported resolutions
@@ -635,37 +513,27 @@ export default function VideoLeftRail({
         </div>
       )}
 
-      {/* ── Camera Motion ────────────────────────────────────────────────── */}
-      {hasCamera && caps?.cameraPresets && (
-        <>
-          <Divider />
-          <div>
-            <SLabel>Camera Motion</SLabel>
-            <CameraDropdown
-              presets={caps.cameraPresets.filter(p => p !== "simple") as CameraPreset[]}
-              value={cameraPreset}
-              onChange={onCameraPreset}
-            />
-          </div>
-        </>
-      )}
-
-      {/* ── Motion Style ─────────────────────────────────────────────────────
-          Prompt-layer cinematic movement injection — available in all frameModes
-          except the reference video motion_control mode (which has its own controls).
-          Selecting a preset appends a cinematography direction to the prompt server-side.
-          Identity-safe rule added automatically when @handle is present in the prompt.  */}
+      {/* ── Motion Control ───────────────────────────────────────────────────
+          Unified cinematic movement system.
+          Replaces "Camera Motion" (native API dropdown) + "Motion Style" (old prompt chips).
+          Prompt-layer only — no provider routing changes. Sends motionControl: { preset, intensity }
+          to backend which injects the corresponding cinematography direction into the prompt.
+          Capability gating: full 9-preset set for Kling 3.0 / Omni (cameraControl + motionControl).
+          Limited 4-preset set for Kling 2.6 / 2.5 / Seedance (basic push/pull/drift only).
+          Disabled chips show at opacity 0.35 with not-allowed cursor + tooltip.
+          Changing model resets unsupported preset to "none" (handled in VideoStudioShell).
+          Hidden in motion_control frameMode (reference video) and lip_sync mode.           */}
       {model?.available && !isMotionMode && frameMode !== "lip_sync" && (
         <>
           <Divider />
           <div>
-            <SLabel>Motion Style</SLabel>
-            <MotionPresetSelector value={motionPreset} onChange={onMotionPreset} />
+            <SLabel>Motion Control</SLabel>
+            <MotionPresetSelector value={motionPreset} onChange={onMotionPreset} model={model} />
           </div>
         </>
       )}
 
-      {/* ── Motion Controls (visible only in motion_control mode) ─────────── */}
+      {/* ── Motion Controls (visible only in motion_control reference video mode) */}
       {isMotionMode && (
         <>
           <Divider />
