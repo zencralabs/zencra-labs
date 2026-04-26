@@ -147,35 +147,60 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── AI Influencer @handle resolution ─────────────────────────────────────────
-  // Detects @Handle tokens in the prompt, resolves them to the user's active
-  // influencers, injects an identity anchor phrase, and optionally attaches
-  // the canonical hero asset as a reference image when the provider supports it
-  // and the user has not already provided their own reference.
+  // If the prompt contains any @Handle tokens, ALL of them must resolve to an
+  // active influencer with a complete identity lock.  If any handle is missing
+  // or lacks an identity lock the request is rejected — we never fall back to a
+  // random generation when the user explicitly requested an identity.
+  const rawHandles = [
+    ...new Set(
+      [...prompt!.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1].toLowerCase())
+    ),
+  ];
+
   let resolvedPrompt       = prompt!;
   let dispatchImageUrl     = imageUrl;
   let dispatchProviderParams = providerParams;
 
-  try {
-    const resolved = await resolveInfluencerHandles({ userId, prompt: prompt! });
+  if (rawHandles.length > 0) {
+    let resolved: Awaited<ReturnType<typeof resolveInfluencerHandles>>;
+    try {
+      resolved = await resolveInfluencerHandles({ userId, prompt: prompt! });
+    } catch (err) {
+      console.error("[/api/studio/image/generate] handle resolution threw:", err);
+      return serverErr();
+    }
 
+    // Determine which handles were not resolved
+    const resolvedSet      = new Set(resolved.influencerContexts.map(c => c.handle));
+    const unresolvedHandles = rawHandles.filter(h => !resolvedSet.has(h));
+
+    if (unresolvedHandles.length > 0) {
+      const list   = unresolvedHandles.map(h => `@${h}`).join(", ");
+      const plural = unresolvedHandles.length > 1;
+      return invalidInput(
+        `The influencer handle${plural ? "s" : ""} ${list} ${plural ? "were" : "was"} not found or ${plural ? "do" : "does"} not have an identity lock set up yet. ` +
+        `Make sure the AI Influencer is active and has completed identity training before using it in a prompt.`
+      );
+    }
+
+    // All handles resolved — inject identity anchor and optionally attach canonical asset
     if (resolved.hasInfluencers && resolved.primaryContext) {
       const ctx = resolved.primaryContext;
       resolvedPrompt = injectIdentityIntoPrompt(resolved.cleanedPrompt, ctx);
 
       // Attach canonical asset only when:
       //   1. The model supports at least one reference image
-      //   2. The user has NOT already provided any reference image (they take priority)
-      const caps           = getModelCapabilities(modelKey!);
-      const userHasImgRef  = typeof imageUrl === "string" && imageUrl.length > 0;
-      const userHasNbRefs  = Array.isArray(providerParams?.referenceUrls) &&
-                             (providerParams!.referenceUrls as unknown[]).length > 0;
+      //   2. The user has NOT already provided any reference image (user ref takes priority)
+      const caps          = getModelCapabilities(modelKey!);
+      const userHasImgRef = typeof imageUrl === "string" && imageUrl.length > 0;
+      const userHasNbRefs = Array.isArray(providerParams?.referenceUrls) &&
+                            (providerParams!.referenceUrls as unknown[]).length > 0;
 
       if (caps.maxReferenceImages > 0 && !userHasImgRef && !userHasNbRefs && ctx.canonical_asset_url) {
         if (modelKey === "gpt-image-1") {
-          // GPT Image uses imageUrl as the single reference
           dispatchImageUrl = ctx.canonical_asset_url;
         } else {
-          // Nano Banana family uses providerParams.referenceUrls
+          // Nano Banana family — prepend canonical to referenceUrls
           dispatchProviderParams = {
             ...(providerParams ?? {}),
             referenceUrls: [ctx.canonical_asset_url],
@@ -183,9 +208,6 @@ export async function POST(req: Request): Promise<Response> {
         }
       }
     }
-  } catch (err) {
-    // Handle resolution is non-blocking — log and proceed with the original prompt
-    console.warn("[/api/studio/image/generate] handle resolution failed:", err);
   }
 
   // ── Dispatch ─────────────────────────────────────────────────────────────────
