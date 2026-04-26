@@ -274,108 +274,66 @@ function CameraDropdown({ presets, value, onChange }: {
 // Works across all frame modes. Selecting any preset sends motionControl: { preset }
 // to the backend, which appends the corresponding cinematography direction to the prompt.
 
-const MOTION_PRESETS: Array<{ value: string; label: string; icon: React.ReactNode }> = [
-  {
-    value: "none",
-    label: "None",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    ),
-  },
-  {
-    value: "cinematic_push",
-    label: "Cinematic Push",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
-      </svg>
-    ),
-  },
-  {
-    value: "orbit",
-    label: "Orbit",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 1 12 2" strokeDasharray="5 3"/>
-      </svg>
-    ),
-  },
-  {
-    value: "walk_forward",
-    label: "Walk Forward",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
-      </svg>
-    ),
-  },
-  {
-    value: "handheld",
-    label: "Handheld",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6.5 6.5c0 0 1-1 2.5 0s2 2.5 2 2.5"/><path d="M9 9c.5.5.5 2 .5 2"/><rect x="12" y="8" width="8" height="12" rx="2"/>
-      </svg>
-    ),
-  },
-  {
-    value: "slow_drift",
-    label: "Slow Drift",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 12s3-4 10-4 10 4 10 4-3 4-10 4-10-4-10-4z"/><circle cx="12" cy="12" r="2"/>
-      </svg>
-    ),
-  },
-  {
-    value: "reveal",
-    label: "Reveal",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 5v14"/><path d="M5 12l7 7 7-7"/>
-      </svg>
-    ),
-  },
+// Short labels for chips; full label in title tooltip.
+const MOTION_PRESETS: Array<{ value: string; label: string; fullLabel: string }> = [
+  { value: "none",          label: "None",     fullLabel: "No motion preset" },
+  { value: "cinematic_push",label: "Push",     fullLabel: "Cinematic Push — slow dolly in" },
+  { value: "orbit",         label: "Orbit",    fullLabel: "Orbit — camera arcs around subject" },
+  { value: "walk_forward",  label: "Walk",     fullLabel: "Walk Forward — subject moves toward camera" },
+  { value: "handheld",      label: "Handheld", fullLabel: "Handheld — organic stabilized shake" },
+  { value: "slow_drift",    label: "Drift",    fullLabel: "Slow Drift — gentle lateral camera drift" },
+  { value: "reveal",        label: "Reveal",   fullLabel: "Reveal — pull back to reveal full scene" },
 ];
 
+// 2-column chip grid — compact, premium glass style
 function MotionPresetSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 5,
+    }}>
       {MOTION_PRESETS.map(p => {
         const active = value === p.value;
         return (
           <button
             key={p.value}
             onClick={() => onChange(p.value)}
+            title={p.fullLabel}
             style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "7px 10px", borderRadius: 7, width: "100%",
-              border: active ? "1px solid rgba(14,165,160,0.5)" : "1px solid transparent",
-              background: active ? "rgba(14,165,160,0.12)" : "transparent",
+              height: 34,
+              borderRadius: 10,
+              border: active
+                ? "1px solid rgba(14,165,160,0.65)"
+                : "1px solid rgba(255,255,255,0.08)",
+              background: active
+                ? "rgba(14,165,160,0.16)"
+                : "rgba(255,255,255,0.03)",
               color: active ? "#F8FAFC" : "#94A3B8",
-              fontSize: 13, fontWeight: active ? 600 : 400,
-              cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+              fontSize: 12,
+              fontWeight: active ? 700 : 400,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: active ? "0 0 10px rgba(14,165,160,0.28)" : "none",
+              letterSpacing: active ? "0.01em" : "0",
             }}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#CBD5F5"; }}
-            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+            onMouseEnter={e => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.color = "#CBD5F5";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+              }
+            }}
+            onMouseLeave={e => {
+              if (!active) {
+                (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
+              }
+            }}
           >
-            <span style={{
-              lineHeight: 0, flexShrink: 0,
-              color: active ? "#22D3EE" : "#475569",
-              transition: "color 0.15s",
-            }}>
-              {p.icon}
-            </span>
             {p.label}
-            {active && (
-              <span style={{ marginLeft: "auto" }}>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </span>
-            )}
           </button>
         );
       })}
@@ -520,10 +478,7 @@ export default function VideoLeftRail({
   return (
     <div
       style={{
-        display: "flex", flexDirection: "column", gap: 14,
-        height: "100%", overflowY: "auto",
-        scrollbarWidth: "thin",
-        scrollbarColor: "rgba(255,255,255,0.06) transparent",
+        display: "flex", flexDirection: "column", gap: 10,
         paddingBottom: 16,
       }}
     >
