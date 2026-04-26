@@ -2647,29 +2647,52 @@ function ImageStudioInner() {
 
           {/* ── @Handle identity lock badges ─────────────────────────────────── */}
           {detectedHandles.length > 0 && (
-            <div style={{
-              display: "flex", flexWrap: "wrap", gap: 6,
-              padding: "0 14px 10px",
-            }}>
-              {detectedHandles.map(handle => (
-                <div key={handle} style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "4px 10px", borderRadius: 20,
-                  background: "rgba(245,158,11,0.08)",
-                  border: "1px solid rgba(245,158,11,0.28)",
-                  fontSize: 11, letterSpacing: "0.01em",
-                }}>
-                  {/* lock icon — same tone as status, belongs to the state not the name */}
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.48)", lineHeight: 1 }}>🔒</span>
-                  {/* handle — primary, full white */}
-                  <span style={{ fontWeight: 700, color: "#fff" }}>@{handle}</span>
-                  {/* status label — clearly secondary */}
-                  <span style={{ fontWeight: 500, color: "rgba(255,255,255,0.48)", fontSize: 10 }}>
-                    · Identity Locked
-                  </span>
-                </div>
-              ))}
-            </div>
+            <>
+              <style>{`
+                @keyframes lockIn {
+                  from { transform: scale(0.96); opacity: 0.55; }
+                  to   { transform: scale(1);    opacity: 1;    }
+                }
+              `}</style>
+              <div style={{
+                display: "flex", flexWrap: "wrap", gap: 6,
+                padding: "0 14px 10px",
+              }}>
+                {detectedHandles.map(handle => (
+                  <div
+                    key={handle}
+                    title={`@${handle} · Identity Locked`}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "4px 10px", borderRadius: 20,
+                      background: "rgba(245,158,11,0.08)",
+                      border: "1px solid rgba(245,158,11,0.28)",
+                      // Inset line: contained, not floating
+                      boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.10)",
+                      fontSize: 11, letterSpacing: "0.01em",
+                    }}
+                  >
+                    {/* lock icon — scale-in once on mount, then static */}
+                    <span style={{
+                      fontSize: 9, color: "rgba(255,255,255,0.48)", lineHeight: 1,
+                      display: "inline-block",
+                      animation: "lockIn 140ms ease-out forwards",
+                    }}>🔒</span>
+                    {/* handle — primary, full white, truncated at ~20 chars */}
+                    <span style={{
+                      fontWeight: 700, color: "#fff",
+                      maxWidth: 160, overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>@{handle}</span>
+                    {/* status label — clearly secondary, never wraps */}
+                    <span style={{
+                      fontWeight: 500, color: "rgba(255,255,255,0.48)",
+                      fontSize: 10, flexShrink: 0,
+                    }}>· Identity Locked</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Controls row */}
