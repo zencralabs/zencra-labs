@@ -461,7 +461,11 @@ function GeneratingState({
   );
 }
 
-// ── STATE 2b: Candidates grid ─────────────────────────────────────────────────
+// ── STATE 2b: Cinematic Candidate Selection ───────────────────────────────────
+//
+// Focus model: thumbnail click → change focus only. Confirm Identity → lock.
+// Identity lock API: POST /api/character/ai-influencers/:id/select
+// Candidates are URL strings — we use the URL as the stable key.
 
 function CandidatesState({
   influencer_id,
@@ -470,25 +474,47 @@ function CandidatesState({
   onSelected,
 }: {
   influencer_id: string;
-  candidates: string[];
-  accent: string;
-  onSelected: (active: ActiveInfluencer) => void;
+  candidates:    string[];
+  accent:        string;
+  onSelected:    (active: ActiveInfluencer) => void;
 }) {
-  const [selecting, setSelecting] = useState<string | null>(null);
+  const [focusedUrl, setFocusedUrl] = useState<string | null>(null);
+  const [locking,    setLocking]    = useState(false);
+  const [lockError,  setLockError]  = useState<string | null>(null);
+  const [mounted,    setMounted]    = useState(false);
 
-  async function handleSelect(url: string) {
-    setSelecting(url);
+  // Auto-focus first candidate; stagger entry animation
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 40);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!focusedUrl && candidates.length > 0) {
+      setFocusedUrl(candidates[0]);
+    }
+  }, [candidates, focusedUrl]);
+
+  // Identity lock — calls existing backend route, no new API surface
+  async function handleConfirm() {
+    if (!focusedUrl || locking) return;
+    setLocking(true);
+    setLockError(null);
     try {
       const res = await fetch(
         `/api/character/ai-influencers/${influencer_id}/select`,
         {
-          method: "POST",
+          method:  "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ candidate_url: url }),
+          body: JSON.stringify({ candidate_url: focusedUrl }),
         },
       );
-      if (!res.ok) { setSelecting(null); return; }
+      if (!res.ok) {
+        setLockError("Couldn't lock this identity. Please try again.");
+        setLocking(false);
+        return;
+      }
       const data = await res.json();
       onSelected({
         influencer:         data.data.influencer,
@@ -496,111 +522,363 @@ function CandidatesState({
         identity_lock_id:   data.data.identity_lock_id,
         canonical_asset_id: data.data.canonical_asset_id,
       });
+      // component unmounts on success — no setLocking(false) needed
     } catch (err) {
       console.error(err);
-      setSelecting(null);
+      setLockError("Couldn't lock this identity. Please try again.");
+      setLocking(false);
     }
   }
 
-  return (
-    <div style={{ padding: "28px 24px" }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 6 }}>
-          Choose your influencer
-        </div>
-        <div style={{ fontSize: 13, color: T.ghost }}>
-          Select the best candidate — this becomes their identity.
-        </div>
-      </div>
+  const focusedIndex = focusedUrl ? candidates.indexOf(focusedUrl) + 1 : 0;
 
+  return (
+    <div style={{
+      position: "relative",
+      height:   "100%",
+      width:    "100%",
+      overflow: "hidden",
+      borderRadius: 32,
+      border:   "1px solid rgba(255,255,255,0.10)",
+      background: "#05070D",
+      // Entry animation — fade + slide
+      opacity:   mounted ? 1 : 0,
+      transform: mounted ? "translateY(0)" : "translateY(18px)",
+      transition: "opacity 0.45s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+    }}>
+
+      {/* ── Keyframes ───────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes candidateFadeIn {
+          from { opacity: 0; transform: scale(1.015); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes railGlow {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1; }
+        }
+        @keyframes scanLine {
+          0%   { top: -2px; opacity: 0; }
+          8%   { opacity: 1; }
+          92%  { opacity: 0.65; }
+          100% { top: 100%; opacity: 0; }
+        }
+        @keyframes candidatePulse {
+          0%, 100% { opacity: 0.35; }
+          50%       { opacity: 0.65; }
+        }
+      `}</style>
+
+      {/* ── Cinematic background layers ─────────────────────────────── */}
+      {/* Radial ambient glow */}
       <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-        gap: 12,
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: [
+          "radial-gradient(circle at 50% 10%, rgba(59,130,246,0.18), transparent 38%)",
+          "radial-gradient(circle at 80% 80%, rgba(168,85,247,0.14), transparent 34%)",
+          "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 24%)",
+        ].join(", "),
+      }} />
+      {/* Subtle grid */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        backgroundImage: [
+          "linear-gradient(to right,  rgba(255,255,255,0.035) 1px, transparent 1px)",
+          "linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)",
+        ].join(", "),
+        backgroundSize: "72px 72px",
+        opacity: 0.18,
+      }} />
+      {/* Bottom vignette */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, height: 160,
+        background: "linear-gradient(to top, rgba(0,0,0,0.72), transparent)",
+        pointerEvents: "none",
+      }} />
+
+      {/* ── Content ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: "relative", zIndex: 10,
+        display: "flex", flexDirection: "column",
+        height: "100%",
+        padding: "28px 32px 24px",
+        boxSizing: "border-box",
       }}>
-        {candidates.map((url, i) => (
-          <CandidateCard
-            key={url}
-            url={url}
-            index={i + 1}
-            selecting={selecting === url}
-            disabled={!!selecting && selecting !== url}
-            accent={accent}
-            onSelect={() => handleSelect(url)}
-          />
-        ))}
 
-        {/* Empty placeholders while waiting */}
-        {candidates.length < 4 && Array.from({ length: 4 - candidates.length }).map((_, i) => (
-          <div key={`placeholder-${i}`} style={{
-            aspectRatio: "2/3", borderRadius: 12,
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            animation: "pulse 1.8s ease-in-out infinite",
+        {/* ── Header ────────────────────────────────────────────────── */}
+        <div style={{ flexShrink: 0, marginBottom: 18 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.28em",
+            textTransform: "uppercase", color: "rgba(255,255,255,0.42)",
           }}>
-            <style>{`@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.7}}`}</style>
+            Identity Selection
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CandidateCard({
-  url, index, selecting, disabled, accent, onSelect,
-}: {
-  url: string; index: number; selecting: boolean; disabled: boolean; accent: string; onSelect: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <div
-      style={{
-        position: "relative", aspectRatio: "2/3",
-        borderRadius: 12, overflow: "hidden",
-        cursor: disabled ? "not-allowed" : "pointer",
-        border: selecting ? `2px solid ${accent}` : "1px solid rgba(255,255,255,0.07)",
-        opacity: disabled && !selecting ? 0.5 : 1,
-        transition: "all 0.2s ease",
-        transform: hovered && !disabled ? "translateY(-2px)" : "none",
-        boxShadow: selecting ? `0 0 20px ${accent}40` : "none",
-      }}
-      onMouseEnter={() => !disabled && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={!disabled ? onSelect : undefined}
-    >
-      <img src={url} alt={`Candidate ${index}`}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-      />
-
-      {/* Hover overlay */}
-      {(hovered || selecting) && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: selecting
-            ? `${accent}1e`
-            : "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%)",
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
-          paddingBottom: 14,
-        }}>
-          {!selecting ? (
-            <div style={{
-              padding: "7px 16px", borderRadius: 20,
-              background: `${accent}eb`,
-              color: "#060810", fontSize: 12, fontWeight: 800,
-              letterSpacing: "0.02em",
-            }}>
-              Select as Influencer
-            </div>
-          ) : (
-            <div style={{
-              width: 24, height: 24, borderRadius: "50%",
-              border: `2px solid ${accent}`, borderTopColor: "transparent",
-              animation: "spin 0.8s linear infinite",
-            }} />
-          )}
+          <div style={{
+            marginTop: 10, fontSize: 26, fontWeight: 700,
+            letterSpacing: "-0.04em", color: "#ffffff", lineHeight: 1.1,
+          }}>
+            Choose the face of your influencer
+          </div>
+          <div style={{
+            marginTop: 7, fontSize: 14, lineHeight: 1.55,
+            color: "rgba(255,255,255,0.55)", maxWidth: 580,
+          }}>
+            Pick one candidate to lock the identity. Future images, videos, and packs will follow this face.
+          </div>
         </div>
-      )}
+
+        {/* ── Main area: focused preview + thumbnail rail ────────────── */}
+        <div style={{
+          flex: 1, minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: "1fr 164px",
+          gap: 14,
+        }}>
+
+          {/* ── Large focused preview ──────────────────────────────── */}
+          <div style={{
+            position: "relative", minHeight: 0,
+            overflow: "hidden",
+            borderRadius: 22,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(0,0,0,0.35)",
+            boxShadow: "0 28px 80px rgba(0,0,0,0.55)",
+          }}>
+            {/* Ambient glow bloom — adapts to accent */}
+            <div style={{
+              position: "absolute", inset: 32, borderRadius: "50%",
+              background: `${accent}2a`,
+              filter: "blur(80px)",
+              pointerEvents: "none",
+            }} />
+
+            {/* Focused image — key triggers CSS re-animation on URL change */}
+            {focusedUrl && (
+              <img
+                key={focusedUrl}
+                src={focusedUrl}
+                alt={`AI influencer candidate ${focusedIndex}`}
+                onDoubleClick={!locking ? handleConfirm : undefined}
+                style={{
+                  width: "100%", height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                  cursor: locking ? "not-allowed" : "default",
+                  animation: "candidateFadeIn 0.38s ease-out forwards",
+                }}
+              />
+            )}
+
+            {/* Locking overlay — scan line + blur */}
+            {locking && (
+              <>
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: "rgba(0,0,0,0.22)",
+                  backdropFilter: "blur(1px)",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }} />
+                <div style={{
+                  position: "absolute", left: 0, right: 0, height: 2,
+                  background: "linear-gradient(to right, transparent, rgba(255,255,255,0.72), transparent)",
+                  animation: "scanLine 1.8s ease-in-out infinite",
+                  pointerEvents: "none",
+                  zIndex: 3,
+                }} />
+              </>
+            )}
+
+            {/* Info overlay — bottom, only when not locking */}
+            {focusedUrl && !locking && (
+              <div style={{
+                position: "absolute", bottom: 18, left: 18, right: 18,
+                display: "flex", alignItems: "flex-end",
+                justifyContent: "space-between", gap: 10,
+                zIndex: 2,
+              }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.01em" }}>
+                    Candidate {String(focusedIndex).padStart(2, "0")}
+                  </div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", marginTop: 2 }}>
+                    Potential identity match
+                  </div>
+                </div>
+                <div style={{
+                  padding: "6px 13px", borderRadius: 999,
+                  border: "1px solid rgba(52,211,153,0.25)",
+                  background: "rgba(52,211,153,0.10)",
+                  fontSize: 11, fontWeight: 700,
+                  color: "#6ee7b7",
+                  whiteSpace: "nowrap",
+                }}>
+                  Ready to lock
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Thumbnail rail ─────────────────────────────────────── */}
+          <div style={{
+            display: "flex", flexDirection: "column",
+            gap: 10, overflowY: "auto",
+            paddingRight: 2, minHeight: 0,
+          }}>
+            {candidates.map((url, i) => {
+              const isActive = url === focusedUrl;
+              return (
+                <button
+                  key={url}
+                  onClick={() => !locking && setFocusedUrl(url)}
+                  aria-pressed={isActive}
+                  disabled={locking}
+                  style={{
+                    position: "relative",
+                    height: 134,
+                    overflow: "hidden",
+                    borderRadius: 16,
+                    border: isActive
+                      ? "1px solid rgba(147,197,253,0.60)"
+                      : "1px solid rgba(255,255,255,0.10)",
+                    background: "rgba(255,255,255,0.03)",
+                    cursor: locking ? "not-allowed" : "pointer",
+                    opacity: locking ? 0.55 : isActive ? 1 : 0.72,
+                    boxShadow: isActive ? "0 0 32px rgba(59,130,246,0.24)" : "none",
+                    transition: "all 0.25s ease",
+                    flexShrink: 0,
+                    padding: 0,
+                  }}
+                >
+                  <img
+                    src={url}
+                    alt={`AI influencer candidate ${i + 1}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+
+                  {/* Number badge */}
+                  <div style={{
+                    position: "absolute", top: 7, left: 7,
+                    padding: "2px 7px", borderRadius: 999,
+                    background: "rgba(0,0,0,0.55)",
+                    backdropFilter: "blur(8px)",
+                    fontSize: 9, fontWeight: 700,
+                    color: "rgba(255,255,255,0.80)",
+                  }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+
+                  {/* Active indicator dot */}
+                  {isActive && (
+                    <div style={{
+                      position: "absolute", bottom: 7, right: 7,
+                      width: 9, height: 9, borderRadius: "50%",
+                      background: "#93c5fd",
+                      boxShadow: "0 0 14px rgba(147,197,253,0.90)",
+                      animation: "railGlow 1.4s ease-in-out infinite",
+                    }} />
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Skeleton placeholders while waiting for remaining candidates */}
+            {candidates.length < 4 && Array.from({ length: 4 - candidates.length }).map((_, i) => (
+              <div key={`ph-${i}`} style={{
+                height: 134, borderRadius: 16, flexShrink: 0,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                animation: "candidatePulse 1.8s ease-in-out infinite",
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Confirmation row ─────────────────────────────────────── */}
+        <div style={{
+          flexShrink: 0,
+          marginTop: 14,
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 14,
+          borderRadius: 20,
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.045)",
+          backdropFilter: "blur(16px)",
+          padding: "13px 18px",
+          boxSizing: "border-box",
+        }}>
+
+          {/* Left — copy */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 15, fontWeight: 700,
+              letterSpacing: "-0.02em", color: "#ffffff",
+            }}>
+              Lock this identity
+            </div>
+            <div style={{
+              marginTop: 3, fontSize: 13, lineHeight: 1.5,
+              color: "rgba(255,255,255,0.52)",
+            }}>
+              Once selected, Zencra will use this face as the canonical reference for this influencer.
+            </div>
+            {lockError && (
+              <div style={{
+                marginTop: 6, fontSize: 12, fontWeight: 600,
+                color: "#fca5a5",
+              }}>
+                {lockError}
+              </div>
+            )}
+          </div>
+
+          {/* Right — Confirm Identity button */}
+          <div style={{ flexShrink: 0 }}>
+            <button
+              onClick={handleConfirm}
+              disabled={!focusedUrl || locking}
+              onMouseEnter={e => {
+                if (focusedUrl && !locking)
+                  (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.03)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+              }}
+              style={{
+                height: 44, padding: "0 22px",
+                borderRadius: 999, border: "none",
+                background: "#ffffff",
+                color: "#000000",
+                fontSize: 14, fontWeight: 700,
+                letterSpacing: "-0.01em",
+                cursor: (!focusedUrl || locking) ? "not-allowed" : "pointer",
+                opacity: !focusedUrl ? 0.42 : 1,
+                display: "flex", alignItems: "center", gap: 8,
+                boxShadow: (!focusedUrl || locking)
+                  ? "none"
+                  : "0 0 36px rgba(255,255,255,0.20)",
+                transition: "transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
+              }}
+            >
+              {locking && (
+                <span style={{
+                  width: 13, height: 13, flexShrink: 0,
+                  border: "2px solid rgba(0,0,0,0.18)",
+                  borderTopColor: "#000000",
+                  borderRadius: "50%",
+                  display: "inline-block",
+                  animation: "spin 0.75s linear infinite",
+                }} />
+              )}
+              {locking ? "Locking Identity…" : "Confirm Identity"}
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
