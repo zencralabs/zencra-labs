@@ -442,12 +442,12 @@ export default function MediaCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
       style={galleryMode ? {
-        // Gallery wall mode: edge-to-edge fill, no card chrome.
-        // The parent grid item IS the frame — this element fills it completely.
+        // Gallery masonry mode: edge-to-edge fill, no card chrome.
+        // height:auto — the img element drives tile height in CSS columns masonry.
         position:   "relative",
         width:      "100%",
-        height:     "100%",
-        overflow:   "hidden",   // clips hover zoom + overlays to grid cell boundary
+        height:     "auto",
+        overflow:   "hidden",
         cursor:     "pointer",
         userSelect: "none",
         borderRadius: 0,
@@ -478,12 +478,11 @@ export default function MediaCard({
       {/* ── Media ─────────────────────────────────────────────────────────── */}
       <div
         style={galleryMode ? {
-          // Gallery wall: fill the entire card container (which fills the grid cell).
-          // No aspect-ratio constraint — the grid item span IS the aspect frame.
+          // Gallery masonry: height auto — image drives height, no forced frame.
           position:   "relative",
           width:      "100%",
-          height:     "100%",
-          background: "#05070D",
+          height:     "auto",
+          background: "transparent",
           overflow:   "hidden",
           borderRadius: 0,
         } : {
@@ -521,11 +520,10 @@ export default function MediaCard({
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
               style={galleryMode ? {
-                // Gallery mode: tile dimensions already match image AR exactly,
-                // so contain fills the frame completely without cropping.
+                // Gallery masonry: width 100%, height auto — natural AR render.
+                // No cropping, no black bars. Image itself sets the tile height.
                 width:      "100%",
-                height:     "100%",
-                objectFit:  "contain",
+                height:     "auto",
                 display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",

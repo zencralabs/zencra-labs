@@ -475,26 +475,20 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
   );
 }
 
-// ── Justified gallery helpers ─────────────────────────────────────────────────
-// The Image Studio uses a flex-wrap "contact sheet" layout where every tile
-// has the SAME fixed height (galleryRowHeight) and a width that exactly
-// matches the image's aspect ratio.  This means:
-//   • 16:9 → wide tile   • 9:16 → narrow tile   • 1:1 → square tile
-//   • every image in the same visual row shares the same height
-//   • NO image is cropped or stretched
-//   • NO black dead-space inside tiles
-//
-// galleryRowHeight is derived from zoomLevel (1-5) inside the component.
+// ── Masonry gallery helpers ───────────────────────────────────────────────────
+// The Image Studio uses CSS columns masonry.  Every image renders at its
+// natural aspect ratio — no forced height, no cropping, no black dead-space.
+// Column count is driven by zoomLevel (1-5): higher zoom = fewer, larger columns.
 
-/** Parse "W:H" → numeric ratio (width / height).  Clamped to [0.42, 2.6]. */
-function getAspectRatioNumber(aspectRatio?: string | null): number {
-  if (!aspectRatio || aspectRatio === "Auto") return 1;
+/** Parse "W:H" → CSS aspect-ratio string ("W / H").  Returns undefined for Auto/invalid. */
+function getAspectRatioCss(aspectRatio?: string | null): string | undefined {
+  if (!aspectRatio || aspectRatio === "Auto") return undefined;
   const parts = aspectRatio.split(":");
-  if (parts.length !== 2) return 1;
+  if (parts.length !== 2) return undefined;
   const w = Number(parts[0]);
   const h = Number(parts[1]);
-  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return 1;
-  return Math.min(2.6, Math.max(0.42, w / h));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return undefined;
+  return `${w} / ${h}`;
 }
 
 // ── Skeleton card (history loading) ──────────────────────────────────────────
@@ -641,7 +635,7 @@ function ImageCard({
   // opens fullscreen only when the click target is not an action button.
   return (
     <div
-      style={{ animation: "fadeIn 0.3s ease", position: "relative", height: "100%" }}
+      style={{ animation: "fadeIn 0.3s ease", position: "relative" }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
         setCardAnimateOpen(false);
@@ -1001,16 +995,17 @@ function ImageStudioInner() {
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
-  // Justified gallery row height — driven by zoom slider (zoomLevel 1-5).
-  // Each tile: width = galleryRowHeight × aspectRatio, height = galleryRowHeight.
-  // This keeps every image in the same visual row at the same height.
-  const galleryRowHeight = useMemo(
-    () => Math.round(120 + ((zoomLevel - 1) / 4) * (320 - 120)),
-    [zoomLevel],
-  );
-  // gridMinSize kept for any remaining non-gallery zoom uses
-  const ZOOM_SIZES = [160, 220, 300, 400, 520];
-  const gridMinSize = ZOOM_SIZES[zoomLevel - 1];
+  // Masonry column class — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
+  // Higher zoom → fewer columns → larger images.
+  // Lower zoom  → more columns  → smaller images.
+  // Default zoomLevel=3 (60%) shows a premium-sized, balanced gallery.
+  const galleryColumnClass = useMemo(() => {
+    if (zoomLevel >= 5) return "columns-1 sm:columns-2 lg:columns-3";
+    if (zoomLevel >= 4) return "columns-2 sm:columns-3 lg:columns-4";
+    if (zoomLevel >= 3) return "columns-2 sm:columns-3 lg:columns-4 xl:columns-5";
+    if (zoomLevel >= 2) return "columns-3 sm:columns-4 lg:columns-5 xl:columns-6";
+    return "columns-4 sm:columns-5 lg:columns-6 xl:columns-7";
+  }, [zoomLevel]);
 
   function closeDropdowns() {
     setShowModelPicker(false);
@@ -1909,16 +1904,18 @@ function ImageStudioInner() {
         }}
       >
 
-        {/* ── STATE 1: History loading — skeleton flex gallery ────────────── */}
+        {/* ── STATE 1: History loading — skeleton masonry ──────────────────── */}
         {user && !historyLoaded && images.length === 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start" }}>
+          <div className={galleryColumnClass} style={{ columnGap: 0 }}>
             {SKELETON_RATIOS.map((ratio, i) => (
               <div key={i} style={{
-                width:    galleryRowHeight * ratio,
-                height:   galleryRowHeight,
-                flex:     "0 0 auto",
-                position: "relative",
-                overflow: "hidden",
+                breakInside: "avoid",
+                width:       "100%",
+                display:     "block",
+                aspectRatio: String(ratio),
+                position:    "relative",
+                overflow:    "hidden",
+                marginBottom: 0,
               }}>
                 <SkeletonCard index={i} />
               </div>
@@ -2198,25 +2195,29 @@ function ImageStudioInner() {
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* ── Justified flex gallery — same row height, natural AR widths ── */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start" }}>
+            {/* ── CSS columns masonry — natural AR, fills available width ── */}
+            <div className={galleryColumnClass} style={{ columnGap: 0 }}>
               {images.map((img, index) => {
-                const ratio = getAspectRatioNumber(img.aspectRatio);
-                const tileW = Math.round(galleryRowHeight * ratio);
                 return (
                 <div
                   key={img.id}
                   ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
-                    width:    tileW,
-                    height:   galleryRowHeight,
-                    flex:     "0 0 auto",
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity: 0,
-                    animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
-                    outline: selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
+                    breakInside:  "avoid",
+                    width:        "100%",
+                    display:      "block",
+                    position:     "relative",
+                    overflow:     "hidden",
+                    marginBottom: 0,
+                    // Generating/error: set aspect-ratio so absolute-positioned
+                    // overlays (spinner, error) have a defined frame to fill.
+                    ...(img.status !== "done"
+                      ? { aspectRatio: getAspectRatioCss(img.aspectRatio) ?? "1 / 1" }
+                      : {}),
+                    opacity:       0,
+                    animation:     `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                    outline:       selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
                     outlineOffset: "-2px",
                   }}
                 >
