@@ -574,6 +574,7 @@ function ImageCard({
   onCancel,
   onOpenWorkflow,
   hideHoverActions = false,
+  seqNumber,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
@@ -584,6 +585,7 @@ function ImageCard({
   onCancel?: () => void;
   onOpenWorkflow?: (flow: WorkflowFlow) => void;
   hideHoverActions?: boolean;
+  seqNumber?: number;
 }) {
   const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
@@ -665,6 +667,7 @@ function ImageCard({
         aspectRatio={img.aspectRatio && img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
         hideHoverActions={hideHoverActions}
         hideVisibilityBadge={true}
+        seqNumber={img.status === "done" ? seqNumber : undefined}
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
@@ -802,7 +805,12 @@ function ImageStudioInner() {
 
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [prompt, setPrompt] = useState(searchParams.get("prompt") ?? "");
+  const [prompt, setPrompt] = useState(() => {
+    const p = searchParams.get("prompt");
+    if (p) return p;
+    const h = searchParams.get("handle");
+    return h ? `@${h.charAt(0).toUpperCase()}${h.slice(1)}` : "";
+  });
   const [model, setModel] = useState(initialModel);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
   const [quality, setQuality] = useState<Quality>("1K");
@@ -1019,6 +1027,34 @@ function ImageStudioInner() {
     () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
     [prompt],
   );
+
+  // ── Influencer avatar URLs — fetched from readiness endpoint ─────────────────
+  // Populated whenever detectedHandles changes. Used for @handle badge avatars.
+  // Same endpoint as Video Studio; no separate fetch logic needed.
+  const [handleAvatarUrls, setHandleAvatarUrls] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    if (detectedHandles.length === 0) { setHandleAvatarUrls({}); return; }
+    const token = user?.accessToken;
+    if (!token) return;
+    const params = new URLSearchParams({ handles: detectedHandles.join(",") });
+    fetch(`/api/studio/influencer/readiness?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok
+        ? res.json() as Promise<Record<string, { ready: boolean; avatarUrl: string | null }>>
+        : Promise.resolve({})
+      )
+      .then(data => {
+        const urls: Record<string, string | null> = {};
+        for (const [handle, val] of Object.entries(data)) {
+          const v = val as { ready: boolean; avatarUrl: string | null };
+          urls[handle] = v.avatarUrl;
+        }
+        setHandleAvatarUrls(urls);
+      })
+      .catch(() => {});
+  }, [detectedHandles, user?.accessToken]);
 
   // Masonry column class — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
   // Higher zoom → fewer columns → larger images.
@@ -1707,6 +1743,10 @@ function ImageStudioInner() {
           100% { box-shadow: inset 0 0 0 2px rgba(59,130,246,0), inset 0 0 0 rgba(59,130,246,0); }
         }
       `}</style>
+      {/* ── TOP BAR WRAPPER — FlowBar hangs below via position:absolute ──── */}
+      {/* position:relative here (no zIndex) so FlowBar's zIndex participates  */}
+      {/* in the global stacking context, not a nested one.                    */}
+      <div style={{ position: "relative" }}>
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <div style={{
         position: "relative",
@@ -1903,7 +1943,12 @@ function ImageStudioInner() {
             </div>
           </div>
         )}
-      </div>
+      </div>{/* end TOP BAR */}
+
+      {/* FlowBar hangs here via position:absolute top:"100%" inside this wrapper */}
+      {studioMode === "standard" && <FlowBar />}
+
+      </div>{/* end TOP BAR WRAPPER */}
 
       {/* ── MAIN CANVAS ───────────────────────────────────────────────────── */}
       {/* ── Creative Director mode — full-width shell, replaces gallery ── */}
@@ -2299,6 +2344,7 @@ function ImageStudioInner() {
                   <ImageCard
                     img={img}
                     hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
+                    seqNumber={seqMap.get(img.id) ?? (index + 1)}
                     onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
                     onReusePrompt={(p) => {
                       setPrompt(p);
@@ -2318,20 +2364,7 @@ function ImageStudioInner() {
                     onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
                     onOpenWorkflow={(flow) => openVideoWorkflow(img, flow)}
                   />
-
-                  {/* ── Sequence number — right side, below 3-dot button ── */}
-                  {img.status === "done" && (
-                    <span className="img-seq-num" style={{
-                      position: "absolute", top: 148, right: 12,
-                      fontSize: 16, fontWeight: 700,
-                      color: "rgba(255,255,255,0.5)",
-                      pointerEvents: "none",
-                      opacity: 0, transition: "opacity 0.15s",
-                      lineHeight: 1,
-                    }}>
-                      {String(seqMap.get(img.id) ?? (index + 1)).padStart(2, "0")}
-                    </span>
-                  )}
+                  {/* Sequence number now rendered inside MediaCard below the action strip */}
                 </div>
               );
             })}
@@ -2658,39 +2691,61 @@ function ImageStudioInner() {
                 display: "flex", flexWrap: "wrap", gap: 6,
                 padding: "0 14px 10px",
               }}>
-                {detectedHandles.map(handle => (
-                  <div
-                    key={handle}
-                    title={`@${handle} · Identity Locked`}
-                    style={{
-                      display: "inline-flex", alignItems: "center", gap: 6,
-                      padding: "4px 10px", borderRadius: 20,
-                      background: "rgba(245,158,11,0.08)",
-                      border: "1px solid rgba(245,158,11,0.28)",
-                      // Inset line: contained, not floating
-                      boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.10)",
-                      fontSize: 11, letterSpacing: "0.01em",
-                    }}
-                  >
-                    {/* lock icon — scale-in once on mount, then static */}
-                    <span style={{
-                      fontSize: 9, color: "rgba(255,255,255,0.48)", lineHeight: 1,
-                      display: "inline-block",
-                      animation: "lockIn 140ms ease-out forwards",
-                    }}>🔒</span>
-                    {/* handle — primary, full white, truncated at ~20 chars */}
-                    <span style={{
-                      fontWeight: 700, color: "#fff",
-                      maxWidth: 160, overflow: "hidden",
-                      textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>@{handle}</span>
-                    {/* status label — clearly secondary, never wraps */}
-                    <span style={{
-                      fontWeight: 500, color: "rgba(255,255,255,0.48)",
-                      fontSize: 10, flexShrink: 0,
-                    }}>· Identity Locked</span>
-                  </div>
-                ))}
+                {detectedHandles.map(handle => {
+                  const avatarUrl = handleAvatarUrls[handle] ?? null;
+                  return (
+                    <div
+                      key={handle}
+                      title={`@${handle} · Identity Locked`}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        padding: avatarUrl ? "3px 10px 3px 4px" : "4px 10px",
+                        borderRadius: 20,
+                        background: "rgba(245,158,11,0.08)",
+                        border: "1px solid rgba(245,158,11,0.28)",
+                        // Inset line: contained, not floating
+                        boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.10)",
+                        fontSize: 11, letterSpacing: "0.01em",
+                      }}
+                    >
+                      {/* Avatar — who (face) */}
+                      {avatarUrl && (
+                        <img
+                          src={avatarUrl}
+                          alt={`@${handle}`}
+                          style={{
+                            width: 20, height: 20,
+                            borderRadius: 0,        // sharp corners — design system rule
+                            objectFit: "cover",
+                            border: "1px solid rgba(255,255,255,0.14)",
+                            flexShrink: 0,
+                            display: "block",
+                          }}
+                        />
+                      )}
+                      {/* Lock — state (trust signal). Smaller + dimmer when avatar present. */}
+                      <span style={{
+                        fontSize: avatarUrl ? 8 : 9,
+                        color: avatarUrl ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.48)",
+                        lineHeight: 1,
+                        display: "inline-block",
+                        animation: "lockIn 140ms ease-out forwards",
+                        flexShrink: 0,
+                      }}>🔒</span>
+                      {/* handle — primary, full white, truncated at ~20 chars */}
+                      <span style={{
+                        fontWeight: 700, color: "#fff",
+                        maxWidth: 160, overflow: "hidden",
+                        textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>@{handle}</span>
+                      {/* status label — clearly secondary, never wraps */}
+                      <span style={{
+                        fontWeight: 500, color: "rgba(255,255,255,0.48)",
+                        fontSize: 10, flexShrink: 0,
+                      }}>· Identity Locked</span>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -3086,8 +3141,8 @@ function ImageStudioInner() {
       {/* ── MULTI-SELECT BULK ACTION BAR ─────────────────────────────────── */}
       {selectedImageIds.size > 0 && (
         <div style={{
-          position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)",
-          zIndex: 200,
+          position: "fixed", top: 80, right: 24, left: "auto", transform: "none",
+          zIndex: 200, /* above gallery (40), below FlowBar (50) — doc states FlowBar is now layout-relative */
           background: "rgba(6,10,24,0.97)", backdropFilter: "blur(16px)",
           border: "1px solid rgba(60,100,255,0.3)",
           borderRadius: 14, padding: "10px 16px",
@@ -3433,13 +3488,7 @@ function ImageStudioInner() {
       </>)} {/* end studioMode === "standard" generate bar + modals */}
     </div> {/* end MAIN FIXED CONTAINER */}
 
-    {/* ── Creative Flow overlays — rendered OUTSIDE the gallery div so they
-         are not trapped inside its stacking context (zIndex: 40). Being at
-         the root Fragment level lets their own zIndex values compete freely
-         with the navbar and other page-level layers.
-         RULE: FlowBar and NextStepPanel only appear in standard mode.
-         They must never overlap the Creative Director tabs or Quick Gen toggle. ── */}
-    {studioMode === "standard" && <FlowBar />}
+    {/* FlowBar now lives inside the TOP BAR WRAPPER above — layout-aware, not viewport-fixed */}
     {studioMode === "standard" && <NextStepPanel onVariation={handleVariation} />}
 
     {/* ── RIGHT ACTION PANEL ───────────────────────────────────────────── */}

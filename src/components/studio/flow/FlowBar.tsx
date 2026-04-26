@@ -16,6 +16,7 @@
  */
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useFlowStore } from "@/lib/flow/store";
 import type { FlowStep, FlowStudioType } from "@/lib/flow/store";
 import { getRecentSteps } from "@/lib/flow/actions";
@@ -147,6 +148,7 @@ function FlowNode({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function FlowBar() {
+  const pathname = usePathname();
   const { workflowId, steps, activeStep, pushStep, setActiveStep } = useFlowStore();
 
   // Hydrate from DB when store is empty but workflowId is known (page refresh case)
@@ -162,6 +164,9 @@ export default function FlowBar() {
     });
   }, [workflowId, steps.length, pushStep]);
 
+  // Route guard — Flow is exclusive to Image Studio. Must come after all hooks.
+  if (pathname !== "/studio/image") return null;
+
   // Don't render until there are at least 2 steps (a chain needs 2+ nodes)
   const visibleSteps = steps.slice(-3);   // show last 3 steps, oldest first
   if (visibleSteps.length < 2) return null;
@@ -169,11 +174,11 @@ export default function FlowBar() {
   return (
     <div
       style={{
-        position: "fixed",
-        top: 64,         // sits just below the main nav
+        position: "absolute",
+        top: "100%",     // hangs below the toolbar wrapper it lives inside
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 1000,    // above gallery (40), prompt bar (50), and navbar stacking context
+        zIndex: 50,      // above gallery content, below global modals
         display: "flex",
         alignItems: "center",
         gap: 4,

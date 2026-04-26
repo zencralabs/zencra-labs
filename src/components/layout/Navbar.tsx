@@ -100,7 +100,7 @@ const navCategories: Record<string, NavCategory> = {
     ],
   },
   Audio: {
-    color: "#A855F7",
+    color: "#C6FF00",
     label: "Audio Tools",
     features: [
       {
@@ -128,10 +128,6 @@ const navCategories: Record<string, NavCategory> = {
       {
         icon: UserCircle2, label: "AI Influencer", desc: "Build a persistent digital human", badge: "NEW", href: "/studio/character/ai-influencer",
         right: { type: "soon", title: "AI Influencer Builder", badge: "NEW", desc: "Create a persistent digital human with a locked identity. Generate content packs — looks, scenes, poses, social formats — all anchored to the same face, every time.", bullets: ["Identity lock system", "5 content pack types", "Face-consistent generation", "Social-ready formats"] },
-      },
-      {
-        icon: UserCircle2, label: "Character Studio", desc: "Build AI characters with Soul ID", badge: "LEGACY", href: "/studio/character/ai-influencer",
-        right: { type: "soon", title: "Character Studio", badge: "LEGACY", desc: "Build persistent AI characters with Soul ID identity anchoring. Generate, refine, and deploy across Image, Video, and Audio studios.", bullets: ["Soul ID identity system", "5-step guided builder", "Cross-studio deployment", "Consistency scoring"] },
       },
       {
         icon: Layers, label: "Face Swap", desc: "Seamless image face swap", badge: "SOON", href: "#",
@@ -173,8 +169,15 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
 // RIGHT PANEL CONTENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RightPanelContent({ panel, color, onClose }: { panel: RightPanel; color: string; onClose?: () => void }) {
+function RightPanelContent({ panel, color, studioKey, onClose }: { panel: RightPanel; color: string; studioKey?: DropdownKey; onClose?: () => void }) {
   if (panel.type === "models") {
+    const STUDIO_ROUTES: Partial<Record<DropdownKey, string>> = {
+      Image: "/studio/image",
+      Video: "/studio/video",
+      Audio: "/studio/audio",
+    };
+    const studioBase = studioKey ? (STUDIO_ROUTES[studioKey] ?? "#") : "#";
+    const paramName = studioKey === "Video" ? "tool" : "model";
     return (
       <div className="flex flex-col h-full">
         <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: `${color}80` }}>
@@ -183,8 +186,6 @@ function RightPanelContent({ panel, color, onClose }: { panel: RightPanel; color
         <div className="flex flex-col gap-0.5">
           {panel.models.map((model) => {
             const isSoon = model.status !== "active";
-            const studioBase = color === "#2563EB" ? "/studio/image" : color === "#0EA5A0" ? "/studio/video" : color === "#A855F7" ? "/studio/audio" : "#";
-            const paramName = color === "#0EA5A0" ? "tool" : "model";
             const href = !isSoon ? `${studioBase}?${paramName}=${model.id}` : "#";
             return (
               <Link
@@ -363,7 +364,7 @@ function DropdownMenu({ category, onClose }: { category: DropdownKey; onClose: (
             animation: "ddOpen 150ms ease-out forwards",
           }}
         >
-          <RightPanelContent panel={activeFeat.right} color={data.color} onClose={onClose} />
+          <RightPanelContent panel={activeFeat.right} color={data.color} studioKey={category} onClose={onClose} />
         </div>
       </div>
 
@@ -657,7 +658,7 @@ function MobileMenu({
       {/* ── LEVEL 3: right panel detail for a feature ── */}
       {section && detail !== null && sectionData && (
         <div className="py-4 px-4">
-          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} />
+          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} studioKey={section ?? undefined} />
 
           {/* Link to feature if it's active */}
           {sectionData.features[detail].href !== "#" && (
@@ -709,7 +710,7 @@ export function Navbar() {
   }, []);
 
   const closeDropdownDelayed = useCallback(() => {
-    dropdownTimeout.current = setTimeout(() => setActiveDropdown(null), 180);
+    dropdownTimeout.current = setTimeout(() => setActiveDropdown(null), 80);
   }, []);
 
   const cancelClose = useCallback(() => {

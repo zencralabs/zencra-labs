@@ -80,6 +80,12 @@ export interface MediaCardProps {
    * Hover overlays still render; overflow is clipped to the grid cell.
    */
   galleryMode?: boolean;
+  /**
+   * Sequence number displayed below the right action strip on hover.
+   * Passed in from the gallery; rendered inside the card so it scales
+   * correctly at any zoom level, anchored to the icon stack, not viewport.
+   */
+  seqNumber?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -358,6 +364,7 @@ export default function MediaCard({
   onVisibilityChange,
   onDelete,
   galleryMode = false,
+  seqNumber,
 }: MediaCardProps) {
   const [hovered,  setHovered]  = useState(false);
   const [liked,    setLiked]    = useState(false);
@@ -756,6 +763,24 @@ export default function MediaCard({
               <MoreVertical size={13} />
             </IconBtn>
           </div>
+        )}
+
+        {/* Sequence number — follows the action stack, no hardcoded top value */}
+        {seqNumber != null && (
+          <span
+            style={{
+              marginTop:    10,
+              fontSize:     15,
+              fontWeight:   700,
+              color:        "rgba(255,255,255,0.5)",
+              lineHeight:   1,
+              textAlign:    "right",
+              pointerEvents: "none",
+              userSelect:   "none",
+            }}
+          >
+            {String(seqNumber).padStart(2, "0")}
+          </span>
         )}
       </div>}
     </div>

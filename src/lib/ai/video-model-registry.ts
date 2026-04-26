@@ -112,7 +112,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     apiModelId:  "",  // NOT YET CONFIRMED — safety gate blocks dispatch until set
     displayName: "Kling 3.0 Omni",
     description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:       "OMNI",
+    badge:       "NEW",
     badgeColor:  "#0EA5A0",
     available:   true,
     comingSoon:  false,
