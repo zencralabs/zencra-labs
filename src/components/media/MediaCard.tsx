@@ -521,11 +521,11 @@ export default function MediaCard({
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
               style={galleryMode ? {
-                // Gallery mode: fill the grid cell — objectFit cover handles
-                // any micro aspect-ratio discrepancy from the span calculation.
+                // Gallery mode: tile dimensions already match image AR exactly,
+                // so contain fills the frame completely without cropping.
                 width:      "100%",
                 height:     "100%",
-                objectFit:  "cover",
+                objectFit:  "contain",
                 display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",

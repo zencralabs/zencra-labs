@@ -475,64 +475,41 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
   );
 }
 
-// ── Dense grid span helpers ───────────────────────────────────────────────────
-// Returns { colSpan, rowSpan } so that:
-//   • landscape images span 2 (or 3) columns and look bigger/more cinematic
-//   • portrait images stay in 1 column but get the correct row span
-//   • the grid cell shape exactly matches the image's natural aspect ratio,
-//     eliminating black dead-space without needing object-contain
+// ── Justified gallery helpers ─────────────────────────────────────────────────
+// The Image Studio uses a flex-wrap "contact sheet" layout where every tile
+// has the SAME fixed height (galleryRowHeight) and a width that exactly
+// matches the image's aspect ratio.  This means:
+//   • 16:9 → wide tile   • 9:16 → narrow tile   • 1:1 → square tile
+//   • every image in the same visual row shares the same height
+//   • NO image is cropped or stretched
+//   • NO black dead-space inside tiles
 //
-// baseColumnWidth should equal gridMinSize (ZOOM_SIZES[zoomLevel-1]) so row spans
-//   scale correctly when the user zooms in or out.
-// rowHeight      = 8   matches gridAutoRows: "8px"
+// galleryRowHeight is derived from zoomLevel (1-5) inside the component.
 
-function parseAspectRatioParts(ar: string | undefined): [number, number] {
-  if (!ar || ar === "Auto") return [1, 1];
-  const parts = ar.split(":");
-  if (parts.length !== 2) return [1, 1];
-  const w = parseFloat(parts[0]);
-  const h = parseFloat(parts[1]);
-  if (!w || !h || w <= 0 || h <= 0) return [1, 1];
-  return [w, h];
-}
-
-function getGallerySpans(
-  aspectRatio: string | undefined,
-  baseColumnWidth = 180,
-  rowHeight = 8,
-): { colSpan: number; rowSpan: number } {
-  const [w, h] = parseAspectRatioParts(aspectRatio);
-  const ratio = w / h; // > 1 = landscape, < 1 = portrait
-
-  // Column span — landscape images take more horizontal space
-  let colSpan = 1;
-  if (ratio >= 2.1)       colSpan = 3;  // ultra-wide / 21:9 cinematic
-  else if (ratio >= 1.35) colSpan = 2;  // 16:9, 4:3, 3:2
-
-  // Row span — sized so the grid cell matches the image's natural proportions.
-  // visualWidth = colSpan × baseColumnWidth; visualHeight = visualWidth / ratio.
-  // Rows needed = ceil(visualHeight / rowHeight).  Min 18 so nothing collapses.
-  const visualWidth  = baseColumnWidth * colSpan;
-  const visualHeight = visualWidth / ratio;
-  const rowSpan = Math.max(18, Math.ceil(visualHeight / rowHeight));
-
-  return { colSpan, rowSpan };
+/** Parse "W:H" → numeric ratio (width / height).  Clamped to [0.42, 2.6]. */
+function getAspectRatioNumber(aspectRatio?: string | null): number {
+  if (!aspectRatio || aspectRatio === "Auto") return 1;
+  const parts = aspectRatio.split(":");
+  if (parts.length !== 2) return 1;
+  const w = Number(parts[0]);
+  const h = Number(parts[1]);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return 1;
+  return Math.min(2.6, Math.max(0.42, w / h));
 }
 
 // ── Skeleton card (history loading) ──────────────────────────────────────────
-// Masonry-aware shimmer: cycles through common aspect ratios so the grid
-// looks like a real gallery in the loading state, not a column of lines.
+// Preset numeric aspect ratios covering the common AR distribution so the
+// skeleton looks like a real gallery (mix of portrait / square / landscape).
 const SKELETON_RATIOS = [
-  "3:4", "1:1", "4:3", "2:3", "9:16", "3:4", "16:9", "1:1", "2:3", "4:5",
-  "3:4", "1:1", "3:2", "4:3", "1:1",
+  0.5625, 0.75, 1, 1.7778, 1.7778, 0.5625, 1.3333, 2.1,
+  0.75, 1, 0.5625, 1.7778, 1, 0.75, 1.3333,
 ];
 
 function SkeletonCard({ index }: { index: number }) {
   // Stagger capped at card 20 — beyond that all appear together
   const delay = `${Math.min(index, 20) * 40}ms`;
 
-  // The grid item (wrapper div) controls the cell dimensions via colSpan + rowSpan.
-  // This card fills it edge-to-edge — no self-imposed aspect-ratio.
+  // The flex wrapper sets exact width × height — this card fills it absolutely.
   return (
     <div style={{
       position: "absolute", inset: 0,
@@ -1024,7 +1001,14 @@ function ImageStudioInner() {
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
-  // Grid column sizing based on zoom level
+  // Justified gallery row height — driven by zoom slider (zoomLevel 1-5).
+  // Each tile: width = galleryRowHeight × aspectRatio, height = galleryRowHeight.
+  // This keeps every image in the same visual row at the same height.
+  const galleryRowHeight = useMemo(
+    () => Math.round(120 + ((zoomLevel - 1) / 4) * (320 - 120)),
+    [zoomLevel],
+  );
+  // gridMinSize kept for any remaining non-gallery zoom uses
   const ZOOM_SIZES = [160, 220, 300, 400, 520];
   const gridMinSize = ZOOM_SIZES[zoomLevel - 1];
 
@@ -1925,29 +1909,20 @@ function ImageStudioInner() {
         }}
       >
 
-        {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
+        {/* ── STATE 1: History loading — skeleton flex gallery ────────────── */}
         {user && !historyLoaded && images.length === 0 && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
-            gridAutoRows: "8px",
-            gridAutoFlow: "dense",
-            gap: 0,
-          }}>
-            {SKELETON_RATIOS.map((ar, i) => {
-              const { colSpan, rowSpan } = getGallerySpans(ar, gridMinSize);
-              return (
-                <div key={i} style={{
-                  minWidth: 0,
-                  position: "relative",
-                  overflow: "hidden",
-                  gridColumnEnd: `span ${colSpan}`,
-                  gridRowEnd:    `span ${rowSpan}`,
-                }}>
-                  <SkeletonCard index={i} />
-                </div>
-              );
-            })}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start" }}>
+            {SKELETON_RATIOS.map((ratio, i) => (
+              <div key={i} style={{
+                width:    galleryRowHeight * ratio,
+                height:   galleryRowHeight,
+                flex:     "0 0 auto",
+                position: "relative",
+                overflow: "hidden",
+              }}>
+                <SkeletonCard index={i} />
+              </div>
+            ))}
           </div>
         )}
 
@@ -2223,30 +2198,26 @@ function ImageStudioInner() {
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
-              gridAutoRows: "8px",
-              gridAutoFlow: "dense",
-              gap: 0,
-            }}>
+            {/* ── Justified flex gallery — same row height, natural AR widths ── */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start" }}>
               {images.map((img, index) => {
-                const { colSpan, rowSpan } = getGallerySpans(img.aspectRatio, gridMinSize);
+                const ratio = getAspectRatioNumber(img.aspectRatio);
+                const tileW = Math.round(galleryRowHeight * ratio);
                 return (
                 <div
                   key={img.id}
                   ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
-                    minWidth: 0,
+                    width:    tileW,
+                    height:   galleryRowHeight,
+                    flex:     "0 0 auto",
                     position: "relative",
                     overflow: "hidden",
                     opacity: 0,
                     animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
                     outline: selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
                     outlineOffset: "-2px",
-                    gridColumnEnd: `span ${colSpan}`,
-                    gridRowEnd:    `span ${rowSpan}`,
                   }}
                 >
                   {/* ── Checkbox — top-left, clear of badge ── */}
@@ -2322,19 +2293,18 @@ function ImageStudioInner() {
                     onOpenWorkflow={(flow) => openVideoWorkflow(img, flow)}
                   />
 
-                  {/* ── Sequence number — bottom-right, below the 3-dot button ── */}
+                  {/* ── Sequence number — right side, below 3-dot button ── */}
                   {img.status === "done" && (
-                    <div className="img-seq-num" style={{
-                      position: "absolute", bottom: 10, right: 8,
-                      fontSize: 13, fontWeight: 700, color: "#fff",
-                      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      borderRadius: 6, padding: "2px 7px",
-                      pointerEvents: "none", letterSpacing: "0.04em",
+                    <span className="img-seq-num" style={{
+                      position: "absolute", top: 148, right: 12,
+                      fontSize: 16, fontWeight: 700,
+                      color: "rgba(255,255,255,0.5)",
+                      pointerEvents: "none",
                       opacity: 0, transition: "opacity 0.15s",
+                      lineHeight: 1,
                     }}>
                       {String(seqMap.get(img.id) ?? (index + 1)).padStart(2, "0")}
-                    </div>
+                    </span>
                   )}
                 </div>
               );
