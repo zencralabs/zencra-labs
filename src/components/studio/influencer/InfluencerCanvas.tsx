@@ -330,6 +330,20 @@ export default function InfluencerCanvas({
 
 // ── STATE 1: Empty ────────────────────────────────────────────────────────────
 
+// Shared label style for all composition frame annotations
+const FRAME_LABEL_STYLE: React.CSSProperties = {
+  position: "absolute",
+  top: 10, left: 12,
+  fontSize: 11,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "rgba(255,255,255,0.32)",
+  fontWeight: 500,
+  lineHeight: 1,
+  pointerEvents: "none",
+  userSelect: "none",
+};
+
 function EmptyState({ accent }: { accent: string }) {
   return (
     <div style={{
@@ -339,6 +353,22 @@ function EmptyState({ accent }: { accent: string }) {
       padding: "40px 32px", textAlign: "center",
       overflow: "hidden",
     }}>
+
+      {/* ── Keyframes ────────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes canvasBreath {
+          0%,  100% { box-shadow: inset 0 0 40px rgba(255,255,255,0.018), 0 0 60px  rgba(245,158,11,0.05); }
+          50%        { box-shadow: inset 0 0 40px rgba(255,255,255,0.028), 0 0 100px rgba(245,158,11,0.09); }
+        }
+        @keyframes canvasBreathOuter {
+          0%,  100% { box-shadow: 0 0 60px  rgba(245,158,11,0.05); }
+          50%        { box-shadow: 0 0 100px rgba(245,158,11,0.10); }
+        }
+        @keyframes iconPulse {
+          0%,  100% { transform: scale(1);    opacity: 0.9; }
+          50%        { transform: scale(1.06); opacity: 1;   }
+        }
+      `}</style>
 
       {/* ── Layer 1: soft amber radial behind center ─────────────────── */}
       <div style={{
@@ -372,33 +402,45 @@ function EmptyState({ accent }: { accent: string }) {
         aspectRatio: "16 / 9",
         border: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(255,255,255,0.012)",
-        boxShadow: "0 0 90px rgba(245,158,11,0.06)",
         flexShrink: 0,
         pointerEvents: "none",
+        transform: "perspective(1200px) rotateX(2deg)",
+        animation: "canvasBreathOuter 6s ease-in-out infinite",
       }}>
+        {/* "Cinematic" label — outer 16:9 frame annotation */}
+        <span style={FRAME_LABEL_STYLE}>Cinematic</span>
+
         {/* 9:16 vertical guide — influencer / full-body, left of center */}
         <div style={{
           position: "absolute",
-          top: "50%", transform: "translateY(-50%)",
+          top: "50%",
+          transform: "translateY(-50%) perspective(1200px) rotateX(2deg) scale(0.98)",
           left: "34%",
           height: "78%", aspectRatio: "9 / 16",
           border: "1px solid rgba(255,255,255,0.10)",
           background: "rgba(255,255,255,0.018)",
-          boxShadow: "inset 0 0 40px rgba(255,255,255,0.025)",
           borderRadius: 0,
-        }} />
+          opacity: 0.8,
+          animation: "canvasBreath 8s ease-in-out infinite",
+        }}>
+          <span style={FRAME_LABEL_STYLE}>Influencer</span>
+        </div>
 
         {/* 1:1 square guide — social avatar / profile, right of center */}
         <div style={{
           position: "absolute",
-          top: "50%", transform: "translateY(-50%)",
+          top: "50%",
+          transform: "translateY(-50%) perspective(1200px) rotateX(2deg) scale(0.98)",
           left: "52%",
           height: "48%", aspectRatio: "1 / 1",
           border: "1px solid rgba(255,255,255,0.10)",
           background: "rgba(255,255,255,0.018)",
-          boxShadow: "inset 0 0 40px rgba(255,255,255,0.025)",
           borderRadius: 0,
-        }} />
+          opacity: 0.8,
+          animation: "canvasBreath 8s ease-in-out infinite",
+        }}>
+          <span style={FRAME_LABEL_STYLE}>Profile</span>
+        </div>
       </div>
 
       {/* ── Message — absolute over the stage, z-10 ──────────────────── */}
@@ -416,9 +458,11 @@ function EmptyState({ accent }: { accent: string }) {
           position: "relative",
           transition: "background 0.4s ease",
         }}>
+          {/* Halo ring — pulses slowly */}
           <div style={{
             position: "absolute", inset: 0, borderRadius: "50%",
-            boxShadow: `0 0 48px ${accent}1a`,
+            boxShadow: "0 0 40px rgba(245,158,11,0.25), 0 0 80px rgba(245,158,11,0.10)",
+            animation: "iconPulse 4s ease-in-out infinite",
             pointerEvents: "none",
           }} />
           <div style={{
