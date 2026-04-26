@@ -102,6 +102,46 @@ export type VideoModel = {
 
 export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
 
+  // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
+  // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
+  // apiModelId is intentionally empty until the provider API ID is confirmed.
+  // assertModelRouteIntegrity() catches the empty string before any dispatch attempt.
+  {
+    id:          "kling-30-omni",
+    provider:    "kling",
+    apiModelId:  "",  // NOT YET CONFIRMED — safety gate blocks dispatch until set
+    displayName: "Kling 3.0 Omni",
+    description: "Full-capability cinematic model — identity, motion, and frame control unified",
+    badge:       "OMNI",
+    badgeColor:  "#0EA5A0",
+    available:   true,
+    comingSoon:  false,
+    promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
+    capabilities: {
+      textToVideo:    true,
+      imageToVideo:   true,
+      startFrame:     true,
+      endFrame:       true,
+      cameraControl:  true,
+      motionControl:  true,
+      multiElement:   false,
+      extendVideo:    true,
+      lipSync:        false,
+      avatar:         false,
+      audioEnabled:   false,
+      videoInput:     true,
+      nativeAudio:    false,
+      negativePrompt: true,
+      proMode:        true,
+      seedControl:    false,
+      durations:      [5, 10],
+      maxDuration:    10,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
+    },
+  },
+
   // ── Kling 3.0 ────────────────────────────────────────────────────────────
   {
     id:          "kling-30",

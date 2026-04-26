@@ -48,9 +48,10 @@ function modelAccentColor(m: VideoModel): string {
 // ── Credit estimate ───────────────────────────────────────────────────────────
 
 const CREDIT_RATES: Record<string, Record<string, Record<number, number>>> = {
-  "kling-30": { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } },
-  "kling-26": { std: { 5: 28, 10: 48 }, pro: { 5: 45, 10: 78 } },
-  "kling-25": { std: { 5: 18, 10: 32 }, pro: { 5: 28, 10: 52 } },
+  "kling-30-omni": { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } }, // provisional — matches kling-30
+  "kling-30":      { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } },
+  "kling-26":      { std: { 5: 28, 10: 48 }, pro: { 5: 45, 10: 78 } },
+  "kling-25":      { std: { 5: 18, 10: 32 }, pro: { 5: 28, 10: 52 } },
 };
 function estimateCredits(id: string, q: string, d: number) {
   return CREDIT_RATES[id]?.[q]?.[d] ?? Math.round(d * 5);
@@ -94,19 +95,30 @@ function FamilyPill({
   // Dropdown shows every model in the family EXCEPT the one currently on the pill
   const dropdownModels = models.filter(m => m.id !== displayed.id);
 
+  // Omni treatment — only when Kling 3.0 Omni is the displayed + active model
+  const isOmniActive = isActive && displayed.id === "kling-30-omni";
+
   return (
     <div
       style={{ position: "relative", flexShrink: 0 }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
+      <style>{`
+        @keyframes omniShimmer {
+          0%,100% { box-shadow: 0 0 16px rgba(14,165,160,0.40), 0 0 4px rgba(34,211,238,0.15); }
+          50%     { box-shadow: 0 0 32px rgba(14,165,160,0.65), 0 0 8px rgba(34,211,238,0.30); }
+        }
+      `}</style>
       {/* Pill trigger — no onClick, hover on parent wrapper opens the panel */}
       <button
         style={{
           padding: "9px 14px 9px 18px",
           borderRadius: 10,
           border: isActive
-            ? `1px solid ${accent}99`
+            ? isOmniActive
+              ? `1px solid ${accent}`           // fully opaque border for Omni
+              : `1px solid ${accent}99`
             : open
               ? "1px solid rgba(255,255,255,0.15)"
               : "1px solid rgba(255,255,255,0.08)",
@@ -118,9 +130,11 @@ function FamilyPill({
           color: (isActive || open) ? "#F8FAFC" : "#CBD5F5",
           fontSize: 14, fontWeight: isActive ? 700 : 500,
           cursor: "default",          // pointer is on the wrapper, not the button
-          transition: "all 0.15s ease",
+          transition: isOmniActive ? "border-color 0.15s ease" : "all 0.15s ease",
           display: "flex", alignItems: "center", gap: 6,
-          boxShadow: isActive ? `0 0 15px ${accent}44` : "none",
+          // Omni: animation handles box-shadow; standard: static glow
+          boxShadow: isOmniActive ? undefined : (isActive ? `0 0 15px ${accent}44` : "none"),
+          animation: isOmniActive ? "omniShimmer 3.6s ease-in-out infinite" : "none",
           whiteSpace: "nowrap",
           pointerEvents: "none",      // let the wrapper handle all mouse events
         }}
@@ -250,13 +264,13 @@ function FamilyDropdownBar({
       {/* INNER: flex row — no overflowX:auto here (would clip the dropdown) */}
       <div style={{ display: "flex", alignItems: "center" }}>
 
-        {/* Kling family — pill shows Kling 3.0 by default; dropdown: Kling 2.6, Kling 2.5 Turbo */}
+        {/* Kling family — pill shows Kling 3.0 Omni by default; dropdown: Kling 3.0, Kling 2.6, Kling 2.5 Turbo */}
         <FamilyPill
           models={klingModels}
           selectedId={selectedId}
           onSelect={onSelect}
           accent={familyAccent("kling")}
-          defaultId="kling-30"
+          defaultId="kling-30-omni"
         />
         <ChipDivider />
 
@@ -518,6 +532,10 @@ export default function VideoStudioShell() {
   const [quality,        setQuality]        = useState<Quality>("std");
   const [duration,       setDuration]       = useState<number>(5);
   const [cameraPreset,   setCameraPreset]   = useState<CameraPreset | null>(null);
+  // Motion preset — prompt-layer cinematic movement instruction.
+  // "none" = no motion instruction injected. Any other value appends a direction to the prompt.
+  // This is independent of frameMode — works across all modes (text_to_video, start_frame, etc.).
+  const [motionPreset,   setMotionPreset]   = useState<string>("none");
   const [motionStrength, setMotionStrength] = useState(50);
   const [motionArea,     setMotionArea]     = useState("full_body");
   const [resolution,     setResolution]     = useState<string>("720p");
@@ -536,8 +554,63 @@ export default function VideoStudioShell() {
   const [motionVideoName, setMotionVideoName] = useState<string | null>(null);
 
   // Prompt — pre-fill from URL param (works from any studio source)
-  const [prompt,    setPrompt]    = useState(searchParams.get("prompt") ?? "");
+  // ?handle=amanda → @Amanda  |  ?prompt=... takes precedence when both present
+  const [prompt,    setPrompt]    = useState(() => {
+    const p = searchParams.get("prompt");
+    if (p) return p;
+    const h = searchParams.get("handle");
+    return h ? `@${h.charAt(0).toUpperCase()}${h.slice(1)}` : "";
+  });
   const [negPrompt, setNegPrompt] = useState("");
+
+  // ── AI Influencer @handle detection ──────────────────────────────────────────
+  // Syntactic only — no DB call. Computed here (single source of truth) and
+  // passed down to VideoPromptPanel so both badge and start-frame card share it.
+  const detectedHandles = useMemo(
+    () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
+    [prompt],
+  );
+
+  // Identity start frame — default ON so the feature is immediately useful
+  const [useStartFrame, setUseStartFrame] = useState(true);
+
+  // ── Canonical readiness — drives UI disabled state in Start Frame card ────────
+  // Also carries avatarUrl for @handle badge rendering.
+  // Fetched whenever detected handles change. Prevents a failed generate roundtrip
+  // when the influencer hasn't completed identity selection yet.
+  const [handleReadiness,  setHandleReadiness]  = useState<Record<string, boolean>>({});
+  const [handleAvatarUrls, setHandleAvatarUrls] = useState<Record<string, string | null>>({});
+
+  useEffect(() => {
+    if (detectedHandles.length === 0) {
+      setHandleReadiness({});
+      setHandleAvatarUrls({});
+      return;
+    }
+    const token = user?.accessToken;
+    if (!token) return;
+
+    const params = new URLSearchParams({ handles: detectedHandles.join(",") });
+    fetch(`/api/studio/influencer/readiness?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.ok
+        ? res.json() as Promise<Record<string, { ready: boolean; avatarUrl: string | null }>>
+        : Promise.resolve({})
+      )
+      .then(data => {
+        const readiness:  Record<string, boolean>         = {};
+        const avatarUrls: Record<string, string | null>   = {};
+        for (const [handle, val] of Object.entries(data)) {
+          const v = val as { ready: boolean; avatarUrl: string | null };
+          readiness[handle]  = v.ready;
+          avatarUrls[handle] = v.avatarUrl;
+        }
+        setHandleReadiness(readiness);
+        setHandleAvatarUrls(avatarUrls);
+      })
+      .catch(() => { /* non-critical — leave existing readiness state */ });
+  }, [detectedHandles, user?.accessToken]);
 
   // Generation (Kling/video)
   const [generating, setGenerating] = useState(false);
@@ -744,8 +817,11 @@ export default function VideoStudioShell() {
     }, 120);
 
     try {
-      // motion_control routes to its own dedicated backend provider — do NOT send to kling-30
-      const modelKey = frameMode === "motion_control" ? "kling-motion-control" : model.id;
+      // Model key — always use the registry model ID directly.
+      // No per-mode overrides: motion_control frameMode (reference video) routes through
+      // the same provider pipeline as the selected model. The motionControl prompt layer
+      // (cinematic presets) is a separate mechanism sent as a body field, not a model switch.
+      const modelKey = model.id;
 
       console.log("[VideoStudio] dispatch", { modelKey, prompt, aspectRatio, durationSeconds: duration });
 
@@ -762,13 +838,40 @@ export default function VideoStudioShell() {
         },
       };
 
+      // Motion preset — prompt-layer cinematic direction.
+      // Injected when a preset is selected; the backend appends the instruction to the prompt.
+      // Works across all frameModes. Identity-safe rule applied server-side when @handle present.
+      if (motionPreset !== "none") {
+        body.motionControl = { preset: motionPreset };
+      }
+
       // start_frame = Image Reference. imageUrl = start frame; endImageUrl = end frame.
       if (frameMode === "start_frame" && startSlot.url)                              body.imageUrl    = startSlot.url;
-      if (frameMode === "start_frame" && endSlot.url && model.capabilities.endFrame) body.endImageUrl = endSlot.url;
+      // End frame: only send when model supports it.
+      // If @handle is present, Start Frame must be ON — otherwise identity drift is likely.
+      // No handle → generic video → no dependency restriction.
+      if (frameMode === "start_frame" && endSlot.url && model.capabilities.endFrame) {
+        const endFrameAllowed = detectedHandles.length === 0 || useStartFrame;
+        if (endFrameAllowed) body.endImageUrl = endSlot.url;
+      }
 
       // motion_control: referenceVideoUrl = motion reference video; imageUrl = subject image
       if (frameMode === "motion_control" && motionVideoUrl) body.referenceVideoUrl = motionVideoUrl;
       if (frameMode === "motion_control" && startSlot.url)  body.imageUrl          = startSlot.url;
+
+      // Identity start frame — signal backend to attach canonical hero as imageUrl.
+      // Gate: flag ON + handle detected + model supports startFrame + no user image or motion ref.
+      // Note: readiness is NOT gated here — the UI blocks generation before this runs
+      // when the frontend knows canonical is missing. The backend 400 is the final authority.
+      if (
+        useStartFrame &&
+        detectedHandles.length > 0 &&
+        model.capabilities.startFrame &&
+        !startSlot.url &&
+        !motionVideoUrl
+      ) {
+        body.useIdentityStartFrame = true;
+      }
 
       const res = await fetch("/api/studio/video/generate", {
         method: "POST",
@@ -853,8 +956,9 @@ export default function VideoStudioShell() {
     }
   }, [
     user, frameMode, model, generating, prompt, negPrompt, duration, aspectRatio,
-    quality, resolution, cameraPreset, startSlot, endSlot, motionVideoUrl,
+    quality, resolution, cameraPreset, motionPreset, startSlot, endSlot, motionVideoUrl,
     motionStrength, motionArea, lipSyncCreate, recordFlowStep, showToast,
+    useStartFrame, detectedHandles,
   ]);
 
 
@@ -939,6 +1043,7 @@ export default function VideoStudioShell() {
             duration={duration}
             resolution={resolution}
             cameraPreset={cameraPreset}
+            motionPreset={motionPreset}
             motionStrength={motionStrength}
             motionArea={motionArea}
             onFrameMode={setFrameMode}
@@ -947,6 +1052,7 @@ export default function VideoStudioShell() {
             onDuration={setDuration}
             onResolution={setResolution}
             onCameraPreset={setCameraPreset}
+            onMotionPreset={setMotionPreset}
             onMotionStrength={setMotionStrength}
             onMotionArea={setMotionArea}
             model={model}
@@ -1100,6 +1206,13 @@ export default function VideoStudioShell() {
             onLipSyncRetry={lipSyncRetry}
             onLipSyncReset={lipSyncReset}
             onGenerate={handleGenerate}
+            detectedHandles={detectedHandles}
+            handleReadiness={handleReadiness}
+            handleAvatarUrls={handleAvatarUrls}
+            useStartFrame={useStartFrame}
+            setUseStartFrame={setUseStartFrame}
+            endSlot={endSlot}
+            onClearEndSlot={() => setEndSlot(EMPTY_SLOT)}
           />
         </div>
       </div>

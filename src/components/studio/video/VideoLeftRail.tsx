@@ -269,6 +269,120 @@ function CameraDropdown({ presets, value, onChange }: {
   );
 }
 
+// ── Motion Preset Selector ────────────────────────────────────────────────────
+// Minimal cinematic movement picker — prompt-layer injection, not a frameMode.
+// Works across all frame modes. Selecting any preset sends motionControl: { preset }
+// to the backend, which appends the corresponding cinematography direction to the prompt.
+
+const MOTION_PRESETS: Array<{ value: string; label: string; icon: React.ReactNode }> = [
+  {
+    value: "none",
+    label: "None",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    ),
+  },
+  {
+    value: "cinematic_push",
+    label: "Cinematic Push",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+      </svg>
+    ),
+  },
+  {
+    value: "orbit",
+    label: "Orbit",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 1 12 2" strokeDasharray="5 3"/>
+      </svg>
+    ),
+  },
+  {
+    value: "walk_forward",
+    label: "Walk Forward",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
+      </svg>
+    ),
+  },
+  {
+    value: "handheld",
+    label: "Handheld",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6.5 6.5c0 0 1-1 2.5 0s2 2.5 2 2.5"/><path d="M9 9c.5.5.5 2 .5 2"/><rect x="12" y="8" width="8" height="12" rx="2"/>
+      </svg>
+    ),
+  },
+  {
+    value: "slow_drift",
+    label: "Slow Drift",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 12s3-4 10-4 10 4 10 4-3 4-10 4-10-4-10-4z"/><circle cx="12" cy="12" r="2"/>
+      </svg>
+    ),
+  },
+  {
+    value: "reveal",
+    label: "Reveal",
+    icon: (
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 5v14"/><path d="M5 12l7 7 7-7"/>
+      </svg>
+    ),
+  },
+];
+
+function MotionPresetSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {MOTION_PRESETS.map(p => {
+        const active = value === p.value;
+        return (
+          <button
+            key={p.value}
+            onClick={() => onChange(p.value)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "7px 10px", borderRadius: 7, width: "100%",
+              border: active ? "1px solid rgba(14,165,160,0.5)" : "1px solid transparent",
+              background: active ? "rgba(14,165,160,0.12)" : "transparent",
+              color: active ? "#F8FAFC" : "#94A3B8",
+              fontSize: 13, fontWeight: active ? 600 : 400,
+              cursor: "pointer", transition: "all 0.15s", textAlign: "left",
+            }}
+            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#CBD5F5"; }}
+            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+          >
+            <span style={{
+              lineHeight: 0, flexShrink: 0,
+              color: active ? "#22D3EE" : "#475569",
+              transition: "color 0.15s",
+            }}>
+              {p.icon}
+            </span>
+            {p.label}
+            {active && (
+              <span style={{ marginLeft: "auto" }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Motion Strength Slider ────────────────────────────────────────────────────
 
 function MotionSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -354,6 +468,8 @@ interface Props {
   duration:     number;
   resolution:   string;
   cameraPreset: CameraPreset | null;
+  // motionPreset — prompt-layer cinematic movement instruction ("none" = off)
+  motionPreset:   string;
   motionStrength: number;
   motionArea:   string;
   onFrameMode:  (m: FrameMode) => void;
@@ -362,6 +478,7 @@ interface Props {
   onDuration:   (d: number) => void;
   onResolution: (r: string) => void;
   onCameraPreset:(p: CameraPreset | null) => void;
+  onMotionPreset:(v: string) => void;
   onMotionStrength: (v: number) => void;
   onMotionArea: (v: string) => void;
   model:        VideoModel | null;
@@ -369,9 +486,9 @@ interface Props {
 
 export default function VideoLeftRail({
   frameMode, aspectRatio, quality, duration, resolution, cameraPreset,
-  motionStrength, motionArea,
+  motionPreset, motionStrength, motionArea,
   onFrameMode, onAspectRatio, onQuality, onDuration, onResolution, onCameraPreset,
-  onMotionStrength, onMotionArea,
+  onMotionPreset, onMotionStrength, onMotionArea,
   model,
 }: Props) {
   const caps           = model?.capabilities;
@@ -574,6 +691,21 @@ export default function VideoLeftRail({
               value={cameraPreset}
               onChange={onCameraPreset}
             />
+          </div>
+        </>
+      )}
+
+      {/* ── Motion Style ─────────────────────────────────────────────────────
+          Prompt-layer cinematic movement injection — available in all frameModes
+          except the reference video motion_control mode (which has its own controls).
+          Selecting a preset appends a cinematography direction to the prompt server-side.
+          Identity-safe rule added automatically when @handle is present in the prompt.  */}
+      {model?.available && !isMotionMode && frameMode !== "lip_sync" && (
+        <>
+          <Divider />
+          <div>
+            <SLabel>Motion Style</SLabel>
+            <MotionPresetSelector value={motionPreset} onChange={onMotionPreset} />
           </div>
         </>
       )}
