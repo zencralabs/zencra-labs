@@ -80,6 +80,34 @@ interface PackOutput {
   images:  Array<{ url: string; label: string }>;
 }
 
+// ── Pack UI state ─────────────────────────────────────────────────────────────
+
+type PackUiState = "locked" | "ready" | "generating" | "completed";
+
+/**
+ * Derives the cinematic UI state for a pack.
+ * Source of truth: packOutputs (generation status) + sequential unlock rule.
+ * - Identity Sheet (idx 0) is always "ready" on load
+ * - Each subsequent pack unlocks only after the previous one completes
+ * - "failed" → treated as "ready" so the user can retry
+ */
+function getPackUiState(packType: PackType, packOutputs: PackOutput[]): PackUiState {
+  const output = packOutputs.find(p => p.type === packType);
+
+  if (output) {
+    if (output.status === "loading")  return "generating";
+    if (output.status === "complete") return "completed";
+    return "ready"; // failed → retry
+  }
+
+  const idx = PACK_ACTIONS.findIndex(p => p.type === packType);
+  if (idx === 0) return "ready"; // Identity Sheet is always the foundation
+
+  const prevType   = PACK_ACTIONS[idx - 1].type;
+  const prevOutput = packOutputs.find(p => p.type === prevType);
+  return prevOutput?.status === "complete" ? "ready" : "locked";
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InfluencerCanvas({
@@ -166,6 +194,8 @@ export default function InfluencerCanvas({
               : p,
           ),
         );
+        // Auto-focus the output panel on the pack that just completed
+        setActivePack(packType);
       } catch (err) {
         console.error("[triggerPack]", err);
         setPackOutputs(prev =>
@@ -277,6 +307,7 @@ export default function InfluencerCanvas({
             packOutputs={packOutputs}
             activePack={activePack}
             onTriggerPack={handleTriggerPack}
+            onSetActivePack={setActivePack}
             packSectionRef={packSectionRef}
           />
         )}
@@ -891,6 +922,7 @@ function SelectedState({
   packOutputs,
   activePack,
   onTriggerPack,
+  onSetActivePack,
   packSectionRef,
 }: {
   active: ActiveInfluencer;
@@ -898,35 +930,40 @@ function SelectedState({
   packOutputs: PackOutput[];
   activePack: PackType | null;
   onTriggerPack: (type: PackType) => void;
+  onSetActivePack: (type: PackType) => void;
   packSectionRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const activeOutput = packOutputs.find(p => p.type === activePack) ?? null;
+  const activeDef    = activePack ? PACK_ACTIONS.find(p => p.type === activePack) ?? null : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
 
       {/* ── Hero image — dominant ────────────────────────────────────── */}
       <HeroSection active={active} accent={accent} />
 
-      {/* ── Pack action buttons ──────────────────────────────────────── */}
-      <PackActions
-        active={active}
-        triggeredPacks={packOutputs.map(p => p.type)}
+      {/* ── Cinematic pack dock ──────────────────────────────────────── */}
+      <PackDock
+        packOutputs={packOutputs}
         activePack={activePack}
         onTrigger={onTriggerPack}
+        onSelect={onSetActivePack}
       />
 
-      {/* ── Pack output sections — progressive reveal ────────────────── */}
+      {/* ── Single output panel — one pack at a time ─────────────────── */}
       <div ref={packSectionRef}>
-        {packOutputs.map((output, i) => (
-          <PackSection
-            key={output.type}
-            output={output}
-            isFirst={i === 0}
-          />
-        ))}
+        {activePack && activeDef && (
+          <div key={activePack}>
+            <PackOutputPanel
+              output={activeOutput}
+              packDef={activeDef}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Save Identity CTA ─────────────────────────────────────────── */}
-      {packOutputs.length > 0 && (
+      {packOutputs.some(p => p.status === "complete") && (
         <SaveIdentityBar influencer_id={active.influencer.id} />
       )}
     </div>
@@ -1032,74 +1069,260 @@ function HeroSection({ active, accent }: { active: ActiveInfluencer; accent: str
   );
 }
 
-// ── Pack action buttons ────────────────────────────────────────────────────────
+// ── Cinematic Pack Dock ────────────────────────────────────────────────────────
 
-function PackActions({
-  active, triggeredPacks, activePack, onTrigger,
+function PackDock({
+  packOutputs,
+  activePack,
+  onTrigger,
+  onSelect,
 }: {
-  active: ActiveInfluencer;
-  triggeredPacks: PackType[];
+  packOutputs: PackOutput[];
   activePack: PackType | null;
   onTrigger: (type: PackType) => void;
+  onSelect: (type: PackType) => void;
 }) {
   return (
-    <div style={{
-      padding: "36px 24px 20px",
-      display: "flex", gap: 8, flexWrap: "wrap",
-      justifyContent: "center",
+    <div className="pack-dock" style={{
+      padding: "28px 24px 20px",
+      display: "flex", gap: 10,
+      overflowX: "auto",
     }}>
-      {PACK_ACTIONS.map(pack => {
-        const triggered = triggeredPacks.includes(pack.type);
-        const isActive  = activePack === pack.type;
-
+      <style>{`
+        .pack-dock::-webkit-scrollbar { display: none; }
+        .pack-dock { scrollbar-width: none; }
+        @keyframes packGenerating {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1; }
+        }
+      `}</style>
+      {PACK_ACTIONS.map((pack, idx) => {
+        const uiState = getPackUiState(pack.type, packOutputs);
+        const isActive = activePack === pack.type;
         return (
-          <button
+          <PackCard
             key={pack.type}
-            onClick={() => !triggered && onTrigger(pack.type)}
-            disabled={triggered}
-            style={{
-              padding: "9px 16px", borderRadius: 8,
-              border: isActive
-                ? `1px solid ${pack.accent}55`
-                : triggered
-                ? "1px solid rgba(255,255,255,0.08)"
-                : "1px solid rgba(255,255,255,0.10)",
-              background: isActive
-                ? `${pack.accent}14`
-                : triggered
-                ? "rgba(255,255,255,0.03)"
-                : "rgba(255,255,255,0.04)",
-              color: isActive
-                ? pack.accent
-                : triggered
-                ? "#4a5168"
-                : T.muted,
-              fontSize: 12, fontWeight: triggered ? 500 : 700,
-              cursor: triggered ? "not-allowed" : "pointer",
-              letterSpacing: "0.02em",
-              transition: "all 0.15s",
-              boxShadow: isActive ? `0 0 12px ${pack.accent}18` : "none",
-            }}
-          >
-            {triggered && !isActive ? (
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
-                  stroke="#10b981" strokeWidth="3">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                {pack.label}
-              </span>
-            ) : pack.cta}
-          </button>
+            pack={pack}
+            idx={idx}
+            uiState={uiState}
+            isActive={isActive}
+            onTrigger={onTrigger}
+            onSelect={onSelect}
+          />
         );
       })}
     </div>
   );
 }
 
-// ── Pack output section — animates into view on trigger ───────────────────────
+function PackCard({
+  pack, idx, uiState, isActive, onTrigger, onSelect,
+}: {
+  pack: typeof PACK_ACTIONS[0];
+  idx: number;
+  uiState: PackUiState;
+  isActive: boolean;
+  onTrigger: (type: PackType) => void;
+  onSelect: (type: PackType) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
 
-function PackSection({ output, isFirst }: { output: PackOutput; isFirst: boolean }) {
+  const isFoundation = idx === 0;
+  const isLocked     = uiState === "locked";
+
+  function handleClick() {
+    if (isLocked) return;
+    if (uiState === "completed") {
+      onSelect(pack.type);
+    } else {
+      onTrigger(pack.type);
+    }
+  }
+
+  const borderColor = (() => {
+    if (uiState === "completed")                         return `${pack.accent}50`;
+    if (uiState === "generating")                        return `${pack.accent}55`;
+    if (uiState === "ready" && isFoundation)             return "rgba(255,255,255,0.22)";
+    if (uiState === "ready")                             return "rgba(255,255,255,0.14)";
+    return "rgba(255,255,255,0.05)";
+  })();
+
+  const bg = (() => {
+    if (uiState === "completed")                         return `${pack.accent}10`;
+    if (uiState === "generating")                        return `${pack.accent}0c`;
+    if (uiState === "ready" && isFoundation)             return "rgba(255,255,255,0.04)";
+    if (uiState === "ready")                             return "rgba(255,255,255,0.025)";
+    return "rgba(255,255,255,0.01)";
+  })();
+
+  const activeShadow = (() => {
+    if (isActive && uiState === "completed")             return `0 0 20px ${pack.accent}28`;
+    if (isActive && uiState === "generating")            return `0 0 16px ${pack.accent}22`;
+    if (isActive && uiState === "ready" && isFoundation) return "0 0 24px rgba(255,255,255,0.06)";
+    return "none";
+  })();
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isLocked}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flexShrink: 0,
+        width: 148,
+        padding: "14px 14px 12px",
+        borderRadius: 14,
+        border: `1px solid ${isLocked ? "rgba(255,255,255,0.04)" : (hovered || isActive ? borderColor : borderColor)}`,
+        background: isLocked ? "rgba(255,255,255,0.005)" : (hovered && !isActive ? bg : bg),
+        boxShadow: isActive ? activeShadow : "none",
+        cursor: isLocked ? "not-allowed" : "pointer",
+        opacity: isLocked ? 0.35 : 1,
+        textAlign: "left",
+        transition: "all 0.2s ease",
+        display: "flex", flexDirection: "column", gap: 8,
+        animation: uiState === "generating" ? "packGenerating 1.6s ease-in-out infinite" : "none",
+        outline: "none",
+      }}
+    >
+      {/* Top row: label + state indicator */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+        <div style={{
+          fontSize: 12, fontWeight: 700,
+          color: isLocked
+            ? T.ghost
+            : (uiState === "completed" || uiState === "generating") ? pack.accent : T.text,
+          lineHeight: 1.25,
+          letterSpacing: "-0.01em",
+        }}>
+          {pack.label}
+          {isFoundation && (
+            <div style={{
+              fontSize: 9, fontWeight: 700, color: T.ghost,
+              letterSpacing: "0.1em", textTransform: "uppercase",
+              marginTop: 2,
+            }}>
+              Foundation
+            </div>
+          )}
+        </div>
+        <PackStateIndicator uiState={uiState} accent={pack.accent} />
+      </div>
+
+      {/* Descriptor */}
+      <div style={{
+        fontSize: 10,
+        color: isLocked ? "rgba(255,255,255,0.18)" : T.ghost,
+        lineHeight: 1.5,
+      }}>
+        {pack.descriptor}
+      </div>
+
+      {/* CTA / status line */}
+      <div style={{
+        fontSize: 10, fontWeight: 700,
+        color: isLocked
+          ? "rgba(255,255,255,0.14)"
+          : uiState === "completed"
+            ? pack.accent
+            : uiState === "generating"
+              ? `${pack.accent}99`
+              : uiState === "ready"
+                ? "rgba(255,255,255,0.45)"
+                : T.ghost,
+        letterSpacing: "0.04em",
+        marginTop: 2,
+      }}>
+        {uiState === "locked"     && "Unlock previous first"}
+        {uiState === "ready"      && pack.cta}
+        {uiState === "generating" && "Generating…"}
+        {uiState === "completed"  && "✓ View output"}
+      </div>
+    </button>
+  );
+}
+
+function PackStateIndicator({ uiState, accent }: { uiState: PackUiState; accent: string }) {
+  if (uiState === "locked") {
+    return (
+      <div style={{
+        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+          stroke="rgba(255,255,255,0.20)" strokeWidth="2.5" strokeLinecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      </div>
+    );
+  }
+  if (uiState === "ready") {
+    return (
+      <div style={{
+        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
+        border: `1px solid ${accent}40`,
+        background: `${accent}10`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+          stroke={accent} strokeWidth="2.5" strokeLinecap="round">
+          <polyline points="5 12 12 5 19 12" />
+          <line x1="12" y1="5" x2="12" y2="19" />
+        </svg>
+      </div>
+    );
+  }
+  if (uiState === "generating") {
+    return (
+      <div style={{
+        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
+        border: `1px solid ${accent}55`,
+        background: `${accent}12`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <span style={{
+          width: 8, height: 8,
+          border: `1.5px solid ${accent}44`,
+          borderTopColor: accent,
+          borderRadius: "50%",
+          display: "inline-block",
+          animation: "spin 0.8s linear infinite",
+        }} />
+      </div>
+    );
+  }
+  // completed
+  return (
+    <div style={{
+      width: 18, height: 18, flexShrink: 0, borderRadius: 5,
+      border: `1px solid ${accent}50`,
+      background: `${accent}18`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+        stroke={accent} strokeWidth="3" strokeLinecap="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    </div>
+  );
+}
+
+// ── Pack output panel — single, unified, one at a time ───────────────────────
+//
+// Receives the active pack's output (or null if not yet triggered) and its
+// PACK_ACTIONS definition. Remounts via `key={activePack}` in SelectedState,
+// which triggers the fade-in animation on every pack switch.
+
+function PackOutputPanel({
+  output,
+  packDef,
+}: {
+  output:  PackOutput | null;
+  packDef: typeof PACK_ACTIONS[0];
+}) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -1110,7 +1333,7 @@ function PackSection({ output, isFirst }: { output: PackOutput; isFirst: boolean
   return (
     <div style={{
       padding: "0 24px",
-      marginTop: isFirst ? 4 : 0,
+      marginTop: 4,
       marginBottom: 32,
       opacity: visible ? 1 : 0,
       transform: visible ? "translateY(0)" : "translateY(12px)",
@@ -1124,26 +1347,23 @@ function PackSection({ output, isFirst }: { output: PackOutput; isFirst: boolean
       }}>
         <div style={{
           fontSize: 16, fontWeight: 700,
-          color: output.accent,
+          color: packDef.accent,
           marginBottom: 4,
         }}>
-          {output.label}
+          {packDef.label}
         </div>
         <div style={{ fontSize: 13, color: T.ghost }}>
-          {output.descriptor}
+          {packDef.descriptor}
         </div>
       </div>
 
-      {/* Output strip */}
-      {output.status === "loading" && (
-        <div style={{
-          display: "flex", gap: 10, overflowX: "auto",
-          paddingBottom: 8,
-        }}>
+      {/* Loading skeletons — shown when pack is in-flight OR not yet triggered (ready state) */}
+      {(!output || output.status === "loading") && (
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} style={{
               flexShrink: 0, width: 120, aspectRatio: "2/3",
-              borderRadius: 10, background: "rgba(255,255,255,0.04)",
+              borderRadius: 0, background: "rgba(255,255,255,0.04)",
               animation: "pulse 1.8s ease-in-out infinite",
               animationDelay: `${i * 0.15}s`,
             }}>
@@ -1153,25 +1373,20 @@ function PackSection({ output, isFirst }: { output: PackOutput; isFirst: boolean
         </div>
       )}
 
-      {output.status === "failed" && (
-        <div style={{
-          padding: "16px 0", fontSize: 13, color: "#ef4444",
-        }}>
+      {output?.status === "failed" && (
+        <div style={{ padding: "16px 0", fontSize: 13, color: "#ef4444" }}>
           This pack couldn't be generated. Try again.
         </div>
       )}
 
-      {output.status === "complete" && output.images.length > 0 && (
-        <div style={{
-          display: "flex", gap: 10, overflowX: "auto",
-          paddingBottom: 8,
-        }}>
-          {output.images.map((img, i) => (
+      {output?.status === "complete" && output.images.length > 0 && (
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
+          {output.images.map(img => (
             <PackAssetCard
               key={img.url}
               url={img.url}
               label={img.label}
-              accentColor={output.accent}
+              accentColor={packDef.accent}
             />
           ))}
         </div>
@@ -1191,7 +1406,7 @@ function PackAssetCard({
     <div
       style={{
         flexShrink: 0, width: 130, aspectRatio: "2/3",
-        borderRadius: 10, overflow: "hidden", position: "relative",
+        borderRadius: 0, overflow: "hidden", position: "relative",
         cursor: "pointer",
         transition: "transform 0.2s ease",
         transform: hovered ? "translateY(-2px)" : "none",
