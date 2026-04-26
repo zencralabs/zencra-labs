@@ -98,10 +98,10 @@
   }
 
   /* ── Typography — Zencra cinematic scale ─────────────────────────────── */
-  /* Display font: Clash Display (Space Grotesk stand-in via --font-display) */
+  /* Display font: Syne via --font-display */
   h1, h2, h3, h4, h5, h6,
   .hero-title, .display-title, .studio-title, .marketing-title {
-    font-family: var(--font-display), "Space Grotesk", system-ui, sans-serif;
+    font-family: var(--font-display), "Syne", system-ui, sans-serif;
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: -0.03em;

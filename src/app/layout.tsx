@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Familjen_Grotesk, Space_Grotesk } from "next/font/google";
+import { Familjen_Grotesk, Syne } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
@@ -10,19 +10,16 @@ import "./globals.css";
 // Font Configuration — Zencra cinematic typography system
 //
 // Display / Headings → --font-display
-//   Space Grotesk (Google Fonts stand-in for Clash Display)
-//   To swap in Clash Display: replace this with next/font/local pointing to
-//   /public/fonts/clash-display/ClashDisplay-Variable.woff2
+//   Syne — bold geometric, cinematic at large sizes
 //
 // Body / UI / Forms → --font-sans  (also aliased as --font-body)
-//   Familjen Grotesk — approved Neue Montreal stand-in per spec
-//   To swap in Neue Montreal: replace this with next/font/local pointing to
-//   /public/fonts/neue-montreal/NeueMontreal-{Regular,Medium,Bold}.woff2
+//   Familjen Grotesk — clean modern grotesque
+//   FCS typography intentionally untouched — separate font system to be added later.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const clashDisplay = Space_Grotesk({
+const syne = Syne({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-display",
   display: "swap",
   preload: true,
@@ -106,7 +103,7 @@ export default function RootLayout({
         suppressHydrationWarning is REQUIRED for next-themes to work correctly.
         It suppresses the mismatch warning caused by theme injection on mount.
       */}
-      <body className={`${clashDisplay.variable} ${neueMontreal.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${syne.variable} ${neueMontreal.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
             {/* Main site wrapper */}

@@ -61,8 +61,8 @@ const config: Config = {
 
       // ─── Typography ──────────────────────────────────────────────────────
       fontFamily: {
-        // Display / Headings — Clash Display (Space Grotesk stand-in)
-        display: ["var(--font-display)", "Space Grotesk", "system-ui", "sans-serif"],
+        // Display / Headings — Syne
+        display: ["var(--font-display)", "Syne", "system-ui", "sans-serif"],
         // Body / UI / Forms — Neue Montreal (Familjen Grotesk stand-in)
         sans:    ["var(--font-sans)", "Familjen Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
         ui:      ["var(--font-sans)", "Familjen Grotesk", "Helvetica Neue", "Arial", "sans-serif"],
