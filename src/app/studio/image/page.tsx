@@ -2655,19 +2655,18 @@ function ImageStudioInner() {
                 <div key={handle} style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "4px 10px", borderRadius: 20,
-                  background: "rgba(245,158,11,0.10)",
-                  border: "1px solid rgba(245,158,11,0.32)",
-                  fontSize: 11, fontWeight: 700,
-                  color: "rgba(252,211,77,0.95)",
-                  letterSpacing: "0.02em",
+                  background: "rgba(245,158,11,0.08)",
+                  border: "1px solid rgba(245,158,11,0.28)",
+                  fontSize: 11, letterSpacing: "0.01em",
                 }}>
-                  <span style={{ fontSize: 8, opacity: 0.85 }}>🔒</span>
-                  @{handle}
-                  <span style={{
-                    fontSize: 10, fontWeight: 400,
-                    color: "rgba(252,211,77,0.55)",
-                    letterSpacing: "0.01em",
-                  }}>• Identity Locked</span>
+                  {/* lock icon — same tone as status, belongs to the state not the name */}
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.48)", lineHeight: 1 }}>🔒</span>
+                  {/* handle — primary, full white */}
+                  <span style={{ fontWeight: 700, color: "#fff" }}>@{handle}</span>
+                  {/* status label — clearly secondary */}
+                  <span style={{ fontWeight: 500, color: "rgba(255,255,255,0.48)", fontSize: 10 }}>
+                    · Identity Locked
+                  </span>
                 </div>
               ))}
             </div>
