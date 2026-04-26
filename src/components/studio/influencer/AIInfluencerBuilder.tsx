@@ -47,11 +47,11 @@ export default function AIInfluencerBuilder() {
   const [canvasState, setCanvasState] = useState<CanvasState>({ phase: "empty" });
   const [libraryKey, setLibraryKey]   = useState(0);   // bump to refresh library
 
-  const handleCreated = useCallback((influencer: AIInfluencer) => {
+  const handleCreated = useCallback((influencer: AIInfluencer, jobIds: string[]) => {
     setCanvasState({
       phase: "generating",
       influencer_id: influencer.id,
-      jobs: [],
+      jobs: jobIds,
     });
   }, []);
 

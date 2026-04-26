@@ -166,7 +166,11 @@ export default function InfluencerCanvas({ canvasState, onCandidatesReady, onSel
     >
       {canvasState.phase === "empty"      && <EmptyState />}
       {canvasState.phase === "generating" && (
-        <GeneratingState influencer_id={canvasState.influencer_id} onReady={onCandidatesReady} />
+        <GeneratingState
+          influencer_id={canvasState.influencer_id}
+          jobIds={canvasState.jobs}
+          onReady={onCandidatesReady}
+        />
       )}
       {canvasState.phase === "candidates" && (
         <CandidatesState
@@ -239,20 +243,57 @@ function EmptyState() {
 
 function GeneratingState({
   influencer_id,
+  jobIds,
   onReady,
 }: {
   influencer_id: string;
+  jobIds: string[];
   onReady: (influencer_id: string, urls: string[]) => void;
 }) {
-  const [progress, setProgress] = useState(0);
+  const [progress,   setProgress]   = useState(0);
+  const [completed,  setCompleted]  = useState(0);
+  const total = jobIds.length || 4;  // default display count before jobs known
 
   useEffect(() => {
-    // Simulate progress while jobs run
+    // Ambient progress animation (creeps to ~80% while real jobs run)
     const interval = setInterval(() => {
-      setProgress(p => Math.min(p + Math.random() * 8, 88));
-    }, 600);
+      setProgress(p => Math.min(p + Math.random() * 5, 80));
+    }, 700);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (jobIds.length === 0) return;  // wait for jobs to arrive
+
+    let cancelled = false;
+
+    async function pollAll() {
+      const results = await Promise.all(
+        jobIds.map(async jobId => {
+          const url = await pollJobForUrl(jobId);
+          if (!cancelled) setCompleted(c => c + 1);
+          return url;
+        }),
+      );
+      if (cancelled) return;
+
+      const urls = results.filter((u): u is string => !!u);
+      // Snap progress bar to 100% then transition
+      setProgress(100);
+      setTimeout(() => {
+        if (!cancelled) onReady(influencer_id, urls);
+      }, 400);
+    }
+
+    pollAll().catch(console.error);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobIds.join(",")]);
+
+  // Show actual completion ratio once we have job info
+  const displayProgress = jobIds.length > 0
+    ? Math.round((completed / total) * 100)
+    : progress;
 
   return (
     <div style={{
@@ -288,7 +329,9 @@ function GeneratingState({
           Building your AI influencer…
         </div>
         <div style={{ fontSize: 13, color: T.ghost }}>
-          Generating candidates. This takes about 30–60 seconds.
+          {jobIds.length > 0
+            ? `${completed} of ${total} candidates ready`
+            : "Generating candidates. This takes about 30–60 seconds."}
         </div>
       </div>
 
@@ -301,8 +344,8 @@ function GeneratingState({
         <div style={{
           height: "100%", borderRadius: 2,
           background: "#f59e0b",
-          width: `${progress}%`,
-          transition: "width 0.6s ease",
+          width: `${displayProgress}%`,
+          transition: "width 0.8s ease",
         }} />
       </div>
     </div>

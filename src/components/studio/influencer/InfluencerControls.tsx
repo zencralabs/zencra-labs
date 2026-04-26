@@ -26,7 +26,7 @@ type ControlTab = "builder" | "packs" | "refine" | "advanced";
 interface Props {
   canvasState:      CanvasState;
   activeInfluencer: ActiveInfluencer | null;
-  onCreated:        (influencer: AIInfluencer) => void;
+  onCreated:        (influencer: AIInfluencer, jobIds: string[]) => void;
 }
 
 export default function InfluencerControls({ canvasState, activeInfluencer, onCreated }: Props) {
@@ -92,7 +92,7 @@ function BuilderTab({
 }: {
   canvasState: CanvasState;
   activeInfluencer: ActiveInfluencer | null;
-  onCreated: (influencer: AIInfluencer) => void;
+  onCreated: (influencer: AIInfluencer, jobIds: string[]) => void;
 }) {
   const [name,       setName]       = useState("");
   const [gender,     setGender]     = useState("");
@@ -169,15 +169,23 @@ function BuilderTab({
       const influencer = createData.data?.influencer;
       if (!influencer) { setError("Unexpected response."); return; }
 
-      // Step 2: Trigger generation
-      await fetch("/api/character/ai-influencers/generate", {
+      // Step 2: Trigger generation — capture job IDs for polling
+      const generateRes = await fetch("/api/character/ai-influencers/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ influencer_id: influencer.id }),
       });
 
-      onCreated(influencer);
+      let jobIds: string[] = [];
+      if (generateRes.ok) {
+        const generateData = await generateRes.json();
+        jobIds = (generateData.data?.jobs ?? []).map(
+          (j: { jobId: string }) => j.jobId,
+        );
+      }
+
+      onCreated(influencer, jobIds);
     } catch (err) {
       console.error(err);
       setError("Something went wrong. Try again.");
