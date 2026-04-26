@@ -72,6 +72,14 @@ export interface MediaCardProps {
   onVisibilityChange?: (id: string, visibility: AssetVisibility) => void;
   /** Called after delete */
   onDelete?: (id: string) => void;
+  /**
+   * Gallery wall mode — fills the parent grid cell edge-to-edge.
+   * Card chrome (border, background, box-shadow, border-radius) is removed.
+   * Media container fills height: 100% and image uses objectFit: cover so it
+   * occupies the full grid frame without black dead-space.
+   * Hover overlays still render; overflow is clipped to the grid cell.
+   */
+  galleryMode?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -349,6 +357,7 @@ export default function MediaCard({
   onAnimate,
   onVisibilityChange,
   onDelete,
+  galleryMode = false,
 }: MediaCardProps) {
   const [hovered,  setHovered]  = useState(false);
   const [liked,    setLiked]    = useState(false);
@@ -432,7 +441,22 @@ export default function MediaCard({
       ref={cardRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
-      style={{
+      style={galleryMode ? {
+        // Gallery wall mode: edge-to-edge fill, no card chrome.
+        // The parent grid item IS the frame — this element fills it completely.
+        position:   "relative",
+        width:      "100%",
+        height:     "100%",
+        overflow:   "hidden",   // clips hover zoom + overlays to grid cell boundary
+        cursor:     "pointer",
+        userSelect: "none",
+        borderRadius: 0,
+        background:   "transparent",
+        border:       "none",
+        boxShadow:    "none",
+        transform:    "none",
+        transition:   "none",
+      } : {
         position:     "relative",
         borderRadius: 14,
         // overflow is intentionally omitted here so the MoreMenu dropdown can
@@ -453,7 +477,16 @@ export default function MediaCard({
     >
       {/* ── Media ─────────────────────────────────────────────────────────── */}
       <div
-        style={{
+        style={galleryMode ? {
+          // Gallery wall: fill the entire card container (which fills the grid cell).
+          // No aspect-ratio constraint — the grid item span IS the aspect frame.
+          position:   "relative",
+          width:      "100%",
+          height:     "100%",
+          background: "#05070D",
+          overflow:   "hidden",
+          borderRadius: 0,
+        } : {
           position:     "relative",
           // Videos: always lock 16/9.
           // Images with a real URL: NO forced ratio — let the browser render
@@ -487,10 +520,17 @@ export default function MediaCard({
             <img
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
-              style={{
-                // True masonry: image renders at its natural aspect ratio.
-                // width: 100% fills the column; height: auto follows the image's
-                // real dimensions — no crop, no forced shape, no distortion.
+              style={galleryMode ? {
+                // Gallery mode: fill the grid cell — objectFit cover handles
+                // any micro aspect-ratio discrepancy from the span calculation.
+                width:      "100%",
+                height:     "100%",
+                objectFit:  "cover",
+                display:    "block",
+                transition: "transform 0.35s",
+                transform:  hovered ? "scale(1.04)" : "scale(1)",
+              } : {
+                // Standard mode: natural masonry — image renders at true height.
                 width:      "100%",
                 height:     "auto",
                 display:    "block",

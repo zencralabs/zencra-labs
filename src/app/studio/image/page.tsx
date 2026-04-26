@@ -429,16 +429,13 @@ function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
 function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: () => void }) {
-  const cssARMap: Record<string, string> = {
-    Auto: "1 / 1", "1:1": "1 / 1", "3:4": "3 / 4", "4:3": "4 / 3",
-    "2:3": "2 / 3", "3:2": "3 / 2", "9:16": "9 / 16", "16:9": "16 / 9",
-    "5:4": "5 / 4", "4:5": "4 / 5", "21:9": "21 / 9",
-    "1:4": "1 / 4", "1:8": "1 / 8", "4:1": "4 / 1", "8:1": "8 / 1",
-  };
-  const cssAR = cssARMap[ar] ?? "1 / 1";
+  // The grid item (wrapper div) controls the cell dimensions via colSpan + rowSpan.
+  // This placeholder fills it edge-to-edge with position:absolute — no self-imposed AR.
+  // The `ar` prop is kept for the cancel button label/accessibility only.
+  void ar;
 
   return (
-    <div style={{ position: "relative", width: "100%", aspectRatio: cssAR, borderRadius: 0, overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, borderRadius: 0, overflow: "hidden" }}>
       <div style={{
         position: "absolute", inset: 0,
         background: "linear-gradient(110deg, #060D1A 25%, #0B1530 50%, #060D1A 75%)",
@@ -478,21 +475,47 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
   );
 }
 
-// ── Dense grid row-span helper ────────────────────────────────────────────────
-// Given an aspect-ratio string (e.g. "9:16") and the grid's column width in px,
-// returns the number of 8px row-tracks the card should span so images pack
-// edge-to-edge without gaps.
-function getGalleryRowSpan(aspectRatio: string | undefined, columnWidth: number): number {
-  const ROW_PX = 8;
-  let h2w = 1; // height-to-width ratio — default square
-  const ar = aspectRatio && aspectRatio !== "Auto" ? aspectRatio : "1:1";
+// ── Dense grid span helpers ───────────────────────────────────────────────────
+// Returns { colSpan, rowSpan } so that:
+//   • landscape images span 2 (or 3) columns and look bigger/more cinematic
+//   • portrait images stay in 1 column but get the correct row span
+//   • the grid cell shape exactly matches the image's natural aspect ratio,
+//     eliminating black dead-space without needing object-contain
+//
+// baseColumnWidth = 180 matches gridTemplateColumns: repeat(auto-fill, minmax(180px, 1fr))
+// rowHeight      = 8   matches gridAutoRows: "8px"
+
+function parseAspectRatioParts(ar: string | undefined): [number, number] {
+  if (!ar || ar === "Auto") return [1, 1];
   const parts = ar.split(":");
-  if (parts.length === 2) {
-    const w = parseFloat(parts[0]);
-    const h = parseFloat(parts[1]);
-    if (w > 0 && h > 0) h2w = h / w;
-  }
-  return Math.ceil((columnWidth * h2w) / ROW_PX) + 1;
+  if (parts.length !== 2) return [1, 1];
+  const w = parseFloat(parts[0]);
+  const h = parseFloat(parts[1]);
+  if (!w || !h || w <= 0 || h <= 0) return [1, 1];
+  return [w, h];
+}
+
+function getGallerySpans(
+  aspectRatio: string | undefined,
+  baseColumnWidth = 180,
+  rowHeight = 8,
+): { colSpan: number; rowSpan: number } {
+  const [w, h] = parseAspectRatioParts(aspectRatio);
+  const ratio = w / h; // > 1 = landscape, < 1 = portrait
+
+  // Column span — landscape images take more horizontal space
+  let colSpan = 1;
+  if (ratio >= 2.1)       colSpan = 3;  // ultra-wide / 21:9 cinematic
+  else if (ratio >= 1.35) colSpan = 2;  // 16:9, 4:3, 3:2
+
+  // Row span — sized so the grid cell matches the image's natural proportions.
+  // visualWidth = colSpan × baseColumnWidth; visualHeight = visualWidth / ratio.
+  // Rows needed = ceil(visualHeight / rowHeight).  Min 18 so nothing collapses.
+  const visualWidth  = baseColumnWidth * colSpan;
+  const visualHeight = visualWidth / ratio;
+  const rowSpan = Math.max(18, Math.ceil(visualHeight / rowHeight));
+
+  return { colSpan, rowSpan };
 }
 
 // ── Skeleton card (history loading) ──────────────────────────────────────────
@@ -503,17 +526,15 @@ const SKELETON_RATIOS = [
   "3:4", "1:1", "3:2", "4:3", "1:1",
 ];
 
-function SkeletonCard({ index, aspectRatio }: { index: number; aspectRatio: string }) {
+function SkeletonCard({ index }: { index: number }) {
   // Stagger capped at card 20 — beyond that all appear together
   const delay = `${Math.min(index, 20) * 40}ms`;
-  const parts = aspectRatio.split(":");
-  const w = parseFloat(parts[0]) || 1;
-  const h = parseFloat(parts[1]) || 1;
 
+  // The grid item (wrapper div) controls the cell dimensions via colSpan + rowSpan.
+  // This card fills it edge-to-edge — no self-imposed aspect-ratio.
   return (
     <div style={{
-      position: "relative", width: "100%",
-      aspectRatio: `${w} / ${h}`,
+      position: "absolute", inset: 0,
       borderRadius: 0,
       overflow: "hidden",
       opacity: 0,
@@ -583,17 +604,9 @@ function ImageCard({
 
   if (img.status === "error") {
     const { icon, title, detail } = classifyError(img.error);
-    const errCssAR = (() => {
-      const m: Record<string, string> = {
-        "1:1": "1 / 1", "4:3": "4 / 3", "3:4": "3 / 4", "16:9": "16 / 9",
-        "9:16": "9 / 16", "2:3": "2 / 3", "3:2": "3 / 2", "4:5": "4 / 5",
-        "5:4": "5 / 4", "21:9": "21 / 9",
-      };
-      return m[img.aspectRatio] ?? "1 / 1";
-    })();
     return (
       <div style={{
-        width: "100%", aspectRatio: errCssAR, borderRadius: 0, position: "relative",
+        position: "absolute", inset: 0, borderRadius: 0,
         background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.15)",
       }}>
         <div style={{
@@ -644,12 +657,13 @@ function ImageCard({
     );
   }
 
-  // Done — render full MediaCard with owner actions
+  // Done — render full MediaCard with owner actions.
+  // galleryMode fills the grid cell edge-to-edge (no card chrome, objectFit cover).
   // Wrapper onClick: always selects card for right panel;
   // opens fullscreen only when the click target is not an action button.
   return (
     <div
-      style={{ animation: "fadeIn 0.3s ease", position: "relative" }}
+      style={{ animation: "fadeIn 0.3s ease", position: "relative", height: "100%" }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
         setCardAnimateOpen(false);
@@ -659,6 +673,7 @@ function ImageCard({
       <MediaCard
         asset={toPublicAsset(img)}
         isOwner
+        galleryMode
         aspectRatio={img.aspectRatio && img.aspectRatio !== "Auto" ? img.aspectRatio : undefined}
         hideHoverActions={hideHoverActions}
         hideVisibilityBadge={true}
@@ -1913,19 +1928,25 @@ function ImageStudioInner() {
         {user && !historyLoaded && images.length === 0 && (
           <div style={{
             display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
             gridAutoRows: "8px",
             gridAutoFlow: "dense",
             gap: 0,
           }}>
-            {SKELETON_RATIOS.map((ar, i) => (
-              <div key={i} style={{
-                minWidth: 0,
-                gridRowEnd: `span ${getGalleryRowSpan(ar, gridMinSize)}`,
-              }}>
-                <SkeletonCard index={i} aspectRatio={ar} />
-              </div>
-            ))}
+            {SKELETON_RATIOS.map((ar, i) => {
+              const { colSpan, rowSpan } = getGallerySpans(ar);
+              return (
+                <div key={i} style={{
+                  minWidth: 0,
+                  position: "relative",
+                  overflow: "hidden",
+                  gridColumnEnd: `span ${colSpan}`,
+                  gridRowEnd:    `span ${rowSpan}`,
+                }}>
+                  <SkeletonCard index={i} />
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -2203,12 +2224,14 @@ function ImageStudioInner() {
             </div>
             <div style={{
               display: "grid",
-              gridTemplateColumns: `repeat(auto-fill, minmax(${gridMinSize}px, 1fr))`,
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
               gridAutoRows: "8px",
               gridAutoFlow: "dense",
               gap: 0,
             }}>
-              {images.map((img, index) => (
+              {images.map((img, index) => {
+                const { colSpan, rowSpan } = getGallerySpans(img.aspectRatio);
+                return (
                 <div
                   key={img.id}
                   ref={el => { imageCardRefs.current[img.id] = el; }}
@@ -2216,10 +2239,13 @@ function ImageStudioInner() {
                   style={{
                     minWidth: 0,
                     position: "relative",
+                    overflow: "hidden",
                     opacity: 0,
                     animation: `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
-                    boxShadow: selectedImageIds.has(img.id) ? "0 0 0 2px rgba(37,99,235,0.7)" : "none",
-                    gridRowEnd: `span ${getGalleryRowSpan(img.aspectRatio, gridMinSize)}`,
+                    outline: selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
+                    outlineOffset: "-2px",
+                    gridColumnEnd: `span ${colSpan}`,
+                    gridRowEnd:    `span ${rowSpan}`,
                   }}
                 >
                   {/* ── Checkbox — top-left, clear of badge ── */}
@@ -2310,7 +2336,8 @@ function ImageStudioInner() {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
             </div>
             </>
           );
