@@ -98,19 +98,29 @@
   }
 
   /* ── Typography — Zencra cinematic scale ─────────────────────────────── */
-  /* Display font: Syne via --font-display */
-  h1, h2, h3, h4, h5, h6,
+  /* Display font: Syne via --font-display                                 */
+  /* Syne tracking is tuned per-level — large sizes need aggressive -em   */
+  /* to read as cinematic/tight rather than optically loose.               */
+  h1, h2, h3,
   .hero-title, .display-title, .studio-title, .marketing-title {
     font-family: var(--font-display), "Syne", system-ui, sans-serif;
     font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
+    line-height: 1.02;
+    letter-spacing: -0.055em;
+    text-wrap: balance;
   }
 
-  h1 { font-size: clamp(2.75rem, 7vw, 6rem);   letter-spacing: -0.045em; }
-  h2 { font-size: clamp(2rem,   5vw, 4rem);    letter-spacing: -0.035em; }
-  h3 { font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.025em; }
-  h4 { font-size: clamp(1.25rem, 2vw, 1.625rem); letter-spacing: -0.02em; }
+  h4, h5, h6 {
+    font-family: var(--font-display), "Syne", system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+  }
+
+  h1 { font-size: clamp(2.9rem,  8vw, 6.25rem); letter-spacing: -0.065em; }
+  h2 { font-size: clamp(2.15rem, 5vw, 4.35rem); letter-spacing: -0.055em; }
+  h3 { font-size: clamp(1.75rem, 3vw, 2.65rem); letter-spacing: -0.045em; }
+  h4 { font-size: clamp(1.45rem, 2vw, 1.75rem); letter-spacing: -0.03em;  }
 
   /* Form controls inherit body font */
   button, input, textarea, select, label {
@@ -284,6 +294,44 @@
   .text-ui-sm   { font-size: 0.875rem;   line-height: 1.35; }  /* 14px */
   .text-ui-base { font-size: 0.9375rem;  line-height: 1.35; }  /* 15px */
   .text-ui-md   { font-size: 1rem;       line-height: 1.35; }  /* 16px */
+
+  /* ── Cinematic rhythm utilities ─────────────────────────────────────────
+     Use these on headlines and body copy that needs explicit rhythm
+     control beyond what Tailwind tokens provide. Prefer these over
+     inline tracking/leading values so rhythm stays consistent.           */
+
+  .text-cinematic-display {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    letter-spacing: -0.065em;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+
+  .text-cinematic-heading {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    letter-spacing: -0.045em;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .text-cinematic-subtitle {
+    font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.015em;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .text-cinematic-body {
+    font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.008em;
+    line-height: 1.7;
+  }
+
+  .text-cinematic-ui {
+    font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.005em;
+    line-height: 1.35;
+  }
 
   /* ── Improved input/label readability ───────────────────────────────────── */
   input, textarea, select {

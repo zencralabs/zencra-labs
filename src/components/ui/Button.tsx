@@ -65,7 +65,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 
 const baseClasses = [
   "inline-flex items-center justify-center",
-  "rounded-lg font-medium font-sans",
+  "rounded-lg font-semibold font-sans tracking-[-0.01em]",
   "transition-all duration-200",
   "cursor-pointer select-none",
   "disabled:opacity-50 disabled:cursor-not-allowed",

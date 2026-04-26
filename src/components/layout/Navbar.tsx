@@ -793,6 +793,7 @@ export function Navbar() {
                         style={{
                           padding: "10px 15px",
                           fontSize: "16px",
+                          letterSpacing: "-0.01em",
                           background: isActive && catData ? `${catData.color}12` : "none",
                           border: "none",
                           cursor: "pointer",
@@ -814,6 +815,7 @@ export function Navbar() {
                         style={{
                           padding: "10px 15px",
                           fontSize: "16px",
+                          letterSpacing: "-0.01em",
                           color: isPathActive ? "#F8FAFC" : "#94A3B8",
                           background: isPathActive ? "rgba(255,255,255,0.06)" : "transparent",
                           borderRadius: 8,

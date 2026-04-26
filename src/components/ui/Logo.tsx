@@ -87,9 +87,10 @@ function LogoImage({ size = "md", iconOnly = false, className }: Omit<LogoProps,
         {!iconOnly && (
           <div className="flex flex-col leading-none">
             <span
-              className="font-bold tracking-tight"
+              className="font-display font-semibold"
               style={{
                 fontSize: size === "lg" ? "1.3rem" : size === "sm" ? "0.9rem" : "1.05rem",
+                letterSpacing: "-0.045em",
                 background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",

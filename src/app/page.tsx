@@ -416,8 +416,7 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="leading-[1.2] tracking-tight w-full"
-            style={{ fontSize: "clamp(1.5rem, 8vw, 3rem)", fontWeight: 800 }}
+            className="font-display font-semibold text-display-md md:text-display-lg xl:text-display-xl tracking-[-0.065em] leading-[0.95] text-balance w-full"
           >
             <span style={{ display: "block", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
             <span
@@ -435,7 +434,7 @@ export default function HomePage() {
 
           {/* Subheadline */}
           <p
-            className="max-w-2xl text-lg leading-relaxed md:text-xl"
+            className="max-w-2xl font-sans text-body-lg md:text-body-xl leading-[1.6] tracking-[-0.015em] text-pretty"
             style={{ color: "#94A3B8", textShadow: "0 1px 12px rgba(0,0,0,0.95)" }}
           >
             Generate images, animate them into videos, and add voice with perfect lip-sync — all in one unified AI workflow.

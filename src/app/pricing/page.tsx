@@ -222,13 +222,13 @@ export default function PricingPage() {
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#2563EB", boxShadow: "0 0 6px #2563EB", animation: "pulse 2s infinite" }} />
             Simple Pricing
           </div>
-          <h1 className="mb-4 text-white" style={{ fontSize: "clamp(2.8rem, 6vw, 4.5rem)", lineHeight: 1.08, fontWeight: 800 }}>
+          <h1 className="mb-4 font-display font-semibold text-display-md md:text-display-lg tracking-[-0.065em] leading-[0.95] text-balance text-white">
             Choose Your{" "}
             <span style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
               Plan
             </span>
           </h1>
-          <p className="text-lg" style={{ color: "#94A3B8" }}>
+          <p className="font-sans text-body-lg md:text-body-xl leading-[1.6] tracking-[-0.015em] text-pretty" style={{ color: "#94A3B8" }}>
             Start free. Scale when you&apos;re ready. No hidden fees, no contracts.
           </p>
         </div>

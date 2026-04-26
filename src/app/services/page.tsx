@@ -97,10 +97,10 @@ export default function ServicesPage() {
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#2563EB", boxShadow: "0 0 6px #2563EB" }} />
             What We Build
           </div>
-          <h1 className="mb-4 font-bold leading-tight text-white" style={{ fontSize: "clamp(2.5rem, 6vw, 4rem)" }}>
+          <h1 className="mb-4 font-display font-semibold text-display-md md:text-display-lg tracking-[-0.065em] leading-[0.95] text-balance text-white">
             Services & <span style={{ background: "linear-gradient(135deg, #2563EB, #0EA5A0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Capabilities</span>
           </h1>
-          <p className="text-lg leading-relaxed" style={{ color: "#94A3B8" }}>
+          <p className="font-sans text-body-lg md:text-body-xl leading-[1.6] tracking-[-0.015em] text-pretty" style={{ color: "#94A3B8" }}>
             From AI-generated videos to full brand identities — everything built with the latest tools and creative precision.
           </p>
         </div>
