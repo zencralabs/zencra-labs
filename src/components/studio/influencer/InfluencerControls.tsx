@@ -445,31 +445,27 @@ export function BuilderTab({
         />
       </section>
 
-      {/* Error */}
+      {/* Error — shown inline so user knows what went wrong without a duplicate CTA */}
       {error && (
-        <div style={{ fontSize: 12, color: "#ef4444" }}>{error}</div>
+        <div style={{
+          padding: "10px 13px", borderRadius: 8,
+          background: "rgba(239,68,68,0.08)",
+          border: "1px solid rgba(239,68,68,0.25)",
+          fontSize: 12, color: "#ef4444", lineHeight: 1.55,
+        }}>
+          {error}
+        </div>
       )}
 
-      {/* CTA — accent matches selected style */}
-      <button
-        onClick={handleCreate}
-        disabled={loading}
-        style={{
-          padding: "14px 18px", borderRadius: 10, width: "100%",
-          background: loading
-            ? `${selectedCat.accent}33`
-            : `linear-gradient(135deg, ${selectedCat.accent}99, ${selectedCat.accent})`,
-          border: "none",
-          color: loading ? "rgba(255,255,255,0.30)" : "#060810",
-          fontSize: 14, fontWeight: 800,
-          cursor: loading ? "not-allowed" : "pointer",
-          letterSpacing: "0.02em",
-          boxShadow: loading ? "none" : `0 0 28px ${selectedCat.accent}40, 0 4px 16px rgba(0,0,0,0.4)`,
-          transition: "all 0.2s",
-        }}
-      >
-        {loading ? "Creating…" : "Create Influencer"}
-      </button>
+      {/* CTA lives in the canvas dock — use the floating button there */}
+      <div style={{
+        padding: "10px 13px", borderRadius: 9,
+        background: "rgba(255,255,255,0.03)",
+        border: `1px solid ${T.border}`,
+        fontSize: 12, color: T.ghost, lineHeight: 1.6, textAlign: "center",
+      }}>
+        Use the <span style={{ color: T.text, fontWeight: 600 }}>Create Influencer</span> button in the canvas to generate.
+      </div>
     </div>
   );
 }

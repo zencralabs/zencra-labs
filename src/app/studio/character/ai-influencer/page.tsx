@@ -7,9 +7,10 @@ export const metadata = {
 
 export default function AIInfluencerPage() {
   return (
-    // Navbar is h-[76px]. This wrapper fills the remaining viewport height
-    // exactly, preventing any overlap with the top nav.
+    // Navbar is position:fixed at h-[76px]. marginTop pushes the workspace
+    // below the fixed bar; height fills the remaining viewport exactly.
     <div style={{
+      marginTop: "76px",
       height: "calc(100dvh - 76px)",
       overflow: "hidden",
       display: "flex",
