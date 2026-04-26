@@ -650,7 +650,12 @@ export default function MediaCard({
           </div>
         )}
 
-        {/* ── Bottom hover bar (quick actions) — hidden in compact mode or low zoom ──── */}
+        {/* ── Bottom hover bar (quick actions) — hidden in compact mode or low zoom ──
+             Two-layer structure:
+               outer → absolute full-width container + gradient background
+               inner → padded flex row of chips
+             This guarantees the background stretches edge-to-edge at every zoom
+             level and aspect ratio. Never use a single-div pattern here.        ── */}
         {!hideHoverActions && !compact && isOwner && (
           <div
             style={{
@@ -658,131 +663,147 @@ export default function MediaCard({
               bottom:        0,
               left:          0,
               right:         0,
-              display:       "flex",
-              alignItems:    "center",
-              gap:           6,
-              padding:       "10px 12px",
+              width:         "100%",
               background:    "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)",
               opacity:       hovered ? 1 : 0,
               transform:     hovered ? "translateY(0)" : "translateY(6px)",
               transition:    "opacity 0.2s, transform 0.2s",
-              pointerEvents: hovered ? "all" : "none",
+              pointerEvents: hovered ? "auto" : "none",
             }}
           >
-            <ActionChip
-              icon={<RefreshCw size={11} />}
-              label="Regenerate"
-              onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
-            />
-            <ActionChip
-              icon={<Repeat2 size={11} />}
-              label="Reuse"
-              onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
-            />
-            <ActionChip
-              icon={<Sparkles size={11} />}
-              label="Enhance"
-              onClick={e => { e.stopPropagation(); onEnhance?.(asset); }}
-              color="#a78bfa"
-            />
-            {/* Animate only for images */}
-            {isImage && (
+            <div
+              style={{
+                width:      "100%",
+                padding:    "10px 12px",
+                display:    "flex",
+                alignItems: "center",
+                gap:        6,
+              }}
+            >
               <ActionChip
-                icon={<Play size={11} />}
-                label="Animate"
-                onClick={e => { e.stopPropagation(); onAnimate?.(asset); }}
-                color="#fb923c"
+                icon={<RefreshCw size={11} />}
+                label="Regenerate"
+                onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
               />
+              <ActionChip
+                icon={<Repeat2 size={11} />}
+                label="Reuse"
+                onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
+              />
+              <ActionChip
+                icon={<Sparkles size={11} />}
+                label="Enhance"
+                onClick={e => { e.stopPropagation(); onEnhance?.(asset); }}
+                color="#a78bfa"
+              />
+              {/* Animate only for images */}
+              {isImage && (
+                <ActionChip
+                  icon={<Play size={11} />}
+                  label="Animate"
+                  onClick={e => { e.stopPropagation(); onAnimate?.(asset); }}
+                  color="#fb923c"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── RIGHT hover action strip — inside the media div so it is anchored
+             to the exact image tile bounds at every zoom level and aspect ratio.
+             The MoreMenu dropdown MUST always render via portal (document.body) —
+             never inline — so it is never clipped by this container's overflow:hidden.
+             top/right anchoring and pointerEvents are explicit to prevent drift.  ── */}
+        {!hideHoverActions && (
+          <div
+            style={{
+              position:      "absolute",
+              top:           8,
+              right:         8,
+              display:       "flex",
+              flexDirection: "column",
+              alignItems:    "center",
+              gap:           6,
+              opacity:       hovered ? 1 : 0,
+              transform:     hovered ? "translateX(0)" : "translateX(8px)",
+              transition:    "opacity 0.2s, transform 0.2s",
+              pointerEvents: hovered ? "auto" : "none",
+              zIndex:        20,
+            }}
+          >
+            {/* Like (owner only) */}
+            {isOwner && (
+              <IconBtn
+                onClick={e => { e.stopPropagation(); setLiked(l => !l); }}
+                title="Like"
+                active={liked}
+                activeColor="#f43f5e"
+              >
+                <Heart size={13} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
+              </IconBtn>
+            )}
+
+            {/* Download */}
+            <IconBtn onClick={e => { e.stopPropagation(); handleDownload(); }} title="Download">
+              <Download size={13} />
+            </IconBtn>
+
+            {/* Copy URL */}
+            <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy URL" active={copied} activeColor="#60a5fa">
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+            </IconBtn>
+
+            {/* More menu trigger — ref captures position for portal placement.
+                 The dropdown MUST always render via portal (document.body) — never inline. */}
+            {isOwner && (
+              <div ref={moreButtonRef}>
+                <IconBtn
+                  onClick={e => {
+                    e.stopPropagation();
+                    if (moreOpen) {
+                      setMoreOpen(false);
+                      setMenuPos(null);
+                    } else {
+                      const rect = moreButtonRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        setMenuPos({
+                          top:  rect.bottom + 8,
+                          left: rect.right - 220,   // right-align: right edge of menu = right edge of button
+                        });
+                      }
+                      setMoreOpen(true);
+                    }
+                  }}
+                  title="More options"
+                  active={moreOpen}
+                >
+                  <MoreVertical size={13} />
+                </IconBtn>
+              </div>
+            )}
+
+            {/* Sequence number — centered below the action stack.
+                 Lives in the same flex column so it tracks the buttons at every zoom.
+                 No hardcoded top value. */}
+            {seqNumber != null && (
+              <span
+                style={{
+                  marginTop:     12,
+                  fontSize:      15,
+                  fontWeight:    700,
+                  color:         "rgba(255,255,255,0.5)",
+                  lineHeight:    1,
+                  textAlign:     "center",
+                  pointerEvents: "none",
+                  userSelect:    "none",
+                }}
+              >
+                {String(seqNumber).padStart(2, "0")}
+              </span>
             )}
           </div>
         )}
       </div>
-
-      {/* ── RIGHT hover action strip — lives OUTSIDE the media div so the
-           MoreMenu dropdown is never clipped by overflow:hidden ────────────── */}
-      {!hideHoverActions && <div
-        style={{
-          position:      "absolute",
-          top:           8,
-          right:         8,
-          display:       "flex",
-          flexDirection: "column",
-          gap:           6,
-          opacity:       hovered ? 1 : 0,
-          transform:     hovered ? "translateX(0)" : "translateX(8px)",
-          transition:    "opacity 0.2s, transform 0.2s",
-          pointerEvents: hovered ? "all" : "none",
-          zIndex:        20,
-        }}
-      >
-        {/* Like (owner only) */}
-        {isOwner && (
-          <IconBtn
-            onClick={e => { e.stopPropagation(); setLiked(l => !l); }}
-            title="Like"
-            active={liked}
-            activeColor="#f43f5e"
-          >
-            <Heart size={13} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
-          </IconBtn>
-        )}
-
-        {/* Download */}
-        <IconBtn onClick={e => { e.stopPropagation(); handleDownload(); }} title="Download">
-          <Download size={13} />
-        </IconBtn>
-
-        {/* Copy URL */}
-        <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy URL" active={copied} activeColor="#60a5fa">
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-        </IconBtn>
-
-        {/* More menu trigger — ref captures position for portal placement */}
-        {isOwner && (
-          <div ref={moreButtonRef}>
-            <IconBtn
-              onClick={e => {
-                e.stopPropagation();
-                if (moreOpen) {
-                  setMoreOpen(false);
-                  setMenuPos(null);
-                } else {
-                  const rect = moreButtonRef.current?.getBoundingClientRect();
-                  if (rect) {
-                    setMenuPos({
-                      top:  rect.bottom + 8,
-                      left: rect.right - 220,   // right-align: right edge of menu = right edge of button
-                    });
-                  }
-                  setMoreOpen(true);
-                }
-              }}
-              title="More options"
-              active={moreOpen}
-            >
-              <MoreVertical size={13} />
-            </IconBtn>
-          </div>
-        )}
-
-        {/* Sequence number — follows the action stack, no hardcoded top value */}
-        {seqNumber != null && (
-          <span
-            style={{
-              marginTop:    10,
-              fontSize:     15,
-              fontWeight:   700,
-              color:        "rgba(255,255,255,0.5)",
-              lineHeight:   1,
-              textAlign:    "right",
-              pointerEvents: "none",
-              userSelect:   "none",
-            }}
-          >
-            {String(seqNumber).padStart(2, "0")}
-          </span>
-        )}
-      </div>}
     </div>
 
     {/* ── Portal: renders dropdown at document.body so it is never clipped
