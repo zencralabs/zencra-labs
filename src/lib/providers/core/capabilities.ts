@@ -165,6 +165,25 @@ export const CAPABILITY_META: Record<CapabilityTag, CapabilityMeta> = {
     description: "Video is generated with embedded, AI-produced audio",
     studio: "video",
   },
+  multi_shot: {
+    tag: "multi_shot",
+    label: "Multi-Shot",
+    description: "Generate multi-shot or multi-scene video sequences in a single request",
+    studio: "video",
+  },
+  element_control: {
+    tag: "element_control",
+    label: "Element Control",
+    description: "Fine-grained control over individual element motion or appearance",
+    studio: "video",
+  },
+  reference_video: {
+    tag: "reference_video",
+    label: "Reference Video",
+    description: "Use a reference video for style or motion transfer",
+    studio: "video",
+    requiresInput: "reference video",
+  },
 
   // ── Audio ───────────────────────────────────────────────────────────────────
   text_to_speech: {

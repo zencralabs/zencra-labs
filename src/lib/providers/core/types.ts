@@ -86,6 +86,9 @@ export type CapabilityTag =
   | "lip_sync"
   | "avatar"
   | "native_audio"      // video generates with embedded audio
+  | "multi_shot"        // multi-shot / multi-scene generation
+  | "element_control"   // element-level motion or appearance control
+  | "reference_video"   // reference video for style / motion transfer
   // ── Audio ──────────────────────────────────────────────────────────────────
   | "text_to_speech"
   | "voice_clone"
@@ -258,6 +261,11 @@ export interface ZProviderInput {
 
   // Pre-computed credit estimate (from orchestrator reserve step)
   estimatedCredits?: CreditEstimate;
+
+  // Lip sync provider selection.
+  // Default: "fal" (current active integration).
+  // "kling" is reserved for future activation — no routing to Kling lip sync yet.
+  lipSyncProvider?: "fal" | "kling";
 }
 
 /** Normalized output — provider → orchestrator. */

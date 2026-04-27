@@ -130,18 +130,18 @@ export function getKlingEnv(): KlingEnv {
 }
 
 // Kling model IDs — exact upstream API model strings accepted by api.klingai.com.
-// Kling Video 3.0 Omni  → kling-v3-omni
-// Kling Video 3.0       → kling-v3
-// Kling Motion Control  → kling-v3 (same base as 3.0; endpoint path distinguishes the operation)
-// Deprecated:
-//   Kling 2.6           → kling-v2-6
-//   Kling 2.5 Turbo     → kling-v2-5
+// Confirmed from official Kling API capability tables (2026-04-27):
+//   Kling Video 3.0 Omni  → kling-v3-omni
+//   Kling Video 3.0       → kling-v3
+//   Motion Control        → kling-v3 (same model; endpoint distinguishes operation)
+//   Kling 2.6             → kling-v2-6
+//   Kling 2.5 Turbo       → kling-v2-5-turbo  ← was incorrectly "kling-v2-5"
 export const KLING_MODEL_IDS = {
-  omni:          optional("KLING_MODEL_OMNI",           "kling-v3-omni") as string,
-  v30:           optional("KLING_MODEL_V30",             "kling-v3") as string,
-  motionControl: optional("KLING_MODEL_MOTION_CONTROL",  "kling-v3") as string,
-  v26:           optional("KLING_MODEL_V26",             "kling-v2-6") as string,
-  v25:           optional("KLING_MODEL_V25",             "kling-v2-5") as string,
+  omni:          optional("KLING_MODEL_OMNI",           "kling-v3-omni")    as string,
+  v30:           optional("KLING_MODEL_V30",             "kling-v3")         as string,
+  motionControl: optional("KLING_MODEL_MOTION_CONTROL",  "kling-v3")         as string,
+  v26:           optional("KLING_MODEL_V26",             "kling-v2-6")       as string,
+  v25:           optional("KLING_MODEL_V25",             "kling-v2-5-turbo") as string,
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────

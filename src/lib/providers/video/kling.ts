@@ -81,6 +81,18 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
     status:      "active",
 
     getCapabilities(): ProviderCapabilities {
+      // Capability maps confirmed from official Kling API docs (2026-04-27).
+      //
+      // kling-v3 (motion control):
+      //   image + video input only; std/pro modes; 5–10s durations
+      //
+      // kling-v3 (standard):
+      //   text + image to video; start/end frame; element control; multi-shot;
+      //   motion control in std/pro (NOT 4k); duration 3–15s
+      //
+      // kling-v3-omni:
+      //   same as kling-v3 EXCEPT: no motion control at all;
+      //   reference video (std/pro, 3–10s only, blocked in 4k)
       if (isMotionControl) {
         return {
           supportedInputModes:   ["image", "video"],
@@ -93,14 +105,31 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           supportsPolling:       true,
         };
       }
+      if (modelKey === "kling-30-omni") {
+        return {
+          supportedInputModes:   ["text", "image"],
+          supportedAspectRatios: ["16:9", "9:16", "1:1"],
+          supportedDurations:    [5, 10],
+          maxDuration:           15,
+          capabilities:          [
+            "text_to_video", "image_to_video", "start_frame", "end_frame",
+            "multi_shot", "element_control", "reference_video", "cinematic",
+            // motion_control intentionally absent for omni
+          ],
+          asyncMode:       "polling+webhook",
+          supportsWebhook: true,
+          supportsPolling: true,
+        };
+      }
+      // kling-v3 standard
       return {
-        supportedInputModes:   ["text", "image", "video"],
+        supportedInputModes:   ["text", "image"],
         supportedAspectRatios: ["16:9", "9:16", "1:1"],
         supportedDurations:    [5, 10],
-        maxDuration:           10,
+        maxDuration:           15,
         capabilities:          [
           "text_to_video", "image_to_video", "start_frame", "end_frame",
-          "cinematic", ...(modelKey === "kling-30" ? ["extend"] as const : []),
+          "multi_shot", "element_control", "motion_control", "cinematic",
         ],
         asyncMode:       "polling+webhook",
         supportsWebhook: true,
@@ -110,15 +139,43 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
 
     validateInput(input: ZProviderInput): ValidationResult {
       const errors: string[] = [];
+      const mode = (input.providerParams?.videoMode as string | undefined) ?? "std";
+
       if (!input.prompt || input.prompt.trim().length < 3) {
         errors.push("Prompt is required.");
       }
-      if (isMotionControl && !input.imageUrl) {
-        errors.push("Kling Motion Control requires a subject image (imageUrl).");
+
+      // ── Motion Control rules (kling-v3 only, std/pro only) ──────────────────
+      if (isMotionControl) {
+        if (!input.imageUrl) {
+          errors.push("Kling Motion Control requires a subject image (imageUrl).");
+        }
+        if (!input.referenceVideoUrl) {
+          errors.push("Kling Motion Control requires a reference motion video (referenceVideoUrl).");
+        }
       }
-      if (isMotionControl && !input.referenceVideoUrl) {
-        errors.push("Kling Motion Control requires a reference motion video (referenceVideoUrl).");
+
+      // ── Motion Control blocked on omni entirely ──────────────────────────────
+      if (!isMotionControl && modelKey === "kling-30-omni" && input.referenceVideoUrl) {
+        errors.push("Motion Control is not supported on Kling 3.0 Omni. Use Kling 3.0 Standard.");
       }
+
+      // ── Motion Control blocked in 4k mode (kling-v3 standard) ───────────────
+      if (!isMotionControl && modelKey === "kling-30" && mode === "4k" && input.referenceVideoUrl) {
+        errors.push("Motion Control is not available in 4K mode. Use Standard or Pro.");
+      }
+
+      // ── Omni reference video: std/pro only, 3–10s max ───────────────────────
+      if (modelKey === "kling-30-omni" && input.referenceVideoUrl) {
+        if (mode === "4k") {
+          errors.push("Reference video is not supported in 4K mode on Kling 3.0 Omni.");
+        }
+        const duration = input.durationSeconds ?? 5;
+        if (duration > 10) {
+          errors.push("Reference video on Kling 3.0 Omni supports a maximum of 10 seconds.");
+        }
+      }
+
       return { valid: errors.length === 0, errors, warnings: [] };
     },
 
