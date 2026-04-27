@@ -164,7 +164,16 @@ const DEFAULT_SHOT_DURATION = 5; // seconds — fallback when engine returns no 
 // HOOK
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useSequenceState(accessToken: string | null) {
+/**
+ * Called when a sequence shot finishes generation and has a playable URL.
+ * Used by VideoStudioShell to add the completed video to the gallery.
+ */
+export type OnShotCompleted = (assetId: string, url: string, prompt: string) => void;
+
+export function useSequenceState(
+  accessToken: string | null,
+  onShotCompleted?: OnShotCompleted,
+) {
   const [state, setState] = useState<SequenceState>({
     sequenceId:     null,
     sequenceStatus: "idle",
@@ -176,6 +185,10 @@ export function useSequenceState(accessToken: string | null) {
   // Track active polling timers — keyed by jobId
   const pollTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const pollCounts = useRef<Map<string, number>>(new Map());
+
+  // Stable ref for the gallery callback — avoids pollJob dep changes on every render
+  const onShotCompletedRef = useRef<OnShotCompleted | undefined>(onShotCompleted);
+  onShotCompletedRef.current = onShotCompleted;
 
   // ── Local mutation helpers ────────────────────────────────────────────────
 
@@ -272,10 +285,11 @@ export function useSequenceState(accessToken: string | null) {
   // ── Polling ───────────────────────────────────────────────────────────────
 
   const pollJob = useCallback(async (
-    jobId:      string,
+    jobId:       string,
     shotLocalId: string,
-    sequenceId: string,
-    shotDbId:   string,
+    sequenceId:  string,
+    shotDbId:    string,
+    shotPrompt:  string,
   ) => {
     if (!accessToken) return;
 
@@ -283,7 +297,23 @@ export function useSequenceState(accessToken: string | null) {
     pollCounts.current.set(jobId, attempts);
 
     if (attempts > POLL_MAX_RETRIES) {
-      patchShotByJobId(jobId, { status: "failed", errorMessage: "Generation timed out" });
+      // Timeout — mark failed and check if this was the last in-flight shot
+      setState(prev => {
+        const updatedShots = prev.shots.map(s =>
+          s.jobId === jobId
+            ? { ...s, status: "failed" as ShotStatus, errorMessage: "Generation timed out" }
+            : s
+        );
+        const allTerminal = updatedShots.every(s => s.status === "done" || s.status === "failed");
+        const anyFailed   = updatedShots.some(s => s.status === "failed");
+        return {
+          ...prev,
+          shots: updatedShots,
+          sequenceStatus: allTerminal
+            ? (anyFailed ? "partial" : "completed")
+            : prev.sequenceStatus,
+        };
+      });
       return;
     }
 
@@ -296,7 +326,28 @@ export function useSequenceState(accessToken: string | null) {
 
       if (jobStatus === "done" || jobStatus === "success") {
         const assetId = json.data?.assetId ?? null;
-        patchShotByJobId(jobId, { status: "done", assetId });
+        const url     = (json.data as Record<string, unknown> | undefined)?.url as string | undefined ?? null;
+
+        // Patch shot to done + transition sequenceStatus if all shots are now terminal
+        setState(prev => {
+          const updatedShots = prev.shots.map(s =>
+            s.jobId === jobId ? { ...s, status: "done" as ShotStatus, assetId } : s
+          );
+          const allTerminal = updatedShots.every(s => s.status === "done" || s.status === "failed");
+          const anyFailed   = updatedShots.some(s => s.status === "failed");
+          return {
+            ...prev,
+            shots: updatedShots,
+            sequenceStatus: allTerminal
+              ? (anyFailed ? "partial" : "completed")
+              : prev.sequenceStatus,
+          };
+        });
+
+        // Notify gallery so the completed video appears without a page refresh (BUG-SEQ-03)
+        if (url && assetId) {
+          onShotCompletedRef.current?.(assetId, url, shotPrompt);
+        }
 
         // Advance the sequence queue
         try {
@@ -327,7 +378,23 @@ export function useSequenceState(accessToken: string | null) {
           ?? "Generation failed";
         const shotErrorMsg = typeof providerError === "string" ? providerError : "Generation failed";
 
-        patchShotByJobId(jobId, { status: "failed", errorMessage: shotErrorMsg });
+        // Patch shot to failed + check if this was the last in-flight shot
+        setState(prev => {
+          const updatedShots = prev.shots.map(s =>
+            s.jobId === jobId
+              ? { ...s, status: "failed" as ShotStatus, errorMessage: shotErrorMsg }
+              : s
+          );
+          const allTerminal = updatedShots.every(s => s.status === "done" || s.status === "failed");
+          const anyFailed   = updatedShots.some(s => s.status === "failed");
+          return {
+            ...prev,
+            shots: updatedShots,
+            sequenceStatus: allTerminal
+              ? (anyFailed ? "partial" : "completed")
+              : prev.sequenceStatus,
+          };
+        });
 
         // Report failure to advance route so queue moves forward + error is persisted
         try {
@@ -353,18 +420,19 @@ export function useSequenceState(accessToken: string | null) {
 
       // Still in progress — schedule next poll
       const timer = setTimeout(() => {
-        void pollJob(jobId, shotLocalId, sequenceId, shotDbId);
+        void pollJob(jobId, shotLocalId, sequenceId, shotDbId, shotPrompt);
       }, POLL_INTERVAL_MS);
       pollTimers.current.set(jobId, timer);
 
     } catch {
       // Network error — retry
       const timer = setTimeout(() => {
-        void pollJob(jobId, shotLocalId, sequenceId, shotDbId);
+        void pollJob(jobId, shotLocalId, sequenceId, shotDbId, shotPrompt);
       }, POLL_INTERVAL_MS);
       pollTimers.current.set(jobId, timer);
     }
-  }, [accessToken, patchShotByJobId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);  // setState is stable; onShotCompletedRef is a ref — neither needs to be here
 
   // ── Start generation ──────────────────────────────────────────────────────
 
@@ -487,9 +555,22 @@ export function useSequenceState(accessToken: string | null) {
         const dbId = dbShotMap.get(dispatched.shot_number) ?? "";
 
         const timer = setTimeout(() => {
-          void pollJob(dispatched.jobId!, shot.localId, sequenceId, dbId);
+          void pollJob(dispatched.jobId!, shot.localId, sequenceId, dbId, shot.prompt.trim());
         }, POLL_INTERVAL_MS);
         pollTimers.current.set(dispatched.jobId, timer);
+      }
+
+      // If no shots were sent to polling (all failed at dispatch with no jobId),
+      // the sequenceStatus will be stuck at "generating" forever — no further
+      // state transitions will ever happen. Resolve immediately.
+      const anyPolling = genJson.data.shots.some(d => !!d.jobId);
+      if (!anyPolling) {
+        const anyDone   = genJson.data.shots.some(d => d.status === "done");
+        const anyFailed = genJson.data.shots.some(d => d.status === "failed");
+        setState(prev => ({
+          ...prev,
+          sequenceStatus: anyDone ? (anyFailed ? "partial" : "completed") : "failed",
+        }));
       }
 
     } catch (err) {

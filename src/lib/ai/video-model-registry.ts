@@ -94,8 +94,9 @@ export type VideoModel = {
   available:      boolean;
   comingSoon:     boolean;
   capabilities:   VideoModelCapabilities;
-  creditMultiplier?: number;
-  promptChips?:   string[];
+  creditMultiplier?:  number;
+  supportsSequence?:  boolean;   // Sequence Mode (shot stack) — only Kling 3.0 and 3.0 Omni
+  promptChips?:       string[];
 };
 
 // ── Registry ──────────────────────────────────────────────────────────────────
@@ -109,13 +110,14 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
   {
     id:          "kling-30-omni",
     provider:    "kling",
-    apiModelId:  "",  // NOT YET CONFIRMED — safety gate blocks dispatch until set
+    apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
     displayName: "Kling 3.0 Omni",
     description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:       "NEW",
-    badgeColor:  "#0EA5A0",
-    available:   true,
-    comingSoon:  false,
+    badge:            "NEW",
+    badgeColor:       "#0EA5A0",
+    available:        true,
+    comingSoon:       false,
+    supportsSequence: true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -149,10 +151,11 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     apiModelId:  "kling-v3",
     displayName: "Kling 3.0",
     description: "Flagship cinematic model — best motion quality and realism",
-    badge:       "HOT",
-    badgeColor:  "#0EA5A0",
-    available:   true,
-    comingSoon:  false,
+    badge:            "HOT",
+    badgeColor:       "#0EA5A0",
+    available:        true,
+    comingSoon:       false,
+    supportsSequence: true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -523,7 +526,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     id:          "luma",
     provider:    "luma",
     apiModelId:  "dream-machine",
-    displayName: "Luma AI",
+    displayName: "Ray Flash 2",
     description: "Photorealistic world-simulation video generation",
     badge:       "SOON",
     badgeColor:  "#64748B",

@@ -29,6 +29,8 @@ import VideoCanvas, { MotionFlowStrip } from "./VideoCanvas";
 import VideoPromptPanel    from "./VideoPromptPanel";
 import VideoResultsLibrary from "./VideoResultsLibrary";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
+import { useSequenceState } from "@/hooks/useSequenceState";
+import { ShotStack }        from "./ShotStack";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -239,13 +241,22 @@ function ChipDivider() {
 function FamilyDropdownBar({
   selectedId,
   onSelect,
+  sequenceControl,
 }: {
   selectedId: string;
   onSelect: (id: string) => void;
+  sequenceControl?: {
+    visible: boolean;
+    active:  boolean;
+    onSet:   (active: boolean) => void;
+  };
 }) {
   const klingModels    = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "kling");
   const seedanceModels = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "seedance");
-  const otherModels    = VIDEO_MODEL_REGISTRY.filter(m => m.provider !== "kling" && m.provider !== "seedance");
+  // "heygen" is hidden from the model bar — provider code and routing remain intact
+  const otherModels    = VIDEO_MODEL_REGISTRY.filter(
+    m => m.provider !== "kling" && m.provider !== "seedance" && m.provider !== "heygen"
+  );
 
   // All "slots" in order: kling, seedance, ...others
   const totalSlots = 2 + otherModels.length;
@@ -345,6 +356,63 @@ function FamilyDropdownBar({
             </div>
           );
         })}
+
+        {/* ── Sequence Mode segmented control — far right, only for supported models ── */}
+        {sequenceControl?.visible && (
+          <div style={{
+            marginLeft:     "auto",    // pushes control to the far right of the flex row
+            paddingLeft:    16,        // visual gap from the last pill without a divider line
+            display:        "flex",
+            alignItems:     "center",
+            background:     "rgba(255,255,255,0.04)",
+            border:         "1px solid rgba(255,255,255,0.08)",
+            borderRadius:   10,
+            padding:        3,
+            flexShrink:     0,
+          }}>
+              <button
+                onClick={() => sequenceControl.onSet(false)}
+                style={{
+                  padding:      "6px 13px",
+                  borderRadius: 7,
+                  border:       "none",
+                  background:   !sequenceControl.active
+                    ? "rgba(255,255,255,0.10)"
+                    : "transparent",
+                  color:        !sequenceControl.active ? "#F8FAFC" : "#475569",
+                  fontSize:     12,
+                  fontWeight:   !sequenceControl.active ? 600 : 400,
+                  cursor:       "pointer",
+                  transition:   "all 0.15s",
+                  whiteSpace:   "nowrap",
+                }}
+              >
+                Standard Shot
+              </button>
+              <button
+                onClick={() => sequenceControl.onSet(true)}
+                style={{
+                  padding:      "6px 13px",
+                  borderRadius: 7,
+                  border:       "none",
+                  background:   sequenceControl.active
+                    ? "rgba(14,165,160,0.18)"
+                    : "transparent",
+                  color:        sequenceControl.active ? "#2DD4BF" : "#475569",
+                  fontSize:     12,
+                  fontWeight:   sequenceControl.active ? 600 : 400,
+                  cursor:       "pointer",
+                  transition:   "all 0.15s",
+                  whiteSpace:   "nowrap",
+                  boxShadow:    sequenceControl.active
+                    ? "0 0 10px rgba(14,165,160,0.18)"
+                    : "none",
+                }}
+              >
+                Sequence Mode
+              </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -432,7 +500,9 @@ function NotConfiguredScreen({ model }: { model: VideoModel }) {
         </div>
         <div style={{ fontSize: 14, color: "#64748B", maxWidth: 340, lineHeight: 1.65 }}>
           This model requires a server environment variable that has not been set.
-          Add <code style={{ color: "#94A3B8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 4 }}>SEEDANCE_15_MODEL_ID</code> to your <code style={{ color: "#94A3B8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 4 }}>.env.local</code> and redeploy.
+          Add the model&apos;s API ID variable to your{" "}
+          <code style={{ color: "#94A3B8", background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 4 }}>.env.local</code>{" "}
+          and redeploy.
         </div>
       </div>
       <span style={{
@@ -667,6 +737,40 @@ export default function VideoStudioShell() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Sequence mode — cinematic shot stack ──────────────────────────────────
+  const [sequenceMode, setSequenceMode] = useState(false);
+
+  // Ref always reflects the latest generation params so the gallery callback
+  // can build a GeneratedVideo without closing over stale state.
+  const seqGenParamsRef = useRef({ modelId: selectedModelId, modelName: model?.displayName ?? selectedModelId, aspectRatio, duration });
+  seqGenParamsRef.current = { modelId: selectedModelId, modelName: model?.displayName ?? selectedModelId, aspectRatio, duration };
+
+  // Called by useSequenceState when a shot finishes — appends to the gallery (BUG-SEQ-03)
+  const handleShotCompleted = useCallback((assetId: string, url: string, prompt: string) => {
+    const p = seqGenParamsRef.current;
+    const newVideo: GeneratedVideo = {
+      id:           assetId,
+      url,
+      thumbnailUrl: null,
+      prompt,
+      negPrompt:    "",
+      modelId:      p.modelId,
+      modelName:    p.modelName,
+      duration:     p.duration,
+      aspectRatio:  p.aspectRatio,
+      frameMode:    "text_to_video",
+      status:       "done",
+      creditsUsed:  0,
+      createdAt:    Date.now(),
+      isPublic:     false,
+    };
+    setVideos(prev => [newVideo, ...prev]);
+  }, []);
+
+  const { state: seqState, actions: seqActions } = useSequenceState(authToken, handleShotCompleted);
+  // Capability gate — only Kling 3.0 and 3.0 Omni carry supportsSequence: true
+  const modelSupportsSequence = !!(model?.supportsSequence);
+
   // ── Lip Sync hook ──────────────────────────────────────────────────────────
   const {
     state:          lipSyncState,
@@ -712,6 +816,20 @@ export default function VideoStudioShell() {
     setToastState({ msg, variant });
     toastTimerRef.current = setTimeout(() => setToastState(null), 3200);
   }, []);
+
+  // ── Auto-exit Sequence Mode when switching to an unsupported model ─────────
+  // Only reacts to model changes — sequenceMode/modelSupportsSequence intentionally
+  // omitted from deps to avoid firing on every Sequence toggle.
+  // clearSequence() also cancels all active poll timers — prevents stale shot state
+  // if the user switches away mid-sequence and returns later.
+  useEffect(() => {
+    if (sequenceMode && !modelSupportsSequence) {
+      setSequenceMode(false);
+      seqActions.clearSequence();
+      showToast("Sequence Mode is only available for Kling 3.0 models", "info");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModelId]);
 
   // Pre-compute variant styles outside JSX (avoids recalculation every render)
   const TOAST_VARIANT_STYLES = useMemo(() => ({
@@ -1008,13 +1126,21 @@ export default function VideoStudioShell() {
       {/* ── Breadcrumb ─────────────────────────────────────────── */}
       <Breadcrumb modelName={model?.displayName ?? "Video Studio"} />
 
-      {/* ── Tool bar — family dropdowns for Kling & Seedance ─────── */}
-      <FamilyDropdownBar selectedId={selectedModelId} onSelect={setSelectedModelId} />
+      {/* ── Tool bar — family dropdowns + sequence mode segmented control ── */}
+      <FamilyDropdownBar
+        selectedId={selectedModelId}
+        onSelect={setSelectedModelId}
+        sequenceControl={{
+          visible: modelSupportsSequence,
+          active:  sequenceMode,
+          onSet:   setSequenceMode,
+        }}
+      />
 
       {/* ── 3-column workspace ─────────────────────────────────── */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "260px 1fr 340px",
+        gridTemplateColumns: sequenceMode ? "280px 1fr 340px" : "260px 1fr 340px",
         columnGap: 14,
         alignItems: "start",
         width: "100%",
@@ -1022,47 +1148,57 @@ export default function VideoStudioShell() {
         boxSizing: "border-box",
       }}>
 
-        {/* Left rail — z-index:10 keeps it below the tool-bar dropdown (z-index:50) */}
+        {/* Left panel — VideoLeftRail (standard) or ShotStack (sequence mode) */}
         <div style={{
-          paddingLeft: SIDE_GUTTER,
-          paddingRight: 12,
-          paddingTop: 14,
-          paddingBottom: 14,
-          height: "100%",
-          minHeight: 0,
-          position: "sticky",
-          top: 88,
-          zIndex: 10,
-          maxHeight: "calc(100vh - 100px)",
-          overflowY: "auto",
+          paddingLeft:    sequenceMode ? 0 : SIDE_GUTTER,
+          paddingRight:   sequenceMode ? 0 : 12,
+          paddingTop:     sequenceMode ? 0 : 14,
+          paddingBottom:  sequenceMode ? 0 : 14,
+          height:         "100%",
+          minHeight:      0,
+          position:       "sticky",
+          top:            88,
+          zIndex:         10,
+          maxHeight:      "calc(100vh - 100px)",
+          overflowY:      sequenceMode ? "hidden" : "auto",
           scrollbarWidth: "thin",
           scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          background: "rgba(0,0,0,0.28)",
-          borderRadius: 12,
-          borderRight: "1px solid rgba(255,255,255,0.05)",
-          opacity: cinemaModeActive ? 0.88 : 1,
-          transition: "opacity 0.35s ease",
-          boxSizing: "border-box",
+          background:     sequenceMode ? "transparent" : "rgba(0,0,0,0.28)",
+          borderRadius:   12,
+          borderRight:    "1px solid rgba(255,255,255,0.05)",
+          opacity:        cinemaModeActive ? 0.88 : 1,
+          transition:     "opacity 0.35s ease",
+          boxSizing:      "border-box",
         }}>
-          <VideoLeftRail
-            frameMode={frameMode}
-            aspectRatio={aspectRatio}
-            quality={quality}
-            duration={duration}
-            resolution={resolution}
-            motionPreset={motionPreset}
-            motionStrength={motionStrength}
-            motionArea={motionArea}
-            onFrameMode={setFrameMode}
-            onAspectRatio={setAspectRatio}
-            onQuality={setQuality}
-            onDuration={setDuration}
-            onResolution={setResolution}
-            onMotionPreset={setMotionPreset}
-            onMotionStrength={setMotionStrength}
-            onMotionArea={setMotionArea}
-            model={model}
-          />
+          {sequenceMode ? (
+            <ShotStack
+              state={seqState}
+              actions={seqActions}
+              modelId={selectedModelId}
+              aspectRatio={aspectRatio}
+              durationSeconds={duration}
+            />
+          ) : (
+            <VideoLeftRail
+              frameMode={frameMode}
+              aspectRatio={aspectRatio}
+              quality={quality}
+              duration={duration}
+              resolution={resolution}
+              motionPreset={motionPreset}
+              motionStrength={motionStrength}
+              motionArea={motionArea}
+              onFrameMode={setFrameMode}
+              onAspectRatio={setAspectRatio}
+              onQuality={setQuality}
+              onDuration={setDuration}
+              onResolution={setResolution}
+              onMotionPreset={setMotionPreset}
+              onMotionStrength={setMotionStrength}
+              onMotionArea={setMotionArea}
+              model={model}
+            />
+          )}
         </div>
 
         {/* Canvas — fills 1fr, glow intensifies in cinema mode */}

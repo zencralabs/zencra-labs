@@ -224,15 +224,26 @@ export async function POST(req: Request): Promise<Response> {
           ip:              clientIp,
         });
 
-        // Update shot with job linkage
-        await supabaseAdmin
+        // Update shot with job linkage.
+        // NOTE: job_id column is UUID — we write assetId (UUID) not jobId (zjob_... format)
+        // which would fail the UUID constraint silently. The client still receives the
+        // zjob_... jobId from this route's response for polling, sourced from result.jobId.
+        const { error: shotUpdateErr } = await supabaseAdmin
           .from("video_shots")
           .update({
-            job_id:     result.jobId,
-            asset_id:   result.assetId ?? null,
+            job_id:      result.assetId ?? null,  // UUID — satisfies column constraint
+            asset_id:    result.assetId ?? null,
             shot_status: "dispatching",
           })
           .eq("id", shotRow.id);
+
+        if (shotUpdateErr) {
+          console.error(
+            "[generate] failed to persist job linkage for shot",
+            shotRow.id,
+            shotUpdateErr.message,
+          );
+        }
 
         dispatchResults.push({
           id:          shotRow.id,

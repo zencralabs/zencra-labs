@@ -8,7 +8,7 @@
 import { useState, useCallback } from "react";
 import { Zap } from "lucide-react";
 import type { VideoModel } from "@/lib/ai/video-model-registry";
-import type { FrameMode } from "./types";
+import type { FrameMode, ImageSlot } from "./types";
 import type { LipSyncState } from "@/hooks/useLipSync";
 import type { LipSyncQuality } from "@/lib/lipsync/status";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -644,6 +644,15 @@ interface Props {
   onLipSyncReset:       () => void;
   // Kling / standard video generate
   onGenerate: () => void;
+  // AI Influencer — passed from VideoStudioShell (single source of truth)
+  detectedHandles:  string[];
+  handleReadiness:  Record<string, boolean>;        // {} = loading/unknown, false = not ready
+  handleAvatarUrls: Record<string, string | null>;  // hero asset URL per handle, or null
+  useStartFrame:    boolean;
+  setUseStartFrame: (v: boolean) => void;
+  // End Frame — controller props (upload lives in VideoCanvas; this card is display + clear)
+  endSlot:         ImageSlot;
+  onClearEndSlot:  () => void;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -654,6 +663,8 @@ export default function VideoPromptPanel({
   frameMode,
   lipSyncState, onLipSyncQualityMode, onLipSyncGenerate, onLipSyncRetry, onLipSyncReset,
   onGenerate,
+  detectedHandles, handleReadiness, handleAvatarUrls, useStartFrame, setUseStartFrame,
+  endSlot, onClearEndSlot,
 }: Props) {
   const [showNeg, setShowNeg]         = useState(true); // open by default
   const [showPresets, setShowPresets] = useState(false);
@@ -727,7 +738,17 @@ export default function VideoPromptPanel({
   const isComingSoon        = !model?.available;
   const insufficientCredits = userCredits < estimate && !isComingSoon;
   const noPrompt            = prompt.trim().length === 0;
-  const isDisabled          = isComingSoon || insufficientCredits || noPrompt || generating;
+
+  // Start frame identity block — user has opted in but canonical is confirmed not ready.
+  // We block Generate here (don't silently downgrade to prompt-only).
+  const primaryHandle          = detectedHandles[0] ?? null;
+  const startFrameReadinessKnown = primaryHandle !== null && primaryHandle in handleReadiness;
+  const notReadyAndWantsStartFrame =
+    startFrameReadinessKnown &&
+    handleReadiness[primaryHandle!] === false &&
+    useStartFrame;
+
+  const isDisabled = isComingSoon || insufficientCredits || noPrompt || generating || notReadyAndWantsStartFrame;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -832,6 +853,313 @@ export default function VideoPromptPanel({
             setPreEnhancePrompt(null);
           }}
         />
+
+        {/* ── AI Influencer identity badges ─────────────────────────────────── */}
+        {detectedHandles.length > 0 && (
+          <>
+            <style>{`
+              @keyframes lockIn {
+                from { transform: scale(0.96); opacity: 0.55; }
+                to   { transform: scale(1);    opacity: 1;    }
+              }
+            `}</style>
+            <div style={{
+              display: "flex", flexWrap: "wrap", gap: 6,
+              padding: "0 14px 10px",
+            }}>
+              {detectedHandles.map(handle => {
+                const avatarUrl = handleAvatarUrls[handle] ?? null;
+                return (
+                  <div
+                    key={handle}
+                    title={`@${handle} · Identity Locked`}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: avatarUrl ? "3px 10px 3px 4px" : "4px 10px",
+                      borderRadius: 20,
+                      background: "rgba(245,158,11,0.08)",
+                      border: "1px solid rgba(245,158,11,0.28)",
+                      boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.10)",
+                      fontSize: 11, letterSpacing: "0.01em",
+                    }}
+                  >
+                    {/* Avatar — who (face) */}
+                    {avatarUrl && (
+                      <img
+                        src={avatarUrl}
+                        alt={`@${handle}`}
+                        style={{
+                          width: 20, height: 20,
+                          borderRadius: 0,        // sharp corners — design system rule
+                          objectFit: "cover",
+                          border: "1px solid rgba(255,255,255,0.14)",
+                          flexShrink: 0,
+                          display: "block",
+                        }}
+                      />
+                    )}
+                    {/* Lock — state (trust signal). Smaller + dimmer when avatar present. */}
+                    <span style={{
+                      fontSize: avatarUrl ? 8 : 9,
+                      color: avatarUrl ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.48)",
+                      lineHeight: 1,
+                      display: "inline-block",
+                      animation: "lockIn 140ms ease-out forwards",
+                      flexShrink: 0,
+                    }}>🔒</span>
+                    <span style={{
+                      fontWeight: 700, color: "#fff",
+                      maxWidth: 160, overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>@{handle}</span>
+                    <span style={{
+                      fontWeight: 500, color: "rgba(255,255,255,0.48)",
+                      fontSize: 10, flexShrink: 0,
+                    }}>· Identity Locked</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── Identity Start Frame Card ──────────────────────────────────────── */}
+        {/* Always renders when a handle is detected.
+            isStartFrameReady: true = canonical known good, false = known not ready, undefined = loading (optimistic).
+            When not ready: show disabled state, lock toggle, prevent wasted roundtrip. */}
+        {detectedHandles.length > 0 && (() => {
+          const primaryHandle   = detectedHandles[0];
+          // undefined = readiness data not yet fetched (show optimistic/active state)
+          // true      = canonical exists
+          // false     = canonical missing — show disabled state
+          const readinessKnown  = primaryHandle in handleReadiness;
+          const isStartFrameReady = readinessKnown ? handleReadiness[primaryHandle] : true;
+
+          const cardDisabled    = !isStartFrameReady;
+          const activeAndOn     = !cardDisabled && useStartFrame;
+          const cardAvatarUrl   = handleAvatarUrls[primaryHandle] ?? null;
+
+          return (
+            <div style={{
+              borderRadius: 12,
+              border: cardDisabled
+                ? "1px solid rgba(255,255,255,0.06)"
+                : activeAndOn
+                  ? "1px solid rgba(245,158,11,0.32)"
+                  : "1px solid rgba(255,255,255,0.07)",
+              background: cardDisabled
+                ? "rgba(255,255,255,0.01)"
+                : activeAndOn
+                  ? "rgba(245,158,11,0.06)"
+                  : "rgba(255,255,255,0.02)",
+              padding: "10px 14px",
+              opacity: cardDisabled ? 0.5 : 1,
+              transition: "border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
+              boxShadow: activeAndOn ? "0 0 18px rgba(245,158,11,0.07)" : "none",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {/* Icon / Avatar — avatar takes the icon slot when URL is known */}
+                {cardAvatarUrl && !cardDisabled ? (
+                  <div style={{
+                    width: 30, height: 30, flexShrink: 0,
+                    borderRadius: 0,          // sharp corners — design system rule
+                    border: activeAndOn
+                      ? "1px solid rgba(245,158,11,0.38)"
+                      : "1px solid rgba(255,255,255,0.14)",
+                    overflow: "hidden",
+                    transition: "border-color 0.2s ease",
+                  }}>
+                    <img
+                      src={cardAvatarUrl}
+                      alt={`@${primaryHandle}`}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: cardDisabled
+                      ? "rgba(255,255,255,0.03)"
+                      : activeAndOn ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.04)",
+                    border: cardDisabled
+                      ? "1px solid rgba(255,255,255,0.06)"
+                      : activeAndOn ? "1px solid rgba(245,158,11,0.22)" : "1px solid rgba(255,255,255,0.07)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.2s ease",
+                  }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke={cardDisabled ? "#334155" : activeAndOn ? "#F59E0B" : "#475569"} strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <path d="M3 9h18"/>
+                      <circle cx="9" cy="15" r="2"/>
+                    </svg>
+                  </div>
+                )}
+
+                {/* Label */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: cardDisabled ? "#334155" : activeAndOn ? "#FCD34D" : "#64748B",
+                    transition: "color 0.2s ease",
+                  }}>
+                    {cardDisabled ? "Start frame not ready" : "Start Frame Identity"}
+                  </div>
+                  <div style={{ fontSize: 11, color: cardDisabled ? "#1E293B" : "#475569", marginTop: 2 }}>
+                    {cardDisabled
+                      ? `@${primaryHandle} needs identity selection first`
+                      : `Pin @${primaryHandle} hero as video start frame`}
+                  </div>
+                </div>
+
+                {/* Toggle pill — non-interactive when disabled */}
+                <button
+                  onClick={cardDisabled ? undefined : () => setUseStartFrame(!useStartFrame)}
+                  aria-label={cardDisabled
+                    ? "Identity not ready"
+                    : useStartFrame ? "Disable start frame identity" : "Enable start frame identity"}
+                  style={{
+                    width: 38, height: 22, borderRadius: 11, flexShrink: 0,
+                    border: "none", padding: 2,
+                    cursor: cardDisabled ? "not-allowed" : "pointer",
+                    background: cardDisabled
+                      ? "rgba(255,255,255,0.06)"
+                      : activeAndOn ? "#F59E0B" : "rgba(255,255,255,0.09)",
+                    display: "flex", alignItems: "center",
+                    justifyContent: activeAndOn ? "flex-end" : "flex-start",
+                    transition: "background 0.2s ease, box-shadow 0.2s ease",
+                    boxShadow: activeAndOn ? "0 0 10px rgba(245,158,11,0.45)" : "none",
+                    pointerEvents: cardDisabled ? "none" : "auto",
+                  }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: "50%",
+                    background: cardDisabled ? "#1E293B" : "#fff",
+                    boxShadow: cardDisabled ? "none" : "0 1px 4px rgba(0,0,0,0.35)",
+                  }} />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── End Frame Card ────────────────────────────────────────────────────
+            Controller only — upload lives in VideoCanvas (end slot area).
+            Always renders when model supports endFrame + frameMode is start_frame.
+            Dependency rule: when @handle exists, Start Frame must be ON.
+            When that rule is violated, the card dims and explains why.          */}
+        {frameMode === "start_frame" && model?.capabilities.endFrame && (() => {
+          const hasEndFrame       = !!endSlot.url;
+          // Dependency: identity requires Start Frame ON when a handle is present
+          const depBlocked        = detectedHandles.length > 0 && !useStartFrame;
+          // Visual state flags
+          const cardActive        = hasEndFrame && !depBlocked;
+
+          return (
+            <div style={{
+              borderRadius: 12,
+              border: depBlocked
+                ? "1px solid rgba(255,255,255,0.05)"
+                : hasEndFrame
+                  ? "1px solid rgba(255,255,255,0.14)"
+                  : "1px solid rgba(255,255,255,0.07)",
+              background: depBlocked
+                ? "rgba(255,255,255,0.01)"
+                : hasEndFrame
+                  ? "rgba(255,255,255,0.04)"
+                  : "rgba(255,255,255,0.02)",
+              padding: "10px 14px",
+              opacity: depBlocked ? 0.45 : 1,
+              transition: "border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+                {/* Left — thumbnail when set, SVG icon when empty */}
+                {hasEndFrame && endSlot.preview ? (
+                  <div style={{
+                    width: 30, height: 30, flexShrink: 0,
+                    borderRadius: 0,         // sharp corners — design system rule
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    overflow: "hidden",
+                  }}>
+                    <img
+                      src={endSlot.preview}
+                      alt="End frame"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {/* Film end / last-frame icon */}
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <path d="M3 15h18"/>
+                      <circle cx="15" cy="9" r="2"/>
+                    </svg>
+                  </div>
+                )}
+
+                {/* Middle — label + subtext */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: depBlocked ? "#334155" : cardActive ? "#CBD5F5" : "#64748B",
+                    transition: "color 0.2s ease",
+                  }}>
+                    End Frame
+                  </div>
+                  <div style={{
+                    fontSize: 11, marginTop: 2,
+                    color: depBlocked ? "#1E293B" : hasEndFrame ? "#475569" : "#334155",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {depBlocked
+                      ? "Enable Start Frame first for @handle continuity"
+                      : hasEndFrame
+                        ? "Image set — will close the shot"
+                        : "Set end frame image in canvas above"}
+                  </div>
+                </div>
+
+                {/* Right — Clear button when end frame is set */}
+                {hasEndFrame && !depBlocked && (
+                  <button
+                    onClick={onClearEndSlot}
+                    title="Remove end frame"
+                    style={{
+                      width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "rgba(255,255,255,0.04)",
+                      color: "#64748B", fontSize: 13, fontWeight: 600,
+                      cursor: "pointer", display: "flex", alignItems: "center",
+                      justifyContent: "center", transition: "all 0.15s",
+                      lineHeight: 1,
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.10)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.25)";
+                      (e.currentTarget as HTMLElement).style.color = "#EF4444";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+                      (e.currentTarget as HTMLElement).style.color = "#64748B";
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Presets dropdown */}
         {showPresets && (
@@ -982,6 +1310,28 @@ export default function VideoPromptPanel({
                 onBlur={e =>  { e.currentTarget.style.borderColor = "rgba(239,68,68,0.15)"; }}
               />
             )}
+          </div>
+        )}
+
+        {/* Start frame identity block banner — shown when toggle ON + canonical not ready.
+            Intent is preserved (toggle stays ON), generation is blocked with a clear reason.
+            Tone: restrained, not glowing — blocked ≠ active. */}
+        {notReadyAndWantsStartFrame && primaryHandle && (
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            padding: "9px 12px", borderRadius: 10,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(245,158,11,0.13)",
+          }}>
+            <svg style={{ flexShrink: 0, marginTop: 1 }} width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(245,158,11,0.45)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <circle cx="12" cy="16" r="0.5" fill="rgba(245,158,11,0.45)"/>
+            </svg>
+            <span style={{ fontSize: 11, color: "rgba(203,177,100,0.65)", lineHeight: 1.55 }}>
+              Start frame identity is not ready for @{primaryHandle}. Please finish identity selection first.
+            </span>
           </div>
         )}
 
