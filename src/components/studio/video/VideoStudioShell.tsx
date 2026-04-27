@@ -242,6 +242,7 @@ function FamilyDropdownBar({
   selectedId,
   onSelect,
   sequenceControl,
+  onScrollToGallery,
 }: {
   selectedId: string;
   onSelect: (id: string) => void;
@@ -250,6 +251,7 @@ function FamilyDropdownBar({
     active:  boolean;
     onSet:   (active: boolean) => void;
   };
+  onScrollToGallery?: () => void;
 }) {
   const klingModels    = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "kling");
   const seedanceModels = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "seedance");
@@ -357,28 +359,32 @@ function FamilyDropdownBar({
           );
         })}
 
-        {/* ── Sequence Mode segmented control — far right, only for supported models ── */}
-        {sequenceControl?.visible && (
-          <div style={{
-            marginLeft:     "auto",    // pushes control to the far right of the flex row
-            paddingLeft:    16,        // visual gap from the last pill without a divider line
-            display:        "flex",
-            alignItems:     "center",
-            background:     "rgba(255,255,255,0.04)",
-            border:         "1px solid rgba(255,255,255,0.08)",
-            borderRadius:   10,
-            padding:        3,
-            flexShrink:     0,
-          }}>
+        {/* ── Right-side controls: Sequence toggle (conditional) + Gallery (always) ── */}
+        <div style={{
+          marginLeft:  "auto",
+          paddingLeft: 12,
+          display:     "flex",
+          alignItems:  "center",
+          gap:         8,
+          flexShrink:  0,
+        }}>
+          {/* Standard Shot / Sequence Mode — only for supported models */}
+          {sequenceControl?.visible && (
+            <div style={{
+              display:      "flex",
+              alignItems:   "center",
+              background:   "rgba(255,255,255,0.04)",
+              border:       "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 10,
+              padding:      3,
+            }}>
               <button
                 onClick={() => sequenceControl.onSet(false)}
                 style={{
                   padding:      "6px 13px",
                   borderRadius: 7,
                   border:       "none",
-                  background:   !sequenceControl.active
-                    ? "rgba(255,255,255,0.10)"
-                    : "transparent",
+                  background:   !sequenceControl.active ? "rgba(255,255,255,0.10)" : "transparent",
                   color:        !sequenceControl.active ? "#F8FAFC" : "#475569",
                   fontSize:     12,
                   fontWeight:   !sequenceControl.active ? 600 : 400,
@@ -395,24 +401,56 @@ function FamilyDropdownBar({
                   padding:      "6px 13px",
                   borderRadius: 7,
                   border:       "none",
-                  background:   sequenceControl.active
-                    ? "rgba(14,165,160,0.18)"
-                    : "transparent",
+                  background:   sequenceControl.active ? "rgba(14,165,160,0.18)" : "transparent",
                   color:        sequenceControl.active ? "#2DD4BF" : "#475569",
                   fontSize:     12,
                   fontWeight:   sequenceControl.active ? 600 : 400,
                   cursor:       "pointer",
                   transition:   "all 0.15s",
                   whiteSpace:   "nowrap",
-                  boxShadow:    sequenceControl.active
-                    ? "0 0 10px rgba(14,165,160,0.18)"
-                    : "none",
+                  boxShadow:    sequenceControl.active ? "0 0 10px rgba(14,165,160,0.18)" : "none",
                 }}
               >
                 Sequence Mode
               </button>
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* Gallery — always visible */}
+          <button
+            onClick={onScrollToGallery}
+            style={{
+              padding:      "6px 13px",
+              borderRadius: 8,
+              border:       "1px solid rgba(255,255,255,0.08)",
+              background:   "rgba(255,255,255,0.04)",
+              color:        "#64748B",
+              fontSize:     12,
+              fontWeight:   500,
+              cursor:       "pointer",
+              transition:   "background 0.15s, color 0.15s",
+              whiteSpace:   "nowrap",
+              display:      "flex",
+              alignItems:   "center",
+              gap:          5,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.09)";
+              (e.currentTarget as HTMLElement).style.color = "#94A3B8";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLElement).style.color = "#64748B";
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2"/>
+              <path d="M9 8l7 4-7 4V8z"/>
+            </svg>
+            Gallery
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -1157,6 +1195,21 @@ export default function VideoStudioShell() {
     setNegPrompt(video.negPrompt ?? "");
   }, []);
 
+  // Gallery card favourite toggle — optimistic update + PATCH
+  const handleGalleryFavToggle = useCallback(async (id: string, newFav: boolean) => {
+    if (!authToken) return;
+    setVideos(prev => prev.map(v => v.id === id ? { ...v, is_favorite: newFav } : v));
+    try {
+      await fetch(`/api/assets/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({ is_favorite: newFav }),
+      });
+    } catch {
+      setVideos(prev => prev.map(v => v.id === id ? { ...v, is_favorite: !newFav } : v));
+    }
+  }, [authToken]);
+
   const handlePreviewReuse = useCallback(() => {
     if (!canvasPreviewVideo) return;
     setPrompt(canvasPreviewVideo.prompt ?? "");
@@ -1276,6 +1329,9 @@ export default function VideoStudioShell() {
           visible: modelSupportsSequence,
           active:  sequenceMode,
           onSet:   setSequenceMode,
+        }}
+        onScrollToGallery={() => {
+          videoResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
       />
 
@@ -1538,6 +1594,7 @@ export default function VideoStudioShell() {
           videos={videos}
           onReusePrompt={handleReusePrompt}
           onDelete={handleDelete}
+          onFavToggle={handleGalleryFavToggle}
           onAuthRequired={() => setAuthModalOpen(true)}
           onPreview={(v) => setViewingVideo(v)}
           onCardRef={(id, el) => { videoCardRefs.current[id] = el; }}

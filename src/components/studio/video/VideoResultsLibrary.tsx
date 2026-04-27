@@ -83,6 +83,7 @@ function VideoCard({
   onSelect,
   onReuse,
   onDelete,
+  onFavToggle,
   onPreview,
   onAuthRequired,
   onCardRef,
@@ -93,6 +94,7 @@ function VideoCard({
   onSelect:       (id: string) => void;
   onReuse:        (v: GeneratedVideo) => void;
   onDelete:       (id: string) => void;
+  onFavToggle?:   (id: string, newFav: boolean) => void;
   onPreview?:     (v: GeneratedVideo) => void;
   onAuthRequired?:() => void;
   onCardRef?:     (id: string, el: HTMLDivElement | null) => void;
@@ -401,8 +403,8 @@ function VideoCard({
         </div>
       </div>
 
-      {/* ── Card body — prompt + timestamp ──────────────────────────────────── */}
-      <div style={{ padding: "9px 11px 11px" }}>
+      {/* ── Card body — prompt + timestamp + heart ───────────────────────────── */}
+      <div style={{ padding: "9px 11px 10px" }}>
         <div style={{
           fontSize: 13, color: "#7A8EA4", lineHeight: 1.6,
           display: "-webkit-box", WebkitLineClamp: 2,
@@ -414,7 +416,30 @@ function VideoCard({
             : <span style={{ color: "#2D3A4A", fontStyle: "italic" }}>No prompt</span>
           }
         </div>
-        <div style={{ fontSize: 10, color: "#2D3A4A" }}>{timeAgo(video.createdAt)}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 10, color: "#2D3A4A" }}>{timeAgo(video.createdAt)}</div>
+          {/* Heart / Favourite toggle */}
+          <button
+            onClick={e => { e.stopPropagation(); onFavToggle?.(video.id, !video.is_favorite); }}
+            title={video.is_favorite ? "Remove from favourites" : "Add to favourites"}
+            style={{
+              background: "none", border: "none", padding: "2px 0", cursor: "pointer",
+              display: "flex", alignItems: "center",
+              transition: "transform 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.2)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24"
+              fill={video.is_favorite ? "#EF4444" : "none"}
+              stroke={video.is_favorite ? "#EF4444" : "#3A4F62"}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transition: "fill 0.18s, stroke 0.18s" }}
+            >
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -530,41 +555,13 @@ function PlaceholderDockBtn({ label }: { label: string }) {
   );
 }
 
-// ── Zoom Slider ───────────────────────────────────────────────────────────────
-
-function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {/* Small icon */}
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-        stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="18" rx="2"/>
-        <path d="M9 8l7 4-7 4V8z"/>
-      </svg>
-      <input
-        type="range" min={40} max={100} step={5} value={value}
-        onChange={e => onChange(Number(e.target.value))}
-        style={{
-          width: 90, accentColor: "#0EA5A0", cursor: "pointer",
-          background: "transparent",
-        }}
-      />
-      {/* Large icon */}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-        stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="18" rx="2"/>
-        <path d="M9 8l7 4-7 4V8z"/>
-      </svg>
-    </div>
-  );
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   videos:          GeneratedVideo[];
   onReusePrompt:   (v: GeneratedVideo) => void;
   onDelete?:       (id: string) => void;
+  onFavToggle?:    (id: string, newFav: boolean) => void;
   onAuthRequired?: () => void;
   onPreview?:      (v: GeneratedVideo) => void;
   onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
@@ -577,7 +574,7 @@ type ShowCount = 25 | 50 | 100 | 500;
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function VideoResultsLibrary({
-  videos, onReusePrompt, onDelete, onAuthRequired, onPreview, onCardRef,
+  videos, onReusePrompt, onDelete, onFavToggle, onAuthRequired, onPreview, onCardRef,
 }: Props) {
   const [filter,    setFilter]    = useState<FilterTab>("all");
   const [sort,      setSort]      = useState<SortMode>("latest");
@@ -678,16 +675,17 @@ export default function VideoResultsLibrary({
 
   return (
     <div style={{ paddingBottom: selectedIds.size > 0 ? 80 : 32 }}>
-      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
-      {/* Row 1: tabs (left) + zoom (right) */}
+      {/* ── Toolbar — single line ─────────────────────────────────────────────── */}
       <div style={{
         display: "flex", alignItems: "center",
-        justifyContent: "space-between", marginBottom: 8,
+        justifyContent: "space-between", gap: 12, marginBottom: 18,
+        flexWrap: "nowrap",
       }}>
-        {/* Filter tabs */}
+        {/* LEFT: Filter tabs */}
         <div style={{
-          display: "flex", gap: 2,
-          background: "rgba(255,255,255,0.03)", borderRadius: 9, padding: 3,
+          display: "flex", gap: 3,
+          background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4,
+          flexShrink: 0,
         }}>
           {filterTabs.map(t => {
             const active = filter === t.key;
@@ -701,19 +699,20 @@ export default function VideoResultsLibrary({
                 key={t.key}
                 onClick={() => setFilter(t.key)}
                 style={{
-                  padding: "5px 11px", borderRadius: 6,
-                  fontSize: 12, fontWeight: active ? 700 : 500,
+                  height: 36, padding: "0 14px", borderRadius: 7,
+                  fontSize: 13, fontWeight: active ? 700 : 500,
                   border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
-                  background: active ? "rgba(14,165,160,0.12)" : "transparent",
+                  background: active ? "rgba(14,165,160,0.14)" : "transparent",
                   color: active ? "#22D3EE" : "#7A90A8",
                   cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 5,
+                  display: "flex", alignItems: "center", gap: 6,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {t.label}
                 <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 8,
-                  background: active ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,0.06)",
+                  fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 8,
+                  background: active ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,0.07)",
                   color: active ? "#22D3EE" : "#475569",
                 }}>
                   {count}
@@ -723,52 +722,70 @@ export default function VideoResultsLibrary({
           })}
         </div>
 
-        {/* Zoom slider — always right-aligned on same baseline */}
-        <ZoomSlider value={zoomPct} onChange={setZoomPct} />
-      </div>
+        {/* RIGHT: Zoom + Sort + Show */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
 
-      {/* Row 2: sort + count (right-aligned) */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
-        gap: 8, marginBottom: 14,
-      }}>
-        {/* Sort */}
-        <div style={{
-          display: "flex", gap: 2,
-          background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 2,
-        }}>
+          {/* Zoom slider with % label */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 7,
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 8, padding: "0 10px", height: 36,
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2"/>
+              <path d="M9 8l7 4-7 4V8z"/>
+            </svg>
+            <input
+              type="range" min={40} max={100} step={5} value={zoomPct}
+              onChange={e => setZoomPct(Number(e.target.value))}
+              style={{
+                width: 80, accentColor: "#0EA5A0", cursor: "pointer",
+                background: "transparent",
+              }}
+            />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B", minWidth: 30 }}>
+              {zoomPct}%
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.08)" }} />
+
+          {/* Sort buttons */}
           {(["latest", "oldest", "credits"] as SortMode[]).map(s => (
             <button
               key={s}
               onClick={() => setSort(s)}
               style={{
-                padding: "4px 8px", borderRadius: 5, fontSize: 11,
-                fontWeight: sort === s ? 700 : 400,
-                border: sort === s ? "1px solid rgba(34,211,238,0.3)" : "1px solid transparent",
-                background: sort === s ? "rgba(14,165,160,0.1)" : "transparent",
+                height: 36, padding: "0 14px", borderRadius: 7, fontSize: 13,
+                fontWeight: sort === s ? 700 : 500,
+                border: sort === s ? "1px solid rgba(34,211,238,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                background: sort === s ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.04)",
                 color: sort === s ? "#22D3EE" : "#64748B",
-                cursor: "pointer", transition: "all 0.15s", textTransform: "capitalize",
+                cursor: "pointer", transition: "all 0.15s",
+                whiteSpace: "nowrap",
               }}
             >
               {s === "latest" ? "Latest" : s === "oldest" ? "Oldest" : "Credits"}
             </button>
           ))}
-        </div>
 
-        {/* Show count */}
-        <select
-          value={showCount}
-          onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
-          style={{
-            padding: "5px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-            color: "#64748B", cursor: "pointer", outline: "none",
-          }}
-        >
-          {([25, 50, 100, 500] as ShowCount[]).map(n => (
-            <option key={n} value={n} style={{ background: "#0C1220" }}>Show {n}</option>
-          ))}
-        </select>
+          {/* Show count */}
+          <select
+            value={showCount}
+            onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
+            style={{
+              height: 36, padding: "0 10px", borderRadius: 7, fontSize: 13, fontWeight: 600,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+              color: "#64748B", cursor: "pointer", outline: "none",
+            }}
+          >
+            {([25, 50, 100, 500] as ShowCount[]).map(n => (
+              <option key={n} value={n} style={{ background: "#0C1220" }}>Show {n}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* ── Count line ─────────────────────────────────────────────────────────── */}
@@ -806,6 +823,7 @@ export default function VideoResultsLibrary({
               onSelect={toggleSelect}
               onReuse={onReusePrompt}
               onDelete={onDelete ?? (() => {})}
+              onFavToggle={onFavToggle}
               onPreview={onPreview}
               onAuthRequired={onAuthRequired}
               onCardRef={onCardRef}
