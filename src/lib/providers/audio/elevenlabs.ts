@@ -129,6 +129,16 @@ export const elevenLabsProvider: ZProvider = {
       throw new Error(`Audio generation failed (HTTP ${res.status})${detail ? `: ${detail}` : ". Please try again."}`);
     }
 
+    // ── GOLDEN PATH TEST HARNESS — REMOVE BEFORE SHIPPING ───────────────────
+    // Simulates a 3-second provider delay to exercise the UI's in-progress
+    // state and confirm there are no race conditions during async wait.
+    // Remove this block once golden path validation is confirmed.
+    if (process.env.ZENCRA_GOLDEN_PATH_DELAY === "true") {
+      console.log("[elevenlabs] GOLDEN PATH DELAY: sleeping 3 s…");
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    // ── END GOLDEN PATH TEST HARNESS ─────────────────────────────────────────
+
     // ── Upload to Supabase Storage ───────────────────────────────────────────
     const audioBuffer = await res.arrayBuffer();
     const supabase    = createClient(supaEnv.url, supaEnv.serviceRoleKey);
