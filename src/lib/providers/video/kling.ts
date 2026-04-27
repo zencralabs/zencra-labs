@@ -263,12 +263,20 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       const taskId    = extractKlingTaskId(body);
       if (!taskId) throw new Error("Kling returned no task ID.");
 
+      // Encode the dispatch endpoint type so getJobStatus uses the matching
+      // status URL. Kling Singapore has no generic /tasks/ endpoint — each
+      // operation type has its own status path:
+      //   text2video → GET /v1/videos/text2video/{taskId}
+      //   image2video → GET /v1/videos/image2video/{taskId}
+      const endpointType = endpoint.includes("image2video") ? "i2v" : "t2v";
+      const compoundId   = `${endpointType}|${taskId}`;
+
       const now = new Date();
       return {
         id: jobId, provider: "kling", modelKey,
-        studioType: "video", status: "pending", externalJobId: taskId,
+        studioType: "video", status: "pending", externalJobId: compoundId,
         createdAt: now, updatedAt: now, identity: input.identity,
-        providerMeta: { apiModelId, taskId, duration, aspect },
+        providerMeta: { apiModelId, taskId, endpointType, duration, aspect },
         estimatedCredits: input.estimatedCredits,
       };
     },
@@ -277,7 +285,17 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       const { baseUrl } = getKlingEnv();
       const authHeader  = await buildKlingAuthHeader();
 
-      const res = await fetch(`${baseUrl}/v1/videos/tasks/${externalJobId}`, {
+      // Decode compound ID: "t2v|<taskId>" or "i2v|<taskId>"
+      // Legacy IDs (no pipe) are treated as text2video.
+      const [endpointType, rawTaskId] = externalJobId.includes("|")
+        ? externalJobId.split("|", 2)
+        : ["t2v", externalJobId];
+
+      const statusPath = endpointType === "i2v"
+        ? `/v1/videos/image2video/${rawTaskId}`
+        : `/v1/videos/text2video/${rawTaskId}`;
+
+      const res = await fetch(`${baseUrl}${statusPath}`, {
         headers: { "Authorization": authHeader },
         signal:  AbortSignal.timeout(30_000),
       });
@@ -352,7 +370,11 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
     async cancelJob(externalJobId: string): Promise<void> {
       const { baseUrl } = getKlingEnv();
       const authHeader  = await buildKlingAuthHeader();
-      await fetch(`${baseUrl}/v1/videos/tasks/${externalJobId}`, {
+      // Strip compound prefix if present
+      const rawTaskId = externalJobId.includes("|")
+        ? externalJobId.split("|", 2)[1]
+        : externalJobId;
+      await fetch(`${baseUrl}/v1/videos/tasks/${rawTaskId}`, {
         method: "DELETE", headers: { "Authorization": authHeader },
       }).catch(() => {});
     },
