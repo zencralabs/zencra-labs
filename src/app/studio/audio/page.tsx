@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { Zap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useFlowStore } from "@/lib/flow/store";
 
@@ -896,7 +895,7 @@ function AudioToolBar({
 
 function AudioStudioInner() {
   const searchParams = useSearchParams();
-  const { user }     = useAuth();
+  const { user, session } = useAuth();
 
   // ── Creative Flow store ──────────────────────────────────────────────────────
   const flowStore = useFlowStore();
@@ -1008,10 +1007,9 @@ function AudioStudioInner() {
         return;
       }
 
-      // Always fetch a live token — avoids the stale user.accessToken race
-      // that fires when the SDK refreshes between INITIAL_SESSION and TOKEN_REFRESHED.
-      const { data: { session: liveSession } } = await supabase.auth.getSession();
-      const accessToken = liveSession?.access_token ?? "";
+      // Use the session token from context — always current after SDK refresh events.
+      // Avoids the stale user.accessToken race between INITIAL_SESSION and TOKEN_REFRESHED.
+      const accessToken = session?.access_token ?? "";
 
       const res = await fetch("/api/studio/audio/generate", {
         method:  "POST",
@@ -1043,7 +1041,7 @@ function AudioStudioInner() {
     } finally {
       setGenerating(false);
     }
-  }, [user, tool, prompt, voiceId, kitsModel, quality, audioDataUrl, audioFile, generating, recordFlowStep]);
+  }, [user, session, tool, prompt, voiceId, kitsModel, quality, audioDataUrl, audioFile, generating, recordFlowStep]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
