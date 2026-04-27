@@ -682,8 +682,14 @@ export default function VideoStudioShell() {
   }, [detectedHandles, user?.accessToken]);
 
   // Generation (Kling/video)
-  const [generating, setGenerating] = useState(false);
-  const [videos,     setVideos]     = useState<GeneratedVideo[]>([]);
+  const [generating,      setGenerating]      = useState(false);
+  const [videos,          setVideos]          = useState<GeneratedVideo[]>([]);
+  // Canvas preview — tracks the ID of the video currently shown in the main canvas overlay.
+  // Derived: canvasPreviewVideo = videos.find(v => v.id === canvasPreviewId) ?? null
+  const [canvasPreviewId, setCanvasPreviewId] = useState<string | null>(null);
+  const canvasPreviewVideo = canvasPreviewId
+    ? (videos.find(v => v.id === canvasPreviewId) ?? null)
+    : null;
 
   // ── Creative Flow store ──────────────────────────────────────────────────────
   const flowStore = useFlowStore();
@@ -807,7 +813,7 @@ export default function VideoStudioShell() {
   const seqGenParamsRef = useRef({ modelId: selectedModelId, modelName: model?.displayName ?? selectedModelId, aspectRatio, duration });
   seqGenParamsRef.current = { modelId: selectedModelId, modelName: model?.displayName ?? selectedModelId, aspectRatio, duration };
 
-  // Called by useSequenceState when a shot finishes — appends to the gallery (BUG-SEQ-03)
+  // Called by useSequenceState when a shot finishes — appends to gallery + shows canvas preview
   const handleShotCompleted = useCallback((assetId: string, url: string, prompt: string) => {
     const p = seqGenParamsRef.current;
     const newVideo: GeneratedVideo = {
@@ -827,6 +833,8 @@ export default function VideoStudioShell() {
       isPublic:     false,
     };
     setVideos(prev => [newVideo, ...prev]);
+    // Show the completed shot in the canvas preview (Part 5 — sequence support)
+    setCanvasPreviewId(assetId);
   }, []);
 
   const { state: seqState, actions: seqActions } = useSequenceState(authToken, handleShotCompleted);
@@ -990,18 +998,8 @@ export default function VideoStudioShell() {
       isPublic: false,
     };
     setVideos(prev => [newVideo, ...prev]);
-
-    // Scroll to the new card after React paints it
-    setTimeout(() => {
-      const cardEl = videoCardRefs.current[newVideo.id];
-      if (cardEl && !isElementMostlyVisible(cardEl)) {
-        cardEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      } else if (!cardEl) {
-        // Fallback to gallery container if card ref not mounted yet
-        const el = videoResultsRef.current;
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 120);
+    // Show the canvas preview immediately — no page scroll
+    setCanvasPreviewId(newVideo.id);
 
     try {
       // Model key — always use the registry model ID directly.
@@ -1372,6 +1370,9 @@ export default function VideoStudioShell() {
               onMascotUpload={handleMascotUpload}
               onSamplePrompt={handleSamplePrompt}
               mascotSamplePrompt={mascotSamplePrompt}
+              previewVideo={canvasPreviewVideo}
+              onClosePreview={() => setCanvasPreviewId(null)}
+              onOpenFullscreen={(v) => setViewingVideo(v)}
             />
           )}
         </div>

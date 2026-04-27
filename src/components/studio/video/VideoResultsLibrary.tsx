@@ -1,7 +1,15 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoResultsLibrary — Full-width masonry gallery with filters, sorting, autoplay
+// VideoResultsLibrary — Cinematic video gallery
+//
+// Layer 2 redesign:
+//   • Large media-first cards, sharp (borderRadius: 0) corners
+//   • Zoom slider 40–100% controls card minimum width
+//   • Hover → autoplay muted + reveal action overlay
+//   • Click video → fullscreen
+//   • No "Done" badge on completed cards
+//   • Bulk select: checkbox per card, selection dock with Delete + placeholder actions
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useCallback } from "react";
@@ -12,72 +20,98 @@ import { useAuth } from "@/components/auth/AuthContext";
 
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60)   return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  return `${Math.floor(s / 3600)}h ago`;
+  if (s < 60)    return `${s}s ago`;
+  if (s < 3600)  return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
 const ONE_HOUR = 60 * 60 * 1000;
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+// ── Zoom helpers ──────────────────────────────────────────────────────────────
+// 40% → 280px, 100% → 680px (linear)
+function zoomToMinWidth(pct: number): number {
+  return Math.round(280 + ((pct - 40) / 60) * 400);
+}
 
-function StatusBadge({ status }: { status: GeneratedVideo["status"] }) {
-  const map = {
-    done:       { color: "#22D3EE", bg: "rgba(34,211,238,0.1)",  label: "Done" },
-    generating: { color: "#F59E0B", bg: "rgba(245,158,11,0.1)",  label: "Generating" },
-    polling:    { color: "#8B5CF6", bg: "rgba(139,92,246,0.1)",  label: "Processing" },
-    error:      { color: "#EF4444", bg: "rgba(239,68,68,0.1)",   label: "Error" },
-  };
-  const cfg = map[status] ?? map.error;
+// ── In-progress status badge (only for non-done / non-error) ─────────────────
+
+function InProgressBadge({ status }: { status: GeneratedVideo["status"] }) {
+  if (status !== "generating" && status !== "polling") return null;
+  const color = status === "generating" ? "#F59E0B" : "#8B5CF6";
+  const bg    = status === "generating" ? "rgba(245,158,11,0.1)" : "rgba(139,92,246,0.1)";
+  const label = status === "generating" ? "Generating" : "Processing";
   return (
     <div style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      padding: "2px 7px", borderRadius: 20,
-      background: cfg.bg, border: `1px solid ${cfg.color}30`,
-      fontSize: 10, fontWeight: 700, color: cfg.color, letterSpacing: "0.04em",
+      padding: "2px 8px",
+      background: bg, border: `1px solid ${color}30`,
+      fontSize: 10, fontWeight: 700, color, letterSpacing: "0.04em",
+      borderRadius: 4,
     }}>
-      {(status === "generating" || status === "polling") && (
-        <div style={{
-          width: 6, height: 6, borderRadius: "50%",
-          background: cfg.color, animation: "libPulse 1s ease-in-out infinite",
-        }} />
-      )}
-      {cfg.label}
+      <div style={{
+        width: 5, height: 5, borderRadius: "50%",
+        background: color, animation: "vlPulse 1s ease-in-out infinite",
+      }} />
+      {label}
     </div>
   );
 }
 
-// ── Video card ────────────────────────────────────────────────────────────────
+// ── Error badge ───────────────────────────────────────────────────────────────
 
-// ── Mode/source display labels ────────────────────────────────────────────────
+function ErrorBadge() {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px",
+      background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
+      fontSize: 10, fontWeight: 700, color: "#EF4444", letterSpacing: "0.04em",
+      borderRadius: 4,
+    }}>
+      Failed
+    </div>
+  );
+}
 
-const MODE_DISPLAY: Partial<Record<string, string>> = {
-  text_to_video:  "Prompt",
-  start_frame:    "Source Frame",
-  extend:         "Extend",
-  lip_sync:       "Lip Sync",
-  motion_control: "Motion Control",
-};
+// ── Video Card ────────────────────────────────────────────────────────────────
 
-function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCardRef }: {
-  video: GeneratedVideo;
-  onReuse: (v: GeneratedVideo) => void;
-  onDelete: (id: string) => void;
-  onAuthRequired?: () => void;
-  onPreview?: (v: GeneratedVideo) => void;
-  onCardRef?: (id: string, el: HTMLDivElement | null) => void;
+function VideoCard({
+  video,
+  selected,
+  anySelected,
+  onSelect,
+  onReuse,
+  onDelete,
+  onPreview,
+  onAuthRequired,
+  onCardRef,
+}: {
+  video:          GeneratedVideo;
+  selected:       boolean;
+  anySelected:    boolean;
+  onSelect:       (id: string) => void;
+  onReuse:        (v: GeneratedVideo) => void;
+  onDelete:       (id: string) => void;
+  onPreview?:     (v: GeneratedVideo) => void;
+  onAuthRequired?:() => void;
+  onCardRef?:     (id: string, el: HTMLDivElement | null) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [copied, setCopied]   = useState(false);
+  const [copied,  setCopied]  = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
+  const isDone  = video.status === "done";
+  const isError = video.status === "error";
+  const showCheckbox = hovered || anySelected;
+
   const handleMouseEnter = useCallback(() => {
     setHovered(true);
-    if (videoRef.current && video.url && video.status === "done") {
+    if (videoRef.current && video.url && isDone) {
       videoRef.current.play().catch(() => {});
     }
-  }, [video.url, video.status]);
+  }, [video.url, isDone]);
 
   const handleMouseLeave = useCallback(() => {
     setHovered(false);
@@ -88,25 +122,25 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCard
   }, []);
 
   function handleCopy() {
-    if (video.prompt) {
-      navigator.clipboard.writeText(video.prompt).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1800);
-      });
-    }
+    if (!video.prompt) return;
+    navigator.clipboard.writeText(video.prompt).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
   }
 
-  function handleDownload() {
+  function handleDownload(e: React.MouseEvent) {
+    e.stopPropagation();
     if (!video.url) return;
-    // Auth gate — non-members must sign up before downloading
     if (!user) { onAuthRequired?.(); return; }
     const a = document.createElement("a");
-    a.href = video.url;
+    a.href     = video.url;
     a.download = `zencra-video-${video.id}.mp4`;
     a.click();
   }
 
-  const isDone = video.status === "done";
+  // AR ratio string for CSS
+  const arCSS = (video.aspectRatio ?? "16:9").replace(":", " / ");
 
   return (
     <div
@@ -115,31 +149,35 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCard
       onMouseLeave={handleMouseLeave}
       style={{
         position: "relative",
-        borderRadius: 14,
+        background: "rgba(255,255,255,0.02)",
+        border: selected
+          ? "1px solid rgba(34,211,238,0.5)"
+          : hovered
+          ? "1px solid rgba(34,211,238,0.25)"
+          : "1px solid rgba(255,255,255,0.06)",
+        borderRadius: 3,
         overflow: "hidden",
-        border: hovered ? "1px solid rgba(34,211,238,0.4)" : "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(255,255,255,0.025)",
-        transition: "border-color 0.25s, transform 0.25s, box-shadow 0.25s",
-        transform: hovered ? "translateY(-3px) scale(1.008)" : "none",
-        boxShadow: hovered
-          ? "0 12px 40px rgba(0,0,0,0.6), 0 0 24px rgba(14,165,160,0.12), 0 0 0 1px rgba(34,211,238,0.08)"
+        transition: "border-color 0.2s, box-shadow 0.2s",
+        boxShadow: selected
+          ? "0 0 0 1px rgba(34,211,238,0.15), 0 8px 32px rgba(0,0,0,0.5)"
+          : hovered
+          ? "0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(14,165,160,0.08)"
           : "0 2px 10px rgba(0,0,0,0.35)",
-        breakInside: "avoid",
-        marginBottom: 16,
-        cursor: "pointer",
+        cursor: "default",
       }}
     >
-      {/* Thumbnail / video — with zoom on hover; click opens fullscreen */}
+      {/* ── Media area ──────────────────────────────────────────────────────── */}
       <div
-        onClick={isDone ? () => onPreview?.(video) : undefined}
         style={{
           position: "relative",
-          aspectRatio: video.aspectRatio?.replace(":", " / ") ?? "16 / 9",
+          aspectRatio: arCSS,
           background: "#0a0f1a",
           overflow: "hidden",
-          cursor: isDone ? "zoom-in" : "default",
+          cursor: isDone ? "pointer" : "default",
         }}
+        onClick={isDone ? () => onPreview?.(video) : undefined}
       >
+        {/* Video / thumbnail / empty */}
         {video.url && isDone ? (
           <video
             ref={videoRef}
@@ -147,8 +185,9 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCard
             muted loop playsInline
             poster={video.thumbnailUrl ?? undefined}
             style={{
-              width: "100%", height: "100%", objectFit: "cover", display: "block",
-              transform: hovered ? "scale(1.04)" : "scale(1)",
+              width: "100%", height: "100%",
+              objectFit: "cover", display: "block",
+              transform: hovered ? "scale(1.03)" : "scale(1)",
               transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
             }}
           />
@@ -157,178 +196,364 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCard
             src={video.thumbnailUrl}
             alt="thumbnail"
             style={{
-              width: "100%", height: "100%", objectFit: "cover", display: "block",
-              transform: hovered ? "scale(1.04)" : "scale(1)",
+              width: "100%", height: "100%",
+              objectFit: "cover", display: "block",
+              transform: hovered ? "scale(1.03)" : "scale(1)",
               transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
             }}
           />
         ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.02)" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(100,116,139,0.4)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="18" rx="3"/><path d="M9 8l7 4-7 4V8z"/>
+          <div style={{
+            width: "100%", height: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(255,255,255,0.015)",
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(100,116,139,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2"/>
+              <path d="M9 8l7 4-7 4V8z"/>
             </svg>
           </div>
         )}
 
-        {/* Center play icon — idle state (not hovering), done */}
-        {isDone && !hovered && (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            pointerEvents: "none",
-          }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: "50%",
-              background: "rgba(2,6,23,0.6)",
-              border: "1.5px solid rgba(255,255,255,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              backdropFilter: "blur(6px)",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-            }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="#E2E8F0">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            </div>
-          </div>
-        )}
-
-        {/* Hover play overlay — teal ring with animated pulse */}
-        {isDone && hovered && (
-          <div style={{
-            position: "absolute", inset: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            pointerEvents: "none",
-          }}>
-            <div style={{
-              width: 50, height: 50, borderRadius: "50%",
-              background: "rgba(14,165,160,0.2)",
-              border: "2px solid rgba(34,211,238,0.7)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              backdropFilter: "blur(6px)",
-              boxShadow: "0 0 24px rgba(34,211,238,0.35)",
-              animation: "vcPlayPulse 1.6s ease-in-out infinite",
-            }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="#22D3EE">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-            </div>
-          </div>
-        )}
-
-        {/* Hover overlay: top badges */}
+        {/* Gradient overlay — always on, intensifies on hover */}
         <div style={{
-          position: "absolute", inset: 0,
-          background: hovered ? "linear-gradient(to bottom, rgba(2,6,23,0.55) 0%, transparent 40%, rgba(2,6,23,0.7) 70%, rgba(2,6,23,0.9) 100%)" : "linear-gradient(to bottom, rgba(2,6,23,0.3) 0%, transparent 35%)",
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: hovered
+            ? "linear-gradient(to bottom,rgba(2,6,23,0.5) 0%,transparent 35%,rgba(2,6,23,0.6) 65%,rgba(2,6,23,0.92) 100%)"
+            : "linear-gradient(to bottom,rgba(2,6,23,0.25) 0%,transparent 30%,rgba(2,6,23,0.4) 75%,rgba(2,6,23,0.7) 100%)",
           transition: "background 0.2s",
-          pointerEvents: "none",
         }} />
 
-        {/* Top badges */}
-        <div style={{ position: "absolute", top: 8, left: 8, right: 8, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <StatusBadge status={video.status} />
-          <div style={{ display: "flex", gap: 4 }}>
+        {/* ── Idle play icon (done, not hovering) ─────────────────────────── */}
+        {isDone && !hovered && (
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
             <div style={{
-              padding: "2px 6px", borderRadius: 6,
-              background: "rgba(2,6,23,0.7)", border: "1px solid rgba(255,255,255,0.1)",
-              fontSize: 10, fontWeight: 600, color: "#94A3B8",
+              width: 40, height: 40, borderRadius: "50%",
+              background: "rgba(2,6,23,0.55)",
+              border: "1.5px solid rgba(255,255,255,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              backdropFilter: "blur(6px)",
             }}>
-              {video.duration}s
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#E2E8F0">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
             </div>
+          </div>
+        )}
+
+        {/* ── Hover play icon (done, hovering) ────────────────────────────── */}
+        {isDone && hovered && (
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
             <div style={{
-              padding: "2px 6px", borderRadius: 6,
-              background: "rgba(14,165,160,0.15)", border: "1px solid rgba(34,211,238,0.2)",
+              width: 48, height: 48, borderRadius: "50%",
+              background: "rgba(14,165,160,0.18)",
+              border: "2px solid rgba(34,211,238,0.65)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 0 24px rgba(34,211,238,0.3)",
+              animation: "vlPlayPulse 1.8s ease-in-out infinite",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#22D3EE">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* ── In-progress / error badges top-left ─────────────────────────── */}
+        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center" }}>
+          <InProgressBadge status={video.status} />
+          {isError && <ErrorBadge />}
+        </div>
+
+        {/* ── Duration + credits top-right ────────────────────────────────── */}
+        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
+          <div style={{
+            padding: "2px 7px", borderRadius: 4,
+            background: "rgba(2,6,23,0.7)", border: "1px solid rgba(255,255,255,0.1)",
+            fontSize: 10, fontWeight: 600, color: "#94A3B8",
+          }}>
+            {video.duration}s
+          </div>
+          {isDone && video.creditsUsed > 0 && (
+            <div style={{
+              padding: "2px 7px", borderRadius: 4,
+              background: "rgba(14,165,160,0.12)", border: "1px solid rgba(34,211,238,0.2)",
               fontSize: 10, fontWeight: 700, color: "#22D3EE",
             }}>
               {video.creditsUsed}⚡
             </div>
+          )}
+        </div>
+
+        {/* ── Checkbox — top-left corner, appears on hover or when any selected ── */}
+        <div
+          style={{
+            position: "absolute", top: 8, left: 8,
+            opacity: showCheckbox ? 1 : 0,
+            transition: "opacity 0.15s",
+            zIndex: 10,
+          }}
+          onClick={e => { e.stopPropagation(); onSelect(video.id); }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 4,
+            background: selected ? "rgba(34,211,238,0.9)" : "rgba(2,6,23,0.8)",
+            border: selected ? "1.5px solid #22D3EE" : "1.5px solid rgba(255,255,255,0.3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", transition: "all 0.15s",
+            backdropFilter: "blur(4px)",
+          }}>
+            {selected && (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                stroke="#020617" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
           </div>
         </div>
 
-        {/* Model badge */}
-        <div style={{ position: "absolute", bottom: 8, left: 8 }}>
+        {/* ── Hover action strip — bottom of media ────────────────────────── */}
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "8px 10px",
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? "translateY(0)" : "translateY(6px)",
+          transition: "opacity 0.2s, transform 0.2s",
+          display: "flex", gap: 5, flexWrap: "wrap",
+          zIndex: 5,
+        }}>
+          {/* Model badge */}
           <div style={{
-            padding: "2px 7px", borderRadius: 6,
+            padding: "2px 7px", borderRadius: 4,
             background: "rgba(2,6,23,0.75)", border: "1px solid rgba(255,255,255,0.1)",
             fontSize: 10, fontWeight: 600, color: "#64748B",
+            marginRight: "auto",
           }}>
             {video.modelName}
           </div>
-        </div>
-      </div>
 
-      {/* Card body */}
-      <div style={{ padding: "10px 12px 12px" }}>
-        {/* Prompt */}
-        <div style={{ fontSize: 12, color: "#B0C0D4", lineHeight: 1.5, marginBottom: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-          {video.prompt || <span style={{ color: "#4E6275", fontStyle: "italic" }}>No prompt</span>}
-        </div>
-
-        {/* Mode / source chip row */}
-        {(video.frameMode || video.modelName) && (
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
-            {video.frameMode && MODE_DISPLAY[video.frameMode] && (
-              <span style={{
-                padding: "1px 6px", borderRadius: 5,
-                background: "rgba(14,165,160,0.08)", border: "1px solid rgba(34,211,238,0.15)",
-                fontSize: 9, fontWeight: 700, color: "#22D3EE",
-                letterSpacing: "0.04em", textTransform: "uppercase",
-              }}>
-                {MODE_DISPLAY[video.frameMode]}
-              </span>
-            )}
-            {video.provider && (
-              <span style={{
-                padding: "1px 6px", borderRadius: 5,
-                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-                fontSize: 9, fontWeight: 600, color: "#3A4F62",
-                letterSpacing: "0.03em",
-              }}>
-                {video.provider === "kling" ? "Kling" : video.provider === "seedance" ? "Seedance" : video.provider}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Timestamp */}
-        <div style={{ fontSize: 10, color: "#4E6275", marginBottom: 10 }}>{timeAgo(video.createdAt)}</div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {[
-            { label: "Download", icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>, onClick: handleDownload, disabled: !isDone },
-            { label: "Reuse", icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.33"/></svg>, onClick: () => onReuse(video), disabled: false },
-            { label: copied ? "Copied!" : "Copy", icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>, onClick: handleCopy, disabled: !video.prompt },
-            { label: "Delete", icon: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>, onClick: () => onDelete(video.id), disabled: false, danger: true },
-          ].map(btn => (
+          {/* Download */}
+          {isDone && (
             <button
-              key={btn.label}
-              onClick={e => { e.stopPropagation(); if (!btn.disabled) btn.onClick(); }}
-              disabled={btn.disabled}
-              style={{
-                display: "flex", alignItems: "center", gap: 4,
-                padding: "5px 9px", borderRadius: 7, fontSize: 11, fontWeight: 600,
-                border: (btn as { danger?: boolean }).danger ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(255,255,255,0.08)",
-                background: (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.04)",
-                color: btn.disabled ? "#3A4F62" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#B0C0D4",
-                cursor: btn.disabled ? "not-allowed" : "pointer",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => {
-                if (!btn.disabled) {
-                  (e.currentTarget as HTMLElement).style.background = (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.08)";
-                  (e.currentTarget as HTMLElement).style.color = (btn as { danger?: boolean }).danger ? "#F87171" : "#D8E3EE";
-                }
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background = (btn as { danger?: boolean }).danger ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.04)";
-                (e.currentTarget as HTMLElement).style.color = btn.disabled ? "#3A4F62" : (btn as { danger?: boolean }).danger ? "#EF4444" : "#B0C0D4";
-              }}
+              onClick={handleDownload}
+              title="Download"
+              style={actionBtnStyle}
             >
-              {btn.icon}{btn.label}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
             </button>
-          ))}
+          )}
+
+          {/* Reuse prompt */}
+          <button
+            onClick={e => { e.stopPropagation(); onReuse(video); }}
+            title="Reuse prompt"
+            style={actionBtnStyle}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-3.33"/>
+            </svg>
+          </button>
+
+          {/* Copy prompt */}
+          {video.prompt && (
+            <button
+              onClick={e => { e.stopPropagation(); handleCopy(); }}
+              title="Copy prompt"
+              style={{ ...actionBtnStyle, color: copied ? "#22D3EE" : "#94A3B8" }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          )}
+
+          {/* Delete */}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(video.id); }}
+            title="Delete"
+            style={{ ...actionBtnStyle, color: "#EF4444" }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/>
+            </svg>
+          </button>
         </div>
       </div>
+
+      {/* ── Card body — prompt + timestamp ──────────────────────────────────── */}
+      <div style={{ padding: "9px 11px 11px" }}>
+        <div style={{
+          fontSize: 12, color: "#7A8EA4", lineHeight: 1.5,
+          display: "-webkit-box", WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical", overflow: "hidden",
+          marginBottom: 6,
+        }}>
+          {video.prompt
+            ? video.prompt
+            : <span style={{ color: "#2D3A4A", fontStyle: "italic" }}>No prompt</span>
+          }
+        </div>
+        <div style={{ fontSize: 10, color: "#2D3A4A" }}>{timeAgo(video.createdAt)}</div>
+      </div>
+    </div>
+  );
+}
+
+// Shared action button style — small icon buttons in hover overlay
+const actionBtnStyle: React.CSSProperties = {
+  width: 28, height: 28, borderRadius: 5,
+  background: "rgba(10,15,30,0.8)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  color: "#94A3B8",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  cursor: "pointer", transition: "background 0.12s, color 0.12s",
+  backdropFilter: "blur(6px)",
+  flexShrink: 0,
+};
+
+// ── Selection Dock ────────────────────────────────────────────────────────────
+
+function SelectionDock({
+  count,
+  onDelete,
+  onClear,
+}: {
+  count:    number;
+  onDelete: () => void;
+  onClear:  () => void;
+}) {
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000,
+      background: "rgba(8,12,28,0.96)", backdropFilter: "blur(16px)",
+      borderTop: "1px solid rgba(255,255,255,0.08)",
+      padding: "14px 32px",
+      display: "flex", alignItems: "center", gap: 10,
+    }}>
+      {/* Count */}
+      <div style={{
+        fontSize: 13, fontWeight: 700, color: "#22D3EE",
+        marginRight: 4,
+      }}>
+        {count} selected
+      </div>
+
+      {/* Separator */}
+      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)" }} />
+
+      {/* Delete selected — fully wired */}
+      <button
+        onClick={onDelete}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 600,
+          background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
+          color: "#EF4444", cursor: "pointer", transition: "all 0.15s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.55)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.3)";
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/>
+        </svg>
+        Delete selected
+      </button>
+
+      {/* Visual placeholder — Make Public */}
+      <PlaceholderDockBtn label="Make Public" />
+      {/* Visual placeholder — Make Private */}
+      <PlaceholderDockBtn label="Make Private" />
+      {/* Visual placeholder — Move to Project */}
+      <PlaceholderDockBtn label="Move to Project" />
+
+      {/* Spacer + clear */}
+      <div style={{ flex: 1 }} />
+      <button
+        onClick={onClear}
+        style={{
+          padding: "7px 12px", borderRadius: 7, fontSize: 12, fontWeight: 500,
+          background: "transparent", border: "1px solid rgba(255,255,255,0.08)",
+          color: "#4E6275", cursor: "pointer", transition: "all 0.15s",
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#4E6275"; }}
+      >
+        Clear
+      </button>
+    </div>
+  );
+}
+
+function PlaceholderDockBtn({ label }: { label: string }) {
+  return (
+    <button
+      disabled
+      title="Coming in next release"
+      style={{
+        padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 500,
+        background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)",
+        color: "#2D3A4A", cursor: "not-allowed",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── Zoom Slider ───────────────────────────────────────────────────────────────
+
+function ZoomSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {/* Small icon */}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+        stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="18" rx="2"/>
+        <path d="M9 8l7 4-7 4V8z"/>
+      </svg>
+      <input
+        type="range" min={40} max={100} step={5} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{
+          width: 90, accentColor: "#0EA5A0", cursor: "pointer",
+          background: "transparent",
+        }}
+      />
+      {/* Large icon */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="18" rx="2"/>
+        <path d="M9 8l7 4-7 4V8z"/>
+      </svg>
     </div>
   );
 }
@@ -336,18 +561,13 @@ function VideoCard({ video, onReuse, onDelete, onAuthRequired, onPreview, onCard
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  videos:         GeneratedVideo[];
-  onReusePrompt:  (v: GeneratedVideo) => void;
-  onDelete?:      (id: string) => void;
-  /** Called when a non-member tries a protected action (Download, Extend, etc.) */
+  videos:          GeneratedVideo[];
+  onReusePrompt:   (v: GeneratedVideo) => void;
+  onDelete?:       (id: string) => void;
   onAuthRequired?: () => void;
-  /** Called when user clicks a done video card to open fullscreen preview */
-  onPreview?: (v: GeneratedVideo) => void;
-  /** Ref callback so parent can scroll to a specific card by id */
-  onCardRef?: (id: string, el: HTMLDivElement | null) => void;
+  onPreview?:      (v: GeneratedVideo) => void;
+  onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
 }
-
-// ── Filter / sort types ───────────────────────────────────────────────────────
 
 type FilterTab = "all" | "generated" | "history" | "favorites";
 type SortMode  = "latest" | "oldest" | "credits";
@@ -355,21 +575,36 @@ type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, onAuthRequired, onPreview, onCardRef }: Props) {
-  const [filter, setFilter]     = useState<FilterTab>("all");
-  const [sort, setSort]         = useState<SortMode>("latest");
+export default function VideoResultsLibrary({
+  videos, onReusePrompt, onDelete, onAuthRequired, onPreview, onCardRef,
+}: Props) {
+  const [filter,    setFilter]    = useState<FilterTab>("all");
+  const [sort,      setSort]      = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
-  const [favs, setFavs]         = useState<Set<string>>(new Set());
+  const [zoomPct,   setZoomPct]   = useState(65);
+  const [favs,      setFavs]      = useState<Set<string>>(new Set());
+  // Bulk select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const now = Date.now();
+  const minCardWidth = zoomToMinWidth(zoomPct);
 
   function toggleFav(id: string) {
-    setFavs(prev => {
+    setFavs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
       const n = new Set(prev);
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
   }
 
-  const now = Date.now();
+  function handleBulkDelete() {
+    selectedIds.forEach(id => onDelete?.(id));
+    setSelectedIds(new Set());
+  }
 
   // Filter
   let filtered = videos.filter(v => {
@@ -387,7 +622,6 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
     return 0;
   });
 
-  // Cap
   filtered = filtered.slice(0, showCount);
 
   const filterTabs: { key: FilterTab; label: string }[] = [
@@ -397,101 +631,91 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
     { key: "favorites", label: "Favorites" },
   ];
 
+  // Empty state
   if (videos.length === 0) {
-    // Ghost shimmer cards — gallery feels alive even when empty
-    const GHOST_COLS = 5;
-    const GHOST_HEIGHTS = [140, 110, 155, 125, 140];
+    const GHOST = [0.38, 0.62, 0.44, 0.80, 0.52];
     return (
       <div>
-        {/* Ghost card grid */}
         <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-          {Array.from({ length: GHOST_COLS }).map((_, i) => (
+          {GHOST.map((h, i) => (
             <div
               key={i}
               style={{
-                flex: 1,
-                height: GHOST_HEIGHTS[i],
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.05)",
-                background: "rgba(255,255,255,0.022)",
-                overflow: "hidden",
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                flex: 1, height: Math.round(h * 220),
+                borderRadius: 3, border: "1px solid rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.02)",
+                overflow: "hidden", position: "relative",
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
-              {/* Shimmer sweep */}
               <div style={{
                 position: "absolute", inset: 0,
-                background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.045) 50%, transparent 100%)",
+                background: "linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.04) 50%,transparent 100%)",
                 animation: `ghostShimmer 2.2s ease-in-out infinite`,
                 animationDelay: `${i * 0.18}s`,
               }} />
-              {/* First card gets the label */}
               {i === 0 && (
-                <div style={{
-                  position: "relative", zIndex: 1,
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-                }}>
+                <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="rgba(100,116,139,0.35)" strokeWidth="1.5"
-                    strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="3" width="20" height="18" rx="3"/>
+                    stroke="rgba(100,116,139,0.3)" strokeWidth="1.5"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    style={{ margin: "0 auto 8px" }}>
+                    <rect x="2" y="3" width="20" height="18" rx="2"/>
                     <path d="M9 8l7 4-7 4V8z"/>
                   </svg>
-                  <span style={{ fontSize: 11, color: "#334155", fontWeight: 500 }}>
+                  <div style={{ fontSize: 11, color: "#334155", fontWeight: 500 }}>
                     Your first video will appear here
-                  </span>
+                  </div>
                 </div>
               )}
             </div>
           ))}
         </div>
         <style>{`
-          @keyframes ghostShimmer {
-            0%   { transform: translateX(-100%); }
-            100% { transform: translateX(400%); }
-          }
-          @keyframes libPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+          @keyframes ghostShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(400%)} }
+          @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
+          @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.3)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.55)} }
         `}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "0 0 32px" }}>
-      {/* ── Toolbar ─────────────────────────────────────────────────── */}
+    <div style={{ paddingBottom: selectedIds.size > 0 ? 80 : 32 }}>
+      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center",
         flexWrap: "wrap", gap: 10, marginBottom: 18,
       }}>
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 3 }}>
+        <div style={{
+          display: "flex", gap: 2,
+          background: "rgba(255,255,255,0.03)", borderRadius: 9, padding: 3,
+        }}>
           {filterTabs.map(t => {
             const active = filter === t.key;
-            const count = t.key === "all" ? videos.length
-              : t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length
-              : t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length
-              : videos.filter(v => favs.has(v.id)).length;
+            const count =
+              t.key === "all"       ? videos.length :
+              t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length :
+              t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
+              videos.filter(v => favs.has(v.id)).length;
             return (
               <button
                 key={t.key}
                 onClick={() => setFilter(t.key)}
                 style={{
-                  padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: active ? 700 : 500,
+                  padding: "5px 11px", borderRadius: 6,
+                  fontSize: 12, fontWeight: active ? 700 : 500,
                   border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
                   background: active ? "rgba(14,165,160,0.12)" : "transparent",
                   color: active ? "#22D3EE" : "#7A90A8",
                   cursor: "pointer", transition: "all 0.15s",
                   display: "flex", alignItems: "center", gap: 5,
                 }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#B0C0D4"; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#7A90A8"; }}
               >
                 {t.label}
                 <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 10,
+                  fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 8,
                   background: active ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,0.06)",
                   color: active ? "#22D3EE" : "#475569",
                 }}>
@@ -502,84 +726,106 @@ export default function VideoResultsLibrary({ videos, onReusePrompt, onDelete, o
           })}
         </div>
 
-        {/* Sort + Count */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* Sort */}
-          <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 2 }}>
-            {(["latest", "oldest", "credits"] as SortMode[]).map(s => (
-              <button
-                key={s}
-                onClick={() => setSort(s)}
-                style={{
-                  padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: sort === s ? 700 : 400,
-                  border: sort === s ? "1px solid rgba(34,211,238,0.3)" : "1px solid transparent",
-                  background: sort === s ? "rgba(14,165,160,0.1)" : "transparent",
-                  color: sort === s ? "#22D3EE" : "#64748B",
-                  cursor: "pointer", transition: "all 0.15s", textTransform: "capitalize",
-                }}
-              >
-                {s === "latest" ? "Latest" : s === "oldest" ? "Oldest" : "Credits"}
-              </button>
-            ))}
-          </div>
+        {/* Zoom slider */}
+        <ZoomSlider value={zoomPct} onChange={setZoomPct} />
 
-          {/* Show count */}
-          <select
-            value={showCount}
-            onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
-            style={{
-              padding: "5px 8px", borderRadius: 7, fontSize: 11, fontWeight: 600,
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-              color: "#64748B", cursor: "pointer", outline: "none",
-            }}
-          >
-            {([25, 50, 100, 500] as ShowCount[]).map(n => (
-              <option key={n} value={n} style={{ background: "#0C1220" }}>Show {n}</option>
-            ))}
-          </select>
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Sort */}
+        <div style={{
+          display: "flex", gap: 2,
+          background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: 2,
+        }}>
+          {(["latest", "oldest", "credits"] as SortMode[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setSort(s)}
+              style={{
+                padding: "4px 8px", borderRadius: 5, fontSize: 11,
+                fontWeight: sort === s ? 700 : 400,
+                border: sort === s ? "1px solid rgba(34,211,238,0.3)" : "1px solid transparent",
+                background: sort === s ? "rgba(14,165,160,0.1)" : "transparent",
+                color: sort === s ? "#22D3EE" : "#64748B",
+                cursor: "pointer", transition: "all 0.15s", textTransform: "capitalize",
+              }}
+            >
+              {s === "latest" ? "Latest" : s === "oldest" ? "Oldest" : "Credits"}
+            </button>
+          ))}
         </div>
+
+        {/* Show count */}
+        <select
+          value={showCount}
+          onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
+          style={{
+            padding: "5px 8px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+            color: "#64748B", cursor: "pointer", outline: "none",
+          }}
+        >
+          {([25, 50, 100, 500] as ShowCount[]).map(n => (
+            <option key={n} value={n} style={{ background: "#0C1220" }}>Show {n}</option>
+          ))}
+        </select>
       </div>
 
-      {/* ── Count line ──────────────────────────────────────────────── */}
-      <div style={{ fontSize: 11, color: "#4E6275", marginBottom: 14 }}>
+      {/* ── Count line ─────────────────────────────────────────────────────────── */}
+      <div style={{ fontSize: 11, color: "#4E6275", marginBottom: 16 }}>
         {filtered.length} video{filtered.length !== 1 ? "s" : ""}
+        {selectedIds.size > 0 && (
+          <span style={{ color: "#22D3EE", marginLeft: 8 }}>· {selectedIds.size} selected</span>
+        )}
       </div>
 
-      {/* ── Masonry grid ────────────────────────────────────────────── */}
+      {/* ── Grid ─────────────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
           padding: "36px 0", textAlign: "center",
         }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-            stroke="rgba(100,116,139,0.3)" strokeWidth="1.5"
-            strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(100,116,139,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>
-            No videos match this filter
-          </span>
+          <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
         </div>
       ) : (
-        <div style={{ columns: "320px", columnGap: 18 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`,
+          gap: 14,
+        }}>
           {filtered.map(v => (
             <VideoCard
               key={v.id}
               video={v}
+              selected={selectedIds.has(v.id)}
+              anySelected={selectedIds.size > 0}
+              onSelect={toggleSelect}
               onReuse={onReusePrompt}
               onDelete={onDelete ?? (() => {})}
-              onAuthRequired={onAuthRequired}
               onPreview={onPreview}
+              onAuthRequired={onAuthRequired}
               onCardRef={onCardRef}
             />
           ))}
         </div>
       )}
 
+      {/* ── Bulk selection dock ───────────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <SelectionDock
+          count={selectedIds.size}
+          onDelete={handleBulkDelete}
+          onClear={() => setSelectedIds(new Set())}
+        />
+      )}
+
       <style>{`
-        @keyframes libPulse   { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes vcPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.35)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.6)} }
+        @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
+        @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.3)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.55)} }
       `}</style>
     </div>
   );

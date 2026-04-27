@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
-import type { FrameMode, ImageSlot, AudioSlot } from "./types";
+import type { FrameMode, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -753,6 +753,279 @@ function GeneratingOverlay() {
   );
 }
 
+// ── Canvas Video Preview — live generation + playback overlay ────────────────
+
+function CanvasVideoPreview({
+  video,
+  onClose,
+  onFullscreen,
+}: {
+  video:         GeneratedVideo;
+  onClose?:      () => void;
+  onFullscreen?: (v: GeneratedVideo) => void;
+}) {
+  const [closing, setClosing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Tick elapsed seconds while waiting
+  useEffect(() => {
+    if (video.status !== "generating" && video.status !== "polling") return;
+    const start = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [video.status]);
+
+  // Autoplay when done
+  useEffect(() => {
+    if (video.status === "done" && video.url && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, [video.status, video.url]);
+
+  const stage = useMemo(() => {
+    let cur: typeof STAGED_MESSAGES[number] = STAGED_MESSAGES[0];
+    for (const s of STAGED_MESSAGES) { if (elapsed >= s.after) cur = s; }
+    return cur;
+  }, [elapsed]);
+
+  const handleClose = () => {
+    setClosing(true);
+    setTimeout(() => onClose?.(), 360);
+  };
+
+  const isGenerating = video.status === "generating" || video.status === "polling";
+  const isDone       = video.status === "done" && !!video.url;
+  const isError      = video.status === "error";
+
+  return (
+    <div style={{
+      position: "absolute", inset: 0, zIndex: 30,
+      borderRadius: "inherit", overflow: "hidden",
+      background: isDone ? "#000" : "rgba(2,6,23,0.92)",
+      backdropFilter: isGenerating ? "blur(8px)" : "none",
+      transform: closing ? "translateY(56px)" : "translateY(0)",
+      opacity:   closing ? 0 : 1,
+      transition: "transform 0.36s cubic-bezier(0.4,0,0.2,1), opacity 0.34s ease",
+    }}>
+
+      {/* ── Close button ───────────────────────────────────────────────────── */}
+      <button
+        onClick={handleClose}
+        title="Close preview"
+        style={{
+          position: "absolute", top: 12, right: 12, zIndex: 50,
+          width: 34, height: 34, borderRadius: "50%",
+          background: "rgba(10,15,30,0.85)",
+          border: "1px solid rgba(255,255,255,0.14)",
+          color: "#E2E8F0", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "background 0.15s, border-color 0.15s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background    = "rgba(239,68,68,0.8)";
+          (e.currentTarget as HTMLElement).style.borderColor   = "rgba(239,68,68,0.4)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background    = "rgba(10,15,30,0.85)";
+          (e.currentTarget as HTMLElement).style.borderColor   = "rgba(255,255,255,0.14)";
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      {/* ── Generating / polling state ─────────────────────────────────────── */}
+      {isGenerating && (
+        <>
+          {/* Top sweep */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 3,
+            background: "linear-gradient(90deg,transparent 0%,rgba(34,211,238,0.35) 40%,rgba(34,211,238,0.6) 50%,rgba(34,211,238,0.35) 60%,transparent 100%)",
+            animation: "cpSweep 2.4s ease-in-out infinite",
+          }} />
+
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", height: "100%", gap: 22, padding: "0 36px",
+            textAlign: "center",
+          }}>
+            {/* Timeline bars */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
+              {TIMELINE_BARS.map((h, i) => (
+                <div key={i} style={{
+                  width: 4, borderRadius: 2,
+                  background: "linear-gradient(to top,rgba(14,165,160,0.5),#22D3EE)",
+                  height: `${h * 100}%`,
+                  animation: `cvBar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
+                  animationDelay: `${(i * 0.07).toFixed(2)}s`,
+                  boxShadow: "0 0 6px rgba(34,211,238,0.3)",
+                }} />
+              ))}
+            </div>
+
+            {/* Stage message */}
+            <div>
+              <div key={stage.label} style={{
+                fontSize: 18, fontWeight: 700, color: T.textPrimary,
+                marginBottom: 6, letterSpacing: "-0.01em",
+              }}>
+                {stage.label}
+              </div>
+              <div style={{ fontSize: 13, color: "#4E6275" }}>{stage.sub}</div>
+            </div>
+
+            {/* Prompt preview */}
+            {video.prompt && (
+              <div style={{
+                maxWidth: 340, fontSize: 12, color: "#3A4F62",
+                lineHeight: 1.6, fontStyle: "italic",
+                display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+              }}>
+                &ldquo;{video.prompt}&rdquo;
+              </div>
+            )}
+
+            {/* Badges */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+              <div style={{
+                padding: "3px 9px", borderRadius: 6,
+                background: "rgba(14,165,160,0.1)", border: "1px solid rgba(34,211,238,0.2)",
+                fontSize: 11, fontWeight: 600, color: "#22D3EE",
+              }}>{video.modelName}</div>
+              <div style={{
+                padding: "3px 9px", borderRadius: 6,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                fontSize: 11, fontWeight: 600, color: "#64748B",
+              }}>{video.duration}s · {video.aspectRatio}</div>
+            </div>
+
+            {/* Shimmer progress track */}
+            <div style={{ width: 200, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: "45%", borderRadius: 2,
+                background: "linear-gradient(90deg,transparent,rgba(34,211,238,0.8),transparent)",
+                animation: "cvShimmer 1.8s ease-in-out infinite",
+              }} />
+            </div>
+          </div>
+
+          {/* Bottom sweep */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
+            background: "linear-gradient(90deg,transparent 0%,rgba(14,165,160,0.25) 40%,rgba(14,165,160,0.45) 50%,rgba(14,165,160,0.25) 60%,transparent 100%)",
+            animation: "cpSweep 2.4s ease-in-out infinite",
+            animationDirection: "reverse",
+          }} />
+          <style>{`@keyframes cpSweep{0%{backgroundPosition:-200% 0}100%{backgroundPosition:200% 0}}`}</style>
+        </>
+      )}
+
+      {/* ── Done state — playable video ────────────────────────────────────── */}
+      {isDone && (
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+          <video
+            ref={videoRef}
+            src={video.url!}
+            loop playsInline
+            style={{
+              width: "100%", height: "100%", objectFit: "contain",
+              display: "block", background: "#000",
+            }}
+          />
+
+          {/* Bottom gradient info bar */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            background: "linear-gradient(to top,rgba(2,6,23,0.88) 0%,transparent 100%)",
+            padding: "40px 16px 14px",
+            display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12,
+          }}>
+            <div style={{ minWidth: 0 }}>
+              {video.prompt && (
+                <div style={{
+                  fontSize: 12, color: "#94A3B8", marginBottom: 5,
+                  display: "-webkit-box", WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical", overflow: "hidden",
+                }}>
+                  {video.prompt}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, color: "#22D3EE", fontWeight: 600 }}>{video.modelName}</span>
+                <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                <span style={{ fontSize: 11, color: "#4E6275" }}>{video.duration}s</span>
+                <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                  {video.creditsUsed}
+                </span>
+              </div>
+            </div>
+
+            {/* Fullscreen button */}
+            <button
+              onClick={() => onFullscreen?.(video)}
+              title="Open fullscreen"
+              style={{
+                flexShrink: 0,
+                width: 36, height: 36, borderRadius: 8,
+                background: "rgba(14,165,160,0.15)", border: "1px solid rgba(34,211,238,0.3)",
+                color: "#22D3EE", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.3)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.15)"; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+                <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+                <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Ready badge top-left */}
+          <div style={{
+            position: "absolute", top: 12, left: 12,
+            padding: "3px 10px", borderRadius: 5,
+            background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)",
+            fontSize: 10, fontWeight: 800, color: "#34D399", letterSpacing: "0.06em",
+          }}>
+            READY
+          </div>
+        </div>
+      )}
+
+      {/* ── Error state ────────────────────────────────────────────────────── */}
+      {isError && (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", height: "100%", gap: 14,
+          padding: "0 36px", textAlign: "center",
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+            stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#F87171" }}>Generation failed</div>
+          <div style={{ fontSize: 13, color: "#4E6275", lineHeight: 1.5 }}>{video.error ?? "Please try again"}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Motion Flow strip — contextual cinematic workflow indicator ────────────────
 
 export function MotionFlowStrip({ frameMode, endFrameEnabled, hasStartSlot, hasEndSlot }: {
@@ -907,6 +1180,13 @@ interface Props {
   onSamplePrompt?:    () => void;
   /** Current prompt to show in mascot (from rotating cinematic bank) */
   mascotSamplePrompt?:string;
+  // ── Canvas Preview (Layer 1) ──────────────────────────────────────────────
+  /** When set, shows a canvas-level generating/playback overlay above everything */
+  previewVideo?:       GeneratedVideo | null;
+  /** Clear the canvas preview (called by close button with slide-down animation) */
+  onClosePreview?:     () => void;
+  /** Open fullscreen viewer from the canvas preview "expand" button */
+  onOpenFullscreen?:   (v: GeneratedVideo) => void;
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -919,6 +1199,7 @@ export default function VideoCanvas({
   onStartSlot, onEndSlot, onAudioSlot, onMotionVideo, onMotionVideoRemove,
   onLipSyncFaceFile, onLipSyncAudioFile,
   onMascotUpload, onSamplePrompt, mascotSamplePrompt,
+  previewVideo, onClosePreview, onOpenFullscreen,
 }: Props) {
 
   // Hidden file input for mascot Upload Image button
@@ -1271,7 +1552,16 @@ export default function VideoCanvas({
         zIndex: 2,
       }}>
         {renderContent()}
-        {generating && <GeneratingOverlay />}
+        {/* Standard generating overlay — only when no canvas preview is active */}
+        {generating && !previewVideo && <GeneratingOverlay />}
+        {/* Canvas preview overlay — covers generate state AND done playback */}
+        {previewVideo && (
+          <CanvasVideoPreview
+            video={previewVideo}
+            onClose={onClosePreview}
+            onFullscreen={onOpenFullscreen}
+          />
+        )}
       </div>
     </div>
   );
