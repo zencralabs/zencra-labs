@@ -121,7 +121,12 @@ export const elevenLabsProvider: ZProvider = {
     if (!res.ok) {
       if (res.status === 401) throw new Error("ElevenLabs authentication error. Check ELEVENLABS_API_KEY.");
       if (res.status === 429) throw new Error("ElevenLabs rate limit — please wait a moment.");
-      throw new Error("Audio generation failed. Please try again.");
+      // Capture the actual ElevenLabs error body for debugging invalid voiceId,
+      // quota exhaustion, and other provider-side failures.
+      const errBody = await res.text().catch(() => "");
+      const detail  = errBody.slice(0, 200);
+      console.error(`[elevenlabs] HTTP ${res.status} — raw:`, detail);
+      throw new Error(`Audio generation failed (HTTP ${res.status})${detail ? `: ${detail}` : ". Please try again."}`);
     }
 
     // ── Upload to Supabase Storage ───────────────────────────────────────────

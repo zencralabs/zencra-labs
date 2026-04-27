@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { Zap } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { useFlowStore } from "@/lib/flow/store";
 
@@ -1007,11 +1008,16 @@ function AudioStudioInner() {
         return;
       }
 
+      // Always fetch a live token — avoids the stale user.accessToken race
+      // that fires when the SDK refreshes between INITIAL_SESSION and TOKEN_REFRESHED.
+      const { data: { session: liveSession } } = await supabase.auth.getSession();
+      const accessToken = liveSession?.access_token ?? "";
+
       const res = await fetch("/api/studio/audio/generate", {
         method:  "POST",
         headers: {
           "Content-Type":  "application/json",
-          "Authorization": `Bearer ${user.accessToken}`,
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           modelKey:       "elevenlabs",
