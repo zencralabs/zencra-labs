@@ -737,6 +737,68 @@ export default function VideoStudioShell() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Gallery history — load all user's video assets from DB on mount ──────────
+  // Fires once when authToken becomes available. Maps DB assets (status="ready")
+  // to GeneratedVideo[] and seeds the gallery state. Live-generated videos added
+  // during the session are prepended by handleGenerate / handleShotCompleted and
+  // deduplication prevents duplicates if they arrived before this fetch returns.
+  const historyFetchedRef = useRef(false);
+  useEffect(() => {
+    if (!authToken || historyFetchedRef.current) return;
+    historyFetchedRef.current = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/assets?studio=video&limit=100", {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json() as {
+          success: boolean;
+          data?: Array<{
+            id: string;
+            url: string | null;
+            prompt: string | null;
+            model_key: string;
+            provider: string | null;
+            aspect_ratio: string | null;
+            credits_cost: number | null;
+            visibility: string | null;
+            created_at: string;
+          }>;
+        };
+        if (!json.success || !json.data?.length) return;
+
+        const historyVideos: GeneratedVideo[] = json.data.map(a => ({
+          id:           a.id,
+          url:          a.url ?? null,
+          thumbnailUrl: null,
+          prompt:       a.prompt ?? "",
+          negPrompt:    "",
+          modelId:      a.model_key,
+          modelName:    VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
+          duration:     5,
+          aspectRatio:  (a.aspect_ratio ?? "16:9") as VideoAR,
+          frameMode:    "text_to_video" as const,
+          status:       "done" as const,
+          provider:     a.provider ?? undefined,
+          creditsUsed:  a.credits_cost ?? 0,
+          createdAt:    new Date(a.created_at).getTime(),
+          isPublic:     a.visibility === "public",
+        }));
+
+        // Merge: keep all session-generated videos, append history entries not already present
+        setVideos(prev => {
+          const existingIds = new Set(prev.map(v => v.id));
+          const newHistory  = historyVideos.filter(v => !existingIds.has(v.id));
+          return newHistory.length > 0 ? [...prev, ...newHistory] : prev;
+        });
+      } catch {
+        // Non-critical — gallery just shows session videos if history fetch fails
+      }
+    })();
+  }, [authToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Sequence mode — cinematic shot stack ──────────────────────────────────
   const [sequenceMode, setSequenceMode] = useState(false);
 

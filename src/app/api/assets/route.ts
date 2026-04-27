@@ -71,7 +71,7 @@ export async function GET(req: Request): Promise<Response> {
     .from("assets")
     .select(ASSET_SELECT)
     .eq("user_id", user.id)
-    .eq("status", "completed")
+    .eq("status", "ready")          // assets table uses "ready" for successfully completed jobs
     .order("created_at", { ascending: false })
     .limit(limit + 1); // fetch one extra to determine if there's a next page
 
@@ -109,7 +109,7 @@ export async function GET(req: Request): Promise<Response> {
     .from("assets")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id)
-    .eq("status", "completed");
+    .eq("status", "ready");         // matches the main query filter above
 
   if (studio)       countQuery = countQuery.eq("studio", studio);
   if (model_key)    countQuery = countQuery.eq("model_key", model_key);
