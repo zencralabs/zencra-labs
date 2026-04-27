@@ -653,6 +653,9 @@ interface Props {
   // End Frame — controller props (upload lives in VideoCanvas; this card is display + clear)
   endSlot:         ImageSlot;
   onClearEndSlot:  () => void;
+  // Audio mode
+  audioMode:    "none" | "scene" | "voiceover";
+  setAudioMode: (m: "none" | "scene" | "voiceover") => void;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -665,6 +668,7 @@ export default function VideoPromptPanel({
   onGenerate,
   detectedHandles, handleReadiness, handleAvatarUrls, useStartFrame, setUseStartFrame,
   endSlot, onClearEndSlot,
+  audioMode, setAudioMode,
 }: Props) {
   const [showNeg, setShowNeg]         = useState(true); // open by default
   const [showPresets, setShowPresets] = useState(false);
@@ -1313,6 +1317,141 @@ export default function VideoPromptPanel({
           </div>
         )}
 
+        {/* ── Audio Mode Selector ───────────────────────────────────────────────
+            Shown for all standard video modes (not lip_sync).
+            "Use Scene Audio" only renders when the selected model supports nativeAudio.
+            "Add Voiceover" is always shown — ElevenLabs integration is model-independent. */}
+        {frameMode !== "lip_sync" && model && (
+          <div>
+            {/* Section header */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6, marginBottom: 8,
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: "#94A3B8",
+                letterSpacing: "0.07em", textTransform: "uppercase",
+              }}>
+                Audio
+              </span>
+            </div>
+
+            {/* Mode pills */}
+            <div style={{ display: "flex", gap: 6 }}>
+              {/* No Audio — always shown */}
+              {(["none", ...(model.capabilities.nativeAudio ? ["scene"] : []), "voiceover"] as ("none" | "scene" | "voiceover")[]).map(mode => {
+                const active = audioMode === mode;
+                const label  = mode === "none" ? "No Audio" : mode === "scene" ? "Scene Audio" : "Add Voiceover";
+                const accent = mode === "scene" ? "#0EA5A0" : mode === "voiceover" ? "#A78BFA" : "#475569";
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setAudioMode(mode)}
+                    style={{
+                      flex: 1, padding: "7px 4px", borderRadius: 8, fontSize: 12,
+                      fontWeight: active ? 700 : 500,
+                      border: active
+                        ? `1px solid ${accent}55`
+                        : "1px solid rgba(255,255,255,0.08)",
+                      background: active
+                        ? `${accent}18`
+                        : "rgba(255,255,255,0.03)",
+                      color: active ? accent : "#475569",
+                      cursor: "pointer", transition: "all 0.15s",
+                      textAlign: "center", whiteSpace: "nowrap",
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#475569"; }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Scene Audio explainer — only when nativeAudio model + scene mode selected */}
+            {audioMode === "scene" && model.capabilities.nativeAudio && (
+              <div style={{
+                marginTop: 8, padding: "8px 11px", borderRadius: 8,
+                border: "1px solid rgba(14,165,160,0.18)",
+                background: "rgba(14,165,160,0.06)",
+                fontSize: 12, color: "#94A3B8", lineHeight: 1.55,
+              }}>
+                <span style={{ color: "#0EA5A0", fontWeight: 600 }}>Scene audio enabled</span>
+                {" — the model will generate ambient sound, effects, and dialogue naturally from the scene content."}
+              </div>
+            )}
+
+            {/* Voiceover panel — shown when "Add Voiceover" is selected */}
+            {audioMode === "voiceover" && (
+              <div style={{
+                marginTop: 8, padding: "10px 12px", borderRadius: 10,
+                border: "1px solid rgba(167,139,250,0.22)",
+                background: "rgba(139,92,246,0.06)",
+              }}>
+                {/* Header row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#C4B5FD" }}>Voiceover</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                    color: "#A78BFA", background: "rgba(139,92,246,0.18)",
+                    borderRadius: 4, padding: "2px 6px",
+                  }}>SOON</span>
+                </div>
+
+                {/* Voice script textarea */}
+                <textarea
+                  placeholder="Write the voiceover script — narration, character dialogue, or scene description…"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    background: "rgba(139,92,246,0.05)",
+                    border: "1px solid rgba(167,139,250,0.2)",
+                    borderRadius: 8, padding: "9px 11px",
+                    fontSize: 13, color: "#CBD5E1",
+                    resize: "vertical", outline: "none", lineHeight: 1.55,
+                    fontFamily: "inherit", boxSizing: "border-box",
+                    marginBottom: 8,
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = "rgba(167,139,250,0.45)"; e.currentTarget.style.background = "rgba(139,92,246,0.08)"; }}
+                  onBlur={e =>  { e.currentTarget.style.borderColor = "rgba(167,139,250,0.2)";  e.currentTarget.style.background = "rgba(139,92,246,0.05)"; }}
+                />
+
+                {/* Voice selector — placeholder */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "7px 10px", borderRadius: 7,
+                  border: "1px solid rgba(167,139,250,0.15)",
+                  background: "rgba(255,255,255,0.02)",
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                    stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4l3 3"/>
+                  </svg>
+                  <span style={{ fontSize: 12, color: "#4B5563", flex: 1 }}>
+                    Voice selection · ElevenLabs integration coming
+                  </span>
+                  <span style={{ fontSize: 10, color: "#374151", fontWeight: 600, letterSpacing: "0.04em" }}>
+                    +8 CR / 30s
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Start frame identity block banner — shown when toggle ON + canonical not ready.
             Intent is preserved (toggle stays ON), generation is blocked with a clear reason.
             Tone: restrained, not glowing — blocked ≠ active. */}
@@ -1346,15 +1485,41 @@ export default function VideoPromptPanel({
             userCredits={userCredits}
           />
         ) : model ? (
-          <CreditsGenerateCard
-            estimate={estimate}
-            balance={userCredits}
-            modelName={model.displayName}
-            disabled={isDisabled}
-            loading={generating}
-            comingSoon={!!isComingSoon}
-            onClick={onGenerate}
-          />
+          <>
+            <CreditsGenerateCard
+              estimate={estimate}
+              balance={userCredits}
+              modelName={model.displayName}
+              disabled={isDisabled}
+              loading={generating}
+              comingSoon={!!isComingSoon}
+              onClick={onGenerate}
+            />
+            {/* Audio credit breakdown — shown when voiceover or scene audio is active */}
+            {audioMode !== "none" && !isComingSoon && (
+              <div style={{
+                marginTop: -6, padding: "8px 14px",
+                borderRadius: "0 0 12px 12px",
+                border: "1px solid rgba(167,139,250,0.15)",
+                borderTop: "none",
+                background: "rgba(139,92,246,0.04)",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+              }}>
+                <span style={{ fontSize: 12, color: "#6B7280", display: "flex", alignItems: "center", gap: 5 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                  {audioMode === "voiceover" ? "Voiceover (ElevenLabs)" : "Scene Audio"}
+                </span>
+                <span style={{ fontSize: 12, color: "#A78BFA", fontWeight: 600 }}>
+                  {audioMode === "voiceover" ? "+8 credits / 30s" : "+0 credits"}
+                </span>
+              </div>
+            )}
+          </>
         ) : null}
       </div>
     </div>

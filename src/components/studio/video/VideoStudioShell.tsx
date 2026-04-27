@@ -670,6 +670,12 @@ export default function VideoStudioShell() {
   });
   const [negPrompt, setNegPrompt] = useState("");
 
+  // ── Audio mode ────────────────────────────────────────────────────────────────
+  // "none"      = silent video (default for all current models)
+  // "scene"     = generate with native scene audio (requires model.capabilities.nativeAudio)
+  // "voiceover" = add ElevenLabs voiceover after video generation
+  const [audioMode, setAudioMode] = useState<"none" | "scene" | "voiceover">("none");
+
   // ── AI Influencer @handle detection ──────────────────────────────────────────
   // Syntactic only — no DB call. Computed here (single source of truth) and
   // passed down to VideoPromptPanel so both badge and start-frame card share it.
@@ -1565,6 +1571,8 @@ export default function VideoStudioShell() {
             setUseStartFrame={setUseStartFrame}
             endSlot={endSlot}
             onClearEndSlot={() => setEndSlot(EMPTY_SLOT)}
+            audioMode={audioMode}
+            setAudioMode={setAudioMode}
           />
         </div>
       </div>
