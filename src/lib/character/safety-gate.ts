@@ -1,15 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
-// Reuse existing sanitization if available — extend rather than replace.
-// Adjust path if the project exports sanitization from a different location.
-let sanitizePrompt: (prompt: string) => string;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const mod = require('@/lib/ai/sanitize') as { sanitizePrompt?: (p: string) => string; default?: (p: string) => string };
-  sanitizePrompt = mod.sanitizePrompt ?? mod.default ?? ((p: string) => p);
-} catch {
-  sanitizePrompt = (p: string) => p;
-}
+// Passthrough — no external sanitizer wired yet.
+// Safety is handled by the blocked-pattern check below.
+const sanitizePrompt = (p: string) => p;
 
 export interface SafetyCheckResult {
   safe: boolean;
