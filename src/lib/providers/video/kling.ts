@@ -279,22 +279,73 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
 
       const res = await fetch(`${baseUrl}/v1/videos/tasks/${externalJobId}`, {
         headers: { "Authorization": authHeader },
-        signal:  AbortSignal.timeout(20_000),
+        signal:  AbortSignal.timeout(30_000),
       });
-      if (!res.ok) return { jobId: externalJobId, status: "error", error: `HTTP ${res.status}` };
 
-      const body = (await res.json()) as Record<string, unknown>;
-      const task = (body.data ?? body) as Record<string, unknown>;
+      // Non-2xx HTTP → hard provider error
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error(`[kling] status HTTP ${res.status} for ${externalJobId}:`, errText.slice(0, 500));
+        return { jobId: externalJobId, status: "error", error: `HTTP ${res.status}` };
+      }
+
+      const rawText = await res.text();
+      console.log(`[kling] status RAW response (${externalJobId}):`, rawText.slice(0, 1200));
+
+      let body: Record<string, unknown>;
+      try {
+        body = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        console.error(`[kling] status JSON parse failed for ${externalJobId}:`, rawText.slice(0, 200));
+        return { jobId: externalJobId, status: "error", error: "Malformed status response from Kling." };
+      }
+
+      // Kling wraps all responses in { code, data }. code !== 0 means API-level error.
+      const code = typeof body.code === "number" ? body.code : -1;
+      if (code !== 0) {
+        const msg = String(body.message ?? body.msg ?? "Unknown Kling error");
+        console.error(`[kling] status code ${code} for ${externalJobId}: ${msg}`);
+        // Non-zero code on a status poll usually means the task ID is invalid or expired.
+        // Do NOT map to "error" yet — return pending so the caller retries a few times.
+        // If it persists, the timeout guard in the status route will auto-fail it.
+        return { jobId: externalJobId, status: "pending" };
+      }
+
+      const task   = (body.data ?? body) as Record<string, unknown>;
       const status = String(task.task_status ?? task.status ?? "");
 
       if (status === "succeed" || status === "completed") {
-        const works = task.task_result as Record<string, unknown> | undefined;
-        const url   = (works?.videos as Array<{ url: string }> | undefined)?.[0]?.url;
+        // Extract URL — handle multiple Kling response shapes:
+        //   { task_result: { videos: [{ url }] } }   ← primary (v3)
+        //   { works: [{ resource: { resource_list: [{ resource_url }] } }] }  ← legacy
+        const result = task.task_result as Record<string, unknown> | undefined;
+        let url: string | undefined =
+          (result?.videos as Array<{ url: string }> | undefined)?.[0]?.url;
+
+        if (!url) {
+          // Legacy / fallback shape
+          const works = task.works as Array<Record<string, unknown>> | undefined;
+          const resList = works?.[0]?.resource as Record<string, unknown> | undefined;
+          url = (resList?.resource_list as Array<{ resource_url: string }> | undefined)?.[0]?.resource_url;
+        }
+
+        if (!url) {
+          console.error(`[kling] status succeed but no video URL extracted for ${externalJobId}. Full task:`, JSON.stringify(task).slice(0, 800));
+          return { jobId: externalJobId, status: "error", error: "Kling returned success but no video URL was found." };
+        }
+
+        console.log(`[kling] status resolved → success. URL: ${url}`);
         return { jobId: externalJobId, status: "success", url };
       }
+
       if (status === "failed") {
-        return { jobId: externalJobId, status: "error", error: "Kling generation failed." };
+        const failMsg = String(task.task_status_msg ?? task.status_msg ?? "Kling generation failed.");
+        console.error(`[kling] status failed for ${externalJobId}: ${failMsg}`);
+        return { jobId: externalJobId, status: "error", error: failMsg };
       }
+
+      // submitted | processing | queued → keep polling
+      console.log(`[kling] status pending (${status}) for ${externalJobId}`);
       return { jobId: externalJobId, status: "pending" };
     },
 
