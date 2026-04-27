@@ -1363,12 +1363,20 @@ export default function VideoPromptPanel({
                         : "rgba(255,255,255,0.03)",
                       color: active ? accent : "#475569",
                       cursor: "pointer", transition: "all 0.15s",
-                      textAlign: "center", whiteSpace: "nowrap",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                     }}
                     onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
                     onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#475569"; }}
                   >
-                    {label}
+                    <span style={{ whiteSpace: "nowrap" }}>{label}</span>
+                    {mode === "voiceover" && (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+                        color: active ? "#D97706" : "#92500A",
+                        background: active ? "rgba(217,119,6,0.18)" : "rgba(217,119,6,0.10)",
+                        borderRadius: 3, padding: "1px 5px",
+                      }}>+ Voice</span>
+                    )}
                   </button>
                 );
               })}
@@ -1416,9 +1424,14 @@ export default function VideoPromptPanel({
                 marginTop: 8, padding: "8px 11px", borderRadius: 8,
                 border: "1px solid rgba(167,139,250,0.16)",
                 background: "rgba(139,92,246,0.05)",
-                fontSize: 12, color: "#64748B", lineHeight: 1.55,
+                lineHeight: 1.55,
               }}>
-                Controlled speech and narration. Best for dialogue, character voice, and explainers.
+                <span style={{ fontSize: 12, color: "#64748B", display: "block" }}>
+                  Controlled speech and narration. Best for dialogue, character voice, and explainers.
+                </span>
+                <span style={{ fontSize: 11, color: "#5A4A7A", fontWeight: 500, display: "block", marginTop: 4 }}>
+                  Voiceover adds +3–5 credits depending on length and quality.
+                </span>
               </div>
             )}
 
@@ -1479,11 +1492,47 @@ export default function VideoPromptPanel({
                     Voice selection · Zencra Voice Engine coming soon
                   </span>
                   <span style={{ fontSize: 10, color: "#374151", fontWeight: 600, letterSpacing: "0.04em" }}>
-                    +8 CR / 30s
+                    +3–5 CR
                   </span>
                 </div>
               </div>
             )}
+
+            {/* ── Lip Sync teaser — ladder cap ─────────────────────────────────
+                Always visible in the audio section. No interaction, no backend.
+                Communicates the ceiling: Scene Audio → Voiceover → Lip Sync.  */}
+            <div style={{
+              marginTop: 8, padding: "10px 12px", borderRadius: 10,
+              border: "1px solid rgba(139,92,246,0.10)",
+              background: "rgba(139,92,246,0.02)",
+              opacity: 0.65,
+              userSelect: "none",
+            }}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                marginBottom: 5,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {/* Lock icon */}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="#5B4A82" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#5B4A82" }}>Lip Sync</span>
+                </div>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  color: "#4A3D6A", background: "rgba(139,92,246,0.10)",
+                  borderRadius: 4, padding: "2px 6px",
+                }}>COMING NEXT</span>
+              </div>
+              <p style={{
+                margin: 0, fontSize: 11, color: "#3D2F5E", lineHeight: 1.55,
+              }}>
+                Make characters speak with synced voice and performance timing.
+              </p>
+            </div>
           </div>
         )}
 
@@ -1550,7 +1599,7 @@ export default function VideoPromptPanel({
                   {audioMode === "voiceover" ? "Voiceover" : "Scene Audio"}
                 </span>
                 <span style={{ fontSize: 12, color: "#A78BFA", fontWeight: 600 }}>
-                  {audioMode === "voiceover" ? "+8 credits / 30s" : "+0 credits"}
+                  {audioMode === "voiceover" ? "+3–5 credits" : "+0 credits"}
                 </span>
               </div>
             )}
