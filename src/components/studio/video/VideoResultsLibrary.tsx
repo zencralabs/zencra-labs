@@ -157,11 +157,12 @@ function VideoCard({
           : "1px solid rgba(255,255,255,0.06)",
         borderRadius: 3,
         overflow: "hidden",
-        transition: "border-color 0.2s, box-shadow 0.2s",
+        transition: "border-color 0.2s, box-shadow 0.25s, transform 0.25s",
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
         boxShadow: selected
-          ? "0 0 0 1px rgba(34,211,238,0.15), 0 8px 32px rgba(0,0,0,0.5)"
+          ? "0 0 0 1px rgba(34,211,238,0.15), 0 12px 40px rgba(0,0,0,0.55)"
           : hovered
-          ? "0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(14,165,160,0.08)"
+          ? "0 20px 40px rgba(0,0,0,0.45), 0 0 22px rgba(14,165,160,0.1)"
           : "0 2px 10px rgba(0,0,0,0.35)",
         cursor: "default",
       }}
@@ -220,9 +221,9 @@ function VideoCard({
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
           background: hovered
-            ? "linear-gradient(to bottom,rgba(2,6,23,0.5) 0%,transparent 35%,rgba(2,6,23,0.6) 65%,rgba(2,6,23,0.92) 100%)"
-            : "linear-gradient(to bottom,rgba(2,6,23,0.25) 0%,transparent 30%,rgba(2,6,23,0.4) 75%,rgba(2,6,23,0.7) 100%)",
-          transition: "background 0.2s",
+            ? "linear-gradient(to top,rgba(2,6,23,0.85) 0%,rgba(2,6,23,0.35) 40%,transparent 70%)"
+            : "linear-gradient(to top,rgba(2,6,23,0.6) 0%,rgba(2,6,23,0.1) 45%,transparent 70%)",
+          transition: "background 0.25s",
         }} />
 
         {/* ── Idle play icon (done, not hovering) ─────────────────────────── */}
@@ -678,9 +679,10 @@ export default function VideoResultsLibrary({
   return (
     <div style={{ paddingBottom: selectedIds.size > 0 ? 80 : 32 }}>
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
+      {/* Row 1: tabs (left) + zoom (right) */}
       <div style={{
         display: "flex", alignItems: "center",
-        flexWrap: "wrap", gap: 10, marginBottom: 18,
+        justifyContent: "space-between", marginBottom: 8,
       }}>
         {/* Filter tabs */}
         <div style={{
@@ -721,12 +723,15 @@ export default function VideoResultsLibrary({
           })}
         </div>
 
-        {/* Zoom slider */}
+        {/* Zoom slider — always right-aligned on same baseline */}
         <ZoomSlider value={zoomPct} onChange={setZoomPct} />
+      </div>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
+      {/* Row 2: sort + count (right-aligned) */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        gap: 8, marginBottom: 14,
+      }}>
         {/* Sort */}
         <div style={{
           display: "flex", gap: 2,

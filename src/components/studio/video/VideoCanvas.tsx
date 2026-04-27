@@ -805,6 +805,7 @@ function CanvasVideoPreview({
   onCancel,
   onSetStartFrame,
   onSetEndFrame,
+  onReuse,
 }: {
   video:             GeneratedVideo;
   isFavorite?:       boolean;
@@ -817,6 +818,7 @@ function CanvasVideoPreview({
   onCancel?:         () => void;
   onSetStartFrame?:  () => void;
   onSetEndFrame?:    () => void;
+  onReuse?:          () => void;
 }) {
   const [closing,          setClosing]          = useState(false);
   const [elapsed,          setElapsed]          = useState(0);
@@ -1075,172 +1077,218 @@ function CanvasVideoPreview({
               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "#000" }}
             />
 
-            {/* READY badge — top-left */}
+            {/* READY badge — top-left (sits behind close btn) */}
             <div style={{
               position: "absolute", top: 12, left: 12,
               padding: "3px 10px", borderRadius: 5,
-              background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)",
+              background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.22)",
               fontSize: 10, fontWeight: 800, color: "#34D399", letterSpacing: "0.06em",
+              pointerEvents: "none",
             }}>
               READY
             </div>
 
-            {/* Bottom gradient + control bar */}
+            {/* ── BOTTOM OVERLAY: left=metadata, right=controls ───────── */}
             <div style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              background: "linear-gradient(to top,rgba(2,6,23,0.94) 0%,rgba(2,6,23,0.55) 60%,transparent 100%)",
-              padding: "40px 12px 10px",
+              background: "linear-gradient(to top, rgba(2,6,23,0.97) 0%, rgba(2,6,23,0.78) 50%, transparent 100%)",
+              padding: "56px 14px 12px",
             }}>
-              {/* Prompt + meta row */}
-              <div style={{ marginBottom: 8, paddingLeft: 4 }}>
-                {video.prompt && (
-                  <div style={{
-                    fontSize: 11, color: "#64748B", lineHeight: 1.5, marginBottom: 3,
-                    display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden",
-                  }}>
-                    {video.prompt}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
+
+                {/* LEFT: Prompt + metadata */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {video.prompt && (
+                    <div style={{
+                      fontSize: 12, color: "#64748B", lineHeight: 1.55, marginBottom: 5,
+                      display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                    }}>
+                      {video.prompt}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, color: "#22D3EE", fontWeight: 600 }}>{video.modelName}</span>
+                    <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                    <span style={{ fontSize: 11, color: "#4E6275" }}>{video.duration}s</span>
+                    <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                    <span style={{ fontSize: 11, color: "#4E6275" }}>{video.aspectRatio}</span>
+                    {video.creditsUsed > 0 && (
+                      <>
+                        <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                        <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                          {video.creditsUsed}
+                        </span>
+                      </>
+                    )}
                   </div>
-                )}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "#22D3EE", fontWeight: 600 }}>{video.modelName}</span>
-                  <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
-                  <span style={{ fontSize: 11, color: "#4E6275" }}>{video.duration}s · {video.aspectRatio}</span>
-                  <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
-                  <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                    {video.creditsUsed}
-                  </span>
                 </div>
-              </div>
 
-              {/* Control bar */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {/* RIGHT: 3-group control bar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
 
-                {/* ── LEFT: Play/Pause + Volume ── */}
-                <CtrlBtn title={playing ? "Pause" : "Play"} onClick={togglePlay}>
-                  {playing
-                    ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>
-                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  }
-                </CtrlBtn>
+                  {/* ── Group 1: Playback ── */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
 
-                {/* Volume area — hover reveals slider */}
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: 5 }}
-                  onMouseEnter={handleVolEnter}
-                  onMouseLeave={handleVolLeave}
-                >
-                  <CtrlBtn title={muted ? "Unmute" : "Mute"} onClick={() => setMuted(m => !m)}>
-                    {volIcon}
-                  </CtrlBtn>
-                  <div style={{
-                    width: showVolSlider ? 60 : 0,
-                    overflow: "hidden",
-                    transition: "width 0.22s ease",
-                  }}>
-                    <input
-                      type="range"
-                      min={0} max={1} step={0.05}
-                      value={muted ? 0 : vol}
-                      onChange={e => { setVol(Number(e.target.value)); setMuted(false); }}
+                    <CtrlBtn title={playing ? "Pause" : "Play"} onClick={togglePlay}>
+                      {playing
+                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>
+                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      }
+                    </CtrlBtn>
+
+                    {/* Volume — hover fades in slider */}
+                    <div
+                      style={{ display: "flex", alignItems: "center" }}
+                      onMouseEnter={handleVolEnter}
+                      onMouseLeave={handleVolLeave}
+                    >
+                      <CtrlBtn title={muted ? "Unmute" : "Mute"} onClick={() => setMuted(m => !m)}>
+                        {volIcon}
+                      </CtrlBtn>
+                      <div style={{
+                        width: showVolSlider ? 72 : 0,
+                        opacity: showVolSlider ? 1 : 0,
+                        overflow: "hidden",
+                        transition: "width 0.25s ease, opacity 0.25s ease",
+                        display: "flex", alignItems: "center",
+                      }}>
+                        <input
+                          type="range"
+                          min={0} max={1} step={0.05}
+                          value={muted ? 0 : vol}
+                          onChange={e => { setVol(Number(e.target.value)); setMuted(false); }}
+                          style={{
+                            width: 68, height: 3, cursor: "pointer",
+                            accentColor: "#0EA5A0", display: "block",
+                            marginLeft: 4,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
+
+                  {/* ── Group 2: Content ── */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+
+                    {/* Favourite — scale bump animation */}
+                    <button
+                      onClick={handleFavourite}
+                      title={isFavorite ? "Remove from favourites" : "Add to favourites"}
                       style={{
-                        width: 60, height: 3, cursor: "pointer",
-                        accentColor: "#0EA5A0",
-                        display: "block",
+                        width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                        background: isFavorite ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)",
+                        border: isFavorite ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(255,255,255,0.1)",
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        animation: favPulse ? "favBump 0.38s cubic-bezier(0.36,0.07,0.19,0.97)" : "none",
+                        transition: "background 0.18s, border-color 0.18s",
                       }}
-                    />
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24"
+                        fill={isFavorite ? "#EF4444" : "none"}
+                        stroke={isFavorite ? "#EF4444" : "#94A3B8"}
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transition: "fill 0.18s, stroke 0.18s" }}
+                      >
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                      </svg>
+                    </button>
+
+                    {/* Reuse prompt */}
+                    {onReuse && (
+                      <button
+                        onClick={onReuse}
+                        title="Reuse prompt"
+                        style={{
+                          height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
+                          background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                          color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer",
+                          display: "flex", alignItems: "center", gap: 4,
+                          letterSpacing: "0.02em", whiteSpace: "nowrap",
+                          transition: "background 0.15s, color 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#E2E8F0"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.33"/></svg>
+                        Reuse
+                      </button>
+                    )}
+
+                    {/* Set as Start Frame */}
+                    {onSetStartFrame && (
+                      <button
+                        onClick={onSetStartFrame}
+                        title="Use as Start Frame"
+                        style={{
+                          height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
+                          background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.2)",
+                          color: "#22D3EE", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                          letterSpacing: "0.03em", whiteSpace: "nowrap",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.18)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.08)"; }}
+                      >
+                        ↑ START
+                      </button>
+                    )}
+
+                    {/* Set as End Frame */}
+                    {onSetEndFrame && (
+                      <button
+                        onClick={onSetEndFrame}
+                        title="Use as End Frame"
+                        style={{
+                          height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
+                          background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)",
+                          color: "#A78BFA", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                          letterSpacing: "0.03em", whiteSpace: "nowrap",
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.08)"; }}
+                      >
+                        ↑ END
+                      </button>
+                    )}
+
+                    {/* Download */}
+                    <CtrlBtn title="Download video" onClick={handleDownload}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </CtrlBtn>
+
+                    {/* Copy prompt */}
+                    <CtrlBtn title={promptCopied ? "Copied!" : "Copy prompt"} onClick={handleCopyPrompt} active={promptCopied}>
+                      {promptCopied
+                        ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      }
+                    </CtrlBtn>
                   </div>
-                </div>
 
-                {/* ── SPACER ── */}
-                <div style={{ flex: 1 }} />
+                  {/* Divider */}
+                  <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
 
-                {/* ── RIGHT: Frame injection ── */}
-                {onSetStartFrame && (
-                  <button
-                    onClick={onSetStartFrame}
-                    title="Use as Start Frame"
-                    style={{
-                      height: 26, padding: "0 9px", borderRadius: 4,
-                      background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.22)",
-                      color: "#22D3EE", fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      letterSpacing: "0.03em", whiteSpace: "nowrap",
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.18)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.08)"; }}
-                  >
-                    ↑ START
-                  </button>
-                )}
-                {onSetEndFrame && (
-                  <button
-                    onClick={onSetEndFrame}
-                    title="Use as End Frame"
-                    style={{
-                      height: 26, padding: "0 9px", borderRadius: 4,
-                      background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.22)",
-                      color: "#A78BFA", fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      letterSpacing: "0.03em", whiteSpace: "nowrap",
-                      transition: "background 0.15s",
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.08)"; }}
-                  >
-                    ↑ END
-                  </button>
-                )}
+                  {/* ── Group 3: Actions ── */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <CtrlBtn title="Open fullscreen" onClick={() => onFullscreen?.(video)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                    </CtrlBtn>
+                    <CtrlBtn title="Delete video" danger onClick={() => setShowDeleteModal(true)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </CtrlBtn>
+                  </div>
 
-                {/* Divider */}
-                <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
+                </div>{/* /control groups */}
+              </div>{/* /bottom row */}
+            </div>{/* /bottom overlay */}
 
-                {/* Favourite */}
-                <button
-                  onClick={handleFavourite}
-                  title={isFavorite ? "Remove from favourites" : "Add to favourites"}
-                  style={{
-                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                    background: isFavorite ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)",
-                    border: isFavorite ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(255,255,255,0.1)",
-                    cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    transform: favPulse ? "scale(1.3)" : "scale(1)",
-                    transition: "transform 0.2s ease, background 0.15s",
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24"
-                    fill={isFavorite ? "#EF4444" : "none"}
-                    stroke={isFavorite ? "#EF4444" : "#94A3B8"}
-                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                  </svg>
-                </button>
-
-                {/* Copy Prompt */}
-                <CtrlBtn title={promptCopied ? "Copied!" : "Copy prompt"} onClick={handleCopyPrompt} active={promptCopied}>
-                  {promptCopied
-                    ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  }
-                </CtrlBtn>
-
-                {/* Download */}
-                <CtrlBtn title="Download video" onClick={handleDownload}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </CtrlBtn>
-
-                {/* Fullscreen */}
-                <CtrlBtn title="Open fullscreen" onClick={() => onFullscreen?.(video)}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-                </CtrlBtn>
-
-                {/* Delete */}
-                <CtrlBtn title="Delete video" danger onClick={() => setShowDeleteModal(true)}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </CtrlBtn>
-
-              </div>{/* /control bar */}
-            </div>{/* /bottom gradient */}
+            <style>{`@keyframes favBump{0%{transform:scale(1)}30%{transform:scale(0.88)}65%{transform:scale(1.22)}100%{transform:scale(1)}}`}</style>
           </div>
         )}
 
@@ -1433,6 +1481,7 @@ interface Props {
   onPreviewCancel?:       () => void;
   onPreviewSetStartFrame?:() => void;
   onPreviewSetEndFrame?:  () => void;
+  onPreviewReuse?:        () => void;
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -1454,6 +1503,7 @@ export default function VideoCanvas({
   onPreviewCancel,
   onPreviewSetStartFrame,
   onPreviewSetEndFrame,
+  onPreviewReuse,
 }: Props) {
 
   // Hidden file input for mascot Upload Image button
@@ -1822,6 +1872,7 @@ export default function VideoCanvas({
             onCancel={onPreviewCancel}
             onSetStartFrame={onPreviewSetStartFrame}
             onSetEndFrame={onPreviewSetEndFrame}
+            onReuse={onPreviewReuse}
           />
         )}
       </div>

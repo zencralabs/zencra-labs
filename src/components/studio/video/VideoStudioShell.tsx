@@ -1157,6 +1157,13 @@ export default function VideoStudioShell() {
     setNegPrompt(video.negPrompt ?? "");
   }, []);
 
+  const handlePreviewReuse = useCallback(() => {
+    if (!canvasPreviewVideo) return;
+    setPrompt(canvasPreviewVideo.prompt ?? "");
+    setNegPrompt(canvasPreviewVideo.negPrompt ?? "");
+    setCanvasPreviewId(null);
+  }, [canvasPreviewVideo]);
+
   const handleDelete = useCallback((id: string) => {
     setVideos(prev => prev.filter(v => v.id !== id));
     showToast("Video removed from session", "info");
@@ -1456,6 +1463,7 @@ export default function VideoStudioShell() {
               onPreviewCancel={handlePreviewCancel}
               onPreviewSetStartFrame={handlePreviewSetStartFrame}
               onPreviewSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
+              onPreviewReuse={handlePreviewReuse}
             />
           )}
         </div>
