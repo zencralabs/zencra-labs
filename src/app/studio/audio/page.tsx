@@ -357,9 +357,10 @@ function VoiceDropdownItem({
   onSelect: () => void;
   onPreviewChange: (id: string | null) => void;
 }) {
-  const audioRef   = useRef<HTMLAudioElement>(null);
-  const [hovered, setHovered] = useState(false);
-  const isPlaying  = previewingId === voice.id;
+  const audioRef    = useRef<HTMLAudioElement>(null);
+  const [hovered,    setHovered]    = useState(false);
+  const [hasPreview, setHasPreview] = useState<boolean | null>(null);
+  const isPlaying   = previewingId === voice.id;
   const previewSrc = `/voice-previews/${voice.name.toLowerCase()}.mp3`;
 
   // If another voice takes the previewingId slot, pause this one
@@ -372,6 +373,7 @@ function VoiceDropdownItem({
 
   function togglePreview(e: React.MouseEvent) {
     e.stopPropagation();
+    if (hasPreview === false) return;
     const el = audioRef.current;
     if (!el) return;
     if (isPlaying) {
@@ -380,7 +382,10 @@ function VoiceDropdownItem({
       onPreviewChange(null);
     } else {
       el.currentTime = 0;
-      el.play().catch(() => {/* file absent — silent fail */});
+      el.play().catch(() => {
+        setHasPreview(false);
+        onPreviewChange(null);
+      });
       onPreviewChange(voice.id);
     }
   }
@@ -408,6 +413,8 @@ function VoiceDropdownItem({
         src={previewSrc}
         preload="none"
         onEnded={() => onPreviewChange(null)}
+        onCanPlay={() => setHasPreview(true)}
+        onError={() => { setHasPreview(false); onPreviewChange(null); }}
       />
 
       {/* Selection dot */}
@@ -448,23 +455,28 @@ function VoiceDropdownItem({
 
       {/* Play preview button */}
       <button
-        onClick={togglePreview}
-        title={isPlaying ? "Stop preview" : "Preview voice"}
+        onClick={hasPreview !== false ? togglePreview : undefined}
+        title={
+          hasPreview === false
+            ? "No preview available"
+            : isPlaying ? "Stop preview" : "Preview voice"
+        }
         style={{
           width: 26, height: 26, borderRadius: "50%", border: "none",
-          cursor: "pointer", flexShrink: 0,
+          cursor: hasPreview === false ? "default" : "pointer", flexShrink: 0,
           background: isPlaying
             ? `rgba(198,255,0,0.16)`
             : "rgba(255,255,255,0.07)",
           display: "flex", alignItems: "center", justifyContent: "center",
           transition: "all 0.18s ease",
           boxShadow: isPlaying ? GLOW_SM : "none",
+          opacity: hasPreview === false ? 0.28 : 1,
         }}
         onMouseEnter={e => {
-          if (!isPlaying) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
+          if (!isPlaying && hasPreview !== false) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
         }}
         onMouseLeave={e => {
-          if (!isPlaying) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+          if (!isPlaying && hasPreview !== false) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
         }}
       >
         {isPlaying ? (
@@ -493,7 +505,17 @@ function VoiceDropdownItem({
 
 // ── AudioCard — with hover lift, scale entry, waveform states ─────────────────
 
-function AudioCard({ item, idx }: { item: GeneratedAudio; idx: number }) {
+function AudioCard({
+  item,
+  idx,
+  isActivePlayer,
+  onClaimPlayer,
+}: {
+  item: GeneratedAudio;
+  idx: number;
+  isActivePlayer: boolean;
+  onClaimPlayer: (id: string | null) => void;
+}) {
   const audioRef   = useRef<HTMLAudioElement>(null);
   const [playing,  setPlaying]  = useState(false);
   const [progress, setProgress] = useState(0);
@@ -505,7 +527,12 @@ function AudioCard({ item, idx }: { item: GeneratedAudio; idx: number }) {
     if (!el) return;
     const onTime = () => setProgress((el.currentTime / (el.duration || 1)) * 100);
     const onMeta = () => setDuration(el.duration);
-    const onEnd  = () => { setPlaying(false); setProgress(0); };
+    const onEnd = () => {
+      setPlaying(false);
+      setProgress(0);
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      onClaimPlayer(null);
+    };
     el.addEventListener("timeupdate",     onTime);
     el.addEventListener("loadedmetadata", onMeta);
     el.addEventListener("ended",          onEnd);
@@ -516,11 +543,32 @@ function AudioCard({ item, idx }: { item: GeneratedAudio; idx: number }) {
     };
   }, []);
 
+  // Pause and reset when another card or a voice preview claims the player
+  useEffect(() => {
+    if (!isActivePlayer) {
+      const el = audioRef.current;
+      if (el && !el.paused) {
+        el.pause();
+        el.currentTime = 0;
+      }
+      setPlaying(false);
+      setProgress(0);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActivePlayer]);
+
   function togglePlay() {
     const el = audioRef.current;
     if (!el || !item.url) return;
-    if (playing) { el.pause(); setPlaying(false); }
-    else         { el.play().catch(() => {}); setPlaying(true); }
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+      onClaimPlayer(null);
+    } else {
+      el.play().catch(() => {});
+      setPlaying(true);
+      onClaimPlayer(item.id);
+    }
   }
 
   function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
@@ -946,11 +994,24 @@ function AudioStudioInner() {
   const [voiceOpen,        setVoiceOpen]        = useState(false);
   // Motion state
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [playingOutputId,  setPlayingOutputId]  = useState<string | null>(null);
   const [ripple,           setRipple]           = useState<{ key: number; x: number; y: number } | null>(null);
   const [btnHovered,       setBtnHovered]       = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const tool    = AUDIO_TOOLS.find(t => t.id === activeTool)!;
+
+  // ── Cross-player coordination ──────────────────────────────────────────────
+  // Starting an output card stops any voice preview; starting a preview stops output.
+  function handleClaimPlayer(id: string | null) {
+    setPlayingOutputId(id);
+    if (id !== null) setPreviewingVoiceId(null);
+  }
+
+  function handlePreviewChange(id: string | null) {
+    setPreviewingVoiceId(id);
+    if (id !== null) setPlayingOutputId(null);
+  }
 
   function handleToolSelect(id: string) {
     setActiveTool(id);
@@ -959,6 +1020,7 @@ function AudioStudioInner() {
     setAudioDataUrl(null);
     setVoiceOpen(false);
     setPreviewingVoiceId(null);
+    setPlayingOutputId(null);
   }
 
   function handleAudioFile(file: File) {
@@ -1184,7 +1246,7 @@ function AudioStudioInner() {
                         isSelected={voiceId === v.id}
                         previewingId={previewingVoiceId}
                         onSelect={() => { setVoiceId(v.id); setVoiceOpen(false); setPreviewingVoiceId(null); }}
-                        onPreviewChange={setPreviewingVoiceId}
+                        onPreviewChange={handlePreviewChange}
                       />
                     ))}
                   </div>
@@ -1616,7 +1678,15 @@ function AudioStudioInner() {
                 </div>
               </div>
             ) : (
-              outputs.map((item, idx) => <AudioCard key={item.id} item={item} idx={idx} />)
+              outputs.map((item, idx) => (
+                <AudioCard
+                  key={item.id}
+                  item={item}
+                  idx={idx}
+                  isActivePlayer={playingOutputId === item.id}
+                  onClaimPlayer={handleClaimPlayer}
+                />
+              ))
             )}
           </div>
         </div>
