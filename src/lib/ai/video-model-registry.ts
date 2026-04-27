@@ -132,7 +132,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
-      nativeAudio:    false,
+      nativeAudio:    true,   // Kling 3.0 Omni supports native scene audio generation
       negativePrompt: true,
       proMode:        true,
       seedControl:    false,
@@ -170,7 +170,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
-      nativeAudio:    false,
+      nativeAudio:    true,   // Kling 3.0 supports native scene audio generation
       negativePrompt: true,
       proMode:        true,
       seedControl:    false,
@@ -207,7 +207,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
-      nativeAudio:    false,
+      nativeAudio:    true,  // Kling 2.6 supports native scene audio generation
       negativePrompt: true,
       proMode:        true,
       seedControl:    false,

@@ -1320,7 +1320,7 @@ export default function VideoPromptPanel({
         {/* ── Audio Mode Selector ───────────────────────────────────────────────
             Shown for all standard video modes (not lip_sync).
             "Use Scene Audio" only renders when the selected model supports nativeAudio.
-            "Add Voiceover" is always shown — ElevenLabs integration is model-independent. */}
+            "Add Voiceover" is always shown — voice generation is model-independent. */}
         {frameMode !== "lip_sync" && model && (
           <div>
             {/* Section header */}
@@ -1374,16 +1374,51 @@ export default function VideoPromptPanel({
               })}
             </div>
 
-            {/* Scene Audio explainer — only when nativeAudio model + scene mode selected */}
+            {/* Prompt-aware speech suggestion — shown when keywords imply dialogue/narration */}
+            {(() => {
+              const speechWords = ["speaks", "talking", "dialogue", "narrator", "says"];
+              const hasSpeech   = speechWords.some(w => prompt.toLowerCase().includes(w));
+              return hasSpeech && audioMode !== "voiceover" ? (
+                <div style={{
+                  marginTop: 8, padding: "8px 11px", borderRadius: 8,
+                  border: "1px solid rgba(245,158,11,0.18)",
+                  background: "rgba(245,158,11,0.05)",
+                  fontSize: 11, color: "#92714A", lineHeight: 1.55,
+                  display: "flex", gap: 6, alignItems: "flex-start",
+                }}>
+                  <svg style={{ flexShrink: 0, marginTop: 1 }} width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(245,158,11,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <circle cx="12" cy="16" r="0.5" fill="rgba(245,158,11,0.6)"/>
+                  </svg>
+                  <span>
+                    <span style={{ color: "rgba(245,158,11,0.75)", fontWeight: 600 }}>Speech detected.</span>
+                    {" For clean speech, use Voiceover + Lip Sync. Scene Audio is better for ambience."}
+                  </span>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Mode helper text — shows below pills for whichever mode is active */}
             {audioMode === "scene" && model.capabilities.nativeAudio && (
               <div style={{
                 marginTop: 8, padding: "8px 11px", borderRadius: 8,
                 border: "1px solid rgba(14,165,160,0.18)",
                 background: "rgba(14,165,160,0.06)",
-                fontSize: 12, color: "#94A3B8", lineHeight: 1.55,
+                fontSize: 12, color: "#64748B", lineHeight: 1.55,
               }}>
-                <span style={{ color: "#0EA5A0", fontWeight: 600 }}>Scene audio enabled</span>
-                {" — the model will generate ambient sound, effects, and dialogue naturally from the scene content."}
+                Cinematic sound generated with the video — ambience, movement, and atmosphere.
+              </div>
+            )}
+            {audioMode === "voiceover" && (
+              <div style={{
+                marginTop: 8, padding: "8px 11px", borderRadius: 8,
+                border: "1px solid rgba(167,139,250,0.16)",
+                background: "rgba(139,92,246,0.05)",
+                fontSize: 12, color: "#64748B", lineHeight: 1.55,
+              }}>
+                Controlled speech and narration. Best for dialogue, character voice, and explainers.
               </div>
             )}
 
@@ -1441,7 +1476,7 @@ export default function VideoPromptPanel({
                     <path d="M12 8v4l3 3"/>
                   </svg>
                   <span style={{ fontSize: 12, color: "#4B5563", flex: 1 }}>
-                    Voice selection · ElevenLabs integration coming
+                    Voice selection · Zencra Voice Engine coming soon
                   </span>
                   <span style={{ fontSize: 10, color: "#374151", fontWeight: 600, letterSpacing: "0.04em" }}>
                     +8 CR / 30s
@@ -1512,7 +1547,7 @@ export default function VideoPromptPanel({
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                     <line x1="12" y1="19" x2="12" y2="22"/>
                   </svg>
-                  {audioMode === "voiceover" ? "Voiceover (ElevenLabs)" : "Scene Audio"}
+                  {audioMode === "voiceover" ? "Voiceover" : "Scene Audio"}
                 </span>
                 <span style={{ fontSize: 12, color: "#A78BFA", fontWeight: 600 }}>
                   {audioMode === "voiceover" ? "+8 credits / 30s" : "+0 credits"}
