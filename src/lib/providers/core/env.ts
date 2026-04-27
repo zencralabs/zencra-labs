@@ -125,7 +125,7 @@ export interface KlingEnv {
 export function getKlingEnv(): KlingEnv {
   return {
     apiKey:  required("KLING_API_KEY"),
-    baseUrl: optional("KLING_BASE_URL", "https://api.klingai.com") as string,
+    baseUrl: optional("KLING_BASE_URL", "https://api-singapore.klingai.com") as string,
   };
 }
 

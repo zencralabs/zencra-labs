@@ -37,6 +37,7 @@
  *   kling-25      → kling-v2-5
  *   kling-26      → kling-v2-6
  *   kling-30      → kling-v3
+ *   kling-30-omni → kling-v3-omni  (env: KLING_MODEL_OMNI)
  */
 
 import { createHmac } from "crypto";
@@ -50,7 +51,7 @@ import type {
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_BASE_URL   = "https://api.klingai.com";
+const DEFAULT_BASE_URL   = "https://api-singapore.klingai.com";
 const POLL_INTERVAL_MS   = 5_000;
 const POLL_TIMEOUT_MS    = 270_000; // 4.5 min — safely under Vercel maxDuration=300
 
@@ -69,7 +70,7 @@ const CATALOG_TO_API_MODEL: Record<string, string> = {
   "kling-25":      "kling-v2-5",
   "kling-26":      "kling-v2-6",
   "kling-30":      "kling-v3",
-  "kling-30-omni": "kling-v3",
+  "kling-30-omni": process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
 };
 
 const DEFAULT_KLING_MODEL = "kling-v3";
