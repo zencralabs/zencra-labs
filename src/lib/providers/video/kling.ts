@@ -194,10 +194,15 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
 
       if (!res.ok) {
         const err = await res.text().catch(() => "");
+        console.error(`[kling] dispatch HTTP ${res.status} — raw:`, sanitize(err));
         throw new Error(`Kling API HTTP ${res.status}: ${sanitize(err)}`);
       }
 
-      const body      = (await res.json()) as Record<string, unknown>;
+      // TEMPORARY — log raw Kling response so we can verify task_id shape.
+      // Remove after confirming the response contract.
+      const rawText = await res.text();
+      console.log("[kling] dispatch RAW response:", rawText.slice(0, 1000));
+      const body      = JSON.parse(rawText) as Record<string, unknown>;
       const taskId    = extractKlingTaskId(body);
       if (!taskId) throw new Error("Kling returned no task ID.");
 
@@ -288,8 +293,22 @@ function klingAspect(ratio: string): string {
 }
 
 function extractKlingTaskId(body: Record<string, unknown>): string {
+  // Kling response shapes observed across API versions:
+  //   { data: { task_id: "..." } }           ← primary (current docs)
+  //   { data: { taskId: "..." } }            ← camelCase variant
+  //   { data: { id: "..." } }                ← alternative wrapper
+  //   { data: { task: { id: "..." } } }      ← nested task object
+  //   { task_id: "..." }                     ← flat (older versions)
   const data = (body.data ?? body) as Record<string, unknown>;
-  return String(data.task_id ?? data.taskId ?? body.task_id ?? "");
+  const nested = data.task as Record<string, unknown> | undefined;
+  return String(
+    data.task_id  ??
+    data.taskId   ??
+    data.id       ??
+    nested?.id    ??
+    body.task_id  ??
+    ""
+  );
 }
 
 function sanitize(raw: string): string {
