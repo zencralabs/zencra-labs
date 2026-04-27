@@ -255,10 +255,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         throw new Error(`Kling API HTTP ${res.status}: ${sanitize(err)}`);
       }
 
-      // TEMPORARY — log raw Kling response so we can verify task_id shape.
-      // Remove after confirming the response contract.
       const rawText = await res.text();
-      console.log("[kling] dispatch RAW response:", rawText.slice(0, 1000));
       const body      = JSON.parse(rawText) as Record<string, unknown>;
       const taskId    = extractKlingTaskId(body);
       if (!taskId) throw new Error("Kling returned no task ID.");
@@ -308,8 +305,6 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       }
 
       const rawText = await res.text();
-      console.log(`[kling] status RAW response (${externalJobId}):`, rawText.slice(0, 1200));
-
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(rawText) as Record<string, unknown>;
@@ -352,7 +347,6 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           return { jobId: externalJobId, status: "error", error: "Kling returned success but no video URL was found." };
         }
 
-        console.log(`[kling] status resolved → success. URL: ${url}`);
         return { jobId: externalJobId, status: "success", url };
       }
 
@@ -363,7 +357,6 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       }
 
       // submitted | processing | queued → keep polling
-      console.log(`[kling] status pending (${status}) for ${externalJobId}`);
       return { jobId: externalJobId, status: "pending" };
     },
 
