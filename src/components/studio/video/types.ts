@@ -54,4 +54,5 @@ export interface GeneratedVideo {
   creditsUsed: number;
   createdAt: number;
   isPublic: boolean;
+  is_favorite?: boolean;
 }

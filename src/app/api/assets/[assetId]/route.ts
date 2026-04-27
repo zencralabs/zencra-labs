@@ -4,7 +4,7 @@
  * DELETE /api/assets/[assetId]  — hard-delete asset (ownership verified)
  *
  * PATCH body:
- *   { visibility?: "private" | "public" | "project", project_id?: string | null }
+ *   { visibility?: "private" | "public" | "project", project_id?: string | null, is_favorite?: boolean }
  *
  *   Setting visibility="project" requires project_id to be provided.
  *   Setting visibility="private" or "public" clears project_id (unless project_id is also supplied).
@@ -84,9 +84,9 @@ export async function PATCH(req: Request, { params }: RouteContext): Promise<Res
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  let body: { visibility?: string; project_id?: string | null };
+  let body: { visibility?: string; project_id?: string | null; is_favorite?: boolean };
   try {
-    body = await req.json() as { visibility?: string; project_id?: string | null };
+    body = await req.json() as { visibility?: string; project_id?: string | null; is_favorite?: boolean };
   } catch {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
@@ -106,6 +106,10 @@ export async function PATCH(req: Request, { params }: RouteContext): Promise<Res
 
   if ("project_id" in body) {
     update.project_id = body.project_id ?? null;
+  }
+
+  if (typeof body.is_favorite === "boolean") {
+    update.is_favorite = body.is_favorite;
   }
 
   // Convenience: setting visibility=project without a project_id is invalid
@@ -137,7 +141,7 @@ export async function PATCH(req: Request, { params }: RouteContext): Promise<Res
     .from("assets")
     .update(update)
     .eq("id", assetId)
-    .select("id, visibility, project_id, updated_at")
+    .select("id, visibility, project_id, is_favorite, updated_at")
     .single();
 
   if (updateError) {

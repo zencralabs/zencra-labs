@@ -403,7 +403,7 @@ function VideoCard({
       {/* ── Card body — prompt + timestamp ──────────────────────────────────── */}
       <div style={{ padding: "9px 11px 11px" }}>
         <div style={{
-          fontSize: 12, color: "#7A8EA4", lineHeight: 1.5,
+          fontSize: 13, color: "#7A8EA4", lineHeight: 1.6,
           display: "-webkit-box", WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical", overflow: "hidden",
           marginBottom: 6,
@@ -581,17 +581,12 @@ export default function VideoResultsLibrary({
   const [filter,    setFilter]    = useState<FilterTab>("all");
   const [sort,      setSort]      = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
-  const [zoomPct,   setZoomPct]   = useState(65);
-  const [favs,      setFavs]      = useState<Set<string>>(new Set());
+  const [zoomPct,   setZoomPct]   = useState(60);
   // Bulk select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const now = Date.now();
   const minCardWidth = zoomToMinWidth(zoomPct);
-
-  function toggleFav(id: string) {
-    setFavs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  }
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
@@ -610,7 +605,7 @@ export default function VideoResultsLibrary({
   let filtered = videos.filter(v => {
     if (filter === "generated") return now - v.createdAt <= ONE_HOUR;
     if (filter === "history")   return now - v.createdAt > ONE_HOUR;
-    if (filter === "favorites") return favs.has(v.id);
+    if (filter === "favorites") return v.is_favorite === true;
     return true;
   });
 
@@ -698,7 +693,7 @@ export default function VideoResultsLibrary({
               t.key === "all"       ? videos.length :
               t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length :
               t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
-              videos.filter(v => favs.has(v.id)).length;
+              videos.filter(v => v.is_favorite === true).length;
             return (
               <button
                 key={t.key}
@@ -795,7 +790,7 @@ export default function VideoResultsLibrary({
         <div style={{
           display: "grid",
           gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`,
-          gap: 14,
+          gap: 18,
         }}>
           {filtered.map(v => (
             <VideoCard

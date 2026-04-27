@@ -770,6 +770,7 @@ export default function VideoStudioShell() {
             aspect_ratio: string | null;
             credits_cost: number | null;
             visibility: string | null;
+            is_favorite: boolean | null;
             created_at: string;
           }>;
         };
@@ -791,6 +792,7 @@ export default function VideoStudioShell() {
           creditsUsed:  a.credits_cost ?? 0,
           createdAt:    new Date(a.created_at).getTime(),
           isPublic:     a.visibility === "public",
+          is_favorite:  a.is_favorite ?? false,
         }));
 
         // Merge: keep all session-generated videos, append history entries not already present
@@ -831,6 +833,7 @@ export default function VideoStudioShell() {
       creditsUsed:  0,
       createdAt:    Date.now(),
       isPublic:     false,
+      is_favorite:  false,
     };
     setVideos(prev => [newVideo, ...prev]);
     // Show the completed shot in the canvas preview (Part 5 — sequence support)
@@ -996,6 +999,7 @@ export default function VideoStudioShell() {
       creditsUsed: estimateCredits(model.id, quality, duration),
       createdAt: Date.now(),
       isPublic: false,
+      is_favorite: false,
     };
     setVideos(prev => [newVideo, ...prev]);
     // Show the canvas preview immediately — no page scroll
@@ -1157,6 +1161,77 @@ export default function VideoStudioShell() {
     setVideos(prev => prev.filter(v => v.id !== id));
     showToast("Video removed from session", "info");
   }, [showToast]);
+
+  // ── Canvas preview action handlers ────────────────────────────────────────────
+
+  // Favourite toggle — PATCH /api/assets/{id} with is_favorite, optimistic update
+  const handlePreviewFavToggle = useCallback(async () => {
+    if (!canvasPreviewVideo || !authToken) return;
+    const newFav = !canvasPreviewVideo.is_favorite;
+    setVideos(prev => prev.map(v =>
+      v.id === canvasPreviewVideo.id ? { ...v, is_favorite: newFav } : v,
+    ));
+    try {
+      await fetch(`/api/assets/${canvasPreviewVideo.id}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body:    JSON.stringify({ is_favorite: newFav }),
+      });
+    } catch {
+      // Rollback on network error
+      setVideos(prev => prev.map(v =>
+        v.id === canvasPreviewVideo.id ? { ...v, is_favorite: !newFav } : v,
+      ));
+    }
+  }, [canvasPreviewVideo, authToken]);
+
+  // Delete from canvas — DELETE asset from DB, remove from list, clear preview
+  const handlePreviewDelete = useCallback(async () => {
+    if (!canvasPreviewVideo || !authToken) return;
+    await fetch(`/api/assets/${canvasPreviewVideo.id}`, {
+      method:  "DELETE",
+      headers: { "Authorization": `Bearer ${authToken}` },
+    }).catch(() => { /* silent — still remove locally */ });
+    handleDelete(canvasPreviewVideo.id);
+    setCanvasPreviewId(null);
+  }, [canvasPreviewVideo, authToken, handleDelete]);
+
+  // Cancel generation — POST cancel route; clear preview; set video to error state
+  const handlePreviewCancel = useCallback(async () => {
+    if (!canvasPreviewVideo?.taskId || !authToken) return;
+    const vid = canvasPreviewVideo;
+    try {
+      await fetch(`/api/studio/jobs/${vid.taskId}/cancel`, {
+        method:  "POST",
+        headers: { "Authorization": `Bearer ${authToken}` },
+      });
+    } catch { /* silent */ }
+    setVideos(prev => prev.map(v =>
+      v.id === vid.id ? { ...v, status: "error", error: "Cancelled" } : v,
+    ));
+    setCanvasPreviewId(null);
+    setGenerating(false);
+  }, [canvasPreviewVideo, authToken]);
+
+  // Set as Start Frame — inject URL into start slot; conditionally switch mode
+  const handlePreviewSetStartFrame = useCallback(() => {
+    if (!canvasPreviewVideo?.url) return;
+    const url = canvasPreviewVideo.url;
+    setStartSlot({ url, preview: url });
+    // Only force mode switch when in text_to_video — respect other active modes
+    if (frameMode === "text_to_video") setFrameMode("start_frame");
+    setCanvasPreviewId(null);
+    showToast("Video set as Start Frame", "success");
+  }, [canvasPreviewVideo, frameMode, showToast]);
+
+  // Set as End Frame — inject URL into end slot; never force mode switch
+  const handlePreviewSetEndFrame = useCallback(() => {
+    if (!canvasPreviewVideo?.url) return;
+    const url = canvasPreviewVideo.url;
+    setEndSlot({ url, preview: url });
+    setCanvasPreviewId(null);
+    showToast("Video set as End Frame", "success");
+  }, [canvasPreviewVideo, showToast]);
 
   // Cinema focus mode — canvas glows more when actively working
   const cinemaModeActive = frameMode !== "text_to_video";
@@ -1373,6 +1448,14 @@ export default function VideoStudioShell() {
               previewVideo={canvasPreviewVideo}
               onClosePreview={() => setCanvasPreviewId(null)}
               onOpenFullscreen={(v) => setViewingVideo(v)}
+              previewIsFavorite={canvasPreviewVideo?.is_favorite ?? false}
+              onPreviewFavToggle={handlePreviewFavToggle}
+              onPreviewDownload={undefined}
+              onPreviewCopyPrompt={undefined}
+              onPreviewDelete={handlePreviewDelete}
+              onPreviewCancel={handlePreviewCancel}
+              onPreviewSetStartFrame={handlePreviewSetStartFrame}
+              onPreviewSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
             />
           )}
         </div>

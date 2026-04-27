@@ -17,6 +17,7 @@
 import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react";
 import type { FrameMode, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
+import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -753,20 +754,83 @@ function GeneratingOverlay() {
   );
 }
 
-// ── Canvas Video Preview — live generation + playback overlay ────────────────
+// ── Canvas Video Preview — cinematic player overlay ──────────────────────────
+
+function CtrlBtn({
+  title, onClick, danger, active, children,
+}: {
+  title: string;
+  onClick?: () => void;
+  danger?: boolean;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+        background: danger && hov
+          ? "rgba(239,68,68,0.28)"
+          : active
+          ? "rgba(255,255,255,0.18)"
+          : hov ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
+        border: danger && hov
+          ? "1px solid rgba(239,68,68,0.4)"
+          : "1px solid rgba(255,255,255,0.1)",
+        color: danger && hov ? "#EF4444" : "#CBD5F5",
+        cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "background 0.15s, border-color 0.15s, color 0.15s",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 function CanvasVideoPreview({
   video,
+  isFavorite = false,
   onClose,
   onFullscreen,
+  onFavoriteToggle,
+  onDownload,
+  onCopyPrompt,
+  onDelete,
+  onCancel,
+  onSetStartFrame,
+  onSetEndFrame,
 }: {
-  video:         GeneratedVideo;
-  onClose?:      () => void;
-  onFullscreen?: (v: GeneratedVideo) => void;
+  video:             GeneratedVideo;
+  isFavorite?:       boolean;
+  onClose?:          () => void;
+  onFullscreen?:     (v: GeneratedVideo) => void;
+  onFavoriteToggle?: () => void;
+  onDownload?:       () => void;
+  onCopyPrompt?:     () => void;
+  onDelete?:         () => void;
+  onCancel?:         () => void;
+  onSetStartFrame?:  () => void;
+  onSetEndFrame?:    () => void;
 }) {
-  const [closing, setClosing] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [closing,          setClosing]          = useState(false);
+  const [elapsed,          setElapsed]          = useState(0);
+  const [playing,          setPlaying]          = useState(false);
+  const [vol,              setVol]              = useState(0.7);
+  const [muted,            setMuted]            = useState(false);
+  const [showVolSlider,    setShowVolSlider]    = useState(false);
+  const [showDeleteModal,  setShowDeleteModal]  = useState(false);
+  const [deleting,         setDeleting]         = useState(false);
+  const [promptCopied,     setPromptCopied]     = useState(false);
+  const [favPulse,         setFavPulse]         = useState(false);
+
+  const videoRef   = useRef<HTMLVideoElement>(null);
+  const volLeaveId = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Tick elapsed seconds while waiting
   useEffect(() => {
@@ -776,12 +840,34 @@ function CanvasVideoPreview({
     return () => clearInterval(id);
   }, [video.status]);
 
-  // Autoplay when done
+  // Autoplay when done + apply initial volume
   useEffect(() => {
     if (video.status === "done" && video.url && videoRef.current) {
-      videoRef.current.play().catch(() => {});
+      const v = videoRef.current;
+      v.volume = vol;
+      v.muted  = muted;
+      v.play().catch(() => {});
     }
-  }, [video.status, video.url]);
+  }, [video.status, video.url]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep volume in sync
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = vol;
+      videoRef.current.muted  = muted;
+    }
+  }, [vol, muted]);
+
+  // Sync playing state from native video events
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay  = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    v.addEventListener("play",  onPlay);
+    v.addEventListener("pause", onPause);
+    return () => { v.removeEventListener("play", onPlay); v.removeEventListener("pause", onPause); };
+  }, [video.status]); // re-attach when video el is recreated
 
   const stage = useMemo(() => {
     let cur: typeof STAGED_MESSAGES[number] = STAGED_MESSAGES[0];
@@ -789,240 +875,391 @@ function CanvasVideoPreview({
     return cur;
   }, [elapsed]);
 
-  const handleClose = () => {
-    setClosing(true);
-    setTimeout(() => onClose?.(), 360);
+  const handleClose = () => { setClosing(true); setTimeout(() => onClose?.(), 360); };
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    playing ? v.pause() : v.play().catch(() => {});
+  };
+
+  const handleVolEnter = () => {
+    if (volLeaveId.current) clearTimeout(volLeaveId.current);
+    setShowVolSlider(true);
+  };
+  const handleVolLeave = () => {
+    volLeaveId.current = setTimeout(() => setShowVolSlider(false), 500);
+  };
+
+  const handleDownload = () => {
+    if (!video.url) return;
+    try {
+      const a = document.createElement("a");
+      a.href = video.url;
+      a.download = `zencra-${video.id}.mp4`;
+      a.click();
+    } catch {
+      window.open(video.url, "_blank");
+    }
+    onDownload?.();
+  };
+
+  const handleCopyPrompt = async () => {
+    try { await navigator.clipboard.writeText(video.prompt); } catch { /* ignore */ }
+    setPromptCopied(true);
+    setTimeout(() => setPromptCopied(false), 2000);
+    onCopyPrompt?.();
+  };
+
+  const handleFavourite = () => {
+    setFavPulse(true);
+    setTimeout(() => setFavPulse(false), 350);
+    onFavoriteToggle?.();
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    try { await onDelete?.(); } catch { /* ignore */ }
+    setDeleting(false);
+    setShowDeleteModal(false);
+    handleClose();
+  };
+
+  const handleCancel = () => {
+    onCancel?.();
+    handleClose();
   };
 
   const isGenerating = video.status === "generating" || video.status === "polling";
   const isDone       = video.status === "done" && !!video.url;
   const isError      = video.status === "error";
+  const canCancel    = isGenerating && !!video.taskId;
+
+  const volIcon = muted || vol === 0
+    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    : vol < 0.5
+    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>;
 
   return (
-    <div style={{
-      position: "absolute", inset: 0, zIndex: 30,
-      borderRadius: "inherit", overflow: "hidden",
-      background: isDone ? "#000" : "rgba(2,6,23,0.92)",
-      backdropFilter: isGenerating ? "blur(8px)" : "none",
-      transform: closing ? "translateY(56px)" : "translateY(0)",
-      opacity:   closing ? 0 : 1,
-      transition: "transform 0.36s cubic-bezier(0.4,0,0.2,1), opacity 0.34s ease",
-    }}>
+    <>
+      <DeleteConfirmModal
+        open={showDeleteModal}
+        title="Delete this video?"
+        description="The video will be permanently removed from your library. This cannot be undone."
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteModal(false)}
+        loading={deleting}
+      />
 
-      {/* ── Close button ───────────────────────────────────────────────────── */}
-      <button
-        onClick={handleClose}
-        title="Close preview"
-        style={{
-          position: "absolute", top: 12, right: 12, zIndex: 50,
-          width: 34, height: 34, borderRadius: "50%",
-          background: "rgba(10,15,30,0.85)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          color: "#E2E8F0", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "background 0.15s, border-color 0.15s",
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.background    = "rgba(239,68,68,0.8)";
-          (e.currentTarget as HTMLElement).style.borderColor   = "rgba(239,68,68,0.4)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.background    = "rgba(10,15,30,0.85)";
-          (e.currentTarget as HTMLElement).style.borderColor   = "rgba(255,255,255,0.14)";
-        }}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
+      <div style={{
+        position: "absolute", inset: 0, zIndex: 30,
+        borderRadius: "inherit", overflow: "hidden",
+        background: isDone ? "#000" : "rgba(2,6,23,0.92)",
+        backdropFilter: isGenerating ? "blur(8px)" : "none",
+        transform: closing ? "translateY(56px)" : "translateY(0)",
+        opacity:   closing ? 0 : 1,
+        transition: "transform 0.36s cubic-bezier(0.4,0,0.2,1), opacity 0.34s ease",
+      }}>
 
-      {/* ── Generating / polling state ─────────────────────────────────────── */}
-      {isGenerating && (
-        <>
-          {/* Top sweep */}
-          <div style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 3,
-            background: "linear-gradient(90deg,transparent 0%,rgba(34,211,238,0.35) 40%,rgba(34,211,238,0.6) 50%,rgba(34,211,238,0.35) 60%,transparent 100%)",
-            animation: "cpSweep 2.4s ease-in-out infinite",
-          }} />
+        {/* ── Close button (top-right) ───────────────────────────────────── */}
+        <button
+          onClick={handleClose}
+          title="Close preview"
+          style={{
+            position: "absolute", top: 12, right: 12, zIndex: 50,
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(10,15,30,0.85)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            color: "#E2E8F0", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.15s, border-color 0.15s",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.8)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.4)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(10,15,30,0.85)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.14)"; }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
 
-          <div style={{
-            display: "flex", flexDirection: "column", alignItems: "center",
-            justifyContent: "center", height: "100%", gap: 22, padding: "0 36px",
-            textAlign: "center",
-          }}>
-            {/* Timeline bars */}
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
-              {TIMELINE_BARS.map((h, i) => (
-                <div key={i} style={{
-                  width: 4, borderRadius: 2,
-                  background: "linear-gradient(to top,rgba(14,165,160,0.5),#22D3EE)",
-                  height: `${h * 100}%`,
-                  animation: `cvBar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
-                  animationDelay: `${(i * 0.07).toFixed(2)}s`,
-                  boxShadow: "0 0 6px rgba(34,211,238,0.3)",
-                }} />
-              ))}
-            </div>
+        {/* ── Generating / polling state ──────────────────────────────────── */}
+        {isGenerating && (
+          <>
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 3,
+              background: "linear-gradient(90deg,transparent 0%,rgba(34,211,238,0.35) 40%,rgba(34,211,238,0.6) 50%,rgba(34,211,238,0.35) 60%,transparent 100%)",
+              animation: "cpSweep 2.4s ease-in-out infinite",
+            }} />
 
-            {/* Stage message */}
-            <div>
-              <div key={stage.label} style={{
-                fontSize: 18, fontWeight: 700, color: T.textPrimary,
-                marginBottom: 6, letterSpacing: "-0.01em",
-              }}>
-                {stage.label}
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", height: "100%", gap: 22, padding: "0 36px 48px",
+              textAlign: "center",
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
+                {TIMELINE_BARS.map((h, i) => (
+                  <div key={i} style={{
+                    width: 4, borderRadius: 2,
+                    background: "linear-gradient(to top,rgba(14,165,160,0.5),#22D3EE)",
+                    height: `${h * 100}%`,
+                    animation: `cvBar ${0.8 + (i % 4) * 0.15}s ease-in-out infinite alternate`,
+                    animationDelay: `${(i * 0.07).toFixed(2)}s`,
+                    boxShadow: "0 0 6px rgba(34,211,238,0.3)",
+                  }} />
+                ))}
               </div>
-              <div style={{ fontSize: 13, color: "#4E6275" }}>{stage.sub}</div>
+
+              <div>
+                <div key={stage.label} style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, marginBottom: 6, letterSpacing: "-0.01em" }}>
+                  {stage.label}
+                </div>
+                <div style={{ fontSize: 13, color: "#4E6275" }}>{stage.sub}</div>
+              </div>
+
+              {video.prompt && (
+                <div style={{
+                  maxWidth: 340, fontSize: 12, color: "#3A4F62", lineHeight: 1.6, fontStyle: "italic",
+                  display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                }}>
+                  &ldquo;{video.prompt}&rdquo;
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+                <div style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(14,165,160,0.1)", border: "1px solid rgba(34,211,238,0.2)", fontSize: 11, fontWeight: 600, color: "#22D3EE" }}>{video.modelName}</div>
+                <div style={{ padding: "3px 9px", borderRadius: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", fontSize: 11, fontWeight: 600, color: "#64748B" }}>{video.duration}s · {video.aspectRatio}</div>
+              </div>
+
+              <div style={{ width: 200, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: "45%", borderRadius: 2, background: "linear-gradient(90deg,transparent,rgba(34,211,238,0.8),transparent)", animation: "cvShimmer 1.8s ease-in-out infinite" }} />
+              </div>
             </div>
 
-            {/* Prompt preview */}
-            {video.prompt && (
-              <div style={{
-                maxWidth: 340, fontSize: 12, color: "#3A4F62",
-                lineHeight: 1.6, fontStyle: "italic",
-                display: "-webkit-box",
-                WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-              }}>
-                &ldquo;{video.prompt}&rdquo;
+            {/* Cancel button — only when task can be cancelled */}
+            {canCancel && (
+              <div style={{ position: "absolute", bottom: 14, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
+                <button
+                  onClick={handleCancel}
+                  style={{
+                    padding: "6px 18px", borderRadius: 20,
+                    background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)",
+                    color: "#F87171", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.22)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)"; }}
+                >
+                  Cancel generation
+                </button>
               </div>
             )}
 
-            {/* Badges */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-              <div style={{
-                padding: "3px 9px", borderRadius: 6,
-                background: "rgba(14,165,160,0.1)", border: "1px solid rgba(34,211,238,0.2)",
-                fontSize: 11, fontWeight: 600, color: "#22D3EE",
-              }}>{video.modelName}</div>
-              <div style={{
-                padding: "3px 9px", borderRadius: 6,
-                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-                fontSize: 11, fontWeight: 600, color: "#64748B",
-              }}>{video.duration}s · {video.aspectRatio}</div>
+            <div style={{
+              position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
+              background: "linear-gradient(90deg,transparent 0%,rgba(14,165,160,0.25) 40%,rgba(14,165,160,0.45) 50%,rgba(14,165,160,0.25) 60%,transparent 100%)",
+              animation: "cpSweep 2.4s ease-in-out infinite", animationDirection: "reverse",
+            }} />
+            <style>{`@keyframes cpSweep{0%{backgroundPosition:-200% 0}100%{backgroundPosition:200% 0}}`}</style>
+          </>
+        )}
+
+        {/* ── Done state — cinematic player ───────────────────────────────── */}
+        {isDone && (
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+
+            <video
+              ref={videoRef}
+              src={video.url!}
+              loop playsInline
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "#000" }}
+            />
+
+            {/* READY badge — top-left */}
+            <div style={{
+              position: "absolute", top: 12, left: 12,
+              padding: "3px 10px", borderRadius: 5,
+              background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)",
+              fontSize: 10, fontWeight: 800, color: "#34D399", letterSpacing: "0.06em",
+            }}>
+              READY
             </div>
 
-            {/* Shimmer progress track */}
-            <div style={{ width: 200, height: 2, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{
-                height: "100%", width: "45%", borderRadius: 2,
-                background: "linear-gradient(90deg,transparent,rgba(34,211,238,0.8),transparent)",
-                animation: "cvShimmer 1.8s ease-in-out infinite",
-              }} />
-            </div>
-          </div>
-
-          {/* Bottom sweep */}
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: 3,
-            background: "linear-gradient(90deg,transparent 0%,rgba(14,165,160,0.25) 40%,rgba(14,165,160,0.45) 50%,rgba(14,165,160,0.25) 60%,transparent 100%)",
-            animation: "cpSweep 2.4s ease-in-out infinite",
-            animationDirection: "reverse",
-          }} />
-          <style>{`@keyframes cpSweep{0%{backgroundPosition:-200% 0}100%{backgroundPosition:200% 0}}`}</style>
-        </>
-      )}
-
-      {/* ── Done state — playable video ────────────────────────────────────── */}
-      {isDone && (
-        <div style={{ position: "relative", width: "100%", height: "100%" }}>
-          <video
-            ref={videoRef}
-            src={video.url!}
-            loop playsInline
-            style={{
-              width: "100%", height: "100%", objectFit: "contain",
-              display: "block", background: "#000",
-            }}
-          />
-
-          {/* Bottom gradient info bar */}
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, right: 0,
-            background: "linear-gradient(to top,rgba(2,6,23,0.88) 0%,transparent 100%)",
-            padding: "40px 16px 14px",
-            display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12,
-          }}>
-            <div style={{ minWidth: 0 }}>
-              {video.prompt && (
-                <div style={{
-                  fontSize: 12, color: "#94A3B8", marginBottom: 5,
-                  display: "-webkit-box", WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical", overflow: "hidden",
-                }}>
-                  {video.prompt}
+            {/* Bottom gradient + control bar */}
+            <div style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              background: "linear-gradient(to top,rgba(2,6,23,0.94) 0%,rgba(2,6,23,0.55) 60%,transparent 100%)",
+              padding: "40px 12px 10px",
+            }}>
+              {/* Prompt + meta row */}
+              <div style={{ marginBottom: 8, paddingLeft: 4 }}>
+                {video.prompt && (
+                  <div style={{
+                    fontSize: 11, color: "#64748B", lineHeight: 1.5, marginBottom: 3,
+                    display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden",
+                  }}>
+                    {video.prompt}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "#22D3EE", fontWeight: 600 }}>{video.modelName}</span>
+                  <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                  <span style={{ fontSize: 11, color: "#4E6275" }}>{video.duration}s · {video.aspectRatio}</span>
+                  <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
+                  <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    {video.creditsUsed}
+                  </span>
                 </div>
-              )}
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, color: "#22D3EE", fontWeight: 600 }}>{video.modelName}</span>
-                <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
-                <span style={{ fontSize: 11, color: "#4E6275" }}>{video.duration}s</span>
-                <span style={{ fontSize: 11, color: "#2D3A4A" }}>·</span>
-                <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600, display: "flex", alignItems: "center", gap: 2 }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                  </svg>
-                  {video.creditsUsed}
-                </span>
               </div>
-            </div>
 
-            {/* Fullscreen button */}
-            <button
-              onClick={() => onFullscreen?.(video)}
-              title="Open fullscreen"
-              style={{
-                flexShrink: 0,
-                width: 36, height: 36, borderRadius: 8,
-                background: "rgba(14,165,160,0.15)", border: "1px solid rgba(34,211,238,0.3)",
-                color: "#22D3EE", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.3)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.15)"; }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-                <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-                <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-                <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-              </svg>
-            </button>
+              {/* Control bar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+
+                {/* ── LEFT: Play/Pause + Volume ── */}
+                <CtrlBtn title={playing ? "Pause" : "Play"} onClick={togglePlay}>
+                  {playing
+                    ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>
+                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  }
+                </CtrlBtn>
+
+                {/* Volume area — hover reveals slider */}
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 5 }}
+                  onMouseEnter={handleVolEnter}
+                  onMouseLeave={handleVolLeave}
+                >
+                  <CtrlBtn title={muted ? "Unmute" : "Mute"} onClick={() => setMuted(m => !m)}>
+                    {volIcon}
+                  </CtrlBtn>
+                  <div style={{
+                    width: showVolSlider ? 60 : 0,
+                    overflow: "hidden",
+                    transition: "width 0.22s ease",
+                  }}>
+                    <input
+                      type="range"
+                      min={0} max={1} step={0.05}
+                      value={muted ? 0 : vol}
+                      onChange={e => { setVol(Number(e.target.value)); setMuted(false); }}
+                      style={{
+                        width: 60, height: 3, cursor: "pointer",
+                        accentColor: "#0EA5A0",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* ── SPACER ── */}
+                <div style={{ flex: 1 }} />
+
+                {/* ── RIGHT: Frame injection ── */}
+                {onSetStartFrame && (
+                  <button
+                    onClick={onSetStartFrame}
+                    title="Use as Start Frame"
+                    style={{
+                      height: 26, padding: "0 9px", borderRadius: 4,
+                      background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.22)",
+                      color: "#22D3EE", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      letterSpacing: "0.03em", whiteSpace: "nowrap",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.18)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.08)"; }}
+                  >
+                    ↑ START
+                  </button>
+                )}
+                {onSetEndFrame && (
+                  <button
+                    onClick={onSetEndFrame}
+                    title="Use as End Frame"
+                    style={{
+                      height: 26, padding: "0 9px", borderRadius: 4,
+                      background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.22)",
+                      color: "#A78BFA", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      letterSpacing: "0.03em", whiteSpace: "nowrap",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.08)"; }}
+                  >
+                    ↑ END
+                  </button>
+                )}
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
+
+                {/* Favourite */}
+                <button
+                  onClick={handleFavourite}
+                  title={isFavorite ? "Remove from favourites" : "Add to favourites"}
+                  style={{
+                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                    background: isFavorite ? "rgba(239,68,68,0.16)" : "rgba(255,255,255,0.06)",
+                    border: isFavorite ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(255,255,255,0.1)",
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transform: favPulse ? "scale(1.3)" : "scale(1)",
+                    transition: "transform 0.2s ease, background 0.15s",
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24"
+                    fill={isFavorite ? "#EF4444" : "none"}
+                    stroke={isFavorite ? "#EF4444" : "#94A3B8"}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </button>
+
+                {/* Copy Prompt */}
+                <CtrlBtn title={promptCopied ? "Copied!" : "Copy prompt"} onClick={handleCopyPrompt} active={promptCopied}>
+                  {promptCopied
+                    ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  }
+                </CtrlBtn>
+
+                {/* Download */}
+                <CtrlBtn title="Download video" onClick={handleDownload}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </CtrlBtn>
+
+                {/* Fullscreen */}
+                <CtrlBtn title="Open fullscreen" onClick={() => onFullscreen?.(video)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                </CtrlBtn>
+
+                {/* Delete */}
+                <CtrlBtn title="Delete video" danger onClick={() => setShowDeleteModal(true)}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </CtrlBtn>
+
+              </div>{/* /control bar */}
+            </div>{/* /bottom gradient */}
           </div>
+        )}
 
-          {/* Ready badge top-left */}
+        {/* ── Error state ─────────────────────────────────────────────────── */}
+        {isError && (
           <div style={{
-            position: "absolute", top: 12, left: 12,
-            padding: "3px 10px", borderRadius: 5,
-            background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)",
-            fontSize: 10, fontWeight: 800, color: "#34D399", letterSpacing: "0.06em",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", height: "100%", gap: 14,
+            padding: "0 36px", textAlign: "center",
           }}>
-            READY
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#F87171" }}>Generation failed</div>
+            <div style={{ fontSize: 13, color: "#4E6275", lineHeight: 1.5 }}>{video.error ?? "Please try again"}</div>
           </div>
-        </div>
-      )}
-
-      {/* ── Error state ────────────────────────────────────────────────────── */}
-      {isError && (
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", height: "100%", gap: 14,
-          padding: "0 36px", textAlign: "center",
-        }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
-            stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#F87171" }}>Generation failed</div>
-          <div style={{ fontSize: 13, color: "#4E6275", lineHeight: 1.5 }}>{video.error ?? "Please try again"}</div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -1182,11 +1419,20 @@ interface Props {
   mascotSamplePrompt?:string;
   // ── Canvas Preview (Layer 1) ──────────────────────────────────────────────
   /** When set, shows a canvas-level generating/playback overlay above everything */
-  previewVideo?:       GeneratedVideo | null;
+  previewVideo?:          GeneratedVideo | null;
   /** Clear the canvas preview (called by close button with slide-down animation) */
-  onClosePreview?:     () => void;
+  onClosePreview?:        () => void;
   /** Open fullscreen viewer from the canvas preview "expand" button */
-  onOpenFullscreen?:   (v: GeneratedVideo) => void;
+  onOpenFullscreen?:      (v: GeneratedVideo) => void;
+  // ── Cinematic player callbacks ─────────────────────────────────────────────
+  previewIsFavorite?:     boolean;
+  onPreviewFavToggle?:    () => void;
+  onPreviewDownload?:     () => void;
+  onPreviewCopyPrompt?:   () => void;
+  onPreviewDelete?:       () => void;
+  onPreviewCancel?:       () => void;
+  onPreviewSetStartFrame?:() => void;
+  onPreviewSetEndFrame?:  () => void;
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
@@ -1200,6 +1446,14 @@ export default function VideoCanvas({
   onLipSyncFaceFile, onLipSyncAudioFile,
   onMascotUpload, onSamplePrompt, mascotSamplePrompt,
   previewVideo, onClosePreview, onOpenFullscreen,
+  previewIsFavorite,
+  onPreviewFavToggle,
+  onPreviewDownload,
+  onPreviewCopyPrompt,
+  onPreviewDelete,
+  onPreviewCancel,
+  onPreviewSetStartFrame,
+  onPreviewSetEndFrame,
 }: Props) {
 
   // Hidden file input for mascot Upload Image button
@@ -1558,8 +1812,16 @@ export default function VideoCanvas({
         {previewVideo && (
           <CanvasVideoPreview
             video={previewVideo}
+            isFavorite={previewIsFavorite}
             onClose={onClosePreview}
             onFullscreen={onOpenFullscreen}
+            onFavoriteToggle={onPreviewFavToggle}
+            onDownload={onPreviewDownload}
+            onCopyPrompt={onPreviewCopyPrompt}
+            onDelete={onPreviewDelete}
+            onCancel={onPreviewCancel}
+            onSetStartFrame={onPreviewSetStartFrame}
+            onSetEndFrame={onPreviewSetEndFrame}
           />
         )}
       </div>
