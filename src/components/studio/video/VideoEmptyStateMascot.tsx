@@ -5,16 +5,12 @@ import { useState, useEffect, useRef } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 // VideoEmptyStateMascot — Canvas empty state with 3-video model showcase
 //
-// Motion system:
-//   • Crossfade: previewKey change → 160ms fade-out → swap → 160ms fade-in
-//   • Breathing: 6s group loop (translateY –3px, scale 1.006) — feels alive
-//   • Per-card float: 7–8s independent loops (tiny Y + micro rotation)
-//   • Hover parallax: cards shift outward/inward on showcase hover
-//
 // Layout:
-//   • PREVIEW_HEIGHT = 240 — all 3 cards share this plane
-//   • Aspect ratio lives inside the video element, not the container
-//   • 9:16 left-front | 16:9 center-hero | 1:1 right-front
+//   • Center 16:9 card is the background (z-index 1)
+//   • 9:16 card overlaps ON TOP of the center card's left side (z-index 3)
+//   • 1:1 card overlaps ON TOP of the center card's right side (z-index 3)
+//   • No breathing / floating / parallax — clean static stack
+//   • Model crossfade: opacity fade only on model switch
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Model preview config ──────────────────────────────────────────────────────
@@ -25,7 +21,7 @@ type ModelPreviewSet = {
   vertical?:   string;   // 9:16 MP4
   landscape?:  string;   // 16:9 MP4
   square?:     string;   // 1:1 MP4
-  comingSoon?: boolean;  // always show placeholder when true
+  comingSoon?: boolean;
 };
 
 const MODEL_PREVIEW_SETS: ModelPreviewSet[] = [
@@ -64,35 +60,46 @@ function getPreviewSet(key: string): ModelPreviewSet {
 }
 
 // ── Layout constants ──────────────────────────────────────────────────────────
-// STACK_HEIGHT  : outer container — extra room for breathing anim + card rotation
-// PREVIEW_HEIGHT: every card frame locks to this height (AR lives inside the video)
-// HALF_H        : used instead of transform: translateY(-50%) so float anims are free
-const STACK_HEIGHT   = 260;
-const PREVIEW_HEIGHT = 236;
-const HALF_H         = PREVIEW_HEIGHT / 2; // 118px — vertical centering via margin
+//
+// CENTER: 16:9 base card — the visual anchor
+// LEFT:   9:16 card     — sits on top of the center card's left portion
+// RIGHT:  1:1 card      — sits on top of the center card's right portion
+//
+// OVERHANG: how many px each side card extends past the center card edge.
+//           Both side cards use the same value for visual balance.
+
+const CENTER_W  = 540;   // 16:9 center card width
+const CENTER_H  = 290;   // 16:9 center card height
+const LEFT_W    = 143;   // 9:16 width  (= LEFT_H × 9/16)
+const LEFT_H    = 255;   // 9:16 height — shorter than center ✓
+const RIGHT_W   = 225;   // 1:1 square
+const RIGHT_H   = 225;   // 1:1 square — shorter than center ✓
+const OVERHANG  = 40;    // px each side card sticks past center edge
+
+// Derived horizontal positions (all relative to 50% = container center):
+//   Left  card left edge  : -(CENTER_W/2 + OVERHANG)  = -310px
+//   Right card left edge  : +(CENTER_W/2 + OVERHANG - RIGHT_W) = +85px
+
+const STACK_HEIGHT = CENTER_H + 30; // 320 — breathing room without wasted space
 
 // ── Single preview block ──────────────────────────────────────────────────────
-// Outer container: fixed height, clips to frame. AR lives in the video element.
-// "cover"  → 16:9 center — fills the frame
-// "9/16"   → vertical left — natural width, height-locked, edge-faded
-// "1/1"    → square right  — natural width, height-locked, edge-faded
 
 function PreviewBlock({
   src,
   label,
   width,
+  height,
   innerAspect = "cover",
   comingSoon,
   extraStyle,
-  innerGlow,
 }: {
   src?:         string;
   label:        string;
   width:        number;
+  height:       number;
   innerAspect?: "cover" | "9/16" | "1/1";
   comingSoon?:  boolean;
   extraStyle?:  React.CSSProperties;
-  innerGlow?:   boolean;
 }) {
   const hasSrc = !!src && !comingSoon;
   const isSide = innerAspect !== "cover";
@@ -101,19 +108,12 @@ function PreviewBlock({
     ? { height: "100%", width: "auto", aspectRatio: innerAspect, objectFit: "cover", display: "block", flexShrink: 0 }
     : { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 
-  // Soft edge fade — same stops on both prefixed versions
-  const sideMask: React.CSSProperties = isSide ? {
-    WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
-    maskImage:       "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
-  } : {};
-
   return (
     <div
       style={{
         width,
-        height:         PREVIEW_HEIGHT,
+        height,
         background:     "#070F1A",
-        border:         "1px solid rgba(45,212,191,0.16)",
         borderRadius:   0,
         overflow:       "hidden",
         flexShrink:     0,
@@ -121,11 +121,6 @@ function PreviewBlock({
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
-        boxShadow: [
-          "0 0 0 1px rgba(14,165,160,0.06)",
-          "0 8px 32px rgba(0,0,0,0.55)",
-        ].join(", "),
-        ...sideMask,
         ...extraStyle,
       }}
     >
@@ -136,7 +131,7 @@ function PreviewBlock({
           style={videoStyle}
         />
       ) : (
-        // Graceful placeholder — participates in all animations, never broken
+        // Graceful placeholder — same dimensions, never broken
         <div style={{
           width: "100%", height: "100%",
           display: "flex", flexDirection: "column",
@@ -168,165 +163,93 @@ function PreviewBlock({
           )}
         </div>
       )}
-      {/* Inner light — simulates light hitting glass from above (center hero only) */}
-      {innerGlow && (
-        <div style={{
-          position:      "absolute",
-          inset:         0,
-          background:    "linear-gradient(to bottom, rgba(255,255,255,0.045), transparent 38%)",
-          pointerEvents: "none",
-          zIndex:        1,
-        }} />
-      )}
     </div>
   );
 }
 
 // ── ShowcaseCards ─────────────────────────────────────────────────────────────
-// Absolute-positioned 3-card cinematic stack.
+// Static 3-card overlap stack.
 //
-// Key layout decisions:
-//   • `position: relative` container — float wrappers are absolute children
-//   • Vertical centering via `marginTop: -HALF_H` (not transform) so the float
-//     animation's transform property is completely free with no overrides
-//   • Horizontal positioning via `left` + `marginLeft` for the same reason
-//   • zIndex on positioned (absolute) elements — fully deterministic stacking
-//   • Side cards sit BEHIND center by design; rotation + scale reinforce depth
+// Stacking order:
+//   z-index 1 — Center 16:9  (background anchor)
+//   z-index 3 — Left  9:16   (on top of center's left edge)
+//   z-index 3 — Right 1:1    (on top of center's right edge)
 //
-// Card positions (relative to container centre):
-//   Left  — left: calc(50% - 260px),  width 160px  →  right edge at (50% - 100px)
-//   Center — left: 50%, marginLeft: -210px, width 420px  →  centered exactly
-//   Right — left: calc(50% + 120px), width 200px  →  left edge at (50% + 120px)
-//
-// Center card right edge (50% + 210px) > Right card left edge (50% + 120px):
-//   90px of overlap → right card peeks from behind center ✓
-// Center card left edge (50% - 210px) < Left card right edge (50% - 100px):
-//   110px of overlap → left card peeks from behind center ✓
+// Positioning:
+//   Center  left: 50%,              marginLeft: -(CENTER_W/2)   → perfectly centered
+//   Left    left: calc(50% - 310px)                              → 40px past center left edge
+//   Right   left: calc(50% + 85px)                              → 40px past center right edge
 
-function ShowcaseCards({
-  preview,
-  hovered,
-}: {
-  preview: ModelPreviewSet;
-  hovered: boolean;
-}) {
+function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
+  const leftPos  = `calc(50% - ${CENTER_W / 2 + OVERHANG}px)`;          // calc(50% - 310px)
+  const rightPos = `calc(50% + ${CENTER_W / 2 + OVERHANG - RIGHT_W}px)`; // calc(50% + 85px)
+
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%", perspective: "1200px" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
 
-      {/* ── Left: 9:16 vertical ──────────────────────────────────────────────────
-           Positioned so ~120px is visible to the left of center, ~35px behind.
-           left: calc(50% - 330px) → right edge at calc(50% - 175px).
-           Center left edge: calc(50% - 210px).
-           Overlap: (50%−175px) − (50%−210px) = 35px tucked under center. ── */}
+      {/* ── Center: 16:9 landscape — base anchor card ───────────────────────── */}
       <div style={{
-        position:  "absolute",
-        left:      "calc(50% - 330px)",
-        top:       "50%",
-        marginTop: -HALF_H,
-        animation: "previewFloatLeft 7s ease-in-out infinite",
-        zIndex:    2,
-        opacity:   0.78,
+        position:   "absolute",
+        left:       "50%",
+        marginLeft: -(CENTER_W / 2),
+        top:        "50%",
+        marginTop:  -(CENTER_H / 2),
+        zIndex:     1,
       }}>
         <PreviewBlock
-          src={preview.vertical}
+          src={preview.landscape}
           label={preview.label}
-          width={155}
-          innerAspect="9/16"
+          width={CENTER_W}
+          height={CENTER_H}
+          innerAspect="cover"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform:       hovered
-              ? "rotate(-8.5deg) scale(0.93)"
-              : "rotate(-8deg)   scale(0.92)",
-            transition:      "transform var(--zen-base) var(--zen-ease)",
-            transformOrigin: "center center",
-            filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
-            border:          "1px solid rgba(45,212,191,0.12)",
-            boxShadow:       "-4px 8px 32px rgba(0,0,0,0.70), 0 0 30px rgba(0,255,200,0.08)",
+            border:    "1px solid rgba(45,212,191,0.22)",
+            boxShadow: "0 4px 28px rgba(0,0,0,0.65)",
           }}
         />
       </div>
 
-      {/* ── Center: 16:9 landscape — hero, dominant ──────────────────────────── */}
-      <div style={{
-        position:   "absolute",
-        left:       "50%",
-        marginLeft: -210,
-        top:        "50%",
-        marginTop:  -HALF_H,
-        animation:  "previewFloatCenter 8s ease-in-out infinite",
-        zIndex:     3,
-      }}>
-        <div style={{ position: "relative" }}>
-          {/* Edge glow accent — bleeds past the border, creates luminous rim */}
-          <div style={{
-            position:      "absolute",
-            inset:         -1,
-            background:    "linear-gradient(90deg, rgba(45,212,191,0.20), transparent 40%, rgba(45,212,191,0.20))",
-            opacity:       0.65,
-            filter:        "blur(6px)",
-            borderRadius:  2,
-            pointerEvents: "none",
-            zIndex:        -1,
-          }} />
-          <PreviewBlock
-            src={preview.landscape}
-            label={preview.label}
-            width={420}
-            innerAspect="cover"
-            comingSoon={preview.comingSoon}
-            innerGlow
-            extraStyle={{
-              transform:  hovered ? "translateY(-2px)" : "translateY(0)",
-              transition: "transform var(--zen-base) var(--zen-ease)",
-              filter:     "brightness(1.04) contrast(1.04)",
-              border:     "1px solid rgba(45,212,191,0.35)",
-              boxShadow:  "0 0 0 1px rgba(0,255,200,0.08), 0 0 60px rgba(0,255,200,0.18), 0 18px 52px rgba(0,0,0,0.70)",
-            }}
-          />
-          {/* Floor reflection — soft glow pooling beneath the hero card */}
-          <div style={{
-            position:      "absolute",
-            left:          "50%",
-            top:           "100%",
-            transform:     "translateX(-50%)",
-            width:         380,
-            height:        80,
-            background:    "radial-gradient(ellipse at center, rgba(0,255,200,0.12), transparent 70%)",
-            filter:        "blur(16px)",
-            opacity:       0.4,
-            pointerEvents: "none",
-          }} />
-        </div>
-      </div>
-
-      {/* ── Right: 1:1 square ────────────────────────────────────────────────────
-           left: calc(50% + 155px) → right edge at calc(50% + 350px).
-           Center right edge: calc(50% + 210px).
-           Overlap: (50%+210px) − (50%+155px) = 55px tucked under center. ── */}
+      {/* ── Left: 9:16 vertical — on top of center card's left side ─────────── */}
       <div style={{
         position:  "absolute",
-        left:      "calc(50% + 155px)",
+        left:      leftPos,
         top:       "50%",
-        marginTop: -HALF_H,
-        animation: "previewFloatRight 7.5s ease-in-out infinite",
-        zIndex:    2,
-        opacity:   0.78,
+        marginTop: -(LEFT_H / 2),
+        zIndex:    3,
+      }}>
+        <PreviewBlock
+          src={preview.vertical}
+          label={preview.label}
+          width={LEFT_W}
+          height={LEFT_H}
+          innerAspect="9/16"
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            border:    "1px solid #000000",
+            boxShadow: "2px 0 16px rgba(0,0,0,0.75)",
+          }}
+        />
+      </div>
+
+      {/* ── Right: 1:1 square — on top of center card's right side ──────────── */}
+      <div style={{
+        position:  "absolute",
+        left:      rightPos,
+        top:       "50%",
+        marginTop: -(RIGHT_H / 2),
+        zIndex:    3,
       }}>
         <PreviewBlock
           src={preview.square}
           label={preview.label}
-          width={195}
+          width={RIGHT_W}
+          height={RIGHT_H}
           innerAspect="1/1"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform:       hovered
-              ? "rotate(8.5deg) scale(0.95)"
-              : "rotate(8deg)   scale(0.92)",
-            transition:      "transform var(--zen-base) var(--zen-ease)",
-            transformOrigin: "center center",
-            filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
-            border:          "1px solid rgba(45,212,191,0.12)",
-            boxShadow:       "4px 8px 32px rgba(0,0,0,0.70), 0 0 30px rgba(0,255,200,0.08)",
+            border:    "1px solid #000000",
+            boxShadow: "-2px 0 16px rgba(0,0,0,0.75)",
           }}
         />
       </div>
@@ -371,7 +294,6 @@ export default function VideoEmptyStateMascot({
     }
 
     // Guard: same key — ensure showcase is fully visible.
-    // This also recovers from an interrupted fade-out (opacity may be 0).
     if (newKey === displayKey) {
       setFadeOpacity(1);
       return;
@@ -380,7 +302,7 @@ export default function VideoEmptyStateMascot({
     // Step 1 — fade out (CSS transition: 160ms)
     setFadeOpacity(0);
 
-    // Step 2 — at 165ms the fade-out has completed; swap content and fade back in
+    // Step 2 — at 165ms swap content and fade back in
     crossfadeTimer.current = setTimeout(() => {
       setDisplayKey(newKey);
       setFadeOpacity(1);
@@ -394,9 +316,6 @@ export default function VideoEmptyStateMascot({
       }
     };
   }, [previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Parallax hover state ─────────────────────────────────────────────────────
-  const [showcaseHovered, setShowcaseHovered] = useState(false);
 
   const preview = getPreviewSet(displayKey);
 
@@ -415,74 +334,30 @@ export default function VideoEmptyStateMascot({
       }}
     >
 
-      {/* ── CSS keyframes ─────────────────────────────────────────────────────── */}
-      <style>{`
-        /* Per-card float — each card drifts on its own cycle */
-        @keyframes previewFloatLeft {
-          0%, 100% { transform: translateY(0);                          }
-          40%      { transform: translateY(-2px)   rotate(-0.25deg);    }
-          70%      { transform: translateY(1.5px);                      }
-        }
-        @keyframes previewFloatCenter {
-          0%, 100% { transform: translateY(0);                          }
-          35%      { transform: translateY(-3px)   scale(1.003);        }
-          65%      { transform: translateY(1px);                        }
-        }
-        @keyframes previewFloatRight {
-          0%, 100% { transform: translateY(0);                          }
-          45%      { transform: translateY(-2.5px) rotate(0.25deg);     }
-          75%      { transform: translateY(1px);                        }
-        }
-      `}</style>
-
       {/* ── 3-video preview showcase ──────────────────────────────────────────── */}
       <div style={{
         position:     "relative",
         width:        "100%",
-        height:       STACK_HEIGHT,   // taller than PREVIEW_HEIGHT — breathing room
+        height:       STACK_HEIGHT,
         marginTop:    10,
         marginBottom: 5,
         flexShrink:   0,
-        overflow:     "visible",      // rotated + scaled cards may spill; that's intentional
+        overflow:     "visible",
       }}>
 
-        {/* Breathing wrapper — group motion, also owns the hover zone */}
-        <div
-          className="zen-breathe"
-          style={{ width: "100%", height: "100%" }}
-          onMouseEnter={() => setShowcaseHovered(true)}
-          onMouseLeave={() => setShowcaseHovered(false)}
-        >
-          {/* Global light field — ambient center glow, makes cards feel lit not void-floated */}
-          <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <div style={{
-              position:   "absolute",
-              left:       "50%",
-              top:        "45%",
-              transform:  "translate(-50%, -50%)",
-              width:      720,
-              height:     360,
-              background: "radial-gradient(ellipse at center, rgba(0,255,200,0.12), transparent 70%)",
-              filter:     "blur(32px)",
-              opacity:    0.7,
-            }} />
-          </div>
-
-          {/* Crossfade wrapper — opacity transitions on previewKey change */}
-          <div style={{
-            opacity:    fadeOpacity,
-            transition: "opacity var(--zen-fast) var(--zen-ease)",
-            width:      "100%",
-            height:     "100%",
-            filter:     "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
-          }}>
-            <ShowcaseCards preview={preview} hovered={showcaseHovered} />
-          </div>
+        {/* Crossfade wrapper — opacity transitions on previewKey change only */}
+        <div style={{
+          opacity:    fadeOpacity,
+          transition: "opacity var(--zen-fast) var(--zen-ease)",
+          width:      "100%",
+          height:     "100%",
+        }}>
+          <ShowcaseCards preview={preview} />
         </div>
 
       </div>
 
-      {/* ── Model label strip — follows displayKey, crossfades with showcase ──── */}
+      {/* ── Model label strip ─────────────────────────────────────────────────── */}
       <div style={{
         opacity:       fadeOpacity,
         transition:    "opacity 160ms ease",
