@@ -98,15 +98,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${syne.variable} ${neueMontreal.variable}`} suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       {/*
         suppressHydrationWarning is REQUIRED for next-themes to work correctly.
         It suppresses the mismatch warning caused by theme injection on mount.
-        Font variables are on <html> so --font-display and --font-sans are
-        available at the root before <body> is parsed — fixes var() resolution
-        for globals.css base rules (h1/h2/h3) and Tailwind font-display utility.
       */}
-      <body className="font-sans antialiased" suppressHydrationWarning>
+      <body className={`${syne.variable} ${neueMontreal.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
             {/* Main site wrapper */}

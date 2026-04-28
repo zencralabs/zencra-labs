@@ -375,9 +375,8 @@ export default function VideoEmptyStateMascot({
 
       {/* ── Headline ──────────────────────────────────────────────────────────── */}
       <h2
-        className="text-[30px] font-semibold tracking-[-0.02em] font-display"
+        className="zencra-display-heading text-[30px] font-semibold tracking-[-0.02em]"
         style={{
-          fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
           color:      "#F1F5F9",
           margin:     "0 0 12px",
           lineHeight: 1.15,

@@ -199,6 +199,11 @@
    ─────────────────────────────────────────────────────────────────────────── */
 
 @layer utilities {
+  /* ── Zencra display heading — force Syne regardless of cascade ──────────── */
+  .zencra-display-heading {
+    font-family: var(--font-display), Syne, system-ui, sans-serif !important;
+  }
+
   /* Gradient text – used for hero headings */
   .text-gradient {
     background: var(--gradient-primary);
