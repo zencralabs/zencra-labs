@@ -81,41 +81,65 @@ function getPreviewSet(key: string): ModelPreviewSet {
   );
 }
 
+// ── Shared preview height — all three cards lock to this plane ────────────────
+const PREVIEW_HEIGHT = 220;
+
 // ── Single preview block ──────────────────────────────────────────────────────
-// Renders a video when src is available; otherwise a styled placeholder.
+// All blocks share PREVIEW_HEIGHT. The outer container clips; the inner
+// video respects its own aspect ratio so the layout stays cinematic.
+// "cover"   → 16:9 center — video fills the entire frame
+// "9/16"    → vertical left  — video is natural width, height-locked
+// "1/1"     → square right   — video is natural width, height-locked
 
 function PreviewBlock({
   src,
   label,
   width,
-  height,
+  innerAspect = "cover",
   comingSoon,
   extraStyle,
 }: {
   src?:        string;
   label:       string;
   width:       number;
-  height:      number;
+  /** Determines how the inner video/placeholder is sized inside the fixed-height frame */
+  innerAspect?: "cover" | "9/16" | "1/1";
   comingSoon?: boolean;
   extraStyle?: React.CSSProperties;
 }) {
-  const hasSrc = !!src && !comingSoon;
+  const hasSrc  = !!src && !comingSoon;
+  const isSide  = innerAspect !== "cover";
+
+  // Video element styles — aspect ratio lives here, NOT on the outer container
+  const videoStyle: React.CSSProperties = isSide
+    ? { height: "100%", width: "auto", aspectRatio: innerAspect, objectFit: "cover", display: "block", flexShrink: 0 }
+    : { width: "100%", height: "100%", objectFit: "cover", display: "block" };
+
+  // Soft edge fade for side cards — prevents harsh cropping where video meets container edge
+  const sideMask = isSide ? {
+    WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+    maskImage:       "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+  } : {};
 
   return (
     <div
       style={{
         width,
-        height,
-        background:   "#070F1A",
-        border:       "1px solid rgba(45,212,191,0.16)",
-        borderRadius: 0,
-        overflow:     "hidden",
-        flexShrink:   0,
-        position:     "relative",
+        height:         PREVIEW_HEIGHT,
+        background:     "#070F1A",
+        border:         "1px solid rgba(45,212,191,0.16)",
+        borderRadius:   0,
+        overflow:       "hidden",
+        flexShrink:     0,
+        position:       "relative",
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
         boxShadow: [
           "0 0 0 1px rgba(14,165,160,0.06)",
           "0 8px 32px rgba(0,0,0,0.55)",
         ].join(", "),
+        ...sideMask,
         ...extraStyle,
       }}
     >
@@ -123,7 +147,7 @@ function PreviewBlock({
         <video
           src={src}
           autoPlay muted loop playsInline
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={videoStyle}
         />
       ) : (
         /* Graceful placeholder — same shape, no broken state */
@@ -198,30 +222,30 @@ export default function VideoEmptyStateMascot({
       }}
     >
       {/* ── 3-video preview showcase ──────────────────────────────────────────── */}
+      {/* All 3 cards share PREVIEW_HEIGHT — layout defines container, AR lives inside */}
       <div style={{
         position:        "relative",
         display:         "flex",
-        alignItems:      "flex-end",
+        alignItems:      "center",
         justifyContent:  "center",
         width:           "100%",
-        maxWidth:        560,
-        height:          220,
+        maxWidth:        600,
+        height:          PREVIEW_HEIGHT,
         marginBottom:    32,
         flexShrink:      0,
-        /* Glow behind the blocks */
         filter:          "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
       }}>
-        {/* 9:16 vertical — left front */}
+        {/* 9:16 vertical — left front (slightly cropped, natural width ~124px at 220px height) */}
         <PreviewBlock
           src={preview.vertical}
           label={preview.label}
-          width={78}
-          height={138}
+          width={110}
+          innerAspect="9/16"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            zIndex:    2,
-            transform: "rotate(-4deg) translateY(10px)",
-            marginRight: -12,
+            zIndex:      2,
+            transform:   "rotate(-8deg) scale(0.92)",
+            marginRight: -18,
             boxShadow: [
               "-4px 6px 28px rgba(0,0,0,0.65)",
               "0 0 16px rgba(14,165,160,0.10)",
@@ -229,16 +253,16 @@ export default function VideoEmptyStateMascot({
           }}
         />
 
-        {/* 16:9 landscape — center back */}
+        {/* 16:9 landscape — center back (dominant, full cover fill) */}
         <PreviewBlock
           src={preview.landscape}
           label={preview.label}
-          width={358}
-          height={201}
+          width={380}
+          innerAspect="cover"
           comingSoon={preview.comingSoon}
           extraStyle={{
             zIndex:    1,
-            transform: "scale(0.96)",
+            transform: "scale(1.08)",
             boxShadow: [
               "0 0 40px rgba(14,165,160,0.14)",
               "0 16px 48px rgba(0,0,0,0.65)",
@@ -246,17 +270,17 @@ export default function VideoEmptyStateMascot({
           }}
         />
 
-        {/* 1:1 square — right front */}
+        {/* 1:1 square — right front (natural width = 220px at 220px height, slightly cropped) */}
         <PreviewBlock
           src={preview.square}
           label={preview.label}
-          width={118}
-          height={118}
+          width={190}
+          innerAspect="1/1"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            zIndex:    2,
-            transform: "rotate(4deg) translateY(10px)",
-            marginLeft: -12,
+            zIndex:     2,
+            transform:  "rotate(8deg) scale(0.92)",
+            marginLeft: -18,
             boxShadow: [
               "4px 6px 28px rgba(0,0,0,0.65)",
               "0 0 16px rgba(14,165,160,0.10)",
