@@ -63,8 +63,13 @@ function getPreviewSet(key: string): ModelPreviewSet {
   );
 }
 
-// ── Shared preview height — all three cards lock to this plane ────────────────
+// ── Layout constants ──────────────────────────────────────────────────────────
+// STACK_HEIGHT  : outer container — extra room for breathing anim + card rotation
+// PREVIEW_HEIGHT: every card frame locks to this height (AR lives inside the video)
+// HALF_H        : used instead of transform: translateY(-50%) so float anims are free
+const STACK_HEIGHT   = 260;
 const PREVIEW_HEIGHT = 236;
+const HALF_H         = PREVIEW_HEIGHT / 2; // 118px — vertical centering via margin
 
 // ── Single preview block ──────────────────────────────────────────────────────
 // Outer container: fixed height, clips to frame. AR lives in the video element.
@@ -166,8 +171,25 @@ function PreviewBlock({
 }
 
 // ── ShowcaseCards ─────────────────────────────────────────────────────────────
-// Renders the 3-card layout for one preview set. Extracted so the crossfade
-// layer can reuse it without duplicating JSX. `hovered` drives parallax.
+// Absolute-positioned 3-card cinematic stack.
+//
+// Key layout decisions:
+//   • `position: relative` container — float wrappers are absolute children
+//   • Vertical centering via `marginTop: -HALF_H` (not transform) so the float
+//     animation's transform property is completely free with no overrides
+//   • Horizontal positioning via `left` + `marginLeft` for the same reason
+//   • zIndex on positioned (absolute) elements — fully deterministic stacking
+//   • Side cards sit BEHIND center by design; rotation + scale reinforce depth
+//
+// Card positions (relative to container centre):
+//   Left  — left: calc(50% - 260px),  width 160px  →  right edge at (50% - 100px)
+//   Center — left: 50%, marginLeft: -210px, width 420px  →  centered exactly
+//   Right — left: calc(50% + 120px), width 200px  →  left edge at (50% + 120px)
+//
+// Center card right edge (50% + 210px) > Right card left edge (50% + 120px):
+//   90px of overlap → right card peeks from behind center ✓
+// Center card left edge (50% - 210px) < Left card right edge (50% - 100px):
+//   110px of overlap → left card peeks from behind center ✓
 
 function ShowcaseCards({
   preview,
@@ -177,88 +199,84 @@ function ShowcaseCards({
   hovered: boolean;
 }) {
   return (
-    <div style={{
-      display:         "flex",
-      alignItems:      "center",
-      justifyContent:  "center",
-      width:           "100%",
-      height:          "100%",
-    }}>
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
 
-      {/* ── Left: 9:16 vertical ── float wrapper carries per-card animation */}
+      {/* ── Left: 9:16 vertical — peeks behind center-left ───────────────────── */}
       <div style={{
-        animation:   "previewFloatLeft 7s ease-in-out infinite",
-        flexShrink:  0,
-        zIndex:      2,         // flex-item z-index — stacks above sides
-        marginRight: -18,       // negative margin creates the overlap with center
+        position:  "absolute",
+        left:      "calc(50% - 260px)",
+        top:       "50%",
+        marginTop: -HALF_H,          // vertical center via margin — keeps transform free
+        animation: "previewFloatLeft 7s ease-in-out infinite",
+        zIndex:    2,
       }}>
         <PreviewBlock
           src={preview.vertical}
           label={preview.label}
-          width={110}
+          width={160}
           innerAspect="9/16"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform: hovered
-              ? "rotate(-8.5deg) scale(0.93) translate(-6px, -3px)"
-              : "rotate(-8deg)   scale(0.92) translateY(4px)",
-            transition: "transform 350ms ease",
-            filter:    "brightness(0.75) contrast(0.95)",
-            boxShadow: [
-              "-4px 6px 28px rgba(0,0,0,0.65)",
-              "0 0 16px rgba(14,165,160,0.10)",
-            ].join(", "),
+            transform:       hovered
+              ? "rotate(-8.5deg) scale(0.93)"
+              : "rotate(-8deg)   scale(0.92)",
+            transition:      "transform 350ms ease",
+            transformOrigin: "center center",
+            filter:          "brightness(0.72) contrast(0.95)",
+            boxShadow:       "-4px 6px 28px rgba(0,0,0,0.65), 0 0 16px rgba(14,165,160,0.10)",
           }}
         />
       </div>
 
-      {/* ── Center: 16:9 landscape — hero, dominant, pushed forward ── */}
+      {/* ── Center: 16:9 landscape — hero, dominant, z-highest ──────────────── */}
       <div style={{
+        position:   "absolute",
+        left:       "50%",
+        marginLeft: -210,            // -(420 / 2) — horizontal center via margin
+        top:        "50%",
+        marginTop:  -HALF_H,
         animation:  "previewFloatCenter 8s ease-in-out infinite",
-        flexShrink: 0,
-        zIndex:     3,          // highest z — center always on top
+        zIndex:     3,
       }}>
         <PreviewBlock
           src={preview.landscape}
           label={preview.label}
-          width={380}
+          width={420}
           innerAspect="cover"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform:  hovered ? "scale(1.14) translateY(-4px)" : "scale(1.12)",
+            transform:  hovered ? "scale(1.03) translateY(-4px)" : "scale(1.0)",
             transition: "transform 350ms ease",
             filter:     "brightness(1.05) contrast(1.05)",
-            boxShadow: [
-              "0 0 40px rgba(14,165,160,0.14)",
-              "0 16px 48px rgba(0,0,0,0.65)",
-            ].join(", "),
+            border:     "1px solid rgba(45,212,191,0.35)",
+            boxShadow:  "0 0 40px rgba(14,165,160,0.18), 0 16px 48px rgba(0,0,0,0.65)",
           }}
         />
       </div>
 
-      {/* ── Right: 1:1 square ── */}
+      {/* ── Right: 1:1 square — peeks behind center-right ────────────────────── */}
       <div style={{
-        animation:  "previewFloatRight 7.5s ease-in-out infinite",
-        flexShrink: 0,
-        zIndex:     2,
-        marginLeft: -18,
+        position:  "absolute",
+        left:      "calc(50% + 120px)",
+        top:       "50%",
+        marginTop: -HALF_H,
+        animation: "previewFloatRight 7.5s ease-in-out infinite",
+        zIndex:    2,
       }}>
         <PreviewBlock
           src={preview.square}
           label={preview.label}
-          width={190}
+          width={200}
           innerAspect="1/1"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform: hovered
-              ? "rotate(8.5deg) scale(0.95) translate(6px, -3px)"
-              : "rotate(8deg)   scale(0.92) translateY(2px)",
-            transition: "transform 350ms ease",
-            filter:    "brightness(0.75) contrast(0.95)",
-            boxShadow: [
-              "4px 6px 28px rgba(0,0,0,0.65)",
-              "0 0 16px rgba(14,165,160,0.10)",
-            ].join(", "),
+            transform:       hovered
+              ? "rotate(8.5deg) scale(0.95)"
+              : "rotate(8deg)  scale(0.92)",
+            transition:      "transform 350ms ease",
+            transformOrigin: "center center",
+            filter:          "brightness(0.72) contrast(0.95)",
+            boxShadow:       "4px 6px 28px rgba(0,0,0,0.65), 0 0 16px rgba(14,165,160,0.10)",
           }}
         />
       </div>
@@ -377,10 +395,10 @@ export default function VideoEmptyStateMascot({
       <div style={{
         position:     "relative",
         width:        "100%",
-        maxWidth:     600,
-        height:       PREVIEW_HEIGHT,
+        height:       STACK_HEIGHT,   // taller than PREVIEW_HEIGHT — breathing room
         marginBottom: 32,
         flexShrink:   0,
+        overflow:     "visible",      // rotated + scaled cards may spill; that's intentional
       }}>
 
         {/* Breathing wrapper — group motion, also owns the hover zone */}
