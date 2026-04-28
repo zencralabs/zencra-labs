@@ -84,6 +84,7 @@ function PreviewBlock({
   innerAspect = "cover",
   comingSoon,
   extraStyle,
+  innerGlow,
 }: {
   src?:         string;
   label:        string;
@@ -91,6 +92,7 @@ function PreviewBlock({
   innerAspect?: "cover" | "9/16" | "1/1";
   comingSoon?:  boolean;
   extraStyle?:  React.CSSProperties;
+  innerGlow?:   boolean;
 }) {
   const hasSrc = !!src && !comingSoon;
   const isSide = innerAspect !== "cover";
@@ -166,6 +168,16 @@ function PreviewBlock({
           )}
         </div>
       )}
+      {/* Inner light — simulates light hitting glass from above (center hero only) */}
+      {innerGlow && (
+        <div style={{
+          position:      "absolute",
+          inset:         0,
+          background:    "linear-gradient(to bottom, rgba(255,255,255,0.045), transparent 38%)",
+          pointerEvents: "none",
+          zIndex:        1,
+        }} />
+      )}
     </div>
   );
 }
@@ -199,7 +211,7 @@ function ShowcaseCards({
   hovered: boolean;
 }) {
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", perspective: "1200px" }}>
 
       {/* ── Left: 9:16 vertical ──────────────────────────────────────────────────
            Positioned so ~120px is visible to the left of center, ~35px behind.
@@ -213,6 +225,7 @@ function ShowcaseCards({
         marginTop: -HALF_H,
         animation: "previewFloatLeft 7s ease-in-out infinite",
         zIndex:    2,
+        opacity:   0.78,
       }}>
         <PreviewBlock
           src={preview.vertical}
@@ -226,8 +239,9 @@ function ShowcaseCards({
               : "rotate(-8deg)   scale(0.92)",
             transition:      "transform 350ms ease",
             transformOrigin: "center center",
-            filter:          "brightness(0.70) contrast(0.95)",
-            boxShadow:       "-4px 8px 32px rgba(0,0,0,0.70), 0 0 18px rgba(14,165,160,0.08)",
+            filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
+            border:          "1px solid rgba(45,212,191,0.12)",
+            boxShadow:       "-4px 8px 32px rgba(0,0,0,0.70), 0 0 30px rgba(0,255,200,0.08)",
           }}
         />
       </div>
@@ -242,20 +256,47 @@ function ShowcaseCards({
         animation:  "previewFloatCenter 8s ease-in-out infinite",
         zIndex:     3,
       }}>
-        <PreviewBlock
-          src={preview.landscape}
-          label={preview.label}
-          width={420}
-          innerAspect="cover"
-          comingSoon={preview.comingSoon}
-          extraStyle={{
-            transform:  hovered ? "translateY(-4px)" : "translateY(0)",
-            transition: "transform 350ms ease",
-            filter:     "brightness(1.04) contrast(1.04)",
-            border:     "1px solid rgba(45,212,191,0.38)",
-            boxShadow:  "0 0 0 1px rgba(14,165,160,0.10), 0 0 44px rgba(14,165,160,0.20), 0 18px 52px rgba(0,0,0,0.70)",
-          }}
-        />
+        <div style={{ position: "relative" }}>
+          {/* Edge glow accent — bleeds past the border, creates luminous rim */}
+          <div style={{
+            position:      "absolute",
+            inset:         -1,
+            background:    "linear-gradient(90deg, rgba(45,212,191,0.20), transparent 40%, rgba(45,212,191,0.20))",
+            opacity:       0.65,
+            filter:        "blur(6px)",
+            borderRadius:  2,
+            pointerEvents: "none",
+            zIndex:        -1,
+          }} />
+          <PreviewBlock
+            src={preview.landscape}
+            label={preview.label}
+            width={420}
+            innerAspect="cover"
+            comingSoon={preview.comingSoon}
+            innerGlow
+            extraStyle={{
+              transform:  hovered ? "translateY(-4px)" : "translateY(0)",
+              transition: "transform 350ms ease",
+              filter:     "brightness(1.04) contrast(1.04)",
+              border:     "1px solid rgba(45,212,191,0.35)",
+              boxShadow:  "0 0 0 1px rgba(0,255,200,0.08), 0 0 60px rgba(0,255,200,0.18), 0 18px 52px rgba(0,0,0,0.70)",
+            }}
+          />
+          {/* Floor reflection — soft glow pooling beneath the hero card */}
+          <div style={{
+            position:      "absolute",
+            left:          "50%",
+            top:           "100%",
+            transform:     "translateX(-50%)",
+            width:         380,
+            height:        80,
+            background:    "radial-gradient(ellipse at center, rgba(0,255,200,0.12), transparent 70%)",
+            filter:        "blur(16px)",
+            opacity:       0.4,
+            pointerEvents: "none",
+          }} />
+        </div>
       </div>
 
       {/* ── Right: 1:1 square ────────────────────────────────────────────────────
@@ -269,6 +310,7 @@ function ShowcaseCards({
         marginTop: -HALF_H,
         animation: "previewFloatRight 7.5s ease-in-out infinite",
         zIndex:    2,
+        opacity:   0.78,
       }}>
         <PreviewBlock
           src={preview.square}
@@ -282,8 +324,9 @@ function ShowcaseCards({
               : "rotate(8deg)   scale(0.92)",
             transition:      "transform 350ms ease",
             transformOrigin: "center center",
-            filter:          "brightness(0.70) contrast(0.95)",
-            boxShadow:       "4px 8px 32px rgba(0,0,0,0.70), 0 0 18px rgba(14,165,160,0.08)",
+            filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
+            border:          "1px solid rgba(45,212,191,0.12)",
+            boxShadow:       "4px 8px 32px rgba(0,0,0,0.70), 0 0 30px rgba(0,255,200,0.08)",
           }}
         />
       </div>
@@ -419,6 +462,21 @@ export default function VideoEmptyStateMascot({
           onMouseEnter={() => setShowcaseHovered(true)}
           onMouseLeave={() => setShowcaseHovered(false)}
         >
+          {/* Global light field — ambient center glow, makes cards feel lit not void-floated */}
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+            <div style={{
+              position:   "absolute",
+              left:       "50%",
+              top:        "45%",
+              transform:  "translate(-50%, -50%)",
+              width:      720,
+              height:     360,
+              background: "radial-gradient(ellipse at center, rgba(0,255,200,0.12), transparent 70%)",
+              filter:     "blur(32px)",
+              opacity:    0.7,
+            }} />
+          </div>
+
           {/* Crossfade wrapper — opacity transitions on previewKey change */}
           <div style={{
             opacity:    fadeOpacity,
@@ -450,12 +508,13 @@ export default function VideoEmptyStateMascot({
       {/* ── Headline ──────────────────────────────────────────────────────────── */}
       <h2
         style={{
-          fontSize:      26,
-          fontWeight:    800,
+          fontSize:      30,
+          fontWeight:    600,
           color:         "#F1F5F9",
           margin:        "0 0 12px",
-          letterSpacing: "-0.025em",
+          letterSpacing: "-0.02em",
           lineHeight:    1.15,
+          textShadow:    "0 0 12px rgba(255,255,255,0.08)",
         }}
       >
         Create cinematic AI videos
@@ -464,11 +523,11 @@ export default function VideoEmptyStateMascot({
       {/* ── Subtext ───────────────────────────────────────────────────────────── */}
       <p
         style={{
-          fontSize:   16,
-          color:      "#64748B",
+          fontSize:   15.5,
+          color:      "rgba(255,255,255,0.52)",
           margin:     "0 0 32px",
           maxWidth:   380,
-          lineHeight: 1.65,
+          lineHeight: 1.7,
         }}
       >
         Start with a prompt or upload a reference frame to guide your generation
