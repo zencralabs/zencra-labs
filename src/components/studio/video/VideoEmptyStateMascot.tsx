@@ -366,7 +366,7 @@ export default function VideoEmptyStateMascot({
         justifyContent: "center",
         gap:            0,
         height:         "100%",
-        padding:        "48px 32px 40px",
+        padding:        "80px 32px 40px",
         textAlign:      "center",
         userSelect:     "none",
       }}
