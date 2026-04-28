@@ -1538,7 +1538,7 @@ export default function VideoStudioShell() {
             {/* MotionFlowStrip — floats centered at top of canvas */}
             <div style={{
               position: "absolute",
-              top: 10,
+              top: 17,
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 5,
