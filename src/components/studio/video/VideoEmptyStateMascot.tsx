@@ -70,15 +70,15 @@ function getPreviewSet(key: string): ModelPreviewSet {
 
 const CENTER_W  = 540;   // 16:9 center card width
 const CENTER_H  = 290;   // 16:9 center card height
-const LEFT_W    = 143;   // 9:16 width  (= LEFT_H × 9/16)
-const LEFT_H    = 255;   // 9:16 height — shorter than center ✓
-const RIGHT_W   = 225;   // 1:1 square
-const RIGHT_H   = 225;   // 1:1 square — shorter than center ✓
-const OVERHANG  = 40;    // px each side card sticks past center edge
+const LEFT_W    = 152;   // 9:16 width  (= LEFT_H × 9/16 ≈ 270 × 9/16)  — secondary dominant
+const LEFT_H    = 270;   // 9:16 height — ~7% larger than before, still shorter than center ✓
+const RIGHT_W   = 225;   // 1:1 square — tertiary (smallest)
+const RIGHT_H   = 225;   // 1:1 square
+const OVERHANG  = 28;    // px each side card sticks past center edge (reduced from 40 for breathing)
 
 // Derived horizontal positions (all relative to 50% = container center):
-//   Left  card left edge  : -(CENTER_W/2 + OVERHANG)  = -310px
-//   Right card left edge  : +(CENTER_W/2 + OVERHANG - RIGHT_W) = +85px
+//   Left  card left edge  : -(CENTER_W/2 + OVERHANG)  = -298px
+//   Right card left edge  : +(CENTER_W/2 + OVERHANG - RIGHT_W) = +73px
 
 const STACK_HEIGHT = CENTER_H + 30; // 320 — breathing room without wasted space
 
@@ -176,9 +176,11 @@ function PreviewBlock({
 //   z-index 3 — Right 1:1    (on top of center's right edge)
 //
 // Positioning:
-//   Center  left: 50%,              marginLeft: -(CENTER_W/2)   → perfectly centered
-//   Left    left: calc(50% - 310px)                              → 40px past center left edge
-//   Right   left: calc(50% + 85px)                              → 40px past center right edge
+//   Center  left: 50%, transform: translateY(-50%)  → perfectly centered horizontally + vertically
+//   Left    left: calc(50% - 298px), transform: translateY(-50%)  → 28px past center left edge
+//   Right   left: calc(50% + 73px),  transform: translateY(-50%)  → 28px past center right edge
+//
+// All three share top: 50% + transform: translateY(-50%) — identical vertical midline guaranteed.
 
 function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
   const leftPos  = `calc(50% - ${CENTER_W / 2 + OVERHANG}px)`;          // calc(50% - 310px)
@@ -189,12 +191,12 @@ function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
 
       {/* ── Center: 16:9 landscape — base anchor card ───────────────────────── */}
       <div style={{
-        position:   "absolute",
-        left:       "50%",
+        position:  "absolute",
+        left:      "50%",
         marginLeft: -(CENTER_W / 2),
-        top:        "50%",
-        marginTop:  -(CENTER_H / 2),
-        zIndex:     1,
+        top:       "50%",
+        transform: "translateY(-50%)",
+        zIndex:    1,
       }}>
         <PreviewBlock
           src={preview.landscape}
@@ -215,7 +217,7 @@ function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
         position:  "absolute",
         left:      leftPos,
         top:       "50%",
-        marginTop: -(LEFT_H / 2),
+        transform: "translateY(-50%)",
         zIndex:    3,
       }}>
         <PreviewBlock
@@ -226,8 +228,8 @@ function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
           innerAspect="9/16"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            border:    "1px solid #000000",
-            boxShadow: "2px 0 16px rgba(0,0,0,0.75)",
+            border:    "1px solid rgba(0,0,0,1)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
           }}
         />
       </div>
@@ -237,7 +239,7 @@ function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
         position:  "absolute",
         left:      rightPos,
         top:       "50%",
-        marginTop: -(RIGHT_H / 2),
+        transform: "translateY(-50%)",
         zIndex:    3,
       }}>
         <PreviewBlock
@@ -248,8 +250,8 @@ function ShowcaseCards({ preview }: { preview: ModelPreviewSet }) {
           innerAspect="1/1"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            border:    "1px solid #000000",
-            boxShadow: "-2px 0 16px rgba(0,0,0,0.75)",
+            border:    "1px solid rgba(0,0,0,1)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
           }}
         />
       </div>
