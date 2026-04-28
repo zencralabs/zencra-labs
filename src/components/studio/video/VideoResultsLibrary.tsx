@@ -100,6 +100,155 @@ function ErrorBadge() {
   );
 }
 
+// ── Featured Reel Tile ────────────────────────────────────────────────────────
+// First item in the grid when filtered videos exist. Spans 2 columns on desktop,
+// autoplays muted loop, no actions/checkbox/prompt. Click → fullscreen preview.
+
+function FeaturedVideoTile({
+  video,
+  onPreview,
+}: {
+  video: GeneratedVideo;
+  onPreview?: (v: GeneratedVideo) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hovered, setHovered] = useState(false);
+
+  const hasMedia = !!video.url;
+  const hasThumbnail = !!video.thumbnailUrl;
+
+  return (
+    <div
+      className="featured-video-tile"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onPreview?.(video)}
+      style={{
+        gridColumn: "span 2",
+        minHeight: 360,
+        background: "#050B10",
+        border: `1px solid ${hovered ? "rgba(45,212,191,0.42)" : "rgba(45,212,191,0.26)"}`,
+        boxShadow: hovered
+          ? "0 0 40px rgba(45,212,191,0.14), 0 28px 56px rgba(0,0,0,0.55)"
+          : "0 0 20px rgba(45,212,191,0.07), 0 16px 36px rgba(0,0,0,0.4)",
+        transition: "border-color 220ms ease, box-shadow 220ms ease",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      } as React.CSSProperties}
+    >
+      {/* ── Media ── */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#020608" }}>
+        {hasMedia ? (
+          <video
+            ref={videoRef}
+            src={video.url!}
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              transform: hovered ? "scale(1.02)" : "scale(1)",
+              transition: "transform 360ms ease",
+            }}
+          />
+        ) : hasThumbnail ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={video.thumbnailUrl!}
+            alt="Featured reel"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div style={{
+            width: "100%", height: "100%", minHeight: 300,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(135deg, #050B10 0%, #0A1520 100%)",
+          }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(45,212,191,0.2)" strokeWidth="1.2"
+              strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="18" rx="2"/>
+              <path d="M9 8l7 4-7 4V8z"/>
+            </svg>
+          </div>
+        )}
+
+        {/* Bottom gradient overlay */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(to top, rgba(5,11,16,0.88) 0%, rgba(5,11,16,0.18) 55%, transparent 100%)",
+          pointerEvents: "none",
+        }} />
+
+        {/* ── Label block ── */}
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "18px 20px 20px",
+          pointerEvents: "none",
+        }}>
+          {/* "Featured Reel" chip */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "3px 9px",
+            background: "rgba(45,212,191,0.14)",
+            border: "1px solid rgba(45,212,191,0.32)",
+            borderRadius: 2,
+            marginBottom: 8,
+          }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="#2DD4BF">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77 5.82 21.02l1.18-6.88L2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            <span style={{
+              fontSize: 10, fontWeight: 800, color: "#2DD4BF",
+              letterSpacing: "0.07em", textTransform: "uppercase",
+            }}>
+              Featured Reel
+            </span>
+          </div>
+
+          {/* Subtext */}
+          <div style={{ fontSize: 11, color: "rgba(226,244,255,0.45)", fontWeight: 500, marginBottom: 6 }}>
+            Latest generation · click to fullscreen
+          </div>
+
+          {/* Metadata row */}
+          {(video.aspectRatio || video.duration || video.modelName) && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+            }}>
+              {video.modelName && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: "rgba(226,244,255,0.38)",
+                  letterSpacing: "0.04em", textTransform: "uppercase",
+                }}>
+                  {video.modelName}
+                </span>
+              )}
+              {video.aspectRatio && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(226,244,255,0.28)" }}>
+                  {video.aspectRatio}
+                </span>
+              )}
+              {video.duration && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(226,244,255,0.28)" }}>
+                  {video.duration}s
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Video Card ────────────────────────────────────────────────────────────────
 
 function VideoCard({
@@ -828,28 +977,41 @@ export default function VideoResultsLibrary({
             <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
           </div>
         ) : (
-          /* Grid */
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
-            gap: 22,
-          }}>
-            {filtered.map(v => (
-              <VideoCard
-                key={v.id}
-                video={v}
-                selected={selectedIds.has(v.id)}
-                anySelected={selectedIds.size > 0}
-                onSelect={toggleSelect}
-                onReuse={onReusePrompt}
-                onDelete={onDelete ?? (() => {})}
-                onFavToggle={onFavToggle}
-                onPreview={onPreview}
-                onAuthRequired={onAuthRequired}
-                onCardRef={onCardRef}
-              />
-            ))}
-          </div>
+          /* Grid — featured tile first, then remaining cards */
+          (() => {
+            const featuredVideo = filtered[0] ?? null;
+            const remainingVideos = featuredVideo ? filtered.slice(1) : filtered;
+            return (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
+                gap: 22,
+              }}>
+                {featuredVideo && (
+                  <FeaturedVideoTile
+                    key={`featured-${featuredVideo.id}`}
+                    video={featuredVideo}
+                    onPreview={onPreview}
+                  />
+                )}
+                {remainingVideos.map(v => (
+                  <VideoCard
+                    key={v.id}
+                    video={v}
+                    selected={selectedIds.has(v.id)}
+                    anySelected={selectedIds.size > 0}
+                    onSelect={toggleSelect}
+                    onReuse={onReusePrompt}
+                    onDelete={onDelete ?? (() => {})}
+                    onFavToggle={onFavToggle}
+                    onPreview={onPreview}
+                    onAuthRequired={onAuthRequired}
+                    onCardRef={onCardRef}
+                  />
+                ))}
+              </div>
+            );
+          })()
         )}
       </div>
 
@@ -865,6 +1027,10 @@ export default function VideoResultsLibrary({
       <style>{`
         @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
         @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(45,212,191,0.30)} 50%{box-shadow:0 0 40px rgba(45,212,191,0.55)} }
+        .featured-video-tile { grid-column: span 2; min-height: 360px; }
+        @media (max-width: 900px) {
+          .featured-video-tile { grid-column: span 1 !important; min-height: 260px !important; }
+        }
       `}</style>
     </section>
   );
