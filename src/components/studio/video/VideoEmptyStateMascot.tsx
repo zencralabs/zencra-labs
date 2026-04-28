@@ -404,7 +404,7 @@ export default function VideoEmptyStateMascot({
         width:        "100%",
         height:       STACK_HEIGHT,   // taller than PREVIEW_HEIGHT — breathing room
         marginTop:    10,
-        marginBottom: 17,
+        marginBottom: 12,
         flexShrink:   0,
         overflow:     "visible",      // rotated + scaled cards may spill; that's intentional
       }}>
