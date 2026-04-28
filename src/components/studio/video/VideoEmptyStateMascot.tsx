@@ -118,7 +118,7 @@ function PreviewBlock({
   // Soft edge fade for side cards — prevents harsh cropping where video meets container edge
   const sideMask = isSide ? {
     WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
-    maskImage:       "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+    maskImage:       "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
   } : {};
 
   return (
@@ -235,7 +235,7 @@ export default function VideoEmptyStateMascot({
         flexShrink:      0,
         filter:          "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
       }}>
-        {/* 9:16 vertical — left front (slightly cropped, natural width ~124px at 220px height) */}
+        {/* 9:16 vertical — left front */}
         <PreviewBlock
           src={preview.vertical}
           label={preview.label}
@@ -244,8 +244,9 @@ export default function VideoEmptyStateMascot({
           comingSoon={preview.comingSoon}
           extraStyle={{
             zIndex:      2,
-            transform:   "rotate(-8deg) scale(0.92)",
+            transform:   "rotate(-8deg) scale(0.92) translateY(4px)",
             marginRight: -18,
+            filter:      "brightness(0.75) contrast(0.95)",
             boxShadow: [
               "-4px 6px 28px rgba(0,0,0,0.65)",
               "0 0 16px rgba(14,165,160,0.10)",
@@ -253,7 +254,7 @@ export default function VideoEmptyStateMascot({
           }}
         />
 
-        {/* 16:9 landscape — center back (dominant, full cover fill) */}
+        {/* 16:9 landscape — center anchor (hero, full brightness, pushed forward) */}
         <PreviewBlock
           src={preview.landscape}
           label={preview.label}
@@ -261,8 +262,9 @@ export default function VideoEmptyStateMascot({
           innerAspect="cover"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            zIndex:    1,
-            transform: "scale(1.08)",
+            zIndex:    3,
+            transform: "scale(1.12)",
+            filter:    "brightness(1.05) contrast(1.05)",
             boxShadow: [
               "0 0 40px rgba(14,165,160,0.14)",
               "0 16px 48px rgba(0,0,0,0.65)",
@@ -270,7 +272,7 @@ export default function VideoEmptyStateMascot({
           }}
         />
 
-        {/* 1:1 square — right front (natural width = 220px at 220px height, slightly cropped) */}
+        {/* 1:1 square — right front */}
         <PreviewBlock
           src={preview.square}
           label={preview.label}
@@ -279,8 +281,9 @@ export default function VideoEmptyStateMascot({
           comingSoon={preview.comingSoon}
           extraStyle={{
             zIndex:     2,
-            transform:  "rotate(8deg) scale(0.92)",
+            transform:  "rotate(8deg) scale(0.92) translateY(2px)",
             marginLeft: -18,
+            filter:     "brightness(0.75) contrast(0.95)",
             boxShadow: [
               "4px 6px 28px rgba(0,0,0,0.65)",
               "0 0 16px rgba(14,165,160,0.10)",
