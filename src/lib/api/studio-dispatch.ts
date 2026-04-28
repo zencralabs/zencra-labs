@@ -23,6 +23,7 @@ import { buildCreditHooks, buildSupabaseCreditStore, noopCreditHooks }
                                       from "@/lib/credits/hooks";
 import { buildAssetMetadata, saveAssetMetadata, updateAssetStatus }
                                       from "@/lib/storage/metadata";
+import { mirrorVideoToStorage }       from "@/lib/storage/upload";
 import { logProviderCost }            from "@/lib/providers/core/cost-logger";
 import { ensureProvidersRegistered }  from "@/lib/providers/startup";
 import { validateStudioRequest }      from "@/lib/security/request-validator";
@@ -493,9 +494,18 @@ export async function pollAndUpdateJob(
     const jobStatus = await pollJobStatus(modelKey, externalJobId);
 
     if (jobStatus.status === "success" && jobStatus.url) {
-      // Mirror temp provider URLs (e.g. NB's tempfile.aiquickdraw.com) to
-      // Supabase Storage so the gallery always uses our own CDN.
-      const persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
+      // ── Kling video: mirror to Supabase Storage (permanent URL) ──────────────
+      // Kling CDN URLs are signed and expire. Download + re-upload every
+      // completed Kling job so the gallery URL never breaks.
+      let persistentUrl = jobStatus.url;
+
+      if (modelKey.startsWith("kling")) {
+        persistentUrl = await mirrorVideoToStorage(jobStatus.url, assetId);
+      } else {
+        // Mirror temp provider images (e.g. NB's tempfile.aiquickdraw.com)
+        persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
+      }
+
       await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl);
       return {
         status: "success",
