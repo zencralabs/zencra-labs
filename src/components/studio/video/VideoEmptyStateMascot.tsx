@@ -294,13 +294,19 @@ export default function VideoEmptyStateMascot({
 
   useEffect(() => {
     const newKey = previewKey ?? DEFAULT_PREVIEW_KEY;
-    // Guard: no change needed
-    if (newKey === displayKey) return;
 
-    // Cancel any in-flight crossfade
+    // Always cancel any in-flight crossfade FIRST — before the guard.
+    // If we don't, a cancelled timer can leave fadeOpacity stuck at 0.
     if (crossfadeTimer.current) {
       clearTimeout(crossfadeTimer.current);
       crossfadeTimer.current = null;
+    }
+
+    // Guard: same key — ensure showcase is fully visible.
+    // This also recovers from an interrupted fade-out (opacity may be 0).
+    if (newKey === displayKey) {
+      setFadeOpacity(1);
+      return;
     }
 
     // Step 1 — fade out (CSS transition: 160ms)
