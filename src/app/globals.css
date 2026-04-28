@@ -36,6 +36,12 @@
     --secondary:          #0EA5A0;
     --secondary-hover:    #0C8E8A;
     --gradient-primary:   linear-gradient(135deg, #2563EB 0%, #0EA5A0 100%);
+
+    /* ── Zencra motion tokens — shared timing across all studio surfaces ──── */
+    --zen-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --zen-fast: 180ms;
+    --zen-base: 320ms;
+    --zen-slow: 600ms;
   }
 
   /* ── Dark Mode Tokens ──────────────────────────────────────────────────── */
@@ -372,6 +378,73 @@
   .dashboard-content {
     width: 100%;
     padding: 40px 48px;
+  }
+
+  /* ── Zencra Motion System — utility classes ──────────────────────────────
+     Apply via className alongside inline styles. Each class defines the
+     transition shorthand so inline style can still control the values.
+     Fast  → hover/micro interactions (180ms)
+     Base  → state changes, model switch (320ms)
+     Slow  → ambient, loading states (600ms)
+     ─────────────────────────────────────────────────────────────────────── */
+  .zen-motion {
+    transition-property: transform, opacity, filter, box-shadow, border-color, background-color;
+    transition-duration: var(--zen-base);
+    transition-timing-function: var(--zen-ease);
+  }
+
+  .zen-motion-fast {
+    transition-property: transform, opacity, filter, box-shadow, border-color, background-color;
+    transition-duration: var(--zen-fast);
+    transition-timing-function: var(--zen-ease);
+  }
+
+  .zen-motion-slow {
+    transition-property: transform, opacity, filter, box-shadow, border-color, background-color;
+    transition-duration: var(--zen-slow);
+    transition-timing-function: var(--zen-ease);
+  }
+
+  .zen-breathe      { animation: zen-breathe      6s   ease-in-out infinite; }
+  .zen-soft-pulse   { animation: zen-soft-pulse   7s   ease-in-out infinite; }
+  .zen-generate-glow{ animation: zen-generate-glow 2.4s ease-in-out infinite; }
+
+  /* Accessibility: pause all Zencra motion when user prefers reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .zen-breathe, .zen-soft-pulse, .zen-generate-glow {
+      animation: none !important;
+    }
+    .zen-motion, .zen-motion-fast, .zen-motion-slow {
+      transition: none !important;
+    }
+  }
+}
+
+/* ── Zencra Motion System — keyframes ────────────────────────────────────────
+   zen-breathe    : 6s ambient scale pulse on card stacks
+   zen-soft-pulse : 7s opacity + blur drift for glow fields
+   zen-generate-glow : 2.4s lime box-shadow pulse on active generate button
+   ─────────────────────────────────────────────────────────────────────────── */
+@keyframes zen-breathe {
+  0%, 100% { transform: scale(1);     opacity: 1;     }
+  50%      { transform: scale(1.015); opacity: 0.985; }
+}
+
+@keyframes zen-soft-pulse {
+  0%, 100% { opacity: 0.55; filter: blur(18px); }
+  50%      { opacity: 0.85; filter: blur(22px); }
+}
+
+@keyframes zen-generate-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(198, 255, 0, 0.08),
+      0 0 24px rgba(198, 255, 0, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(198, 255, 0, 0.16),
+      0 0 44px rgba(198, 255, 0, 0.22);
   }
 }
 

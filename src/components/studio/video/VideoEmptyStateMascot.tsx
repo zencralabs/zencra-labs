@@ -237,7 +237,7 @@ function ShowcaseCards({
             transform:       hovered
               ? "rotate(-8.5deg) scale(0.93)"
               : "rotate(-8deg)   scale(0.92)",
-            transition:      "transform 350ms ease",
+            transition:      "transform var(--zen-base) var(--zen-ease)",
             transformOrigin: "center center",
             filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
             border:          "1px solid rgba(45,212,191,0.12)",
@@ -276,8 +276,8 @@ function ShowcaseCards({
             comingSoon={preview.comingSoon}
             innerGlow
             extraStyle={{
-              transform:  hovered ? "translateY(-4px)" : "translateY(0)",
-              transition: "transform 350ms ease",
+              transform:  hovered ? "translateY(-2px)" : "translateY(0)",
+              transition: "transform var(--zen-base) var(--zen-ease)",
               filter:     "brightness(1.04) contrast(1.04)",
               border:     "1px solid rgba(45,212,191,0.35)",
               boxShadow:  "0 0 0 1px rgba(0,255,200,0.08), 0 0 60px rgba(0,255,200,0.18), 0 18px 52px rgba(0,0,0,0.70)",
@@ -322,7 +322,7 @@ function ShowcaseCards({
             transform:       hovered
               ? "rotate(8.5deg) scale(0.95)"
               : "rotate(8deg)   scale(0.92)",
-            transition:      "transform 350ms ease",
+            transition:      "transform var(--zen-base) var(--zen-ease)",
             transformOrigin: "center center",
             filter:          "brightness(0.65) contrast(0.92) blur(0.4px)",
             border:          "1px solid rgba(45,212,191,0.12)",
@@ -417,12 +417,6 @@ export default function VideoEmptyStateMascot({
 
       {/* ── CSS keyframes ─────────────────────────────────────────────────────── */}
       <style>{`
-        /* Group breathing — very subtle 6s loop on the whole showcase */
-        @keyframes previewBreath {
-          0%, 100% { transform: translateY(0)    scale(1);     }
-          50%      { transform: translateY(-3px)  scale(1.006); }
-        }
-
         /* Per-card float — each card drifts on its own cycle */
         @keyframes previewFloatLeft {
           0%, 100% { transform: translateY(0);                          }
@@ -454,11 +448,8 @@ export default function VideoEmptyStateMascot({
 
         {/* Breathing wrapper — group motion, also owns the hover zone */}
         <div
-          style={{
-            animation: "previewBreath 6s ease-in-out infinite",
-            width:     "100%",
-            height:    "100%",
-          }}
+          className="zen-breathe"
+          style={{ width: "100%", height: "100%" }}
           onMouseEnter={() => setShowcaseHovered(true)}
           onMouseLeave={() => setShowcaseHovered(false)}
         >
@@ -480,7 +471,7 @@ export default function VideoEmptyStateMascot({
           {/* Crossfade wrapper — opacity transitions on previewKey change */}
           <div style={{
             opacity:    fadeOpacity,
-            transition: "opacity 160ms ease",
+            transition: "opacity var(--zen-fast) var(--zen-ease)",
             width:      "100%",
             height:     "100%",
             filter:     "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
@@ -537,6 +528,7 @@ export default function VideoEmptyStateMascot({
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
         <button
           onClick={onUpload}
+          className="zen-motion-fast"
           style={{
             display:      "flex",
             alignItems:   "center",
@@ -549,7 +541,6 @@ export default function VideoEmptyStateMascot({
             fontSize:     15,
             fontWeight:   600,
             cursor:       "pointer",
-            transition:   "all 0.2s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
@@ -575,6 +566,7 @@ export default function VideoEmptyStateMascot({
 
         <button
           onClick={onSamplePrompt}
+          className="zen-motion-fast"
           style={{
             display:      "flex",
             alignItems:   "center",
@@ -587,7 +579,6 @@ export default function VideoEmptyStateMascot({
             fontSize:     15,
             fontWeight:   600,
             cursor:       "pointer",
-            transition:   "all 0.2s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;

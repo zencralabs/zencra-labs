@@ -133,7 +133,7 @@ export default function CanvasGenerateBar({
             cursor:         canClick ? "pointer" : "not-allowed",
             opacity:        (!ready && !generating && !comingSoon) ? 0.45 : 1,
             filter:         (!ready && !generating && !comingSoon) ? "grayscale(0.35)" : "none",
-            transition:     "transform 0.15s ease, box-shadow 0.15s ease",
+            transition:     `transform var(--zen-fast) var(--zen-ease), box-shadow var(--zen-fast) var(--zen-ease)`,
           }}
           onMouseEnter={e => {
             if (canClick) {

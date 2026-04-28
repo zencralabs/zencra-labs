@@ -48,7 +48,7 @@ const toolbarBtnBase: React.CSSProperties = {
   background: "rgba(255,255,255,0.055)",
   color: "rgba(226,244,255,0.78)",
   cursor: "pointer",
-  transition: "background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s",
+  transition: `background var(--zen-fast) var(--zen-ease), border-color var(--zen-fast) var(--zen-ease), color var(--zen-fast) var(--zen-ease), box-shadow var(--zen-fast) var(--zen-ease)`,
   whiteSpace: "nowrap" as const,
   flexShrink: 0,
 };
@@ -129,7 +129,7 @@ function FeaturedVideoTile({
         boxShadow: hovered
           ? "0 0 40px rgba(45,212,191,0.14), 0 28px 56px rgba(0,0,0,0.55)"
           : "0 0 20px rgba(45,212,191,0.07), 0 16px 36px rgba(0,0,0,0.4)",
-        transition: "border-color 220ms ease, box-shadow 220ms ease",
+        transition: `border-color var(--zen-base) var(--zen-ease), box-shadow var(--zen-base) var(--zen-ease)`,
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
@@ -340,8 +340,8 @@ function VideoCard({
         border: cardBorder,
         borderRadius: 0,
         overflow: "hidden",
-        transition: "transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: `transform var(--zen-base) var(--zen-ease), border-color var(--zen-base) var(--zen-ease), box-shadow var(--zen-base) var(--zen-ease)`,
+        transform: hovered ? "translateY(-2px)" : "translateY(0)",
         boxShadow: cardShadow,
         cursor: "default",
       }}
@@ -370,7 +370,7 @@ function VideoCard({
               objectFit: "cover", display: "block",
               borderRadius: 0,
               transform: hovered ? "scale(1.025)" : "scale(1)",
-              transition: "transform 260ms ease",
+              transition: `transform var(--zen-base) var(--zen-ease)`,
             }}
           />
         ) : video.thumbnailUrl ? (
@@ -382,7 +382,7 @@ function VideoCard({
               objectFit: "cover", display: "block",
               borderRadius: 0,
               transform: hovered ? "scale(1.025)" : "scale(1)",
-              transition: "transform 260ms ease",
+              transition: `transform var(--zen-base) var(--zen-ease)`,
             }}
           />
         ) : (
@@ -489,7 +489,7 @@ function VideoCard({
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer",
             backdropFilter: "blur(6px)",
-            transition: "background 0.18s, border-color 0.18s, transform 0.15s",
+            transition: `background var(--zen-fast) var(--zen-ease), border-color var(--zen-fast) var(--zen-ease), transform var(--zen-fast) var(--zen-ease)`,
             zIndex: 8,
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.12)"; }}
@@ -499,7 +499,7 @@ function VideoCard({
             fill={video.is_favorite ? "#EF4444" : "none"}
             stroke={video.is_favorite ? "#EF4444" : "rgba(226,244,255,0.55)"}
             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transition: "fill 0.18s, stroke 0.18s" }}
+            style={{ transition: `fill var(--zen-fast) var(--zen-ease), stroke var(--zen-fast) var(--zen-ease)` }}
           >
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
@@ -525,7 +525,7 @@ function VideoCard({
           style={{
             position: "absolute", top: 8, left: 8,
             opacity: showCheckbox ? 1 : 0,
-            transition: "opacity 0.15s",
+            transition: `opacity var(--zen-fast) var(--zen-ease)`,
             zIndex: 10,
           }}
           onClick={e => { e.stopPropagation(); onSelect(video.id); }}
@@ -535,7 +535,7 @@ function VideoCard({
             background: selected ? "rgba(34,211,238,0.9)" : "rgba(2,6,23,0.8)",
             border: selected ? "1.5px solid #22D3EE" : "1.5px solid rgba(255,255,255,0.3)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", transition: "all 0.15s",
+            cursor: "pointer", transition: `all var(--zen-fast) var(--zen-ease)`,
             backdropFilter: "blur(4px)",
           }}>
             {selected && (
@@ -553,7 +553,7 @@ function VideoCard({
           padding: "8px 10px",
           opacity: hovered ? 1 : 0,
           transform: hovered ? "translateY(0)" : "translateY(6px)",
-          transition: "opacity 0.2s, transform 0.2s",
+          transition: `opacity var(--zen-fast) var(--zen-ease), transform var(--zen-fast) var(--zen-ease)`,
           display: "flex", gap: 5, flexWrap: "wrap",
           zIndex: 5,
         }}>
