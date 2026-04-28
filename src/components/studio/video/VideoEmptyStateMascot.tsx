@@ -1,25 +1,31 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // VideoEmptyStateMascot — Canvas empty state with 3-video model showcase
 //
+// Motion system:
+//   • Crossfade: previewKey change → 160ms fade-out → swap → 160ms fade-in
+//   • Breathing: 6s group loop (translateY –3px, scale 1.006) — feels alive
+//   • Per-card float: 7–8s independent loops (tiny Y + micro rotation)
+//   • Hover parallax: cards shift outward/inward on showcase hover
+//
 // Layout:
-//   • 3 preview blocks: 9:16 left-front, 16:9 center-back, 1:1 right-front
-//   • Title, subtitle, Upload + Sample buttons below
-//   • previewKey drives which model family's clips are shown
-//   • When MP4 files are absent, renders styled placeholder blocks
-//   • Paths are structured for: /model-previews/{key}/{shape}.mp4
+//   • PREVIEW_HEIGHT = 240 — all 3 cards share this plane
+//   • Aspect ratio lives inside the video element, not the container
+//   • 9:16 left-front | 16:9 center-hero | 1:1 right-front
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Model preview config ──────────────────────────────────────────────────────
 
 type ModelPreviewSet = {
-  key:        string;
-  label:      string;
-  vertical?:  string;   // 9:16 MP4
-  landscape?: string;   // 16:9 MP4
-  square?:    string;   // 1:1 MP4
-  comingSoon?: boolean; // if true, always show placeholder
+  key:         string;
+  label:       string;
+  vertical?:   string;   // 9:16 MP4
+  landscape?:  string;   // 16:9 MP4
+  square?:     string;   // 1:1 MP4
+  comingSoon?: boolean;  // always show placeholder when true
 };
 
 const MODEL_PREVIEW_SETS: ModelPreviewSet[] = [
@@ -37,36 +43,12 @@ const MODEL_PREVIEW_SETS: ModelPreviewSet[] = [
     landscape: "/model-previews/seedance/landscape.mp4",
     square:    "/model-previews/seedance/square.mp4",
   },
-  {
-    key:        "minimax",
-    label:      "MiniMax Hailuo",
-    comingSoon: true,
-  },
-  {
-    key:        "veo",
-    label:      "Google Veo 3.2",
-    comingSoon: true,
-  },
-  {
-    key:        "sora",
-    label:      "Sora 2",
-    comingSoon: true,
-  },
-  {
-    key:        "wan",
-    label:      "Wan 2.7",
-    comingSoon: true,
-  },
-  {
-    key:        "grok",
-    label:      "Grok Imagine",
-    comingSoon: true,
-  },
-  {
-    key:        "luma",
-    label:      "Ray Flash 2",
-    comingSoon: true,
-  },
+  { key: "minimax", label: "MiniMax Hailuo", comingSoon: true },
+  { key: "veo",     label: "Google Veo 3.2", comingSoon: true },
+  { key: "sora",    label: "Sora 2",         comingSoon: true },
+  { key: "wan",     label: "Wan 2.7",         comingSoon: true },
+  { key: "grok",    label: "Grok Imagine",    comingSoon: true },
+  { key: "luma",    label: "Ray Flash 2",     comingSoon: true },
 ];
 
 const DEFAULT_PREVIEW_KEY = "kling";
@@ -82,14 +64,13 @@ function getPreviewSet(key: string): ModelPreviewSet {
 }
 
 // ── Shared preview height — all three cards lock to this plane ────────────────
-const PREVIEW_HEIGHT = 220;
+const PREVIEW_HEIGHT = 240;
 
 // ── Single preview block ──────────────────────────────────────────────────────
-// All blocks share PREVIEW_HEIGHT. The outer container clips; the inner
-// video respects its own aspect ratio so the layout stays cinematic.
-// "cover"   → 16:9 center — video fills the entire frame
-// "9/16"    → vertical left  — video is natural width, height-locked
-// "1/1"     → square right   — video is natural width, height-locked
+// Outer container: fixed height, clips to frame. AR lives in the video element.
+// "cover"  → 16:9 center — fills the frame
+// "9/16"   → vertical left — natural width, height-locked, edge-faded
+// "1/1"    → square right  — natural width, height-locked, edge-faded
 
 function PreviewBlock({
   src,
@@ -99,25 +80,23 @@ function PreviewBlock({
   comingSoon,
   extraStyle,
 }: {
-  src?:        string;
-  label:       string;
-  width:       number;
-  /** Determines how the inner video/placeholder is sized inside the fixed-height frame */
+  src?:         string;
+  label:        string;
+  width:        number;
   innerAspect?: "cover" | "9/16" | "1/1";
-  comingSoon?: boolean;
-  extraStyle?: React.CSSProperties;
+  comingSoon?:  boolean;
+  extraStyle?:  React.CSSProperties;
 }) {
-  const hasSrc  = !!src && !comingSoon;
-  const isSide  = innerAspect !== "cover";
+  const hasSrc = !!src && !comingSoon;
+  const isSide = innerAspect !== "cover";
 
-  // Video element styles — aspect ratio lives here, NOT on the outer container
   const videoStyle: React.CSSProperties = isSide
     ? { height: "100%", width: "auto", aspectRatio: innerAspect, objectFit: "cover", display: "block", flexShrink: 0 }
     : { width: "100%", height: "100%", objectFit: "cover", display: "block" };
 
-  // Soft edge fade for side cards — prevents harsh cropping where video meets container edge
-  const sideMask = isSide ? {
-    WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 14%, black 86%, transparent 100%)",
+  // Soft edge fade — same stops on both prefixed versions
+  const sideMask: React.CSSProperties = isSide ? {
+    WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
     maskImage:       "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
   } : {};
 
@@ -150,7 +129,7 @@ function PreviewBlock({
           style={videoStyle}
         />
       ) : (
-        /* Graceful placeholder — same shape, no broken state */
+        // Graceful placeholder — participates in all animations, never broken
         <div style={{
           width: "100%", height: "100%",
           display: "flex", flexDirection: "column",
@@ -158,7 +137,6 @@ function PreviewBlock({
           gap: 7,
           background: "linear-gradient(160deg, #050F1A 0%, #0B1C2E 100%)",
         }}>
-          {/* Small play icon */}
           <div style={{
             width: 26, height: 26, borderRadius: "50%",
             background: "rgba(14,165,160,0.07)",
@@ -170,7 +148,6 @@ function PreviewBlock({
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
           </div>
-          {/* Model label — only show for large enough blocks */}
           {width >= 90 && (
             <span style={{
               fontSize: 9, color: "rgba(45,212,191,0.28)",
@@ -188,12 +165,114 @@ function PreviewBlock({
   );
 }
 
+// ── ShowcaseCards ─────────────────────────────────────────────────────────────
+// Renders the 3-card layout for one preview set. Extracted so the crossfade
+// layer can reuse it without duplicating JSX. `hovered` drives parallax.
+
+function ShowcaseCards({
+  preview,
+  hovered,
+}: {
+  preview: ModelPreviewSet;
+  hovered: boolean;
+}) {
+  return (
+    <div style={{
+      display:         "flex",
+      alignItems:      "center",
+      justifyContent:  "center",
+      width:           "100%",
+      height:          "100%",
+    }}>
+
+      {/* ── Left: 9:16 vertical ── float wrapper carries per-card animation */}
+      <div style={{
+        animation:   "previewFloatLeft 7s ease-in-out infinite",
+        flexShrink:  0,
+        zIndex:      2,         // flex-item z-index — stacks above sides
+        marginRight: -18,       // negative margin creates the overlap with center
+      }}>
+        <PreviewBlock
+          src={preview.vertical}
+          label={preview.label}
+          width={110}
+          innerAspect="9/16"
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            transform: hovered
+              ? "rotate(-8.5deg) scale(0.93) translate(-6px, -3px)"
+              : "rotate(-8deg)   scale(0.92) translateY(4px)",
+            transition: "transform 350ms ease",
+            filter:    "brightness(0.75) contrast(0.95)",
+            boxShadow: [
+              "-4px 6px 28px rgba(0,0,0,0.65)",
+              "0 0 16px rgba(14,165,160,0.10)",
+            ].join(", "),
+          }}
+        />
+      </div>
+
+      {/* ── Center: 16:9 landscape — hero, dominant, pushed forward ── */}
+      <div style={{
+        animation:  "previewFloatCenter 8s ease-in-out infinite",
+        flexShrink: 0,
+        zIndex:     3,          // highest z — center always on top
+      }}>
+        <PreviewBlock
+          src={preview.landscape}
+          label={preview.label}
+          width={380}
+          innerAspect="cover"
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            transform:  hovered ? "scale(1.14) translateY(-4px)" : "scale(1.12)",
+            transition: "transform 350ms ease",
+            filter:     "brightness(1.05) contrast(1.05)",
+            boxShadow: [
+              "0 0 40px rgba(14,165,160,0.14)",
+              "0 16px 48px rgba(0,0,0,0.65)",
+            ].join(", "),
+          }}
+        />
+      </div>
+
+      {/* ── Right: 1:1 square ── */}
+      <div style={{
+        animation:  "previewFloatRight 7.5s ease-in-out infinite",
+        flexShrink: 0,
+        zIndex:     2,
+        marginLeft: -18,
+      }}>
+        <PreviewBlock
+          src={preview.square}
+          label={preview.label}
+          width={190}
+          innerAspect="1/1"
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            transform: hovered
+              ? "rotate(8.5deg) scale(0.95) translate(6px, -3px)"
+              : "rotate(8deg)   scale(0.92) translateY(2px)",
+            transition: "transform 350ms ease",
+            filter:    "brightness(0.75) contrast(0.95)",
+            boxShadow: [
+              "4px 6px 28px rgba(0,0,0,0.65)",
+              "0 0 16px rgba(14,165,160,0.10)",
+            ].join(", "),
+          }}
+        />
+      </div>
+
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
   onUpload?:       () => void;
   onSamplePrompt?: () => void;
-  /** Current cinematic sample prompt to preview — rotates on each click */
+  /** Current cinematic sample prompt — rotates on each click */
   samplePrompt?:   string;
   /** Which model family to display previews for. Defaults to "kling". */
   previewKey?:     string;
@@ -205,7 +284,47 @@ export default function VideoEmptyStateMascot({
   samplePrompt,
   previewKey,
 }: Props) {
-  const preview = getPreviewSet(previewKey ?? DEFAULT_PREVIEW_KEY);
+
+  // ── Crossfade state ──────────────────────────────────────────────────────────
+  // displayKey: what's currently rendered (only changes at the midpoint of fade)
+  // fadeOpacity: drives the CSS transition — 0 between sets, 1 when settled
+  const [displayKey,  setDisplayKey]  = useState(previewKey ?? DEFAULT_PREVIEW_KEY);
+  const [fadeOpacity, setFadeOpacity] = useState(1);
+  const crossfadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const newKey = previewKey ?? DEFAULT_PREVIEW_KEY;
+    // Guard: no change needed
+    if (newKey === displayKey) return;
+
+    // Cancel any in-flight crossfade
+    if (crossfadeTimer.current) {
+      clearTimeout(crossfadeTimer.current);
+      crossfadeTimer.current = null;
+    }
+
+    // Step 1 — fade out (CSS transition: 160ms)
+    setFadeOpacity(0);
+
+    // Step 2 — at 165ms the fade-out has completed; swap content and fade back in
+    crossfadeTimer.current = setTimeout(() => {
+      setDisplayKey(newKey);
+      setFadeOpacity(1);
+      crossfadeTimer.current = null;
+    }, 165);
+
+    return () => {
+      if (crossfadeTimer.current) {
+        clearTimeout(crossfadeTimer.current);
+        crossfadeTimer.current = null;
+      }
+    };
+  }, [previewKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Parallax hover state ─────────────────────────────────────────────────────
+  const [showcaseHovered, setShowcaseHovered] = useState(false);
+
+  const preview = getPreviewSet(displayKey);
 
   return (
     <div
@@ -221,79 +340,71 @@ export default function VideoEmptyStateMascot({
         userSelect:     "none",
       }}
     >
+
+      {/* ── CSS keyframes ─────────────────────────────────────────────────────── */}
+      <style>{`
+        /* Group breathing — very subtle 6s loop on the whole showcase */
+        @keyframes previewBreath {
+          0%, 100% { transform: translateY(0)    scale(1);     }
+          50%      { transform: translateY(-3px)  scale(1.006); }
+        }
+
+        /* Per-card float — each card drifts on its own cycle */
+        @keyframes previewFloatLeft {
+          0%, 100% { transform: translateY(0);                          }
+          40%      { transform: translateY(-2px)   rotate(-0.25deg);    }
+          70%      { transform: translateY(1.5px);                      }
+        }
+        @keyframes previewFloatCenter {
+          0%, 100% { transform: translateY(0);                          }
+          35%      { transform: translateY(-3px)   scale(1.003);        }
+          65%      { transform: translateY(1px);                        }
+        }
+        @keyframes previewFloatRight {
+          0%, 100% { transform: translateY(0);                          }
+          45%      { transform: translateY(-2.5px) rotate(0.25deg);     }
+          75%      { transform: translateY(1px);                        }
+        }
+      `}</style>
+
       {/* ── 3-video preview showcase ──────────────────────────────────────────── */}
-      {/* All 3 cards share PREVIEW_HEIGHT — layout defines container, AR lives inside */}
       <div style={{
-        position:        "relative",
-        display:         "flex",
-        alignItems:      "center",
-        justifyContent:  "center",
-        width:           "100%",
-        maxWidth:        600,
-        height:          PREVIEW_HEIGHT,
-        marginBottom:    32,
-        flexShrink:      0,
-        filter:          "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
+        position:     "relative",
+        width:        "100%",
+        maxWidth:     600,
+        height:       PREVIEW_HEIGHT,
+        marginBottom: 32,
+        flexShrink:   0,
       }}>
-        {/* 9:16 vertical — left front */}
-        <PreviewBlock
-          src={preview.vertical}
-          label={preview.label}
-          width={110}
-          innerAspect="9/16"
-          comingSoon={preview.comingSoon}
-          extraStyle={{
-            zIndex:      2,
-            transform:   "rotate(-8deg) scale(0.92) translateY(4px)",
-            marginRight: -18,
-            filter:      "brightness(0.75) contrast(0.95)",
-            boxShadow: [
-              "-4px 6px 28px rgba(0,0,0,0.65)",
-              "0 0 16px rgba(14,165,160,0.10)",
-            ].join(", "),
-          }}
-        />
 
-        {/* 16:9 landscape — center anchor (hero, full brightness, pushed forward) */}
-        <PreviewBlock
-          src={preview.landscape}
-          label={preview.label}
-          width={380}
-          innerAspect="cover"
-          comingSoon={preview.comingSoon}
-          extraStyle={{
-            zIndex:    3,
-            transform: "scale(1.12)",
-            filter:    "brightness(1.05) contrast(1.05)",
-            boxShadow: [
-              "0 0 40px rgba(14,165,160,0.14)",
-              "0 16px 48px rgba(0,0,0,0.65)",
-            ].join(", "),
+        {/* Breathing wrapper — group motion, also owns the hover zone */}
+        <div
+          style={{
+            animation: "previewBreath 6s ease-in-out infinite",
+            width:     "100%",
+            height:    "100%",
           }}
-        />
+          onMouseEnter={() => setShowcaseHovered(true)}
+          onMouseLeave={() => setShowcaseHovered(false)}
+        >
+          {/* Crossfade wrapper — opacity transitions on previewKey change */}
+          <div style={{
+            opacity:    fadeOpacity,
+            transition: "opacity 160ms ease",
+            width:      "100%",
+            height:     "100%",
+            filter:     "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
+          }}>
+            <ShowcaseCards preview={preview} hovered={showcaseHovered} />
+          </div>
+        </div>
 
-        {/* 1:1 square — right front */}
-        <PreviewBlock
-          src={preview.square}
-          label={preview.label}
-          width={190}
-          innerAspect="1/1"
-          comingSoon={preview.comingSoon}
-          extraStyle={{
-            zIndex:     2,
-            transform:  "rotate(8deg) scale(0.92) translateY(2px)",
-            marginLeft: -18,
-            filter:     "brightness(0.75) contrast(0.95)",
-            boxShadow: [
-              "4px 6px 28px rgba(0,0,0,0.65)",
-              "0 0 16px rgba(14,165,160,0.10)",
-            ].join(", "),
-          }}
-        />
       </div>
 
-      {/* ── Model label strip ─────────────────────────────────────────────────── */}
+      {/* ── Model label strip — follows displayKey, crossfades with showcase ──── */}
       <div style={{
+        opacity:       fadeOpacity,
+        transition:    "opacity 160ms ease",
         fontSize:      11,
         fontWeight:    700,
         color:         "rgba(45,212,191,0.4)",
@@ -321,11 +432,11 @@ export default function VideoEmptyStateMascot({
       {/* ── Subtext ───────────────────────────────────────────────────────────── */}
       <p
         style={{
-          fontSize:     16,
-          color:        "#64748B",
-          margin:       "0 0 32px",
-          maxWidth:     380,
-          lineHeight:   1.65,
+          fontSize:   16,
+          color:      "#64748B",
+          margin:     "0 0 32px",
+          maxWidth:   380,
+          lineHeight: 1.65,
         }}
       >
         Start with a prompt or upload a reference frame to guide your generation
@@ -336,30 +447,30 @@ export default function VideoEmptyStateMascot({
         <button
           onClick={onUpload}
           style={{
-            display:        "flex",
-            alignItems:     "center",
-            gap:            8,
-            padding:        "13px 26px",
-            borderRadius:   10,
-            border:         "1px solid rgba(14,165,160,0.40)",
-            background:     "rgba(14,165,160,0.09)",
-            color:          "#0EA5A0",
-            fontSize:       15,
-            fontWeight:     600,
-            cursor:         "pointer",
-            transition:     "all 0.2s",
+            display:      "flex",
+            alignItems:   "center",
+            gap:          8,
+            padding:      "13px 26px",
+            borderRadius: 10,
+            border:       "1px solid rgba(14,165,160,0.40)",
+            background:   "rgba(14,165,160,0.09)",
+            color:        "#0EA5A0",
+            fontSize:     15,
+            fontWeight:   600,
+            cursor:       "pointer",
+            transition:   "all 0.2s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = "rgba(14,165,160,0.15)";
-            el.style.borderColor   = "rgba(14,165,160,0.55)";
-            el.style.boxShadow     = "0 0 20px rgba(14,165,160,0.2)";
+            el.style.background  = "rgba(14,165,160,0.15)";
+            el.style.borderColor = "rgba(14,165,160,0.55)";
+            el.style.boxShadow   = "0 0 20px rgba(14,165,160,0.2)";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = "rgba(14,165,160,0.09)";
-            el.style.borderColor   = "rgba(14,165,160,0.40)";
-            el.style.boxShadow     = "none";
+            el.style.background  = "rgba(14,165,160,0.09)";
+            el.style.borderColor = "rgba(14,165,160,0.40)";
+            el.style.boxShadow   = "none";
           }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -389,15 +500,15 @@ export default function VideoEmptyStateMascot({
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = "rgba(37,99,235,0.15)";
-            el.style.borderColor   = "rgba(37,99,235,0.55)";
-            el.style.boxShadow     = "0 0 20px rgba(37,99,235,0.2)";
+            el.style.background  = "rgba(37,99,235,0.15)";
+            el.style.borderColor = "rgba(37,99,235,0.55)";
+            el.style.boxShadow   = "0 0 20px rgba(37,99,235,0.2)";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background    = "rgba(37,99,235,0.09)";
-            el.style.borderColor   = "rgba(37,99,235,0.38)";
-            el.style.boxShadow     = "none";
+            el.style.background  = "rgba(37,99,235,0.09)";
+            el.style.borderColor = "rgba(37,99,235,0.38)";
+            el.style.boxShadow   = "none";
           }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -427,19 +538,23 @@ export default function VideoEmptyStateMascot({
         </div>
       ) : (
         <div style={{
-          display: "flex", gap: 8, flexWrap: "wrap",
-          justifyContent: "center", marginTop: 28, opacity: 0.6,
+          display:        "flex",
+          gap:            8,
+          flexWrap:       "wrap",
+          justifyContent: "center",
+          marginTop:      28,
+          opacity:        0.6,
         }}>
           {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
             <span
               key={hint}
               style={{
-                fontSize:   12,
-                color:      "#475569",
-                background: "rgba(255,255,255,0.04)",
-                border:     "1px solid rgba(255,255,255,0.08)",
+                fontSize:     12,
+                color:        "#475569",
+                background:   "rgba(255,255,255,0.04)",
+                border:       "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 20,
-                padding:    "4px 12px",
+                padding:      "4px 12px",
               }}
             >
               {hint}
@@ -447,6 +562,7 @@ export default function VideoEmptyStateMascot({
           ))}
         </div>
       )}
+
     </div>
   );
 }
