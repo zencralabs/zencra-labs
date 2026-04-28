@@ -64,7 +64,7 @@ function getPreviewSet(key: string): ModelPreviewSet {
 }
 
 // ── Shared preview height — all three cards lock to this plane ────────────────
-const PREVIEW_HEIGHT = 238;
+const PREVIEW_HEIGHT = 236;
 
 // ── Single preview block ──────────────────────────────────────────────────────
 // Outer container: fixed height, clips to frame. AR lives in the video element.
