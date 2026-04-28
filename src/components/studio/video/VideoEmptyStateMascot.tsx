@@ -201,19 +201,23 @@ function ShowcaseCards({
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
 
-      {/* ── Left: 9:16 vertical — peeks behind center-left ───────────────────── */}
+      {/* ── Left: 9:16 vertical ──────────────────────────────────────────────────
+           Positioned so ~120px is visible to the left of center, ~35px behind.
+           left: calc(50% - 330px) → right edge at calc(50% - 175px).
+           Center left edge: calc(50% - 210px).
+           Overlap: (50%−175px) − (50%−210px) = 35px tucked under center. ── */}
       <div style={{
         position:  "absolute",
-        left:      "calc(50% - 260px)",
+        left:      "calc(50% - 330px)",
         top:       "50%",
-        marginTop: -HALF_H,          // vertical center via margin — keeps transform free
+        marginTop: -HALF_H,
         animation: "previewFloatLeft 7s ease-in-out infinite",
         zIndex:    2,
       }}>
         <PreviewBlock
           src={preview.vertical}
           label={preview.label}
-          width={160}
+          width={155}
           innerAspect="9/16"
           comingSoon={preview.comingSoon}
           extraStyle={{
@@ -222,17 +226,17 @@ function ShowcaseCards({
               : "rotate(-8deg)   scale(0.92)",
             transition:      "transform 350ms ease",
             transformOrigin: "center center",
-            filter:          "brightness(0.72) contrast(0.95)",
-            boxShadow:       "-4px 6px 28px rgba(0,0,0,0.65), 0 0 16px rgba(14,165,160,0.10)",
+            filter:          "brightness(0.70) contrast(0.95)",
+            boxShadow:       "-4px 8px 32px rgba(0,0,0,0.70), 0 0 18px rgba(14,165,160,0.08)",
           }}
         />
       </div>
 
-      {/* ── Center: 16:9 landscape — hero, dominant, z-highest ──────────────── */}
+      {/* ── Center: 16:9 landscape — hero, dominant ──────────────────────────── */}
       <div style={{
         position:   "absolute",
         left:       "50%",
-        marginLeft: -210,            // -(420 / 2) — horizontal center via margin
+        marginLeft: -210,
         top:        "50%",
         marginTop:  -HALF_H,
         animation:  "previewFloatCenter 8s ease-in-out infinite",
@@ -245,19 +249,22 @@ function ShowcaseCards({
           innerAspect="cover"
           comingSoon={preview.comingSoon}
           extraStyle={{
-            transform:  hovered ? "scale(1.03) translateY(-4px)" : "scale(1.0)",
+            transform:  hovered ? "translateY(-4px)" : "translateY(0)",
             transition: "transform 350ms ease",
-            filter:     "brightness(1.05) contrast(1.05)",
-            border:     "1px solid rgba(45,212,191,0.35)",
-            boxShadow:  "0 0 40px rgba(14,165,160,0.18), 0 16px 48px rgba(0,0,0,0.65)",
+            filter:     "brightness(1.04) contrast(1.04)",
+            border:     "1px solid rgba(45,212,191,0.38)",
+            boxShadow:  "0 0 0 1px rgba(14,165,160,0.10), 0 0 44px rgba(14,165,160,0.20), 0 18px 52px rgba(0,0,0,0.70)",
           }}
         />
       </div>
 
-      {/* ── Right: 1:1 square — peeks behind center-right ────────────────────── */}
+      {/* ── Right: 1:1 square ────────────────────────────────────────────────────
+           left: calc(50% + 155px) → right edge at calc(50% + 350px).
+           Center right edge: calc(50% + 210px).
+           Overlap: (50%+210px) − (50%+155px) = 55px tucked under center. ── */}
       <div style={{
         position:  "absolute",
-        left:      "calc(50% + 120px)",
+        left:      "calc(50% + 155px)",
         top:       "50%",
         marginTop: -HALF_H,
         animation: "previewFloatRight 7.5s ease-in-out infinite",
@@ -266,17 +273,17 @@ function ShowcaseCards({
         <PreviewBlock
           src={preview.square}
           label={preview.label}
-          width={200}
+          width={195}
           innerAspect="1/1"
           comingSoon={preview.comingSoon}
           extraStyle={{
             transform:       hovered
               ? "rotate(8.5deg) scale(0.95)"
-              : "rotate(8deg)  scale(0.92)",
+              : "rotate(8deg)   scale(0.92)",
             transition:      "transform 350ms ease",
             transformOrigin: "center center",
-            filter:          "brightness(0.72) contrast(0.95)",
-            boxShadow:       "4px 6px 28px rgba(0,0,0,0.65), 0 0 16px rgba(14,165,160,0.10)",
+            filter:          "brightness(0.70) contrast(0.95)",
+            boxShadow:       "4px 8px 32px rgba(0,0,0,0.70), 0 0 18px rgba(14,165,160,0.08)",
           }}
         />
       </div>
