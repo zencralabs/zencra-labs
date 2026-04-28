@@ -1494,54 +1494,66 @@ export default function VideoStudioShell() {
               100% { box-shadow: 0 0 0 2px rgba(99,102,241,0.6), 0 0 24px rgba(99,102,241,0.3); }
             }
           `}</style>
-          {/* ── Motion Flow strip — workflow context above canvas ─── */}
-          <MotionFlowStrip
-            frameMode={frameMode}
-            endFrameEnabled={model?.capabilities.endFrame}
-            hasStartSlot={!!startSlot.url}
-            hasEndSlot={!!endSlot.url}
-          />
+          {/* ── Canvas wrapper — relative so MotionFlowStrip can float above ── */}
+          <div style={{ position: "relative" }}>
+            {/* MotionFlowStrip — floats centered at top of canvas */}
+            <div style={{
+              position: "absolute",
+              top: 10,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 5,
+              pointerEvents: "none",
+            }}>
+              <MotionFlowStrip
+                frameMode={frameMode}
+                endFrameEnabled={model?.capabilities.endFrame}
+                hasStartSlot={!!startSlot.url}
+                hasEndSlot={!!endSlot.url}
+              />
+            </div>
 
-          {model && !model.available ? (
-            <ComingSoonScreen model={model} />
-          ) : model && model.apiModelId === "" ? (
-            <NotConfiguredScreen model={model} />
-          ) : (
-            <VideoCanvas
-              frameMode={frameMode}
-              aspectRatio={aspectRatio}
-              generating={effectiveGenerating}
-              cinemaModeActive={cinemaModeActive}
-              endFrameEnabled={model?.capabilities.endFrame ?? false}
-              startSlot={startSlot}
-              endSlot={endSlot}
-              audioSlot={audioSlot}
-              motionVideoUrl={motionVideoUrl}
-              motionVideoName={motionVideoName}
-              onStartSlot={setStartSlot}
-              onEndSlot={setEndSlot}
-              onAudioSlot={setAudioSlot}
-              onMotionVideo={(url, name) => { setMotionVideoUrl(url); setMotionVideoName(name); }}
-              onMotionVideoRemove={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
-              onLipSyncFaceFile={handleLipSyncFaceFile}
-              onLipSyncAudioFile={handleLipSyncAudioFile}
-              onMascotUpload={handleMascotUpload}
-              onSamplePrompt={handleSamplePrompt}
-              mascotSamplePrompt={mascotSamplePrompt}
-              previewVideo={canvasPreviewVideo}
-              onClosePreview={() => setCanvasPreviewId(null)}
-              onOpenFullscreen={(v) => setViewingVideo(v)}
-              previewIsFavorite={canvasPreviewVideo?.is_favorite ?? false}
-              onPreviewFavToggle={handlePreviewFavToggle}
-              onPreviewDownload={undefined}
-              onPreviewCopyPrompt={undefined}
-              onPreviewDelete={handlePreviewDelete}
-              onPreviewCancel={handlePreviewCancel}
-              onPreviewSetStartFrame={handlePreviewSetStartFrame}
-              onPreviewSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
-              onPreviewReuse={handlePreviewReuse}
-            />
-          )}
+            {model && !model.available ? (
+              <ComingSoonScreen model={model} />
+            ) : model && model.apiModelId === "" ? (
+              <NotConfiguredScreen model={model} />
+            ) : (
+              <VideoCanvas
+                frameMode={frameMode}
+                aspectRatio={aspectRatio}
+                generating={effectiveGenerating}
+                cinemaModeActive={cinemaModeActive}
+                endFrameEnabled={model?.capabilities.endFrame ?? false}
+                startSlot={startSlot}
+                endSlot={endSlot}
+                audioSlot={audioSlot}
+                motionVideoUrl={motionVideoUrl}
+                motionVideoName={motionVideoName}
+                onStartSlot={setStartSlot}
+                onEndSlot={setEndSlot}
+                onAudioSlot={setAudioSlot}
+                onMotionVideo={(url, name) => { setMotionVideoUrl(url); setMotionVideoName(name); }}
+                onMotionVideoRemove={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
+                onLipSyncFaceFile={handleLipSyncFaceFile}
+                onLipSyncAudioFile={handleLipSyncAudioFile}
+                onMascotUpload={handleMascotUpload}
+                onSamplePrompt={handleSamplePrompt}
+                mascotSamplePrompt={mascotSamplePrompt}
+                previewVideo={canvasPreviewVideo}
+                onClosePreview={() => setCanvasPreviewId(null)}
+                onOpenFullscreen={(v) => setViewingVideo(v)}
+                previewIsFavorite={canvasPreviewVideo?.is_favorite ?? false}
+                onPreviewFavToggle={handlePreviewFavToggle}
+                onPreviewDownload={undefined}
+                onPreviewCopyPrompt={undefined}
+                onPreviewDelete={handlePreviewDelete}
+                onPreviewCancel={handlePreviewCancel}
+                onPreviewSetStartFrame={handlePreviewSetStartFrame}
+                onPreviewSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
+                onPreviewReuse={handlePreviewReuse}
+              />
+            )}
+          </div>
 
           {/* ── Generate Bar — single CTA between canvas and gallery ── */}
           <CanvasGenerateBar

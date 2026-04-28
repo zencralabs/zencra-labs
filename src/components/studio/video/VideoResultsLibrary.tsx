@@ -458,8 +458,8 @@ function VideoCard({
           {isError && <ErrorBadge />}
         </div>
 
-        {/* Duration + credits — top right */}
-        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
+        {/* Duration + credits — top right, shifted left to make room for heart */}
+        <div style={{ position: "absolute", top: 8, right: 50, display: "flex", gap: 4 }}>
           <div style={{
             padding: "2px 7px", borderRadius: 4,
             background: "rgba(2,6,23,0.70)", border: "1px solid rgba(255,255,255,0.1)",
@@ -477,6 +477,50 @@ function VideoCard({
             </div>
           )}
         </div>
+
+        {/* Heart / Favourite — top right overlay, 38px */}
+        <button
+          onClick={e => { e.stopPropagation(); onFavToggle?.(video.id, !video.is_favorite); }}
+          title={video.is_favorite ? "Remove from favourites" : "Add to favourites"}
+          style={{
+            position: "absolute", top: 6, right: 6,
+            width: 38, height: 38,
+            background: video.is_favorite ? "rgba(239,68,68,0.18)" : "rgba(2,6,23,0.65)",
+            border: video.is_favorite ? "1px solid rgba(239,68,68,0.45)" : "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 4,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+            transition: "background 0.18s, border-color 0.18s, transform 0.15s",
+            zIndex: 8,
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.12)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24"
+            fill={video.is_favorite ? "#EF4444" : "none"}
+            stroke={video.is_favorite ? "#EF4444" : "rgba(226,244,255,0.55)"}
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transition: "fill 0.18s, stroke 0.18s" }}
+          >
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+
+        {/* Hover prompt overlay — bottom of media, above action strip */}
+        {hovered && video.prompt && (
+          <div style={{
+            position: "absolute", bottom: 48, left: 0, right: 0,
+            padding: "6px 10px",
+            background: "linear-gradient(transparent, rgba(2,6,23,0.72))",
+            fontSize: 11, color: "rgba(203,213,225,0.78)", lineHeight: 1.4,
+            display: "-webkit-box", WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical", overflow: "hidden",
+            pointerEvents: "none", zIndex: 4,
+          }}>
+            {video.prompt}
+          </div>
+        )}
 
         {/* Checkbox — top left, appears on hover or selection */}
         <div
@@ -581,44 +625,6 @@ function VideoCard({
         </div>
       </div>
 
-      {/* ── Card body ────────────────────────────────────────────────────────── */}
-      <div style={{ padding: "9px 11px 10px" }}>
-        <div style={{
-          fontSize: 13, color: "#7A8EA4", lineHeight: 1.6,
-          display: "-webkit-box", WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical", overflow: "hidden",
-          marginBottom: 6,
-        }}>
-          {video.prompt
-            ? video.prompt
-            : <span style={{ color: "#2D3A4A", fontStyle: "italic" }}>No prompt</span>
-          }
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 10, color: "#2D3A4A" }}>{timeAgo(video.createdAt)}</div>
-          {/* Heart / Favourite toggle */}
-          <button
-            onClick={e => { e.stopPropagation(); onFavToggle?.(video.id, !video.is_favorite); }}
-            title={video.is_favorite ? "Remove from favourites" : "Add to favourites"}
-            style={{
-              background: "none", border: "none", padding: "2px 0", cursor: "pointer",
-              display: "flex", alignItems: "center",
-              transition: "transform 0.15s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.2)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24"
-              fill={video.is_favorite ? "#EF4444" : "none"}
-              stroke={video.is_favorite ? "#EF4444" : "#3A4F62"}
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transition: "fill 0.18s, stroke 0.18s" }}
-            >
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -725,8 +731,8 @@ interface Props {
   onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
 }
 
-type FilterTab = "all" | "generated" | "history" | "favorites";
-type SortMode  = "latest" | "oldest" | "credits";
+type FilterTab = "history" | "favorites";
+type SortMode  = "latest" | "oldest";
 type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -734,7 +740,7 @@ type ShowCount = 25 | 50 | 100 | 500;
 export default function VideoResultsLibrary({
   videos, onReusePrompt, onDelete, onFavToggle, onAuthRequired, onPreview, onCardRef,
 }: Props) {
-  const [filter,    setFilter]    = useState<FilterTab>("all");
+  const [filter,    setFilter]    = useState<FilterTab>("history");
   const [sort,      setSort]      = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
   const [zoomPct,   setZoomPct]   = useState(60);
@@ -758,7 +764,6 @@ export default function VideoResultsLibrary({
 
   // Filter
   let filtered = videos.filter(v => {
-    if (filter === "generated") return now - v.createdAt <= ONE_HOUR;
     if (filter === "history")   return now - v.createdAt > ONE_HOUR;
     if (filter === "favorites") return v.is_favorite === true;
     return true;
@@ -768,15 +773,12 @@ export default function VideoResultsLibrary({
   filtered = [...filtered].sort((a, b) => {
     if (sort === "latest")  return b.createdAt - a.createdAt;
     if (sort === "oldest")  return a.createdAt - b.createdAt;
-    if (sort === "credits") return b.creditsUsed - a.creditsUsed;
     return 0;
   });
 
   filtered = filtered.slice(0, showCount);
 
   const filterTabs: { key: FilterTab; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "generated", label: "Generated" },
     { key: "history",   label: "History" },
     { key: "favorites", label: "Favourites" },
   ];
@@ -784,7 +786,6 @@ export default function VideoResultsLibrary({
   const sortModes: { key: SortMode; label: string }[] = [
     { key: "latest",  label: "Latest" },
     { key: "oldest",  label: "Oldest" },
-    { key: "credits", label: "Credits" },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -792,7 +793,7 @@ export default function VideoResultsLibrary({
   return (
     <section style={{
       marginTop: 44,
-      padding: "34px 20px 54px",
+      padding: "34px 8px 54px",
       background: [
         "radial-gradient(circle at 50% 0%, rgba(45,212,191,0.08), transparent 36%)",
         "#1B1B1B",
@@ -830,8 +831,6 @@ export default function VideoResultsLibrary({
             {filterTabs.map(t => {
               const active = filter === t.key;
               const count =
-                t.key === "all"       ? videos.length :
-                t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length :
                 t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
                 videos.filter(v => v.is_favorite === true).length;
               return (

@@ -44,7 +44,7 @@ const T = {
 const FRAME_GLOW: React.CSSProperties = {
   background: "radial-gradient(circle at center, rgba(14,165,160,0.08), transparent 70%)",
   boxShadow: "0 0 40px rgba(14,165,160,0.06)",
-  borderRadius: 10,
+  borderRadius: 0,
 };
 
 // ── AR helpers ────────────────────────────────────────────────────────────────
@@ -180,11 +180,11 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
     : `1.5px dashed ${T.borderStd}`;
 
   const zoneStyle: React.CSSProperties = fillParent
-    ? { width: "100%", flex: 1, minHeight: 0, borderRadius: 10, border: zoneBorder,
+    ? { width: "100%", flex: 1, minHeight: 0, borderRadius: 0, border: zoneBorder,
         background: hasImage ? "transparent" : dragging ? "rgba(14,165,160,0.04)" : T.surface,
         overflow: "hidden", cursor: hasImage ? "default" : "pointer", transition: "all 0.2s ease",
         position: "relative" }
-    : { position: "relative", aspectRatio: arToRatio(aspectRatio), borderRadius: 10,
+    : { position: "relative", aspectRatio: arToRatio(aspectRatio), borderRadius: 0,
         border: zoneBorder,
         background: hasImage ? "transparent" : dragging ? "rgba(14,165,160,0.04)" : T.surface,
         overflow: "hidden", cursor: hasImage ? "default" : "pointer", transition: "all 0.2s ease" };
@@ -472,7 +472,7 @@ function AudioPlayer({ audio, onRemove }: { audio: AudioSlot; onRemove: () => vo
 
   return (
     <div style={{
-      borderRadius: 10,
+      borderRadius: 0,
       border: `1px solid ${T.borderPurple}`,
       background: "rgba(139,92,246,0.06)",
       boxShadow: `0 0 15px ${T.purpleGlow}`,
@@ -613,7 +613,7 @@ function AudioUploadZone({
           (e.currentTarget as HTMLElement).style.background = T.surface;
         }}
         style={{
-          borderRadius: 10,
+          borderRadius: 0,
           border: dragging
             ? `1.5px dashed rgba(139,92,246,0.6)`
             : audioError
@@ -1824,7 +1824,7 @@ export default function VideoCanvas({
       position: "relative",
       width: "100%",
       aspectRatio: "16 / 9",
-      borderRadius: 14,
+      borderRadius: 0,
       border: `1px solid ${T.borderPremium}`,
       background: T.surface,
       boxShadow: canvasGlow,
@@ -1841,7 +1841,7 @@ export default function VideoCanvas({
 
       {/* Inner dashed cinematic frame */}
       <div style={{
-        position: "absolute", inset: 8, borderRadius: 10,
+        position: "absolute", inset: 8, borderRadius: 0,
         border: "1px dashed rgba(255,255,255,0.12)",
         pointerEvents: "none", zIndex: 1,
         transition: "border-color 0.35s ease",

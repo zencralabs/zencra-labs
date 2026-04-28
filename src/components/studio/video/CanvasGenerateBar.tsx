@@ -47,8 +47,8 @@ export default function CanvasGenerateBar({
 
   return (
     <div style={{
-      width:          "min(760px, 100%)",
-      margin:         "22px auto 32px auto",
+      width:          "100%",
+      margin:         "22px 0 32px 0",
       height:         76,
       display:        "flex",
       alignItems:     "center",

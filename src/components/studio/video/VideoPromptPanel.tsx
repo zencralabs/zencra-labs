@@ -1352,7 +1352,7 @@ export default function VideoPromptPanel({
               {(["none", ...(model.capabilities.nativeAudio ? ["scene"] : []), "voiceover"] as ("none" | "scene" | "voiceover")[]).map(mode => {
                 const active = audioMode === mode;
                 const label  = mode === "none" ? "No Audio" : mode === "scene" ? "Scene Audio" : "Add Voiceover";
-                const accent = mode === "scene" ? "#0EA5A0" : mode === "voiceover" ? "#A78BFA" : "#475569";
+                const accent = mode === "scene" ? "#0EA5A0" : mode === "voiceover" ? "#C6FF00" : "#475569";
                 return (
                   <button
                     key={mode}
@@ -1427,14 +1427,14 @@ export default function VideoPromptPanel({
             {audioMode === "voiceover" && (
               <div style={{
                 marginTop: 8, padding: "8px 11px", borderRadius: 8,
-                border: "1px solid rgba(167,139,250,0.16)",
-                background: "rgba(139,92,246,0.05)",
+                border: "1px solid rgba(198,255,0,0.16)",
+                background: "rgba(198,255,0,0.04)",
                 lineHeight: 1.55,
               }}>
                 <span style={{ fontSize: 12, color: "#64748B", display: "block" }}>
                   Controlled speech and narration. Best for dialogue, character voice, and explainers.
                 </span>
-                <span style={{ fontSize: 11, color: "#5A4A7A", fontWeight: 500, display: "block", marginTop: 4 }}>
+                <span style={{ fontSize: 11, color: "#5E6A30", fontWeight: 500, display: "block", marginTop: 4 }}>
                   Voiceover adds +3–5 credits depending on length and quality.
                 </span>
               </div>
@@ -1444,21 +1444,21 @@ export default function VideoPromptPanel({
             {audioMode === "voiceover" && (
               <div style={{
                 marginTop: 8, padding: "10px 12px", borderRadius: 10,
-                border: "1px solid rgba(167,139,250,0.22)",
-                background: "rgba(139,92,246,0.06)",
+                border: "1px solid rgba(198,255,0,0.22)",
+                background: "rgba(198,255,0,0.04)",
               }}>
                 {/* Header row */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                    stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    stroke="#C6FF00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                     <line x1="12" y1="19" x2="12" y2="22"/>
                   </svg>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#C4B5FD" }}>Voiceover</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#C6FF00" }}>Voiceover</span>
                   <span style={{
                     fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                    color: "#A78BFA", background: "rgba(139,92,246,0.18)",
+                    color: "#C6FF00", background: "rgba(198,255,0,0.16)",
                     borderRadius: 4, padding: "2px 6px",
                   }}>SOON</span>
                 </div>
@@ -1469,23 +1469,23 @@ export default function VideoPromptPanel({
                   rows={3}
                   style={{
                     width: "100%",
-                    background: "rgba(139,92,246,0.05)",
-                    border: "1px solid rgba(167,139,250,0.2)",
+                    background: "rgba(198,255,0,0.03)",
+                    border: "1px solid rgba(198,255,0,0.18)",
                     borderRadius: 8, padding: "9px 11px",
                     fontSize: 13, color: "#CBD5E1",
                     resize: "vertical", outline: "none", lineHeight: 1.55,
                     fontFamily: "inherit", boxSizing: "border-box",
                     marginBottom: 8,
                   }}
-                  onFocus={e => { e.currentTarget.style.borderColor = "rgba(167,139,250,0.45)"; e.currentTarget.style.background = "rgba(139,92,246,0.08)"; }}
-                  onBlur={e =>  { e.currentTarget.style.borderColor = "rgba(167,139,250,0.2)";  e.currentTarget.style.background = "rgba(139,92,246,0.05)"; }}
+                  onFocus={e => { e.currentTarget.style.borderColor = "rgba(198,255,0,0.45)"; e.currentTarget.style.background = "rgba(198,255,0,0.06)"; }}
+                  onBlur={e =>  { e.currentTarget.style.borderColor = "rgba(198,255,0,0.18)";  e.currentTarget.style.background = "rgba(198,255,0,0.03)"; }}
                 />
 
                 {/* Voice selector — placeholder */}
                 <div style={{
                   display: "flex", alignItems: "center", gap: 8,
                   padding: "7px 10px", borderRadius: 7,
-                  border: "1px solid rgba(167,139,250,0.15)",
+                  border: "1px solid rgba(198,255,0,0.15)",
                   background: "rgba(255,255,255,0.02)",
                 }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
@@ -1508,8 +1508,8 @@ export default function VideoPromptPanel({
                 Communicates the ceiling: Scene Audio → Voiceover → Lip Sync.  */}
             <div style={{
               marginTop: 8, padding: "10px 12px", borderRadius: 10,
-              border: "1px solid rgba(139,92,246,0.10)",
-              background: "rgba(139,92,246,0.02)",
+              border: "1px solid rgba(198,255,0,0.08)",
+              background: "rgba(198,255,0,0.02)",
               opacity: 0.65,
               userSelect: "none",
             }}>
@@ -1520,20 +1520,20 @@ export default function VideoPromptPanel({
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {/* Lock icon */}
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                    stroke="#5B4A82" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    stroke="#5E6A30" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#5B4A82" }}>Lip Sync</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#5E6A30" }}>Lip Sync</span>
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                  color: "#4A3D6A", background: "rgba(139,92,246,0.10)",
+                  color: "#5E6A30", background: "rgba(198,255,0,0.10)",
                   borderRadius: 4, padding: "2px 6px",
                 }}>COMING NEXT</span>
               </div>
               <p style={{
-                margin: 0, fontSize: 11, color: "#3D2F5E", lineHeight: 1.55,
+                margin: 0, fontSize: 11, color: "#4A5520", lineHeight: 1.55,
               }}>
                 Make characters speak with synced voice and performance timing.
               </p>
