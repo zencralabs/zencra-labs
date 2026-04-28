@@ -64,7 +64,7 @@ function getPreviewSet(key: string): ModelPreviewSet {
 }
 
 // ── Shared preview height — all three cards lock to this plane ────────────────
-const PREVIEW_HEIGHT = 240;
+const PREVIEW_HEIGHT = 238;
 
 // ── Single preview block ──────────────────────────────────────────────────────
 // Outer container: fixed height, clips to frame. AR lives in the video element.
@@ -335,7 +335,7 @@ export default function VideoEmptyStateMascot({
         justifyContent: "center",
         gap:            0,
         height:         "100%",
-        padding:        "24px 32px 40px",
+        padding:        "48px 32px 40px",
         textAlign:      "center",
         userSelect:     "none",
       }}
