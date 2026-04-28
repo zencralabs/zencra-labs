@@ -94,6 +94,16 @@ export const TOOL_CATALOG: CatalogTool[] = [
 
   // ── VIDEO — active (real Kling provider wired) ─────────────────────────────
   {
+    id: "kling-30-omni",
+    provider: "kling",
+    displayName: "Kling 3.0 Omni",
+    category: "video",
+    status: "active",
+    description: "Full-capability cinematic — identity, motion, and frame control unified",
+    badge: "NEW",
+    sortOrder: 55,
+  },
+  {
     id: "kling-30",
     provider: "kling",
     displayName: "Kling 3.0",
@@ -115,23 +125,75 @@ export const TOOL_CATALOG: CatalogTool[] = [
   {
     id: "kling-25",
     provider: "kling",
-    displayName: "Kling 2.5",
+    displayName: "Kling 2.5 Turbo",
     category: "video",
     status: "active",
     description: "Fast, reliable cinematic generation",
     sortOrder: 80,
   },
 
-  // ── VIDEO — coming soon ─────────────────────────────────────────────────────
+  // ── VIDEO — Seedance (active) ───────────────────────────────────────────────
   {
     id: "seedance-20",
     provider: "seedance",
     displayName: "Seedance 2.0",
     category: "video",
-    status: "coming_soon",
-    description: "Specialist in human motion and dance",
-    badge: "SOON",
+    status: "active",
+    description: "High-quality cinematic video — text/image to video, first+last frame",
+    badge: "NEW",
     sortOrder: 90,
+  },
+  {
+    id: "seedance-20-fast",
+    provider: "seedance",
+    displayName: "Seedance 2.0 Fast",
+    category: "video",
+    status: "active",
+    description: "Rapid generation variant of Seedance 2.0",
+    badge: "FAST",
+    sortOrder: 92,
+  },
+  {
+    id: "seedance-15",
+    provider: "seedance",
+    displayName: "Seedance 1.5 Pro",
+    category: "video",
+    status: "coming_soon",
+    description: "1080p capable — text/image to video, first+last frame",
+    badge: "SOON",
+    sortOrder: 94,
+  },
+
+  // ── VIDEO — MiniMax Hailuo (coming soon) ────────────────────────────────────
+  {
+    id: "minimax-hailuo-23",
+    provider: "minimax",
+    displayName: "Hailuo 2.3",
+    category: "video",
+    status: "coming_soon",
+    description: "MiniMax flagship — cinematic quality with strong motion fidelity",
+    badge: "SOON",
+    sortOrder: 115,
+  },
+  {
+    id: "minimax-hailuo-23-fast",
+    provider: "minimax",
+    displayName: "Hailuo 2.3 Fast",
+    category: "video",
+    status: "coming_soon",
+    description: "Fast-turbo variant of Hailuo 2.3",
+    badge: "SOON",
+    sortOrder: 116,
+  },
+  {
+    id: "minimax-hailuo-02",
+    provider: "minimax",
+    displayName: "Hailuo 02",
+    category: "video",
+    status: "coming_soon",
+    description: "Consistent characters and cinematic scene depth",
+    badge: "SOON",
+    sortOrder: 117,
   },
 
   // ── VIDEO — coming soon ─────────────────────────────────────────────────────
@@ -156,14 +218,24 @@ export const TOOL_CATALOG: CatalogTool[] = [
     sortOrder: 110,
   },
   {
-    id: "runway-gen45",
-    provider: "runway",
-    displayName: "Runway Gen-4.5",
+    id: "wan-27",
+    provider: "wan",
+    displayName: "Wan 2.7",
     category: "video",
     status: "coming_soon",
-    description: "Professional-grade AI video editing",
+    description: "Alibaba's open-source cinematic video model",
     badge: "SOON",
-    sortOrder: 120,
+    sortOrder: 125,
+  },
+  {
+    id: "grok-imagine",
+    provider: "grok",
+    displayName: "Grok Imagine",
+    category: "video",
+    status: "coming_soon",
+    description: "xAI's physics-aware video generation",
+    badge: "SOON",
+    sortOrder: 127,
   },
 
   // ── AUDIO — active ──────────────────────────────────────────────────────────

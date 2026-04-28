@@ -65,6 +65,7 @@ function estimateCredits(id: string, q: string, d: number) {
 const FAMILY_ACCENT: Record<string, string> = {
   kling:    "#0EA5A0",
   seedance: "#6366F1",
+  minimax:  "#8B5CF6",
 };
 
 function familyAccent(provider: string): string {
@@ -256,9 +257,11 @@ function FamilyDropdownBar({
 }) {
   const klingModels    = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "kling");
   const seedanceModels = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "seedance");
+  const minimaxModels  = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "minimax");
   // "heygen" is hidden from the model bar — provider code and routing remain intact
   const otherModels    = VIDEO_MODEL_REGISTRY.filter(
-    m => m.provider !== "kling" && m.provider !== "seedance" && m.provider !== "heygen"
+    m => m.provider !== "kling" && m.provider !== "seedance" &&
+         m.provider !== "minimax" && m.provider !== "heygen"
   );
 
   // All "slots" in order: kling, seedance, ...others
@@ -295,6 +298,16 @@ function FamilyDropdownBar({
           onSelect={onSelect}
           accent={familyAccent("seedance")}
           defaultId="seedance-20"
+        />
+        <ChipDivider />
+
+        {/* MiniMax Hailuo family — pill shows Hailuo 2.3 by default; dropdown: 2.3 Fast, Hailuo 02 */}
+        <FamilyPill
+          models={minimaxModels}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          accent={familyAccent("minimax")}
+          defaultId="minimax-hailuo-23"
         />
 
         {/* Flat pills for other models */}

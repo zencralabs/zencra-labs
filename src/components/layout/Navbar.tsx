@@ -38,7 +38,7 @@ interface NavCategory {
 }
 
 const imageModels  = getNavModels("image", 6);
-const videoModels  = getNavModels("video", 6);
+const videoModels  = getNavModels("video", 14);
 const audioModels  = getToolsByCategory("audio").filter(t => t.id !== "suno-ai").slice(0, 4);
 const charModels   = getToolsByCategory("character").slice(0, 3);
 
