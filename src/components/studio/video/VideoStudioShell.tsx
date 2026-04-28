@@ -245,6 +245,7 @@ function FamilyDropdownBar({
   onSelect,
   sequenceControl,
   onScrollToGallery,
+  onPreviewHover,
 }: {
   selectedId: string;
   onSelect: (id: string) => void;
@@ -254,6 +255,7 @@ function FamilyDropdownBar({
     onSet:   (active: boolean) => void;
   };
   onScrollToGallery?: () => void;
+  onPreviewHover?: (key: string | null) => void;
 }) {
   const klingModels    = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "kling");
   const seedanceModels = VIDEO_MODEL_REGISTRY.filter(m => m.provider === "seedance");
@@ -282,33 +284,48 @@ function FamilyDropdownBar({
       <div style={{ display: "flex", alignItems: "center" }}>
 
         {/* Kling family — pill shows Kling 3.0 Omni by default; dropdown: Kling 3.0, Kling 2.6, Kling 2.5 Turbo */}
-        <FamilyPill
-          models={klingModels}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          accent={familyAccent("kling")}
-          defaultId="kling-30-omni"
-        />
+        <div
+          onMouseEnter={() => onPreviewHover?.("kling")}
+          onMouseLeave={() => onPreviewHover?.(null)}
+        >
+          <FamilyPill
+            models={klingModels}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            accent={familyAccent("kling")}
+            defaultId="kling-30-omni"
+          />
+        </div>
         <ChipDivider />
 
         {/* Seedance family — pill shows Seedance 2.0 NEW by default; dropdown: 2.0 FAST, 1.5 Pro */}
-        <FamilyPill
-          models={seedanceModels}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          accent={familyAccent("seedance")}
-          defaultId="seedance-20"
-        />
+        <div
+          onMouseEnter={() => onPreviewHover?.("seedance")}
+          onMouseLeave={() => onPreviewHover?.(null)}
+        >
+          <FamilyPill
+            models={seedanceModels}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            accent={familyAccent("seedance")}
+            defaultId="seedance-20"
+          />
+        </div>
         <ChipDivider />
 
         {/* MiniMax Hailuo family — pill shows Hailuo 2.3 by default; dropdown: 2.3 Fast, Hailuo 02 */}
-        <FamilyPill
-          models={minimaxModels}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          accent={familyAccent("minimax")}
-          defaultId="minimax-hailuo-23"
-        />
+        <div
+          onMouseEnter={() => onPreviewHover?.("minimax")}
+          onMouseLeave={() => onPreviewHover?.(null)}
+        >
+          <FamilyPill
+            models={minimaxModels}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            accent={familyAccent("minimax")}
+            defaultId="minimax-hailuo-23"
+          />
+        </div>
 
         {/* Flat pills for other models */}
         {otherModels.map((m, i) => {
@@ -336,6 +353,7 @@ function FamilyDropdownBar({
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
+                  onPreviewHover?.(m.provider);
                   if (!active) {
                     (e.currentTarget as HTMLElement).style.color = "#F8FAFC";
                     (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.15)";
@@ -343,6 +361,7 @@ function FamilyDropdownBar({
                   }
                 }}
                 onMouseLeave={e => {
+                  onPreviewHover?.(null);
                   if (!active) {
                     (e.currentTarget as HTMLElement).style.color = "#CBD5F5";
                     (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
@@ -938,6 +957,8 @@ export default function VideoStudioShell() {
   // Fullscreen video preview
   const [viewingVideo, setViewingVideo] = useState<GeneratedVideo | null>(null);
   const [mascotSamplePrompt, setMascotSamplePrompt] = useState<string | undefined>(undefined);
+  // Preview key — hovered model family drives the empty canvas showcase
+  const [hoveredModelPreviewKey, setHoveredModelPreviewKey] = useState<string | null>(null);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const [toastState, setToastState] = useState<{ msg: string; variant: "success" | "error" | "info" } | null>(null);
@@ -1322,6 +1343,10 @@ export default function VideoStudioShell() {
 
   const creditEstimate = model ? estimateCredits(model.id, quality, duration) : 0;
 
+  // Which model family's preview to show in the empty canvas state.
+  // Priority: hovering a pill > selected model's provider > "kling" fallback.
+  const effectivePreviewKey = hoveredModelPreviewKey ?? model?.provider ?? "kling";
+
   // Readiness gate — single source of truth for CanvasGenerateBar + right panel
   const barHandleNotReady =
     detectedHandles.length > 0 &&
@@ -1366,6 +1391,7 @@ export default function VideoStudioShell() {
         onScrollToGallery={() => {
           videoResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
+        onPreviewHover={setHoveredModelPreviewKey}
       />
 
       {/* ── 3-column workspace ─────────────────────────────────── */}
@@ -1552,6 +1578,7 @@ export default function VideoStudioShell() {
                 onMascotUpload={handleMascotUpload}
                 onSamplePrompt={handleSamplePrompt}
                 mascotSamplePrompt={mascotSamplePrompt}
+                previewKey={effectivePreviewKey}
                 previewVideo={canvasPreviewVideo}
                 onClosePreview={() => setCanvasPreviewId(null)}
                 onOpenFullscreen={(v) => setViewingVideo(v)}

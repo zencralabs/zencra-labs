@@ -1465,6 +1465,8 @@ interface Props {
   onSamplePrompt?:    () => void;
   /** Current prompt to show in mascot (from rotating cinematic bank) */
   mascotSamplePrompt?:string;
+  /** Which model family to preview in the empty state showcase */
+  previewKey?:         string;
   // ── Canvas Preview (Layer 1) ──────────────────────────────────────────────
   /** When set, shows a canvas-level generating/playback overlay above everything */
   previewVideo?:          GeneratedVideo | null;
@@ -1493,7 +1495,7 @@ export default function VideoCanvas({
   motionVideoUrl, motionVideoName,
   onStartSlot, onEndSlot, onAudioSlot, onMotionVideo, onMotionVideoRemove,
   onLipSyncFaceFile, onLipSyncAudioFile,
-  onMascotUpload, onSamplePrompt, mascotSamplePrompt,
+  onMascotUpload, onSamplePrompt, mascotSamplePrompt, previewKey,
   previewVideo, onClosePreview, onOpenFullscreen,
   previewIsFavorite,
   onPreviewFavToggle,
@@ -1559,6 +1561,7 @@ export default function VideoCanvas({
               onUpload={() => mascotInputRef.current?.click()}
               onSamplePrompt={onSamplePrompt}
               samplePrompt={mascotSamplePrompt}
+              previewKey={previewKey}
             />
           </div>
         );

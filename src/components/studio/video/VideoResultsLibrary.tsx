@@ -119,12 +119,10 @@ function FeaturedVideoTile({
 
   return (
     <div
-      className="featured-video-tile"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onPreview?.(video)}
       style={{
-        gridColumn: "span 2",
         minHeight: 360,
         background: "#050B10",
         border: `1px solid ${hovered ? "rgba(45,212,191,0.42)" : "rgba(45,212,191,0.26)"}`,
@@ -793,7 +791,7 @@ export default function VideoResultsLibrary({
   return (
     <section style={{
       marginTop: 44,
-      padding: "34px 8px 54px",
+      padding: "34px 24px 54px",
       background: [
         "radial-gradient(circle at 50% 0%, rgba(45,212,191,0.08), transparent 36%)",
         "#1B1B1B",
@@ -804,8 +802,8 @@ export default function VideoResultsLibrary({
       paddingBottom: selectedIds.size > 0 ? 80 : 54,
     } as React.CSSProperties}>
 
-      {/* ── Max-width container ──────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
+      {/* ── Full-width container ─────────────────────────────────────────────── */}
+      <div>
 
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <div style={{
@@ -975,25 +973,48 @@ export default function VideoResultsLibrary({
             </svg>
             <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
           </div>
-        ) : (
-          /* Grid — featured tile first, then remaining cards */
-          (() => {
-            const featuredVideo = filtered[0] ?? null;
-            const remainingVideos = featuredVideo ? filtered.slice(1) : filtered;
-            return (
+        ) : filtered.length >= 5 ? (
+          /* ── Hero layout (≥5 videos): Featured Reel + 2×2 grid + overflow ── */
+          <>
+            {/* First row: Featured (col 1, rows 1-2) + 4 standard cards (2×2 right) */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 1fr",
+              gap: 22,
+              marginBottom: 22,
+            }}>
+              {/* Featured — spans rows 1 and 2 */}
+              <div style={{ gridColumn: 1, gridRow: "1 / span 2" }}>
+                <FeaturedVideoTile
+                  video={filtered[0]}
+                  onPreview={onPreview}
+                />
+              </div>
+              {/* Cards 2–5 in the 2×2 right slots */}
+              {filtered.slice(1, 5).map(v => (
+                <VideoCard
+                  key={v.id}
+                  video={v}
+                  selected={selectedIds.has(v.id)}
+                  anySelected={selectedIds.size > 0}
+                  onSelect={toggleSelect}
+                  onReuse={onReusePrompt}
+                  onDelete={onDelete ?? (() => {})}
+                  onFavToggle={onFavToggle}
+                  onPreview={onPreview}
+                  onAuthRequired={onAuthRequired}
+                  onCardRef={onCardRef}
+                />
+              ))}
+            </div>
+            {/* Videos 6+ in normal auto-fill grid */}
+            {filtered.length > 5 && (
               <div style={{
                 display: "grid",
                 gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
                 gap: 22,
               }}>
-                {featuredVideo && (
-                  <FeaturedVideoTile
-                    key={`featured-${featuredVideo.id}`}
-                    video={featuredVideo}
-                    onPreview={onPreview}
-                  />
-                )}
-                {remainingVideos.map(v => (
+                {filtered.slice(5).map(v => (
                   <VideoCard
                     key={v.id}
                     video={v}
@@ -1009,8 +1030,31 @@ export default function VideoResultsLibrary({
                   />
                 ))}
               </div>
-            );
-          })()
+            )}
+          </>
+        ) : (
+          /* ── Normal auto-fill grid (<5 videos — no Featured tile) ── */
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
+            gap: 22,
+          }}>
+            {filtered.map(v => (
+              <VideoCard
+                key={v.id}
+                video={v}
+                selected={selectedIds.has(v.id)}
+                anySelected={selectedIds.size > 0}
+                onSelect={toggleSelect}
+                onReuse={onReusePrompt}
+                onDelete={onDelete ?? (() => {})}
+                onFavToggle={onFavToggle}
+                onPreview={onPreview}
+                onAuthRequired={onAuthRequired}
+                onCardRef={onCardRef}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -1026,10 +1070,6 @@ export default function VideoResultsLibrary({
       <style>{`
         @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
         @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(45,212,191,0.30)} 50%{box-shadow:0 0 40px rgba(45,212,191,0.55)} }
-        .featured-video-tile { grid-column: span 2; min-height: 360px; }
-        @media (max-width: 900px) {
-          .featured-video-tile { grid-column: span 1 !important; min-height: 260px !important; }
-        }
       `}</style>
     </section>
   );

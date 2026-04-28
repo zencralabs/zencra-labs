@@ -1,211 +1,345 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoEmptyStateMascot — Premium canvas empty state with Zencra mascot
+// VideoEmptyStateMascot — Canvas empty state with 3-video model showcase
+//
+// Layout:
+//   • 3 preview blocks: 9:16 left-front, 16:9 center-back, 1:1 right-front
+//   • Title, subtitle, Upload + Sample buttons below
+//   • previewKey drives which model family's clips are shown
+//   • When MP4 files are absent, renders styled placeholder blocks
+//   • Paths are structured for: /model-previews/{key}/{shape}.mp4
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Props {
-  onUpload?: () => void;
-  onSamplePrompt?: () => void;
-  /** Current cinematic sample prompt to preview — rotates on each click */
-  samplePrompt?: string;
-}
+// ── Model preview config ──────────────────────────────────────────────────────
 
-// Inline SVG mascot — stylized clapperboard with teal/blue glow identity
-function ZencraClapperMascot() {
+type ModelPreviewSet = {
+  key:        string;
+  label:      string;
+  vertical?:  string;   // 9:16 MP4
+  landscape?: string;   // 16:9 MP4
+  square?:    string;   // 1:1 MP4
+  comingSoon?: boolean; // if true, always show placeholder
+};
+
+const MODEL_PREVIEW_SETS: ModelPreviewSet[] = [
+  {
+    key:       "kling",
+    label:     "Kling 3.0",
+    vertical:  "/model-previews/kling/vertical.mp4",
+    landscape: "/model-previews/kling/landscape.mp4",
+    square:    "/model-previews/kling/square.mp4",
+  },
+  {
+    key:       "seedance",
+    label:     "Seedance",
+    vertical:  "/model-previews/seedance/vertical.mp4",
+    landscape: "/model-previews/seedance/landscape.mp4",
+    square:    "/model-previews/seedance/square.mp4",
+  },
+  {
+    key:        "minimax",
+    label:      "MiniMax Hailuo",
+    comingSoon: true,
+  },
+  {
+    key:        "veo",
+    label:      "Google Veo 3.2",
+    comingSoon: true,
+  },
+  {
+    key:        "sora",
+    label:      "Sora 2",
+    comingSoon: true,
+  },
+  {
+    key:        "wan",
+    label:      "Wan 2.7",
+    comingSoon: true,
+  },
+  {
+    key:        "grok",
+    label:      "Grok Imagine",
+    comingSoon: true,
+  },
+  {
+    key:        "luma",
+    label:      "Ray Flash 2",
+    comingSoon: true,
+  },
+];
+
+const DEFAULT_PREVIEW_KEY = "kling";
+
+function getPreviewSet(key: string): ModelPreviewSet {
   return (
-    <svg
-      width="96"
-      height="96"
-      viewBox="0 0 96 96"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Outer glow */}
-      <circle cx="48" cy="48" r="46" fill="url(#mascotGlow)" opacity="0.15" />
-
-      {/* Clapperboard body */}
-      <rect x="16" y="34" width="64" height="46" rx="8" fill="rgba(14,165,160,0.12)" stroke="#0EA5A0" strokeWidth="1.5" />
-
-      {/* Clapperboard top stripe bar */}
-      <rect x="16" y="20" width="64" height="18" rx="6" fill="rgba(14,165,160,0.2)" stroke="#0EA5A0" strokeWidth="1.5" />
-
-      {/* Diagonal stripes on top bar */}
-      <clipPath id="barClip">
-        <rect x="16" y="20" width="64" height="18" rx="6" />
-      </clipPath>
-      <g clipPath="url(#barClip)">
-        <line x1="30" y1="20" x2="22" y2="38" stroke="#0EA5A0" strokeWidth="3.5" opacity="0.5" />
-        <line x1="44" y1="20" x2="36" y2="38" stroke="#0EA5A0" strokeWidth="3.5" opacity="0.5" />
-        <line x1="58" y1="20" x2="50" y2="38" stroke="#0EA5A0" strokeWidth="3.5" opacity="0.5" />
-        <line x1="72" y1="20" x2="64" y2="38" stroke="#0EA5A0" strokeWidth="3.5" opacity="0.5" />
-        <line x1="86" y1="20" x2="78" y2="38" stroke="#0EA5A0" strokeWidth="3.5" opacity="0.5" />
-      </g>
-
-      {/* "Clapper" hinge dots */}
-      <circle cx="16" cy="29" r="4" fill="#0EA5A0" opacity="0.7" />
-      <circle cx="80" cy="29" r="4" fill="#0EA5A0" opacity="0.7" />
-
-      {/* Play button triangle inside body */}
-      <path
-        d="M40 46 L40 68 L62 57 Z"
-        fill="url(#playGrad)"
-        opacity="0.9"
-      />
-
-      {/* Subtle film dots inside body */}
-      <circle cx="28" cy="57" r="2.5" fill="rgba(14,165,160,0.25)" />
-      <circle cx="28" cy="68" r="2.5" fill="rgba(14,165,160,0.25)" />
-      <circle cx="69" cy="57" r="2.5" fill="rgba(37,99,235,0.25)" />
-      <circle cx="69" cy="68" r="2.5" fill="rgba(37,99,235,0.25)" />
-
-      {/* Small sparkle top-right */}
-      <g opacity="0.7">
-        <line x1="76" y1="10" x2="76" y2="16" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="73" y1="13" x2="79" y2="13" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-      <g opacity="0.5">
-        <line x1="84" y1="5" x2="84" y2="9" stroke="#0EA5A0" strokeWidth="1" strokeLinecap="round" />
-        <line x1="82" y1="7" x2="86" y2="7" stroke="#0EA5A0" strokeWidth="1" strokeLinecap="round" />
-      </g>
-
-      {/* Gradient defs */}
-      <defs>
-        <radialGradient id="mascotGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#0EA5A0" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="playGrad" x1="40" y1="46" x2="62" y2="68" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#0EA5A0" />
-          <stop offset="100%" stopColor="#2563EB" />
-        </linearGradient>
-      </defs>
-    </svg>
+    MODEL_PREVIEW_SETS.find(s => s.key === key) ?? {
+      key,
+      label:      key.charAt(0).toUpperCase() + key.slice(1),
+      comingSoon: true,
+    }
   );
 }
 
-export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt, samplePrompt }: Props) {
+// ── Single preview block ──────────────────────────────────────────────────────
+// Renders a video when src is available; otherwise a styled placeholder.
+
+function PreviewBlock({
+  src,
+  label,
+  width,
+  height,
+  comingSoon,
+  extraStyle,
+}: {
+  src?:        string;
+  label:       string;
+  width:       number;
+  height:      number;
+  comingSoon?: boolean;
+  extraStyle?: React.CSSProperties;
+}) {
+  const hasSrc = !!src && !comingSoon;
+
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 0,
-        height: "100%",
-        padding: "40px 32px",
-        textAlign: "center",
-        userSelect: "none",
+        width,
+        height,
+        background:   "#070F1A",
+        border:       "1px solid rgba(45,212,191,0.16)",
+        borderRadius: 0,
+        overflow:     "hidden",
+        flexShrink:   0,
+        position:     "relative",
+        boxShadow: [
+          "0 0 0 1px rgba(14,165,160,0.06)",
+          "0 8px 32px rgba(0,0,0,0.55)",
+        ].join(", "),
+        ...extraStyle,
       }}
     >
-      {/* Mascot with halo rings */}
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 36,
-        }}
-      >
-        {/* Outer halo */}
-        <div
-          style={{
-            position: "absolute",
-            width: 184,
-            height: 184,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(14,165,160,0.07) 0%, transparent 70%)",
-            border: "1px solid rgba(14,165,160,0.10)",
-          }}
+      {hasSrc ? (
+        <video
+          src={src}
+          autoPlay muted loop playsInline
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
-        {/* Inner halo */}
-        <div
-          style={{
-            position: "absolute",
-            width: 148,
-            height: 148,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(14,165,160,0.10) 0%, transparent 70%)",
-            border: "1px solid rgba(14,165,160,0.15)",
-          }}
-        />
-        {/* Mascot icon */}
-        <div
-          style={{
-            width: 110,
-            height: 110,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            filter: "drop-shadow(0 0 28px rgba(14,165,160,0.40))",
-          }}
-        >
-          <ZencraClapperMascot />
+      ) : (
+        /* Graceful placeholder — same shape, no broken state */
+        <div style={{
+          width: "100%", height: "100%",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 7,
+          background: "linear-gradient(160deg, #050F1A 0%, #0B1C2E 100%)",
+        }}>
+          {/* Small play icon */}
+          <div style={{
+            width: 26, height: 26, borderRadius: "50%",
+            background: "rgba(14,165,160,0.07)",
+            border: "1px solid rgba(14,165,160,0.18)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(45,212,191,0.35)" strokeWidth="1.5">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          {/* Model label — only show for large enough blocks */}
+          {width >= 90 && (
+            <span style={{
+              fontSize: 9, color: "rgba(45,212,191,0.28)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+              textAlign: "center", padding: "0 6px",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              maxWidth: width - 12,
+            }}>
+              {comingSoon ? `${label} · Soon` : label}
+            </span>
+          )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+interface Props {
+  onUpload?:       () => void;
+  onSamplePrompt?: () => void;
+  /** Current cinematic sample prompt to preview — rotates on each click */
+  samplePrompt?:   string;
+  /** Which model family to display previews for. Defaults to "kling". */
+  previewKey?:     string;
+}
+
+export default function VideoEmptyStateMascot({
+  onUpload,
+  onSamplePrompt,
+  samplePrompt,
+  previewKey,
+}: Props) {
+  const preview = getPreviewSet(previewKey ?? DEFAULT_PREVIEW_KEY);
+
+  return (
+    <div
+      style={{
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
+        gap:            0,
+        height:         "100%",
+        padding:        "24px 32px 40px",
+        textAlign:      "center",
+        userSelect:     "none",
+      }}
+    >
+      {/* ── 3-video preview showcase ──────────────────────────────────────────── */}
+      <div style={{
+        position:        "relative",
+        display:         "flex",
+        alignItems:      "flex-end",
+        justifyContent:  "center",
+        width:           "100%",
+        maxWidth:        560,
+        height:          220,
+        marginBottom:    32,
+        flexShrink:      0,
+        /* Glow behind the blocks */
+        filter:          "drop-shadow(0 0 40px rgba(14,165,160,0.12))",
+      }}>
+        {/* 9:16 vertical — left front */}
+        <PreviewBlock
+          src={preview.vertical}
+          label={preview.label}
+          width={78}
+          height={138}
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            zIndex:    2,
+            transform: "rotate(-4deg) translateY(10px)",
+            marginRight: -12,
+            boxShadow: [
+              "-4px 6px 28px rgba(0,0,0,0.65)",
+              "0 0 16px rgba(14,165,160,0.10)",
+            ].join(", "),
+          }}
+        />
+
+        {/* 16:9 landscape — center back */}
+        <PreviewBlock
+          src={preview.landscape}
+          label={preview.label}
+          width={358}
+          height={201}
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            zIndex:    1,
+            transform: "scale(0.96)",
+            boxShadow: [
+              "0 0 40px rgba(14,165,160,0.14)",
+              "0 16px 48px rgba(0,0,0,0.65)",
+            ].join(", "),
+          }}
+        />
+
+        {/* 1:1 square — right front */}
+        <PreviewBlock
+          src={preview.square}
+          label={preview.label}
+          width={118}
+          height={118}
+          comingSoon={preview.comingSoon}
+          extraStyle={{
+            zIndex:    2,
+            transform: "rotate(4deg) translateY(10px)",
+            marginLeft: -12,
+            boxShadow: [
+              "4px 6px 28px rgba(0,0,0,0.65)",
+              "0 0 16px rgba(14,165,160,0.10)",
+            ].join(", "),
+          }}
+        />
       </div>
 
-      {/* Headline */}
+      {/* ── Model label strip ─────────────────────────────────────────────────── */}
+      <div style={{
+        fontSize:      11,
+        fontWeight:    700,
+        color:         "rgba(45,212,191,0.4)",
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        marginBottom:  20,
+      }}>
+        {preview.label}{preview.comingSoon ? " · Coming Soon" : ""}
+      </div>
+
+      {/* ── Headline ──────────────────────────────────────────────────────────── */}
       <h2
         style={{
-          fontSize: 26,
-          fontWeight: 800,
-          color: "#F1F5F9",
-          margin: "0 0 12px",
+          fontSize:      26,
+          fontWeight:    800,
+          color:         "#F1F5F9",
+          margin:        "0 0 12px",
           letterSpacing: "-0.025em",
-          lineHeight: 1.15,
+          lineHeight:    1.15,
         }}
       >
         Create cinematic AI videos
       </h2>
 
-      {/* Subtext */}
+      {/* ── Subtext ───────────────────────────────────────────────────────────── */}
       <p
         style={{
-          fontSize: 16,
-          color: "#64748B",
-          margin: "0 0 36px",
-          maxWidth: 380,
-          lineHeight: 1.65,
+          fontSize:     16,
+          color:        "#64748B",
+          margin:       "0 0 32px",
+          maxWidth:     380,
+          lineHeight:   1.65,
         }}
       >
         Start with a prompt or upload a reference frame to guide your generation
       </p>
 
-      {/* CTA Buttons */}
+      {/* ── CTA buttons ───────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
         <button
           onClick={onUpload}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "13px 26px",
-            borderRadius: 10,
-            border: "1px solid rgba(14,165,160,0.40)",
-            background: "rgba(14,165,160,0.09)",
-            color: "#0EA5A0",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.2s",
+            display:        "flex",
+            alignItems:     "center",
+            gap:            8,
+            padding:        "13px 26px",
+            borderRadius:   10,
+            border:         "1px solid rgba(14,165,160,0.40)",
+            background:     "rgba(14,165,160,0.09)",
+            color:          "#0EA5A0",
+            fontSize:       15,
+            fontWeight:     600,
+            cursor:         "pointer",
+            transition:     "all 0.2s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "rgba(14,165,160,0.15)";
-            el.style.borderColor = "rgba(14,165,160,0.55)";
-            el.style.boxShadow = "0 0 20px rgba(14,165,160,0.2)";
+            el.style.background    = "rgba(14,165,160,0.15)";
+            el.style.borderColor   = "rgba(14,165,160,0.55)";
+            el.style.boxShadow     = "0 0 20px rgba(14,165,160,0.2)";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "rgba(14,165,160,0.08)";
-            el.style.borderColor = "rgba(14,165,160,0.35)";
-            el.style.boxShadow = "none";
+            el.style.background    = "rgba(14,165,160,0.09)";
+            el.style.borderColor   = "rgba(14,165,160,0.40)";
+            el.style.boxShadow     = "none";
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
           </svg>
           Upload Image
         </button>
@@ -213,68 +347,72 @@ export default function VideoEmptyStateMascot({ onUpload, onSamplePrompt, sample
         <button
           onClick={onSamplePrompt}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "13px 26px",
+            display:      "flex",
+            alignItems:   "center",
+            gap:          8,
+            padding:      "13px 26px",
             borderRadius: 10,
-            border: "1px solid rgba(37,99,235,0.38)",
-            background: "rgba(37,99,235,0.09)",
-            color: "#60A5FA",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: "pointer",
-            transition: "all 0.2s",
+            border:       "1px solid rgba(37,99,235,0.38)",
+            background:   "rgba(37,99,235,0.09)",
+            color:        "#60A5FA",
+            fontSize:     15,
+            fontWeight:   600,
+            cursor:       "pointer",
+            transition:   "all 0.2s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "rgba(37,99,235,0.15)";
-            el.style.borderColor = "rgba(37,99,235,0.55)";
-            el.style.boxShadow = "0 0 20px rgba(37,99,235,0.2)";
+            el.style.background    = "rgba(37,99,235,0.15)";
+            el.style.borderColor   = "rgba(37,99,235,0.55)";
+            el.style.boxShadow     = "0 0 20px rgba(37,99,235,0.2)";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.background = "rgba(37,99,235,0.08)";
-            el.style.borderColor = "rgba(37,99,235,0.35)";
-            el.style.boxShadow = "none";
+            el.style.background    = "rgba(37,99,235,0.09)";
+            el.style.borderColor   = "rgba(37,99,235,0.38)";
+            el.style.boxShadow     = "none";
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
           Try Sample Prompt
         </button>
       </div>
 
-      {/* Sample prompt preview + style chips */}
+      {/* ── Sample prompt preview / style chips ──────────────────────────────── */}
       {samplePrompt ? (
         <div style={{
-          marginTop: 24,
-          maxWidth: 400,
-          padding: "10px 16px",
+          marginTop:    24,
+          maxWidth:     400,
+          padding:      "10px 16px",
           borderRadius: 10,
-          border: "1px solid rgba(37,99,235,0.22)",
-          background: "rgba(37,99,235,0.06)",
-          fontSize: 13,
-          color: "#94A3B8",
-          lineHeight: 1.55,
-          fontStyle: "italic",
-          textAlign: "center",
+          border:       "1px solid rgba(37,99,235,0.22)",
+          background:   "rgba(37,99,235,0.06)",
+          fontSize:     13,
+          color:        "#94A3B8",
+          lineHeight:   1.55,
+          fontStyle:    "italic",
+          textAlign:    "center",
         }}>
           &ldquo;{samplePrompt}&rdquo;
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 30, opacity: 0.65 }}>
+        <div style={{
+          display: "flex", gap: 8, flexWrap: "wrap",
+          justifyContent: "center", marginTop: 28, opacity: 0.6,
+        }}>
           {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
             <span
               key={hint}
               style={{
-                fontSize: 12,
-                color: "#475569",
+                fontSize:   12,
+                color:      "#475569",
                 background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border:     "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 20,
-                padding: "4px 12px",
+                padding:    "4px 12px",
               }}
             >
               {hint}
