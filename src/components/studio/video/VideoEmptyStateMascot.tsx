@@ -375,14 +375,12 @@ export default function VideoEmptyStateMascot({
 
       {/* ── Headline ──────────────────────────────────────────────────────────── */}
       <h2
+        className="text-[30px] font-semibold tracking-[-0.02em] font-display"
         style={{
-          fontSize:      30,
-          fontWeight:    600,
-          color:         "#F1F5F9",
-          margin:        "0 0 12px",
-          letterSpacing: "-0.02em",
-          lineHeight:    1.15,
-          textShadow:    "0 0 12px rgba(255,255,255,0.08)",
+          color:      "#F1F5F9",
+          margin:     "0 0 12px",
+          lineHeight: 1.15,
+          textShadow: "0 0 12px rgba(255,255,255,0.08)",
         }}
       >
         Create cinematic AI videos
