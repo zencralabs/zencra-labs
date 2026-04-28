@@ -1606,26 +1606,8 @@ export default function VideoStudioShell() {
       </div>
 
       {/* ── Gallery — full viewport width ──────────────────────── */}
-      <div
-        ref={videoResultsRef}
-        style={{
-          width: "100%",
-          borderTop: videoGlow ? "1px solid rgba(59,130,246,0.45)" : "1px solid rgba(255,255,255,0.06)",
-          paddingTop: 28,
-          paddingLeft: SIDE_GUTTER,
-          paddingRight: SIDE_GUTTER,
-          paddingBottom: 48,
-          boxSizing: "border-box",
-          transition: "border-color 0.6s ease-out",
-          boxShadow: videoGlow ? "0 0 28px rgba(59,130,246,0.14)" : "none",
-        }}
-      >
-        <div style={{
-          fontSize: 13, fontWeight: 700, color: "#475569",
-          letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 20,
-        }}>
-          Your Videos
-        </div>
+      {/* Padding/border/header now owned by VideoResultsLibrary */}
+      <div ref={videoResultsRef} style={{ width: "100%", boxSizing: "border-box" }}>
         <VideoResultsLibrary
           videos={videos}
           onReusePrompt={handleReusePrompt}

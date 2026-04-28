@@ -1,15 +1,14 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VideoResultsLibrary — Cinematic video gallery
+// VideoResultsLibrary — Cinematic video gallery (Phase 2)
 //
-// Layer 2 redesign:
-//   • Large media-first cards, sharp (borderRadius: 0) corners
-//   • Zoom slider 40–100% controls card minimum width
-//   • Hover → autoplay muted + reveal action overlay
-//   • Click video → fullscreen
-//   • No "Done" badge on completed cards
-//   • Bulk select: checkbox per card, selection dock with Delete + placeholder actions
+// Phase 2 upgrades:
+//   • #1B1B1B background with teal radial glow, border-top
+//   • One-line toolbar: tabs left, zoom+sort+show right
+//   • Zoom slider with live % label, default 60%, drives grid column width
+//   • Sharp cinematic cards (borderRadius: 0), hover lift + teal glow
+//   • Clean empty state matching dark background
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useRef, useCallback } from "react";
@@ -28,13 +27,40 @@ function timeAgo(ts: number): string {
 
 const ONE_HOUR = 60 * 60 * 1000;
 
-// ── Zoom helpers ──────────────────────────────────────────────────────────────
-// 40% → 280px, 100% → 680px (linear)
+// ── Zoom → card min-width mapping ─────────────────────────────────────────────
+// 40% = 260px | 60% = 380px | 100% = 620px
 function zoomToMinWidth(pct: number): number {
-  return Math.round(280 + ((pct - 40) / 60) * 400);
+  return Math.round(260 + ((pct - 40) / 60) * 360);
 }
 
-// ── In-progress status badge (only for non-done / non-error) ─────────────────
+// ── Shared toolbar button style ───────────────────────────────────────────────
+const toolbarBtnBase: React.CSSProperties = {
+  height: 38,
+  padding: "0 16px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  fontSize: 13,
+  fontWeight: 700,
+  borderRadius: 3,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(255,255,255,0.055)",
+  color: "rgba(226,244,255,0.78)",
+  cursor: "pointer",
+  transition: "background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s",
+  whiteSpace: "nowrap" as const,
+  flexShrink: 0,
+};
+
+const toolbarBtnActive: React.CSSProperties = {
+  background: "rgba(45,212,191,0.16)",
+  borderColor: "rgba(45,212,191,0.45)",
+  color: "#2DD4BF",
+  boxShadow: "0 0 18px rgba(45,212,191,0.12)",
+};
+
+// ── In-progress status badge ──────────────────────────────────────────────────
 
 function InProgressBadge({ status }: { status: GeneratedVideo["status"] }) {
   if (status !== "generating" && status !== "polling") return null;
@@ -88,16 +114,16 @@ function VideoCard({
   onAuthRequired,
   onCardRef,
 }: {
-  video:          GeneratedVideo;
-  selected:       boolean;
-  anySelected:    boolean;
-  onSelect:       (id: string) => void;
-  onReuse:        (v: GeneratedVideo) => void;
-  onDelete:       (id: string) => void;
-  onFavToggle?:   (id: string, newFav: boolean) => void;
-  onPreview?:     (v: GeneratedVideo) => void;
-  onAuthRequired?:() => void;
-  onCardRef?:     (id: string, el: HTMLDivElement | null) => void;
+  video:           GeneratedVideo;
+  selected:        boolean;
+  anySelected:     boolean;
+  onSelect:        (id: string) => void;
+  onReuse:         (v: GeneratedVideo) => void;
+  onDelete:        (id: string) => void;
+  onFavToggle?:    (id: string, newFav: boolean) => void;
+  onPreview?:      (v: GeneratedVideo) => void;
+  onAuthRequired?: () => void;
+  onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
@@ -141,8 +167,20 @@ function VideoCard({
     a.click();
   }
 
-  // AR ratio string for CSS
   const arCSS = (video.aspectRatio ?? "16:9").replace(":", " / ");
+
+  // ── Dynamic card border + shadow ─────────────────────────────────────────────
+  const cardBorder = selected
+    ? "1px solid rgba(34,211,238,0.55)"
+    : hovered
+    ? "1px solid rgba(45,212,191,0.38)"
+    : "1px solid rgba(255,255,255,0.07)";
+
+  const cardShadow = selected
+    ? "0 0 0 1px rgba(34,211,238,0.15), 0 12px 40px rgba(0,0,0,0.55)"
+    : hovered
+    ? "0 22px 46px rgba(0,0,0,0.42), 0 0 22px rgba(45,212,191,0.08)"
+    : "none";
 
   return (
     <div
@@ -151,21 +189,13 @@ function VideoCard({
       onMouseLeave={handleMouseLeave}
       style={{
         position: "relative",
-        background: "rgba(255,255,255,0.02)",
-        border: selected
-          ? "1px solid rgba(34,211,238,0.5)"
-          : hovered
-          ? "1px solid rgba(34,211,238,0.25)"
-          : "1px solid rgba(255,255,255,0.06)",
-        borderRadius: 3,
+        background: "#101010",
+        border: cardBorder,
+        borderRadius: 0,
         overflow: "hidden",
-        transition: "border-color 0.2s, box-shadow 0.25s, transform 0.25s",
+        transition: "transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease",
         transform: hovered ? "translateY(-4px)" : "translateY(0)",
-        boxShadow: selected
-          ? "0 0 0 1px rgba(34,211,238,0.15), 0 12px 40px rgba(0,0,0,0.55)"
-          : hovered
-          ? "0 20px 40px rgba(0,0,0,0.45), 0 0 22px rgba(14,165,160,0.1)"
-          : "0 2px 10px rgba(0,0,0,0.35)",
+        boxShadow: cardShadow,
         cursor: "default",
       }}
     >
@@ -174,8 +204,9 @@ function VideoCard({
         style={{
           position: "relative",
           aspectRatio: arCSS,
-          background: "#0a0f1a",
+          background: "#050505",
           overflow: "hidden",
+          borderRadius: 0,
           cursor: isDone ? "pointer" : "default",
         }}
         onClick={isDone ? () => onPreview?.(video) : undefined}
@@ -190,8 +221,9 @@ function VideoCard({
             style={{
               width: "100%", height: "100%",
               objectFit: "cover", display: "block",
-              transform: hovered ? "scale(1.03)" : "scale(1)",
-              transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
+              borderRadius: 0,
+              transform: hovered ? "scale(1.025)" : "scale(1)",
+              transition: "transform 260ms ease",
             }}
           />
         ) : video.thumbnailUrl ? (
@@ -201,25 +233,26 @@ function VideoCard({
             style={{
               width: "100%", height: "100%",
               objectFit: "cover", display: "block",
-              transform: hovered ? "scale(1.03)" : "scale(1)",
-              transition: "transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)",
+              borderRadius: 0,
+              transform: hovered ? "scale(1.025)" : "scale(1)",
+              transition: "transform 260ms ease",
             }}
           />
         ) : (
           <div style={{
             width: "100%", height: "100%",
             display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(255,255,255,0.015)",
+            background: "#050505",
           }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-              stroke="rgba(100,116,139,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              stroke="rgba(100,116,139,0.28)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="18" rx="2"/>
               <path d="M9 8l7 4-7 4V8z"/>
             </svg>
           </div>
         )}
 
-        {/* Gradient overlay — always on, intensifies on hover */}
+        {/* Gradient overlay */}
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
           background: hovered
@@ -228,7 +261,7 @@ function VideoCard({
           transition: "background 0.25s",
         }} />
 
-        {/* ── Idle play icon (done, not hovering) ─────────────────────────── */}
+        {/* Idle play icon */}
         {isDone && !hovered && (
           <div style={{
             position: "absolute", inset: 0, pointerEvents: "none",
@@ -248,7 +281,7 @@ function VideoCard({
           </div>
         )}
 
-        {/* ── Hover play icon (done, hovering) ────────────────────────────── */}
+        {/* Hover play icon */}
         {isDone && hovered && (
           <div style={{
             position: "absolute", inset: 0, pointerEvents: "none",
@@ -257,30 +290,30 @@ function VideoCard({
             <div style={{
               width: 48, height: 48, borderRadius: "50%",
               background: "rgba(14,165,160,0.18)",
-              border: "2px solid rgba(34,211,238,0.65)",
+              border: "2px solid rgba(45,212,191,0.65)",
               display: "flex", alignItems: "center", justifyContent: "center",
               backdropFilter: "blur(6px)",
-              boxShadow: "0 0 24px rgba(34,211,238,0.3)",
+              boxShadow: "0 0 24px rgba(45,212,191,0.30)",
               animation: "vlPlayPulse 1.8s ease-in-out infinite",
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="#22D3EE">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#2DD4BF">
                 <polygon points="5 3 19 12 5 21 5 3"/>
               </svg>
             </div>
           </div>
         )}
 
-        {/* ── In-progress / error badges top-left ─────────────────────────── */}
+        {/* Status badges — top left */}
         <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center" }}>
           <InProgressBadge status={video.status} />
           {isError && <ErrorBadge />}
         </div>
 
-        {/* ── Duration + credits top-right ────────────────────────────────── */}
+        {/* Duration + credits — top right */}
         <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
           <div style={{
             padding: "2px 7px", borderRadius: 4,
-            background: "rgba(2,6,23,0.7)", border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(2,6,23,0.70)", border: "1px solid rgba(255,255,255,0.1)",
             fontSize: 10, fontWeight: 600, color: "#94A3B8",
           }}>
             {video.duration}s
@@ -288,15 +321,15 @@ function VideoCard({
           {isDone && video.creditsUsed > 0 && (
             <div style={{
               padding: "2px 7px", borderRadius: 4,
-              background: "rgba(14,165,160,0.12)", border: "1px solid rgba(34,211,238,0.2)",
-              fontSize: 10, fontWeight: 700, color: "#22D3EE",
+              background: "rgba(14,165,160,0.12)", border: "1px solid rgba(45,212,191,0.2)",
+              fontSize: 10, fontWeight: 700, color: "#2DD4BF",
             }}>
               {video.creditsUsed}⚡
             </div>
           )}
         </div>
 
-        {/* ── Checkbox — top-left corner, appears on hover or when any selected ── */}
+        {/* Checkbox — top left, appears on hover or selection */}
         <div
           style={{
             position: "absolute", top: 8, left: 8,
@@ -323,7 +356,7 @@ function VideoCard({
           </div>
         </div>
 
-        {/* ── Hover action strip — bottom of media ────────────────────────── */}
+        {/* Hover action strip — bottom of media */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
           padding: "8px 10px",
@@ -345,11 +378,7 @@ function VideoCard({
 
           {/* Download */}
           {isDone && (
-            <button
-              onClick={handleDownload}
-              title="Download"
-              style={actionBtnStyle}
-            >
+            <button onClick={handleDownload} title="Download" style={actionBtnStyle}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -377,7 +406,7 @@ function VideoCard({
             <button
               onClick={e => { e.stopPropagation(); handleCopy(); }}
               title="Copy prompt"
-              style={{ ...actionBtnStyle, color: copied ? "#22D3EE" : "#94A3B8" }}
+              style={{ ...actionBtnStyle, color: copied ? "#2DD4BF" : "#94A3B8" }}
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -403,7 +432,7 @@ function VideoCard({
         </div>
       </div>
 
-      {/* ── Card body — prompt + timestamp + heart ───────────────────────────── */}
+      {/* ── Card body ────────────────────────────────────────────────────────── */}
       <div style={{ padding: "9px 11px 10px" }}>
         <div style={{
           fontSize: 13, color: "#7A8EA4", lineHeight: 1.6,
@@ -445,7 +474,7 @@ function VideoCard({
   );
 }
 
-// Shared action button style — small icon buttons in hover overlay
+// Shared action button style
 const actionBtnStyle: React.CSSProperties = {
   width: 28, height: 28, borderRadius: 5,
   background: "rgba(10,15,30,0.8)",
@@ -459,14 +488,8 @@ const actionBtnStyle: React.CSSProperties = {
 
 // ── Selection Dock ────────────────────────────────────────────────────────────
 
-function SelectionDock({
-  count,
-  onDelete,
-  onClear,
-}: {
-  count:    number;
-  onDelete: () => void;
-  onClear:  () => void;
+function SelectionDock({ count, onDelete, onClear }: {
+  count: number; onDelete: () => void; onClear: () => void;
 }) {
   return (
     <div style={{
@@ -476,18 +499,10 @@ function SelectionDock({
       padding: "14px 32px",
       display: "flex", alignItems: "center", gap: 10,
     }}>
-      {/* Count */}
-      <div style={{
-        fontSize: 13, fontWeight: 700, color: "#22D3EE",
-        marginRight: 4,
-      }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#2DD4BF", marginRight: 4 }}>
         {count} selected
       </div>
-
-      {/* Separator */}
       <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)" }} />
-
-      {/* Delete selected — fully wired */}
       <button
         onClick={onDelete}
         style={{
@@ -513,15 +528,9 @@ function SelectionDock({
         </svg>
         Delete selected
       </button>
-
-      {/* Visual placeholder — Make Public */}
       <PlaceholderDockBtn label="Make Public" />
-      {/* Visual placeholder — Make Private */}
       <PlaceholderDockBtn label="Make Private" />
-      {/* Visual placeholder — Move to Project */}
       <PlaceholderDockBtn label="Move to Project" />
-
-      {/* Spacer + clear */}
       <div style={{ flex: 1 }} />
       <button
         onClick={onClear}
@@ -580,11 +589,10 @@ export default function VideoResultsLibrary({
   const [sort,      setSort]      = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
   const [zoomPct,   setZoomPct]   = useState(60);
-  // Bulk select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const now = Date.now();
-  const minCardWidth = zoomToMinWidth(zoomPct);
+  const now          = Date.now();
+  const cardMinWidth = zoomToMinWidth(zoomPct);
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
@@ -621,216 +629,229 @@ export default function VideoResultsLibrary({
     { key: "all",       label: "All" },
     { key: "generated", label: "Generated" },
     { key: "history",   label: "History" },
-    { key: "favorites", label: "Favorites" },
+    { key: "favorites", label: "Favourites" },
   ];
 
-  // Empty state
-  if (videos.length === 0) {
-    const GHOST = [0.38, 0.62, 0.44, 0.80, 0.52];
-    return (
-      <div>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-          {GHOST.map((h, i) => (
-            <div
-              key={i}
-              style={{
-                flex: 1, height: Math.round(h * 220),
-                borderRadius: 3, border: "1px solid rgba(255,255,255,0.05)",
-                background: "rgba(255,255,255,0.02)",
-                overflow: "hidden", position: "relative",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.04) 50%,transparent 100%)",
-                animation: `ghostShimmer 2.2s ease-in-out infinite`,
-                animationDelay: `${i * 0.18}s`,
-              }} />
-              {i === 0 && (
-                <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="rgba(100,116,139,0.3)" strokeWidth="1.5"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    style={{ margin: "0 auto 8px" }}>
-                    <rect x="2" y="3" width="20" height="18" rx="2"/>
-                    <path d="M9 8l7 4-7 4V8z"/>
-                  </svg>
-                  <div style={{ fontSize: 11, color: "#334155", fontWeight: 500 }}>
-                    Your first video will appear here
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <style>{`
-          @keyframes ghostShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(400%)} }
-          @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
-          @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.3)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.55)} }
-        `}</style>
-      </div>
-    );
-  }
+  const sortModes: { key: SortMode; label: string }[] = [
+    { key: "latest",  label: "Latest" },
+    { key: "oldest",  label: "Oldest" },
+    { key: "credits", label: "Credits" },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ paddingBottom: selectedIds.size > 0 ? 80 : 32 }}>
-      {/* ── Toolbar — single line ─────────────────────────────────────────────── */}
-      <div style={{
-        display: "flex", alignItems: "center",
-        justifyContent: "space-between", gap: 12, marginBottom: 18,
-        flexWrap: "nowrap",
-      }}>
-        {/* LEFT: Filter tabs */}
+    <section style={{
+      marginTop: 44,
+      padding: "34px 20px 54px",
+      background: [
+        "radial-gradient(circle at 50% 0%, rgba(45,212,191,0.08), transparent 36%)",
+        "#1B1B1B",
+      ].join(", "),
+      borderTop: "1px solid rgba(255,255,255,0.06)",
+      boxSizing: "border-box",
+      width: "100%",
+      paddingBottom: selectedIds.size > 0 ? 80 : 54,
+    } as React.CSSProperties}>
+
+      {/* ── Max-width container ──────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1480, margin: "0 auto" }}>
+
+        {/* ── Header ────────────────────────────────────────────────────────── */}
         <div style={{
-          display: "flex", gap: 3,
-          background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 4,
-          flexShrink: 0,
+          fontSize: 12, fontWeight: 700, color: "#374151",
+          letterSpacing: "0.1em", textTransform: "uppercase",
+          marginBottom: 18,
         }}>
-          {filterTabs.map(t => {
-            const active = filter === t.key;
-            const count =
-              t.key === "all"       ? videos.length :
-              t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length :
-              t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
-              videos.filter(v => v.is_favorite === true).length;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setFilter(t.key)}
-                style={{
-                  height: 36, padding: "0 14px", borderRadius: 7,
-                  fontSize: 13, fontWeight: active ? 700 : 500,
-                  border: active ? "1px solid rgba(34,211,238,0.35)" : "1px solid transparent",
-                  background: active ? "rgba(14,165,160,0.14)" : "transparent",
-                  color: active ? "#22D3EE" : "#7A90A8",
-                  cursor: "pointer", transition: "all 0.15s",
-                  display: "flex", alignItems: "center", gap: 6,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {t.label}
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 8,
-                  background: active ? "rgba(34,211,238,0.15)" : "rgba(255,255,255,0.07)",
-                  color: active ? "#22D3EE" : "#475569",
-                }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          Your Videos
         </div>
 
-        {/* RIGHT: Zoom + Sort + Show */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-
-          {/* Zoom slider with % label */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 7,
-            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 8, padding: "0 10px", height: 36,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="18" rx="2"/>
-              <path d="M9 8l7 4-7 4V8z"/>
-            </svg>
-            <input
-              type="range" min={40} max={100} step={5} value={zoomPct}
-              onChange={e => setZoomPct(Number(e.target.value))}
-              style={{
-                width: 80, accentColor: "#0EA5A0", cursor: "pointer",
-                background: "transparent",
-              }}
-            />
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B", minWidth: 30 }}>
-              {zoomPct}%
-            </span>
+        {/* ── Toolbar — one desktop line ─────────────────────────────────────── */}
+        <div style={{
+          height: 42,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 18,
+          marginBottom: 22,
+          flexWrap: "wrap",
+        }}>
+          {/* Left: filter tabs */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {filterTabs.map(t => {
+              const active = filter === t.key;
+              const count =
+                t.key === "all"       ? videos.length :
+                t.key === "generated" ? videos.filter(v => now - v.createdAt <= ONE_HOUR).length :
+                t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
+                videos.filter(v => v.is_favorite === true).length;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setFilter(t.key)}
+                  style={active ? { ...toolbarBtnBase, ...toolbarBtnActive } : toolbarBtnBase}
+                >
+                  {t.label}
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 8,
+                    background: active ? "rgba(45,212,191,0.18)" : "rgba(255,255,255,0.07)",
+                    color: active ? "#2DD4BF" : "#475569",
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Divider */}
-          <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.08)" }} />
+          {/* Right: zoom + sort + show */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
 
-          {/* Sort buttons */}
-          {(["latest", "oldest", "credits"] as SortMode[]).map(s => (
-            <button
-              key={s}
-              onClick={() => setSort(s)}
-              style={{
-                height: 36, padding: "0 14px", borderRadius: 7, fontSize: 13,
-                fontWeight: sort === s ? 700 : 500,
-                border: sort === s ? "1px solid rgba(34,211,238,0.3)" : "1px solid rgba(255,255,255,0.07)",
-                background: sort === s ? "rgba(14,165,160,0.12)" : "rgba(255,255,255,0.04)",
-                color: sort === s ? "#22D3EE" : "#64748B",
-                cursor: "pointer", transition: "all 0.15s",
+            {/* Zoom control */}
+            <div style={{
+              height: 38,
+              minWidth: 210,
+              padding: "0 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              borderRadius: 3,
+              background: "rgba(255,255,255,0.055)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              flexShrink: 0,
+            }}>
+              <span style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: "rgba(226,244,255,0.82)",
+                minWidth: 64,
                 whiteSpace: "nowrap",
+              }}>
+                Zoom {zoomPct}%
+              </span>
+              <input
+                type="range"
+                min={40} max={100} step={5}
+                value={zoomPct}
+                onChange={e => setZoomPct(Number(e.target.value))}
+                style={{
+                  width: 112,
+                  accentColor: "#2DD4BF",
+                  cursor: "pointer",
+                  background: "transparent",
+                  flexShrink: 0,
+                }}
+              />
+            </div>
+
+            {/* Sort buttons */}
+            {sortModes.map(s => {
+              const active = sort === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSort(s.key)}
+                  style={active ? { ...toolbarBtnBase, ...toolbarBtnActive } : toolbarBtnBase}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+
+            {/* Show count */}
+            <select
+              value={showCount}
+              onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
+              style={{
+                height: 38,
+                padding: "0 12px",
+                borderRadius: 3,
+                fontSize: 13,
+                fontWeight: 700,
+                background: "rgba(255,255,255,0.055)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "rgba(226,244,255,0.78)",
+                cursor: "pointer",
+                outline: "none",
+                flexShrink: 0,
               }}
             >
-              {s === "latest" ? "Latest" : s === "oldest" ? "Oldest" : "Credits"}
-            </button>
-          ))}
-
-          {/* Show count */}
-          <select
-            value={showCount}
-            onChange={e => setShowCount(Number(e.target.value) as ShowCount)}
-            style={{
-              height: 36, padding: "0 10px", borderRadius: 7, fontSize: 13, fontWeight: 600,
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-              color: "#64748B", cursor: "pointer", outline: "none",
-            }}
-          >
-            {([25, 50, 100, 500] as ShowCount[]).map(n => (
-              <option key={n} value={n} style={{ background: "#0C1220" }}>Show {n}</option>
-            ))}
-          </select>
+              {([25, 50, 100, 500] as ShowCount[]).map(n => (
+                <option key={n} value={n} style={{ background: "#1B1B1B" }}>Show {n}</option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
 
-      {/* ── Count line ─────────────────────────────────────────────────────────── */}
-      <div style={{ fontSize: 11, color: "#4E6275", marginBottom: 16 }}>
-        {filtered.length} video{filtered.length !== 1 ? "s" : ""}
-        {selectedIds.size > 0 && (
-          <span style={{ color: "#22D3EE", marginLeft: 8 }}>· {selectedIds.size} selected</span>
+        {/* ── Count line ────────────────────────────────────────────────────── */}
+        <div style={{ fontSize: 11, color: "#3D4D5E", marginBottom: 18 }}>
+          {filtered.length} video{filtered.length !== 1 ? "s" : ""}
+          {selectedIds.size > 0 && (
+            <span style={{ color: "#2DD4BF", marginLeft: 8 }}>· {selectedIds.size} selected</span>
+          )}
+        </div>
+
+        {/* ── Grid / empty states ───────────────────────────────────────────── */}
+        {videos.length === 0 ? (
+          /* No videos at all — clean empty state */
+          <div style={{
+            height: 280,
+            border: "1px dashed rgba(255,255,255,0.12)",
+            background: "#101010",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <div style={{ textAlign: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(100,116,139,0.25)" strokeWidth="1.5"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ margin: "0 auto 10px" }}>
+                <rect x="2" y="3" width="20" height="18" rx="2"/>
+                <path d="M9 8l7 4-7 4V8z"/>
+              </svg>
+              <div style={{ fontSize: 13, color: "#2D3A4A", fontWeight: 500 }}>
+                Your generated videos will appear here
+              </div>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          /* Videos exist but nothing matches the filter */
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+            padding: "36px 0", textAlign: "center",
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(100,116,139,0.28)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
+          </div>
+        ) : (
+          /* Grid */
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
+            gap: 22,
+          }}>
+            {filtered.map(v => (
+              <VideoCard
+                key={v.id}
+                video={v}
+                selected={selectedIds.has(v.id)}
+                anySelected={selectedIds.size > 0}
+                onSelect={toggleSelect}
+                onReuse={onReusePrompt}
+                onDelete={onDelete ?? (() => {})}
+                onFavToggle={onFavToggle}
+                onPreview={onPreview}
+                onAuthRequired={onAuthRequired}
+                onCardRef={onCardRef}
+              />
+            ))}
+          </div>
         )}
       </div>
-
-      {/* ── Grid ─────────────────────────────────────────────────────────────── */}
-      {filtered.length === 0 ? (
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-          padding: "36px 0", textAlign: "center",
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke="rgba(100,116,139,0.3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
-        </div>
-      ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: `repeat(auto-fill, minmax(${minCardWidth}px, 1fr))`,
-          gap: 18,
-        }}>
-          {filtered.map(v => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              selected={selectedIds.has(v.id)}
-              anySelected={selectedIds.size > 0}
-              onSelect={toggleSelect}
-              onReuse={onReusePrompt}
-              onDelete={onDelete ?? (() => {})}
-              onFavToggle={onFavToggle}
-              onPreview={onPreview}
-              onAuthRequired={onAuthRequired}
-              onCardRef={onCardRef}
-            />
-          ))}
-        </div>
-      )}
 
       {/* ── Bulk selection dock ───────────────────────────────────────────────── */}
       {selectedIds.size > 0 && (
@@ -843,8 +864,8 @@ export default function VideoResultsLibrary({
 
       <style>{`
         @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
-        @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(34,211,238,0.3)} 50%{box-shadow:0 0 40px rgba(34,211,238,0.55)} }
+        @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(45,212,191,0.30)} 50%{box-shadow:0 0 40px rgba(45,212,191,0.55)} }
       `}</style>
-    </div>
+    </section>
   );
 }
