@@ -106,10 +106,12 @@ function ChipStrip({ chips, prompt, setPrompt }: { chips: string[]; prompt: stri
 function CreditsGenerateCard({
   estimate, balance, modelName,
   disabled, loading, comingSoon,
+  hideGenerateButton = false,
   onClick,
 }: {
   estimate: number; balance: number; modelName: string;
   disabled: boolean; loading: boolean; comingSoon: boolean;
+  hideGenerateButton?: boolean;
   onClick: () => void;
 }) {
   const low   = balance < estimate && !comingSoon;
@@ -163,8 +165,8 @@ function CreditsGenerateCard({
         </div>
       )}
 
-      {/* Generate button — inside the card */}
-      <div style={{ padding: "10px 10px 10px" }}>
+      {/* Generate button — suppressed when CanvasGenerateBar owns the CTA */}
+      {!hideGenerateButton && <div style={{ padding: "10px 10px 10px" }}>
         <button
           onClick={ready ? onClick : undefined}
           style={{
@@ -219,7 +221,7 @@ function CreditsGenerateCard({
             </>
           )}
         </button>
-      </div>
+      </div>}
 
       <style>{`
         @keyframes ppPulse   { 0%,100%{box-shadow:0 0 12px rgba(14,165,160,0.2)} 50%{box-shadow:0 0 28px rgba(14,165,160,0.4)} }
@@ -656,6 +658,8 @@ interface Props {
   // Audio mode
   audioMode:    "none" | "scene" | "voiceover";
   setAudioMode: (m: "none" | "scene" | "voiceover") => void;
+  // Layout — suppress Generate button when CanvasGenerateBar owns the CTA
+  hideGenerateButton?: boolean;
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -669,6 +673,7 @@ export default function VideoPromptPanel({
   detectedHandles, handleReadiness, handleAvatarUrls, useStartFrame, setUseStartFrame,
   endSlot, onClearEndSlot,
   audioMode, setAudioMode,
+  hideGenerateButton = false,
 }: Props) {
   const [showNeg, setShowNeg]         = useState(true); // open by default
   const [showPresets, setShowPresets] = useState(false);
@@ -1577,6 +1582,7 @@ export default function VideoPromptPanel({
               disabled={isDisabled}
               loading={generating}
               comingSoon={!!isComingSoon}
+              hideGenerateButton={hideGenerateButton}
               onClick={onGenerate}
             />
             {/* Audio credit breakdown — shown when voiceover or scene audio is active */}

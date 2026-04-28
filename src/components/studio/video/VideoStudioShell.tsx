@@ -28,6 +28,7 @@ import VideoLeftRail       from "./VideoLeftRail";
 import VideoCanvas, { MotionFlowStrip } from "./VideoCanvas";
 import VideoPromptPanel    from "./VideoPromptPanel";
 import VideoResultsLibrary from "./VideoResultsLibrary";
+import CanvasGenerateBar   from "./CanvasGenerateBar";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
@@ -1307,7 +1308,20 @@ export default function VideoStudioShell() {
     : generating;
 
   const creditEstimate = model ? estimateCredits(model.id, quality, duration) : 0;
-  void creditEstimate;
+
+  // Readiness gate — single source of truth for CanvasGenerateBar + right panel
+  const barHandleNotReady =
+    detectedHandles.length > 0 &&
+    detectedHandles[0] in handleReadiness &&
+    handleReadiness[detectedHandles[0]] === false &&
+    useStartFrame;
+
+  const canGenerate =
+    !!model?.available &&
+    USER_CREDITS >= creditEstimate &&
+    prompt.trim().length > 0 &&
+    !effectiveGenerating &&
+    !barHandleNotReady;
 
   return (
     <div style={{
@@ -1528,6 +1542,19 @@ export default function VideoStudioShell() {
               onPreviewReuse={handlePreviewReuse}
             />
           )}
+
+          {/* ── Generate Bar — single CTA between canvas and gallery ── */}
+          <CanvasGenerateBar
+            ready={canGenerate}
+            generating={effectiveGenerating}
+            comingSoon={model ? !model.available : false}
+            modelName={model?.displayName ?? ""}
+            durationLabel={`${duration}s`}
+            aspectRatioLabel={aspectRatio}
+            qualityLabel={quality}
+            creditsLabel={`${creditEstimate} CR`}
+            onGenerate={handleGenerate}
+          />
         </div>
 
         {/* Right panel — prompt */}
@@ -1573,6 +1600,7 @@ export default function VideoStudioShell() {
             onClearEndSlot={() => setEndSlot(EMPTY_SLOT)}
             audioMode={audioMode}
             setAudioMode={setAudioMode}
+            hideGenerateButton
           />
         </div>
       </div>
