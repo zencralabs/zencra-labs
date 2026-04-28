@@ -375,12 +375,12 @@ export default function VideoEmptyStateMascot({
 
       {/* ── Headline ──────────────────────────────────────────────────────────── */}
       <h2
-        className="zencra-display-heading text-[30px] font-semibold tracking-[-0.02em]"
+        className="zencra-display-heading text-[34px] font-bold tracking-[-0.02em]"
         style={{
           color:      "#F1F5F9",
           margin:     "0 0 12px",
           lineHeight: 1.15,
-          textShadow: "0 0 12px rgba(255,255,255,0.08)",
+          textShadow: "0 0 14px rgba(255,255,255,0.08)",
         }}
       >
         Create cinematic AI videos
