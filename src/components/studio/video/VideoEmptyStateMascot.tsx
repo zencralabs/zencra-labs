@@ -377,6 +377,7 @@ export default function VideoEmptyStateMascot({
       <h2
         className="text-[30px] font-semibold tracking-[-0.02em] font-display"
         style={{
+          fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
           color:      "#F1F5F9",
           margin:     "0 0 12px",
           lineHeight: 1.15,
@@ -387,15 +388,7 @@ export default function VideoEmptyStateMascot({
       </h2>
 
       {/* ── Subtext ───────────────────────────────────────────────────────────── */}
-      <p
-        style={{
-          fontSize:   15.5,
-          color:      "rgba(255,255,255,0.52)",
-          margin:     "0 0 32px",
-          maxWidth:   380,
-          lineHeight: 1.7,
-        }}
-      >
+      <p className="mt-2 mb-8 max-w-[720px] whitespace-nowrap text-[15.5px] leading-relaxed text-white/60">
         Start with a prompt or upload a reference frame to guide your generation
       </p>
 
@@ -499,7 +492,7 @@ export default function VideoEmptyStateMascot({
           gap:            8,
           flexWrap:       "wrap",
           justifyContent: "center",
-          marginTop:      28,
+          marginTop:      24,
           opacity:        0.6,
         }}>
           {["Cinematic", "Slow Motion", "Aerial Shot"].map(hint => (
