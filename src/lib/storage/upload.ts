@@ -85,15 +85,23 @@ export async function mirrorVideoToStorage(
     // 3. Get permanent public URL
     const { data } = storage.storage.from(BUCKET).getPublicUrl(storagePath);
 
-    console.log(`[mirrorVideoToStorage] mirrored Kling video → ${data.publicUrl}`);
+    console.log(
+      `✅ [mirrorVideoToStorage] Kling video persisted to Supabase.` +
+      ` asset=${assetId}` +
+      ` url=${data.publicUrl}`
+    );
     return data.publicUrl;
 
   } catch (err) {
     // Non-fatal: log and fall back to the original provider URL.
     // The asset will still resolve in the gallery — it just won't be permanent.
-    console.error(
-      `[mirrorVideoToStorage] failed for asset=${assetId}, falling back to original URL:`,
-      err instanceof Error ? err.message : String(err),
+    // ⚠️ If you see this in Vercel logs, the video will expire. Fix the bucket/network issue.
+    console.warn(
+      `⚠️ [mirrorVideoToStorage] Kling video NOT persisted to Supabase — using temporary provider URL.` +
+      ` asset=${assetId}` +
+      ` bucket=generations` +
+      ` reason="${err instanceof Error ? err.message : String(err)}"` +
+      ` tempUrl="${externalUrl.slice(0, 80)}..."`
     );
     return externalUrl;
   }
