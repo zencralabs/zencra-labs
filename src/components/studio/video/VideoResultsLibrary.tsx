@@ -25,7 +25,6 @@ function timeAgo(ts: number): string {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-const ONE_HOUR = 60 * 60 * 1000;
 
 // ── Zoom → card min-width mapping ─────────────────────────────────────────────
 // 40% = 260px | 60% = 380px | 100% = 620px
@@ -762,7 +761,7 @@ export default function VideoResultsLibrary({
 
   // Filter
   let filtered = videos.filter(v => {
-    if (filter === "history")   return now - v.createdAt > ONE_HOUR;
+    if (filter === "history")   return true; // all videos — session + persisted
     if (filter === "favorites") return v.is_favorite === true;
     return true;
   });
@@ -829,7 +828,7 @@ export default function VideoResultsLibrary({
             {filterTabs.map(t => {
               const active = filter === t.key;
               const count =
-                t.key === "history"   ? videos.filter(v => now - v.createdAt > ONE_HOUR).length :
+                t.key === "history"   ? videos.length :
                 videos.filter(v => v.is_favorite === true).length;
               return (
                 <button
