@@ -105,18 +105,19 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
 
   // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
   // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
-  // apiModelId is intentionally empty until the provider API ID is confirmed.
-  // assertModelRouteIntegrity() catches the empty string before any dispatch attempt.
+  // DISABLED: Kling API returns "model is not supported" (1201) for kling-v3-omni
+  // until the resource pack / model access is enabled in the Kling console.
+  // Re-enable by setting available: true + comingSoon: false once access confirmed.
   {
     id:          "kling-30-omni",
     provider:    "kling",
     apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
     displayName: "Kling 3.0 Omni",
     description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:            "NEW",
-    badgeColor:       "#0EA5A0",
-    available:        true,
-    comingSoon:       false,
+    badge:            "SOON",
+    badgeColor:       "#6B7280",
+    available:        false,
+    comingSoon:       true,
     supportsSequence: true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {

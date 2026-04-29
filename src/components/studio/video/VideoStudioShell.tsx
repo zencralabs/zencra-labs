@@ -293,7 +293,7 @@ function FamilyDropdownBar({
             selectedId={selectedId}
             onSelect={onSelect}
             accent={familyAccent("kling")}
-            defaultId="kling-30-omni"
+            defaultId="kling-30"
           />
         </div>
         <ChipDivider />
