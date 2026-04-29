@@ -42,7 +42,8 @@ const ASSET_SELECT = `
   session_id,
   concept_id,
   created_at,
-  completed_at
+  completed_at,
+  error_message
 ` as const;
 
 const DEFAULT_LIMIT = 40;
@@ -56,24 +57,32 @@ export async function GET(req: Request): Promise<Response> {
   const params = url.searchParams;
 
   // Parse filter params
-  const studio     = params.get("studio")     ?? undefined;
-  const model_key  = params.get("model_key")  ?? undefined;
-  const project_id = params.get("project_id") ?? undefined; // "none" = unlinked
-  const visibility = params.get("visibility") ?? undefined;
-  const isFavStr   = params.get("is_favorite");
-  const is_favorite = isFavStr === "true" ? true : isFavStr === "false" ? false : undefined;
-  const cursor     = params.get("cursor")     ?? undefined;
-  const limitRaw   = parseInt(params.get("limit") ?? String(DEFAULT_LIMIT), 10);
-  const limit      = Math.min(isNaN(limitRaw) ? DEFAULT_LIMIT : limitRaw, MAX_LIMIT);
+  const studio        = params.get("studio")        ?? undefined;
+  const model_key     = params.get("model_key")     ?? undefined;
+  const project_id    = params.get("project_id")    ?? undefined; // "none" = unlinked
+  const visibility    = params.get("visibility")    ?? undefined;
+  const isFavStr      = params.get("is_favorite");
+  const is_favorite   = isFavStr === "true" ? true : isFavStr === "false" ? false : undefined;
+  const cursor        = params.get("cursor")        ?? undefined;
+  const limitRaw      = parseInt(params.get("limit") ?? String(DEFAULT_LIMIT), 10);
+  const limit         = Math.min(isNaN(limitRaw) ? DEFAULT_LIMIT : limitRaw, MAX_LIMIT);
+  // When true, include failed assets alongside ready ones (e.g., Video Studio history)
+  const includeFailed = params.get("include_failed") === "true";
 
   // ── Build query ──────────────────────────────────────────────────────────────
   let query = supabaseAdmin
     .from("assets")
     .select(ASSET_SELECT)
     .eq("user_id", user.id)
-    .eq("status", "ready")          // assets table uses "ready" for successfully completed jobs
     .order("created_at", { ascending: false })
     .limit(limit + 1); // fetch one extra to determine if there's a next page
+
+  // Status filter: normally only ready assets; include failed when requested
+  if (includeFailed) {
+    query = query.in("status", ["ready", "failed"]);
+  } else {
+    query = query.eq("status", "ready");
+  }
 
   if (studio)        query = query.eq("studio", studio);
   if (model_key)     query = query.eq("model_key", model_key);
@@ -108,8 +117,13 @@ export async function GET(req: Request): Promise<Response> {
   let countQuery = supabaseAdmin
     .from("assets")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("status", "ready");         // matches the main query filter above
+    .eq("user_id", user.id);
+
+  if (includeFailed) {
+    countQuery = countQuery.in("status", ["ready", "failed"]);
+  } else {
+    countQuery = countQuery.eq("status", "ready");
+  }
 
   if (studio)       countQuery = countQuery.eq("studio", studio);
   if (model_key)    countQuery = countQuery.eq("model_key", model_key);

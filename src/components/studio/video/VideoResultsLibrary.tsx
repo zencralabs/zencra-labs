@@ -26,10 +26,20 @@ function timeAgo(ts: number): string {
 }
 
 
-// ── Zoom → card min-width mapping ─────────────────────────────────────────────
-// 40% = 260px | 60% = 380px | 100% = 620px
-function zoomToMinWidth(pct: number): number {
-  return Math.round(260 + ((pct - 40) / 60) * 360);
+// ── Zoom → card height (equal for all ARs; width varies per card) ─────────────
+// 40% → 180px | 60% → 260px | 100% → 400px
+function zoomToCardHeight(pct: number): number {
+  return Math.round(180 + ((pct - 40) / 60) * 220);
+}
+
+// ── Aspect-ratio helpers ──────────────────────────────────────────────────────
+function arToFactor(ar?: string): number {
+  if (ar === "9:16") return 9 / 16;
+  if (ar === "1:1")  return 1;
+  return 16 / 9; // default 16:9
+}
+function cardWidthFromAR(height: number, ar?: string): number {
+  return Math.round(height * arToFactor(ar));
 }
 
 // ── Shared toolbar button style ───────────────────────────────────────────────
@@ -136,8 +146,16 @@ function FeaturedVideoTile({
         flexDirection: "column",
       } as React.CSSProperties}
     >
-      {/* ── Media ── */}
+      {/* ── Media — 9:16 videos get a centred 50%-width container to stay tall ── */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#020608" }}>
+        {/* For 9:16 we constrain the player to ~50% width so it doesn't fill the whole tile */}
+        <div style={{
+          width:  video.aspectRatio === "9:16" ? "50%" : "100%",
+          height: "100%",
+          margin: video.aspectRatio === "9:16" ? "0 auto" : undefined,
+          position: "relative",
+          overflow: "hidden",
+        }}>
         {hasMedia ? (
           <video
             ref={videoRef}
@@ -149,7 +167,7 @@ function FeaturedVideoTile({
             style={{
               width: "100%",
               height: "100%",
-              objectFit: "cover",
+              objectFit: "contain",
               display: "block",
               transform: hovered ? "scale(1.02)" : "scale(1)",
               transition: "transform 360ms ease",
@@ -160,7 +178,7 @@ function FeaturedVideoTile({
           <img
             src={video.thumbnailUrl!}
             alt="Featured reel"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
           />
         ) : (
           <div style={{
@@ -176,6 +194,7 @@ function FeaturedVideoTile({
             </svg>
           </div>
         )}
+        </div>{/* end 9:16 width-constraining inner div */}
 
         {/* Bottom gradient overlay */}
         <div style={{
@@ -276,8 +295,9 @@ function VideoCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useAuth();
 
-  const isDone  = video.status === "done";
-  const isError = video.status === "error";
+  const isDone    = video.status === "done";
+  const isError   = video.status === "error";
+  const isPending = video.status === "generating" || video.status === "polling";
   const showCheckbox = hovered || anySelected;
 
   const handleMouseEnter = useCallback(() => {
@@ -313,8 +333,6 @@ function VideoCard({
     a.click();
   }
 
-  const arCSS = (video.aspectRatio ?? "16:9").replace(":", " / ");
-
   // ── Dynamic card border + shadow ─────────────────────────────────────────────
   const cardBorder = selected
     ? "1px solid rgba(34,211,238,0.55)"
@@ -335,30 +353,56 @@ function VideoCard({
       onMouseLeave={handleMouseLeave}
       style={{
         position: "relative",
-        background: "#101010",
+        width: "100%", height: "100%",   // fills the AR-aware wrapper set by the parent
+        background: isError ? "rgba(12,4,4,0.98)" : "#101010",
         border: cardBorder,
         borderRadius: 0,
         overflow: "hidden",
         transition: `transform var(--zen-base) var(--zen-ease), border-color var(--zen-base) var(--zen-ease), box-shadow var(--zen-base) var(--zen-ease)`,
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        transform: hovered && !isError ? "translateY(-2px)" : "translateY(0)",
         boxShadow: cardShadow,
         cursor: "default",
       }}
     >
-      {/* ── Media area ──────────────────────────────────────────────────────── */}
+      {/* ── Media area — full card height, AR handled by parent wrapper ──── */}
       <div
         style={{
           position: "relative",
-          aspectRatio: arCSS,
-          background: "#050505",
+          width: "100%", height: "100%",
+          background: isError ? "rgba(18,4,4,0.98)" : "#050505",
           overflow: "hidden",
           borderRadius: 0,
           cursor: isDone ? "pointer" : "default",
         }}
         onClick={isDone ? () => onPreview?.(video) : undefined}
       >
-        {/* Video / thumbnail / empty */}
-        {video.url && isDone ? (
+        {/* ── Failed state — dark disabled area with error message ────────── */}
+        {isError ? (
+          <div style={{
+            width: "100%", height: "100%",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 10,
+            background: "radial-gradient(ellipse at center, rgba(60,10,10,0.6) 0%, rgba(10,2,2,0.95) 70%)",
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(239,68,68,0.45)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {video.error && (
+              <div style={{
+                fontSize: 10, color: "rgba(239,68,68,0.55)", textAlign: "center",
+                padding: "0 16px", lineHeight: 1.5,
+                display: "-webkit-box", WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical", overflow: "hidden",
+              }}>
+                {video.error}
+              </div>
+            )}
+          </div>
+        ) : video.url && isDone ? (
+          /* ── Ready — play video on hover ──────────────────────────────── */
           <video
             ref={videoRef}
             src={video.url}
@@ -366,7 +410,7 @@ function VideoCard({
             poster={video.thumbnailUrl ?? undefined}
             style={{
               width: "100%", height: "100%",
-              objectFit: "cover", display: "block",
+              objectFit: "contain", display: "block",
               borderRadius: 0,
               transform: hovered ? "scale(1.025)" : "scale(1)",
               transition: `transform var(--zen-base) var(--zen-ease)`,
@@ -378,23 +422,31 @@ function VideoCard({
             alt="thumbnail"
             style={{
               width: "100%", height: "100%",
-              objectFit: "cover", display: "block",
+              objectFit: "contain", display: "block",
               borderRadius: 0,
-              transform: hovered ? "scale(1.025)" : "scale(1)",
-              transition: `transform var(--zen-base) var(--zen-ease)`,
             }}
           />
         ) : (
+          /* ── Pending / generating — neutral placeholder ─────────────── */
           <div style={{
             width: "100%", height: "100%",
             display: "flex", alignItems: "center", justifyContent: "center",
             background: "#050505",
           }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-              stroke="rgba(100,116,139,0.28)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="18" rx="2"/>
-              <path d="M9 8l7 4-7 4V8z"/>
-            </svg>
+            {isPending ? (
+              <div style={{
+                width: 32, height: 32, borderRadius: "50%",
+                border: "2px solid rgba(139,92,246,0.4)",
+                borderTop: "2px solid #8B5CF6",
+                animation: "spin 1s linear infinite",
+              }} />
+            ) : (
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+                stroke="rgba(100,116,139,0.28)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="18" rx="2"/>
+                <path d="M9 8l7 4-7 4V8z"/>
+              </svg>
+            )}
           </div>
         )}
 
@@ -743,8 +795,8 @@ export default function VideoResultsLibrary({
   const [zoomPct,   setZoomPct]   = useState(60);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const now          = Date.now();
-  const cardMinWidth = zoomToMinWidth(zoomPct);
+  const now        = Date.now();
+  const cardHeight = zoomToCardHeight(zoomPct);
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
@@ -972,27 +1024,20 @@ export default function VideoResultsLibrary({
             </svg>
             <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
           </div>
-        ) : filtered.length >= 1 ? (
-          /* ── Hero layout (≥1 video): Featured Reel + grid + overflow ── */
-          <>
-            {/* First row: Featured (col 1, rows 1-2) + 4 standard cards (2×2 right) */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr",
-              gap: 22,
-              marginBottom: 22,
-            }}>
-              {/* Featured — spans rows 1 and 2 */}
-              <div style={{ gridColumn: 1, gridRow: "1 / span 2" }}>
-                <FeaturedVideoTile
-                  video={filtered[0]}
-                  onPreview={onPreview}
-                />
-              </div>
-              {/* Cards 2–5 in the 2×2 right slots */}
-              {filtered.slice(1, 5).map(v => (
+        ) : (() => {
+          // ── Compute featured (first READY video) and remaining videos ────
+          const featuredVideo = filtered.find(v => v.status === "done");
+          const restVideos    = featuredVideo
+            ? filtered.filter(v => v !== featuredVideo)
+            : filtered;
+
+          // Side cards fill the hero's 1fr columns — use explicit row heights
+          const heroRowH = Math.round(cardHeight * 0.85);
+
+          function VideoCardWrapper({ v }: { v: typeof filtered[0] }) {
+            return (
+              <div style={{ height: cardHeight, width: cardWidthFromAR(cardHeight, v.aspectRatio), flexShrink: 0 }}>
                 <VideoCard
-                  key={v.id}
                   video={v}
                   selected={selectedIds.has(v.id)}
                   anySelected={selectedIds.size > 0}
@@ -1004,57 +1049,61 @@ export default function VideoResultsLibrary({
                   onAuthRequired={onAuthRequired}
                   onCardRef={onCardRef}
                 />
-              ))}
-            </div>
-            {/* Videos 6+ in normal auto-fill grid */}
-            {filtered.length > 5 && (
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
-                gap: 22,
-              }}>
-                {filtered.slice(5).map(v => (
-                  <VideoCard
-                    key={v.id}
-                    video={v}
-                    selected={selectedIds.has(v.id)}
-                    anySelected={selectedIds.size > 0}
-                    onSelect={toggleSelect}
-                    onReuse={onReusePrompt}
-                    onDelete={onDelete ?? (() => {})}
-                    onFavToggle={onFavToggle}
-                    onPreview={onPreview}
-                    onAuthRequired={onAuthRequired}
-                    onCardRef={onCardRef}
-                  />
-                ))}
               </div>
-            )}
-          </>
-        ) : (
-          /* ── Normal auto-fill grid (<5 videos — no Featured tile) ── */
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(auto-fill, minmax(${cardMinWidth}px, 1fr))`,
-            gap: 22,
-          }}>
-            {filtered.map(v => (
-              <VideoCard
-                key={v.id}
-                video={v}
-                selected={selectedIds.has(v.id)}
-                anySelected={selectedIds.size > 0}
-                onSelect={toggleSelect}
-                onReuse={onReusePrompt}
-                onDelete={onDelete ?? (() => {})}
-                onFavToggle={onFavToggle}
-                onPreview={onPreview}
-                onAuthRequired={onAuthRequired}
-                onCardRef={onCardRef}
-              />
-            ))}
-          </div>
-        )}
+            );
+          }
+
+          return (
+            <>
+              {/* ── Hero section: Featured + 2×2 side cards ────────────── */}
+              {featuredVideo && (
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr 1fr",
+                  gridTemplateRows: `${heroRowH}px ${heroRowH}px`,
+                  gap: 22,
+                  marginBottom: 22,
+                }}>
+                  {/* Featured tile — spans both rows, full height */}
+                  <div style={{ gridColumn: 1, gridRow: "1 / span 2" }}>
+                    <FeaturedVideoTile
+                      video={featuredVideo}
+                      onPreview={onPreview}
+                    />
+                  </div>
+                  {/* Side cards 1–4 — fill their grid cells */}
+                  {restVideos.slice(0, 4).map(v => (
+                    <div key={v.id} style={{ height: "100%", width: "100%" }}>
+                      <VideoCard
+                        video={v}
+                        selected={selectedIds.has(v.id)}
+                        anySelected={selectedIds.size > 0}
+                        onSelect={toggleSelect}
+                        onReuse={onReusePrompt}
+                        onDelete={onDelete ?? (() => {})}
+                        onFavToggle={onFavToggle}
+                        onPreview={onPreview}
+                        onAuthRequired={onAuthRequired}
+                        onCardRef={onCardRef}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Overflow / all-videos AR-aware flex grid ────────────── */}
+              {/* When no featured: show all. When featured: show rest after 4 side slots. */}
+              {(featuredVideo ? restVideos.slice(4) : filtered).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 22 }}>
+                  {(featuredVideo ? restVideos.slice(4) : filtered).map(v => (
+                    <VideoCardWrapper key={v.id} v={v} />
+                  ))}
+                </div>
+              )}
+
+            </>
+          );
+        })()}
       </div>
 
       {/* ── Bulk selection dock ───────────────────────────────────────────────── */}

@@ -832,7 +832,7 @@ export default function VideoStudioShell() {
 
     (async () => {
       try {
-        const res = await fetch("/api/assets?studio=video&limit=100", {
+        const res = await fetch("/api/assets?studio=video&limit=100&include_failed=true", {
           headers: { Authorization: `Bearer ${authToken}` },
         });
         if (!res.ok) return;
@@ -840,6 +840,7 @@ export default function VideoStudioShell() {
           success: boolean;
           data?: Array<{
             id: string;
+            status: string;
             url: string | null;
             prompt: string | null;
             model_key: string;
@@ -849,6 +850,7 @@ export default function VideoStudioShell() {
             visibility: string | null;
             is_favorite: boolean | null;
             created_at: string;
+            error_message: string | null;
           }>;
         };
         if (!json.success || !json.data?.length) return;
@@ -864,7 +866,9 @@ export default function VideoStudioShell() {
           duration:     5,
           aspectRatio:  (a.aspect_ratio ?? "16:9") as VideoAR,
           frameMode:    "text_to_video" as const,
-          status:       "done" as const,
+          // Map DB status → VideoStatus: failed→error, anything else→done
+          status:       a.status === "failed" ? "error" : "done",
+          error:        a.error_message ?? undefined,
           provider:     a.provider ?? undefined,
           creditsUsed:  a.credits_cost ?? 0,
           createdAt:    new Date(a.created_at).getTime(),
