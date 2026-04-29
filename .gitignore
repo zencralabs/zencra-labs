@@ -40,3 +40,18 @@ npm-debug.log*
 # ─── Misc ────────────────────────────────────────────────────────────────────
 .cache/
 *.pem
+
+# ─── Large binary model-preview/voice-preview assets (served from CDN) ───────
+# Placeholder files (.placeholder) are committed; actual binaries are not.
+public/model-previews/**/*.mp4
+public/voice-previews/**/*.mp3
+public/voice-previews/**/*.wav
+public/voice-previews/**/*.ogg
+
+# ─── Filesystem duplicate artefacts (files with " 2" suffix/dir) ─────────────
+*\ 2/
+*\ 2.tsx
+*\ 2.ts
+
+# ─── Local build utilities ────────────────────────────────────────────────────
+loader.mjs
