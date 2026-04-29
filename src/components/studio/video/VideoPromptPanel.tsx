@@ -658,6 +658,9 @@ interface Props {
   // Audio mode
   audioMode:    "none" | "scene" | "voiceover";
   setAudioMode: (m: "none" | "scene" | "voiceover") => void;
+  // Zencra Voice Engine — voiceover script state (lifted to Shell so it survives re-renders)
+  voiceoverScript:    string;
+  setVoiceoverScript: (v: string) => void;
   // Layout — suppress Generate button when CanvasGenerateBar owns the CTA
   hideGenerateButton?: boolean;
 }
@@ -673,6 +676,7 @@ export default function VideoPromptPanel({
   detectedHandles, handleReadiness, handleAvatarUrls, useStartFrame, setUseStartFrame,
   endSlot, onClearEndSlot,
   audioMode, setAudioMode,
+  voiceoverScript, setVoiceoverScript,
   hideGenerateButton = false,
 }: Props) {
   const [showNeg, setShowNeg]         = useState(true); // open by default
@@ -1455,16 +1459,13 @@ export default function VideoPromptPanel({
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                     <line x1="12" y1="19" x2="12" y2="22"/>
                   </svg>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#C6FF00" }}>Voiceover</span>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                    color: "#C6FF00", background: "rgba(198,255,0,0.16)",
-                    borderRadius: 4, padding: "2px 6px",
-                  }}>SOON</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#C6FF00" }}>Zencra Voice Engine</span>
                 </div>
 
-                {/* Voice script textarea */}
+                {/* Voice script textarea — wired to Shell state */}
                 <textarea
+                  value={voiceoverScript}
+                  onChange={e => setVoiceoverScript(e.target.value)}
                   placeholder="Write the voiceover script — narration, character dialogue, or scene description…"
                   rows={3}
                   style={{

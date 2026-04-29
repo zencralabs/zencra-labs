@@ -55,4 +55,10 @@ export interface GeneratedVideo {
   createdAt: number;
   isPublic: boolean;
   is_favorite?: boolean;
+  // ── Zencra Voice Engine — voiceover pipeline ─────────────────────────────────
+  // Populated after video polling succeeds when audioMode === "voiceover".
+  // voiceoverStatus is undefined until voiceover is triggered.
+  voiceoverScript?: string;
+  voiceoverStatus?: "generating" | "ready" | "error";
+  voiceoverUrl?: string | null;
 }

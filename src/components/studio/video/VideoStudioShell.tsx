@@ -709,6 +709,12 @@ export default function VideoStudioShell() {
   // "voiceover" = add ElevenLabs voiceover after video generation
   const [audioMode, setAudioMode] = useState<"none" | "scene" | "voiceover">("none");
 
+  // ── Zencra Voice Engine — voiceover script ────────────────────────────────────
+  // Lifted to Shell so it persists across re-renders and is captured correctly
+  // in the handleGenerate closure. Cleared after each voiceover dispatch is NOT
+  // desired — user may want to re-use the same script for a retried generation.
+  const [voiceoverScript, setVoiceoverScript] = useState("");
+
   // ── AI Influencer @handle detection ──────────────────────────────────────────
   // Syntactic only — no DB call. Computed here (single source of truth) and
   // passed down to VideoPromptPanel so both badge and start-frame card share it.
@@ -1202,6 +1208,63 @@ export default function VideoStudioShell() {
                 ? { ...v, status: "done", url, thumbnailUrl: null }
                 : v,
             ));
+
+            // ── Zencra Voice Engine — fire voiceover after video success ──────
+            // Fire-and-forget: voiceover failure must NOT fail or block the video.
+            // Captures audioMode + voiceoverScript at handleGenerate invocation time
+            // (correct — we want the values the user had when they clicked Generate).
+            if (audioMode === "voiceover" && voiceoverScript.trim()) {
+              const videoId      = newVideo.id;
+              const scriptToSend = voiceoverScript.trim();
+
+              // Mark this video as having voiceover in progress
+              setVideos(prev => prev.map(v =>
+                v.id === videoId
+                  ? { ...v, voiceoverStatus: "generating" as const, voiceoverScript: scriptToSend }
+                  : v,
+              ));
+
+              // Dispatch to existing /api/studio/audio/generate (ElevenLabs)
+              void (async () => {
+                try {
+                  const voRes = await fetch("/api/studio/audio/generate", {
+                    method:  "POST",
+                    headers: {
+                      "Content-Type":  "application/json",
+                      "Authorization": `Bearer ${user.accessToken}`,
+                    },
+                    body: JSON.stringify({
+                      modelKey: "elevenlabs",
+                      prompt:   scriptToSend,
+                      // No voiceId — use ElevenLabs default (Sarah)
+                      // No providerParams — standard quality
+                    }),
+                  });
+
+                  if (voRes.ok) {
+                    const voData = await voRes.json() as { data?: { url?: string } };
+                    const voUrl  = voData.data?.url ?? null;
+                    setVideos(prev => prev.map(v =>
+                      v.id === videoId
+                        ? { ...v, voiceoverStatus: "ready" as const, voiceoverUrl: voUrl }
+                        : v,
+                    ));
+                  } else {
+                    console.warn("[VideoStudio] Voiceover generation failed:", voRes.status);
+                    setVideos(prev => prev.map(v =>
+                      v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
+                    ));
+                  }
+                } catch (voErr) {
+                  console.warn("[VideoStudio] Voiceover dispatch error:", voErr);
+                  setVideos(prev => prev.map(v =>
+                    v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
+                  ));
+                }
+              })();
+            }
+            // ── End voiceover dispatch ────────────────────────────────────────
+
             void recordFlowStep({
               modelKey:    modelKey,
               prompt:      prompt,
@@ -1231,7 +1294,7 @@ export default function VideoStudioShell() {
     user, frameMode, model, generating, prompt, negPrompt, duration, aspectRatio,
     quality, resolution, motionPreset, startSlot, endSlot, motionVideoUrl,
     motionStrength, motionArea, lipSyncCreate, recordFlowStep, showToast,
-    useStartFrame, detectedHandles,
+    useStartFrame, detectedHandles, audioMode, voiceoverScript,
   ]);
 
 
@@ -1620,7 +1683,11 @@ export default function VideoStudioShell() {
             durationLabel={`${duration}s`}
             aspectRatioLabel={aspectRatio}
             qualityLabel={quality}
-            creditsLabel={`${creditEstimate} CR`}
+            creditsLabel={
+              audioMode === "voiceover" && voiceoverScript.trim()
+                ? `${creditEstimate}+3 CR`
+                : `${creditEstimate} CR`
+            }
             onGenerate={handleGenerate}
           />
         </div>
@@ -1668,6 +1735,8 @@ export default function VideoStudioShell() {
             onClearEndSlot={() => setEndSlot(EMPTY_SLOT)}
             audioMode={audioMode}
             setAudioMode={setAudioMode}
+            voiceoverScript={voiceoverScript}
+            setVoiceoverScript={setVoiceoverScript}
             hideGenerateButton
           />
         </div>
