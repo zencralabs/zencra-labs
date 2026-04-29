@@ -1240,6 +1240,18 @@ export default function VideoStudioShell() {
     setNegPrompt(video.negPrompt ?? "");
   }, []);
 
+  // Retry a failed video — restores prompt + model + AR then fires generation
+  const handleRetry = useCallback((video: GeneratedVideo) => {
+    setPrompt(video.prompt ?? "");
+    setNegPrompt(video.negPrompt ?? "");
+    if (video.modelId) setSelectedModelId(video.modelId);
+    if (video.aspectRatio) setAspectRatio(video.aspectRatio as VideoAR);
+    // Scroll to top of page so the user sees the canvas start generating
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Use a short defer so state updates settle before generation kicks off
+    setTimeout(() => handleGenerate(), 120);
+  }, [handleGenerate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Gallery card favourite toggle — optimistic update + PATCH
   const handleGalleryFavToggle = useCallback(async (id: string, newFav: boolean) => {
     if (!authToken) return;
@@ -1669,6 +1681,7 @@ export default function VideoStudioShell() {
           onReusePrompt={handleReusePrompt}
           onDelete={handleDelete}
           onFavToggle={handleGalleryFavToggle}
+          onRetry={handleRetry}
           onAuthRequired={() => setAuthModalOpen(true)}
           onPreview={(v) => setViewingVideo(v)}
           onCardRef={(id, el) => { videoCardRefs.current[id] = el; }}

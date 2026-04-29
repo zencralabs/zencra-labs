@@ -276,6 +276,7 @@ function VideoCard({
   onDelete,
   onFavToggle,
   onPreview,
+  onRetry,
   onAuthRequired,
   onCardRef,
 }: {
@@ -287,6 +288,7 @@ function VideoCard({
   onDelete:        (id: string) => void;
   onFavToggle?:    (id: string, newFav: boolean) => void;
   onPreview?:      (v: GeneratedVideo) => void;
+  onRetry?:        (v: GeneratedVideo) => void;
   onAuthRequired?: () => void;
   onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
 }) {
@@ -399,6 +401,43 @@ function VideoCard({
               }}>
                 {video.error}
               </div>
+            )}
+            {/* Retry button — always visible on failed cards */}
+            {onRetry && (
+              <button
+                onClick={e => { e.stopPropagation(); onRetry(video); }}
+                title="Retry with same prompt and settings"
+                style={{
+                  marginTop: 4,
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "5px 12px",
+                  background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.28)",
+                  borderRadius: 4,
+                  fontSize: 10, fontWeight: 700, color: "rgba(239,68,68,0.65)",
+                  cursor: "pointer", letterSpacing: "0.04em",
+                  transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(239,68,68,0.18)";
+                  el.style.borderColor = "rgba(239,68,68,0.5)";
+                  el.style.color = "rgba(239,68,68,0.9)";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(239,68,68,0.1)";
+                  el.style.borderColor = "rgba(239,68,68,0.28)";
+                  el.style.color = "rgba(239,68,68,0.65)";
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 .49-3.33"/>
+                </svg>
+                Retry
+              </button>
             )}
           </div>
         ) : video.url && isDone ? (
@@ -775,19 +814,20 @@ interface Props {
   onReusePrompt:   (v: GeneratedVideo) => void;
   onDelete?:       (id: string) => void;
   onFavToggle?:    (id: string, newFav: boolean) => void;
+  onRetry?:        (v: GeneratedVideo) => void;
   onAuthRequired?: () => void;
   onPreview?:      (v: GeneratedVideo) => void;
   onCardRef?:      (id: string, el: HTMLDivElement | null) => void;
 }
 
-type FilterTab = "history" | "favorites";
+type FilterTab = "history" | "failed" | "favorites";
 type SortMode  = "latest" | "oldest";
 type ShowCount = 25 | 50 | 100 | 500;
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function VideoResultsLibrary({
-  videos, onReusePrompt, onDelete, onFavToggle, onAuthRequired, onPreview, onCardRef,
+  videos, onReusePrompt, onDelete, onFavToggle, onRetry, onAuthRequired, onPreview, onCardRef,
 }: Props) {
   const [filter,    setFilter]    = useState<FilterTab>("history");
   const [sort,      setSort]      = useState<SortMode>("latest");
@@ -813,7 +853,8 @@ export default function VideoResultsLibrary({
 
   // Filter
   let filtered = videos.filter(v => {
-    if (filter === "history")   return true; // all videos — session + persisted
+    if (filter === "history")   return v.status === "done";   // ready only
+    if (filter === "failed")    return v.status === "error";  // failed only
     if (filter === "favorites") return v.is_favorite === true;
     return true;
   });
@@ -829,6 +870,7 @@ export default function VideoResultsLibrary({
 
   const filterTabs: { key: FilterTab; label: string }[] = [
     { key: "history",   label: "History" },
+    { key: "failed",    label: "Failed" },
     { key: "favorites", label: "Favourites" },
   ];
 
@@ -880,7 +922,8 @@ export default function VideoResultsLibrary({
             {filterTabs.map(t => {
               const active = filter === t.key;
               const count =
-                t.key === "history"   ? videos.length :
+                t.key === "history"   ? videos.filter(v => v.status === "done").length :
+                t.key === "failed"    ? videos.filter(v => v.status === "error").length :
                 videos.filter(v => v.is_favorite === true).length;
               return (
                 <button
@@ -1046,6 +1089,7 @@ export default function VideoResultsLibrary({
                   onDelete={onDelete ?? (() => {})}
                   onFavToggle={onFavToggle}
                   onPreview={onPreview}
+                  onRetry={onRetry}
                   onAuthRequired={onAuthRequired}
                   onCardRef={onCardRef}
                 />
@@ -1083,6 +1127,7 @@ export default function VideoResultsLibrary({
                         onDelete={onDelete ?? (() => {})}
                         onFavToggle={onFavToggle}
                         onPreview={onPreview}
+                        onRetry={onRetry}
                         onAuthRequired={onAuthRequired}
                         onCardRef={onCardRef}
                       />
