@@ -972,8 +972,8 @@ export default function VideoResultsLibrary({
             </svg>
             <span style={{ fontSize: 12, color: "#334155", fontWeight: 500 }}>No videos match this filter</span>
           </div>
-        ) : filtered.length >= 5 ? (
-          /* ── Hero layout (≥5 videos): Featured Reel + 2×2 grid + overflow ── */
+        ) : filtered.length >= 1 ? (
+          /* ── Hero layout (≥1 video): Featured Reel + grid + overflow ── */
           <>
             {/* First row: Featured (col 1, rows 1-2) + 4 standard cards (2×2 right) */}
             <div style={{
