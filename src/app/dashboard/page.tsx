@@ -30,7 +30,7 @@ interface CreditTransaction {
 const QUICK_ACTIONS = [
   { label: "Image Studio",       icon: ImageIcon, color: "#2563EB", bg: "rgba(37,99,235,0.12)",  href: "/studio/image" },
   { label: "Video Studio",       icon: Video,     color: "#7C3AED", bg: "rgba(124,58,237,0.12)", href: "/studio/video" },
-  { label: "Creative Director",  icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.12)", href: "/tools/creative-director" },
+  { label: "Creative Director",  icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.12)", href: "/studio/image?mode=creative-director" },
   { label: "Audio Studio",       icon: Music,     color: "#D97706", bg: "rgba(217,119,6,0.12)",  href: "/studio/audio" },
   { label: "My Projects",        icon: FolderOpen,color: "#10B981", bg: "rgba(16,185,129,0.12)", href: "/dashboard/projects" },
   { label: "Generated Library",  icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/generated" },

@@ -595,7 +595,7 @@ export default function ProjectsPage() {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button
-            onClick={() => router.push("/tools/creative-director")}
+            onClick={() => router.push("/studio/image?mode=creative-director")}
             style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", fontSize: 13, cursor: "pointer" }}
           >
             <Wand2 size={13} />
@@ -635,7 +635,7 @@ export default function ProjectsPage() {
       {!loading && !error && projects.length === 0 && (
         <EmptyProjects
           onNew={() => setShowCreate(true)}
-          onCD={() => router.push("/tools/creative-director")}
+          onCD={() => router.push("/studio/image?mode=creative-director")}
         />
       )}
 
@@ -661,7 +661,7 @@ export default function ProjectsPage() {
               <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>Open the Creative Director to start a new campaign.</div>
             </div>
             <button
-              onClick={() => router.push("/tools/creative-director")}
+              onClick={() => router.push("/studio/image?mode=creative-director")}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "rgba(37,99,235,0.15)", border: "1px solid rgba(37,99,235,0.3)", color: "#60A5FA", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
             >
               Open CD <ArrowRight size={13} />

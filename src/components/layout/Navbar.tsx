@@ -26,7 +26,7 @@ interface NavFeature {
   icon: React.ElementType;
   label: string;
   desc: string;
-  badge: string | null;
+  badge?: string | null;
   href: string;
   right: RightPanel;
 }
@@ -52,7 +52,7 @@ const navCategories: Record<string, NavCategory> = {
         right: { type: "models", heading: "Image Models", models: imageModels },
       },
       {
-        icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/tools/creative-director",
+        icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/studio/image?mode=creative-director",
         right: { type: "soon", title: "Creative Director", badge: "NEW", desc: "Brief your campaign, receive 3 distinct creative concepts from an AI art director, then render any concept into production-ready visuals — all in one workflow.", bullets: ["AI-generated creative concepts", "Multi-provider smart routing", "Variation engine (5 passes)", "Format adaptation (Story, Square, Banner)"] },
       },
       {
@@ -126,7 +126,7 @@ const navCategories: Record<string, NavCategory> = {
     label: "Character Tools",
     features: [
       {
-        icon: UserCircle2, label: "AI Influencer", desc: "Build a persistent digital human", badge: "NEW", href: "/studio/character/ai-influencer",
+        icon: UserCircle2, label: "AI Influencer", desc: "Build a persistent digital human", href: "/studio/character/ai-influencer",
         right: { type: "soon", title: "AI Influencer Builder", badge: "NEW", desc: "Create a persistent digital human with a locked identity. Generate content packs — looks, scenes, poses, social formats — all anchored to the same face, every time.", bullets: ["Identity lock system", "5 content pack types", "Face-consistent generation", "Social-ready formats"] },
       },
       {

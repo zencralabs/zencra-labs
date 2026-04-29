@@ -504,7 +504,7 @@ export default function ProjectDetailPage() {
         </div>
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
           <button
-            onClick={() => router.push(`/tools/creative-director?project=${project.id}`)}
+            onClick={() => router.push(`/studio/image?mode=creative-director&project=${project.id}`)}
             style={{
               display: "flex", alignItems: "center", gap: 7,
               padding: "10px 18px", borderRadius: 10,
@@ -581,7 +581,7 @@ export default function ProjectDetailPage() {
               {assets.length === 0 ? (
                 <EmptyOutputs
                   projectId={project.id}
-                  onOpen={() => router.push(`/tools/creative-director?project=${project.id}`)}
+                  onOpen={() => router.push(`/studio/image?mode=creative-director&project=${project.id}`)}
                 />
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>

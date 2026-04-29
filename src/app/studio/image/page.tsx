@@ -819,7 +819,14 @@ function ImageStudioInner() {
   const [zoomLevel, setZoomLevel] = useState(3); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
   // ── Studio mode — Standard Generate or Creative Director ────────────────────
-  const [studioMode, setStudioMode] = useState<"standard" | "creative-director">("standard");
+  // Lazy initializer reads ?mode=creative-director from URL on first render.
+  // This lets navbar / dashboard links deep-link directly into CD mode.
+  const [studioMode, setStudioMode] = useState<"standard" | "creative-director">(() => {
+    if (typeof window === "undefined") return "standard";
+    return new URLSearchParams(window.location.search).get("mode") === "creative-director"
+      ? "creative-director"
+      : "standard";
+  });
   const [authModal, setAuthModal] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState("");   // source image for edit models
 
