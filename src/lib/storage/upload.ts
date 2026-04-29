@@ -47,7 +47,7 @@ export async function mirrorVideoToStorage(
   externalUrl: string,
   assetId:     string,
 ): Promise<string> {
-  const BUCKET      = "generated-assets";
+  const BUCKET      = "generations";
   const storagePath = `videos/${assetId}.mp4`;
 
   try {
