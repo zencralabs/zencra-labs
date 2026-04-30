@@ -44,11 +44,13 @@ const DEFAULT_ASPECT_RATIO    = "2:3";
 // not yet live in this environment). Lets the full candidate UI be tested
 // end-to-end without a working AI provider.
 // Remove this block once the character image provider is operational.
+// Dedicated influencer placeholder images (360×480 portrait, dark gradient).
+// These live in public/mock/influencers/ — NOT homepage hero assets.
 const MOCK_CANDIDATE_URLS = [
-  "/hero/cyberpunk.jpg",
-  "/hero/emotional.jpg",
-  "/hero/desert.jpg",
-  "/hero/product.jpg",
+  "/mock/influencers/candidate-01.jpg",
+  "/mock/influencers/candidate-02.jpg",
+  "/mock/influencers/candidate-03.jpg",
+  "/mock/influencers/candidate-04.jpg",
 ];
 
 export async function POST(req: Request): Promise<Response> {

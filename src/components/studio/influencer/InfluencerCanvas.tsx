@@ -11,10 +11,24 @@ import { useRouter } from "next/navigation";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
 import { formatHandle } from "@/lib/ai-influencer/format-handle";
+import { supabase }        from "@/lib/supabase";
 import CandidateCarousel      from "./candidate/CandidateCarousel";
 import CandidatePreviewModal  from "./candidate/CandidatePreviewModal";
 import CandidateCompareTray   from "./candidate/CandidateCompareTray";
 import CandidateControls      from "./candidate/CandidateControls";
+
+// ── Auth header helper ────────────────────────────────────────────────────────
+// All character API routes use requireAuthUser which reads ONLY the
+// Authorization: Bearer header (not cookies). Resolve a fresh token every call.
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch { /* ignore */ }
+  return {};
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -158,12 +172,12 @@ export default function InfluencerCanvas({
 
       // Dispatch pack generation
       try {
+        const authHeader = await getAuthHeader();
         const res = await fetch(
           `/api/character/ai-influencers/${active.influencer.id}/packs`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               pack_type:          packType,
               identity_lock_id:   active.identity_lock_id,
@@ -806,12 +820,12 @@ function CandidatesState({
     setLockError(null);
     setPreviewUrl(null); // close modal if open
     try {
+      const authHeader = await getAuthHeader();
       const res = await fetch(
         `/api/character/ai-influencers/${influencer_id}/select`,
         {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
+          headers: { "Content-Type": "application/json", ...authHeader },
           body: JSON.stringify({ candidate_url: urlToLock }),
         },
       );
@@ -1532,8 +1546,10 @@ function SaveIdentityBar({ influencer_id }: { influencer_id: string }) {
   async function handleSave() {
     setSaving(true);
     try {
+      const authHeader = await getAuthHeader();
       await fetch(`/api/character/ai-influencers/${influencer_id}/save-identity`, {
-        method: "POST", credentials: "include",
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
       });
       setSaved(true);
     } catch { /* silent */ }
@@ -1828,7 +1844,10 @@ async function pollJobForUrl(jobId: string, maxMs = 300_000): Promise<string | n
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     try {
-      const res = await fetch(`/api/studio/jobs/${jobId}/status`, { credentials: "include" });
+      const authHeader = await getAuthHeader();
+      const res = await fetch(`/api/studio/jobs/${jobId}/status`, {
+        headers: { ...authHeader },
+      });
       if (!res.ok) return null;
       const data = await res.json();
       const job = data.data?.job ?? data.job;
