@@ -65,7 +65,7 @@ export function HeroContent() {
         style={{
           margin: 0,
           fontFamily: "var(--font-display, 'Syne', sans-serif)",
-          fontSize: "clamp(1.9rem, 4.5vw, 3.8rem)",
+          fontSize: "clamp(1.65rem, 4.0vw, 3.2rem)",
           fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
@@ -73,7 +73,7 @@ export function HeroContent() {
           textShadow: "0 0 14px rgba(255,255,255,0.08)",
         }}
       >
-        <span style={{ display: "block" }}>Create Cinematic</span>
+        <span style={{ display: "block", whiteSpace: "nowrap" }}>Create Cinematic</span>
 
         {/* Gradient line: blue → purple → pink */}
         <span

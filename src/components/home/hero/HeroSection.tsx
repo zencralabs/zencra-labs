@@ -52,7 +52,7 @@ export function HeroSection() {
           position: "relative",
           zIndex: 10,
           width: "100%",
-          paddingTop: "72px",
+          paddingTop: "96px",
           paddingBottom: "32px",
           paddingLeft: "clamp(24px, 6vw, 80px)",
           paddingRight: "24px",
