@@ -1317,11 +1317,24 @@ export default function VideoStudioShell() {
             // "silent success" = job completed on first attempt without timeout → sound_generation
             // was either fulfilled or silently ignored by Kling (no resource pack).
             if (sceneAudioActive) {
-              console.log("[VideoStudio] Scene Audio job completed — video URL received. Audio presence unknown (Kling provides no audio flag). polls:", polls, "sceneAudioFallback: false (original job succeeded)");
+              // Kling accepts sound_generation: true but audio delivery requires the
+              // "Sound Generation" resource pack to be active in the Kling console.
+              // We have no API signal confirming audio is present — video element
+              // audioTracks API is unreliable cross-browser. Mark sceneAudioFallback
+              // so the canvas always shows the amber badge until resource pack is confirmed.
+              console.log("[VideoStudio] Scene Audio job completed — video URL received. Marking sceneAudioFallback (no reliable audio-presence signal from Kling). polls:", polls);
             }
             setVideos(prev => prev.map(v =>
               v.id === newVideo.id
-                ? { ...v, status: "done", url, thumbnailUrl: null }
+                ? {
+                    ...v,
+                    status:             "done",
+                    url,
+                    thumbnailUrl:       null,
+                    // Flag set when sceneAudio was active — amber badge shows until
+                    // resource pack is confirmed active. Cleared when Kling delivers audio.
+                    sceneAudioFallback: sceneAudioActive ? true : v.sceneAudioFallback,
+                  }
                 : v,
             ));
 
@@ -1815,7 +1828,7 @@ export default function VideoStudioShell() {
               </span>
               <span>
                 {canvasPreviewVideo.sceneAudioFallback
-                  ? "Scene Audio unavailable — generated without sound"
+                  ? "Scene Audio unavailable — Sound Generation pack required in Kling console"
                   : "Scene Audio requested"}
               </span>
             </div>
