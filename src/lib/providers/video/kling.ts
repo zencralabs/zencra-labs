@@ -204,8 +204,15 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       let endpoint: string;
       let payload: Record<string, unknown>;
 
+      // Scene Audio — native cinematic ambience.
+      // Forwarded from providerParams.nativeAudio (set by VideoStudioShell when audioMode === "scene").
+      // Kling API field: sound_generation (bool). Not supported on Motion Control mode.
+      // Note: requires "Sound Generation" resource pack enabled in the Kling console.
+      const enableSoundGeneration = !isMotionControl && input.providerParams?.nativeAudio === true;
+
       if (isMotionControl) {
         // Motion Control: image + reference video
+        // sound_generation intentionally omitted — not supported in motion control mode.
         endpoint = "/v1/videos/image2video";
         payload  = {
           model_name:           apiModelId,
@@ -228,6 +235,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           mode:         (input.providerParams?.videoMode as string) ?? "std",
           ...(input.endImageUrl ? { tail_image: input.endImageUrl } : {}),
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+          ...(enableSoundGeneration ? { sound_generation: true } : {}),
         };
       } else {
         // Text-to-video
@@ -239,6 +247,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           aspect_ratio: aspect,
           mode:         (input.providerParams?.videoMode as string) ?? "std",
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
+          ...(enableSoundGeneration ? { sound_generation: true } : {}),
         };
       }
 

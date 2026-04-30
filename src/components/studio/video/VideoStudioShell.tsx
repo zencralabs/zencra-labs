@@ -1112,6 +1112,10 @@ export default function VideoStudioShell() {
         providerParams: {
           videoMode: quality,
           ...(resolution ? { resolution } : {}),
+          // Scene Audio — native cinematic ambience/audio from the model.
+          // Only forwarded when the user selected "scene" mode AND the selected model
+          // declares nativeAudio capability. Translated to provider-specific field in kling.ts.
+          ...(audioMode === "scene" && model.capabilities.nativeAudio ? { nativeAudio: true } : {}),
         },
       };
 
