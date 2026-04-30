@@ -268,7 +268,28 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
 
       const rawText = await res.text();
       const body      = JSON.parse(rawText) as Record<string, unknown>;
-      const taskId    = extractKlingTaskId(body);
+
+      // ── Kling application-level error check ────────────────────────────────
+      // Kling returns HTTP 200 even for application errors, with { code, message }.
+      // code 0 = success. Anything else is an error that must be surfaced before
+      // we try to extract a task ID (which won't exist on error responses).
+      const klingCode = typeof body.code === "number" ? body.code : 0;
+      if (klingCode !== 0) {
+        const klingMsg = String(body.message ?? body.msg ?? "Unknown Kling error");
+        if (klingCode === 1201) {
+          // 1201 = "model is not supported" — account/resource-pack gate.
+          // This is not a code bug. The model must be activated in the Kling console.
+          throw new Error(
+            `Kling 3.0 Omni is not enabled for this API account yet. ` +
+            `Enable the Omni model access in your Kling console resource packs.`
+          );
+        }
+        // All other non-zero codes → surface the raw Kling error message.
+        console.error(`[kling] createJob application error — code=${klingCode} msg=${klingMsg}`);
+        throw new Error(`Kling error ${klingCode}: ${klingMsg}`);
+      }
+
+      const taskId = extractKlingTaskId(body);
       if (!taskId) throw new Error("Kling returned no task ID.");
 
       // Encode the dispatch endpoint type so getJobStatus uses the matching

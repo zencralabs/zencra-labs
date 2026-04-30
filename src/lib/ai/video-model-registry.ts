@@ -105,19 +105,29 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
 
   // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
   // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
-  // DISABLED: Kling API returns "model is not supported" (1201) for kling-v3-omni
-  // until the resource pack / model access is enabled in the Kling console.
-  // Re-enable by setting available: true + comingSoon: false once access confirmed.
+  //
+  // STATUS: Re-enabled as BETA for controlled testing.
+  // Previous issue: Kling API returned code 1201 "model is not supported" —
+  // this is an account/resource-pack gate, not a code bug.
+  // The provider now throws a friendly error when 1201 is received at dispatch.
+  //
+  // Rules:
+  //   - Kling 3.0 remains the default production model (listed below Omni in registry)
+  //   - Lip Sync is NOT enabled on Omni (gated to Kling 3.0 only)
+  //   - motionControl is false — Omni does not support motion control mode
+  //   - Sound Generation (nativeAudio) is available if the resource pack is active
+  //
+  // To promote to production: change badge to null / "HOT" when API confirms stable.
   {
     id:          "kling-30-omni",
     provider:    "kling",
     apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
     displayName: "Kling 3.0 Omni",
     description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:            "SOON",
-    badgeColor:       "#6B7280",
-    available:        false,
-    comingSoon:       true,
+    badge:            "BETA",
+    badgeColor:       "#8B5CF6",
+    available:        true,
+    comingSoon:       false,
     supportsSequence: true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
@@ -126,14 +136,14 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       startFrame:     true,
       endFrame:       true,
       cameraControl:  true,
-      motionControl:  true,
+      motionControl:  false,  // Omni does not support motion control
       multiElement:   false,
       extendVideo:    true,
-      lipSync:        false,
+      lipSync:        false,  // Lip Sync limited to Kling 3.0 (not Omni)
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
-      nativeAudio:    true,   // Kling 3.0 Omni supports native scene audio generation
+      nativeAudio:    true,   // Scene Audio supported — requires Sound Generation resource pack
       negativePrompt: true,
       proMode:        true,
       seedControl:    false,

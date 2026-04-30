@@ -1172,6 +1172,24 @@ export default function VideoStudioShell() {
       if (!res.ok) {
         let errMsg = `API error: ${res.status}`;
         try { const e = await res.json(); if (e.error) errMsg = e.error; } catch { /* ignore */ }
+        // ── Kling 3.0 Omni account gate — friendly surface ───────────────────
+        // When Kling returns code 1201 ("model is not supported"), the provider
+        // throws a specific message. Route converts this to PROVIDER_ERROR 502.
+        // Surface a dedicated toast so the user knows what to fix.
+        if (errMsg.includes("Omni is not enabled")) {
+          showToast(
+            "Kling 3.0 Omni is not enabled for this API account. " +
+            "Enable Omni access in your Kling console resource packs, then retry.",
+            "error"
+          );
+          setVideos(prev => prev.map(v =>
+            v.id === newVideo.id
+              ? { ...v, status: "error" as const, error: "Kling 3.0 Omni not enabled for this account" }
+              : v,
+          ));
+          setGenerating(false);
+          return;
+        }
         throw new Error(errMsg);
       }
 
