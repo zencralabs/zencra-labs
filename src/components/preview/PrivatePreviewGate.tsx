@@ -91,7 +91,13 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
   return (
     <div
       className="min-h-screen w-full overflow-hidden relative flex items-center justify-center px-6"
-      style={{ backgroundColor: "#050509", color: "#fff" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        backgroundColor: "#050509",
+        color: "#fff",
+      }}
     >
       {/* ── Background glow layers ────────────────────────────────────────── */}
       <div
