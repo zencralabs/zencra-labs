@@ -65,7 +65,7 @@ export function HeroStats() {
           {/* Label */}
           <span
             style={{
-              fontSize: "10px",
+              fontSize: "11px",
               fontWeight: 500,
               color: "rgba(255,255,255,0.38)",
               letterSpacing: "0.08em",

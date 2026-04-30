@@ -143,7 +143,7 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
           left: "9px",
           background: "rgba(139,92,246,0.80)",
           padding: "3px 8px",
-          fontSize: "10px",
+          fontSize: "11px",
           fontWeight: 700,
           color: "#fff",
           letterSpacing: "0.06em",

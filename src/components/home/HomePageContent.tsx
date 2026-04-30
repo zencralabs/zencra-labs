@@ -58,7 +58,7 @@ const TOOL_COLOR: Record<string, string> = {
   "kling-25":       "#0EA5A0",
   "runway-gen4":    "#EF4444",
   "runway-gen3":    "#EF4444",
-  "seedance":       "#F59E0B",
+  "seedance":       "#A855F7",
   "veo2":           "#A855F7",
   "veo3":           "#A855F7",
   "ltx-video":      "#6366F1",
@@ -401,7 +401,7 @@ export function HomePageContent() {
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
                   <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
                 </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
+                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
                   {card.label}
                 </div>
               </div>
@@ -425,7 +425,7 @@ export function HomePageContent() {
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
                   <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
                 </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
+                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
                   {card.label}
                 </div>
               </div>
@@ -443,7 +443,7 @@ export function HomePageContent() {
               How Zencra Works
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Three steps. One platform. Infinite creative possibilities.
+              Three steps. One platform.
             </p>
           </div>
 
@@ -513,12 +513,12 @@ export function HomePageContent() {
         {/* Section header inside container */}
         <div className="container-site">
           <div className="text-center mb-8 md:mb-12">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Video Showcase</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Video Showcase</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               What You Can Create
             </h2>
             <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Every output below represents real AI video you can generate inside Zencra Labs.
+              Every clip below is real AI video — generated inside Zencra Labs.
             </p>
           </div>
         </div>
@@ -584,7 +584,7 @@ export function HomePageContent() {
                 {/* Label badge top-right */}
                 <div className="absolute top-4 right-4">
                   <span
-                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
+                    className="rounded-full px-3 py-1 text-[11px] font-bold uppercase"
                     style={{ background: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
                   >
                     {categoryLabel}
@@ -662,7 +662,7 @@ export function HomePageContent() {
               style={{
                 width: i === carouselIdx ? "24px" : "8px",
                 height: "8px",
-                background: i === carouselIdx ? "#0EA5A0" : "rgba(255,255,255,0.2)",
+                background: i === carouselIdx ? "#3B82F6" : "rgba(255,255,255,0.2)",
                 border: "none",
                 cursor: "pointer",
                 flexShrink: 0,
@@ -788,12 +788,12 @@ export function HomePageContent() {
       <section className="py-12 md:py-20">
         <div className="container-site">
           <div className="text-center mb-10 md:mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Who It&apos;s For</p>
             <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
               Built for Creators, Filmmakers,<br className="hidden md:block" /> and Agencies
             </h2>
             <p className="mt-4 max-w-2xl mx-auto text-lg" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Zencra Labs is designed for modern content creators who want cinematic quality without complex tools.
+              Cinematic quality. No complex tools.
             </p>
           </div>
 
@@ -844,7 +844,7 @@ export function HomePageContent() {
                   {/* Stat badge top-right */}
                   <div className="absolute top-6 right-6">
                     <span
-                      className="rounded-full px-3 py-1 text-[10px] font-semibold"
+                      className="rounded-full px-3 py-1 text-[11px] font-semibold"
                       style={{ background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)" }}
                     >
                       {card.stat}
@@ -875,7 +875,7 @@ export function HomePageContent() {
               Start Free. Scale as You Create.
             </h2>
             <p className="mt-4" style={{ color: "#64748B" }}>
-              No hidden fees. No complicated plans. Pick what fits your workflow.
+              No hidden fees. No complexity.
             </p>
           </div>
 
@@ -895,7 +895,7 @@ export function HomePageContent() {
               >
                 {tier.highlight && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full px-4 py-1 text-xs font-bold uppercase tracking-wide" style={{ background: `linear-gradient(135deg, ${tier.color}, #0EA5A0)`, color: "#fff" }}>
+                    <span className="rounded-full px-4 py-1 text-xs font-bold uppercase tracking-wide" style={{ background: `linear-gradient(135deg, ${tier.color}, #8B5CF6)`, color: "#fff" }}>
                       Most Popular
                     </span>
                   </div>
@@ -924,7 +924,7 @@ export function HomePageContent() {
                     onClick={handleStartCreating}
                     className="w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200"
                     style={{
-                      background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #0EA5A0)` : "var(--page-bg-3)",
+                      background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #8B5CF6)` : "var(--page-bg-3)",
                       border: tier.highlight ? "none" : "1px solid var(--border-medium)",
                       color: tier.highlight ? "#fff" : "var(--page-text-2)",
                       cursor: "pointer",
@@ -968,14 +968,14 @@ export function HomePageContent() {
             Ready to Create Something Cinematic?
           </h2>
           <p className="max-w-md" style={{ color: "#64748B", lineHeight: 1.7 }}>
-            Join creators and filmmakers already building with Zencra Labs. Start free — no credit card required.
+            Start free — no credit card required.
           </p>
           <button
             onClick={handleStartCreating}
             className="inline-flex items-center gap-2 rounded-xl px-8 py-4 text-sm font-semibold text-white transition-all duration-300"
-            style={{ background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 100%)", boxShadow: "0 0 40px rgba(37,99,235,0.35)", border: "none", cursor: "pointer" }}
+            style={{ background: "linear-gradient(135deg, #2563EB 0%, #8B5CF6 100%)", boxShadow: "0 0 40px rgba(37,99,235,0.35)", border: "none", cursor: "pointer" }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 60px rgba(37,99,235,0.6), 0 0 100px rgba(14,165,160,0.3)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 60px rgba(37,99,235,0.6), 0 0 100px rgba(139,92,246,0.3)";
               (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
             }}
             onMouseLeave={e => {
