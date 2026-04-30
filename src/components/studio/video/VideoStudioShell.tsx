@@ -1307,33 +1307,49 @@ export default function VideoStudioShell() {
               "Authorization": `Bearer ${user.accessToken}`,
             },
           });
-          const sd     = await sr.json() as { data?: { status: string; url?: string; error?: string } };
-          const status = sd.data?.status;
-          const url    = sd.data?.url;
+          const sd            = await sr.json() as {
+            data?: {
+              status:        string;
+              url?:          string;
+              error?:        string;
+              audioDetected?: boolean | null;
+            };
+          };
+          const status        = sd.data?.status;
+          const url           = sd.data?.url;
+          const audioDetected = sd.data?.audioDetected ?? null;
           if (status === "success" && url) {
             clearInterval(poll);
-            // If scene audio was active, log whether it looks like audio came through.
-            // Kling doesn't return a separate audio flag — we log the outcome for observability.
-            // "silent success" = job completed on first attempt without timeout → sound_generation
-            // was either fulfilled or silently ignored by Kling (no resource pack).
-            if (sceneAudioActive) {
-              // Kling accepts sound_generation: true but audio delivery requires the
-              // "Sound Generation" resource pack to be active in the Kling console.
-              // We have no API signal confirming audio is present — video element
-              // audioTracks API is unreliable cross-browser. Mark sceneAudioFallback
-              // so the canvas always shows the amber badge until resource pack is confirmed.
-              console.log("[VideoStudio] Scene Audio job completed — video URL received. Marking sceneAudioFallback (no reliable audio-presence signal from Kling). polls:", polls);
+
+            // ── Derive audioSource from server detection ──────────────────────
+            // audioDetected comes from the server-side MP4 binary scanner run
+            // at mirror time — authoritative, zero cross-browser issues.
+            // Precedence: voiceover pipeline > scene audio detection > none.
+            let audioSource: "scene" | "voiceover" | "none" | "unknown" = "none";
+            if (audioMode === "voiceover") {
+              audioSource = "voiceover"; // pipeline fires below; set optimistically
+            } else if (audioMode === "scene") {
+              if (audioDetected === true)  audioSource = "scene";
+              else if (audioDetected === false) audioSource = "none";
+              else                              audioSource = "unknown"; // null = inconclusive
             }
+
+            console.log(
+              "[VideoStudio] poll success — audioDetected=%s audioSource=%s sceneAudioActive=%s polls=%d",
+              audioDetected, audioSource, sceneAudioActive, polls
+            );
+
             setVideos(prev => prev.map(v =>
               v.id === newVideo.id
                 ? {
                     ...v,
-                    status:             "done",
+                    status:       "done",
                     url,
-                    thumbnailUrl:       null,
-                    // Flag set when sceneAudio was active — amber badge shows until
-                    // resource pack is confirmed active. Cleared when Kling delivers audio.
-                    sceneAudioFallback: sceneAudioActive ? true : v.sceneAudioFallback,
+                    thumbnailUrl: null,
+                    audioDetected,
+                    audioSource,
+                    // sceneAudioFallback: legacy flag — keep for fallback-dispatch path
+                    // In the primary success path it is NOT forced; audioDetected is authoritative.
                   }
                 : v,
             ));
@@ -1803,36 +1819,132 @@ export default function VideoStudioShell() {
             )}
           </div>
 
-          {/* ── Scene Audio Status Badge ──────────────────────────────────────── */}
-          {/* Shown when: audio mode was "scene" AND video generation is done.       */}
-          {/* Two states:                                                              */}
-          {/*   sceneAudioFallback=true  → amber — audio unavailable, silent video   */}
-          {/*   sceneAudioFallback=false → lime  — audio was requested (may be present)*/}
-          {canvasPreviewVideo?.audioMode === "scene" && canvasPreviewVideo.status === "done" && (
-            <div style={{
-              display:        "flex",
-              alignItems:     "center",
-              gap:            6,
-              padding:        "4px 12px",
-              background:     canvasPreviewVideo.sceneAudioFallback
-                ? "rgba(255,160,0,0.10)"
-                : "rgba(198,255,0,0.07)",
-              borderTop:      `1px solid ${canvasPreviewVideo.sceneAudioFallback ? "rgba(255,160,0,0.25)" : "rgba(198,255,0,0.18)"}`,
-              borderBottom:   `1px solid ${canvasPreviewVideo.sceneAudioFallback ? "rgba(255,160,0,0.25)" : "rgba(198,255,0,0.18)"}`,
-              fontSize:       11,
-              letterSpacing:  "0.02em",
-              color:          canvasPreviewVideo.sceneAudioFallback ? "#FFA000" : "#C6FF00",
-            }}>
-              <span style={{ fontSize: 13, lineHeight: 1 }}>
-                {canvasPreviewVideo.sceneAudioFallback ? "⚠" : "♪"}
-              </span>
-              <span>
-                {canvasPreviewVideo.sceneAudioFallback
-                  ? "Scene Audio unavailable — Sound Generation pack required in Kling console"
-                  : "Scene Audio requested"}
-              </span>
-            </div>
-          )}
+          {/* ── Canvas Audio Status Badge ──────────────────────────────────────── */}
+          {/* Shown when audio mode was "scene" or "voiceover" AND video is done.    */}
+          {/*                                                                          */}
+          {/* Scene audio states (driven by server-side MP4 detection):               */}
+          {/*   audioDetected=true  → lime  ♪  "Scene Audio included"                */}
+          {/*   audioDetected=false → amber ⚠  "Scene Audio unavailable — pack req'd"*/}
+          {/*   audioDetected=null  → gray  ?  "Scene Audio status unknown"           */}
+          {/*   sceneAudioFallback=true (fallback dispatch path) → amber ⚠           */}
+          {/*                                                                          */}
+          {/* Voiceover states (driven by voiceoverStatus):                            */}
+          {/*   generating → grey  "Voiceover generating…"                            */}
+          {/*   ready      → lime  ♬  "Voiceover ready"                              */}
+          {/*   error      → amber ⚠  "Voiceover failed"                             */}
+          {(() => {
+            const v = canvasPreviewVideo;
+            if (!v || v.status !== "done") return null;
+
+            // ── Scene Audio badge ─────────────────────────────────────────────
+            if (v.audioMode === "scene") {
+              // Fallback dispatch path: audio was never requested
+              if (v.sceneAudioFallback && v.audioDetected === undefined) {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(255,160,0,0.10)",
+                    borderTop: "1px solid rgba(255,160,0,0.25)", borderBottom: "1px solid rgba(255,160,0,0.25)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#FFA000",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
+                    <span>Scene Audio unavailable — Sound Generation pack required in Kling console</span>
+                  </div>
+                );
+              }
+              // Server-side detection result
+              if (v.audioDetected === true) {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(198,255,0,0.07)",
+                    borderTop: "1px solid rgba(198,255,0,0.18)", borderBottom: "1px solid rgba(198,255,0,0.18)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#C6FF00",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>♪</span>
+                    <span>Scene Audio included</span>
+                  </div>
+                );
+              }
+              if (v.audioDetected === false) {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(255,160,0,0.10)",
+                    borderTop: "1px solid rgba(255,160,0,0.25)", borderBottom: "1px solid rgba(255,160,0,0.25)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#FFA000",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
+                    <span>Scene Audio unavailable — Sound Generation pack required in Kling console</span>
+                  </div>
+                );
+              }
+              // audioDetected === null or undefined — inconclusive / still arriving
+              return (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "4px 12px",
+                  background: "rgba(255,255,255,0.04)",
+                  borderTop: "1px solid rgba(255,255,255,0.10)", borderBottom: "1px solid rgba(255,255,255,0.10)",
+                  fontSize: 11, letterSpacing: "0.02em", color: "#888",
+                }}>
+                  <span style={{ fontSize: 13, lineHeight: 1 }}>?</span>
+                  <span>Scene Audio status unknown</span>
+                </div>
+              );
+            }
+
+            // ── Voiceover badge ───────────────────────────────────────────────
+            if (v.audioMode === "voiceover") {
+              if (v.voiceoverStatus === "generating") {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(255,255,255,0.04)",
+                    borderTop: "1px solid rgba(255,255,255,0.10)", borderBottom: "1px solid rgba(255,255,255,0.10)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#888",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>♬</span>
+                    <span>Voiceover generating…</span>
+                  </div>
+                );
+              }
+              if (v.voiceoverStatus === "ready") {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(198,255,0,0.07)",
+                    borderTop: "1px solid rgba(198,255,0,0.18)", borderBottom: "1px solid rgba(198,255,0,0.18)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#C6FF00",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>♬</span>
+                    <span>Voiceover ready</span>
+                  </div>
+                );
+              }
+              if (v.voiceoverStatus === "error") {
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "4px 12px",
+                    background: "rgba(255,160,0,0.10)",
+                    borderTop: "1px solid rgba(255,160,0,0.25)", borderBottom: "1px solid rgba(255,160,0,0.25)",
+                    fontSize: 11, letterSpacing: "0.02em", color: "#FFA000",
+                  }}>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
+                    <span>Voiceover failed</span>
+                  </div>
+                );
+              }
+            }
+
+            return null;
+          })()}
 
           {/* ── Generate Bar — single CTA between canvas and gallery ── */}
           <CanvasGenerateBar

@@ -67,4 +67,17 @@ export interface GeneratedVideo {
   // re-dispatched without audio. Together they drive the canvas status badge.
   audioMode?: "none" | "scene" | "voiceover";
   sceneAudioFallback?: boolean;
+  // ── Server-side audio detection ──────────────────────────────────────────────
+  // Populated on first terminal poll by the server-side MP4 binary scanner.
+  // true  = audio track confirmed present with samples
+  // false = no audio track or all samples empty (e.g. Kling without Sound Gen pack)
+  // null  = detection inconclusive (parse error, or job not yet mirrored)
+  // undefined = not yet received from server (still polling)
+  audioDetected?: boolean | null;
+  // Derived convenience: the final audio source for gallery badges.
+  // "scene"     = scene audio detected in video
+  // "voiceover" = voiceover pipeline attached
+  // "none"      = audioMode was "none" or detection returned false
+  // "unknown"   = audioDetected is null (inconclusive)
+  audioSource?: "scene" | "voiceover" | "none" | "unknown";
 }

@@ -9,6 +9,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { detectMp4AudioTrack, type AudioDetectionResult } from "./audio-detect";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUPABASE STORAGE CLIENT (service-role, no session persistence needed)
@@ -37,16 +38,28 @@ function getStorageClient() {
  * Target bucket : generated-assets   (must be public)
  * Storage path  : videos/{assetId}.mp4
  *
- * Returns the permanent Supabase public URL on success.
- * Returns the original externalUrl on any failure (non-fatal fallback).
+ * Returns { url, audioDetected } on success.
+ * Returns the original externalUrl (and audioDetected: null) on any failure (non-fatal fallback).
  *
  * @param externalUrl  The provider CDN URL (e.g. Kling temporary URL)
  * @param assetId      The Zencra asset UUID — used as the filename
  */
+export interface MirrorVideoResult {
+  /** Permanent Supabase public URL, or the original provider URL as fallback */
+  url: string;
+  /**
+   * Server-side MP4 audio detection result.
+   * true  = audio track present with non-empty samples
+   * false = no audio track, or track is empty/stubbed
+   * null  = detection inconclusive (parse error or upload failed before detection)
+   */
+  audioDetected: AudioDetectionResult;
+}
+
 export async function mirrorVideoToStorage(
   externalUrl: string,
   assetId:     string,
-): Promise<string> {
+): Promise<MirrorVideoResult> {
   const BUCKET      = "generations";
   const storagePath = `videos/${assetId}.mp4`;
 
@@ -68,6 +81,10 @@ export async function mirrorVideoToStorage(
       ` for asset=${assetId}`
     );
 
+    // ── Audio detection (zero extra I/O — buffer already in memory) ──────────
+    const audioDetected = detectMp4AudioTrack(buffer);
+    console.log(`[mirrorVideoToStorage] audioDetected=${audioDetected} asset=${assetId}`);
+
     // 2. Upload to Supabase Storage
     const storage = getStorageClient();
 
@@ -88,9 +105,10 @@ export async function mirrorVideoToStorage(
     console.log(
       `✅ [mirrorVideoToStorage] Kling video persisted to Supabase.` +
       ` asset=${assetId}` +
-      ` url=${data.publicUrl}`
+      ` url=${data.publicUrl}` +
+      ` audioDetected=${audioDetected}`
     );
-    return data.publicUrl;
+    return { url: data.publicUrl, audioDetected };
 
   } catch (err) {
     // Non-fatal: log and fall back to the original provider URL.
@@ -103,6 +121,6 @@ export async function mirrorVideoToStorage(
       ` reason="${err instanceof Error ? err.message : String(err)}"` +
       ` tempUrl="${externalUrl.slice(0, 80)}..."`
     );
-    return externalUrl;
+    return { url: externalUrl, audioDetected: null };
   }
 }

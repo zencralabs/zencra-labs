@@ -109,6 +109,144 @@ function ErrorBadge() {
   );
 }
 
+// ── Waveform Bars — CSS animated equalizer, shown when audio is confirmed ─────
+
+function WaveformBars() {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 10 }}>
+      {([1, 2, 3] as const).map((n) => (
+        <div
+          key={n}
+          style={{
+            width:           3,
+            height:          "100%",
+            borderRadius:    2,
+            background:      "#C6FF00",
+            transformOrigin: "bottom",
+            animation:       `waveBar${n} 0.7s ease-in-out infinite`,
+            animationDelay:  n === 1 ? "0s" : n === 2 ? "0.12s" : "0.24s",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Audio Badge — gallery-card indicator for audio state ─────────────────────
+// Shown in VideoCard top-left status area for done videos only.
+// Reflects 4 states: scene-present, scene-missing, voiceover-ready, vo-error.
+
+function AudioBadge({ video }: { video: GeneratedVideo }) {
+  if (video.status !== "done") return null;
+
+  // ── Scene Audio states ───────────────────────────────────────────────────
+  if (video.audioMode === "scene") {
+    // Fallback dispatch path (audio was never requested due to timeout)
+    if (video.sceneAudioFallback && video.audioDetected === undefined) {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "2px 7px",
+          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
+          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          ⚠ No Audio
+        </div>
+      );
+    }
+    if (video.audioDetected === true) {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          padding: "2px 7px",
+          background: "rgba(198,255,0,0.10)", border: "1px solid rgba(198,255,0,0.25)",
+          fontSize: 10, fontWeight: 700, color: "#C6FF00", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          <WaveformBars />
+          Audio
+        </div>
+      );
+    }
+    if (video.audioDetected === false) {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "2px 7px",
+          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
+          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          ⚠ No Audio
+        </div>
+      );
+    }
+    // null or undefined — still inconclusive
+    return (
+      <div style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "2px 7px",
+        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)",
+        fontSize: 10, fontWeight: 700, color: "#64748B", letterSpacing: "0.04em",
+        borderRadius: 4,
+      }}>
+        ? Audio
+      </div>
+    );
+  }
+
+  // ── Voiceover states ─────────────────────────────────────────────────────
+  if (video.audioMode === "voiceover") {
+    if (video.voiceoverStatus === "generating") {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "2px 7px",
+          background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.20)",
+          fontSize: 10, fontWeight: 700, color: "#8B5CF6", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          <div style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "#8B5CF6", animation: "vlPulse 1s ease-in-out infinite",
+          }} />
+          VO
+        </div>
+      );
+    }
+    if (video.voiceoverStatus === "ready") {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          padding: "2px 7px",
+          background: "rgba(198,255,0,0.10)", border: "1px solid rgba(198,255,0,0.25)",
+          fontSize: 10, fontWeight: 700, color: "#C6FF00", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          <WaveformBars />
+          VO
+        </div>
+      );
+    }
+    if (video.voiceoverStatus === "error") {
+      return (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "2px 7px",
+          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
+          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
+          borderRadius: 4,
+        }}>
+          ⚠ VO
+        </div>
+      );
+    }
+  }
+
+  return null;
+}
+
 // ── Featured Reel Tile ────────────────────────────────────────────────────────
 // First item in the grid when filtered videos exist. Spans 2 columns on desktop,
 // autoplays muted loop, no actions/checkbox/prompt. Click → fullscreen preview.
@@ -541,9 +679,10 @@ function VideoCard({
         )}
 
         {/* Status badges — top left */}
-        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center" }}>
+        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center", zIndex: 4 }}>
           <InProgressBadge status={video.status} />
           {isError && <ErrorBadge />}
+          <AudioBadge video={video} />
         </div>
 
         {/* Duration + credits — top right, shifted left to make room for heart */}
@@ -656,6 +795,26 @@ function VideoCard({
           }}>
             {video.modelName}
           </div>
+
+          {/* Voiceover audio preview — shown when voiceover is ready */}
+          {isDone && video.voiceoverStatus === "ready" && video.voiceoverUrl && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                const a = new Audio(video.voiceoverUrl!);
+                a.play().catch(() => {});
+              }}
+              title="Play voiceover"
+              style={{ ...actionBtnStyle, color: "#C6FF00" }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            </button>
+          )}
 
           {/* Download */}
           {isDone && (
@@ -1163,6 +1322,9 @@ export default function VideoResultsLibrary({
       <style>{`
         @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
         @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(45,212,191,0.30)} 50%{box-shadow:0 0 40px rgba(45,212,191,0.55)} }
+        @keyframes waveBar1    { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1.0)} }
+        @keyframes waveBar2    { 0%,100%{transform:scaleY(1.0)} 50%{transform:scaleY(0.3)} }
+        @keyframes waveBar3    { 0%,100%{transform:scaleY(0.6)} 50%{transform:scaleY(0.9)} }
       `}</style>
     </section>
   );

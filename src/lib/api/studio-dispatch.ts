@@ -487,7 +487,7 @@ export async function pollAndUpdateJob(
   modelKey:      string,
   externalJobId: string,
   assetId:       string
-): Promise<{ status: string; url?: string; error?: string }> {
+): Promise<{ status: string; url?: string; error?: string; audioDetected?: boolean | null }> {
   ensureProvidersRegistered();
 
   try {
@@ -497,10 +497,14 @@ export async function pollAndUpdateJob(
       // ── Kling video: mirror to Supabase Storage (permanent URL) ──────────────
       // Kling CDN URLs are signed and expire. Download + re-upload every
       // completed Kling job so the gallery URL never breaks.
-      let persistentUrl = jobStatus.url;
+      let persistentUrl  = jobStatus.url;
+      let audioDetected: boolean | null = null;
 
       if (modelKey.startsWith("kling")) {
-        persistentUrl = await mirrorVideoToStorage(jobStatus.url, assetId);
+        // mirrorVideoToStorage now returns { url, audioDetected } — destructure both
+        const mirrored = await mirrorVideoToStorage(jobStatus.url, assetId);
+        persistentUrl  = mirrored.url;
+        audioDetected  = mirrored.audioDetected;
       } else {
         // Mirror temp provider images (e.g. NB's tempfile.aiquickdraw.com)
         persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
@@ -510,6 +514,7 @@ export async function pollAndUpdateJob(
       return {
         status: "success",
         url:    persistentUrl,
+        audioDetected,
       };
     } else if (jobStatus.status === "error") {
       // Persist the error reason so it survives page refreshes.

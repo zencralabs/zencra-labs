@@ -161,13 +161,14 @@ export async function GET(
     }
 
     return ok({
-      jobId:    asset.job_id,
-      assetId:  asset.id,
-      status:   polled.status,
-      url:      polled.url,
-      error:    polled.error,
-      modelKey: asset.model_key,
-      studio:   asset.studio,
+      jobId:         asset.job_id,
+      assetId:       asset.id,
+      status:        polled.status,
+      url:           polled.url,
+      error:         polled.error,
+      audioDetected: polled.audioDetected ?? null,
+      modelKey:      asset.model_key,
+      studio:        asset.studio,
     });
   } catch (err) {
     console.error("[/api/studio/jobs/[jobId]/status]", err);
