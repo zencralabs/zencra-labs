@@ -301,12 +301,13 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
       className="font-display tracking-tight"
       style={{
         fontFamily: "var(--font-display, 'Syne', sans-serif)",
-        fontSize: "clamp(1.7rem, 3vw, 2.4rem)",
+        fontSize: "clamp(28px, 3vw, 44px)",
         fontWeight: 800,
-        lineHeight: 1.0,
+        lineHeight: 0.95,
         letterSpacing: "-0.04em",
         color: "var(--page-text)",
         margin: "0 0 12px",
+        maxWidth: "280px",
       }}
     >
       {children}
@@ -372,8 +373,8 @@ export function HomePageContent() {
 
   function handleStartCreating() { router.push("/studio/image"); }
 
-  // ── Split layout helper widths
-  const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0";
+  // ── Split layout: left 28%, right 72% (flex-1)
+  const LEFT_W = "w-full md:w-[28%] flex-shrink-0";
 
   return (
     <>
@@ -387,9 +388,9 @@ export function HomePageContent() {
 
       {/* ── 3. HOW ZENCRA WORKS ─────────────────────────────────────────────── */}
       {/* Split: left text + right 3-card grid */}
-      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
+      <section className="py-14 md:py-[72px]" style={{ backgroundColor: "var(--page-bg)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
 
             {/* Left text */}
             <div className={LEFT_W} style={{ paddingTop: "8px" }}>
@@ -412,10 +413,10 @@ export function HomePageContent() {
                       overflow: "hidden",
                     }}
                   >
-                    {/* Landscape thumbnail */}
+                    {/* Landscape thumbnail — spec: ~145px height */}
                     <div
-                      className="relative w-full aspect-video"
-                      style={{ background: step.sample, overflow: "hidden" }}
+                      className="relative w-full"
+                      style={{ height: "145px", background: step.sample, overflow: "hidden" }}
                     >
                       {"imageSrc" in step && step.imageSrc ? (
                         <Image
@@ -491,9 +492,9 @@ export function HomePageContent() {
 
       {/* ── 4. WHAT YOU CAN CREATE ──────────────────────────────────────────── */}
       {/* Split: left text+CTA + right native-scroll video row */}
-      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
+      <section className="py-14 md:py-[72px]" style={{ backgroundColor: "var(--page-bg)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
 
             {/* Left text */}
             <div className={LEFT_W} style={{ paddingTop: "8px" }}>
@@ -552,8 +553,8 @@ export function HomePageContent() {
                       style={{
                         scrollSnapAlign: "start",
                         flex: "0 0 auto",
-                        width: "clamp(180px, 22vw, 250px)",
-                        aspectRatio: "16/9",
+                        width: "clamp(190px, 16vw, 210px)",
+                        height: "150px",
                         background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
                         border: `1px solid ${color}22`,
                         overflow: "hidden",
@@ -642,8 +643,8 @@ export function HomePageContent() {
 
       {/* ── 5. FUTURE CINEMA STUDIO ─────────────────────────────────────────── */}
       {/* Full-bleed card, content left-aligned within left half */}
-      <section className="py-8 md:py-14" style={{ backgroundColor: "var(--page-bg)" }}>
-        <div className="px-0 md:px-10 lg:px-16 xl:px-24">
+      <section className="py-14 md:py-[72px]" style={{ backgroundColor: "var(--page-bg)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="container-site">
           <div
             className="cinema-card relative w-full overflow-hidden"
             style={{
@@ -651,6 +652,8 @@ export function HomePageContent() {
               border: "1px solid rgba(168,85,247,0.22)",
               boxShadow: "0 0 80px rgba(168,85,247,0.08), 0 24px 70px rgba(0,0,0,0.5)",
               borderRadius: 0,
+              maxWidth: "1280px",
+              margin: "0 auto",
             }}
           >
             {/* BG video */}
@@ -775,9 +778,9 @@ export function HomePageContent() {
 
       {/* ── 6. BUILT FOR CREATORS, FILMMAKERS, AND AGENCIES ─────────────────── */}
       {/* Split: left text + right 3 compact audience cards */}
-      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
+      <section className="py-14 md:py-[72px]" style={{ backgroundColor: "var(--page-bg)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
 
             {/* Left text */}
             <div className={LEFT_W} style={{ paddingTop: "8px" }}>
@@ -797,7 +800,7 @@ export function HomePageContent() {
                     key={card.title}
                     className="relative overflow-hidden group cursor-pointer"
                     style={{
-                      aspectRatio: "3/4",
+                      height: "220px",
                       background: card.gradient,
                       border: `1px solid ${card.color}22`,
                       borderRadius: 0,
@@ -870,9 +873,9 @@ export function HomePageContent() {
 
       {/* ── 7. PRICING ──────────────────────────────────────────────────────── */}
       {/* Split: left text + right 3 pricing cards */}
-      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
+      <section className="py-14 md:py-[72px]" style={{ backgroundColor: "var(--page-bg)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
 
             {/* Left text */}
             <div className={LEFT_W} style={{ paddingTop: "8px" }}>
@@ -888,6 +891,7 @@ export function HomePageContent() {
                   key={tier.name}
                   className="relative flex flex-col p-5 md:p-6"
                   style={{
+                    minHeight: "320px",
                     background: tier.highlight
                       ? `linear-gradient(135deg, ${tier.color}14 0%, rgba(139,92,246,0.07) 100%)`
                       : "var(--page-bg-2)",
@@ -1013,9 +1017,9 @@ export function HomePageContent() {
     </div>
 
     <style>{`
-      /* Cinema Studio card: 9:16 on mobile → 16:9 on desktop */
-      .cinema-card { aspect-ratio: 9/16; }
-      @media (min-width: 768px) { .cinema-card { aspect-ratio: 16/9; } }
+      /* Cinema Studio card: explicit heights — mobile portrait, desktop landscape */
+      .cinema-card { min-height: 320px; }
+      @media (min-width: 768px) { .cinema-card { height: 440px; min-height: unset; } }
 
       /* Hide scrollbars on all native-scroll tracks */
       .overflow-x-auto::-webkit-scrollbar { display: none; }
