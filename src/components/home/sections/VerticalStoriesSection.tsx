@@ -91,7 +91,7 @@ function StoryCard({
       style={{
         position: "relative",
         flexShrink: 0,
-        width: "clamp(170px, 15vw, 185px)",
+        width: "clamp(150px, 17vw, 190px)",
         aspectRatio: "9/16",
         overflow: "hidden",
         borderRadius: 0,
@@ -292,7 +292,7 @@ export function VerticalStoriesSection() {
     const firstChild = el.children[0] as HTMLElement | undefined;
     const childWidth = firstChild?.offsetWidth ?? 0;
     if (childWidth === 0) return;
-    const idx = Math.round(el.scrollLeft / (childWidth + 14));
+    const idx = Math.round(el.scrollLeft / (childWidth + 12));
     setActiveDot(Math.min(idx, STORIES.length - 1));
   }
 
@@ -308,17 +308,16 @@ export function VerticalStoriesSection() {
     const el = scrollRef.current;
     if (!el) return;
     const firstChild = el.children[0] as HTMLElement | undefined;
-    const step = (firstChild?.offsetWidth ?? 185) + 14;
+    const step = (firstChild?.offsetWidth ?? 190) + 12;
     el.scrollBy({ left: dir * step, behavior: "smooth" });
   }
 
   return (
     <section
       style={{
-        paddingTop: "72px",
-        paddingBottom: "72px",
+        paddingTop: "64px",
+        paddingBottom: "64px",
         backgroundColor: "var(--page-bg)",
-        borderTop: "1px solid rgba(255,255,255,0.06)",
         overflow: "hidden",
       }}
     >
@@ -327,11 +326,12 @@ export function VerticalStoriesSection() {
           Desktop: flex-row — left text block + right scrollable cards
           Mobile: flex-col — text above, cards below
         */}
-        <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
+        <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
 
           {/* ── LEFT TEXT BLOCK ───────────────────────────────────────────── */}
           <div
-            className="w-full md:w-[28%] flex-shrink-0"
+            className="w-full flex-shrink-0"
+            style={{ maxWidth: "260px" }}
           >
             {/* Eyebrow */}
             <p
@@ -352,13 +352,12 @@ export function VerticalStoriesSection() {
               className="font-display tracking-tight"
               style={{
                 fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                fontSize: "clamp(28px, 3vw, 44px)",
+                fontSize: "clamp(1.75rem, 3.2vw, 2.5rem)",
                 fontWeight: 800,
-                lineHeight: 0.95,
+                lineHeight: 1.0,
                 letterSpacing: "-0.04em",
                 color: "var(--page-text)",
                 margin: "0 0 14px",
-                maxWidth: "260px",
               }}
             >
               Create for{" "}
@@ -381,7 +380,6 @@ export function VerticalStoriesSection() {
                 lineHeight: 1.65,
                 color: "rgba(255,255,255,0.45)",
                 marginBottom: "28px",
-                maxWidth: "240px",
               }}
             >
               Vertical stories, product reels, influencers, ads, and cinematic
@@ -464,7 +462,7 @@ export function VerticalStoriesSection() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex gap-[14px] overflow-x-auto pb-4"
+              className="flex gap-3 overflow-x-auto pb-4"
               style={{
                 scrollSnapType: "x mandatory",
                 WebkitOverflowScrolling: "touch",

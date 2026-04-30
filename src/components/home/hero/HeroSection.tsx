@@ -31,7 +31,7 @@ export function HeroSection() {
       aria-label="Zencra hero"
       style={{
         position: "relative",
-        minHeight: "760px",
+        minHeight: "calc(100vh - 64px)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -48,18 +48,20 @@ export function HeroSection() {
         Mobile: centered via items-center + mx-auto on the inner wrapper.
       */}
       <div
-        className="container-site"
         style={{
           position: "relative",
           zIndex: 10,
-          paddingTop: "120px",
+          width: "100%",
+          paddingTop: "88px",
           paddingBottom: "48px",
+          paddingLeft: "clamp(24px, 6vw, 80px)",
+          paddingRight: "24px",
         }}
       >
         {/* Inner wrapper — centered on mobile, left on desktop */}
         <div
           className="flex flex-col items-center md:items-start gap-7 mx-auto md:mx-0"
-          style={{ maxWidth: "520px" }}
+          style={{ maxWidth: "580px" }}
         >
           {/* Headline + subtext */}
           <HeroContent />
