@@ -1464,7 +1464,7 @@ function AssetPackCard({
         borderRadius: "50%",
         background: isLocked ? T.ghost : pack.accent,
         flexShrink: 0,
-        boxShadow: (!isLocked && uiState !== "locked")
+        boxShadow: !isLocked
           ? `0 0 8px ${pack.accent}60`
           : "none",
       }} />
