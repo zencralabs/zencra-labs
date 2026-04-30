@@ -1149,27 +1149,28 @@ function RevealHeader({ accent }: { accent: string }) {
         </span>
       </div>
 
-      {/* Main headline */}
-      <h2 style={{
-        margin: "0 0 10px",
-        fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
-        fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800,
-        letterSpacing: "-0.04em", lineHeight: 0.95,
-        /* Shimmer gradient text */
-        background: `linear-gradient(110deg,
-          rgba(255,255,255,0.70) 0%,
-          rgba(255,255,255,1.00) 40%,
-          ${accent} 55%,
-          rgba(255,255,255,0.80) 70%,
-          rgba(255,255,255,0.60) 100%
-        )`,
-        backgroundSize: "200% auto",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        backgroundClip: "text",
-        animation: "revealShimmer 3.5s linear infinite",
-        position: "relative",
-      }}>
+      {/* Main headline — Hero Heading scale (42px mobile → 56px desktop) */}
+      <h2
+        className="text-[42px] md:text-[56px] font-extrabold leading-[0.95] tracking-[-0.04em]"
+        style={{
+          margin: "0 0 10px",
+          fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
+          /* Shimmer gradient text — must stay inline (dynamic accent color) */
+          background: `linear-gradient(110deg,
+            rgba(255,255,255,0.70) 0%,
+            rgba(255,255,255,1.00) 40%,
+            ${accent} 55%,
+            rgba(255,255,255,0.80) 70%,
+            rgba(255,255,255,0.60) 100%
+          )`,
+          backgroundSize: "200% auto",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          animation: "revealShimmer 3.5s linear infinite",
+          position: "relative",
+        }}
+      >
         Your Digital Human is Ready
       </h2>
 
