@@ -65,7 +65,7 @@ export function HeroContent() {
         style={{
           margin: 0,
           fontFamily: "var(--font-display, 'Syne', sans-serif)",
-          fontSize: "clamp(1.9rem, 4.5vw, 3.8rem)",
+          fontSize: "clamp(1.7rem, 4.0vw, 3.3rem)",
           fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
@@ -104,7 +104,7 @@ export function HeroContent() {
         }}
       >
         Generate images, animate them into videos, and add voice with
-        perfect lip-sync — all in one unified AI workflow.
+        perfect lip-sync all in one unified AI workflow.
       </p>
     </div>
   );

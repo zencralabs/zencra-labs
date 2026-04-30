@@ -10,76 +10,100 @@ import { useRef, useState } from "react";
  *   Mobile:  stacked — text block above, cards below with native swipe
  *
  * Poster strategy:
- *   Primary poster: /vertical/[id].jpg  (not yet uploaded → fails silently)
- *   Fallback poster: /hero/[fallback].jpg (guaranteed to exist — same images
+ *   Primary poster: /home/vertical/[id].jpg  (uploaded to public/home/vertical/)
+ *   Fallback poster: /hero/[fallback].jpg    (guaranteed to exist — same images
  *   used by HeroTimeline, so they are always present in /public/hero/)
- *   Video: /vertical/[id].mp4 — gracefully hidden on error
+ *   Video: /home/vertical/[id].mp4 — gracefully hidden on error
  *
- * Card labels (mockup): Fashion Reel | AI Influencer | Product Ad |
- *                        Story Clip   | Music Video   | Travel Reel
+ * Card labels:
+ *   Fashion Reel | AI Influencer | Product Ad | Story Clip |
+ *   Music Video  | Travel Reel   | Fitness Reel | Food Ad  |
+ *   Luxury Brand | Behind the Scenes
  *
  * Design rules:
  *   • Blue → purple only (no teal/amber/red)
  *   • border-radius: 0 on all <video> and <img> elements
  *   • CSS transitions only — no Framer Motion
  *   • Native scroll-snap for swipe feel
+ *   • Autoplay muted loop — no play icon, no duration badge
  */
 
 const STORIES = [
   {
     id: "fashion",
     label: "Fashion Reel",
-    duration: "0:15",
-    poster: "/hero/emotional.jpg",      // guaranteed fallback
-    videoPrimary: "/vertical/fashion.mp4",
+    poster: "/hero/emotional.jpg",
+    videoPrimary: "/home/vertical/fashion.mp4",
     accent: "#3B82F6",
   },
   {
     id: "influencer",
     label: "AI Influencer",
-    duration: "0:14",
     poster: "/hero/ugc.jpg",
-    videoPrimary: "/vertical/influencer.mp4",
+    videoPrimary: "/home/vertical/influencer.mp4",
     accent: "#8B5CF6",
   },
   {
     id: "product",
     label: "Product Ad",
-    duration: "0:13",
     poster: "/hero/product.jpg",
-    videoPrimary: "/vertical/product.mp4",
+    videoPrimary: "/home/vertical/product.mp4",
     accent: "#6366F1",
   },
   {
     id: "story",
     label: "Story Clip",
-    duration: "0:15",
     poster: "/hero/cyberpunk.jpg",
-    videoPrimary: "/vertical/story.mp4",
+    videoPrimary: "/home/vertical/story.mp4",
     accent: "#A855F7",
   },
   {
     id: "music",
     label: "Music Video",
-    duration: "0:16",
     poster: "/hero/music.jpg",
-    videoPrimary: "/vertical/music.mp4",
+    videoPrimary: "/home/vertical/music.mp4",
     accent: "#7C3AED",
   },
   {
     id: "travel",
     label: "Travel Reel",
-    duration: "0:14",
     poster: "/hero/desert.jpg",
-    videoPrimary: "/vertical/travel.mp4",
+    videoPrimary: "/home/vertical/travel.mp4",
     accent: "#4F46E5",
+  },
+  {
+    id: "fitness",
+    label: "Fitness Reel",
+    poster: "/hero/emotional.jpg",
+    videoPrimary: "/home/vertical/fitness.mp4",
+    accent: "#3B82F6",
+  },
+  {
+    id: "food",
+    label: "Food Ad",
+    poster: "/hero/product.jpg",
+    videoPrimary: "/home/vertical/food.mp4",
+    accent: "#8B5CF6",
+  },
+  {
+    id: "luxury",
+    label: "Luxury Brand",
+    poster: "/hero/ugc.jpg",
+    videoPrimary: "/home/vertical/luxury.mp4",
+    accent: "#7C3AED",
+  },
+  {
+    id: "behind-scenes",
+    label: "Behind the Scenes",
+    poster: "/hero/cyberpunk.jpg",
+    videoPrimary: "/home/vertical/behind-scenes.mp4",
+    accent: "#6366F1",
   },
 ] as const;
 
-/** Single 9:16 story card — poster visible immediately, video loads lazily */
+/** Single 9:16 story card — autoplay muted loop, no play icon, no duration badge */
 function StoryCard({
   label,
-  duration,
   poster,
   videoPrimary,
   accent,
@@ -127,13 +151,13 @@ function StoryCard({
         }}
       />
 
-      {/* ── Video — layered above poster, hides itself on 404 ───────────── */}
+      {/* ── Video — autoplay muted loop, layered above poster ───────────── */}
       <video
         autoPlay
         muted
         loop
         playsInline
-        preload="none"
+        preload="metadata"
         poster={poster}
         style={{
           position: "absolute",
@@ -152,20 +176,6 @@ function StoryCard({
         <source src={videoPrimary} type="video/mp4" />
       </video>
 
-      {/* ── Top gradient — duration badge readability ────────────────────── */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "70px",
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, transparent 100%)",
-          pointerEvents: "none",
-        }}
-      />
-
       {/* ── Bottom gradient — label readability ──────────────────────────── */}
       <div
         aria-hidden="true"
@@ -179,67 +189,6 @@ function StoryCard({
           pointerEvents: "none",
         }}
       />
-
-      {/* ── Duration badge — top right ───────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          top: "10px",
-          right: "8px",
-          padding: "2px 7px",
-          background: "rgba(0,0,0,0.55)",
-          border: "1px solid rgba(255,255,255,0.14)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          fontSize: "10px",
-          fontWeight: 700,
-          color: "rgba(255,255,255,0.82)",
-          letterSpacing: "0.04em",
-          borderRadius: 0,
-        }}
-      >
-        {duration}
-      </div>
-
-      {/* ── Centred play button ──────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            width: "42px",
-            height: "42px",
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.16)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            border: "1px solid rgba(255,255,255,0.32)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "background 0.2s ease",
-          }}
-        >
-          {/* Triangle */}
-          <div
-            style={{
-              width: 0,
-              height: 0,
-              borderTop: "6px solid transparent",
-              borderBottom: "6px solid transparent",
-              borderLeft: "10px solid rgba(255,255,255,0.92)",
-              marginLeft: "2px",
-            }}
-          />
-        </div>
-      </div>
 
       {/* ── Label — bottom left ──────────────────────────────────────────── */}
       <div

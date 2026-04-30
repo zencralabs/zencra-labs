@@ -99,9 +99,23 @@ export function HeroBackground() {
           bottom: 0,
           left: 0,
           right: 0,
-          height: "320px",
+          height: "360px",
           background:
-            "linear-gradient(to top, #050509 0%, rgba(5,5,9,0.70) 55%, transparent 100%)",
+            "linear-gradient(to top, rgba(5,7,15,0.92) 0%, rgba(5,7,15,0.70) 40%, rgba(5,7,15,0.35) 70%, transparent 100%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* ── 4c-left. Left cinematic vignette — text readability ───────────── */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: "55%",
+          background:
+            "linear-gradient(to right, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.38) 40%, transparent 100%)",
           pointerEvents: "none",
         }}
       />

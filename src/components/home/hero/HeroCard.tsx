@@ -38,8 +38,8 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        width: "clamp(210px, 18vw, 230px)",
-        height: "clamp(130px, 11vw, 145px)",
+        width: "clamp(215px, 18vw, 240px)",
+        height: "clamp(135px, 11.5vw, 150px)",
         flexShrink: 0,
         position: "relative" as const,
         overflow: "hidden",
