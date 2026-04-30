@@ -158,16 +158,18 @@ export function detectMp4AudioTrack(buffer: Buffer): AudioDetectionResult {
     const stszTypePos = find4(buffer, soundHdlrStart, STSZ[0], STSZ[1], STSZ[2], STSZ[3]);
 
     if (stszTypePos === -1) {
-      // Can't find stsz — trust Level 1 (track header present)
-      console.log("[audio-detect] Level 2: no stsz found after soun hdlr — trusting Level 1 → true");
-      return true;
+      // stsz not found — cannot confirm audio samples exist.
+      // Kling silent video: soun hdlr is present but no stsz means we cannot
+      // verify real audio data. Fail safe to false rather than trusting Level 1.
+      console.log("[audio-detect] Level 2: no stsz found after soun hdlr → false (cannot confirm samples)");
+      return false;
     }
 
     const stszBox = stszTypePos - 4; // box starts 4 bytes before the type tag
 
     if (stszBox < 0 || stszBox + 20 > buffer.length) {
-      console.log("[audio-detect] Level 2: stsz box boundary out of range — trusting Level 1 → true");
-      return true;
+      console.log("[audio-detect] Level 2: stsz box boundary out of range → false (cannot confirm samples)");
+      return false;
     }
 
     const sampleSize  = buffer.readUInt32BE(stszBox + 12);

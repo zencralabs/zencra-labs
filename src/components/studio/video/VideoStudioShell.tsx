@@ -1325,13 +1325,20 @@ export default function VideoStudioShell() {
             // audioDetected comes from the server-side MP4 binary scanner run
             // at mirror time — authoritative, zero cross-browser issues.
             // Precedence: voiceover pipeline > scene audio detection > none.
+            //
+            // For scene audio:
+            //   true  → "scene"  (audio confirmed)
+            //   false → "none"   (no audio confirmed)
+            //   null  → "none"   (detection inconclusive — treat as unavailable, not unknown)
+            //
+            // null → "unknown" is reserved for non-scene, non-voiceover edge cases only.
+            // In scene mode null almost always means Kling delivered silence (no Sound Gen pack).
             let audioSource: "scene" | "voiceover" | "none" | "unknown" = "none";
             if (audioMode === "voiceover") {
               audioSource = "voiceover"; // pipeline fires below; set optimistically
             } else if (audioMode === "scene") {
-              if (audioDetected === true)  audioSource = "scene";
-              else if (audioDetected === false) audioSource = "none";
-              else                              audioSource = "unknown"; // null = inconclusive
+              audioSource = audioDetected === true ? "scene" : "none";
+              // null or false both → "none" (amber badge "unavailable")
             }
 
             console.log(
@@ -1868,31 +1875,20 @@ export default function VideoStudioShell() {
                   </div>
                 );
               }
-              if (v.audioDetected === false) {
-                return (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "4px 12px",
-                    background: "rgba(255,160,0,0.10)",
-                    borderTop: "1px solid rgba(255,160,0,0.25)", borderBottom: "1px solid rgba(255,160,0,0.25)",
-                    fontSize: 11, letterSpacing: "0.02em", color: "#FFA000",
-                  }}>
-                    <span style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
-                    <span>Scene Audio unavailable — Sound Generation pack required in Kling console</span>
-                  </div>
-                );
-              }
-              // audioDetected === null or undefined — inconclusive / still arriving
+              // audioDetected === false OR null → amber "unavailable"
+              // null means detection was inconclusive — for scene audio this is
+              // almost always Kling silently omitting audio (no Sound Gen pack).
+              // We treat it as unavailable rather than showing a confusing "unknown" state.
               return (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "4px 12px",
-                  background: "rgba(255,255,255,0.04)",
-                  borderTop: "1px solid rgba(255,255,255,0.10)", borderBottom: "1px solid rgba(255,255,255,0.10)",
-                  fontSize: 11, letterSpacing: "0.02em", color: "#888",
+                  background: "rgba(255,160,0,0.10)",
+                  borderTop: "1px solid rgba(255,160,0,0.25)", borderBottom: "1px solid rgba(255,160,0,0.25)",
+                  fontSize: 11, letterSpacing: "0.02em", color: "#FFA000",
                 }}>
-                  <span style={{ fontSize: 13, lineHeight: 1 }}>?</span>
-                  <span>Scene Audio status unknown</span>
+                  <span style={{ fontSize: 13, lineHeight: 1 }}>⚠</span>
+                  <span>Scene Audio unavailable — Sound Generation pack required in Kling console</span>
                 </div>
               );
             }

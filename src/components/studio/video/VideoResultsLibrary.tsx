@@ -169,29 +169,19 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
         </div>
       );
     }
-    if (video.audioDetected === false) {
-      return (
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "2px 7px",
-          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
-          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
-          borderRadius: 4,
-        }}>
-          ⚠ No Audio
-        </div>
-      );
-    }
-    // null or undefined — still inconclusive
+    // audioDetected === false OR null → amber "No Audio"
+    // For scene audio, null (inconclusive detection) is treated the same as false.
+    // Kling silently drops audio without the Sound Gen pack — null is not a mystery,
+    // it's the expected outcome. Show the clear actionable state.
     return (
       <div style={{
         display: "inline-flex", alignItems: "center", gap: 4,
         padding: "2px 7px",
-        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)",
-        fontSize: 10, fontWeight: 700, color: "#64748B", letterSpacing: "0.04em",
+        background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
+        fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
         borderRadius: 4,
       }}>
-        ? Audio
+        ⚠ No Audio
       </div>
     );
   }
