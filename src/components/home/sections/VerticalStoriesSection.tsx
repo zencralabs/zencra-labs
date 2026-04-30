@@ -91,11 +91,11 @@ function StoryCard({
       style={{
         position: "relative",
         flexShrink: 0,
-        width: "clamp(150px, 17vw, 190px)",
+        width: "clamp(180px, 14vw, 200px)",
         aspectRatio: "9/16",
         overflow: "hidden",
         borderRadius: 0,
-        border: `1px solid ${accent}22`,
+        border: `1px solid ${accent}30`,
         boxShadow: hovered
           ? `0 20px 60px rgba(0,0,0,0.60), 0 0 0 1px ${accent}55`
           : `0 8px 40px rgba(0,0,0,0.50)`,
@@ -120,7 +120,7 @@ function StoryCard({
           objectFit: "cover",
           objectPosition: "center top",
           borderRadius: 0,
-          opacity: 0.88,
+          opacity: 1.0,
         }}
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.opacity = "0";
@@ -143,7 +143,7 @@ function StoryCard({
           objectFit: "cover",
           objectPosition: "center top",
           borderRadius: 0,
-          opacity: 0.88,
+          opacity: 1.0,
         }}
         onError={(e) => {
           (e.currentTarget as HTMLVideoElement).style.display = "none";
@@ -175,7 +175,7 @@ function StoryCard({
           left: 0,
           right: 0,
           height: "80px",
-          background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
+          background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)",
           pointerEvents: "none",
         }}
       />
@@ -292,7 +292,7 @@ export function VerticalStoriesSection() {
     const firstChild = el.children[0] as HTMLElement | undefined;
     const childWidth = firstChild?.offsetWidth ?? 0;
     if (childWidth === 0) return;
-    const idx = Math.round(el.scrollLeft / (childWidth + 12));
+    const idx = Math.round(el.scrollLeft / (childWidth + 16));
     setActiveDot(Math.min(idx, STORIES.length - 1));
   }
 
@@ -308,7 +308,7 @@ export function VerticalStoriesSection() {
     const el = scrollRef.current;
     if (!el) return;
     const firstChild = el.children[0] as HTMLElement | undefined;
-    const step = (firstChild?.offsetWidth ?? 190) + 12;
+    const step = (firstChild?.offsetWidth ?? 200) + 16;
     el.scrollBy({ left: dir * step, behavior: "smooth" });
   }
 
@@ -462,7 +462,7 @@ export function VerticalStoriesSection() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex gap-3 overflow-x-auto pb-4"
+              className="flex gap-[16px] overflow-x-auto pb-4"
               style={{
                 scrollSnapType: "x mandatory",
                 WebkitOverflowScrolling: "touch",

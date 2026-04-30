@@ -57,7 +57,7 @@ export function HeroTimeline() {
     const childWidth =
       (container.children[0] as HTMLElement | undefined)?.offsetWidth ?? 0;
     if (childWidth === 0) return;
-    const approxIndex = Math.round(scrollLeft / (childWidth + 14)); // 14 = gap
+    const approxIndex = Math.round(scrollLeft / (childWidth + 16)); // 16 = gap-4
     setActiveDot(Math.min(approxIndex, HERO_SCENES.length - 1));
   }
 

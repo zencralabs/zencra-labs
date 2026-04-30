@@ -52,15 +52,15 @@ export function HeroSection() {
           position: "relative",
           zIndex: 10,
           width: "100%",
-          paddingTop: "88px",
-          paddingBottom: "48px",
+          paddingTop: "72px",
+          paddingBottom: "32px",
           paddingLeft: "clamp(24px, 6vw, 80px)",
           paddingRight: "24px",
         }}
       >
         {/* Inner wrapper — centered on mobile, left on desktop */}
         <div
-          className="flex flex-col items-center md:items-start gap-7 mx-auto md:mx-0"
+          className="flex flex-col items-center md:items-start gap-5 mx-auto md:mx-0"
           style={{ maxWidth: "580px" }}
         >
           {/* Headline + subtext */}
@@ -83,7 +83,7 @@ export function HeroSection() {
           position: "relative",
           zIndex: 10,
           width: "100%",
-          paddingBottom: "64px",
+          paddingBottom: "40px",
         }}
       >
         <HeroTimeline />
