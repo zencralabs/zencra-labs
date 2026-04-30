@@ -1149,12 +1149,16 @@ function RevealHeader({ accent }: { accent: string }) {
         </span>
       </div>
 
-      {/* Main headline — Hero Heading scale (42px mobile → 56px desktop) */}
+      {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
       <h2
-        className="font-display text-[42px] md:text-[56px] font-bold leading-[0.95] tracking-[-0.04em]"
+        className="font-display tracking-tight"
         style={{
           margin: "0 0 10px",
           fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
+          fontSize: "clamp(2rem, 4vw, 3rem)",
+          fontWeight: 800,
+          lineHeight: 0.95,
+          letterSpacing: "-0.04em",
           textShadow: "0 0 14px rgba(255,255,255,0.08)",
           /* Shimmer gradient text — must stay inline (dynamic accent color) */
           background: `linear-gradient(110deg,
