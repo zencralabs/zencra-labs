@@ -61,9 +61,10 @@ export interface GeneratedVideo {
   voiceoverScript?: string;
   voiceoverStatus?: "generating" | "ready" | "error";
   voiceoverUrl?: string | null;
-  // ── Scene Audio — adaptive fallback flag ─────────────────────────────────────
-  // true when a Scene Audio job timed out and succeeded via fallback
-  // (re-dispatched without sound_generation). Used by the result card to show
-  // a subtle "generated without scene audio" notice in a future v1.1 pass.
+  // ── Scene Audio — request tracking + adaptive fallback ──────────────────────
+  // audioMode captures which audio mode was active when this video was created.
+  // sceneAudioFallback is true when sound_generation timed out and the job was
+  // re-dispatched without audio. Together they drive the canvas status badge.
+  audioMode?: "none" | "scene" | "voiceover";
   sceneAudioFallback?: boolean;
 }

@@ -1084,6 +1084,8 @@ export default function VideoStudioShell() {
       prompt, negPrompt,
       modelId: model.id, modelName: model.displayName,
       duration, aspectRatio, frameMode,
+      // Store audio mode so canvas badge and future components know what was requested
+      audioMode,
       status: "generating",
       provider: model.provider,
       creditsUsed: estimateCredits(model.id, quality, duration),
@@ -1102,7 +1104,8 @@ export default function VideoStudioShell() {
       // (cinematic presets) is a separate mechanism sent as a body field, not a model switch.
       const modelKey = model.id;
 
-      console.log("[VideoStudio] dispatch", { modelKey, prompt, aspectRatio, durationSeconds: duration });
+      const sceneAudioRequested = audioMode === "scene" && model.capabilities.nativeAudio;
+      console.log("[VideoStudio] dispatch", { modelKey, prompt, aspectRatio, durationSeconds: duration, audioMode, sceneAudioRequested });
 
       const body: Record<string, unknown> = {
         modelKey,
@@ -1309,6 +1312,13 @@ export default function VideoStudioShell() {
           const url    = sd.data?.url;
           if (status === "success" && url) {
             clearInterval(poll);
+            // If scene audio was active, log whether it looks like audio came through.
+            // Kling doesn't return a separate audio flag — we log the outcome for observability.
+            // "silent success" = job completed on first attempt without timeout → sound_generation
+            // was either fulfilled or silently ignored by Kling (no resource pack).
+            if (sceneAudioActive) {
+              console.log("[VideoStudio] Scene Audio job completed — video URL received. Audio presence unknown (Kling provides no audio flag). polls:", polls, "sceneAudioFallback: false (original job succeeded)");
+            }
             setVideos(prev => prev.map(v =>
               v.id === newVideo.id
                 ? { ...v, status: "done", url, thumbnailUrl: null }
@@ -1779,6 +1789,37 @@ export default function VideoStudioShell() {
               />
             )}
           </div>
+
+          {/* ── Scene Audio Status Badge ──────────────────────────────────────── */}
+          {/* Shown when: audio mode was "scene" AND video generation is done.       */}
+          {/* Two states:                                                              */}
+          {/*   sceneAudioFallback=true  → amber — audio unavailable, silent video   */}
+          {/*   sceneAudioFallback=false → lime  — audio was requested (may be present)*/}
+          {canvasPreviewVideo?.audioMode === "scene" && canvasPreviewVideo.status === "done" && (
+            <div style={{
+              display:        "flex",
+              alignItems:     "center",
+              gap:            6,
+              padding:        "4px 12px",
+              background:     canvasPreviewVideo.sceneAudioFallback
+                ? "rgba(255,160,0,0.10)"
+                : "rgba(198,255,0,0.07)",
+              borderTop:      `1px solid ${canvasPreviewVideo.sceneAudioFallback ? "rgba(255,160,0,0.25)" : "rgba(198,255,0,0.18)"}`,
+              borderBottom:   `1px solid ${canvasPreviewVideo.sceneAudioFallback ? "rgba(255,160,0,0.25)" : "rgba(198,255,0,0.18)"}`,
+              fontSize:       11,
+              letterSpacing:  "0.02em",
+              color:          canvasPreviewVideo.sceneAudioFallback ? "#FFA000" : "#C6FF00",
+            }}>
+              <span style={{ fontSize: 13, lineHeight: 1 }}>
+                {canvasPreviewVideo.sceneAudioFallback ? "⚠" : "♪"}
+              </span>
+              <span>
+                {canvasPreviewVideo.sceneAudioFallback
+                  ? "Scene Audio unavailable — generated without sound"
+                  : "Scene Audio requested"}
+              </span>
+            </div>
+          )}
 
           {/* ── Generate Bar — single CTA between canvas and gallery ── */}
           <CanvasGenerateBar

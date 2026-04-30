@@ -209,6 +209,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       // Kling API field: sound_generation (bool). Not supported on Motion Control mode.
       // Note: requires "Sound Generation" resource pack enabled in the Kling console.
       const enableSoundGeneration = !isMotionControl && input.providerParams?.nativeAudio === true;
+      console.log("[kling] nativeAudio requested:", enableSoundGeneration, "| isMotionControl:", isMotionControl, "| raw providerParams.nativeAudio:", input.providerParams?.nativeAudio);
 
       if (isMotionControl) {
         // Motion Control: image + reference video
@@ -251,6 +252,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         };
       }
 
+      console.log("[kling] dispatching to", endpoint, "| sound_generation in payload:", "sound_generation" in payload, "| model:", apiModelId);
       const res = await fetch(`${baseUrl}${endpoint}`, {
         method:  "POST",
         headers: { "Authorization": authHeader, "Content-Type": "application/json" },
