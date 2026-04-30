@@ -32,13 +32,14 @@ export const HERO_SCENES = [
  */
 export function HeroTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const innerRef  = useRef<HTMLDivElement>(null);
   const [activeDot, setActiveDot] = useState(0);
 
   /** Scroll to a card by index (used by dot buttons) */
   function scrollToIndex(index: number) {
-    const container = scrollRef.current;
-    if (!container) return;
-    const child = container.children[index] as HTMLElement | undefined;
+    const inner = innerRef.current;
+    if (!inner) return;
+    const child = inner.children[index] as HTMLElement | undefined;
     if (child) {
       child.scrollIntoView({
         behavior: "smooth",
@@ -52,17 +53,18 @@ export function HeroTimeline() {
   /** Update active dot on native scroll (best-effort) */
   function handleScroll() {
     const container = scrollRef.current;
-    if (!container) return;
+    const inner     = innerRef.current;
+    if (!container || !inner) return;
     const scrollLeft = container.scrollLeft;
     const childWidth =
-      (container.children[0] as HTMLElement | undefined)?.offsetWidth ?? 0;
+      (inner.children[0] as HTMLElement | undefined)?.offsetWidth ?? 0;
     if (childWidth === 0) return;
-    const approxIndex = Math.round(scrollLeft / (childWidth + 16)); // 16 = gap-4
+    const approxIndex = Math.round(scrollLeft / (childWidth + 16)); // 16 = gap
     setActiveDot(Math.min(approxIndex, HERO_SCENES.length - 1));
   }
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div style={{ position: "relative", width: "100%", paddingTop: "12px" }}>
       {/* ── Left edge fade — desktop only ────────────────────────────────── */}
       <div
         aria-hidden="true"
@@ -95,32 +97,42 @@ export function HeroTimeline() {
         }}
       />
 
-      {/* ── Scrollable card row ───────────────────────────────────────────── */}
+      {/* ── Outer scroll container ────────────────────────────────────────── */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="hero-timeline-scroll flex gap-4 px-6 overflow-x-auto overflow-y-hidden"
+        className="hero-timeline-scroll overflow-x-auto overflow-y-hidden"
         style={{
           scrollBehavior: "smooth",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
           paddingBottom: "6px",
-          justifyContent: "center",
-          /* scrollbar hidden via global style in HeroSection */
           msOverflowStyle: "none",
           scrollbarWidth: "none",
         }}
       >
-        {HERO_SCENES.map((scene) => (
-          <div
-            key={scene.id}
-            style={{ scrollSnapAlign: "start", flex: "0 0 auto" }}
-          >
-            <HeroCard {...scene} />
-          </div>
-        ))}
-        {/* End spacer — ensures last card gets full right padding in all browsers */}
-        <div aria-hidden="true" style={{ flex: "0 0 8px" }} />
+        {/* ── Inner centered flex row ───────────────────────────────────── */}
+        <div
+          ref={innerRef}
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "16px",
+            width: "100%",
+            padding: "0 24px",
+          }}
+        >
+          {HERO_SCENES.map((scene) => (
+            <div
+              key={scene.id}
+              style={{ scrollSnapAlign: "start", flex: "0 0 auto" }}
+            >
+              <HeroCard {...scene} />
+            </div>
+          ))}
+          {/* End spacer */}
+          <div aria-hidden="true" style={{ flex: "0 0 8px" }} />
+        </div>
       </div>
 
       {/* ── Dot indicators — mobile only ─────────────────────────────────── */}
