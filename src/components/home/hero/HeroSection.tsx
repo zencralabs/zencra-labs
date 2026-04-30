@@ -34,7 +34,6 @@ export function HeroSection() {
         minHeight: "calc(100vh - 64px)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
         overflow: "hidden",
         backgroundColor: "#050509",
       }}
@@ -43,30 +42,39 @@ export function HeroSection() {
       <HeroBackground />
 
       {/* ── Main content column ───────────────────────────────────────────── */}
+      {/*
+        Desktop: left-aligned — content hugs the left side so the background
+        woman/cityscape fills the right half naturally.
+        Mobile: centered via items-center + mx-auto on the inner wrapper.
+      */}
       <div
         style={{
           position: "relative",
           zIndex: 10,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "28px",
           width: "100%",
           paddingTop: "88px",
           paddingBottom: "48px",
+          paddingLeft: "clamp(24px, 6vw, 80px)",
+          paddingRight: "24px",
         }}
       >
-        {/* Headline + subtext */}
-        <HeroContent />
+        {/* Inner wrapper — centered on mobile, left on desktop */}
+        <div
+          className="flex flex-col items-center md:items-start gap-7 mx-auto md:mx-0"
+          style={{ maxWidth: "580px" }}
+        >
+          {/* Headline + subtext */}
+          <HeroContent />
 
-        {/* Mode pills */}
-        <HeroModeSwitch />
+          {/* Mode pills */}
+          <HeroModeSwitch />
 
-        {/* CTA buttons */}
-        <HeroCTAs />
+          {/* CTA buttons */}
+          <HeroCTAs />
 
-        {/* Social-proof stats */}
-        <HeroStats />
+          {/* Social-proof stats */}
+          <HeroStats />
+        </div>
       </div>
 
       {/* ── Full-width card timeline ─────────────────────────────────────── */}

@@ -20,6 +20,7 @@ const STATS = [
 export function HeroStats() {
   return (
     <div
+      className="mx-auto md:mx-0"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(4, 1fr)",
@@ -28,9 +29,7 @@ export function HeroStats() {
         background: "rgba(255,255,255,0.08)",
         border: "1px solid rgba(255,255,255,0.08)",
         width: "100%",
-        maxWidth: "640px",
-        /* Responsive horizontal padding so it doesn't stretch too wide on mobile */
-        margin: "0 24px",
+        maxWidth: "520px",
       }}
     >
       {STATS.map((stat) => (

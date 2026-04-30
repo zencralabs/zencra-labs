@@ -14,12 +14,12 @@ export function HeroCTAs() {
 
   return (
     <div
+      className="justify-center md:justify-start"
       style={{
         display: "flex",
         alignItems: "center",
         gap: "14px",
         flexWrap: "wrap" as const,
-        justifyContent: "center",
       }}
     >
       {/* ── Primary — blue→purple gradient ───────────────────────────────── */}

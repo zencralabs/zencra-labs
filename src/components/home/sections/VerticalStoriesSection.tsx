@@ -5,113 +5,112 @@ import { useRef, useState } from "react";
 /**
  * VerticalStoriesSection
  *
- * Horizontally-scrollable row of 9:16 portrait-ratio story cards.
- * Showcases Zencra's ability to generate vertical-format content
- * (Reels, Shorts, TikTok, AI Presenter, Product Stories).
+ * Split layout (matches mockup):
+ *   Desktop: [LEFT text block ~260px] | [RIGHT horizontal scroll of 9:16 cards]
+ *   Mobile:  stacked — text block above, cards below with native swipe
+ *
+ * Poster strategy:
+ *   Primary poster: /vertical/[id].jpg  (not yet uploaded → fails silently)
+ *   Fallback poster: /hero/[fallback].jpg (guaranteed to exist — same images
+ *   used by HeroTimeline, so they are always present in /public/hero/)
+ *   Video: /vertical/[id].mp4 — gracefully hidden on error
+ *
+ * Card labels (mockup): Fashion Reel | AI Influencer | Product Ad |
+ *                        Story Clip   | Music Video   | Travel Reel
  *
  * Design rules:
- *   • Blue → purple only — no teal, amber, or red
- *   • media border-radius: 0 (sharp edges)
- *   • Native scroll-snap — no JS-driven animation
- *   • Dot indicators below on mobile; hidden on desktop (all cards visible)
+ *   • Blue → purple only (no teal/amber/red)
+ *   • border-radius: 0 on all <video> and <img> elements
+ *   • CSS transitions only — no Framer Motion
+ *   • Native scroll-snap for swipe feel
  */
 
-const VERTICAL_STORIES = [
+const STORIES = [
   {
-    id: "reel",
-    label: "Instagram Reel",
-    tag: "16s",
-    gradient: "linear-gradient(180deg, #050d1f 0%, #0f2766 55%, #3b82f6 100%)",
+    id: "fashion",
+    label: "Fashion Reel",
+    duration: "0:15",
+    poster: "/hero/emotional.jpg",      // guaranteed fallback
+    videoPrimary: "/vertical/fashion.mp4",
     accent: "#3B82F6",
-    videoSrc: "/vertical/reel.mp4",
-    imageSrc: "/vertical/reel.jpg",
   },
   {
-    id: "tiktok",
-    label: "TikTok Video",
-    tag: "21s",
-    gradient: "linear-gradient(180deg, #0a0715 0%, #2d1b69 55%, #8b5cf6 100%)",
+    id: "influencer",
+    label: "AI Influencer",
+    duration: "0:14",
+    poster: "/hero/ugc.jpg",
+    videoPrimary: "/vertical/influencer.mp4",
     accent: "#8B5CF6",
-    videoSrc: "/vertical/tiktok.mp4",
-    imageSrc: "/vertical/tiktok.jpg",
-  },
-  {
-    id: "short",
-    label: "YouTube Short",
-    tag: "18s",
-    gradient: "linear-gradient(180deg, #060c1c 0%, #192555 55%, #60a5fa 100%)",
-    accent: "#60A5FA",
-    videoSrc: "/vertical/short.mp4",
-    imageSrc: "/vertical/short.jpg",
-  },
-  {
-    id: "presenter",
-    label: "AI Presenter",
-    tag: "30s",
-    gradient: "linear-gradient(180deg, #0c0518 0%, #3b0f96 55%, #a855f7 100%)",
-    accent: "#A855F7",
-    videoSrc: "/vertical/presenter.mp4",
-    imageSrc: "/vertical/presenter.jpg",
   },
   {
     id: "product",
-    label: "Product Story",
-    tag: "12s",
-    gradient: "linear-gradient(180deg, #040e20 0%, #0d2355 55%, #2563eb 100%)",
-    accent: "#2563EB",
-    videoSrc: "/vertical/product.mp4",
-    imageSrc: "/vertical/product.jpg",
+    label: "Product Ad",
+    duration: "0:13",
+    poster: "/hero/product.jpg",
+    videoPrimary: "/vertical/product.mp4",
+    accent: "#6366F1",
+  },
+  {
+    id: "story",
+    label: "Story Clip",
+    duration: "0:15",
+    poster: "/hero/cyberpunk.jpg",
+    videoPrimary: "/vertical/story.mp4",
+    accent: "#A855F7",
   },
   {
     id: "music",
-    label: "Music Visual",
-    tag: "15s",
-    gradient: "linear-gradient(180deg, #0d0520 0%, #4c1d95 55%, #7c3aed 100%)",
+    label: "Music Video",
+    duration: "0:16",
+    poster: "/hero/music.jpg",
+    videoPrimary: "/vertical/music.mp4",
     accent: "#7C3AED",
-    videoSrc: "/vertical/music.mp4",
-    imageSrc: "/vertical/music.jpg",
+  },
+  {
+    id: "travel",
+    label: "Travel Reel",
+    duration: "0:14",
+    poster: "/hero/desert.jpg",
+    videoPrimary: "/vertical/travel.mp4",
+    accent: "#4F46E5",
   },
 ] as const;
 
-/** Single 9:16 story card */
+/** Single 9:16 story card — poster visible immediately, video loads lazily */
 function StoryCard({
   label,
-  tag,
-  gradient,
+  duration,
+  poster,
+  videoPrimary,
   accent,
-  videoSrc,
-  imageSrc,
-}: (typeof VERTICAL_STORIES)[number]) {
+}: (typeof STORIES)[number]) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <div
       style={{
         position: "relative",
         flexShrink: 0,
-        width: "clamp(160px, 18vw, 210px)",
+        width: "clamp(150px, 17vw, 190px)",
         aspectRatio: "9/16",
-        background: gradient,
         overflow: "hidden",
         borderRadius: 0,
         border: `1px solid ${accent}22`,
-        boxShadow: `0 8px 40px rgba(0,0,0,0.45), 0 0 0 0 ${accent}00`,
+        boxShadow: hovered
+          ? `0 20px 60px rgba(0,0,0,0.60), 0 0 0 1px ${accent}55`
+          : `0 8px 40px rgba(0,0,0,0.50)`,
+        transform: hovered ? "translateY(-6px) scale(1.03)" : "translateY(0) scale(1)",
         transition: "transform 0.25s ease, box-shadow 0.25s ease",
         cursor: "pointer",
+        backgroundColor: "#070A14",
       }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.transform = "translateY(-6px) scale(1.03)";
-        el.style.boxShadow = `0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px ${accent}50`;
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.transform = "translateY(0) scale(1)";
-        el.style.boxShadow = `0 8px 40px rgba(0,0,0,0.45), 0 0 0 0 ${accent}00`;
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Fallback image — shown if video fails or hasn't loaded yet */}
+      {/* ── Poster image — always rendered as baseline visual ───────────── */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={imageSrc}
+        src={poster}
         alt=""
         style={{
           position: "absolute",
@@ -119,35 +118,41 @@ function StoryCard({
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          objectPosition: "center top",
           borderRadius: 0,
-          opacity: 0.75,
+          opacity: 0.88,
         }}
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.opacity = "0";
+        }}
       />
 
-      {/* Autoplay video (muted, decorative) */}
+      {/* ── Video — layered above poster, hides itself on 404 ───────────── */}
       <video
         autoPlay
         muted
         loop
         playsInline
         preload="none"
-        poster={imageSrc}
+        poster={poster}
         style={{
           position: "absolute",
           inset: 0,
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          objectPosition: "center top",
           borderRadius: 0,
-          opacity: 0.85,
+          opacity: 0.88,
         }}
-        onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+        onError={(e) => {
+          (e.currentTarget as HTMLVideoElement).style.display = "none";
+        }}
       >
-        <source src={videoSrc} type="video/mp4" />
+        <source src={videoPrimary} type="video/mp4" />
       </video>
 
-      {/* Top gradient for badge readability */}
+      {/* ── Top gradient — duration badge readability ────────────────────── */}
       <div
         aria-hidden="true"
         style={{
@@ -155,13 +160,13 @@ function StoryCard({
           top: 0,
           left: 0,
           right: 0,
-          height: "80px",
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%)",
+          height: "70px",
+          background: "linear-gradient(to bottom, rgba(0,0,0,0.60) 0%, transparent 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Bottom gradient for label readability */}
+      {/* ── Bottom gradient — label readability ──────────────────────────── */}
       <div
         aria-hidden="true"
         style={{
@@ -169,60 +174,101 @@ function StoryCard({
           bottom: 0,
           left: 0,
           right: 0,
-          height: "90px",
-          background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)",
+          height: "80px",
+          background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Duration badge — top right */}
+      {/* ── Duration badge — top right ───────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
-          top: "12px",
-          right: "10px",
-          padding: "3px 8px",
-          background: "rgba(0,0,0,0.50)",
-          border: `1px solid rgba(255,255,255,0.14)`,
+          top: "10px",
+          right: "8px",
+          padding: "2px 7px",
+          background: "rgba(0,0,0,0.55)",
+          border: "1px solid rgba(255,255,255,0.14)",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
           fontSize: "10px",
           fontWeight: 700,
-          color: "rgba(255,255,255,0.80)",
-          letterSpacing: "0.05em",
+          color: "rgba(255,255,255,0.82)",
+          letterSpacing: "0.04em",
+          borderRadius: 0,
         }}
       >
-        {tag}
+        {duration}
       </div>
 
-      {/* Format dot + label — bottom left */}
+      {/* ── Centred play button ──────────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
-          bottom: "14px",
-          left: "12px",
-          right: "12px",
+          inset: 0,
           display: "flex",
           alignItems: "center",
-          gap: "7px",
+          justifyContent: "center",
+          pointerEvents: "none",
         }}
       >
         <div
           style={{
-            width: "6px",
-            height: "6px",
+            width: "42px",
+            height: "42px",
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.16)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.32)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s ease",
+          }}
+        >
+          {/* Triangle */}
+          <div
+            style={{
+              width: 0,
+              height: 0,
+              borderTop: "6px solid transparent",
+              borderBottom: "6px solid transparent",
+              borderLeft: "10px solid rgba(255,255,255,0.92)",
+              marginLeft: "2px",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* ── Label — bottom left ──────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "12px",
+          left: "10px",
+          right: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+        }}
+      >
+        <div
+          style={{
+            width: "5px",
+            height: "5px",
             borderRadius: "50%",
             backgroundColor: accent,
-            boxShadow: `0 0 8px ${accent}`,
+            boxShadow: `0 0 6px ${accent}`,
             flexShrink: 0,
           }}
         />
         <span
           style={{
-            fontSize: "11px",
+            fontSize: "10px",
             fontWeight: 600,
-            color: "rgba(255,255,255,0.90)",
-            textShadow: "0 1px 6px rgba(0,0,0,0.9)",
+            color: "rgba(255,255,255,0.92)",
+            textShadow: "0 1px 6px rgba(0,0,0,0.95)",
             letterSpacing: "0.01em",
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -232,23 +278,6 @@ function StoryCard({
           {label}
         </span>
       </div>
-
-      {/* Subtle accent glow at bottom */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          bottom: "-30px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "120%",
-          height: "80px",
-          borderRadius: "50%",
-          background: `radial-gradient(ellipse, ${accent}28 0%, transparent 70%)`,
-          filter: "blur(20px)",
-          pointerEvents: "none",
-        }}
-      />
     </div>
   );
 }
@@ -260,214 +289,227 @@ export function VerticalStoriesSection() {
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
-    const child = el.children[0] as HTMLElement | undefined;
-    const childWidth = child?.offsetWidth ?? 0;
+    const firstChild = el.children[0] as HTMLElement | undefined;
+    const childWidth = firstChild?.offsetWidth ?? 0;
     if (childWidth === 0) return;
-    const approxIdx = Math.round(el.scrollLeft / (childWidth + 12));
-    setActiveDot(Math.min(approxIdx, VERTICAL_STORIES.length - 1));
+    const idx = Math.round(el.scrollLeft / (childWidth + 12));
+    setActiveDot(Math.min(idx, STORIES.length - 1));
   }
 
-  function scrollToIndex(index: number) {
+  function scrollToIdx(i: number) {
     const el = scrollRef.current;
     if (!el) return;
-    const child = el.children[index] as HTMLElement | undefined;
-    if (child) {
-      child.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-      setActiveDot(index);
-    }
+    const child = el.children[i] as HTMLElement | undefined;
+    child?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+    setActiveDot(i);
+  }
+
+  function scrollBy(dir: -1 | 1) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const firstChild = el.children[0] as HTMLElement | undefined;
+    const step = (firstChild?.offsetWidth ?? 190) + 12;
+    el.scrollBy({ left: dir * step, behavior: "smooth" });
   }
 
   return (
     <section
       style={{
-        paddingTop: "72px",
-        paddingBottom: "72px",
+        paddingTop: "64px",
+        paddingBottom: "64px",
         backgroundColor: "var(--page-bg)",
         overflow: "hidden",
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          textAlign: "center",
-          marginBottom: "48px",
-          padding: "0 24px",
-        }}
-      >
-        {/* Eyebrow */}
-        <p
-          style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            color: "#3B82F6",
-            marginBottom: "16px",
-          }}
-        >
-          Vertical Content
-        </p>
+      <div className="container-site">
+        {/*
+          Desktop: flex-row — left text block + right scrollable cards
+          Mobile: flex-col — text above, cards below
+        */}
+        <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
 
-        {/* Heading — cinematic override */}
-        <h2
-          className="font-display tracking-tight"
-          style={{
-            fontFamily: "var(--font-display, 'Syne', sans-serif)",
-            fontSize: "clamp(2rem, 4vw, 3rem)",
-            fontWeight: 800,
-            lineHeight: 0.95,
-            letterSpacing: "-0.04em",
-            color: "var(--page-text)",
-            margin: "0 0 16px",
-          }}
-        >
-          Create for{" "}
-          <span
-            style={{
-              background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 55%, #a855f7 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
+          {/* ── LEFT TEXT BLOCK ───────────────────────────────────────────── */}
+          <div
+            className="w-full flex-shrink-0"
+            style={{ maxWidth: "260px" }}
           >
-            Every Format
-          </span>
-        </h2>
-
-        {/* Subtext */}
-        <p
-          style={{
-            fontSize: "clamp(14px, 1.6vw, 17px)",
-            lineHeight: 1.65,
-            color: "rgba(255,255,255,0.48)",
-            maxWidth: "520px",
-            margin: "0 auto",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Generate portrait reels, short-form clips, and AI presenter videos —
-          alongside cinematic widescreen productions.
-        </p>
-      </div>
-
-      {/* Scrollable card row */}
-      <div style={{ position: "relative" }}>
-        {/* Left edge fade — desktop only */}
-        <div
-          aria-hidden="true"
-          className="hidden md:block"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: "80px",
-            background: "linear-gradient(to right, var(--page-bg) 0%, transparent 100%)",
-            zIndex: 2,
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Right edge fade — desktop only */}
-        <div
-          aria-hidden="true"
-          className="hidden md:block"
-          style={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: "80px",
-            background: "linear-gradient(to left, var(--page-bg) 0%, transparent 100%)",
-            zIndex: 2,
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Card row */}
-        <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex gap-3 px-6 overflow-x-auto overflow-y-hidden"
-          style={{
-            scrollSnapType: "x mandatory",
-            WebkitOverflowScrolling: "touch",
-            scrollBehavior: "smooth",
-            paddingBottom: "8px",
-            msOverflowStyle: "none",
-            scrollbarWidth: "none",
-          }}
-        >
-          {VERTICAL_STORIES.map((story) => (
-            <div
-              key={story.id}
-              style={{ scrollSnapAlign: "start", flex: "0 0 auto" }}
-            >
-              <StoryCard {...story} />
-            </div>
-          ))}
-          {/* End spacer — prevents last card right-clip in overflow containers */}
-          <div aria-hidden="true" style={{ flex: "0 0 8px" }} />
-        </div>
-      </div>
-
-      {/* Dot indicators — mobile only */}
-      <div
-        className="flex md:hidden"
-        style={{ justifyContent: "center", gap: "7px", marginTop: "20px" }}
-      >
-        {VERTICAL_STORIES.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            aria-label={`Go to ${s.label}`}
-            onClick={() => scrollToIndex(i)}
-            style={{
-              width: i === activeDot ? "18px" : "6px",
-              height: "6px",
-              borderRadius: "3px",
-              background: i === activeDot ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.20)",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-              transition: "width 0.22s ease, background 0.22s ease",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Formats pill row — decorative, desktop only */}
-      <div
-        className="hidden md:flex"
-        style={{
-          justifyContent: "center",
-          gap: "10px",
-          marginTop: "36px",
-          flexWrap: "wrap",
-          padding: "0 24px",
-        }}
-      >
-        {["9:16 Portrait", "Instagram Reel", "TikTok", "YouTube Short", "AI Presenter", "Product Story"].map(
-          (fmt) => (
-            <span
-              key={fmt}
+            {/* Eyebrow */}
+            <p
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "5px 14px",
-                border: "1px solid rgba(139,92,246,0.22)",
-                background: "rgba(139,92,246,0.06)",
-                fontSize: "11px",
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                color: "rgba(196,181,253,0.75)",
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.25em",
                 textTransform: "uppercase",
+                color: "#3B82F6",
+                marginBottom: "14px",
               }}
             >
-              {fmt}
-            </span>
-          )
-        )}
+              Vertical Stories
+            </p>
+
+            {/* Heading — cinematic override */}
+            <h2
+              className="font-display tracking-tight"
+              style={{
+                fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                fontSize: "clamp(1.75rem, 3.2vw, 2.5rem)",
+                fontWeight: 800,
+                lineHeight: 1.0,
+                letterSpacing: "-0.04em",
+                color: "var(--page-text)",
+                margin: "0 0 14px",
+              }}
+            >
+              Create for{" "}
+              <span
+                style={{
+                  background: "linear-gradient(90deg, #3b82f6 0%, #8b5cf6 60%, #a855f7 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                Every Screen
+              </span>
+            </h2>
+
+            {/* Subtitle */}
+            <p
+              style={{
+                fontSize: "13px",
+                lineHeight: 1.65,
+                color: "rgba(255,255,255,0.45)",
+                marginBottom: "28px",
+              }}
+            >
+              Vertical stories, product reels, influencers, ads, and cinematic
+              shorts — ready for mobile-first platforms.
+            </p>
+
+            {/* Drag indicator — desktop only */}
+            <div
+              className="hidden md:flex items-center gap-3"
+              style={{ marginTop: "8px" }}
+            >
+              {/* Left arrow */}
+              <button
+                type="button"
+                aria-label="Scroll left"
+                onClick={() => scrollBy(-1)}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.55)",
+                  borderRadius: 0,
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "rgba(255,255,255,0.32)",
+                  letterSpacing: "0.05em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Drag to explore more
+              </span>
+
+              {/* Right arrow */}
+              <button
+                type="button"
+                aria-label="Scroll right"
+                onClick={() => scrollBy(1)}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.55)",
+                  borderRadius: 0,
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M5 2l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* ── RIGHT: SCROLLABLE CARD ROW ───────────────────────────────── */}
+          <div className="flex-1 min-w-0" style={{ overflow: "hidden" }}>
+            {/* Scroll track */}
+            <div
+              ref={scrollRef}
+              onScroll={handleScroll}
+              className="flex gap-3 overflow-x-auto pb-4"
+              style={{
+                scrollSnapType: "x mandatory",
+                WebkitOverflowScrolling: "touch",
+                scrollBehavior: "smooth",
+                msOverflowStyle: "none",
+                scrollbarWidth: "none",
+              }}
+            >
+              {STORIES.map((story) => (
+                <div
+                  key={story.id}
+                  style={{ scrollSnapAlign: "start", flex: "0 0 auto" }}
+                >
+                  <StoryCard {...story} />
+                </div>
+              ))}
+              {/* End spacer — prevents last card from being clipped */}
+              <div aria-hidden="true" style={{ flex: "0 0 4px" }} />
+            </div>
+
+            {/* Dot indicators — mobile only */}
+            <div
+              className="flex md:hidden justify-center gap-2 mt-4"
+            >
+              {STORIES.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-label={`Go to ${s.label}`}
+                  onClick={() => scrollToIdx(i)}
+                  style={{
+                    width: i === activeDot ? "18px" : "6px",
+                    height: "6px",
+                    borderRadius: "3px",
+                    background: i === activeDot
+                      ? "rgba(139,92,246,0.85)"
+                      : "rgba(255,255,255,0.20)",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    transition: "width 0.22s ease, background 0.22s ease",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
