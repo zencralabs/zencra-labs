@@ -88,7 +88,7 @@ export function HeroContent() {
           AI Content
         </span>
 
-        <span style={{ display: "block" }}>From Idea to Film</span>
+        <span style={{ display: "block", whiteSpace: "nowrap" }}>From Idea to Film</span>
       </h1>
 
       {/* ── Subtext ────────────────────────────────────────────────────────── */}
