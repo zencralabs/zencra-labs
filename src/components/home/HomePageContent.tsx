@@ -10,13 +10,11 @@ import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
 import { useAuth }     from "@/components/auth/AuthContext";
 import type { PublicAsset } from "@/lib/types/generation";
+import { HeroSection } from "@/components/home/hero/HeroSection";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA LABS — Cinematic AI Creation Studio
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ── Hero tool chip badge data ─────────────────────────────────────────────────
-const heroTools = ["Kling 3.0", "Runway ML", "Veo", "FLUX Pro", "Suno AI", "ElevenLabs", "HeyGen"];
 
 // ── How Zencra Works — 3-step cards ─────────────────────────────────────────
 const workflowSteps = [
@@ -380,85 +378,7 @@ export function HomePageContent() {
     <div style={{ backgroundColor: "var(--page-bg)", color: "var(--page-text)", minHeight: "100vh" }}>
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────────── */}
-      <section
-        className="relative flex flex-col items-center justify-center overflow-hidden"
-        style={{ minHeight: "calc(100vh - 64px)" }}
-      >
-        {/* Hero video — deferred until after first paint so UI is immediately interactive */}
-        {mounted && (
-          <VideoMuted
-            src="/hero-video.mp4"
-            preload="metadata"
-            poster="/hero-poster.jpg"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
-            btnPos={{ bottom: "52px", right: "20px" }}
-          />
-        )}
-
-        {/* Animated orbs — desktop only (blur+animation is GPU-heavy on mobile) */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden hidden md:block" aria-hidden="true">
-          <div className="animate-orb-1 absolute" style={{ width: "600px", height: "600px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)", top: "-10%", left: "20%", filter: "blur(40px)" }} />
-          <div className="animate-orb-2 absolute" style={{ width: "500px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,160,0.25) 0%, transparent 70%)", bottom: "0%", right: "15%", filter: "blur(50px)" }} />
-          <div className="animate-orb-3 absolute" style={{ width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%)", top: "40%", left: "-5%", filter: "blur(60px)" }} />
-          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(248,250,252,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(248,250,252,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        </div>
-
-        {/* Hero content */}
-        <div className="container-site relative z-10 flex flex-col items-center gap-6 pt-20 pb-12 md:gap-8 md:pt-32 md:pb-16 text-center">
-          {/* Eyebrow */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]"
-            style={{ background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.3)", color: "#60A5FA", boxShadow: "0 0 20px rgba(37,99,235,0.15)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#2563EB", boxShadow: "0 0 6px #2563EB", animation: "pulse 2s infinite" }} />
-            AI-Powered Creative Studio
-          </div>
-
-          {/* Headline */}
-          <h1
-            className="font-display font-semibold text-display-md md:text-display-lg xl:text-display-xl tracking-[-0.065em] leading-[0.95] text-balance w-full"
-          >
-            <span style={{ display: "block", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
-            <span
-              style={{
-                display: "block",
-                background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 50%, #A855F7 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              From Idea to Film in Minutes
-            </span>
-          </h1>
-
-          {/* Subheadline */}
-          <p
-            className="max-w-2xl font-sans text-body-lg md:text-body-xl leading-[1.6] tracking-[-0.015em] text-pretty"
-            style={{ color: "#94A3B8", textShadow: "0 1px 12px rgba(0,0,0,0.95)" }}
-          >
-            Generate images, animate them into videos, and add voice with perfect lip-sync — all in one unified AI workflow.
-          </p>
-
-          {/* Tool badges */}
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            {heroTools.map((tool) => (
-              <span
-                key={tool}
-                className="rounded-full px-3 py-1 text-xs font-medium"
-                style={{ background: "var(--page-bg-2)", border: "1px solid var(--border-subtle)", color: "var(--page-text-2)" }}
-              >
-                {tool}
-              </span>
-            ))}
-            <span className="rounded-full px-3 py-1 text-xs font-medium" style={{ color: "#2563EB" }}>+ more</span>
-          </div>
-        </div>
-
-        {/* Fades */}
-        <div className="pointer-events-none absolute top-0 left-0 right-0 h-24" style={{ background: "linear-gradient(to bottom, var(--page-bg), transparent)" }} aria-hidden="true" />
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
-      </section>
+      <HeroSection />
 
       {/* ── AUTO-SCROLL SHOWCASE STRIP — deferred + desktop only ── */}
       {mounted && <section className="hidden md:block strip-section" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
