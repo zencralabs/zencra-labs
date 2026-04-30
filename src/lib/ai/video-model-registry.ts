@@ -103,59 +103,9 @@ export type VideoModel = {
 
 export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
 
-  // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
-  // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
-  //
-  // STATUS: Re-enabled as BETA for controlled testing.
-  // Previous issue: Kling API returned code 1201 "model is not supported" —
-  // this is an account/resource-pack gate, not a code bug.
-  // The provider now throws a friendly error when 1201 is received at dispatch.
-  //
-  // Rules:
-  //   - Kling 3.0 remains the default production model (listed below Omni in registry)
-  //   - Lip Sync is NOT enabled on Omni (gated to Kling 3.0 only)
-  //   - motionControl is false — Omni does not support motion control mode
-  //   - Sound Generation (nativeAudio) is available if the resource pack is active
-  //
-  // To promote to production: change badge to null / "HOT" when API confirms stable.
-  {
-    id:          "kling-30-omni",
-    provider:    "kling",
-    apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
-    displayName: "Kling 3.0 Omni",
-    description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:            "BETA",
-    badgeColor:       "#8B5CF6",
-    available:        true,
-    comingSoon:       false,
-    supportsSequence: true,
-    promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
-    capabilities: {
-      textToVideo:    true,
-      imageToVideo:   true,
-      startFrame:     true,
-      endFrame:       true,
-      cameraControl:  true,
-      motionControl:  false,  // Omni does not support motion control
-      multiElement:   false,
-      extendVideo:    true,
-      lipSync:        false,  // Lip Sync limited to Kling 3.0 (not Omni)
-      avatar:         false,
-      audioEnabled:   false,
-      videoInput:     true,
-      nativeAudio:    true,   // Scene Audio supported — requires Sound Generation resource pack
-      negativePrompt: true,
-      proMode:        true,
-      seedControl:    false,
-      durations:      [5, 10],
-      maxDuration:    10,
-      aspectRatios:   ["16:9", "9:16", "1:1"],
-      cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
-      resolutions:    ["720p", "1080p"],
-    },
-  },
-
   // ── Kling 3.0 ────────────────────────────────────────────────────────────
+  // DEFAULT production model. Must remain first in the array — VideoStudioShell
+  // uses find(m => m.available) to select the default, so array order matters.
   {
     id:          "kling-30",
     provider:    "kling",
@@ -182,6 +132,60 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       audioEnabled:   false,
       videoInput:     true,
       nativeAudio:    true,   // Kling 3.0 supports native scene audio generation
+      negativePrompt: true,
+      proMode:        true,
+      seedControl:    false,
+      durations:      [5, 10],
+      maxDuration:    10,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
+    },
+  },
+
+  // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
+  // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
+  //
+  // STATUS: BETA — available for controlled testing. NOT the default.
+  // Array position is intentionally after Kling 3.0 so find(m => m.available)
+  // selects Kling 3.0 as the default session model.
+  //
+  // Previous issue: Kling API returned code 1201 "model is not supported" —
+  // this is an account/resource-pack gate, not a code bug.
+  // The provider now throws a friendly error when 1201 is received at dispatch.
+  //
+  // Rules:
+  //   - Lip Sync NOT enabled on Omni (gated to Kling 3.0 only)
+  //   - motionControl is false — Omni does not support motion control mode
+  //   - Sound Generation (nativeAudio) available if resource pack is active
+  //
+  // To promote to production: move above Kling 3.0, change badge to "HOT" / null.
+  {
+    id:          "kling-30-omni",
+    provider:    "kling",
+    apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
+    displayName: "Kling 3.0 Omni",
+    description: "Full-capability cinematic model — identity, motion, and frame control unified",
+    badge:            "BETA",
+    badgeColor:       "#8B5CF6",
+    available:        true,
+    comingSoon:       false,
+    supportsSequence: true,
+    promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
+    capabilities: {
+      textToVideo:    true,
+      imageToVideo:   true,
+      startFrame:     true,
+      endFrame:       true,
+      cameraControl:  true,
+      motionControl:  false,  // Omni does not support motion control
+      multiElement:   false,
+      extendVideo:    true,
+      lipSync:        false,  // Lip Sync limited to Kling 3.0 (not Omni)
+      avatar:         false,
+      audioEnabled:   false,
+      videoInput:     true,
+      nativeAudio:    true,   // Scene Audio supported — requires Sound Generation resource pack
       negativePrompt: true,
       proMode:        true,
       seedControl:    false,
