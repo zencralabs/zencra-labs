@@ -20,15 +20,10 @@ export const HERO_SCENES = [
  * HeroTimeline
  *
  * A horizontally-scrollable, snap-scroll row of HeroCards.
+ * Cards sit in a centered inner flex wrapper; no edge fades — clean hero bg.
  *
- * Desktop:
- *   • Left + right gradient fades mask the overflow edges.
- *   • No visible scrollbar (hidden via CSS).
- *
- * Mobile:
- *   • Scroll-snap for natural swipe feel.
- *   • Dot navigation indicators beneath the row.
- *   • Edge fades hidden so users can see cards are swipeable.
+ * Desktop: centered row, overflow-x-auto for viewports narrower than total card width.
+ * Mobile:  scroll-snap for natural swipe feel + dot navigation indicators.
  */
 export function HeroTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -65,38 +60,6 @@ export function HeroTimeline() {
 
   return (
     <div style={{ position: "relative", width: "100%", paddingTop: "12px" }}>
-      {/* ── Left edge fade — desktop only ────────────────────────────────── */}
-      <div
-        aria-hidden="true"
-        className="hidden md:block"
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: "80px",
-          background: "linear-gradient(to right, #050509 0%, transparent 100%)",
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* ── Right edge fade — desktop only ───────────────────────────────── */}
-      <div
-        aria-hidden="true"
-        className="hidden md:block"
-        style={{
-          position: "absolute",
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: "80px",
-          background: "linear-gradient(to left, #050509 0%, transparent 100%)",
-          zIndex: 2,
-          pointerEvents: "none",
-        }}
-      />
-
       {/* ── Outer scroll container ────────────────────────────────────────── */}
       <div
         ref={scrollRef}

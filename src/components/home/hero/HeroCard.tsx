@@ -45,13 +45,13 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         overflow: "hidden",
         background: "#0a0a14",
 
-        /* Hover border + glow */
+        /* Hover border + cinematic glow (Option A) */
         border: hovered
           ? "1px solid rgba(139,92,246,0.55)"
           : "1px solid rgba(255,255,255,0.10)",
         boxShadow: hovered
-          ? "0 0 32px rgba(139,92,246,0.28), 0 8px 40px rgba(0,0,0,0.60)"
-          : "0 4px 20px rgba(0,0,0,0.40)",
+          ? "0 0 36px rgba(139,92,246,0.32), 0 10px 40px rgba(0,0,0,0.55)"
+          : "0 10px 30px rgba(59,130,246,0.12), 0 0 40px rgba(139,92,246,0.08)",
 
         transform: hovered ? "scale(1.03)" : "scale(1)",
         transition:
