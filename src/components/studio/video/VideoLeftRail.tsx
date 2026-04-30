@@ -68,9 +68,10 @@ const MODE_SUBLABELS: Partial<Record<FrameMode, string>> = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// UI Label category: 13px / semibold 600 / uppercase / tracking 0.14em
 function SLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+    <div style={{ fontSize: 13, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>
       {children}
     </div>
   );
@@ -98,7 +99,8 @@ function PillRow<T extends string | number>({
               border: active ? "1px solid rgba(14,165,160,0.6)" : "1px solid rgba(255,255,255,0.12)",
               background: active ? "rgba(14,165,160,0.15)" : "rgba(255,255,255,0.03)",
               color: active ? "#F8FAFC" : "#94A3B8",
-              fontSize: 13, fontWeight: active ? 700 : 500,
+              /* Chip: 13px / medium 500 active 600 / tracking -0.005em */
+              fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.005em",
               cursor: "pointer", transition: "all 0.2s ease",
               boxShadow: active ? "0 0 10px rgba(14,165,160,0.3)" : "none",
             }}
@@ -189,14 +191,15 @@ function MotionPresetSelector({
                 ? "rgba(14,165,160,0.16)"
                 : "rgba(255,255,255,0.03)",
               color: active ? "#F8FAFC" : "#94A3B8",
-              fontSize: 12,
-              fontWeight: active ? 700 : 400,
+              /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */
+              fontSize: 13,
+              fontWeight: active ? 600 : 500,
+              letterSpacing: "-0.005em",
               cursor: disabled ? "not-allowed" : "pointer",
               opacity: disabled ? 0.35 : 1,
               transition: "all 0.15s ease",
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: active ? "0 0 10px rgba(14,165,160,0.28)" : "none",
-              letterSpacing: active ? "0.01em" : "0",
             }}
             onMouseEnter={e => {
               if (!active && !disabled) {
@@ -228,8 +231,10 @@ function MotionSlider({ value, onChange }: { value: number; onChange: (v: number
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 13, color: "#CBD5F5" }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#0EA5A0" }}>{value}</span>
+        {/* Chip: 13px / medium 500 / tracking -0.005em */}
+        <span style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#CBD5F5" }}>{label}</span>
+        {/* Chip: 13px / semibold 600 / tracking -0.005em — color #0EA5A0 is semantic (active teal) */}
+        <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#0EA5A0" }}>{value}</span>
       </div>
       <div style={{ position: "relative" }}>
         <input
@@ -277,7 +282,8 @@ function MotionAreaSelect({ value, onChange }: { value: string; onChange: (v: st
               border: active ? "1px solid rgba(14,165,160,0.5)" : "1px solid transparent",
               background: active ? "rgba(14,165,160,0.12)" : "transparent",
               color: active ? "#F8FAFC" : "#94A3B8",
-              fontSize: 14, fontWeight: active ? 600 : 400,
+              /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */
+              fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.005em",
               cursor: "pointer", transition: "all 0.15s",
               display: "flex", alignItems: "center", gap: 7,
             }}
@@ -416,17 +422,19 @@ export default function VideoLeftRail({
 
                 {/* Labels */}
                 <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Chip: 13px / active 600 inactive 500 / tracking -0.005em */}
                   <div style={{
-                    fontSize: 13, fontWeight: active ? 700 : 500,
+                    fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.005em",
                     color: active ? "#F8FAFC" : "#94A3B8",
                     lineHeight: 1.2, transition: "color 0.18s",
                   }}>
                     {MODE_LABELS[mode]}
                   </div>
                   {sub && (
+                    // Micro: 11px / semibold 600 — no forced uppercase (sublabel descriptor)
                     <div style={{
                       fontSize: 11, color: active ? "rgba(34,211,238,0.65)" : "#475569",
-                      marginTop: 1, fontWeight: 400,
+                      marginTop: 1, fontWeight: 600,
                     }}>
                       {sub}
                     </div>
@@ -435,8 +443,9 @@ export default function VideoLeftRail({
 
                 {/* Badge for locked/special modes */}
                 {!allowed && (
+                  // Micro: 11px / semibold 600 / tracking 0.12em (was 9px — below system minimum)
                   <span style={{
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                    fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                     color: mode === "motion_control" ? "#7C5ABF" : "#3A4F62",
                     background: mode === "motion_control" ? "rgba(124,90,191,0.15)" : "transparent",
                     borderRadius: 4,
@@ -491,10 +500,12 @@ export default function VideoLeftRail({
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(255,255,255,0.06)",
         }}>
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+          {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B" }}>
             Frame Rate
           </span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#475569" }}>
+          {/* Chip: 13px / semibold 600 / tracking -0.005em */}
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#475569" }}>
             {frameRate} fps
           </span>
         </div>

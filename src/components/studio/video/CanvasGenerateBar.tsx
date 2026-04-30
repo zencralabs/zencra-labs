@@ -68,9 +68,10 @@ export default function CanvasGenerateBar({
 
       {/* ── Left — readiness state ── */}
       <div style={{ minWidth: 0, flex: 1 }}>
+        {/* Button: 15px / semibold 600 / tracking -0.01em */}
         <div style={{
           fontSize:      15,
-          fontWeight:    700,
+          fontWeight:    600,
           lineHeight:    1.1,
           color:         "#EAFDFB",
           letterSpacing: "-0.01em",
@@ -80,14 +81,16 @@ export default function CanvasGenerateBar({
         }}>
           {titleText}
         </div>
+        {/* Chip: 13px / medium 500 / tracking -0.005em — color is semantic (teal-blue tint) */}
         <div style={{
-          marginTop:  6,
-          fontSize:   12,
-          fontWeight: 500,
-          color:      "rgba(180,214,230,0.72)",
-          overflow:   "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          marginTop:     6,
+          fontSize:      13,
+          fontWeight:    500,
+          letterSpacing: "-0.005em",
+          color:         "rgba(180,214,230,0.72)",
+          overflow:      "hidden",
+          textOverflow:  "ellipsis",
+          whiteSpace:    "nowrap",
         }}>
           {comingSoon ? "This model is coming soon" : subtextText}
         </div>
@@ -95,13 +98,14 @@ export default function CanvasGenerateBar({
 
       {/* ── Right — credits + Generate button ── */}
       <div style={{ display: "flex", alignItems: "center", flexShrink: 0, marginLeft: 16 }}>
-        {/* Credits label */}
+        {/* Credits label — Chip: 13px / semibold 600 / tracking -0.005em — color #2DD4BF is semantic teal */}
         <span style={{
-          fontSize:    13,
-          fontWeight:  700,
-          color:       "#2DD4BF",
-          marginRight: 14,
-          whiteSpace:  "nowrap",
+          fontSize:      13,
+          fontWeight:    600,
+          letterSpacing: "-0.005em",
+          color:         "#2DD4BF",
+          marginRight:   14,
+          whiteSpace:    "nowrap",
         }}>
           {comingSoon ? "—" : creditsLabel}
         </span>
@@ -118,8 +122,9 @@ export default function CanvasGenerateBar({
             alignItems:     "center",
             justifyContent: "center",
             gap:            10,
+            /* Button: 15px / semibold 600 / tracking -0.01em */
             fontSize:       15,
-            fontWeight:     800,
+            fontWeight:     600,
             letterSpacing:  "-0.01em",
             color:          canClick ? "#021014" : "rgba(2,16,20,0.45)",
             background:     canClick

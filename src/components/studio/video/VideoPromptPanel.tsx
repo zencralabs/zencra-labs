@@ -134,19 +134,19 @@ function CreditsGenerateCard({
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={low ? "#EF4444" : "#0EA5A0"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-          <span style={{ fontSize: 14, fontWeight: 700, color: low ? "#EF4444" : "#0EA5A0" }}>
+          <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color is semantic */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: low ? "#EF4444" : "#0EA5A0" }}>
             {comingSoon ? "—" : `~${estimate} credits`}
           </span>
         </div>
-        <span style={{ fontSize: 13, color: "#64748B" }}>{modelName}</span>
+        <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B" }}>{modelName}</span>
       </div>
 
       {/* Balance row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
         <span style={{ fontSize: 13, color: "#94A3B8" }}>Your balance</span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: low ? "#EF4444" : "#F8FAFC" }}>
+        <span style={{ /* Button: 15px / semibold 600 (fontWeight 800 violation fixed) — color is semantic */ fontSize: 15, fontWeight: 600, color: low ? "#EF4444" : "#F8FAFC" }}>
           {balance}
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#94A3B8", marginLeft: 4 }}>credits</span>
+          <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#94A3B8", marginLeft: 4 }}>credits</span>
         </span>
       </div>
 
@@ -155,7 +155,8 @@ function CreditsGenerateCard({
         <div style={{
           padding: "7px 14px",
           background: "rgba(239,68,68,0.1)", borderTop: "1px solid rgba(239,68,68,0.15)",
-          fontSize: 11, color: "#EF4444", fontWeight: 600,
+          /* Micro: 11px / semibold 600 / tracking 0.12em — color #EF4444 is semantic red */
+          fontSize: 11, color: "#EF4444", fontWeight: 600, letterSpacing: "0.12em",
           display: "flex", alignItems: "center", gap: 6,
         }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -178,7 +179,8 @@ function CreditsGenerateCard({
               ? "rgba(255,255,255,0.04)"
               : "linear-gradient(135deg, #0EA5A0 0%, #22D3EE 100%)",
             color: loading ? "#94A3B8" : disabled ? "#334155" : "#020617",
-            fontSize: 15, fontWeight: 700,
+            /* Button: 15px / semibold 600 / tracking -0.01em (already present) */
+            fontSize: 15, fontWeight: 600,
             cursor: disabled || loading ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
             transition: "all 0.2s", letterSpacing: "-0.01em",
@@ -267,7 +269,7 @@ function LipSyncStatusRow({ label, status }: {
       </div>
       <span style={{ color: textColor }}>
         {label}
-        {status === "uploading" && <span style={{ color: "#6B7280", marginLeft: 4, fontSize: 12 }}>uploading…</span>}
+        {status === "uploading" && <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em */ color: "#6B7280", marginLeft: 4, fontSize: 11, fontWeight: 600, letterSpacing: "0.12em" }}>uploading…</span>}
       </span>
     </div>
   );
@@ -358,16 +360,17 @@ function LipSyncCard({
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
             <line x1="12" y1="19" x2="12" y2="22"/>
           </svg>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#C4B5FD" }}>Lip Sync</span>
+          <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color #C4B5FD is semantic purple */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#C4B5FD" }}>Lip Sync</span>
           <span style={{
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+            /* Micro: 11px (was 9px — below system minimum) / semibold 600 / tracking 0.12em */
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
             color: "#A78BFA", background: "rgba(139,92,246,0.18)",
             borderRadius: 4, padding: "2px 6px",
           }}>BETA</span>
         </div>
         {/* Credit estimate (only when provider ready + not terminal) */}
         {providerReady && !isCompleted && !isFailed && (
-          <span style={{ fontSize: 12, color: lowCredits ? "#EF4444" : "#A78BFA" }}>
+          <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color is semantic */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: lowCredits ? "#EF4444" : "#A78BFA" }}>
             ~{estimatedCredits} credits
           </span>
         )}
@@ -375,7 +378,7 @@ function LipSyncCard({
         {isCompleted && (
           <button
             onClick={onReset}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "#6B7280", padding: 0 }}
+            style={{ background: "none", border: "none", cursor: "pointer", /* Micro: 11px / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#6B7280", padding: 0 }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#A78BFA"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
           >
@@ -388,7 +391,7 @@ function LipSyncCard({
       {!providerReady && (
         <>
           <div style={{ padding: "10px 14px" }}>
-            <p style={{ fontSize: 13, color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
+            <p style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color #7C6FAE is semantic purple */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
               Upload a portrait image and an audio clip — the engine will animate the lips to match the audio.
             </p>
           </div>
@@ -396,7 +399,8 @@ function LipSyncCard({
             <div style={{
               borderRadius: 8, border: "1px solid rgba(139,92,246,0.15)",
               background: "rgba(139,92,246,0.06)", padding: "7px 10px",
-              fontSize: 11, color: "#6D4FC9",
+              /* Micro: 11px / semibold 600 / tracking 0.12em — color #6D4FC9 is semantic purple */
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#6D4FC9",
               display: "flex", alignItems: "center", gap: 5,
             }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -421,7 +425,7 @@ function LipSyncCard({
                     key={m}
                     onClick={() => onQualityMode(m)}
                     style={{
-                      flex: 1, padding: "5px 0", borderRadius: 8, fontSize: 12, fontWeight: active ? 700 : 500,
+                      flex: 1, padding: "5px 0", borderRadius: 8, /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */ fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.005em",
                       border: active ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)",
                       background: active ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.03)",
                       color: active ? "#C4B5FD" : "#64748B",
@@ -451,10 +455,10 @@ function LipSyncCard({
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "4px 14px 8px",
             }}>
-              <span style={{ fontSize: 13, color: "#94A3B8" }}>Your balance</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: lowCredits ? "#EF4444" : "#F8FAFC" }}>
+              <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#94A3B8" }}>Your balance</span>
+              <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color is semantic */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: lowCredits ? "#EF4444" : "#F8FAFC" }}>
                 {userCredits}
-                <span style={{ fontSize: 12, fontWeight: 400, color: "#94A3B8", marginLeft: 3 }}>credits</span>
+                <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#94A3B8", marginLeft: 3 }}>credits</span>
               </span>
             </div>
           )}
@@ -465,7 +469,8 @@ function LipSyncCard({
               margin: "0 14px 8px",
               padding: "7px 10px",
               background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
-              borderRadius: 8, fontSize: 11, color: "#EF4444",
+              borderRadius: 8, /* Micro: 11px / semibold 600 / tracking 0.12em — color #EF4444 semantic */
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#EF4444",
               display: "flex", alignItems: "center", gap: 5,
             }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -481,7 +486,8 @@ function LipSyncCard({
               margin: "0 14px 8px",
               padding: "7px 10px",
               background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
-              borderRadius: 8, fontSize: 11, color: "#EF4444",
+              borderRadius: 8, /* Micro: 11px / semibold 600 / tracking 0.12em — color #EF4444 semantic */
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#EF4444",
               display: "flex", alignItems: "center", gap: 5,
             }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -516,7 +522,7 @@ function LipSyncCard({
                 download="lip-sync.mp4"
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  marginTop: 8, padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  marginTop: 8, padding: "7px 14px", borderRadius: 8, /* Chip: 13px / semibold 600 / tracking -0.005em */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
                   border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)",
                   color: "#C4B5FD", textDecoration: "none", transition: "all 0.15s",
                 }}
@@ -534,7 +540,7 @@ function LipSyncCard({
 
           {/* Completion — no URL */}
           {isCompleted && !outputUrl && (
-            <div style={{ padding: "10px 14px", textAlign: "center", fontSize: 12, color: "#64748B" }}>
+            <div style={{ padding: "10px 14px", textAlign: "center", /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B" }}>
               Generation complete — no output URL available yet
             </div>
           )}
@@ -557,7 +563,8 @@ function LipSyncCard({
               ? "rgba(34,197,94,0.12)"
               : "rgba(139,92,246,0.06)",
             color: ctaEnabled ? "#fff" : isCompleted ? "#22C55E" : "#6B4FA8",
-            fontSize: 14, fontWeight: 700,
+            /* Button: 15px / semibold 600 / tracking -0.01em (already present) */
+            fontSize: 15, fontWeight: 600,
             cursor: ctaEnabled ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
             transition: "all 0.2s", letterSpacing: "-0.01em",
@@ -774,7 +781,7 @@ export default function VideoPromptPanel({
 
         {/* Prompt header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.07em", textTransform: "uppercase" }}>
+          <span style={{ /* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase — color #94A3B8 neutral */ fontSize: 13, fontWeight: 600, color: "#94A3B8", letterSpacing: "0.14em", textTransform: "uppercase" }}>
             Prompt
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -790,12 +797,12 @@ export default function VideoPromptPanel({
                 title={enhancing ? "Enhancing…" : "Enhance prompt with AI"}
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
-                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  padding: "5px 11px", borderRadius: 8, /* Chip: 13px / semibold 600 */ fontSize: 13, fontWeight: 600,
                   border: "1px solid rgba(139,92,246,0.35)",
                   background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
                   color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
                   cursor: enhancing ? "not-allowed" : "pointer",
-                  transition: "all 0.15s", letterSpacing: "0.01em",
+                  transition: "all 0.15s", letterSpacing: "-0.005em",
                 }}
                 onMouseEnter={e => {
                   if (!enhancing) {
@@ -828,7 +835,7 @@ export default function VideoPromptPanel({
             <button
               onClick={() => setShowPresets(v => !v)}
               style={{
-                background: "none", border: "none", fontSize: 12, cursor: "pointer", padding: 0,
+                background: "none", border: "none", /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, letterSpacing: "-0.005em", cursor: "pointer", padding: 0,
                 color: showPresets ? "#0EA5A0" : "#64748B", transition: "color 0.15s", fontWeight: 500,
                 display: "flex", alignItems: "center", gap: 4,
               }}
@@ -842,7 +849,7 @@ export default function VideoPromptPanel({
             </button>
             {prompt && (
               <button onClick={() => { setPrompt(""); setPreEnhancePrompt(null); setEnhanceError(null); }}
-                style={{ background: "none", border: "none", fontSize: 12, color: "#64748B", cursor: "pointer", padding: 0, transition: "color 0.15s" }}
+                style={{ background: "none", border: "none", /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B", cursor: "pointer", padding: 0, transition: "color 0.15s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
               >
@@ -893,7 +900,8 @@ export default function VideoPromptPanel({
                       background: "rgba(245,158,11,0.08)",
                       border: "1px solid rgba(245,158,11,0.28)",
                       boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.10)",
-                      fontSize: 11, letterSpacing: "0.01em",
+                      /* Micro: 11px / semibold 600 / tracking 0.12em */
+                      fontSize: 11, letterSpacing: "0.12em",
                     }}
                   >
                     {/* Avatar — who (face) */}
@@ -913,7 +921,8 @@ export default function VideoPromptPanel({
                     )}
                     {/* Lock — state (trust signal). Smaller + dimmer when avatar present. */}
                     <span style={{
-                      fontSize: avatarUrl ? 8 : 9,
+                      /* Micro: 11px minimum — was 8/9px below system minimum */
+                      fontSize: 11,
                       color: avatarUrl ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.48)",
                       lineHeight: 1,
                       display: "inline-block",
@@ -921,13 +930,15 @@ export default function VideoPromptPanel({
                       flexShrink: 0,
                     }}>🔒</span>
                     <span style={{
-                      fontWeight: 700, color: "#fff",
+                      /* Chip active: semibold 600 */
+                      fontWeight: 600, color: "#fff",
                       maxWidth: 160, overflow: "hidden",
                       textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>@{handle}</span>
                     <span style={{
+                      /* Micro: 11px (was 10px — below system minimum) / medium 500 / tracking 0.12em */
                       fontWeight: 500, color: "rgba(255,255,255,0.48)",
-                      fontSize: 10, flexShrink: 0,
+                      fontSize: 11, letterSpacing: "0.12em", flexShrink: 0,
                     }}>· Identity Locked</span>
                   </div>
                 );
@@ -1013,13 +1024,14 @@ export default function VideoPromptPanel({
                 {/* Label */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 12, fontWeight: 700,
+                    /* Chip: 13px / semibold 600 / tracking -0.005em — color is semantic */
+                    fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
                     color: cardDisabled ? "#334155" : activeAndOn ? "#FCD34D" : "#64748B",
                     transition: "color 0.2s ease",
                   }}>
                     {cardDisabled ? "Start frame not ready" : "Start Frame Identity"}
                   </div>
-                  <div style={{ fontSize: 11, color: cardDisabled ? "#1E293B" : "#475569", marginTop: 2 }}>
+                  <div style={{ /* Micro: 11px / semibold 600 / tracking 0.12em — color is semantic */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: cardDisabled ? "#1E293B" : "#475569", marginTop: 2 }}>
                     {cardDisabled
                       ? `@${primaryHandle} needs identity selection first`
                       : `Pin @${primaryHandle} hero as video start frame`}
@@ -1122,14 +1134,16 @@ export default function VideoPromptPanel({
                 {/* Middle — label + subtext */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 12, fontWeight: 700,
+                    /* Chip: 13px / semibold 600 / tracking -0.005em — color is semantic */
+                    fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
                     color: depBlocked ? "#334155" : cardActive ? "#CBD5F5" : "#64748B",
                     transition: "color 0.2s ease",
                   }}>
                     End Frame
                   </div>
                   <div style={{
-                    fontSize: 11, marginTop: 2,
+                    /* Micro: 11px / semibold 600 / tracking 0.12em — color is semantic */
+                    fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", marginTop: 2,
                     color: depBlocked ? "#1E293B" : hasEndFrame ? "#475569" : "#334155",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>
@@ -1186,7 +1200,7 @@ export default function VideoPromptPanel({
                   padding: "8px 10px", borderRadius: 8, width: "100%", textAlign: "left",
                   border: "1px solid rgba(255,255,255,0.06)",
                   background: "rgba(255,255,255,0.02)",
-                  color: "#94A3B8", fontSize: 12, cursor: "pointer",
+                  color: "#94A3B8", /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", cursor: "pointer",
                   transition: "all 0.15s",
                 }}
                 onMouseEnter={e => {
@@ -1202,7 +1216,7 @@ export default function VideoPromptPanel({
               >
                 <span style={{ color: "#0EA5A0", lineHeight: 0, flexShrink: 0 }}>{p.icon}</span>
                 <span style={{ fontWeight: 600, color: "#CBD5E1", flexShrink: 0 }}>{p.label}</span>
-                <span style={{ color: "#475569", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em */ color: "#475569", fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   — {p.text.substring(0, 46)}…
                 </span>
               </button>
@@ -1241,14 +1255,14 @@ export default function VideoPromptPanel({
         {/* Undo enhanced prompt — stays visible until user edits, clears, or enhances again */}
         {preEnhancePrompt !== null && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "rgba(167,139,250,0.55)", fontWeight: 500 }}>
+            <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em — color semantic purple */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "rgba(167,139,250,0.55)" }}>
               ✦ Prompt enhanced by AI
             </span>
             <button
               onClick={() => { setPrompt(preEnhancePrompt); setPreEnhancePrompt(null); }}
               style={{
                 display: "flex", alignItems: "center", gap: 4,
-                padding: "3px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                padding: "3px 9px", borderRadius: 6, /* Micro: 11px / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                 border: "1px solid rgba(255,255,255,0.1)",
                 background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)",
                 cursor: "pointer", transition: "all 0.12s",
@@ -1270,13 +1284,13 @@ export default function VideoPromptPanel({
         {/* Enhance error — shown when AI call fails; dismissed on next attempt or manual edit */}
         {enhanceError !== null && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, color: "rgba(248,113,113,0.8)", fontWeight: 500 }}>
+            <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em — color #F87171 semantic red */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "rgba(248,113,113,0.8)" }}>
               ⚠ {enhanceError}
             </span>
             <button
               onClick={() => setEnhanceError(null)}
               style={{
-                padding: "2px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                padding: "2px 7px", borderRadius: 5, /* Micro: 11px (was 10px — below system minimum) / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                 border: "1px solid rgba(248,113,113,0.2)",
                 background: "transparent", color: "rgba(248,113,113,0.5)",
                 cursor: "pointer",
@@ -1295,7 +1309,8 @@ export default function VideoPromptPanel({
               style={{
                 background: "none", border: "none", cursor: "pointer", padding: 0,
                 display: "flex", alignItems: "center", gap: 5,
-                fontSize: 12, color: showNeg ? "#0EA5A0" : "#64748B",
+                /* Chip: 13px / medium 500 / tracking -0.005em — colors semantic */
+                fontSize: 13, letterSpacing: "-0.005em", color: showNeg ? "#0EA5A0" : "#64748B",
                 fontWeight: 500, transition: "color 0.15s",
               }}
             >
@@ -1343,8 +1358,9 @@ export default function VideoPromptPanel({
                 <line x1="12" y1="19" x2="12" y2="22"/>
               </svg>
               <span style={{
-                fontSize: 13, fontWeight: 700, color: "#94A3B8",
-                letterSpacing: "0.07em", textTransform: "uppercase",
+                /* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase — color #94A3B8 neutral */
+                fontSize: 13, fontWeight: 600, color: "#94A3B8",
+                letterSpacing: "0.14em", textTransform: "uppercase",
               }}>
                 Audio
               </span>
@@ -1362,8 +1378,8 @@ export default function VideoPromptPanel({
                     key={mode}
                     onClick={() => setAudioMode(mode)}
                     style={{
-                      flex: 1, padding: "7px 4px", borderRadius: 8, fontSize: 12,
-                      fontWeight: active ? 700 : 500,
+                      flex: 1, padding: "7px 4px", borderRadius: 8, /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */ fontSize: 13, letterSpacing: "-0.005em",
+                      fontWeight: active ? 600 : 500,
                       border: active
                         ? `1px solid ${accent}55`
                         : "1px solid rgba(255,255,255,0.08)",
@@ -1380,7 +1396,8 @@ export default function VideoPromptPanel({
                     <span style={{ whiteSpace: "nowrap" }}>{label}</span>
                     {mode === "voiceover" && (
                       <span style={{
-                        fontSize: 9, fontWeight: 700, letterSpacing: "0.04em",
+                        /* Micro: 11px (was 9px — below system minimum) / semibold 600 / tracking 0.12em — color semantic amber */
+                        fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                         color: active ? "#D97706" : "#92500A",
                         background: active ? "rgba(217,119,6,0.18)" : "rgba(217,119,6,0.10)",
                         borderRadius: 3, padding: "1px 5px",
@@ -1423,7 +1440,8 @@ export default function VideoPromptPanel({
                 marginTop: 8, padding: "8px 11px", borderRadius: 8,
                 border: "1px solid rgba(14,165,160,0.18)",
                 background: "rgba(14,165,160,0.06)",
-                fontSize: 12, color: "#64748B", lineHeight: 1.55,
+                /* Chip: 13px / medium 500 / tracking -0.005em */
+                fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B", lineHeight: 1.55,
               }}>
                 Cinematic sound generated with the video — ambience, movement, and atmosphere.
               </div>
@@ -1435,10 +1453,10 @@ export default function VideoPromptPanel({
                 background: "rgba(198,255,0,0.04)",
                 lineHeight: 1.55,
               }}>
-                <span style={{ fontSize: 12, color: "#64748B", display: "block" }}>
+                <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B", display: "block" }}>
                   Controlled speech and narration. Best for dialogue, character voice, and explainers.
                 </span>
-                <span style={{ fontSize: 11, color: "#5E6A30", fontWeight: 500, display: "block", marginTop: 4 }}>
+                <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em — color #5E6A30 semantic olive */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#5E6A30", display: "block", marginTop: 4 }}>
                   Voiceover adds +3–5 credits depending on length and quality.
                 </span>
               </div>
@@ -1525,16 +1543,19 @@ export default function VideoPromptPanel({
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#5E6A30" }}>Lip Sync</span>
+                  <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color #5E6A30 semantic olive */
+                    fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#5E6A30" }}>Lip Sync</span>
                 </div>
                 <span style={{
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  /* Micro: 11px (was 9px — below system minimum) / semibold 600 / tracking 0.12em — color semantic olive */
+                  fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                   color: "#5E6A30", background: "rgba(198,255,0,0.10)",
                   borderRadius: 4, padding: "2px 6px",
                 }}>COMING NEXT</span>
               </div>
               <p style={{
-                margin: 0, fontSize: 11, color: "#4A5520", lineHeight: 1.55,
+                margin: 0, /* Micro: 11px / semibold 600 / tracking 0.12em — color #4A5520 semantic olive */
+                fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#4A5520", lineHeight: 1.55,
               }}>
                 Make characters speak with synced voice and performance timing.
               </p>
@@ -1558,7 +1579,8 @@ export default function VideoPromptPanel({
               <line x1="12" y1="8" x2="12" y2="12"/>
               <circle cx="12" cy="16" r="0.5" fill="rgba(245,158,11,0.45)"/>
             </svg>
-            <span style={{ fontSize: 11, color: "rgba(203,177,100,0.65)", lineHeight: 1.55 }}>
+            <span style={{ /* Micro: 11px / semibold 600 / tracking 0.12em — color semantic amber-gold */
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "rgba(203,177,100,0.65)", lineHeight: 1.55 }}>
               Start frame identity is not ready for @{primaryHandle}. Please finish identity selection first.
             </span>
           </div>
@@ -1596,7 +1618,8 @@ export default function VideoPromptPanel({
                 background: "rgba(139,92,246,0.04)",
                 display: "flex", alignItems: "center", justifyContent: "space-between",
               }}>
-                <span style={{ fontSize: 12, color: "#6B7280", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em */
+                  fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#6B7280", display: "flex", alignItems: "center", gap: 5 }}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
                     stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
@@ -1605,7 +1628,8 @@ export default function VideoPromptPanel({
                   </svg>
                   {audioMode === "voiceover" ? "Voiceover" : "Scene Audio"}
                 </span>
-                <span style={{ fontSize: 12, color: "#A78BFA", fontWeight: 600 }}>
+                <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color #A78BFA semantic purple */
+                  fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#A78BFA" }}>
                   {audioMode === "voiceover" ? "+3–5 credits" : "+0 credits"}
                 </span>
               </div>
