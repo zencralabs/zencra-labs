@@ -68,12 +68,12 @@ export function HeroContent() {
         style={{
           margin: 0,
           fontFamily: "var(--font-display, 'Syne', sans-serif)",
-          fontWeight: 600,
-          lineHeight: 0.92,
-          letterSpacing: "-0.055em",
+          fontWeight: 700,
+          lineHeight: 0.95,
+          letterSpacing: "-0.04em",
           color: "#ffffff",
-          fontSize: "clamp(36px, 8.5vw, 84px)",
-          textShadow: "0 2px 40px rgba(0,0,0,0.80)",
+          fontSize: "clamp(42px, 5vw, 56px)",
+          textShadow: "0 0 14px rgba(255,255,255,0.08)",
           maxWidth: "880px",
         }}
       >
