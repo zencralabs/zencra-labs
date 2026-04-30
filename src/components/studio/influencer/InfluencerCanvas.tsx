@@ -1153,7 +1153,7 @@ function RevealHeader({ accent }: { accent: string }) {
       <h2 style={{
         margin: "0 0 10px",
         fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
-        fontSize: 32, fontWeight: 800,
+        fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800,
         letterSpacing: "-0.04em", lineHeight: 0.95,
         /* Shimmer gradient text */
         background: `linear-gradient(110deg,
