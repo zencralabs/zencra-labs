@@ -16,8 +16,8 @@ type ModeId = (typeof MODES)[number]["id"];
 /**
  * HeroModeSwitch — pill-style mode switcher.
  *
- * Theme (Zencra yellow-first):
- *   Active pill  → #FFD731 background, #000 text (matches yellow CTA)
+ * Theme (Zencra brand):
+ *   Active pill  → blue→purple gradient, white text
  *   Inactive pill → transparent, white/45 text
  *
  * Clicking a pill also navigates to the corresponding studio route.
@@ -58,13 +58,15 @@ export function HeroModeSwitch() {
               fontSize: "13px",
               fontWeight: isActive ? 700 : 400,
               letterSpacing: isActive ? "-0.01em" : "0em",
-              color: isActive ? "#000000" : "rgba(255,255,255,0.45)",
-              /* Active: yellow. Inactive: transparent */
-              background: isActive ? "#FFD731" : "transparent",
+              color: "#ffffff",
+              /* Active: blue→purple gradient. Inactive: transparent */
+              background: isActive
+                ? "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)"
+                : "transparent",
               border: "none",
               cursor: "pointer",
               transition:
-                "color 0.18s ease, background 0.18s ease, font-weight 0.18s ease",
+                "background 0.18s ease, font-weight 0.18s ease",
               whiteSpace: "nowrap" as const,
             }}
           >

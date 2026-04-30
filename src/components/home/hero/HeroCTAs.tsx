@@ -5,12 +5,9 @@ import { useRouter } from "next/navigation";
 /**
  * HeroCTAs — Homepage hero call-to-action buttons.
  *
- * Theme (Zencra yellow-first):
- *   Primary  → solid #FFD731 (yellow), black text, hover #E5C12C
- *   Secondary → glass dark, white text — unchanged
- *
- * Yellow is the Zencra primary CTA color going forward.
- * The blue-purple gradient is reserved for decorative/accent use only.
+ * Theme (Zencra brand):
+ *   Primary  → blue→purple gradient, white text
+ *   Secondary → glass dark, white text
  */
 export function HeroCTAs() {
   const router = useRouter();
@@ -25,7 +22,7 @@ export function HeroCTAs() {
         justifyContent: "center",
       }}
     >
-      {/* ── Primary — yellow #FFD731 ──────────────────────────────────────── */}
+      {/* ── Primary — blue→purple gradient ───────────────────────────────── */}
       <button
         type="button"
         onClick={() => router.push("/studio/video")}
@@ -35,26 +32,26 @@ export function HeroCTAs() {
           gap: "8px",
           height: "52px",
           padding: "0 32px",
-          background: "#FFD731",
+          background: "linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)",
           border: "none",
-          color: "#000000",
+          color: "#ffffff",
           fontSize: "15px",
           fontWeight: 700,
           letterSpacing: "-0.01em",
           cursor: "pointer",
-          boxShadow: "0 0 36px rgba(255,215,49,0.28), 0 2px 8px rgba(0,0,0,0.30)",
-          transition: "background 0.15s ease, transform 0.10s ease, box-shadow 0.15s ease",
+          boxShadow: "0 0 36px rgba(124,58,237,0.30), 0 2px 8px rgba(0,0,0,0.30)",
+          transition: "opacity 0.15s ease, transform 0.10s ease, box-shadow 0.15s ease",
           whiteSpace: "nowrap" as const,
         }}
         onMouseEnter={(e) => {
           const el = e.currentTarget as HTMLButtonElement;
-          el.style.background = "#E5C12C";
-          el.style.boxShadow = "0 0 44px rgba(255,215,49,0.36), 0 2px 12px rgba(0,0,0,0.30)";
+          el.style.opacity = "0.88";
+          el.style.boxShadow = "0 0 44px rgba(124,58,237,0.42), 0 2px 12px rgba(0,0,0,0.30)";
         }}
         onMouseLeave={(e) => {
           const el = e.currentTarget as HTMLButtonElement;
-          el.style.background = "#FFD731";
-          el.style.boxShadow = "0 0 36px rgba(255,215,49,0.28), 0 2px 8px rgba(0,0,0,0.30)";
+          el.style.opacity = "1";
+          el.style.boxShadow = "0 0 36px rgba(124,58,237,0.30), 0 2px 8px rgba(0,0,0,0.30)";
         }}
         onMouseDown={(e) => {
           (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.97)";
