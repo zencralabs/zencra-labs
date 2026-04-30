@@ -61,4 +61,9 @@ export interface GeneratedVideo {
   voiceoverScript?: string;
   voiceoverStatus?: "generating" | "ready" | "error";
   voiceoverUrl?: string | null;
+  // ── Scene Audio — adaptive fallback flag ─────────────────────────────────────
+  // true when a Scene Audio job timed out and succeeded via fallback
+  // (re-dispatched without sound_generation). Used by the result card to show
+  // a subtle "generated without scene audio" notice in a future v1.1 pass.
+  sceneAudioFallback?: boolean;
 }

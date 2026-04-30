@@ -36,8 +36,9 @@ import { ShotStack }        from "./ShotStack";
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const USER_CREDITS  = 500;
-const POLL_INTERVAL = 4000;
-const MAX_POLLS     = 60;
+const POLL_INTERVAL           = 4000;
+const MAX_POLLS               = 60;   // 60 × 4s = 4 min — normal jobs
+const MAX_POLLS_SCENE_AUDIO   = 75;   // 75 × 4s = 5 min — Scene Audio gets extra time before fallback
 const SIDE_GUTTER   = 20;
 
 // ── Per-model accent color ────────────────────────────────────────────────────
@@ -1183,11 +1184,112 @@ export default function VideoStudioShell() {
         v.id === newVideo.id ? { ...v, status: "polling", taskId: jobId } : v,
       ));
 
+      // Scene Audio jobs take longer — give them an extended window before
+      // triggering the adaptive fallback (retry without sound_generation).
+      const sceneAudioActive = audioMode === "scene" && model.capabilities.nativeAudio;
+      const maxPolls         = sceneAudioActive ? MAX_POLLS_SCENE_AUDIO : MAX_POLLS;
+
       let polls = 0;
       const poll = setInterval(async () => {
         polls++;
-        if (polls > MAX_POLLS) {
+        if (polls > maxPolls) {
           clearInterval(poll);
+
+          // ── Scene Audio adaptive fallback ────────────────────────────────────
+          // Sound generation is unstable / account-gated. If the job times out,
+          // retry the SAME generation without sound_generation instead of failing.
+          // The user ALWAYS gets a video — they may or may not get native audio.
+          if (sceneAudioActive) {
+            console.warn("[VideoStudio] Scene Audio timed out — retrying without sound_generation");
+
+            // Keep the card alive (generating state) while the fallback fires
+            setVideos(prev => prev.map(v =>
+              v.id === newVideo.id ? { ...v, status: "generating" as const } : v,
+            ));
+
+            void (async () => {
+              try {
+                // Re-dispatch with nativeAudio explicitly disabled
+                const fallbackBody = {
+                  ...body,
+                  providerParams: {
+                    ...(body.providerParams as Record<string, unknown>),
+                    nativeAudio: false,
+                  },
+                };
+                const fbRes = await fetch("/api/studio/video/generate", {
+                  method:  "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.accessToken}` },
+                  body:    JSON.stringify(fallbackBody),
+                });
+                if (!fbRes.ok) throw new Error(`Scene Audio fallback dispatch failed: ${fbRes.status}`);
+                const fbData  = await fbRes.json() as { data?: { jobId?: string } };
+                const fbJobId = fbData.data?.jobId;
+                if (!fbJobId) throw new Error("No jobId returned from Scene Audio fallback dispatch");
+
+                setVideos(prev => prev.map(v =>
+                  v.id === newVideo.id ? { ...v, status: "polling" as const, taskId: fbJobId } : v,
+                ));
+
+                // New poll loop for the fallback job (standard MAX_POLLS — no recursion)
+                let fbPolls = 0;
+                const fbPoll = setInterval(async () => {
+                  fbPolls++;
+                  if (fbPolls > MAX_POLLS) {
+                    clearInterval(fbPoll);
+                    setVideos(prev => prev.map(v =>
+                      v.id === newVideo.id ? { ...v, status: "error" as const, error: "Timed out" } : v,
+                    ));
+                    showToast("Generation timed out — please try again", "error");
+                    setGenerating(false);
+                    return;
+                  }
+                  try {
+                    const sr = await fetch(`/api/studio/jobs/${fbJobId}/status`, {
+                      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.accessToken}` },
+                    });
+                    const sd        = await sr.json() as { data?: { status: string; url?: string; error?: string } };
+                    const fbStatus  = sd.data?.status;
+                    const fbUrl     = sd.data?.url;
+                    if (fbStatus === "success" && fbUrl) {
+                      clearInterval(fbPoll);
+                      // Mark video done + flag that scene audio fell back
+                      setVideos(prev => prev.map(v =>
+                        v.id === newVideo.id
+                          ? { ...v, status: "done" as const, url: fbUrl, thumbnailUrl: null, sceneAudioFallback: true }
+                          : v,
+                      ));
+                      // Subtle premium notice — not an error, just context
+                      showToast("Video generated — Scene Audio was unavailable for this run", "info");
+                      void recordFlowStep({ modelKey, prompt, resultUrl: fbUrl, aspectRatio });
+                      setGenerating(false);
+                    } else if (fbStatus === "error") {
+                      clearInterval(fbPoll);
+                      const errMsg = sd.data?.error ?? "Generation failed";
+                      setVideos(prev => prev.map(v =>
+                        v.id === newVideo.id ? { ...v, status: "error" as const, error: errMsg } : v,
+                      ));
+                      showToast("Generation failed — please try again", "error");
+                      setGenerating(false);
+                    }
+                  } catch { /* ignore transient poll errors in fallback */ }
+                }, POLL_INTERVAL);
+
+              } catch (fbErr) {
+                // Fallback dispatch itself failed — surface a proper error
+                console.warn("[VideoStudio] Scene Audio fallback dispatch error:", fbErr);
+                setVideos(prev => prev.map(v =>
+                  v.id === newVideo.id ? { ...v, status: "error" as const, error: "Timed out" } : v,
+                ));
+                showToast("Generation timed out — please try again", "error");
+                setGenerating(false);
+              }
+            })();
+            return;
+          }
+          // ── End Scene Audio fallback ─────────────────────────────────────────
+
+          // Normal timeout — hard failure
           setVideos(prev => prev.map(v =>
             v.id === newVideo.id ? { ...v, status: "error", error: "Timed out" } : v,
           ));
