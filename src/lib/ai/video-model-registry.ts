@@ -93,6 +93,7 @@ export type VideoModel = {
   lipSyncProvider?: string | null; // null = Coming Soon; set to "heygen" | "elevenlabs" when wired
   available:      boolean;
   comingSoon:     boolean;
+  deprecated?:    boolean;         // true = backend marks as deprecated; UI shows LEGACY badge, blocks dispatch
   capabilities:   VideoModelCapabilities;
   creditMultiplier?:  number;
   supportsSequence?:  boolean;   // Sequence Mode (shot stack) — only Kling 3.0 and 3.0 Omni
@@ -197,17 +198,21 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
-  // ── Kling 2.6 ────────────────────────────────────────────────────────────
+  // ── Kling 2.6 (deprecated) ───────────────────────────────────────────────
+  // Backend status: "deprecated" — assertModelRouteIntegrity() blocks dispatch.
+  // available: false keeps it out of getAvailableModels() and disables the UI.
+  // deprecated: true allows the UI to render a "LEGACY" badge instead of "Coming Soon".
   {
     id:          "kling-26",
     provider:    "kling",
     apiModelId:  "kling-v2-6",
     displayName: "Kling 2.6",
     description: "Enhanced scene coherence and character fidelity",
-    badge:       null,
-    badgeColor:  null,
-    available:   true,
+    badge:       "LEGACY",
+    badgeColor:  "#6B7280",
+    available:   false,
     comingSoon:  false,
+    deprecated:  true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -234,17 +239,21 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
-  // ── Kling 2.5 ────────────────────────────────────────────────────────────
+  // ── Kling 2.5 Turbo (deprecated) ─────────────────────────────────────────
+  // Backend status: "deprecated" — assertModelRouteIntegrity() blocks dispatch.
+  // available: false keeps it out of getAvailableModels() and disables the UI.
+  // deprecated: true allows the UI to render a "LEGACY" badge instead of "Coming Soon".
   {
     id:          "kling-25",
     provider:    "kling",
     apiModelId:  "kling-v2-5",
     displayName: "Kling 2.5 Turbo",
     description: "Fast and reliable — ideal for quick iterations",
-    badge:       null,
-    badgeColor:  null,
-    available:   true,
+    badge:       "LEGACY",
+    badgeColor:  "#6B7280",
+    available:   false,
     comingSoon:  false,
+    deprecated:  true,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
