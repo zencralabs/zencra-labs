@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 export interface HeroCardProps {
@@ -12,27 +11,33 @@ export interface HeroCardProps {
 }
 
 /**
- * HeroCard
+ * HeroCard — cinematic scene preview card.
  *
- * A single cinematic scene card shown in the HeroTimeline.
+ * Media layers (bottom → top):
+ *   1. Dark base background (#0a0a14)
+ *   2. <img> fallback image          — always rendered, shows if video fails
+ *   3. <video> autoplay preview       — muted, loop, playsInline, preload=metadata
+ *   4. Gradient overlays + badges
  *
- * Dimensions (responsive via clamp):
- *   Width:  220px (mobile) → 280px (desktop)
- *   Height: 150px (mobile) → 180px (desktop)
+ * Video source: /hero/videos/{id}.mp4  (target <2–3 MB, no audio)
+ * Image fallback: the `image` prop path (e.g. /hero/cyberpunk.jpg)
  *
- * Hover: scale(1.03) + purple glow border.
- * Image: lazy-loaded; dark background fallback when image is missing.
- * next/image `loading="lazy"` — only the hero-bg gets `priority`.
+ * Dimensions (clamp, responsive):
+ *   Width:  220px mobile → 280px desktop
+ *   Height: 150px mobile → 180px desktop
+ *
+ * Hover: scale(1.03) + purple border glow.
+ * No next/image — media layers are decorative, not CLS-sensitive content.
  */
-export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
+export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
   const [hovered, setHovered] = useState(false);
+  const videoSrc = `/hero/videos/${id}.mp4`;
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        /* Responsive size — clamp gives smooth scaling between breakpoints */
         width: "clamp(220px, 28vw, 280px)",
         height: "clamp(150px, 17vw, 180px)",
         flexShrink: 0,
@@ -40,7 +45,7 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
         overflow: "hidden",
         background: "#0a0a14",
 
-        /* Border + glow on hover */
+        /* Hover border + glow */
         border: hovered
           ? "1px solid rgba(139,92,246,0.55)"
           : "1px solid rgba(255,255,255,0.10)",
@@ -48,31 +53,56 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
           ? "0 0 32px rgba(139,92,246,0.28), 0 8px 40px rgba(0,0,0,0.60)"
           : "0 4px 20px rgba(0,0,0,0.40)",
 
-        /* Scale on hover */
         transform: hovered ? "scale(1.03)" : "scale(1)",
         transition:
           "transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
-
         cursor: "pointer",
       }}
     >
-      {/* ── Scene image (lazy) ──────────────────────────────────────────────── */}
-      <Image
+      {/* ── 1. Fallback <img> — renders behind video ─────────────────────── */}
+      {/*
+        If the .mp4 file is missing or the browser can't play it, this img
+        is visible through the transparent video layer. The video's poster
+        attribute also provides browser-native fallback during buffering.
+        eslint-disable-next-line: decorative card media, not a CLS image.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={image}
-        alt={title}
-        fill
-        loading="lazy"
-        sizes="(max-width: 640px) 220px, 280px"
+        alt=""
         style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
           objectFit: "cover",
-          opacity: hovered ? 0.80 : 0.65,
-          transition: "opacity 0.25s ease",
+          opacity: 0.65,
         }}
-        // Graceful fallback: if image 404s, Next.js renders nothing;
-        // the dark #0a0a14 background shows through.
       />
 
-      {/* ── Bottom gradient overlay ─────────────────────────────────────────── */}
+      {/* ── 2. Autoplay video preview ─────────────────────────────────────── */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster={image}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          opacity: hovered ? 0.85 : 0.72,
+          transition: "opacity 0.25s ease",
+        }}
+      >
+        <source src={videoSrc} type="video/mp4" />
+        {/* No <track> — decorative preview, no captions needed */}
+      </video>
+
+      {/* ── 3. Bottom gradient overlay ───────────────────────────────────── */}
       <div
         aria-hidden="true"
         style={{
@@ -86,7 +116,7 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
         }}
       />
 
-      {/* ── Duration badge (top-right) ──────────────────────────────────────── */}
+      {/* ── 4. Duration badge — top right ─────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -105,7 +135,7 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
         {duration}
       </div>
 
-      {/* ── Genre chip (top-left) ───────────────────────────────────────────── */}
+      {/* ── 5. Genre chip — top left ──────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -123,7 +153,7 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
         {tag}
       </div>
 
-      {/* ── Title (bottom) ──────────────────────────────────────────────────── */}
+      {/* ── 6. Title — bottom ─────────────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -146,7 +176,7 @@ export function HeroCard({ title, tag, duration, image }: HeroCardProps) {
         </p>
       </div>
 
-      {/* ── Hover colour overlay ────────────────────────────────────────────── */}
+      {/* ── 7. Hover colour overlay ───────────────────────────────────────── */}
       {hovered && (
         <div
           aria-hidden="true"

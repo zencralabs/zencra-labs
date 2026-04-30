@@ -14,13 +14,13 @@ const MODES = [
 type ModeId = (typeof MODES)[number]["id"];
 
 /**
- * HeroModeSwitch
+ * HeroModeSwitch — pill-style mode switcher.
  *
- * Pill-style switcher for the four main creation modes.
- * Active pill gets the brand gradient; inactive pills are transparent.
+ * Theme (Zencra yellow-first):
+ *   Active pill  → #FFD731 background, #000 text (matches yellow CTA)
+ *   Inactive pill → transparent, white/45 text
+ *
  * Clicking a pill also navigates to the corresponding studio route.
- *
- * Local state only — no global context needed.
  */
 export function HeroModeSwitch() {
   const [active, setActive] = useState<ModeId>("video");
@@ -56,15 +56,15 @@ export function HeroModeSwitch() {
             style={{
               padding: "9px 22px",
               fontSize: "13px",
-              fontWeight: isActive ? 600 : 400,
-              letterSpacing: "-0.01em",
-              color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
-              background: isActive
-                ? "linear-gradient(90deg, #2563eb 0%, #8b5cf6 100%)"
-                : "transparent",
+              fontWeight: isActive ? 700 : 400,
+              letterSpacing: isActive ? "-0.01em" : "0em",
+              color: isActive ? "#000000" : "rgba(255,255,255,0.45)",
+              /* Active: yellow. Inactive: transparent */
+              background: isActive ? "#FFD731" : "transparent",
               border: "none",
               cursor: "pointer",
-              transition: "color 0.18s ease, background 0.18s ease",
+              transition:
+                "color 0.18s ease, background 0.18s ease, font-weight 0.18s ease",
               whiteSpace: "nowrap" as const,
             }}
           >

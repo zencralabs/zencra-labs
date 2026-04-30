@@ -101,6 +101,14 @@
     font-size: 16px;
     line-height: 1.65;
     transition: background-color 0.25s ease, color 0.25s ease;
+    /*
+     * overflow-x: clip — prevents any element (CSS blur glows, wide strips,
+     * scroll containers) from creating a horizontal scrollbar on the page.
+     * Using `clip` rather than `hidden` because `clip` does NOT create a
+     * block formatting context, so position:fixed navbar and modals are
+     * unaffected. This is the correct cross-browser fix for horizontal bleed.
+     */
+    overflow-x: clip;
   }
 
   /* ── Typography — Zencra cinematic scale ─────────────────────────────── */

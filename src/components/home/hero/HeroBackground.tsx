@@ -1,18 +1,23 @@
 "use client";
 
-import Image from "next/image";
-
 /**
  * HeroBackground
  *
- * Renders the cinematic full-bleed background for the homepage hero:
- *   • Base dark (#050509)
- *   • Optional /hero/hero-bg.jpg overlay (graceful fallback if missing)
- *   • Top + bottom vignettes to blend into page background
- *   • Radial-gradient colour grade (blue → purple → pink tone)
- *   • Ambient glow orbs
+ * Full-bleed cinematic background for the homepage hero.
  *
- * Uses next/image with `priority` — this is the only hero image that gets priority.
+ * Media layers (bottom → top):
+ *   1. Base #050509 colour          — always visible, instant
+ *   2. <img> fallback               — shows if video 404s or fails to play
+ *   3. <video> hero-bg.mp4          — autoplay, muted, loop, playsInline
+ *   4. Vignette + colour-grade divs — overlaid above media
+ *   5. Ambient glow orbs            — composited above everything
+ *
+ * Performance targets:
+ *   hero-bg.mp4 → under 5 MB, no audio track, H.264 baseline
+ *   hero-bg.jpg → poster shown during video buffering
+ *
+ * Overflow fix: right-side glow is positioned at right:0, NOT right:-60px.
+ * The previous negative value caused blur() to paint past the viewport edge.
  */
 export function HeroBackground() {
   return (
@@ -24,26 +29,57 @@ export function HeroBackground() {
         overflow: "hidden",
       }}
     >
-      {/* ── Base colour ───────────────────────────────────────────────────── */}
-      <div style={{ position: "absolute", inset: 0, backgroundColor: "#050509" }} />
-
-      {/* ── Cinematic image — priority loaded, graceful 404 fallback ─────── */}
-      <Image
-        src="/hero/hero-bg.jpg"
-        alt=""
-        fill
-        priority
-        quality={85}
-        sizes="100vw"
-        style={{
-          objectFit: "cover",
-          objectPosition: "center 30%",
-          opacity: 0.40,
-        }}
-        // onError intentionally left to default — Next.js renders nothing on 404
+      {/* ── 1. Base colour ───────────────────────────────────────────────── */}
+      <div
+        style={{ position: "absolute", inset: 0, backgroundColor: "#050509" }}
       />
 
-      {/* ── Top vignette ─────────────────────────────────────────────────── */}
+      {/* ── 2. Fallback <img> — rendered BELOW video ─────────────────────── */}
+      {/*
+        Belt-and-suspenders: if the video element fails (404 on .mp4, codec
+        mismatch, data-saver mode), the browser may not surface the poster
+        attribute reliably. This img ensures the still is always visible.
+        eslint-disable-next-line: intentional — no next/image; this is a
+        decorative background, not a CLS-sensitive content image.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/hero/hero-bg.jpg"
+        alt=""
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center 30%",
+          opacity: 0.42,
+        }}
+      />
+
+      {/* ── 3. Background video ───────────────────────────────────────────── */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster="/hero/hero-bg.jpg"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center 30%",
+          opacity: 0.42,
+        }}
+      >
+        <source src="/hero/videos/hero-bg.mp4" type="video/mp4" />
+        {/* No <track> — decorative background, no captions needed */}
+      </video>
+
+      {/* ── 4a. Top vignette — blends into Navbar ────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -52,10 +88,11 @@ export function HeroBackground() {
           right: 0,
           height: "220px",
           background: "linear-gradient(to bottom, #050509 0%, transparent 100%)",
+          pointerEvents: "none",
         }}
       />
 
-      {/* ── Bottom vignette ──────────────────────────────────────────────── */}
+      {/* ── 4b. Bottom vignette — blends into page sections ──────────────── */}
       <div
         style={{
           position: "absolute",
@@ -63,21 +100,24 @@ export function HeroBackground() {
           left: 0,
           right: 0,
           height: "320px",
-          background: "linear-gradient(to top, #050509 0%, rgba(5,5,9,0.70) 55%, transparent 100%)",
+          background:
+            "linear-gradient(to top, #050509 0%, rgba(5,5,9,0.70) 55%, transparent 100%)",
+          pointerEvents: "none",
         }}
       />
 
-      {/* ── Radial edge darkening ─────────────────────────────────────────── */}
+      {/* ── 4c. Radial edge darkening ─────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
             "radial-gradient(ellipse 120% 80% at 50% 40%, transparent 40%, rgba(5,5,9,0.75) 100%)",
+          pointerEvents: "none",
         }}
       />
 
-      {/* ── Cinematic colour grade: blue→purple→pink screen layer ─────────── */}
+      {/* ── 4d. Cinematic colour grade (blue→purple→pink, screen blend) ───── */}
       <div
         style={{
           position: "absolute",
@@ -89,7 +129,7 @@ export function HeroBackground() {
         }}
       />
 
-      {/* ── Ambient glow — top-left blue ──────────────────────────────────── */}
+      {/* ── 5a. Ambient glow — top-left blue ─────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -105,12 +145,19 @@ export function HeroBackground() {
         }}
       />
 
-      {/* ── Ambient glow — bottom-right purple ───────────────────────────── */}
+      {/* ── 5b. Ambient glow — bottom-right purple ───────────────────────── */}
+      {/*
+        NOTE: right is 0, NOT -60px.
+        The previous -60px value caused the blur() paint layer to extend
+        ~170px beyond the viewport right edge, creating the blank overflow strip.
+        Positioning at right:0 keeps the glow edge flush with the page boundary;
+        the radial gradient still produces a soft corner effect.
+      */}
       <div
         style={{
           position: "absolute",
           bottom: "80px",
-          right: "-60px",
+          right: 0,
           width: "480px",
           height: "480px",
           borderRadius: "50%",
@@ -121,7 +168,7 @@ export function HeroBackground() {
         }}
       />
 
-      {/* ── Subtle centre highlight ───────────────────────────────────────── */}
+      {/* ── 5c. Subtle centre highlight ───────────────────────────────────── */}
       <div
         style={{
           position: "absolute",

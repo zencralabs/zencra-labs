@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 
 /**
- * HeroCTAs
+ * HeroCTAs — Homepage hero call-to-action buttons.
  *
- * Primary gradient CTA → /studio/video
- * Secondary glass CTA   → /studio/video (demo scroll-to section in future)
+ * Theme (Zencra yellow-first):
+ *   Primary  → solid #FFD731 (yellow), black text, hover #E5C12C
+ *   Secondary → glass dark, white text — unchanged
  *
- * No heavy dependencies — inline styles + router only.
+ * Yellow is the Zencra primary CTA color going forward.
+ * The blue-purple gradient is reserved for decorative/accent use only.
  */
 export function HeroCTAs() {
   const router = useRouter();
@@ -23,7 +25,7 @@ export function HeroCTAs() {
         justifyContent: "center",
       }}
     >
-      {/* ── Primary — gradient ─────────────────────────────────────────────── */}
+      {/* ── Primary — yellow #FFD731 ──────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => router.push("/studio/video")}
@@ -33,30 +35,29 @@ export function HeroCTAs() {
           gap: "8px",
           height: "52px",
           padding: "0 32px",
-          background:
-            "linear-gradient(90deg, #2563eb 0%, #8b5cf6 55%, #d946ef 100%)",
+          background: "#FFD731",
           border: "none",
-          color: "#fff",
+          color: "#000000",
           fontSize: "15px",
-          fontWeight: 600,
+          fontWeight: 700,
           letterSpacing: "-0.01em",
           cursor: "pointer",
-          boxShadow:
-            "0 0 40px rgba(139,92,246,0.30), 0 2px 8px rgba(0,0,0,0.40)",
-          transition: "filter 0.15s ease, transform 0.10s ease",
+          boxShadow: "0 0 36px rgba(255,215,49,0.28), 0 2px 8px rgba(0,0,0,0.30)",
+          transition: "background 0.15s ease, transform 0.10s ease, box-shadow 0.15s ease",
           whiteSpace: "nowrap" as const,
         }}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.filter =
-            "brightness(1.12)";
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = "#E5C12C";
+          el.style.boxShadow = "0 0 44px rgba(255,215,49,0.36), 0 2px 12px rgba(0,0,0,0.30)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.filter =
-            "brightness(1)";
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = "#FFD731";
+          el.style.boxShadow = "0 0 36px rgba(255,215,49,0.28), 0 2px 8px rgba(0,0,0,0.30)";
         }}
         onMouseDown={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.transform =
-            "scale(0.97)";
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(0.97)";
         }}
         onMouseUp={(e) => {
           (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
@@ -81,7 +82,7 @@ export function HeroCTAs() {
         </svg>
       </button>
 
-      {/* ── Secondary — glass ──────────────────────────────────────────────── */}
+      {/* ── Secondary — glass dark ────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => router.push("/studio/video")}
@@ -100,8 +101,7 @@ export function HeroCTAs() {
           fontWeight: 500,
           letterSpacing: "-0.01em",
           cursor: "pointer",
-          transition:
-            "background 0.15s ease, border-color 0.15s ease",
+          transition: "background 0.15s ease, border-color 0.15s ease",
           whiteSpace: "nowrap" as const,
         }}
         onMouseEnter={(e) => {
@@ -115,7 +115,7 @@ export function HeroCTAs() {
           el.style.borderColor = "rgba(255,255,255,0.16)";
         }}
       >
-        Watch Demo
+        Explore Studio
         {/* Play icon */}
         <svg
           width="16"
