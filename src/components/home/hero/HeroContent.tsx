@@ -65,14 +65,15 @@ export function HeroContent() {
         The 48px tablet and 64px desktop breakpoints fall naturally within this range.
       */}
       <h1
+        className="font-display tracking-tight"
         style={{
           margin: 0,
           fontFamily: "var(--font-display, 'Syne', sans-serif)",
-          fontWeight: 700,
+          fontSize: "clamp(2rem, 4vw, 3rem)",
+          fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
           color: "#ffffff",
-          fontSize: "clamp(42px, 5vw, 56px)",
           textShadow: "0 0 14px rgba(255,255,255,0.08)",
           maxWidth: "880px",
         }}

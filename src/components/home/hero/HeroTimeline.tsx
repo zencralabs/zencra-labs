@@ -13,6 +13,7 @@ export const HERO_SCENES = [
   { id: "desert",    title: "Desert Warrior",   tag: "Epic Scene",  duration: "0:15", image: "/hero/desert.jpg" },
   { id: "product",   title: "Product Ad",        tag: "Commercial",  duration: "0:08", image: "/hero/product.jpg" },
   { id: "ugc",       title: "AI Influencer",    tag: "UGC Video",   duration: "0:09", image: "/hero/ugc.jpg" },
+  { id: "music",     title: "Music Video",       tag: "Music Video", duration: "0:11", image: "/hero/music.jpg" },
 ] as const;
 
 /**
@@ -98,17 +99,11 @@ export function HeroTimeline() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="hero-timeline-scroll"
+        className="hero-timeline-scroll flex gap-4 px-6 overflow-x-auto overflow-y-hidden"
         style={{
-          display: "flex",
-          gap: "14px",
-          overflowX: "auto",
-          overflowY: "hidden",
           scrollBehavior: "smooth",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
-          paddingLeft: "24px",
-          paddingRight: "24px",
           paddingBottom: "6px",
           /* scrollbar hidden via global style in HeroSection */
           msOverflowStyle: "none",
@@ -118,11 +113,13 @@ export function HeroTimeline() {
         {HERO_SCENES.map((scene) => (
           <div
             key={scene.id}
-            style={{ scrollSnapAlign: "start", flexShrink: 0 }}
+            style={{ scrollSnapAlign: "start", flex: "0 0 auto" }}
           >
             <HeroCard {...scene} />
           </div>
         ))}
+        {/* End spacer — ensures last card gets full right padding in all browsers */}
+        <div aria-hidden="true" style={{ flex: "0 0 8px" }} />
       </div>
 
       {/* ── Dot indicators — mobile only ─────────────────────────────────── */}

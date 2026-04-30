@@ -53,7 +53,7 @@ export function HeroBackground() {
           height: "100%",
           objectFit: "cover",
           objectPosition: "center 30%",
-          opacity: 0.42,
+          opacity: 0.65,
         }}
       />
 
@@ -72,7 +72,7 @@ export function HeroBackground() {
           height: "100%",
           objectFit: "cover",
           objectPosition: "center 30%",
-          opacity: 0.42,
+          opacity: 0.65,
         }}
       >
         <source src="/hero/videos/hero-bg.mp4" type="video/mp4" />
@@ -106,28 +106,18 @@ export function HeroBackground() {
         }}
       />
 
-      {/* ── 4c. Radial edge darkening ─────────────────────────────────────── */}
+      {/* ── 4c. Radial edge darkening — reduced to 0.28 for sharper video ─── */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse 120% 80% at 50% 40%, transparent 40%, rgba(5,5,9,0.75) 100%)",
+            "radial-gradient(ellipse 120% 80% at 50% 40%, transparent 40%, rgba(5,5,9,0.28) 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* ── 4d. Cinematic colour grade (blue→purple→pink, screen blend) ───── */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(139,92,246,0.10) 50%, rgba(217,70,239,0.12) 100%)",
-          mixBlendMode: "screen",
-          pointerEvents: "none",
-        }}
-      />
+      {/* ── 4d. Colour grade removed — video plays clean, no tint wash ─────── */}
 
       {/* ── 5a. Ambient glow — top-left blue ─────────────────────────────── */}
       <div
