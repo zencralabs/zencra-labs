@@ -105,6 +105,7 @@ export function HeroTimeline() {
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
           paddingBottom: "6px",
+          justifyContent: "center",
           /* scrollbar hidden via global style in HeroSection */
           msOverflowStyle: "none",
           scrollbarWidth: "none",
