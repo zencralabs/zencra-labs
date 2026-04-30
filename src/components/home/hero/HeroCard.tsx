@@ -6,7 +6,7 @@ export interface HeroCardProps {
   id: string;
   title: string;
   tag: string;
-  duration: string;
+  /** Poster path (e.g. /hero/cyberpunk.jpg). Card shows dark fallback if missing. */
   image: string;
 }
 
@@ -14,23 +14,23 @@ export interface HeroCardProps {
  * HeroCard — cinematic scene preview card.
  *
  * Media layers (bottom → top):
- *   1. Dark base background (#0a0a14)
- *   2. <img> fallback image          — always rendered, shows if video fails
- *   3. <video> autoplay preview       — muted, loop, playsInline, preload=metadata
- *   4. Gradient overlays + badges
+ *   1. Dark cinematic base  (#0a0a14 + gradient) — always visible, no broken icon
+ *   2. <img> poster         — hidden via onError if file is missing/broken
+ *   3. <video> autoplay     — muted, loop, playsInline, preload=metadata
+ *   4. Gradient overlay + genre chip + title label
  *
- * Video source: /hero/videos/{id}.mp4  (target <2–3 MB, no audio)
- * Image fallback: the `image` prop path (e.g. /hero/cyberpunk.jpg)
+ * Video source: /hero/videos/{id}.mp4
+ * Poster:       the `image` prop  — safe to pass even if file doesn't exist yet;
+ *               onError hides the img element so the browser never shows a broken icon.
  *
- * Dimensions (clamp, responsive):
- *   Width:  220px mobile → 280px desktop
- *   Height: 150px mobile → 180px desktop
+ * Duration badge: removed — no timing labels on hero cards.
+ * border-radius:  0 everywhere (sharp cinematic edges).
  *
  * Hover: scale(1.03) + purple border glow.
- * No next/image — media layers are decorative, not CLS-sensitive content.
  */
-export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
-  const [hovered, setHovered] = useState(false);
+export function HeroCard({ id, title, tag, image }: HeroCardProps) {
+  const [hovered,  setHovered]  = useState(false);
+  const [imgError, setImgError] = useState(false);
   const videoSrc = `/hero/videos/${id}.mp4`;
 
   return (
@@ -43,7 +43,10 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         flexShrink: 0,
         position: "relative" as const,
         overflow: "hidden",
-        background: "#0a0a14",
+        borderRadius: 0,
+
+        /* Dark cinematic base — visible even when poster + video both missing */
+        background: "linear-gradient(135deg, #05070F 0%, #111827 100%)",
 
         /* Hover border + cinematic glow (Option A) */
         border: hovered
@@ -59,41 +62,52 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         cursor: "pointer",
       }}
     >
-      {/* ── 1. Fallback <img> — renders behind video ─────────────────────── */}
+      {/* ── 1. Poster <img> — hidden via onError; no broken icon ever shown ── */}
       {/*
-        If the .mp4 file is missing or the browser can't play it, this img
-        is visible through the transparent video layer. The video's poster
-        attribute also provides browser-native fallback during buffering.
+        We render the img only when we haven't already seen it error.
+        onError fires synchronously on 404/network fail and flips imgError →
+        React re-renders, the element is removed, dark base shows instead.
         eslint-disable-next-line: decorative card media, not a CLS image.
       */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={image}
-        alt=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity: 0.65,
-        }}
-      />
+      {!imgError && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={image}
+          alt=""
+          onError={() => setImgError(true)}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            borderRadius: 0,
+            opacity: 0.65,
+          }}
+        />
+      )}
 
       {/* ── 2. Autoplay video preview ─────────────────────────────────────── */}
+      {/*
+        poster= is safe even when the image file is missing — browser handles
+        a missing poster silently (no broken icon, just skips the frame).
+        video onError hides the element if the .mp4 is also missing.
+      */}
       <video
         autoPlay
         muted
         loop
         playsInline
         preload="metadata"
-        poster={image}
+        poster={imgError ? undefined : image}
+        onError={(e) => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
         style={{
           position: "absolute",
           inset: 0,
           width: "100%",
           height: "100%",
           objectFit: "cover",
+          borderRadius: 0,
           opacity: hovered ? 0.85 : 0.72,
           transition: "opacity 0.25s ease",
         }}
@@ -116,26 +130,7 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         }}
       />
 
-      {/* ── 4. Duration badge — top right ─────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          top: "9px",
-          right: "9px",
-          background: "rgba(0,0,0,0.62)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          padding: "3px 8px",
-          fontSize: "11px",
-          fontWeight: 500,
-          color: "rgba(255,255,255,0.82)",
-          letterSpacing: "0.02em",
-        }}
-      >
-        {duration}
-      </div>
-
-      {/* ── 5. Genre chip — top left ──────────────────────────────────────── */}
+      {/* ── 4. Genre chip — top left ──────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -143,6 +138,7 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
           left: "9px",
           background: "rgba(139,92,246,0.80)",
           padding: "3px 8px",
+          borderRadius: 0,
           fontSize: "11px",
           fontWeight: 700,
           color: "#fff",
@@ -153,7 +149,7 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         {tag}
       </div>
 
-      {/* ── 6. Title — bottom ─────────────────────────────────────────────── */}
+      {/* ── 5. Title — bottom ─────────────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
@@ -176,7 +172,7 @@ export function HeroCard({ id, title, tag, duration, image }: HeroCardProps) {
         </p>
       </div>
 
-      {/* ── 7. Hover colour overlay ───────────────────────────────────────── */}
+      {/* ── 6. Hover colour overlay ───────────────────────────────────────── */}
       {hovered && (
         <div
           aria-hidden="true"

@@ -4,26 +4,36 @@ import { useRef, useState } from "react";
 import { HeroCard } from "./HeroCard";
 
 /**
- * HERO_SCENES — the cinematic showcase clips shown below the hero content.
- * Images live in /public/hero/. Components render a dark fallback if missing.
+ * HERO_SCENES — cinematic showcase cards shown below the hero content.
+ *
+ * 10 entries — row overflows the viewport on most screens, users slide/swipe.
+ * Videos live in /public/hero/videos/{id}.mp4
+ * Posters live in /public/hero/{id}.jpg  (optional — card shows dark fallback if missing)
  */
 export const HERO_SCENES = [
-  { id: "cyberpunk", title: "Cyberpunk Chase",  tag: "Short Film",  duration: "0:12", image: "/hero/cyberpunk.jpg" },
-  { id: "emotional", title: "Emotional Scene",  tag: "Cinematic",   duration: "0:10", image: "/hero/emotional.jpg" },
-  { id: "desert",    title: "Desert Warrior",   tag: "Epic Scene",  duration: "0:15", image: "/hero/desert.jpg" },
-  { id: "product",   title: "Product Ad",        tag: "Commercial",  duration: "0:08", image: "/hero/product.jpg" },
-  { id: "ugc",       title: "AI Influencer",    tag: "UGC Video",   duration: "0:09", image: "/hero/ugc.jpg" },
-  { id: "music",     title: "Music Video",       tag: "Music Video", duration: "0:11", image: "/hero/music.jpg" },
+  { id: "cyberpunk",     title: "Cyberpunk Chase",     tag: "Short Film",   image: "/hero/cyberpunk.jpg"     },
+  { id: "emotional",     title: "Emotional Scene",     tag: "Cinematic",    image: "/hero/emotional.jpg"     },
+  { id: "desert",        title: "Desert Warrior",      tag: "Epic Scene",   image: "/hero/desert.jpg"        },
+  { id: "product",       title: "Product Ad",          tag: "Commercial",   image: "/hero/product.jpg"       },
+  { id: "ugc",           title: "AI Influencer",       tag: "UGC Video",    image: "/hero/ugc.jpg"           },
+  { id: "music",         title: "Music Video",         tag: "Music Video",  image: "/hero/music.jpg"         },
+  { id: "travel",        title: "Travel Reel",         tag: "Travel Reel",  image: "/hero/travel.jpg"        },
+  { id: "fitness",       title: "Fitness Reel",        tag: "Fitness Reel", image: "/hero/fitness.jpg"       },
+  { id: "food",          title: "Food Ad",             tag: "Food Ad",      image: "/hero/food.jpg"          },
+  { id: "behind-scenes", title: "Behind the Scenes",   tag: "BTS",          image: "/hero/behind-scenes.jpg" },
 ] as const;
 
 /**
  * HeroTimeline
  *
- * A horizontally-scrollable, snap-scroll row of HeroCards.
- * Cards sit in a centered inner flex wrapper; no edge fades — clean hero bg.
+ * A horizontally-scrollable, snap-scroll row of 10 HeroCards.
+ * Native scroll only — no JS carousel, no autoplay, no arrows needed.
  *
- * Desktop: centered row, overflow-x-auto for viewports narrower than total card width.
+ * Desktop: 10 cards overflow viewport; users drag or scroll wheel to slide.
  * Mobile:  scroll-snap for natural swipe feel + dot navigation indicators.
+ *
+ * Layout note: inner row uses flex-start (not center) so that with overflow
+ * the leftmost cards are always reachable — centering clips left-side overflow.
  */
 export function HeroTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -74,14 +84,12 @@ export function HeroTimeline() {
           scrollbarWidth: "none",
         }}
       >
-        {/* ── Inner centered flex row ───────────────────────────────────── */}
+        {/* ── Inner flex row — left-aligned so overflow scrolls correctly ── */}
         <div
           ref={innerRef}
           style={{
-            display: "flex",
-            justifyContent: "center",
+            display: "inline-flex",   /* shrink-wraps to card content, no width:100% clip */
             gap: "16px",
-            width: "100%",
             padding: "0 24px",
           }}
         >
@@ -93,7 +101,7 @@ export function HeroTimeline() {
               <HeroCard {...scene} />
             </div>
           ))}
-          {/* End spacer */}
+          {/* End spacer — ensures last card clears the right padding on all browsers */}
           <div aria-hidden="true" style={{ flex: "0 0 8px" }} />
         </div>
       </div>
