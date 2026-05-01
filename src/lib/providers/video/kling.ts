@@ -261,6 +261,17 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         `model: ${modelKey}`
       );
 
+      // ── Required image guard ─────────────────────────────────────────────────
+      // Motion Control always requires an image — if normalization returned null
+      // (empty imageUrl was sent), throw now with a clear message rather than
+      // sending a malformed payload that Kling would reject silently.
+      if (isMotionControl && !normalizedImageUrl) {
+        throw new Error(
+          "Image is required for Kling Motion Control mode. " +
+          "Please upload a subject image before generating."
+        );
+      }
+
       let endpoint: string;
       let payload: Record<string, unknown>;
 
@@ -312,6 +323,9 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         };
       }
 
+      console.log("[kling] Dispatch payload mode:", endpoint.includes("image2video") ? "image2video" : "text2video");
+      console.log("[kling] Model:", apiModelId, "| key:", modelKey);
+      console.log("[kling] Has image:", !!normalizedImageUrl, "| Has end image:", !!normalizedEndImageUrl);
       console.log("[kling] dispatching to", endpoint, "| sound_generation in payload:", "sound_generation" in payload, "| model:", apiModelId);
       const res = await fetch(`${baseUrl}${endpoint}`, {
         method:  "POST",

@@ -1242,13 +1242,12 @@ export default function VideoStudioShell() {
           errMsg.includes("blob:")
         ) {
           showToast(
-            "Please re-upload your image — it could not be processed. " +
-            "Try removing and re-adding the image, then generate again.",
+            "Image could not be processed. Try re-uploading or use a different image.",
             "error"
           );
           setVideos(prev => prev.map(v =>
             v.id === newVideo.id
-              ? { ...v, status: "error" as const, error: "Image could not be processed — please re-upload" }
+              ? { ...v, status: "error" as const, error: "Image could not be processed — try re-uploading" }
               : v,
           ));
           setGenerating(false);

@@ -47,27 +47,36 @@ export function isLikelyBase64(value: string): boolean {
 
 /**
  * Fetch an HTTPS URL server-side and return the content as a raw base64 string.
- * Throws if the fetch fails or returns a non-OK status.
+ * Retries once on network failure to handle intermittent CDN/edge timeouts.
+ * Throws if both attempts fail or if the server returns a non-OK status.
  */
 export async function fetchUrlAsBase64(url: string): Promise<string> {
-  let response: Response;
+  const attempt = async (): Promise<string> => {
+    let response: Response;
+    try {
+      response = await fetch(url, { method: "GET" });
+    } catch (err) {
+      throw new Error(
+        `Failed to fetch image from URL: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+    if (!response.ok) {
+      throw new Error(`Image fetch returned HTTP ${response.status} for URL: ${url}`);
+    }
+    const buffer = await response.arrayBuffer();
+    return Buffer.from(buffer).toString("base64");
+  };
+
   try {
-    response = await fetch(url, { method: "GET" });
-  } catch (err) {
-    throw new Error(
-      `Failed to fetch image from URL: ${err instanceof Error ? err.message : String(err)}`
+    return await attempt();
+  } catch (firstErr) {
+    console.warn(
+      "[kling-media] fetchUrlAsBase64 first attempt failed — retrying:",
+      firstErr instanceof Error ? firstErr.message : String(firstErr)
     );
+    // Second attempt: let this throw if it also fails — caller surfaces the error.
+    return await attempt();
   }
-
-  if (!response.ok) {
-    throw new Error(
-      `Image fetch returned HTTP ${response.status} for URL: ${url}`
-    );
-  }
-
-  const buffer = await response.arrayBuffer();
-  // Convert ArrayBuffer → base64 string (Node-compatible)
-  return Buffer.from(buffer).toString("base64");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +153,16 @@ export async function normalizeKlingImageInput(input: unknown): Promise<string |
   // Anything shorter is a truncated encoding, empty, or garbage.
   if (base64.length < 1000) {
     throw new Error("Invalid image encoding (too small).");
+  }
+
+  // ── Maximum size guard ───────────────────────────────────────────────────
+  // 5 MB base64 ≈ ~3.75 MB original image.  Larger files risk OOM on serverless
+  // runtimes (Vercel) and Kling API rejections.  Surface a user-friendly message
+  // rather than silently crashing the generation route.
+  if (base64.length > 5_000_000) {
+    throw new Error(
+      "Image too large. Please upload a smaller file (max ~3.5 MB)."
+    );
   }
 
   // ── Character validity guard ─────────────────────────────────────────────
