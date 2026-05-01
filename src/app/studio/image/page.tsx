@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "rea
 import { useSearchParams, useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import { downloadAsset } from "@/lib/client/downloadAsset";
+import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
+import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { supabase } from "@/lib/supabase";
@@ -1064,18 +1066,20 @@ function ImageStudioInner() {
       .catch(() => {});
   }, [detectedHandles, user?.accessToken]);
 
-  // Grid column count — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
-  // Higher zoom → fewer columns → larger images.
-  // Lower zoom  → more columns  → smaller images.
-  // Default zoomLevel=3 (60%) shows a premium-sized, balanced gallery.
-  // CSS Grid preserves DOM order so newest image always lands top-left.
-  const galleryColCount = useMemo(() => {
-    if (zoomLevel >= 5) return 3;
-    if (zoomLevel >= 4) return 4;
-    if (zoomLevel >= 3) return 5;
-    if (zoomLevel >= 2) return 6;
-    return 7;
+  // ── Justified gallery layout ──────────────────────────────────────────────
+  // targetRowHeight is driven by the zoom slider.
+  // Higher zoom → taller rows → fewer images per row → larger images.
+  const targetRowHeight = useMemo(() => {
+    if (zoomLevel >= 5) return 440;
+    if (zoomLevel >= 4) return 340;
+    if (zoomLevel >= 3) return 260;
+    if (zoomLevel >= 2) return 200;
+    return 160;
   }, [zoomLevel]);
+
+  // Container pixel width — measured by ResizeObserver watching galleryScrollRef.
+  // contentBoxSize.inlineSize excludes padding so this is the true available width.
+  const [containerWidth, setContainerWidth] = useState(0);
 
   function closeDropdowns() {
     setShowModelPicker(false);
@@ -1089,6 +1093,29 @@ function ImageStudioInner() {
     }
     window.addEventListener("mousedown", handle);
     return () => window.removeEventListener("mousedown", handle);
+  }, []);
+
+  // ── ResizeObserver — track gallery content width for justified layout ────────
+  // Observes galleryScrollRef (the scroll container with padding: 24px).
+  // contentBoxSize.inlineSize reports the content-box width, i.e. after padding
+  // is subtracted — exactly the space available to gallery rows.
+  useEffect(() => {
+    const el = galleryScrollRef.current;
+    if (!el) return;
+    // Seed immediately so the first layout pass runs synchronously
+    setContainerWidth(el.clientWidth - 48); // subtract left+right 24px padding
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const w =
+        entry.contentBoxSize?.[0]?.inlineSize ??
+        entry.contentRect.width;
+      setContainerWidth(Math.floor(w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  // galleryScrollRef is stable — no deps needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Character Consistency: detect face when CDN URL becomes available ────────
@@ -1109,6 +1136,32 @@ function ImageStudioInner() {
       } catch { /* FaceDetector unavailable — no-op */ }
     })();
   }, [firstRefCdnUrl]);
+
+  // ── Justified layout rows — recomputes only when images or containerWidth change ──
+  // Type alias so images can carry the `src` field required by JustifiedInput.
+  type ImageJustifiedItem = GeneratedImage & JustifiedInput;
+  // Map GeneratedImage → JustifiedInput (adds `src` = url)
+  const justifiedImages = useMemo<ImageJustifiedItem[]>(
+    () => images.map((img) => ({ ...img, src: img.url })),
+    [images],
+  );
+  const justifiedRows = useMemo(
+    () => buildJustifiedRows(justifiedImages, containerWidth, targetRowHeight, 12),
+    [justifiedImages, containerWidth, targetRowHeight],
+  );
+
+  // Skeleton rows — same algorithm, fake items from SKELETON_RATIOS
+  const skeletonRows = useMemo(() => {
+    if (containerWidth <= 0) return [];
+    const fakeItems = SKELETON_RATIOS.map((ratio, i) => ({
+      id: `sk-${i}`,
+      src: null,
+      aspectRatio: "Auto",
+      naturalWidth: Math.round(ratio * 1000),
+      naturalHeight: 1000,
+    }));
+    return buildJustifiedRows(fakeItems, containerWidth, targetRowHeight, 12);
+  }, [containerWidth, targetRowHeight]);
 
   // ── Hydrate gallery instantly from localStorage cache on mount ───────────────
   // Runs once user.id is known. Populates images before the API fetch completes
@@ -2023,26 +2076,34 @@ function ImageStudioInner() {
         }}
       >
 
-        {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
-        {/* Only show skeleton when no cache data is available yet */}
-        {user && !historyLoaded && images.length === 0 && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${galleryColCount}, 1fr)`,
-            gap: 0,
-          }}>
-            {SKELETON_RATIOS.map((ratio, i) => (
-              <div key={i} style={{
-                width:        "100%",
-                aspectRatio:  String(ratio),
-                position:     "relative",
-                overflow:     "hidden",
-              }}>
-                <SkeletonCard index={i} />
+        {/* ── STATE 1: History loading — justified skeleton rows ───────────── */}
+        {/* Only show when no cache data is available yet (images.length === 0) */}
+        {user && !historyLoaded && images.length === 0 && skeletonRows.map((row, ri) => (
+          <div
+            key={ri}
+            style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "12px",
+              height: row.height,
+            }}
+          >
+            {row.items.map((item, ii) => (
+              <div
+                key={item.data.id}
+                style={{
+                  width:    item.width,
+                  height:   row.height,
+                  flexShrink: 0,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <SkeletonCard index={ri * 8 + ii} />
               </div>
             ))}
           </div>
-        )}
+        ))}
 
         {/* ── HISTORY ERROR: fetch failed — show retry prompt ──────────────── */}
         {historyError && historyLoaded && images.length === 0 && (
@@ -2316,29 +2377,34 @@ function ImageStudioInner() {
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* ── CSS Grid — DOM order preserved, newest image = top-left ── */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${galleryColCount}, 1fr)`,
-              gap: 0,
-            }}>
-              {images.map((img, index) => {
+            {/* ── Justified rows — Higgsfield / Google Photos layout ─────── */}
+            {justifiedRows.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  marginBottom: "12px",
+                  height: row.height,
+                }}
+              >
+              {row.items.map(({ data: img, width }, index) => {
+                const globalIndex = justifiedRows
+                  .slice(0, rowIndex)
+                  .reduce((sum, r) => sum + r.items.length, 0) + index;
                 return (
                 <div
                   key={img.id}
                   ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
-                    width:        "100%",
-                    position:     "relative",
-                    overflow:     "hidden",
-                    // Generating/error: set aspect-ratio so absolute-positioned
-                    // overlays (spinner, error) have a defined frame to fill.
-                    ...(img.status !== "done"
-                      ? { aspectRatio: getAspectRatioCss(img.aspectRatio) ?? "1 / 1" }
-                      : {}),
+                    width,
+                    height:   row.height,
+                    flexShrink: 0,
+                    position: "relative",
+                    overflow: "hidden",
                     opacity:       0,
-                    animation:     `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                    animation:     `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(globalIndex, 20) * 40}ms forwards`,
                     outline:       selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
                     outlineOffset: "-2px",
                   }}
@@ -2396,7 +2462,7 @@ function ImageStudioInner() {
                   <ImageCard
                     img={img}
                     hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
-                    seqNumber={seqMap.get(img.id) ?? (index + 1)}
+                    seqNumber={seqMap.get(img.id) ?? (globalIndex + 1)}
                     onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
                     onReusePrompt={(p) => {
                       setPrompt(p);
@@ -2419,8 +2485,9 @@ function ImageStudioInner() {
                   {/* Sequence number now rendered inside MediaCard below the action strip */}
                 </div>
               );
-            })}
-            </div>
+              })}
+              </div>
+            ))}
             </>
           );
         })()}
