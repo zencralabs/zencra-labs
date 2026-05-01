@@ -1913,67 +1913,9 @@ export default function VideoStudioShell() {
               100% { box-shadow: 0 0 0 2px rgba(99,102,241,0.6), 0 0 24px rgba(99,102,241,0.3); }
             }
           `}</style>
-          {/* ── Triptych canvas stage — 9:16 left | 16:9 center | 1:1 right ── */}
-          {/*                                                                   */}
-          {/* Layout math:                                                       */}
-          {/*   Left  9:16 → position:absolute; top:50%; left:0%;               */}
-          {/*                transform:translate(-50%,-50%);   zIndex:2          */}
-          {/*   Right 1:1  → position:absolute; top:50%; right:0%;              */}
-          {/*                transform:translate(50%,-50%);    zIndex:2          */}
-          {/*   Center 16:9 canvas stays unchanged at zIndex:1 (default)         */}
+          {/* ── Canvas wrapper — relative so MotionFlowStrip can float above ── */}
           <div style={{ position: "relative" }}>
-
-            {/* ── LEFT — 9:16 portrait frame (50% outside left edge) ─────── */}
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              left: "0%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 2,
-              width: "15%",
-              aspectRatio: "9 / 16",
-              background: "rgba(10,14,26,0.78)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 4,
-              backdropFilter: "blur(10px)",
-              overflow: "hidden",
-              boxShadow: [
-                "0 8px 32px rgba(0,0,0,0.55)",
-                "0 0 0 1px rgba(255,255,255,0.04)",
-                "inset 0 0 12px rgba(14,165,160,0.04)",
-              ].join(", "),
-              pointerEvents: "none",
-            }}>
-              {/* Video content — cropped cover when done */}
-              {canvasPreviewVideo?.url && canvasPreviewVideo.status === "done" && (
-                <video
-                  src={canvasPreviewVideo.url}
-                  muted playsInline loop autoPlay
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              )}
-              {/* Cinematic dark overlay */}
-              <div style={{
-                position: "absolute", inset: 0,
-                background: canvasPreviewVideo?.status === "done"
-                  ? "rgba(0,0,0,0.30)"
-                  : "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(14,165,160,0.06) 0%, transparent 100%)",
-                pointerEvents: "none",
-              }} />
-              {/* AR label — bottom center */}
-              <div style={{
-                position: "absolute", bottom: 7, left: 0, right: 0,
-                textAlign: "center",
-                fontSize: 10, fontWeight: 700,
-                color: "rgba(255,255,255,0.30)",
-                letterSpacing: "0.10em",
-                fontFamily: "inherit",
-              }}>
-                9:16
-              </div>
-            </div>
-
-            {/* MotionFlowStrip — floats centered at top of canvas (zIndex:5) */}
+            {/* MotionFlowStrip — floats centered at top of canvas */}
             <div style={{
               position: "absolute",
               top: 17,
@@ -1990,7 +1932,6 @@ export default function VideoStudioShell() {
               />
             </div>
 
-            {/* ── CENTER — 16:9 main canvas (zIndex:1 default) ─────────── */}
             {model && !model.available ? (
               <ComingSoonScreen model={model} />
             ) : model && model.apiModelId === "" ? (
@@ -2036,57 +1977,6 @@ export default function VideoStudioShell() {
                 onPreviewReuse={handlePreviewReuse}
               />
             )}
-
-            {/* ── RIGHT — 1:1 square frame (50% outside right edge) ──────── */}
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              right: "0%",
-              transform: "translate(50%, -50%)",
-              zIndex: 2,
-              width: "20%",
-              aspectRatio: "1 / 1",
-              background: "rgba(10,14,26,0.78)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 4,
-              backdropFilter: "blur(10px)",
-              overflow: "hidden",
-              boxShadow: [
-                "0 8px 32px rgba(0,0,0,0.55)",
-                "0 0 0 1px rgba(255,255,255,0.04)",
-                "inset 0 0 12px rgba(14,165,160,0.04)",
-              ].join(", "),
-              pointerEvents: "none",
-            }}>
-              {/* Video content — cropped cover when done */}
-              {canvasPreviewVideo?.url && canvasPreviewVideo.status === "done" && (
-                <video
-                  src={canvasPreviewVideo.url}
-                  muted playsInline loop autoPlay
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              )}
-              {/* Cinematic dark overlay */}
-              <div style={{
-                position: "absolute", inset: 0,
-                background: canvasPreviewVideo?.status === "done"
-                  ? "rgba(0,0,0,0.30)"
-                  : "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(14,165,160,0.06) 0%, transparent 100%)",
-                pointerEvents: "none",
-              }} />
-              {/* AR label — bottom center */}
-              <div style={{
-                position: "absolute", bottom: 7, left: 0, right: 0,
-                textAlign: "center",
-                fontSize: 10, fontWeight: 700,
-                color: "rgba(255,255,255,0.30)",
-                letterSpacing: "0.10em",
-                fontFamily: "inherit",
-              }}>
-                1:1
-              </div>
-            </div>
-
           </div>
 
           {/* ── Canvas Audio Status Badge ──────────────────────────────────────── */}
