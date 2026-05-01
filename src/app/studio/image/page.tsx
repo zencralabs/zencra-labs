@@ -578,6 +578,7 @@ function ImageCard({
   onOpenWorkflow,
   hideHoverActions = false,
   seqNumber,
+  onImageLoad,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
@@ -589,6 +590,8 @@ function ImageCard({
   onOpenWorkflow?: (flow: WorkflowFlow) => void;
   hideHoverActions?: boolean;
   seqNumber?: number;
+  /** Fired when the underlying <img> loads — caller reads naturalWidth/naturalHeight for justified layout. */
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }) {
   const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
@@ -675,6 +678,7 @@ function ImageCard({
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
         onAnimate={() => setCardAnimateOpen(v => !v)}
+        onImageLoad={onImageLoad}
       />
 
       {/* ── Animate Start/End Frame dropdown — identical routing to right panel ── */}
@@ -821,6 +825,11 @@ function ImageStudioInner() {
   const [batchSize, setBatchSize] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(3); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
+  // Measured aspect ratios from real loaded images — keyed by image ID.
+  // Populated via onImageLoad on the actual rendered <img>. Used to override
+  // the stored "Auto" aspectRatio string with the true naturalWidth/naturalHeight
+  // so the justified layout engine allocates the correct column width per image.
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   // ── Studio mode — Standard Generate or Creative Director ────────────────────
   // Lazy initializer reads ?mode=creative-director from URL on first render.
   // This lets navbar / dashboard links deep-link directly into CD mode.
@@ -1140,10 +1149,23 @@ function ImageStudioInner() {
   // ── Justified layout rows — recomputes only when images or containerWidth change ──
   // Type alias so images can carry the `src` field required by JustifiedInput.
   type ImageJustifiedItem = GeneratedImage & JustifiedInput;
-  // Map GeneratedImage → JustifiedInput (adds `src` = url)
+  // Map GeneratedImage → JustifiedInput (adds `src` = url).
+  // When a real naturalWidth/naturalHeight has been measured via onImageLoad,
+  // encode it as integer pixel dimensions so parseAspectRatio() in the layout
+  // engine picks them up in priority over the stored "Auto" string.
   const justifiedImages = useMemo<ImageJustifiedItem[]>(
-    () => images.map((img) => ({ ...img, src: img.url })),
-    [images],
+    () => images.map((img) => {
+      const measuredRatio = imageRatios[img.id];
+      return {
+        ...img,
+        src: img.url,
+        // Pass measured ratio as synthetic pixel dimensions (10000 is an
+        // arbitrary large integer; only the ratio w/h matters to the engine).
+        naturalWidth:  measuredRatio != null ? Math.round(measuredRatio * 10000) : undefined,
+        naturalHeight: measuredRatio != null ? 10000 : undefined,
+      };
+    }),
+    [images, imageRatios],
   );
   const justifiedRows = useMemo(
     () => buildJustifiedRows(justifiedImages, containerWidth, targetRowHeight, 12),
@@ -2481,6 +2503,15 @@ function ImageStudioInner() {
                     onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                     onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
                     onOpenWorkflow={(flow) => openVideoWorkflow(img, flow)}
+                    onImageLoad={(e) => {
+                      const el = e.currentTarget;
+                      if (el.naturalWidth && el.naturalHeight) {
+                        setImageRatios(prev => ({
+                          ...prev,
+                          [img.id]: el.naturalWidth / el.naturalHeight,
+                        }));
+                      }
+                    }}
                   />
                   {/* Sequence number now rendered inside MediaCard below the action strip */}
                 </div>

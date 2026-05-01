@@ -73,13 +73,20 @@ export interface MediaCardProps {
   /** Called after delete */
   onDelete?: (id: string) => void;
   /**
-   * Gallery wall mode — fills the parent grid cell edge-to-edge.
+   * Gallery wall mode — fills the parent justified-row cell edge-to-edge.
    * Card chrome (border, background, box-shadow, border-radius) is removed.
-   * Media container fills height: 100% and image uses objectFit: cover so it
-   * occupies the full grid frame without black dead-space.
-   * Hover overlays still render; overflow is clipped to the grid cell.
+   * The outer wrapper sets explicit pixel width + height; the card and its
+   * <img> fill that frame with objectFit: cover. No height: auto anywhere.
+   * Hover overlays still render; overflow is clipped to the cell.
    */
   galleryMode?: boolean;
+  /**
+   * Called when the underlying <img> fires its native onLoad event.
+   * Receives the SyntheticEvent so the caller can read
+   * e.currentTarget.naturalWidth / naturalHeight for justified layout.
+   * Only fires for image assets (not video).
+   */
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
   /**
    * Sequence number displayed below the right action strip on hover.
    * Passed in from the gallery; rendered inside the card so it scales
@@ -364,6 +371,7 @@ export default function MediaCard({
   onVisibilityChange,
   onDelete,
   galleryMode = false,
+  onImageLoad,
   seqNumber,
 }: MediaCardProps) {
   const [hovered,  setHovered]  = useState(false);
@@ -449,11 +457,12 @@ export default function MediaCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
       style={galleryMode ? {
-        // Gallery masonry mode: edge-to-edge fill, no card chrome.
-        // height:auto — the img element drives tile height in CSS columns masonry.
+        // Gallery justified-row mode: fills the explicit width+height of the
+        // parent wrapper. height: 100% propagates the wrapper's pixel height
+        // down through the component tree so the <img> can use objectFit:cover.
         position:   "relative",
         width:      "100%",
-        height:     "auto",
+        height:     "100%",
         overflow:   "hidden",
         cursor:     "pointer",
         userSelect: "none",
@@ -485,10 +494,12 @@ export default function MediaCard({
       {/* ── Media ─────────────────────────────────────────────────────────── */}
       <div
         style={galleryMode ? {
-          // Gallery masonry: height auto — image drives height, no forced frame.
+          // Gallery justified row: height 100% — fills the wrapper's explicit
+          // pixel height set by the justified layout engine. objectFit cover
+          // on the <img> below clips any fractional pixel overshoot.
           position:   "relative",
           width:      "100%",
-          height:     "auto",
+          height:     "100%",
           background: "transparent",
           overflow:   "hidden",
           borderRadius: 0,
@@ -526,11 +537,15 @@ export default function MediaCard({
             <img
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
+              onLoad={onImageLoad}
               style={galleryMode ? {
-                // Gallery masonry: width 100%, height auto — natural AR render.
-                // No cropping, no black bars. Image itself sets the tile height.
+                // Gallery justified row: fill the wrapper's pixel-height box.
+                // objectFit cover preserves aspect ratio and clips fractional px.
+                // onLoad above fires once real dimensions are known so the caller
+                // can update imageRatios → reflow to the correct justified width.
                 width:      "100%",
-                height:     "auto",
+                height:     "100%",
+                objectFit:  "cover",
                 display:    "block",
                 transition: "transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",

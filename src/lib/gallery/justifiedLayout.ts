@@ -97,8 +97,10 @@ function parseAspectRatio(
     }
   }
 
-  // 3. Square fallback
-  return 1.0;
+  // 3. Cinematic fallback — 16:9 is the dominant Zencra output format.
+  //    Using 1:1 here caused all "Auto" images to render as squares,
+  //    producing wrong row widths and black spaces in the justified layout.
+  return 16 / 9;
 }
 
 // ── Core algorithm ────────────────────────────────────────────────────────────
