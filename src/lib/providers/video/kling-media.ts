@@ -46,6 +46,25 @@ export function isLikelyBase64(value: string): boolean {
 }
 
 /**
+ * Inspect the first 4 bytes of an ArrayBuffer and log a warning if the format
+ * is not one of the Kling-confirmed supported types: JPEG, PNG, WEBP.
+ * This is informational only — it does NOT throw.
+ */
+function warnIfUnknownImageFormat(buffer: ArrayBuffer): void {
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  const isJpeg  = bytes[0] === 0xff && bytes[1] === 0xd8;
+  const isPng   = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const isWebp  = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+  // GIF and BMP are not officially supported by Kling but may work in some cases
+  const isGif   = bytes[0] === 0x47 && bytes[1] === 0x49;
+  const isBmp   = bytes[0] === 0x42 && bytes[1] === 0x4d;
+  if (!isJpeg && !isPng && !isWebp) {
+    const fmt = isGif ? "GIF" : isBmp ? "BMP" : `unknown (0x${bytes[0].toString(16)} 0x${bytes[1].toString(16)})`;
+    console.warn(`[kling-media] Image format may not be supported by Kling: ${fmt}. Prefer JPEG, PNG, or WEBP.`);
+  }
+}
+
+/**
  * Fetch an HTTPS URL server-side and return the content as a raw base64 string.
  * Retries once on network failure to handle intermittent CDN/edge timeouts.
  * Throws if both attempts fail or if the server returns a non-OK status.
@@ -64,6 +83,7 @@ export async function fetchUrlAsBase64(url: string): Promise<string> {
       throw new Error(`Image fetch returned HTTP ${response.status} for URL: ${url}`);
     }
     const buffer = await response.arrayBuffer();
+    warnIfUnknownImageFormat(buffer);
     return Buffer.from(buffer).toString("base64");
   };
 
@@ -132,7 +152,12 @@ export async function normalizeKlingImageInput(input: unknown): Promise<string |
 
   if (value.startsWith("data:")) {
     // ── data URL ────────────────────────────────────────────────────────────
-    console.log("[kling-media] Path: data URL → stripping prefix");
+    const mimeMatch = value.match(/^data:([^;]+);base64,/);
+    const mime = mimeMatch ? mimeMatch[1].toLowerCase() : "unknown";
+    console.log("[kling-media] Path: data URL → stripping prefix | MIME:", mime);
+    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(mime)) {
+      console.warn(`[kling-media] Image MIME type "${mime}" may not be supported by Kling. Prefer JPEG, PNG, or WEBP.`);
+    }
     base64 = stripDataUrlPrefix(value);
   } else if (value.startsWith("https://") || value.startsWith("http://")) {
     // ── HTTPS / HTTP URL ────────────────────────────────────────────────────
