@@ -728,6 +728,56 @@ function ImageCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ASPECT RATIO HELPER — resolves the best AspectRatio for a variation
+// Priority: measured pixels → stored AR string → canvas fallback (never "Auto")
+// ─────────────────────────────────────────────────────────────────────────────
+const VARIATION_SNAP_TARGETS: [number, AspectRatio][] = [
+  [16 / 9,  "16:9"],
+  [9 / 16,  "9:16"],
+  [1,       "1:1"],
+  [4 / 3,   "4:3"],
+  [3 / 4,   "3:4"],
+  [3 / 2,   "3:2"],
+  [2 / 3,   "2:3"],
+  [4 / 5,   "4:5"],
+  [5 / 4,   "5:4"],
+  [21 / 9,  "21:9"],
+];
+
+function snapToNearestAR(ratio: number): AspectRatio {
+  let best: AspectRatio = "16:9";
+  let bestDelta = Infinity;
+  for (const [target, label] of VARIATION_SNAP_TARGETS) {
+    const d = Math.abs(ratio - target);
+    if (d < bestDelta) { bestDelta = d; best = label; }
+  }
+  return best;
+}
+
+function resolveVariationAR(
+  img: GeneratedImage,
+  imageRatios: Record<string, number>,
+  canvasFallback: AspectRatio,
+): AspectRatio {
+  // 1. Real measured dimensions (highest fidelity)
+  const measured = imageRatios[img.id];
+  if (measured && measured > 0) return snapToNearestAR(measured);
+
+  // 2. Stored AR string if valid and not "Auto"
+  if (img.aspectRatio && img.aspectRatio !== "Auto") {
+    const parts = img.aspectRatio.split(":");
+    if (parts.length === 2) {
+      const w = Number(parts[0]);
+      const h = Number(parts[1]);
+      if (w > 0 && h > 0) return snapToNearestAR(w / h);
+    }
+  }
+
+  // 3. Canvas AR as last resort — never return "Auto"
+  return canvasFallback === "Auto" ? "16:9" : canvasFallback;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INNER PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 function ImageStudioInner() {
@@ -3827,13 +3877,6 @@ function ImageStudioInner() {
         <FullscreenPreview
           type="image"
           url={viewingImage.url}
-          metadata={{
-            prompt:      viewingImage.prompt,
-            modelName:   viewingImage.model,
-            aspectRatio: viewingImage.aspectRatio,
-            createdAt:   viewingImage.createdAt ? new Date(viewingImage.createdAt).getTime() : undefined,
-            visibility:  viewingImage.visibility,
-          }}
           onClose={() => setViewingImage(null)}
           zIndex={9000}
         />
@@ -4113,7 +4156,7 @@ function ImageStudioInner() {
                 onClick={() => {
                   // Restore the selected image's exact settings then generate
                   const srcPrompt = selectedImage.prompt;
-                  const srcAr     = (selectedImage.aspectRatio || "1:1") as AspectRatio;
+                  const srcAr     = resolveVariationAR(selectedImage, imageRatios, aspectRatio);
                   // selectedImage.model may be a UI ID ("dalle3") or a model key ("gpt-image-1")
                   // KEY_TO_MODEL handles model keys → UI IDs; fall back to as-is for UI IDs
                   const srcModel  = KEY_TO_MODEL[selectedImage.model] ?? selectedImage.model;

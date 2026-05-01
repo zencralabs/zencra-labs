@@ -281,7 +281,7 @@ export function FullscreenPreview({
                 maxWidth: `min(${hasMeta ? "calc(100vw - 380px - 80px)" : "88vw"}, 1280px)`,
                 maxHeight: "calc(100vh - 80px)",
                 objectFit: "contain",
-                borderRadius: 12,
+                borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
               }}
             />
