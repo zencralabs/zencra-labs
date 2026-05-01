@@ -82,7 +82,7 @@ export async function mirrorVideoToStorage(
     );
 
     // ── Audio detection (zero extra I/O — buffer already in memory) ──────────
-    const audioDetected = detectMp4AudioTrack(buffer);
+    const audioDetected = await detectMp4AudioTrack(buffer);
     console.log(`[mirrorVideoToStorage] audioDetected=${audioDetected} asset=${assetId}`);
 
     // 2. Upload to Supabase Storage

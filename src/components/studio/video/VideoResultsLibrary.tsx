@@ -109,22 +109,28 @@ function ErrorBadge() {
   );
 }
 
-// ── Waveform Bars — CSS animated equalizer, shown when audio is confirmed ─────
+// ── Waveform Bars — 5-bar CSS animated equalizer ─────────────────────────────
+// Bars animate with staggered delays. Respects prefers-reduced-motion via CSS.
+// Uses className="zen-wave-bar" so the global style block can stop the animation.
 
-function WaveformBars() {
+const WAVE_DELAYS = ["0s", "0.10s", "0.20s", "0.14s", "0.06s"] as const;
+
+function WaveformBars({ color = "#C6FF00" }: { color?: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 10 }}>
-      {([1, 2, 3] as const).map((n) => (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14 }}>
+      {WAVE_DELAYS.map((delay, i) => (
         <div
-          key={n}
+          key={i}
+          className="zen-wave-bar"
           style={{
             width:           3,
             height:          "100%",
-            borderRadius:    2,
-            background:      "#C6FF00",
+            borderRadius:    1,
+            background:      color,
+            opacity:         0.65,
             transformOrigin: "bottom",
-            animation:       `waveBar${n} 0.7s ease-in-out infinite`,
-            animationDelay:  n === 1 ? "0s" : n === 2 ? "0.12s" : "0.24s",
+            animation:       `waveBar${i + 1} 0.72s ease-in-out infinite`,
+            animationDelay:  delay,
           }}
         />
       ))}
@@ -133,102 +139,143 @@ function WaveformBars() {
 }
 
 // ── Audio Badge — gallery-card indicator for audio state ─────────────────────
-// Shown in VideoCard top-left status area for done videos only.
-// Reflects 4 states: scene-present, scene-missing, voiceover-ready, vo-error.
+//
+// 5 states per the waveform UI spec:
+//
+//  1. scene + audioDetected=true   → "♪ Scene Audio"       lime   + 5 animated bars
+//  2. voiceover + status=ready     → "♬ Voiceover Ready"   lime   + bars + play btn
+//  3. voiceover + status=gen       → "Generating Voiceover" purple + pulsing skeleton
+//  4. scene + audioDetected=false  → "⚠ No Scene Audio"    amber  (pack required)
+//  5. scene + audioDetected=null   → "? Audio Unknown"      gray   (inconclusive)
+//
+// Voiceover error and sceneAudioFallback edge cases also handled.
+
+const badgeBase: React.CSSProperties = {
+  display:       "inline-flex",
+  alignItems:    "center",
+  gap:           5,
+  padding:       "2px 7px",
+  fontSize:      10,
+  fontWeight:    700,
+  letterSpacing: "0.04em",
+  borderRadius:  4,
+  whiteSpace:    "nowrap" as const,
+};
 
 function AudioBadge({ video }: { video: GeneratedVideo }) {
   if (video.status !== "done") return null;
 
-  // ── Scene Audio states ───────────────────────────────────────────────────
-  if (video.audioMode === "scene") {
-    // Fallback dispatch path (audio was never requested due to timeout)
-    if (video.sceneAudioFallback && video.audioDetected === undefined) {
-      return (
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "2px 7px",
-          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
-          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
-          borderRadius: 4,
-        }}>
-          ⚠ No Audio
-        </div>
-      );
-    }
-    if (video.audioDetected === true) {
-      return (
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          padding: "2px 7px",
-          background: "rgba(198,255,0,0.10)", border: "1px solid rgba(198,255,0,0.25)",
-          fontSize: 10, fontWeight: 700, color: "#C6FF00", letterSpacing: "0.04em",
-          borderRadius: 4,
-        }}>
-          <WaveformBars />
-          Audio
-        </div>
-      );
-    }
-    // audioDetected === false OR null → amber "No Audio"
-    // For scene audio, null (inconclusive detection) is treated the same as false.
-    // Kling silently drops audio without the Sound Gen pack — null is not a mystery,
-    // it's the expected outcome. Show the clear actionable state.
+  // ── State 1: Scene Audio — confirmed present ──────────────────────────────
+  if (video.audioMode === "scene" && video.audioDetected === true) {
     return (
       <div style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "2px 7px",
-        background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
-        fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
-        borderRadius: 4,
+        ...badgeBase,
+        background: "rgba(198,255,0,0.10)",
+        border:     "1px solid rgba(198,255,0,0.28)",
+        color:      "#C6FF00",
       }}>
-        ⚠ No Audio
+        <WaveformBars color="#C6FF00" />
+        ♪ Scene Audio
       </div>
     );
   }
 
-  // ── Voiceover states ─────────────────────────────────────────────────────
+  // ── State 4: Scene Audio — confirmed absent (false) ───────────────────────
+  if (video.audioMode === "scene" && video.audioDetected === false) {
+    return (
+      <div style={{
+        ...badgeBase,
+        gap:        4,
+        background: "rgba(255,160,0,0.12)",
+        border:     "1px solid rgba(255,160,0,0.32)",
+        color:      "#FFA000",
+      }}>
+        ⚠ No Scene Audio
+      </div>
+    );
+  }
+
+  // ── State 5: Scene Audio — detection inconclusive (null / fallback) ───────
+  if (
+    video.audioMode === "scene" &&
+    (video.audioDetected === null || video.audioDetected === undefined ||
+     video.sceneAudioFallback)
+  ) {
+    return (
+      <div style={{
+        ...badgeBase,
+        gap:        4,
+        background: "rgba(100,116,139,0.12)",
+        border:     "1px solid rgba(100,116,139,0.28)",
+        color:      "rgba(148,163,184,0.80)",
+      }}>
+        ? Audio Unknown
+      </div>
+    );
+  }
+
+  // ── Voiceover states ──────────────────────────────────────────────────────
+
   if (video.audioMode === "voiceover") {
+
+    // State 3: Generating Voiceover — pulsing skeleton waveform
     if (video.voiceoverStatus === "generating") {
       return (
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "2px 7px",
-          background: "rgba(139,92,246,0.10)", border: "1px solid rgba(139,92,246,0.20)",
-          fontSize: 10, fontWeight: 700, color: "#8B5CF6", letterSpacing: "0.04em",
-          borderRadius: 4,
+          ...badgeBase,
+          background: "rgba(139,92,246,0.10)",
+          border:     "1px solid rgba(139,92,246,0.22)",
+          color:      "#8B5CF6",
         }}>
-          <div style={{
-            width: 5, height: 5, borderRadius: "50%",
-            background: "#8B5CF6", animation: "vlPulse 1s ease-in-out infinite",
-          }} />
-          VO
+          {/* Pulsing skeleton bars — same shape as WaveformBars but paused/fading */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14 }}>
+            {WAVE_DELAYS.map((_, i) => (
+              <div key={i} style={{
+                width:    3,
+                height:   "100%",
+                borderRadius: 1,
+                background: "#8B5CF6",
+                opacity:  0.50,
+                animation: "vlPulse 1s ease-in-out infinite",
+                animationDelay: `${i * 0.12}s`,
+              }} />
+            ))}
+          </div>
+          Generating Voiceover
         </div>
       );
     }
+
+    // State 2: Voiceover Ready — bars + play button
     if (video.voiceoverStatus === "ready") {
       return (
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          padding: "2px 7px",
-          background: "rgba(198,255,0,0.10)", border: "1px solid rgba(198,255,0,0.25)",
-          fontSize: 10, fontWeight: 700, color: "#C6FF00", letterSpacing: "0.04em",
-          borderRadius: 4,
+          ...badgeBase,
+          background: "rgba(198,255,0,0.10)",
+          border:     "1px solid rgba(198,255,0,0.28)",
+          color:      "#C6FF00",
         }}>
-          <WaveformBars />
-          VO
+          <WaveformBars color="#C6FF00" />
+          ♬ Voiceover Ready
+          {/* Mini inline play indicator */}
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="#C6FF00">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
         </div>
       );
     }
+
+    // Voiceover error
     if (video.voiceoverStatus === "error") {
       return (
         <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "2px 7px",
-          background: "rgba(255,160,0,0.12)", border: "1px solid rgba(255,160,0,0.30)",
-          fontSize: 10, fontWeight: 700, color: "#FFA000", letterSpacing: "0.04em",
-          borderRadius: 4,
+          ...badgeBase,
+          gap:        4,
+          background: "rgba(255,160,0,0.12)",
+          border:     "1px solid rgba(255,160,0,0.32)",
+          color:      "#FFA000",
         }}>
-          ⚠ VO
+          ⚠ Voiceover Failed
         </div>
       );
     }
@@ -1315,6 +1362,9 @@ export default function VideoResultsLibrary({
         @keyframes waveBar1    { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1.0)} }
         @keyframes waveBar2    { 0%,100%{transform:scaleY(1.0)} 50%{transform:scaleY(0.3)} }
         @keyframes waveBar3    { 0%,100%{transform:scaleY(0.6)} 50%{transform:scaleY(0.9)} }
+        @keyframes waveBar4    { 0%,100%{transform:scaleY(0.8)} 50%{transform:scaleY(0.3)} }
+        @keyframes waveBar5    { 0%,100%{transform:scaleY(0.5)} 50%{transform:scaleY(1.0)} }
+        @media (prefers-reduced-motion: reduce) { .zen-wave-bar { animation: none !important; } }
       `}</style>
     </section>
   );
