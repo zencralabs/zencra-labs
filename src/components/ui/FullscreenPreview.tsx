@@ -40,6 +40,14 @@ export interface FullscreenPreviewProps {
   onMoveToProject?: () => void;
   /** Override z-index (default 9800) */
   zIndex?:          number;
+  /**
+   * Width in px of an external right-side panel that overlays the viewport
+   * (e.g. the Image Studio premium action panel at z:9020).
+   * When set, the media area is constrained to `100vw - rightPanelWidth` so
+   * the image centres in the available left space and never hides behind the panel.
+   * Defaults to 0 (full-width media area, unchanged behaviour for Video/CD/Dashboard).
+   */
+  rightPanelWidth?: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -217,6 +225,7 @@ function ProjectRow({ projectId, projectName, onMoveToProject }: {
 
 export function FullscreenPreview({
   type, url, thumbnailUrl, metadata, onClose, onMoveToProject, zIndex = 9800,
+  rightPanelWidth = 0,
 }: FullscreenPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -259,14 +268,19 @@ export function FullscreenPreview({
       }}
     >
       {/* ── Media area ──────────────────────────────────────────────────── */}
+      {/* When rightPanelWidth > 0, constrain to the left available space so  */}
+      {/* the image never centres under the external action panel.             */}
       <div
         onClick={handleBackdropClick}
         style={{
-          flex: 1, minWidth: 0,
+          ...(rightPanelWidth > 0
+            ? { width: `calc(100vw - ${rightPanelWidth}px)`, flexShrink: 0 }
+            : { flex: 1, minWidth: 0 }),
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: "48px 32px 32px",
         }}
       >
+        {/* position:relative wrapper — close button is absolutely anchored here */}
         <div
           onClick={e => e.stopPropagation()}
           style={{ position: "relative", lineHeight: 0 }}
@@ -278,7 +292,9 @@ export function FullscreenPreview({
               alt="Full size preview"
               style={{
                 display: "block",
-                maxWidth: `min(${hasMeta ? "calc(100vw - 380px - 80px)" : "88vw"}, 1280px)`,
+                maxWidth: rightPanelWidth > 0
+                  ? "min(100%, 1280px)"
+                  : `min(${hasMeta ? `calc(100vw - ${PANEL_W + 80}px)` : "88vw"}, 1280px)`,
                 maxHeight: "calc(100vh - 80px)",
                 objectFit: "contain",
                 borderRadius: 0,
@@ -295,7 +311,9 @@ export function FullscreenPreview({
               loop
               style={{
                 display: "block",
-                maxWidth: `min(${hasMeta ? "calc(100vw - 380px - 80px)" : "88vw"}, 1280px)`,
+                maxWidth: rightPanelWidth > 0
+                  ? "min(100%, 1280px)"
+                  : `min(${hasMeta ? `calc(100vw - ${PANEL_W + 80}px)` : "88vw"}, 1280px)`,
                 maxHeight: "calc(100vh - 80px)",
                 borderRadius: 12,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
@@ -303,37 +321,41 @@ export function FullscreenPreview({
               }}
             />
           )}
+
+          {/* ── Close button — sits exactly on the image/video top-right corner ── */}
+          <button
+            onClick={onClose}
+            title="Close (Esc)"
+            style={{
+              position: "absolute",
+              top: 0, right: 0,
+              width: 34, height: 34,
+              borderRadius: 0,
+              background: "rgba(8,12,26,0.88)",
+              border: "none",
+              borderBottom: "1px solid rgba(255,255,255,0.10)",
+              borderLeft: "1px solid rgba(255,255,255,0.10)",
+              color: "rgba(224,232,255,0.75)", fontSize: 14, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 2,
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              transition: "background 0.15s, color 0.15s",
+              lineHeight: 1,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(220,38,38,0.82)";
+              (e.currentTarget as HTMLElement).style.color = "#fff";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(8,12,26,0.88)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(224,232,255,0.75)";
+            }}
+          >
+            ✕
+          </button>
         </div>
       </div>
-
-      {/* ── Close button ─────────────────────────────────────────────────── */}
-      <button
-        onClick={onClose}
-        title="Close (Esc)"
-        style={{
-          position: "fixed",
-          top: 20,
-          right: hasMeta ? `${PANEL_W + 16}px` : "20px",
-          width: 38, height: 38, borderRadius: "50%",
-          background: "rgba(10,15,30,0.92)",
-          border: "1px solid rgba(255,255,255,0.16)",
-          color: "#E2E8F0", fontSize: 15, cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          zIndex: zIndex + 30,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
-          transition: "background 0.15s, border-color 0.15s",
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.85)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.5)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(10,15,30,0.92)";
-          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.16)";
-        }}
-      >
-        ✕
-      </button>
 
       {/* ── Right metadata panel ─────────────────────────────────────────── */}
       {hasMeta && (

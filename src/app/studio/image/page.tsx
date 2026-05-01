@@ -15,7 +15,7 @@ import { useFlowStore } from "@/lib/flow/store";
 import type { FlowStep } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
-import NextStepPanel from "@/components/studio/flow/NextStepPanel";
+// NextStepPanel removed from Image Studio — premium action panel replaces it
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
 import Tooltip from "@/components/ui/Tooltip";
@@ -909,6 +909,7 @@ function ImageStudioInner() {
   const [panelLoading, setPanelLoading]     = useState(false);
   const [panelAnimateOpen, setPanelAnimateOpen] = useState(false);   // animate dropdown
   const [panelMetaExpanded, setPanelMetaExpanded] = useState(false); // metadata accordion
+  const [panelCollapsed, setPanelCollapsed]     = useState(false);  // collapse/expand handle
 
   // ── Workflow transition modal ──────────────────────────────────────────────────
   const [workflowModal, setWorkflowModal] = useState<{
@@ -1964,15 +1965,7 @@ function ImageStudioInner() {
     );
   }, []);
 
-  // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
-  const handleVariation = useCallback((step: FlowStep) => {
-    // Restore the step's original settings then re-generate
-    setPrompt(step.prompt);
-    const uiModelId = KEY_TO_MODEL[step.modelKey];
-    if (uiModelId) setModel(uiModelId);
-    // generate() reads from state — call after micro-task so state has settled
-    setTimeout(() => generate(), 0);
-  }, [generate]);
+  // handleVariation removed — NextStepPanel no longer mounts in Image Studio
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
@@ -2699,7 +2692,13 @@ function ImageStudioInner() {
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
-                            onClick={() => setViewingImage(img)}
+                            onClick={() => {
+                              // Clear any stale selectedImage so no ghost premium panel
+                              // appears behind the fullscreen viewer when browsing filmstrip
+                              setSelectedImage(null);
+                              setPanelDetails(null);
+                              setViewingImage(img);
+                            }}
                           >
                             <img
                               src={img.url!}
@@ -3879,6 +3878,11 @@ function ImageStudioInner() {
           url={viewingImage.url}
           onClose={() => setViewingImage(null)}
           zIndex={9000}
+          rightPanelWidth={
+            selectedImage && selectedImage.status === "done" && !panelCollapsed
+              ? 360
+              : 0
+          }
         />
       )}
 
@@ -4015,7 +4019,7 @@ function ImageStudioInner() {
     </div> {/* end MAIN FIXED CONTAINER */}
 
     {/* FlowBar now lives inside the TOP BAR WRAPPER above — layout-aware, not viewport-fixed */}
-    {studioMode === "standard" && <NextStepPanel onVariation={handleVariation} />}
+    {/* NextStepPanel removed — premium action panel (selectedImage) is the sole right panel */}
 
     {/* ── RIGHT ACTION PANEL ───────────────────────────────────────────── */}
     {/* position:fixed slide-in from right; rendered OUTSIDE gallery div   */}
@@ -4035,7 +4039,9 @@ function ImageStudioInner() {
         )}
 
         {/* Panel — sits at z:9020, above the fullscreen backdrop (z:9000) but
-            below the close button (z:9030), so it remains accessible in both modes */}
+            below the close button (z:9030), so it remains accessible in both modes.
+            Slide-off to the right when panelCollapsed; content (overflowY) is on
+            the inner body div so the collapse handle can overflow the left edge. */}
         <div
           style={{
             position: "fixed", top: 64, right: 0, bottom: 0,
@@ -4047,11 +4053,49 @@ function ImageStudioInner() {
             display: "flex", flexDirection: "column",
             fontFamily: "var(--font-body, system-ui, sans-serif)",
             color: "#fff",
-            animation: "slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)",
-            overflowY: "auto",
+            // Collapse: slide right off-screen; always transition after initial mount
+            transform: panelCollapsed ? "translateX(100%)" : "translateX(0)",
+            transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+            // overflow:visible on outer div so the absolute handle can bleed left
+            overflow: "visible",
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* ── Collapse / expand handle — dark glass tab on the left edge ── */}
+          <button
+            onClick={() => setPanelCollapsed(v => !v)}
+            title={panelCollapsed ? "Open panel" : "Collapse panel"}
+            style={{
+              position: "absolute",
+              top: "50%", left: -22,
+              transform: "translateY(-50%)",
+              width: 22, height: 52,
+              borderRadius: "8px 0 0 8px",
+              background: "rgba(9,9,18,0.96)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              borderRight: "none",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "rgba(255,255,255,0.35)",
+              fontSize: 14, lineHeight: 1,
+              zIndex: 1,
+              transition: "background 0.15s, color 0.15s",
+              padding: 0,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.18)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(9,9,18,0.96)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)";
+            }}
+          >
+            {/* Chevron: › when open (collapse), ‹ when collapsed (expand) */}
+            {panelCollapsed ? "‹" : "›"}
+          </button>
           <style>{`
             @keyframes slideInRight {
               from { transform: translateX(20px); opacity: 0; }
@@ -4479,6 +4523,45 @@ function ImageStudioInner() {
         </div>
       </>
     )}
+
+    {/* ── Panel reopen tab — visible only when premium panel is collapsed ──── */}
+    {selectedImage && selectedImage.status === "done" && panelCollapsed && (
+      <button
+        onClick={() => setPanelCollapsed(false)}
+        title="Open panel"
+        style={{
+          position:       "fixed",
+          top:            "50%",
+          right:          0,
+          transform:      "translateY(-50%)",
+          zIndex:         9021, /* above panel at 9020 */
+          background:     "rgba(9,9,18,0.96)",
+          border:         "1px solid rgba(255,255,255,0.09)",
+          borderRight:    "none",
+          borderRadius:   "8px 0 0 8px",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          width:          22, height: 52,
+          cursor:         "pointer",
+          color:          "rgba(255,255,255,0.35)",
+          fontSize:       14, lineHeight: 1,
+          display:        "flex", alignItems: "center", justifyContent: "center",
+          padding:        0,
+          transition:     "background 0.15s, color 0.15s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.18)";
+          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(9,9,18,0.96)";
+          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)";
+        }}
+      >
+        ‹
+      </button>
+    )}
+
       {/* ── Workflow Transition Modal ─────────────────────────────────────────── */}
       <WorkflowTransitionModal
         open={workflowModal.open}
