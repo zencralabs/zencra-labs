@@ -158,9 +158,12 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
   const processFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const preview = e.target?.result as string;
-      onUpload({ url: URL.createObjectURL(file), preview, name: file.name });
-      onFileRaw?.(file, preview);
+      // Use the data URL for both url and preview — blob: URLs are browser-memory-only
+      // and cannot be resolved server-side. The data URL (data:image/...;base64,...) is
+      // transport-safe and gets normalized to raw base64 by normalizeKlingImageInput().
+      const dataUrl = e.target?.result as string;
+      onUpload({ url: dataUrl, preview: dataUrl, name: file.name });
+      onFileRaw?.(file, dataUrl);
     };
     reader.readAsDataURL(file);
   }, [onUpload, onFileRaw]);
@@ -1570,9 +1573,12 @@ export default function VideoCanvas({
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = ev => {
-                  const previewUrl = ev.target?.result as string;
-                  onStartSlot({ url: URL.createObjectURL(file), preview: previewUrl, name: file.name });
-                  onMascotUpload?.(file, previewUrl);
+                  // Use data URL for url — blob: URLs are browser-memory-only and
+                  // cannot be resolved server-side. normalizeKlingImageInput() strips
+                  // the data: prefix on the backend before sending to Kling.
+                  const dataUrl = ev.target?.result as string;
+                  onStartSlot({ url: dataUrl, preview: dataUrl, name: file.name });
+                  onMascotUpload?.(file, dataUrl);
                 };
                 reader.readAsDataURL(file);
                 // reset so the same file can be re-picked

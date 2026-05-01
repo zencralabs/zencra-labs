@@ -1,15 +1,16 @@
 /**
  * Video Studio — Kling AI Provider
  *
- * Three distinct model entries — each registered separately:
+ * Five distinct model entries — each registered separately:
  *
  *   kling-30-omni         → Kling Video 3.0 Omni  (apiModelId: kling-v3-omni)
  *   kling-30              → Kling Video 3.0        (apiModelId: kling-v3)
  *   kling-motion-control  → Kling Motion Control   (apiModelId: kling-v3, endpoint path distinguishes operation)
+ *   kling-26              → Kling 2.6              (apiModelId: kling-v2-6)
+ *   kling-25              → Kling 2.5 Turbo        (apiModelId: kling-v2-5)
  *
- * Deprecated (kept in backend, hidden from UI):
- *   kling-26 → kling-v2-6 (no new adapter; handled by legacy /lib/ai/providers/kling.ts)
- *   kling-25 → kling-v2-5 (no new adapter; handled by legacy /lib/ai/providers/kling.ts)
+ * Image fields (image, tail_image) require raw base64 strings — NOT blob: or data: URLs.
+ * All image inputs are normalized via normalizeKlingImageInput() before dispatch.
  *
  * Async: polling + webhook
  * Auth: KLING_API_KEY (format: "accessKeyId:accessKeySecret" → JWT signed HS256)
@@ -23,6 +24,7 @@ import type {
 } from "../core/types";
 import { newJobId } from "../core/job-lifecycle";
 import { getKlingEnv, KLING_MODEL_IDS } from "../core/env";
+import { normalizeKlingImageInput } from "./kling-media";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KLING AUTH — JWT signing for API key format "accessKeyId:accessKeySecret"
@@ -68,6 +70,8 @@ const KLING_MODELS: KlingModelEntry[] = [
   { modelKey: "kling-30-omni",        displayName: "Kling Video 3.0 Omni",  apiModelId: KLING_MODEL_IDS.omni,          isMotionControl: false },
   { modelKey: "kling-30",             displayName: "Kling Video 3.0",        apiModelId: KLING_MODEL_IDS.v30,           isMotionControl: false },
   { modelKey: "kling-motion-control", displayName: "Kling Motion Control",   apiModelId: KLING_MODEL_IDS.motionControl, isMotionControl: true  },
+  { modelKey: "kling-26",             displayName: "Kling 2.6",              apiModelId: "kling-v2-6",                  isMotionControl: false },
+  { modelKey: "kling-25",             displayName: "Kling 2.5 Turbo",        apiModelId: "kling-v2-5",                  isMotionControl: false },
 ];
 
 function buildKlingProvider(entry: KlingModelEntry): ZProvider {
@@ -121,7 +125,35 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           supportsPolling: true,
         };
       }
-      // kling-v3 standard
+      // kling-26: text/image-to-video, start frame, extend. No end frame, no motion control.
+      if (modelKey === "kling-26") {
+        return {
+          supportedInputModes:   ["text", "image", "video"],
+          supportedAspectRatios: ["16:9", "9:16", "1:1"],
+          supportedDurations:    [5, 10],
+          maxDuration:           10,
+          capabilities:          ["text_to_video", "image_to_video", "start_frame", "extend"],
+          asyncMode:             "polling+webhook",
+          supportsWebhook:       true,
+          supportsPolling:       true,
+        };
+      }
+
+      // kling-25: text/image-to-video, start frame, end frame. No motion control.
+      if (modelKey === "kling-25") {
+        return {
+          supportedInputModes:   ["text", "image"],
+          supportedAspectRatios: ["16:9", "9:16", "1:1"],
+          supportedDurations:    [5, 10],
+          maxDuration:           10,
+          capabilities:          ["text_to_video", "image_to_video", "start_frame", "end_frame"],
+          asyncMode:             "polling+webhook",
+          supportsWebhook:       true,
+          supportsPolling:       true,
+        };
+      }
+
+      // kling-30 standard
       return {
         supportedInputModes:   ["text", "image"],
         supportedAspectRatios: ["16:9", "9:16", "1:1"],
@@ -201,6 +233,31 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       const duration    = input.durationSeconds ?? 5;
       const aspect      = klingAspect(input.aspectRatio ?? "16:9");
 
+      // ── Image normalization ──────────────────────────────────────────────────
+      // Kling image fields require raw base64 (no data: prefix, no blob: URLs).
+      // normalizeKlingImageInput() throws immediately on blob: inputs, strips
+      // data: prefixes, and fetches HTTPS URLs to base64 server-side.
+      let normalizedImageUrl: string | undefined;
+      let normalizedEndImageUrl: string | undefined;
+
+      if (input.imageUrl) {
+        try {
+          normalizedImageUrl = await normalizeKlingImageInput(input.imageUrl);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`Image input error: ${msg}`);
+        }
+      }
+
+      if (input.endImageUrl) {
+        try {
+          normalizedEndImageUrl = await normalizeKlingImageInput(input.endImageUrl);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`End frame image input error: ${msg}`);
+        }
+      }
+
       let endpoint: string;
       let payload: Record<string, unknown>;
 
@@ -212,29 +269,29 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       console.log("[kling] nativeAudio requested:", enableSoundGeneration, "| isMotionControl:", isMotionControl, "| raw providerParams.nativeAudio:", input.providerParams?.nativeAudio);
 
       if (isMotionControl) {
-        // Motion Control: image + reference video
+        // Motion Control: image (base64) + reference video (URL — kept as URL, not base64)
         // sound_generation intentionally omitted — not supported in motion control mode.
         endpoint = "/v1/videos/image2video";
         payload  = {
           model_name:           apiModelId,
           prompt:               input.prompt,
-          image:                input.imageUrl,
+          image:                normalizedImageUrl,
           motion_video_url:     input.referenceVideoUrl,
           duration:             String(duration),
           aspect_ratio:         aspect,
           mode:                 "std",
         };
-      } else if (input.imageUrl) {
+      } else if (normalizedImageUrl) {
         // Image-to-video (start frame + optional end frame)
         endpoint = "/v1/videos/image2video";
         payload  = {
           model_name:   apiModelId,
           prompt:       input.prompt,
-          image:        input.imageUrl,
+          image:        normalizedImageUrl,
           duration:     String(duration),
           aspect_ratio: aspect,
           mode:         (input.providerParams?.videoMode as string) ?? "std",
-          ...(input.endImageUrl ? { tail_image: input.endImageUrl } : {}),
+          ...(normalizedEndImageUrl ? { tail_image: normalizedEndImageUrl } : {}),
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
           ...(enableSoundGeneration ? { sound_generation: true } : {}),
         };
@@ -280,8 +337,8 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           // 1201 = "model is not supported" — account/resource-pack gate.
           // This is not a code bug. The model must be activated in the Kling console.
           throw new Error(
-            `Kling 3.0 Omni is not enabled for this API account yet. ` +
-            `Enable the Omni model access in your Kling console resource packs.`
+            `${displayName} is not enabled for this API account. ` +
+            `Enable model access in your Kling console resource packs.`
           );
         }
         // All other non-zero codes → surface the raw Kling error message.
@@ -437,6 +494,8 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
 export const kling30OmniProvider        = buildKlingProvider(KLING_MODELS[0]);
 export const kling30Provider            = buildKlingProvider(KLING_MODELS[1]);
 export const klingMotionControlProvider = buildKlingProvider(KLING_MODELS[2]);
+export const kling26Provider            = buildKlingProvider(KLING_MODELS[3]);
+export const kling25Provider            = buildKlingProvider(KLING_MODELS[4]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS

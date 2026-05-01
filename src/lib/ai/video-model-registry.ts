@@ -198,21 +198,16 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
-  // ── Kling 2.6 (deprecated) ───────────────────────────────────────────────
-  // Backend status: "deprecated" — assertModelRouteIntegrity() blocks dispatch.
-  // available: false keeps it out of getAvailableModels() and disables the UI.
-  // deprecated: true allows the UI to render a "LEGACY" badge instead of "Coming Soon".
+  // ── Kling 2.6 ────────────────────────────────────────────────────────────
   {
     id:          "kling-26",
     provider:    "kling",
     apiModelId:  "kling-v2-6",
     displayName: "Kling 2.6",
     description: "Enhanced scene coherence and character fidelity",
-    badge:       "LEGACY",
-    badgeColor:  "#6B7280",
-    available:   false,
+    available:   true,
     comingSoon:  false,
-    deprecated:  true,
+    deprecated:  false,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -239,21 +234,16 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
-  // ── Kling 2.5 Turbo (deprecated) ─────────────────────────────────────────
-  // Backend status: "deprecated" — assertModelRouteIntegrity() blocks dispatch.
-  // available: false keeps it out of getAvailableModels() and disables the UI.
-  // deprecated: true allows the UI to render a "LEGACY" badge instead of "Coming Soon".
+  // ── Kling 2.5 Turbo ──────────────────────────────────────────────────────
   {
     id:          "kling-25",
     provider:    "kling",
     apiModelId:  "kling-v2-5",
     displayName: "Kling 2.5 Turbo",
     description: "Fast and reliable — ideal for quick iterations",
-    badge:       "LEGACY",
-    badgeColor:  "#6B7280",
-    available:   false,
+    available:   true,
     comingSoon:  false,
-    deprecated:  true,
+    deprecated:  false,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,

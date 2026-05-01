@@ -505,7 +505,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     creditMultiplier:   1.2,
   },
 
-  // ── Deprecated — hidden from UI, kept in backend ───────────────────────────
+  // ── Kling 2.6 ─────────────────────────────────────────────────────────────
 
   {
     key:            "kling-26",
@@ -514,10 +514,10 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     apiModelId:     "kling-v2-6",
     studio:         "video",
     providerFamily: "kling",
-    description:    "Legacy Kling model — superseded by Kling Video 3.0",
+    description:    "Enhanced scene coherence and character fidelity",
     phase:          1,
-    status:         "deprecated",
-    uiHidden:       true,
+    status:         "active",
+    uiHidden:       false,
     capabilities:   ["text_to_video", "image_to_video", "start_frame", "extend"],
     supportedInputModes:   ["text", "image", "video"],
     supportedAspectRatios: ["16:9", "9:16", "1:1"],
@@ -528,6 +528,8 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: true,
   },
 
+  // ── Kling 2.5 Turbo ───────────────────────────────────────────────────────
+
   {
     key:            "kling-25",
     providerBrand:  "Kling AI",
@@ -535,10 +537,10 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     apiModelId:     "kling-v2-5",
     studio:         "video",
     providerFamily: "kling",
-    description:    "Legacy Kling model — superseded by Kling Video 3.0",
+    description:    "Fast and reliable — ideal for quick iterations",
     phase:          1,
-    status:         "deprecated",
-    uiHidden:       true,
+    status:         "active",
+    uiHidden:       false,
     capabilities:   ["text_to_video", "image_to_video", "start_frame", "end_frame"],
     supportedInputModes:   ["text", "image"],
     supportedAspectRatios: ["16:9", "9:16", "1:1"],
