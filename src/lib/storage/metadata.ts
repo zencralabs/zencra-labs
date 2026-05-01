@@ -214,18 +214,20 @@ export async function saveAssetMetadata(
  * is persisted to the `error_message` column and survives page refreshes.
  */
 export async function updateAssetStatus(
-  supabase:      SupabaseClient,
-  assetId:       string,
-  status:        AssetStatus,
-  url?:          string,
-  errorMessage?: string
+  supabase:       SupabaseClient,
+  assetId:        string,
+  status:         AssetStatus,
+  url?:           string,
+  errorMessage?:  string,
+  audioDetected?: boolean | null   // persisted by mirrorVideoToStorage after migration 046
 ): Promise<void> {
   const patch: Record<string, unknown> = {
     status,
     updated_at: new Date().toISOString(),
   };
-  if (url)          patch.url           = url;
-  if (errorMessage) patch.error_message = errorMessage;
+  if (url)                               patch.url            = url;
+  if (errorMessage)                      patch.error_message  = errorMessage;
+  if (audioDetected !== undefined)       patch.audio_detected = audioDetected;
 
   const { error } = await supabase
     .from("assets")

@@ -828,21 +828,37 @@ export default function VideoStudioShell() {
   }, []);
 
   // ── Gallery history — load all user's video assets from DB on mount ──────────
-  // Fires once when authToken becomes available. Maps DB assets (status="ready")
-  // to GeneratedVideo[] and seeds the gallery state. Live-generated videos added
-  // during the session are prepended by handleGenerate / handleShotCompleted and
-  // deduplication prevents duplicates if they arrived before this fetch returns.
+  // Fires once when authToken becomes available. Maps DB assets to GeneratedVideo[]
+  // and merges into gallery state. Live-generated videos added during the session
+  // are prepended by handleGenerate / handleShotCompleted; deduplication prevents
+  // duplicates if they arrived before this fetch returns.
+  //
+  // Safety guarantees:
+  //   • NEVER overwrites existing state with empty data (guard on line 863)
+  //   • Merge is additive — never drops session videos (existingIds dedup)
+  //   • Retries up to 2× on auth/network failure (1-second delay between retries)
+  //   • "pending" DB assets (tab closed mid-generation) are shown as "generating"
+  //     so the user sees the card rather than having it silently disappear
+  //   • audio_detected from DB is mapped so AudioBadge survives page refreshes
   const historyFetchedRef = useRef(false);
   useEffect(() => {
     if (!authToken || historyFetchedRef.current) return;
     historyFetchedRef.current = true;
 
-    (async () => {
+    const fetchHistory = async (attempt = 1): Promise<void> => {
       try {
         const res = await fetch("/api/assets?studio=video&limit=100&include_failed=true", {
           headers: { Authorization: `Bearer ${authToken}` },
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          // Retry on transient auth/network failures (max 2 retries)
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 1000));
+            return fetchHistory(attempt + 1);
+          }
+          console.warn(`[VideoStudio] history fetch failed after ${attempt} attempts: HTTP ${res.status}`);
+          return;
+        }
         const json = await res.json() as {
           success: boolean;
           data?: Array<{
@@ -858,41 +874,67 @@ export default function VideoStudioShell() {
             is_favorite: boolean | null;
             created_at: string;
             error_message: string | null;
+            audio_detected: boolean | null;
           }>;
         };
-        if (!json.success || !json.data?.length) return;
+        // GUARD: never overwrite existing state with empty response
+        if (!json.success || !json.data?.length) {
+          console.log(`[VideoStudio] history fetch returned 0 assets (attempt ${attempt})`);
+          return;
+        }
+
+        console.log(`[VideoStudio] history fetch returned ${json.data.length} assets`);
 
         const historyVideos: GeneratedVideo[] = json.data.map(a => ({
-          id:           a.id,
-          url:          a.url ?? null,
-          thumbnailUrl: null,
-          prompt:       a.prompt ?? "",
-          negPrompt:    "",
-          modelId:      a.model_key,
-          modelName:    VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
-          duration:     5,
-          aspectRatio:  (a.aspect_ratio ?? "16:9") as VideoAR,
-          frameMode:    "text_to_video" as const,
-          // Map DB status → VideoStatus: failed→error, anything else→done
-          status:       a.status === "failed" ? "error" : "done",
-          error:        a.error_message ?? undefined,
-          provider:     a.provider ?? undefined,
-          creditsUsed:  a.credits_cost ?? 0,
-          createdAt:    new Date(a.created_at).getTime(),
-          isPublic:     a.visibility === "public",
-          is_favorite:  a.is_favorite ?? false,
+          id:            a.id,
+          url:           a.url ?? null,
+          thumbnailUrl:  null,
+          prompt:        a.prompt ?? "",
+          negPrompt:     "",
+          modelId:       a.model_key,
+          modelName:     VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
+          duration:      5,
+          aspectRatio:   (a.aspect_ratio ?? "16:9") as VideoAR,
+          frameMode:     "text_to_video" as const,
+          // DB status mapping:
+          //   "failed"  → "error"      (show error card)
+          //   "pending" → "generating" (tab closed mid-generation — show spinner)
+          //   anything else ("ready")  → "done"
+          status:        a.status === "failed"
+                           ? "error" as const
+                           : a.status === "pending"
+                           ? "generating" as const
+                           : "done" as const,
+          error:         a.error_message ?? undefined,
+          provider:      a.provider ?? undefined,
+          creditsUsed:   a.credits_cost ?? 0,
+          createdAt:     new Date(a.created_at).getTime(),
+          isPublic:      a.visibility === "public",
+          is_favorite:   a.is_favorite ?? false,
+          // Audio detection persisted by mirrorVideoToStorage (migration 046).
+          // All video history defaults to audioMode="scene" (voiceover is session-only).
+          audioMode:     "scene" as const,
+          audioDetected: a.audio_detected ?? null,
         }));
 
-        // Merge: keep all session-generated videos, append history entries not already present
+        // MERGE: keep all session-generated videos, append history entries not already present
+        // Never replaces existing entries — just fills gaps.
         setVideos(prev => {
           const existingIds = new Set(prev.map(v => v.id));
           const newHistory  = historyVideos.filter(v => !existingIds.has(v.id));
           return newHistory.length > 0 ? [...prev, ...newHistory] : prev;
         });
-      } catch {
-        // Non-critical — gallery just shows session videos if history fetch fails
+      } catch (err) {
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 1000));
+          return fetchHistory(attempt + 1);
+        }
+        // Non-critical — gallery shows session videos; log for Vercel diagnostics
+        console.warn("[VideoStudio] history fetch threw after max retries:", err);
       }
-    })();
+    };
+
+    void fetchHistory();
   }, [authToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sequence mode — cinematic shot stack ──────────────────────────────────

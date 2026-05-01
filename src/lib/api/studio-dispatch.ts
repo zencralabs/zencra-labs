@@ -510,7 +510,10 @@ export async function pollAndUpdateJob(
         persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
       }
 
-      await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl);
+      // audioDetected is persisted alongside status so the gallery
+      // can show the correct AudioBadge state after a page refresh.
+      await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl, undefined, audioDetected);
+      console.log(`[pollAndUpdateJob] asset=${assetId} status=ready audioDetected=${audioDetected}`);
       return {
         status: "success",
         url:    persistentUrl,
