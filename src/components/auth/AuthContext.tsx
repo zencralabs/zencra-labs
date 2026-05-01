@@ -72,6 +72,75 @@ const PLAN_MAP: Record<string, AuthUser["plan"]> = {
   creator: "creator",
 };
 
+// ── Auth snapshot — visual placeholder only, never used for security ──────────
+//
+// Stores the minimum display fields from the last successful profile load so
+// the Navbar can show the user's name/credits on the very first render, before
+// onAuthStateChange and loadProfile() have completed.  Never used for
+// permissions, entitlements, or any security decision.
+
+interface AuthSnapshot {
+  email: string;
+  name: string;
+  role: string;
+  plan: string;
+  credits: number;
+  avatar?: string;
+}
+
+function readAuthSnapshot(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("zencra_auth_snapshot");
+    if (!raw) return null;
+    const s = JSON.parse(raw) as AuthSnapshot;
+    // Return a minimal display-only AuthUser.  All security-sensitive flags are
+    // defaulted to the most restrictive value — they will be overwritten with
+    // real values once loadProfile() completes.
+    return {
+      id:                       "",   // unknown until session resolves
+      email:                    s.email   ?? "",
+      name:                     s.name    ?? "",
+      role:                     s.role    ?? "user",
+      plan:                     (PLAN_MAP[s.plan] ?? "free"),
+      credits:                  s.credits ?? 0,
+      avatar:                   s.avatar,
+      avatarColor:              0,
+      joinedAt:                 "",
+      accessToken:              undefined,
+      emailVerified:            false,
+      phoneVerified:            false,
+      needsEmailVerification:   false,
+      needsPhone:               false,
+      needsEmail:               false,
+      emailLocked:              false,
+      totpEnabled:              false,
+      passkeyRegistered:        false,
+      fcsEnabled:               false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveAuthSnapshot(u: AuthUser): void {
+  try {
+    const snap: AuthSnapshot = {
+      email:   u.email,
+      name:    u.name,
+      role:    u.role,
+      plan:    u.plan,
+      credits: u.credits,
+      avatar:  u.avatar,
+    };
+    localStorage.setItem("zencra_auth_snapshot", JSON.stringify(snap));
+  } catch { /* non-fatal */ }
+}
+
+function clearAuthSnapshot(): void {
+  try { localStorage.removeItem("zencra_auth_snapshot"); } catch { /* non-fatal */ }
+}
+
 const EMAIL_LOCK_HOURS = parseInt(process.env.NEXT_PUBLIC_EMAIL_LOCK_WINDOW_HOURS ?? "2", 10);
 
 function buildAuthUser(
@@ -126,7 +195,10 @@ function buildAuthUser(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<AuthUser | null>(null);
+  // Seed from snapshot so the very first render already has display data.
+  // The snapshot is a visual placeholder only — it is replaced with real data
+  // as soon as onAuthStateChange + loadProfile() complete.
+  const [user, setUser]       = useState<AuthUser | null>(() => readAuthSnapshot());
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -155,11 +227,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Still set user from session so auth flow completes (profile enrichment is non-fatal).
       // Without this, user stays null after login if the profiles query fails,
       // leaving the auth modal stuck showing "Please wait…" indefinitely.
-      setUser(buildAuthUser(null, sess));
+      const fallbackUser = buildAuthUser(null, sess);
+      setUser(fallbackUser);
+      saveAuthSnapshot(fallbackUser);
       return;
     }
 
-    setUser(buildAuthUser(profile as Record<string, unknown> | null, sess));
+    const fullUser = buildAuthUser(profile as Record<string, unknown> | null, sess);
+    setUser(fullUser);
+    saveAuthSnapshot(fullUser);
   }
 
   // Bootstrap
@@ -186,8 +262,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, sess) => {
         setSession(sess);
-        if (sess) await loadProfile(sess);
-        else      setUser(null);
+        if (sess) {
+          // ── Immediately set a provisional user from the session object. ──
+          //
+          // This closes the null window that causes the Navbar to flash
+          // "Login" while loadProfile() is awaiting the DB query (1–2 s).
+          //
+          // Priority: keep the snapshot/existing user if it belongs to THIS
+          // session (avoids a visible credits-reset during the provisional →
+          // full-profile transition).  Otherwise build from session metadata.
+          setUser(prev =>
+            prev && prev.id === sess.user.id
+              ? prev
+              : buildAuthUser(null, sess)
+          );
+          // loadProfile() enriches with real credits/role/plan and saves
+          // an updated snapshot when done.
+          await loadProfile(sess);
+        } else {
+          // Session ended — clear everything immediately.
+          setUser(null);
+          clearAuthSnapshot();
+        }
         setLoading(false);
       }
     );
@@ -324,6 +420,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the network call completes.
     setUser(null);
     setSession(null);
+    // Wipe the snapshot so a future cold load doesn't show the old user.
+    clearAuthSnapshot();
 
     if (!isSupabaseConfigured) {
       localStorage.removeItem("zencra_user");
@@ -354,7 +452,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("credits")
       .eq("id", session.user.id)
       .single();
-    if (data) setUser(prev => prev ? { ...prev, credits: data.credits as number } : prev);
+    if (data) {
+      setUser(prev => {
+        if (!prev) return prev;
+        const updated = { ...prev, credits: data.credits as number };
+        saveAuthSnapshot(updated);
+        return updated;
+      });
+    }
   }
 
   return (

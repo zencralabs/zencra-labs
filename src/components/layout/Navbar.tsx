@@ -679,6 +679,42 @@ function MobileMenu({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AUTH LOADING SKELETON
+// Shown in the desktop action slot while auth state is resolving.
+// Matches the approximate dimensions of the credits pill + avatar pill so
+// there is no layout shift when the real controls appear.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function NavbarAuthSkeleton() {
+  return (
+    <div className="hidden items-center gap-3 lg:flex">
+      {/* Credits pill placeholder */}
+      <div
+        style={{
+          width: 80,
+          height: 34,
+          borderRadius: 20,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+        }}
+      />
+      {/* Avatar + name pill placeholder */}
+      <div
+        style={{
+          width: 116,
+          height: 36,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN NAVBAR
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -688,7 +724,7 @@ export function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey | null>(null);
   const [authModal, setAuthModal]           = useState<"login" | "signup" | null>(null);
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -866,84 +902,95 @@ export function Navbar() {
             </ul>
 
             {/* ── Desktop actions ── */}
-            <div className="hidden items-center gap-3 lg:flex">
-              {user ? (
-                <>
-                  {/* Credits pill — scaled up */}
+            {/*
+              Rendering priority:
+                1. loading && !user  →  skeleton (auth resolving, no cached state)
+                2. user              →  credits pill + FCS badge + avatar dropdown
+                3. !user             →  Login + Try Free  (only after loading=false)
+
+              This prevents the Login button from ever flashing while a valid
+              session exists. The skeleton is shown only on a truly cold first
+              load where there is no localStorage snapshot to seed `user`.
+            */}
+            {loading && !user ? (
+              <NavbarAuthSkeleton />
+            ) : user ? (
+              <div className="hidden items-center gap-3 lg:flex">
+                {/* Credits pill */}
+                <Link
+                  href={user.role === "admin" ? "/hub/credits" : "/dashboard/credits"}
+                  style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "7px 15px", fontSize: "13px", fontWeight: 600, color: "#60A5FA", textDecoration: "none", transition: "all 0.2s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                >
+                  <Zap size={13} />
+                  {user.credits} cr
+                </Link>
+                {/* FCS Active pill — clickable Link to Cinema Studio */}
+                {hasFCSAccess(user) && (
                   <Link
-                    href={user.role === "admin" ? "/hub/credits" : "/dashboard/credits"}
-                    style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "7px 15px", fontSize: "13px", fontWeight: 600, color: "#60A5FA", textDecoration: "none", transition: "all 0.2s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                    href="/studio/cinema"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "7px 13px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "#0EA5A0",
+                      background: "rgba(14,165,160,0.12)",
+                      border: "1px solid rgba(14,165,160,0.40)",
+                      boxShadow: "0 0 14px rgba(14,165,160,0.22)",
+                      textDecoration: "none",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.2)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 22px rgba(14,165,160,0.35)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.12)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 14px rgba(14,165,160,0.22)"; }}
                   >
-                    <Zap size={13} />
-                    {user.credits} cr
-                  </Link>
-                  {/* FCS Active pill — clickable Link to Cinema Studio */}
-                  {hasFCSAccess(user) && (
-                    <Link
-                      href="/studio/cinema"
+                    <span
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "7px 13px",
-                        borderRadius: "20px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        letterSpacing: "0.05em",
-                        textTransform: "uppercase",
-                        color: "#0EA5A0",
-                        background: "rgba(14,165,160,0.12)",
-                        border: "1px solid rgba(14,165,160,0.40)",
-                        boxShadow: "0 0 14px rgba(14,165,160,0.22)",
-                        textDecoration: "none",
-                        transition: "all 0.2s",
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        backgroundColor: "#0EA5A0",
+                        boxShadow: "0 0 7px #0EA5A0",
+                        flexShrink: 0,
+                        display: "inline-block",
+                        animation: "fcsPulse 2s ease-in-out infinite",
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.2)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 22px rgba(14,165,160,0.35)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.12)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 14px rgba(14,165,160,0.22)"; }}
-                    >
-                      <span
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: "50%",
-                          backgroundColor: "#0EA5A0",
-                          boxShadow: "0 0 7px #0EA5A0",
-                          flexShrink: 0,
-                          display: "inline-block",
-                          animation: "fcsPulse 2s ease-in-out infinite",
-                        }}
-                      />
-                      FCS Active
-                      <style>{`@keyframes fcsPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }`}</style>
-                    </Link>
-                  )}
-                  <UserDropdown user={user} onLogout={logout} />
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setAuthModal("login")}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
-                  >
-                    Login
-                  </button>
-                  <Link
-                    href="/studio/image"
-                    className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
-                    style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
-                  >
-                    <Zap size={15} />
-                    Try Free
+                    />
+                    FCS Active
+                    <style>{`@keyframes fcsPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }`}</style>
                   </Link>
-                </>
-              )}
-            </div>
+                )}
+                <UserDropdown user={user} onLogout={logout} />
+              </div>
+            ) : (
+              /* loading=false && user=null → genuinely signed out */
+              <div className="hidden items-center gap-3 lg:flex">
+                <button
+                  onClick={() => setAuthModal("login")}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                >
+                  Login
+                </button>
+                <Link
+                  href="/studio/image"
+                  className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
+                  style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                >
+                  <Zap size={15} />
+                  Try Free
+                </Link>
+              </div>
+            )}
 
             {/* Mobile toggle */}
             <button
