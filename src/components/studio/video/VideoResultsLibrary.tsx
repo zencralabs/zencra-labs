@@ -13,6 +13,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { GeneratedVideo } from "./types";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -504,10 +505,7 @@ function VideoCard({
     e.stopPropagation();
     if (!video.url) return;
     if (!user) { onAuthRequired?.(); return; }
-    const a = document.createElement("a");
-    a.href     = video.url;
-    a.download = `zencra-video-${video.id}.mp4`;
-    a.click();
+    downloadAsset(video.url, `zencra-video-${video.id}.mp4`);
   }
 
   // ── Dynamic card border + shadow ─────────────────────────────────────────────

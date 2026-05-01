@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from "react";
 import { Zap } from "lucide-react";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import type { VideoModel } from "@/lib/ai/video-model-registry";
 import type { FrameMode, ImageSlot } from "./types";
 import type { LipSyncState } from "@/hooks/useLipSync";
@@ -517,14 +518,13 @@ function LipSyncCard({
                 controls
                 style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(139,92,246,0.2)" }}
               />
-              <a
-                href={outputUrl}
-                download="lip-sync.mp4"
+              <button
+                onClick={() => downloadAsset(outputUrl, "lip-sync.mp4")}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   marginTop: 8, padding: "7px 14px", borderRadius: 8, /* Chip: 13px / semibold 600 / tracking -0.005em */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
                   border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)",
-                  color: "#C4B5FD", textDecoration: "none", transition: "all 0.15s",
+                  color: "#C4B5FD", cursor: "pointer", transition: "all 0.15s", width: "100%",
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.2)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.1)"; }}
@@ -534,7 +534,7 @@ function LipSyncCard({
                   <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
                 Download
-              </a>
+              </button>
             </div>
           )}
 

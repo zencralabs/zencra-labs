@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { supabase } from "@/lib/supabase";
@@ -3778,21 +3779,20 @@ function ImageStudioInner() {
 
               {/* Download */}
               {selectedImage.url && (
-                <a
-                  href={selectedImage.url}
-                  download
+                <button
+                  onClick={() => downloadAsset(selectedImage.url!, `zencra-image-${selectedImage.id ?? "output"}.png`)}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                     padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
                     border: "1px solid rgba(255,255,255,0.1)",
                     background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
-                    textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
+                    cursor: "pointer", transition: "all 0.15s", width: "100%",
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
                   ↓ Download
-                </a>
+                </button>
               )}
 
               {/* Fullscreen */}

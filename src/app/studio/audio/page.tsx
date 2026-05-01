@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { Zap } from "lucide-react";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -739,15 +740,14 @@ function AudioCard({
         </span>
 
         {item.url && (
-          <a
-            href={item.url}
-            download={`zencra-audio-${item.id}.mp3`}
+          <button
+            onClick={() => downloadAsset(item.url!, `zencra-audio-${item.id}.mp3`)}
             style={{
               width: 28, height: 28, borderRadius: 8,
               border: "1px solid rgba(255,255,255,0.08)",
               background: "rgba(255,255,255,0.03)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", textDecoration: "none", flexShrink: 0,
+              cursor: "pointer", flexShrink: 0,
               transition: "background 0.15s, border-color 0.15s",
             }}
             title="Download MP3"
@@ -765,7 +765,7 @@ function AudioCard({
                 stroke="rgba(255,255,255,0.45)" strokeWidth="1.4"
                 strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </a>
+          </button>
         )}
       </div>
 

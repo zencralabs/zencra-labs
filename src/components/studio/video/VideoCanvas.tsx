@@ -18,6 +18,7 @@ import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react"
 import type { FrameMode, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -908,14 +909,7 @@ function CanvasVideoPreview({
 
   const handleDownload = () => {
     if (!video.url) return;
-    try {
-      const a = document.createElement("a");
-      a.href = video.url;
-      a.download = `zencra-${video.id}.mp4`;
-      a.click();
-    } catch {
-      window.open(video.url, "_blank");
-    }
+    downloadAsset(video.url, `zencra-${video.id}.mp4`);
     onDownload?.();
   };
 

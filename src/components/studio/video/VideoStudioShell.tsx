@@ -41,6 +41,23 @@ const MAX_POLLS               = 60;   // 60 × 4s = 4 min — normal jobs
 const MAX_POLLS_SCENE_AUDIO   = 75;   // 75 × 4s = 5 min — Scene Audio gets extra time before fallback
 const SIDE_GUTTER   = 20;
 
+// ── Type for a raw history asset row returned by /api/assets ─────────────────
+interface HistoryAsset {
+  id:             string;
+  status:         string;
+  url:            string | null;
+  prompt:         string | null;
+  model_key:      string;
+  provider:       string | null;
+  aspect_ratio:   string | null;
+  credits_cost:   number | null;
+  visibility:     string | null;
+  is_favorite:    boolean | null;
+  created_at:     string;
+  error_message:  string | null;
+  audio_detected: boolean | null;
+}
+
 // ── Per-model accent color ────────────────────────────────────────────────────
 
 function modelAccentColor(m: VideoModel): string {
@@ -840,102 +857,149 @@ export default function VideoStudioShell() {
   //   • "pending" DB assets (tab closed mid-generation) are shown as "generating"
   //     so the user sees the card rather than having it silently disappear
   //   • audio_detected from DB is mapped so AudioBadge survives page refreshes
-  const historyFetchedRef = useRef(false);
-  useEffect(() => {
-    if (!authToken || historyFetchedRef.current) return;
-    historyFetchedRef.current = true;
+  // ── Gallery history — stable refreshVideoHistory callback ───────────────────
+  //
+  // Design guarantees:
+  //   • NEVER overwrites existing state with empty data (guard on empty response)
+  //   • Merge is additive — never drops session videos (existingIds dedup)
+  //   • Retries up to 2× on auth/network failure (1-second delay between retries)
+  //   • "pending" DB assets (tab closed mid-generation) shown as "generating"
+  //   • audio_detected from DB mapped so AudioBadge survives page refreshes
+  //   • localStorage per-user cache: hydrates immediately on mount, written on each
+  //     successful server fetch so gallery is never empty on tab re-open
+  //   • Rehydrates on visibilitychange / window focus / pageshow (bfcache)
+  //   • Called after each polling completion so the gallery reflects the final state
+  const mapHistoryAsset = useCallback((a: HistoryAsset): GeneratedVideo => ({
+    id:            a.id,
+    url:           a.url ?? null,
+    thumbnailUrl:  null,
+    prompt:        a.prompt ?? "",
+    negPrompt:     "",
+    modelId:       a.model_key,
+    modelName:     VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
+    duration:      5,
+    aspectRatio:   (a.aspect_ratio ?? "16:9") as VideoAR,
+    frameMode:     "text_to_video" as const,
+    // DB status mapping:
+    //   "failed"  → "error"      (show error card)
+    //   "pending" → "generating" (tab closed mid-generation — show spinner)
+    //   anything else ("ready")  → "done"
+    status:        a.status === "failed"
+                     ? "error" as const
+                     : a.status === "pending"
+                     ? "generating" as const
+                     : "done" as const,
+    error:         a.error_message ?? undefined,
+    provider:      a.provider ?? undefined,
+    creditsUsed:   a.credits_cost ?? 0,
+    createdAt:     new Date(a.created_at).getTime(),
+    isPublic:      a.visibility === "public",
+    is_favorite:   a.is_favorite ?? false,
+    // Audio detection persisted by mirrorVideoToStorage (migration 046).
+    // All video history defaults to audioMode="scene" (voiceover is session-only).
+    audioMode:     "scene" as const,
+    audioDetected: a.audio_detected ?? null,
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const fetchHistory = async (attempt = 1): Promise<void> => {
-      try {
-        const res = await fetch("/api/assets?studio=video&limit=100&include_failed=true", {
-          headers: { Authorization: `Bearer ${authToken}` },
-        });
-        if (!res.ok) {
-          // Retry on transient auth/network failures (max 2 retries)
-          if (attempt < 3) {
-            await new Promise(r => setTimeout(r, 1000));
-            return fetchHistory(attempt + 1);
-          }
-          console.warn(`[VideoStudio] history fetch failed after ${attempt} attempts: HTTP ${res.status}`);
-          return;
-        }
-        const json = await res.json() as {
-          success: boolean;
-          data?: Array<{
-            id: string;
-            status: string;
-            url: string | null;
-            prompt: string | null;
-            model_key: string;
-            provider: string | null;
-            aspect_ratio: string | null;
-            credits_cost: number | null;
-            visibility: string | null;
-            is_favorite: boolean | null;
-            created_at: string;
-            error_message: string | null;
-            audio_detected: boolean | null;
-          }>;
-        };
-        // GUARD: never overwrite existing state with empty response
-        if (!json.success || !json.data?.length) {
-          console.log(`[VideoStudio] history fetch returned 0 assets (attempt ${attempt})`);
-          return;
-        }
-
-        console.log(`[VideoStudio] history fetch returned ${json.data.length} assets`);
-
-        const historyVideos: GeneratedVideo[] = json.data.map(a => ({
-          id:            a.id,
-          url:           a.url ?? null,
-          thumbnailUrl:  null,
-          prompt:        a.prompt ?? "",
-          negPrompt:     "",
-          modelId:       a.model_key,
-          modelName:     VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
-          duration:      5,
-          aspectRatio:   (a.aspect_ratio ?? "16:9") as VideoAR,
-          frameMode:     "text_to_video" as const,
-          // DB status mapping:
-          //   "failed"  → "error"      (show error card)
-          //   "pending" → "generating" (tab closed mid-generation — show spinner)
-          //   anything else ("ready")  → "done"
-          status:        a.status === "failed"
-                           ? "error" as const
-                           : a.status === "pending"
-                           ? "generating" as const
-                           : "done" as const,
-          error:         a.error_message ?? undefined,
-          provider:      a.provider ?? undefined,
-          creditsUsed:   a.credits_cost ?? 0,
-          createdAt:     new Date(a.created_at).getTime(),
-          isPublic:      a.visibility === "public",
-          is_favorite:   a.is_favorite ?? false,
-          // Audio detection persisted by mirrorVideoToStorage (migration 046).
-          // All video history defaults to audioMode="scene" (voiceover is session-only).
-          audioMode:     "scene" as const,
-          audioDetected: a.audio_detected ?? null,
-        }));
-
-        // MERGE: keep all session-generated videos, append history entries not already present
-        // Never replaces existing entries — just fills gaps.
-        setVideos(prev => {
-          const existingIds = new Set(prev.map(v => v.id));
-          const newHistory  = historyVideos.filter(v => !existingIds.has(v.id));
-          return newHistory.length > 0 ? [...prev, ...newHistory] : prev;
-        });
-      } catch (err) {
+  const refreshVideoHistory = useCallback(async (attempt = 1): Promise<void> => {
+    if (!authToken) return;
+    const cacheKey = `zencra_video_history_${user?.id ?? "anon"}`;
+    try {
+      const res = await fetch("/api/assets?studio=video&limit=100&include_failed=true", {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) {
         if (attempt < 3) {
           await new Promise(r => setTimeout(r, 1000));
-          return fetchHistory(attempt + 1);
+          return refreshVideoHistory(attempt + 1);
         }
-        // Non-critical — gallery shows session videos; log for Vercel diagnostics
-        console.warn("[VideoStudio] history fetch threw after max retries:", err);
+        console.warn(`[VideoStudio] history fetch failed after ${attempt} attempts: HTTP ${res.status}`);
+        return;
+      }
+      const json = await res.json() as { success: boolean; data?: HistoryAsset[] };
+      // GUARD: never overwrite existing state with empty response
+      if (!json.success || !json.data?.length) {
+        console.log(`[VideoStudio] history fetch returned 0 assets (attempt ${attempt})`);
+        return;
+      }
+      console.log(`[VideoStudio] history fetch returned ${json.data.length} assets`);
+      const historyVideos: GeneratedVideo[] = json.data.map(mapHistoryAsset);
+
+      // Write to localStorage cache (per user) so next mount is instant
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(historyVideos));
+      } catch { /* ignore — storage full or private browsing */ }
+
+      // MERGE: keep all session-generated videos, append history entries not already present
+      setVideos(prev => {
+        const existingIds = new Set(prev.map(v => v.id));
+        const newHistory  = historyVideos.filter(v => !existingIds.has(v.id));
+        return newHistory.length > 0 ? [...prev, ...newHistory] : prev;
+      });
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 1000));
+        return refreshVideoHistory(attempt + 1);
+      }
+      console.warn("[VideoStudio] history fetch threw after max retries:", err);
+    }
+  }, [authToken, user?.id, mapHistoryAsset]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Hydrate from localStorage cache immediately on mount (per user) ──────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const cacheKey = `zencra_video_history_${user.id}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const cachedVideos = JSON.parse(cached) as GeneratedVideo[];
+        if (cachedVideos.length > 0) {
+          console.log(`[VideoStudio] hydrating ${cachedVideos.length} videos from localStorage cache`);
+          setVideos(prev => {
+            const existingIds  = new Set(prev.map(v => v.id));
+            const newFromCache = cachedVideos.filter(v => !existingIds.has(v.id));
+            return newFromCache.length > 0 ? [...prev, ...newFromCache] : prev;
+          });
+        }
+      }
+    } catch { /* ignore — JSON parse error or SSR guard */ }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Initial server fetch on auth ready ────────────────────────────────────
+  useEffect(() => {
+    if (!authToken) return;
+    void refreshVideoHistory();
+  }, [authToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Rehydration listeners — re-fetch when user returns to tab ─────────────
+  // Covers: alt-tab back, cmd-tab, browser back via bfcache, screen lock/wake.
+  useEffect(() => {
+    if (!authToken) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[VideoStudio] tab visible — rehydrating gallery");
+        void refreshVideoHistory();
       }
     };
-
-    void fetchHistory();
-  }, [authToken]); // eslint-disable-line react-hooks/exhaustive-deps
+    const handleFocus = () => {
+      console.log("[VideoStudio] window focus — rehydrating gallery");
+      void refreshVideoHistory();
+    };
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        console.log("[VideoStudio] pageshow bfcache — rehydrating gallery");
+        void refreshVideoHistory();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [authToken, refreshVideoHistory]);
 
   // ── Sequence mode — cinematic shot stack ──────────────────────────────────
   const [sequenceMode, setSequenceMode] = useState(false);
@@ -1347,6 +1411,8 @@ export default function VideoStudioShell() {
                       showToast("Video generated — Scene Audio was unavailable for this run", "info");
                       void recordFlowStep({ modelKey, prompt, resultUrl: fbUrl, aspectRatio });
                       setGenerating(false);
+                      // Re-fetch gallery so the completed video card has server metadata
+                      void refreshVideoHistory();
                     } else if (fbStatus === "error") {
                       clearInterval(fbPoll);
                       const errMsg = sd.data?.error ?? "Generation failed";
@@ -1505,6 +1571,8 @@ export default function VideoStudioShell() {
               aspectRatio: aspectRatio,
             });
             setGenerating(false);
+            // Re-fetch gallery so the completed video card has the server URL + metadata
+            void refreshVideoHistory();
           } else if (status === "error") {
             clearInterval(poll);
             const errMsg = sd.data?.error ?? "Generation failed";
@@ -1527,7 +1595,7 @@ export default function VideoStudioShell() {
     user, frameMode, model, generating, prompt, negPrompt, duration, aspectRatio,
     quality, resolution, motionPreset, startSlot, endSlot, motionVideoUrl,
     motionStrength, motionArea, lipSyncCreate, recordFlowStep, showToast,
-    useStartFrame, detectedHandles, audioMode, voiceoverScript,
+    useStartFrame, detectedHandles, audioMode, voiceoverScript, refreshVideoHistory,
   ]);
 
 
@@ -1896,7 +1964,11 @@ export default function VideoStudioShell() {
                 onOpenFullscreen={(v) => setViewingVideo(v)}
                 previewIsFavorite={canvasPreviewVideo?.is_favorite ?? false}
                 onPreviewFavToggle={handlePreviewFavToggle}
-                onPreviewDownload={undefined}
+                onPreviewDownload={
+                  canvasPreviewVideo?.url
+                    ? () => { import("@/lib/client/downloadAsset").then(({ downloadAsset }) => downloadAsset(canvasPreviewVideo.url!, `zencra-${canvasPreviewVideo.id}.mp4`)); }
+                    : undefined
+                }
                 onPreviewCopyPrompt={undefined}
                 onPreviewDelete={handlePreviewDelete}
                 onPreviewCancel={handlePreviewCancel}

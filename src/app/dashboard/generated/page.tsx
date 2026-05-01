@@ -86,16 +86,31 @@ function studioColor(studio: string): string {
 }
 
 function downloadAsset(url: string, prompt: string | null) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = prompt
+  const filename = prompt
     ? prompt.slice(0, 40).replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "-") + ".png"
     : "zencra-output.png";
-  a.target = "_blank";
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  // Blob-fetch path: resolves CORS on Supabase CDN URLs so the browser triggers
+  // a real file-save dialog instead of navigating to the asset URL.
+  fetch(url, { method: "GET" })
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.blob();
+    })
+    .then(blob => {
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 5_000);
+    })
+    .catch(() => {
+      // Fallback: open in new tab only — never replace current page
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
