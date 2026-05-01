@@ -1353,7 +1353,7 @@ function ImageStudioInner() {
           try {
             localStorage.setItem(
               `zencra_gallery_cache_image_${user.id}`,
-              JSON.stringify(merged.slice(0, 50)),
+              JSON.stringify(merged.slice(0, 200)),
             );
           } catch { /* quota exceeded or SSR — safe to skip */ }
           return merged;
@@ -1458,7 +1458,7 @@ function ImageStudioInner() {
         try {
           localStorage.setItem(
             `zencra_gallery_cache_image_${user.id}`,
-            JSON.stringify(merged.slice(0, 50)),
+            JSON.stringify(merged.slice(0, 200)),
           );
         } catch { /* quota exceeded or SSR */ }
         return merged;
@@ -2566,46 +2566,89 @@ function ImageStudioInner() {
                   }}>
                     Recently Generated
                   </span>
-                  <div
-                    style={{
-                      display: "flex", gap: 6, overflowX: "auto",
-                      scrollbarWidth: "none",
-                      // fixed 100px height — width of each thumb = 100 × AR
-                    }}
-                  >
-                    {recentImages.map((img) => {
-                      // Compute display width from stored aspect ratio string
-                      const [wStr, hStr] = (img.aspectRatio && img.aspectRatio !== "Auto")
-                        ? img.aspectRatio.split(":")
-                        : ["16", "9"];
-                      const ar  = parseFloat(wStr) / parseFloat(hStr) || 16 / 9;
-                      const thumbW = Math.round(100 * ar);
-                      return (
-                        <div
-                          key={img.id}
-                          style={{
-                            width: thumbW, height: 100, flexShrink: 0,
-                            cursor: "pointer", overflow: "hidden",
-                            borderRadius: 0,
-                            transition: "transform 0.15s ease",
-                            background: "rgba(255,255,255,0.04)",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
-                          onClick={() => setViewingImage(img)}
-                        >
-                          <img
-                            src={img.url!}
-                            alt={img.prompt.slice(0, 60)}
-                            loading="lazy"
+                  {/* Wrapper: relative so left/right fade overlays are positioned inside */}
+                  <div style={{ position: "relative" }}>
+                    {/* Left fade — masks scroll start edge */}
+                    <div style={{
+                      position: "absolute", top: 0, bottom: 0, left: 0,
+                      width: 40, zIndex: 2, pointerEvents: "none",
+                      background: "linear-gradient(to right, #0b0f1a, transparent)",
+                    }} />
+                    {/* Right fade — masks scroll end edge */}
+                    <div style={{
+                      position: "absolute", top: 0, bottom: 0, right: 0,
+                      width: 40, zIndex: 2, pointerEvents: "none",
+                      background: "linear-gradient(to left, #0b0f1a, transparent)",
+                    }} />
+                    <div
+                      style={{
+                        display: "flex", gap: 6, overflowX: "auto",
+                        scrollbarWidth: "none",
+                        scrollBehavior: "smooth",
+                        // momentum scrolling on iOS / Safari
+                        WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
+                      } as React.CSSProperties}
+                    >
+                      {recentImages.map((img, index) => {
+                        // Fix 1: prefer real measured ratio (imageRatios), fall back to stored
+                        // string, fall back to cinematic default — same priority as justifiedLayout.
+                        const ar = imageRatios[img.id] ?? (() => {
+                          if (img.aspectRatio && img.aspectRatio !== "Auto") {
+                            const parts = img.aspectRatio.split(":");
+                            if (parts.length === 2) {
+                              const w = Number(parts[0]);
+                              const h = Number(parts[1]);
+                              if (w > 0 && h > 0) return w / h;
+                            }
+                          }
+                          return 16 / 9;
+                        })();
+                        const thumbW = Math.round(100 * ar);
+                        return (
+                          <div
+                            key={img.id}
                             style={{
-                              width: "100%", height: "100%",
-                              objectFit: "cover", display: "block",
+                              position: "relative",
+                              width: thumbW, height: 100, flexShrink: 0,
+                              cursor: "pointer", overflow: "hidden",
+                              borderRadius: 0,
+                              transition: "transform 0.15s ease",
+                              background: "rgba(255,255,255,0.04)",
                             }}
-                          />
-                        </div>
-                      );
-                    })}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
+                            onClick={() => setViewingImage(img)}
+                          >
+                            <img
+                              src={img.url!}
+                              alt={img.prompt.slice(0, 60)}
+                              loading="lazy"
+                              style={{
+                                width: "100%", height: "100%",
+                                objectFit: "cover", display: "block",
+                              }}
+                            />
+                            {/* NEW badge — first item only */}
+                            {index === 0 && (
+                              <div style={{
+                                position: "absolute", top: 6, left: 6,
+                                fontSize: 9, fontWeight: 700,
+                                letterSpacing: "0.08em",
+                                padding: "2px 6px",
+                                background: "rgba(255,255,255,0.12)",
+                                backdropFilter: "blur(6px)",
+                                color: "rgba(255,255,255,0.85)",
+                                textTransform: "uppercase",
+                                lineHeight: 1.4,
+                                pointerEvents: "none",
+                              }}>
+                                NEW
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
