@@ -593,7 +593,6 @@ function ImageCard({
   /** Fired when the underlying <img> loads — caller reads naturalWidth/naturalHeight for justified layout. */
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }) {
-  const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} onCancel={onCancel} />;
   }
@@ -662,7 +661,6 @@ function ImageCard({
       style={{ animation: "fadeIn 0.3s ease", position: "relative" }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
-        setCardAnimateOpen(false);
         onOpen?.();
       }}
     >
@@ -677,52 +675,9 @@ function ImageCard({
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
-        onAnimate={() => setCardAnimateOpen(v => !v)}
+        onAnimate={(_asset, frame) => onOpenWorkflow?.(frame === "start" ? "start-frame" : "end-frame")}
         onImageLoad={onImageLoad}
       />
-
-      {/* ── Animate Start/End Frame dropdown — identical routing to right panel ── */}
-      {cardAnimateOpen && img.url && (
-        <>
-          {/* Invisible backdrop — closes dropdown on outside click */}
-          <div
-            style={{ position: "fixed", inset: 0, zIndex: 200 }}
-            onClick={(e) => { e.stopPropagation(); setCardAnimateOpen(false); }}
-          />
-          <div style={{
-            position: "absolute", bottom: 48, left: 8, right: 8,
-            background: "#141420",
-            border: "1px solid rgba(96,165,250,0.22)",
-            borderRadius: 10, overflow: "hidden", zIndex: 201,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.75)",
-          }}>
-            {([
-              { label: "Use as Start Frame", param: "startFrame", desc: "Image becomes the first frame" },
-              { label: "Use as End Frame",   param: "endFrame",   desc: "Image becomes the last frame"  },
-            ] as const).map(({ label, param, desc }, idx) => (
-              <button
-                key={param}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCardAnimateOpen(false);
-                  onOpenWorkflow?.(param === "startFrame" ? "start-frame" : "end-frame");
-                }}
-                style={{
-                  width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
-                  padding: "10px 12px", border: "none", background: "transparent",
-                  color: "#fff", cursor: "pointer", transition: "background 0.12s",
-                  borderBottom: idx === 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.1)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -873,7 +828,7 @@ function ImageStudioInner() {
   const [quality, setQuality] = useState<Quality>("1K");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("JPG");
   const [batchSize, setBatchSize] = useState(1);
-  const [zoomLevel, setZoomLevel] = useState(3); // 1-5
+  const [zoomLevel, setZoomLevel] = useState(4); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
   // Measured aspect ratios from real loaded images — keyed by image ID.
   // Populated via onImageLoad on the actual rendered <img>. Used to override
@@ -2320,9 +2275,10 @@ function ImageStudioInner() {
         ref={galleryScrollRef}
         style={{
           flex: 1, overflowY: "auto",
-          padding: `24px 24px ${isDockCollapsed ? "48px" : "160px"}`,
+          padding: `0 24px ${isDockCollapsed ? "48px" : "160px"}`,
           animation: generateGlow ? "generateGlowPulse 0.7s ease-out forwards" : "none",
-        }}
+          "--gallery-zoom": zoomLevel / 5,
+        } as React.CSSProperties}
       >
 
         {/* ── STATE 1: History loading — justified skeleton rows ───────────── */}
@@ -2603,8 +2559,127 @@ function ImageStudioInner() {
             doneImages.map((img, i) => [img.id, totalDone - i])
           );
 
+          // Hoist recentImages so both sticky section + rest of IIFE can reference it
+          const recentImages = images
+            .filter((img) => img.status === "done" && img.url)
+            .slice(0, 14);
+
           return (
             <>
+            {/* ── Recently Generated — sticky horizontal filmstrip ──────── */}
+            {recentImages.length >= 2 && (
+              <div style={{
+                position: "sticky", top: 0, zIndex: 20,
+                marginLeft: -24, marginRight: -24,
+                paddingLeft: 24, paddingRight: 24,
+                paddingTop: 12, paddingBottom: 14,
+                marginBottom: 10,
+                backdropFilter: "blur(18px)",
+                WebkitBackdropFilter: "blur(18px)",
+                background: "linear-gradient(180deg, rgba(6,10,20,0.95) 0%, rgba(6,10,20,0.82) 100%)",
+              }}>
+                <span style={{
+                  display: "block", fontSize: 13, fontWeight: 700,
+                  letterSpacing: "0.14em", color: "rgba(255,255,255,0.72)",
+                  textTransform: "uppercase",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
+                  marginBottom: 10,
+                }}>
+                  Recently Generated
+                </span>
+                {/* Wrapper: relative so left/right fade overlays are positioned inside */}
+                <div style={{ position: "relative" }}>
+                  {/* Left fade — masks scroll start edge */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0, left: 0,
+                    width: 40, zIndex: 2, pointerEvents: "none",
+                    background: "linear-gradient(to right, #0b0f1a, transparent)",
+                  }} />
+                  {/* Right fade — masks scroll end edge */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0, right: 0,
+                    width: 40, zIndex: 2, pointerEvents: "none",
+                    background: "linear-gradient(to left, #0b0f1a, transparent)",
+                  }} />
+                  <div
+                    style={{
+                      display: "flex", gap: 6, overflowX: "auto",
+                      scrollbarWidth: "none",
+                      scrollBehavior: "smooth",
+                      // momentum scrolling on iOS / Safari
+                      WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
+                    } as React.CSSProperties}
+                  >
+                    {recentImages.map((img, index) => {
+                      // Prefer real measured ratio (imageRatios), fall back to stored
+                      // string, fall back to cinematic default — same priority as justifiedLayout.
+                      const ar = imageRatios[img.id] ?? (() => {
+                        if (img.aspectRatio && img.aspectRatio !== "Auto") {
+                          const parts = img.aspectRatio.split(":");
+                          if (parts.length === 2) {
+                            const w = Number(parts[0]);
+                            const h = Number(parts[1]);
+                            if (w > 0 && h > 0) return w / h;
+                          }
+                        }
+                        return 16 / 9;
+                      })();
+                      const thumbW = Math.round(100 * ar);
+                      return (
+                        <div
+                          key={img.id}
+                          style={{
+                            position: "relative",
+                            width: thumbW, height: 100, flexShrink: 0,
+                            cursor: "pointer", overflow: "hidden",
+                            borderRadius: 0,
+                            transition: "transform 0.15s ease",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
+                          onClick={() => {
+                            // Clear any stale selectedImage so no ghost premium panel
+                            // appears behind the fullscreen viewer when browsing filmstrip
+                            setSelectedImage(null);
+                            setPanelDetails(null);
+                            setViewingImage(img);
+                          }}
+                        >
+                          <img
+                            src={img.url!}
+                            alt={img.prompt.slice(0, 60)}
+                            loading="lazy"
+                            style={{
+                              width: "100%", height: "100%",
+                              objectFit: "cover", display: "block",
+                            }}
+                          />
+                          {/* NEW badge — first item only */}
+                          {index === 0 && (
+                            <div style={{
+                              position: "absolute", top: 6, left: 6,
+                              fontSize: 9, fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              padding: "2px 6px",
+                              background: "rgba(255,255,255,0.12)",
+                              backdropFilter: "blur(6px)",
+                              color: "rgba(255,255,255,0.85)",
+                              textTransform: "uppercase",
+                              lineHeight: 1.4,
+                              pointerEvents: "none",
+                            }}>
+                              NEW
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Working Canvas label */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -2612,128 +2687,21 @@ function ImageStudioInner() {
             }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-                  color: "rgba(255,255,255,0.28)", textTransform: "uppercase",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
+                  color: "rgba(255,255,255,0.72)", textTransform: "uppercase",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
                 }}>
                   Working Canvas
                 </span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.58)", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
                   Recent creations
                 </span>
               </div>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", letterSpacing: "0.02em" }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.14)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.68)", letterSpacing: "0.02em", fontFamily: "var(--font-body, system-ui, sans-serif)" }}>
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* ── Recently Generated — horizontal filmstrip ─────────────── */}
-            {(() => {
-              const recentImages = images
-                .filter((img) => img.status === "done" && img.url)
-                .slice(0, 14);
-              if (recentImages.length < 2) return null;
-              return (
-                <div style={{ marginBottom: 20 }}>
-                  <span style={{
-                    display: "block", fontSize: 10, fontWeight: 700,
-                    letterSpacing: "0.08em", color: "rgba(255,255,255,0.22)",
-                    textTransform: "uppercase", marginBottom: 8,
-                  }}>
-                    Recently Generated
-                  </span>
-                  {/* Wrapper: relative so left/right fade overlays are positioned inside */}
-                  <div style={{ position: "relative" }}>
-                    {/* Left fade — masks scroll start edge */}
-                    <div style={{
-                      position: "absolute", top: 0, bottom: 0, left: 0,
-                      width: 40, zIndex: 2, pointerEvents: "none",
-                      background: "linear-gradient(to right, #0b0f1a, transparent)",
-                    }} />
-                    {/* Right fade — masks scroll end edge */}
-                    <div style={{
-                      position: "absolute", top: 0, bottom: 0, right: 0,
-                      width: 40, zIndex: 2, pointerEvents: "none",
-                      background: "linear-gradient(to left, #0b0f1a, transparent)",
-                    }} />
-                    <div
-                      style={{
-                        display: "flex", gap: 6, overflowX: "auto",
-                        scrollbarWidth: "none",
-                        scrollBehavior: "smooth",
-                        // momentum scrolling on iOS / Safari
-                        WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
-                      } as React.CSSProperties}
-                    >
-                      {recentImages.map((img, index) => {
-                        // Fix 1: prefer real measured ratio (imageRatios), fall back to stored
-                        // string, fall back to cinematic default — same priority as justifiedLayout.
-                        const ar = imageRatios[img.id] ?? (() => {
-                          if (img.aspectRatio && img.aspectRatio !== "Auto") {
-                            const parts = img.aspectRatio.split(":");
-                            if (parts.length === 2) {
-                              const w = Number(parts[0]);
-                              const h = Number(parts[1]);
-                              if (w > 0 && h > 0) return w / h;
-                            }
-                          }
-                          return 16 / 9;
-                        })();
-                        const thumbW = Math.round(100 * ar);
-                        return (
-                          <div
-                            key={img.id}
-                            style={{
-                              position: "relative",
-                              width: thumbW, height: 100, flexShrink: 0,
-                              cursor: "pointer", overflow: "hidden",
-                              borderRadius: 0,
-                              transition: "transform 0.15s ease",
-                              background: "rgba(255,255,255,0.04)",
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
-                            onClick={() => {
-                              // Clear any stale selectedImage so no ghost premium panel
-                              // appears behind the fullscreen viewer when browsing filmstrip
-                              setSelectedImage(null);
-                              setPanelDetails(null);
-                              setViewingImage(img);
-                            }}
-                          >
-                            <img
-                              src={img.url!}
-                              alt={img.prompt.slice(0, 60)}
-                              loading="lazy"
-                              style={{
-                                width: "100%", height: "100%",
-                                objectFit: "cover", display: "block",
-                              }}
-                            />
-                            {/* NEW badge — first item only */}
-                            {index === 0 && (
-                              <div style={{
-                                position: "absolute", top: 6, left: 6,
-                                fontSize: 9, fontWeight: 700,
-                                letterSpacing: "0.08em",
-                                padding: "2px 6px",
-                                background: "rgba(255,255,255,0.12)",
-                                backdropFilter: "blur(6px)",
-                                color: "rgba(255,255,255,0.85)",
-                                textTransform: "uppercase",
-                                lineHeight: 1.4,
-                                pointerEvents: "none",
-                              }}>
-                                NEW
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* ── Justified rows — Higgsfield / Google Photos layout ─────── */}
             {justifiedRows.map((row, rowIndex) => (
@@ -3877,7 +3845,7 @@ function ImageStudioInner() {
           type="image"
           url={viewingImage.url}
           onClose={() => setViewingImage(null)}
-          zIndex={9000}
+          zIndex={9800}
           rightPanelWidth={
             selectedImage && selectedImage.status === "done" && !panelCollapsed
               ? 360
@@ -4525,7 +4493,7 @@ function ImageStudioInner() {
     )}
 
     {/* ── Panel reopen tab — visible only when premium panel is collapsed ──── */}
-    {selectedImage && selectedImage.status === "done" && panelCollapsed && (
+    {selectedImage && selectedImage.status === "done" && panelCollapsed && !viewingImage && (
       <button
         onClick={() => setPanelCollapsed(false)}
         title="Open panel"
