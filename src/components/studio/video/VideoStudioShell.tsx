@@ -1214,19 +1214,41 @@ export default function VideoStudioShell() {
       if (!res.ok) {
         let errMsg = `API error: ${res.status}`;
         try { const e = await res.json(); if (e.error) errMsg = e.error; } catch { /* ignore */ }
-        // ── Kling 3.0 Omni account gate — friendly surface ───────────────────
+        // ── Kling model account gate — friendly surface ───────────────────────
         // When Kling returns code 1201 ("model is not supported"), the provider
         // throws a specific message. Route converts this to PROVIDER_ERROR 502.
         // Surface a dedicated toast so the user knows what to fix.
-        if (errMsg.includes("Omni is not enabled")) {
+        if (errMsg.includes("is not enabled for this API account")) {
           showToast(
-            "Kling 3.0 Omni is not enabled for this API account. " +
-            "Enable Omni access in your Kling console resource packs, then retry.",
+            `${model?.displayName ?? "This model"} is not enabled for this API account. ` +
+            "Enable model access in your Kling console resource packs, then retry.",
             "error"
           );
           setVideos(prev => prev.map(v =>
             v.id === newVideo.id
-              ? { ...v, status: "error" as const, error: "Kling 3.0 Omni not enabled for this account" }
+              ? { ...v, status: "error" as const, error: "Model not enabled for this account" }
+              : v,
+          ));
+          setGenerating(false);
+          return;
+        }
+        // ── Image source error — blob: URL or corrupt encoding ────────────────
+        // Thrown by normalizeKlingImageInput() when the image cannot be resolved
+        // server-side (e.g. the frontend sent a blob: URL instead of a data URL).
+        if (
+          errMsg.includes("Invalid image source") ||
+          errMsg.includes("Image input error") ||
+          errMsg.includes("End frame image input error") ||
+          errMsg.includes("blob:")
+        ) {
+          showToast(
+            "Please re-upload your image — it could not be processed. " +
+            "Try removing and re-adding the image, then generate again.",
+            "error"
+          );
+          setVideos(prev => prev.map(v =>
+            v.id === newVideo.id
+              ? { ...v, status: "error" as const, error: "Image could not be processed — please re-upload" }
               : v,
           ));
           setGenerating(false);

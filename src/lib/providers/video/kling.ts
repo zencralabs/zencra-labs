@@ -237,26 +237,29 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       // Kling image fields require raw base64 (no data: prefix, no blob: URLs).
       // normalizeKlingImageInput() throws immediately on blob: inputs, strips
       // data: prefixes, and fetches HTTPS URLs to base64 server-side.
-      let normalizedImageUrl: string | undefined;
-      let normalizedEndImageUrl: string | undefined;
+      // Returns null for absent/empty inputs (treated as "no image" below).
+      let normalizedImageUrl: string | null = null;
+      let normalizedEndImageUrl: string | null = null;
 
-      if (input.imageUrl) {
-        try {
-          normalizedImageUrl = await normalizeKlingImageInput(input.imageUrl);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`Image input error: ${msg}`);
-        }
+      try {
+        normalizedImageUrl = await normalizeKlingImageInput(input.imageUrl ?? null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`Image input error: ${msg}`);
       }
 
-      if (input.endImageUrl) {
-        try {
-          normalizedEndImageUrl = await normalizeKlingImageInput(input.endImageUrl);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`End frame image input error: ${msg}`);
-        }
+      try {
+        normalizedEndImageUrl = await normalizeKlingImageInput(input.endImageUrl ?? null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`End frame image input error: ${msg}`);
       }
+
+      console.log(
+        `[kling] imageBase64 length: ${normalizedImageUrl?.length ?? "none"} | ` +
+        `endImageBase64 length: ${normalizedEndImageUrl?.length ?? "none"} | ` +
+        `model: ${modelKey}`
+      );
 
       let endpoint: string;
       let payload: Record<string, unknown>;
