@@ -2421,14 +2421,27 @@ function ImageStudioInner() {
                   className="img-card-wrapper"
                   style={{
                     width,
-                    height:   row.height,
+                    height:     row.height,
                     flexShrink: 0,
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity:       0,
-                    animation:     `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(globalIndex, 20) * 40}ms forwards`,
+                    position:   "relative",
+                    // overflow intentionally omitted — MediaCard's inner containers
+                    // already clip the image. Removing it here lets box-shadow and
+                    // hover elevation (translateY) escape the tile boundary.
+                    opacity:    0,
+                    animation:  `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(globalIndex, 20) * 40}ms forwards`,
                     outline:       selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
                     outlineOffset: "-2px",
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform  = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow  = "0 10px 30px rgba(0,0,0,0.28)";
+                    e.currentTarget.style.zIndex     = "1";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform  = "";
+                    e.currentTarget.style.boxShadow  = "";
+                    e.currentTarget.style.zIndex     = "";
                   }}
                 >
                   {/* ── Checkbox — top-left, clear of badge ── */}

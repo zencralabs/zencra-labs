@@ -374,10 +374,14 @@ export default function MediaCard({
   onImageLoad,
   seqNumber,
 }: MediaCardProps) {
-  const [hovered,  setHovered]  = useState(false);
-  const [liked,    setLiked]    = useState(false);
-  const [copied,   setCopied]   = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [hovered,   setHovered]   = useState(false);
+  const [liked,     setLiked]     = useState(false);
+  const [copied,    setCopied]    = useState(false);
+  const [moreOpen,  setMoreOpen]  = useState(false);
+  // Tracks whether the underlying <img> has fired its native load event.
+  // In galleryMode the image starts at opacity 0 and fades in once loaded
+  // so the gallery never flashes a half-decoded image at full opacity.
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [menuPos,  setMenuPos]  = useState<{ top: number; left: number } | null>(null);
 
   const cardRef        = useRef<HTMLDivElement>(null);
@@ -537,17 +541,25 @@ export default function MediaCard({
             <img
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
-              onLoad={onImageLoad}
+              loading="lazy"
+              decoding="async"
+              onLoad={(e) => {
+                // 1. Trigger fade-in (galleryMode perceived-performance polish).
+                setImgLoaded(true);
+                // 2. Forward to caller so imageRatios can capture naturalWidth/Height.
+                onImageLoad?.(e);
+              }}
               style={galleryMode ? {
                 // Gallery justified row: fill the wrapper's pixel-height box.
                 // objectFit cover preserves aspect ratio and clips fractional px.
-                // onLoad above fires once real dimensions are known so the caller
-                // can update imageRatios → reflow to the correct justified width.
+                // Starts at opacity 0; fades to 1 when the image fires onLoad so
+                // the gallery never flashes a half-decoded frame at full opacity.
                 width:      "100%",
                 height:     "100%",
                 objectFit:  "cover",
                 display:    "block",
-                transition: "transform 0.35s",
+                opacity:    imgLoaded ? 1 : 0,
+                transition: "opacity 300ms ease, transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",
               } : {
                 // Standard mode: natural masonry — image renders at true height.
