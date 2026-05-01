@@ -1226,6 +1226,38 @@ function ImageStudioInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // ── Hydrate imageRatios from localStorage on mount ───────────────────────────
+  // Pre-populates the real measured ratios so the justified layout renders at
+  // correct widths immediately — before any <img> onLoad fires.
+  // This eliminates the micro-shift where images first render at the stored AR
+  // fallback then jump to their true dimensions as they decode.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("zencra_image_ratios");
+      if (raw) {
+        const cached = JSON.parse(raw) as Record<string, number>;
+        if (cached && typeof cached === "object") {
+          setImageRatios(cached);
+        }
+      }
+    } catch { /* corrupted cache — safe to ignore */ }
+  // Run once on mount — no deps needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist imageRatios to localStorage whenever new ratios are measured ─────
+  // Written on every change so the cache stays in sync as images load.
+  // Uses the image ID as key so ratios survive across sessions and page refreshes.
+  // Not scoped per-user: ratios are derived from public CDN image dimensions and
+  // carry no personal data, so sharing a key across users on the same browser is safe.
+  useEffect(() => {
+    if (typeof window === "undefined" || Object.keys(imageRatios).length === 0) return;
+    try {
+      localStorage.setItem("zencra_image_ratios", JSON.stringify(imageRatios));
+    } catch { /* quota exceeded — non-fatal */ }
+  }, [imageRatios]);
+
   // ── Load user's image history on mount (once auth is ready) ─────────────────
   useEffect(() => {
     if (!user || historyLoaded) return;
