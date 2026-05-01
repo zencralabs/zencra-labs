@@ -884,6 +884,15 @@ function ImageStudioInner() {
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
 
+  // ── Infinite scroll — cursor pagination state ─────────────────────────────────
+  // galleryNextCursor: ISO timestamp returned by /api/assets as `nextCursor`.
+  //   Passed as `?cursor=` on the next page request (created_at < cursor).
+  // galleryHasMore: false once the API confirms no further pages exist.
+  // galleryFetchingMore: guards against concurrent page requests.
+  const [galleryNextCursor, setGalleryNextCursor] = useState<string | null>(null);
+  const [galleryHasMore,    setGalleryHasMore]    = useState(false);
+  const [galleryFetchingMore, setGalleryFetchingMore] = useState(false);
+
   // ── Toast — lightweight, variant-aware ───────────────────────────────────────
   const [toastState, setToastState] = useState<{ msg: string; variant: "success" | "error" | "info" } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1023,6 +1032,16 @@ function ImageStudioInner() {
 
   // ── Auto-scroll to top of gallery on generate ────────────────────────────────
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+  // Sentinel div observed by IntersectionObserver to trigger infinite scroll fetches.
+  // Placed at the bottom of the justified gallery; observer fires when it enters the
+  // expanded viewport (rootMargin: "800px" prefetches well before the user hits bottom).
+  const infiniteScrollSentinelRef = useRef<HTMLDivElement>(null);
+  // Ref-based guard against stale-closure double-fires from IntersectionObserver.
+  // Using a ref (not state) avoids re-creating the observer on every fetch cycle.
+  const isFetchingMoreRef = useRef(false);
+  // Stable ref to fetchMoreImages — updated each render so the IntersectionObserver
+  // effect never goes stale without needing to list fetchMoreImages in its dep array.
+  const fetchMoreRef = useRef<() => void>(() => {});
   // Card-level scroll targeting — keyed by image id
   const imageCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [generateGlow, setGenerateGlow] = useState(false);
@@ -1231,11 +1250,18 @@ function ImageStudioInner() {
         return;
       }
 
-      // ── Shared fetch helper ─────────────────────────────────────────────────
-      const doFetch = (token: string) =>
-        fetch("/api/generations/mine?category=image&pageSize=50", {
+      // ── Shared fetch helper — /api/assets cursor-paginated endpoint ─────────
+      const doFetch = (token: string, cursor?: string) => {
+        const params = new URLSearchParams({
+          studio:          "image",
+          limit:           "50",
+          include_failed:  "true",
+        });
+        if (cursor) params.set("cursor", cursor);
+        return fetch(`/api/assets?${params.toString()}`, {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         });
+      };
 
       try {
         let res = await doFetch(accessToken);
@@ -1276,63 +1302,61 @@ function ImageStudioInner() {
           return;
         }
 
-        // Map DB rows → GeneratedImage.
-        // Include failed rows (no URL) alongside completed ones.
-        // aspectRatio: use stored value when present; fall back to "Auto" so
-        // images with no stored AR render at their natural dimensions in the
-        // masonry grid (ImageCard converts "Auto" → undefined → natural height).
+        // Map /api/assets rows → GeneratedImage.
+        // /api/assets uses: id, model_key, url, aspect_ratio, status("ready"|"failed"|"pending")
+        // Pending rows are in-flight and have no URL — skip them on initial load.
         const loaded: GeneratedImage[] = (json.data as Array<{
           id: string;
-          tool: string;
+          model_key: string;
           prompt: string;
           status: string;
-          result_url: string | null;
+          url: string | null;
+          aspect_ratio: string | null;
           error_message?: string | null;
-          parameters?: { aspectRatio?: string } | null;
           project_id?: string | null;
           created_at?: string | null;
         }>)
-          .filter((row) => row.status === "completed" || row.status === "failed")
-          .map((row) => {
-            const isFailed = row.status === "failed";
-            return {
-              id:          row.id,
-              assetId:     row.id,   // history rows use the DB asset ID directly
-              url:         row.result_url ?? null,
-              prompt:      row.prompt ?? "",
-              model:       row.tool ?? "nano-banana",
-              // "Auto" sentinel → ImageCard passes undefined → MediaCard renders at
-              // natural image height → true masonry proportions preserved.
-              aspectRatio: (row.parameters?.aspectRatio ?? "Auto") as AspectRatio,
-              status:      (isFailed ? "error" : "done") as GeneratedImage["status"],
-              error:       isFailed ? (row.error_message ?? undefined) : undefined,
-              createdAt:   row.created_at ?? undefined,
-              project_id:  row.project_id ?? null,
-            };
-          });
+          .filter((row) => row.status === "ready" || row.status === "failed")
+          .map((row) => ({
+            id:          row.id,
+            assetId:     row.id,
+            url:         row.url ?? null,
+            prompt:      row.prompt ?? "",
+            model:       KEY_TO_MODEL[row.model_key] ?? row.model_key ?? "dalle3",
+            aspectRatio: (row.aspect_ratio ?? "Auto") as AspectRatio,
+            status:      (row.status === "failed" ? "error" : "done") as GeneratedImage["status"],
+            error:       row.status === "failed" ? (row.error_message ?? undefined) : undefined,
+            createdAt:   row.created_at ?? undefined,
+            project_id:  row.project_id ?? null,
+          }));
 
         console.timeEnd("[Gallery] fetch image");
         console.log("[Gallery] loaded count:", loaded.length);
 
-        // Write to localStorage cache so next visit hydrates instantly
-        try {
-          localStorage.setItem(
-            `zencra_gallery_cache_image_${user.id}`,
-            JSON.stringify(loaded)
-          );
-        } catch { /* ignore — quota exceeded or SSR */ }
+        // Store pagination cursor for infinite scroll.
+        setGalleryNextCursor(json.nextCursor ?? null);
+        setGalleryHasMore(json.hasMore ?? false);
 
-        // Additive Map merge: never wipe existing images on empty API response.
-        // Merge prev + loaded, deduplicate by id, sort newest-first.
+        // Additive Map merge → write newest 50 to localStorage cache.
+        // Cache write lives inside the functional updater so it always reflects
+        // the post-merge state (safe: idempotent, no rendering dependency).
         setImages((prev) => {
           if (!loaded || loaded.length === 0) return prev; // never wipe
           const map = new Map(prev.map((a) => [a.id, a]));
           loaded.forEach((a) => map.set(a.id, a));
-          return Array.from(map.values()).sort((a, b) => {
+          const merged = Array.from(map.values()).sort((a, b) => {
             const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return tb - ta; // newest first
+            return tb - ta;
           });
+          // Persist newest 50 so investor-demo cache stays fresh on reload.
+          try {
+            localStorage.setItem(
+              `zencra_gallery_cache_image_${user.id}`,
+              JSON.stringify(merged.slice(0, 50)),
+            );
+          } catch { /* quota exceeded or SSR — safe to skip */ }
+          return merged;
         });
       } catch (err) {
         console.error("[ImageStudio] history fetch threw:", err);
@@ -1347,6 +1371,134 @@ function ImageStudioInner() {
   // refreshSession() call re-issues a valid token and the fetch is retried once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, historyLoaded]);
+
+  // ── Infinite scroll — load next page when sentinel enters expanded viewport ──
+
+  /** Shape of a single row returned by GET /api/assets */
+  type AssetRow = {
+    id: string;
+    model_key: string;
+    prompt: string;
+    status: string;           // "ready" | "failed" | "pending"
+    url: string | null;
+    aspect_ratio: string | null;
+    error_message?: string | null;
+    project_id?: string | null;
+    created_at?: string | null;
+  };
+
+  /**
+   * Map /api/assets rows to GeneratedImage[].
+   * Skips pending rows (in-flight, no URL yet).
+   * Maps "ready" → "done", "failed" → "error".
+   */
+  function mapAssetRows(rows: AssetRow[]): GeneratedImage[] {
+    return rows
+      .filter((row) => row.status === "ready" || row.status === "failed")
+      .map((row) => ({
+        id:          row.id,
+        assetId:     row.id,
+        url:         row.url ?? null,
+        prompt:      row.prompt ?? "",
+        model:       KEY_TO_MODEL[row.model_key] ?? row.model_key ?? "dalle3",
+        aspectRatio: (row.aspect_ratio ?? "Auto") as AspectRatio,
+        status:      (row.status === "failed" ? "error" : "done") as GeneratedImage["status"],
+        error:       row.status === "failed" ? (row.error_message ?? undefined) : undefined,
+        createdAt:   row.created_at ?? undefined,
+        project_id:  row.project_id ?? null,
+      }));
+  }
+
+  /**
+   * Fetch the next page of assets using the stored cursor.
+   * Guards against concurrent calls via isFetchingMoreRef.
+   * Writes merged-newest-50 to localStorage after every successful page.
+   */
+  const fetchMoreImages = useCallback(async () => {
+    if (!user || !galleryHasMore || !galleryNextCursor || isFetchingMoreRef.current) return;
+
+    isFetchingMoreRef.current = true;
+    setGalleryFetchingMore(true);
+
+    try {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token;
+      if (!token) return;
+
+      const params = new URLSearchParams({
+        studio:         "image",
+        limit:          "50",
+        include_failed: "true",
+        cursor:         galleryNextCursor,
+      });
+      const res = await fetch(`/api/assets?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.error("[Gallery] fetchMore failed:", res.status);
+        return;
+      }
+      const json = await res.json();
+      if (!json.success || !Array.isArray(json.data)) return;
+
+      const loaded = mapAssetRows(json.data as AssetRow[]);
+
+      setGalleryNextCursor(json.nextCursor ?? null);
+      setGalleryHasMore(json.hasMore ?? false);
+
+      setImages((prev) => {
+        if (!loaded || loaded.length === 0) return prev;
+        const map = new Map(prev.map((a) => [a.id, a]));
+        loaded.forEach((a) => map.set(a.id, a));
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+        try {
+          localStorage.setItem(
+            `zencra_gallery_cache_image_${user.id}`,
+            JSON.stringify(merged.slice(0, 50)),
+          );
+        } catch { /* quota exceeded or SSR */ }
+        return merged;
+      });
+    } catch (err) {
+      console.error("[Gallery] fetchMore threw:", err);
+    } finally {
+      isFetchingMoreRef.current = false;
+      setGalleryFetchingMore(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, galleryHasMore, galleryNextCursor]);
+
+  // Keep fetchMoreRef in sync with the latest fetchMoreImages identity so the
+  // IntersectionObserver effect never captures a stale closure.
+  useEffect(() => {
+    fetchMoreRef.current = fetchMoreImages;
+  }, [fetchMoreImages]);
+
+  // IntersectionObserver — watches the sentinel div at the bottom of the gallery.
+  // root: galleryScrollRef (the scroll container, not the viewport) so rootMargin
+  // applies to the container's visible area. "800px" prefetches one screen ahead.
+  useEffect(() => {
+    const sentinel = infiniteScrollSentinelRef.current;
+    const root     = galleryScrollRef.current;
+    if (!sentinel || !root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          fetchMoreRef.current();
+        }
+      },
+      { root, rootMargin: "800px", threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  // galleryScrollRef and infiniteScrollSentinelRef are stable refs — no deps needed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // When model changes: reset quality if not allowed, clear edit image if not needed,
   // and hard-reset aspect ratio if the current AR is not in the new model's supported list.
@@ -2399,6 +2551,66 @@ function ImageStudioInner() {
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
+            {/* ── Recently Generated — horizontal filmstrip ─────────────── */}
+            {(() => {
+              const recentImages = images
+                .filter((img) => img.status === "done" && img.url)
+                .slice(0, 14);
+              if (recentImages.length < 2) return null;
+              return (
+                <div style={{ marginBottom: 20 }}>
+                  <span style={{
+                    display: "block", fontSize: 10, fontWeight: 700,
+                    letterSpacing: "0.08em", color: "rgba(255,255,255,0.22)",
+                    textTransform: "uppercase", marginBottom: 8,
+                  }}>
+                    Recently Generated
+                  </span>
+                  <div
+                    style={{
+                      display: "flex", gap: 6, overflowX: "auto",
+                      scrollbarWidth: "none",
+                      // fixed 100px height — width of each thumb = 100 × AR
+                    }}
+                  >
+                    {recentImages.map((img) => {
+                      // Compute display width from stored aspect ratio string
+                      const [wStr, hStr] = (img.aspectRatio && img.aspectRatio !== "Auto")
+                        ? img.aspectRatio.split(":")
+                        : ["16", "9"];
+                      const ar  = parseFloat(wStr) / parseFloat(hStr) || 16 / 9;
+                      const thumbW = Math.round(100 * ar);
+                      return (
+                        <div
+                          key={img.id}
+                          style={{
+                            width: thumbW, height: 100, flexShrink: 0,
+                            cursor: "pointer", overflow: "hidden",
+                            borderRadius: 0,
+                            transition: "transform 0.15s ease",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
+                          onClick={() => setViewingImage(img)}
+                        >
+                          <img
+                            src={img.url!}
+                            alt={img.prompt.slice(0, 60)}
+                            loading="lazy"
+                            style={{
+                              width: "100%", height: "100%",
+                              objectFit: "cover", display: "block",
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ── Justified rows — Higgsfield / Google Photos layout ─────── */}
             {justifiedRows.map((row, rowIndex) => (
               <div
@@ -2532,6 +2744,39 @@ function ImageStudioInner() {
               })}
               </div>
             ))}
+
+            {/* ── Infinite scroll sentinel + end-state ──────────────────── */}
+            {/* Sentinel: observed by IntersectionObserver with root=galleryScrollRef,
+                rootMargin="800px" — fires when within 800px of becoming visible     */}
+            <div ref={infiniteScrollSentinelRef} style={{ height: 1 }} />
+
+            {/* Loading spinner — visible while the next page is being fetched */}
+            {galleryFetchingMore && (
+              <div style={{
+                display: "flex", justifyContent: "center", alignItems: "center",
+                gap: 8, padding: "24px 0", color: "rgba(255,255,255,0.3)",
+                fontSize: 12, letterSpacing: "0.05em",
+              }}>
+                <div style={{
+                  width: 14, height: 14, borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.12)",
+                  borderTopColor: "rgba(255,255,255,0.5)",
+                  animation: "spin 0.7s linear infinite",
+                }} />
+                Loading more…
+              </div>
+            )}
+
+            {/* End-of-list indicator — shown once all pages are exhausted */}
+            {!galleryHasMore && !galleryFetchingMore && images.filter(i => i.status === "done").length > 0 && (
+              <div style={{
+                textAlign: "center", padding: "28px 0 16px",
+                fontSize: 11, color: "rgba(255,255,255,0.16)",
+                letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>
+                All images loaded
+              </div>
+            )}
             </>
           );
         })()}
