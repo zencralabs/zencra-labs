@@ -1064,16 +1064,17 @@ function ImageStudioInner() {
       .catch(() => {});
   }, [detectedHandles, user?.accessToken]);
 
-  // Masonry column class — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
+  // Grid column count — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
   // Higher zoom → fewer columns → larger images.
   // Lower zoom  → more columns  → smaller images.
   // Default zoomLevel=3 (60%) shows a premium-sized, balanced gallery.
-  const galleryColumnClass = useMemo(() => {
-    if (zoomLevel >= 5) return "columns-1 sm:columns-2 lg:columns-3";
-    if (zoomLevel >= 4) return "columns-2 sm:columns-3 lg:columns-4";
-    if (zoomLevel >= 3) return "columns-2 sm:columns-3 lg:columns-4 xl:columns-5";
-    if (zoomLevel >= 2) return "columns-3 sm:columns-4 lg:columns-5 xl:columns-6";
-    return "columns-4 sm:columns-5 lg:columns-6 xl:columns-7";
+  // CSS Grid preserves DOM order so newest image always lands top-left.
+  const galleryColCount = useMemo(() => {
+    if (zoomLevel >= 5) return 3;
+    if (zoomLevel >= 4) return 4;
+    if (zoomLevel >= 3) return 5;
+    if (zoomLevel >= 2) return 6;
+    return 7;
   }, [zoomLevel]);
 
   function closeDropdowns() {
@@ -1109,11 +1110,34 @@ function ImageStudioInner() {
     })();
   }, [firstRefCdnUrl]);
 
+  // ── Hydrate gallery instantly from localStorage cache on mount ───────────────
+  // Runs once user.id is known. Populates images before the API fetch completes
+  // so returning users never see a blank gallery on load.
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+    const cacheKey = `zencra_gallery_cache_image_${user.id}`;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const cached: GeneratedImage[] = JSON.parse(raw) as GeneratedImage[];
+        if (cached.length > 0) {
+          setImages((prev) => {
+            // Session-generated images take priority — don't overwrite them
+            if (prev.length > 0) return prev;
+            return cached;
+          });
+        }
+      }
+    } catch { /* ignore — corrupted cache is safe to skip */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   // ── Load user's image history on mount (once auth is ready) ─────────────────
   useEffect(() => {
     if (!user || historyLoaded) return;
 
     (async () => {
+      console.time("[Gallery] fetch image");
       // ── Token strategy ─────────────────────────────────────────────────────
       // getSession() reads from localStorage and can return a stale expired token
       // before the SDK's background refresh cycle has run (race: user state
@@ -1212,11 +1236,28 @@ function ImageStudioInner() {
             };
           });
 
-        // Prepend loaded history behind any images already generated this session
+        console.timeEnd("[Gallery] fetch image");
+        console.log("[Gallery] loaded count:", loaded.length);
+
+        // Write to localStorage cache so next visit hydrates instantly
+        try {
+          localStorage.setItem(
+            `zencra_gallery_cache_image_${user.id}`,
+            JSON.stringify(loaded)
+          );
+        } catch { /* ignore — quota exceeded or SSR */ }
+
+        // Additive Map merge: never wipe existing images on empty API response.
+        // Merge prev + loaded, deduplicate by id, sort newest-first.
         setImages((prev) => {
-          const existingIds = new Set(prev.map((img) => img.id));
-          const fresh = loaded.filter((img) => !existingIds.has(img.id));
-          return [...prev, ...fresh];
+          if (!loaded || loaded.length === 0) return prev; // never wipe
+          const map = new Map(prev.map((a) => [a.id, a]));
+          loaded.forEach((a) => map.set(a.id, a));
+          return Array.from(map.values()).sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta; // newest first
+          });
         });
       } catch (err) {
         console.error("[ImageStudio] history fetch threw:", err);
@@ -1982,18 +2023,20 @@ function ImageStudioInner() {
         }}
       >
 
-        {/* ── STATE 1: History loading — skeleton masonry ──────────────────── */}
+        {/* ── STATE 1: History loading — skeleton grid ─────────────────────── */}
+        {/* Only show skeleton when no cache data is available yet */}
         {user && !historyLoaded && images.length === 0 && (
-          <div className={galleryColumnClass} style={{ columnGap: 0 }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${galleryColCount}, 1fr)`,
+            gap: 0,
+          }}>
             {SKELETON_RATIOS.map((ratio, i) => (
               <div key={i} style={{
-                breakInside: "avoid",
-                width:       "100%",
-                display:     "block",
-                aspectRatio: String(ratio),
-                position:    "relative",
-                overflow:    "hidden",
-                marginBottom: 0,
+                width:        "100%",
+                aspectRatio:  String(ratio),
+                position:     "relative",
+                overflow:     "hidden",
               }}>
                 <SkeletonCard index={i} />
               </div>
@@ -2273,8 +2316,12 @@ function ImageStudioInner() {
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* ── CSS columns masonry — natural AR, fills available width ── */}
-            <div className={galleryColumnClass} style={{ columnGap: 0 }}>
+            {/* ── CSS Grid — DOM order preserved, newest image = top-left ── */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${galleryColCount}, 1fr)`,
+              gap: 0,
+            }}>
               {images.map((img, index) => {
                 return (
                 <div
@@ -2282,12 +2329,9 @@ function ImageStudioInner() {
                   ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
-                    breakInside:  "avoid",
                     width:        "100%",
-                    display:      "block",
                     position:     "relative",
                     overflow:     "hidden",
-                    marginBottom: 0,
                     // Generating/error: set aspect-ratio so absolute-positioned
                     // overlays (spinner, error) have a defined frame to fill.
                     ...(img.status !== "done"
