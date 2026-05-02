@@ -3,8 +3,9 @@
  *
  * Assembles cinematic still-image prompt from:
  *   - direction (name, model lock)
- *   - refinements (shot, lens, light, color, energy)
- *   - elements (subject, world, object, atmosphere)
+ *   - refinements (shot, lens, angle, light, color, energy, tone)
+ *   - elements (subject, world, object, atmosphere — sorted by weight)
+ *   - mode ("explore" | "locked") — controls identity enforcement language
  *
  * Scope: Image Studio only. Still images only.
  * No video language. No motion language.
@@ -13,35 +14,68 @@
  * Output: a string prompt passed directly to studioDispatch.
  * The orchestrator (studioDispatch) routes to the correct provider.
  * This function has NO knowledge of providers.
+ *
+ * ─── WEIGHT SYSTEM ───────────────────────────────────────────────────────────
+ * weight >= 0.8 → element reinforced in prompt (prominence emphasis)
+ * weight >= 0.5 → element appears naturally (no qualifier)
+ * weight <  0.5 → element appears with soft qualifier (subtle presence)
+ *
+ * Sorting by weight ensures image generators prioritise the right elements
+ * in their internal composition logic. Higher-weight elements appear first
+ * in each group, giving them structural priority.
+ *
+ * ─── COMPOSITION ORDER ───────────────────────────────────────────────────────
+ * 1. Subject — who/what is in the scene, with weight-driven emphasis
+ * 2. World   — composed with subject as "X in Y" for natural flow
+ * 3. Atmosphere — mood + lighting feel before specific props
+ * 4. Objects — specific props and foreground elements
+ * 5. Cinematography — shot/lens/angle/lighting/color
+ * 6. Scene energy — pose state (still-image language only)
+ * 7. Identity lock — injected only in "locked" mode
+ * 8. Quality anchor — always appended
  */
 
 import type {
   CreativeDirectionRow,
   DirectionRefinementsRow,
   DirectionElementRow,
+  DirectionMode,
   DirectionWithContext,
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SCENE ENERGY → STILL IMAGE LANGUAGE
-// Maps pose/activity state to still-image composition language.
-// Never uses "motion" or video language.
+// SCENE ENERGY → STILL IMAGE POSE LANGUAGE
+// Never uses "motion", "moving", "video", or temporal language.
+// Each phrase describes a pose STATE captured in a single frame.
 // ─────────────────────────────────────────────────────────────────────────────
 const SCENE_ENERGY_PHRASES: Record<string, string> = {
   "static":         "perfectly still, poised composition",
-  "walking-pose":   "mid-stride pose, natural movement captured",
-  "action-pose":    "dynamic action pose, peak moment frozen",
+  "walking-pose":   "mid-stride pose, natural movement captured in still",
+  "action-pose":    "dynamic action pose, peak moment frozen in frame",
   "dramatic-still": "intense dramatic pose, cinematic freeze frame",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ELEMENT TYPE → PROMPT POSITIONING
-// Each element type has a natural place in the prompt string.
+// TONE INTENSITY → DESCRIPTOR
 // ─────────────────────────────────────────────────────────────────────────────
-function weightToEmphasis(weight: number): string {
-  if (weight >= 0.8) return "prominently featured";
-  if (weight >= 0.5) return "clearly visible";
-  return "subtly present";
+function toneIntensityDesc(intensity: number): string {
+  if (intensity >= 80) return "ultra-dramatic, maximum visual impact, high contrast";
+  if (intensity >= 60) return "bold and striking, high contrast";
+  if (intensity >= 40) return "balanced, cinematic quality";
+  if (intensity >= 20) return "soft, understated elegance";
+  return "minimal, subtle and refined";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEIGHT → EMPHASIS MODIFIER
+// High-weight elements get reinforcement language so image generators
+// know what to prioritize compositionally. Low-weight elements get a
+// soft qualifier so they don't compete with primary elements.
+// ─────────────────────────────────────────────────────────────────────────────
+function applyEmphasis(label: string, weight: number): string {
+  if (weight >= 0.8) return `${label}, prominently featured`;
+  if (weight <  0.5) return `${label}, subtly present`;
+  return label; // 0.5–0.79: natural appearance, no qualifier
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,98 +84,112 @@ function weightToEmphasis(weight: number): string {
 export function buildDirectionPrompt(
   direction: CreativeDirectionRow,
   refinements: DirectionRefinementsRow | null,
-  elements: DirectionElementRow[]
+  elements: DirectionElementRow[],
+  mode: DirectionMode = "explore"
 ): string {
   const parts: string[] = [];
 
-  // ── Scene name / title (optional framing) ────────────────────────────────
+  // ── Scene name framing (optional) ─────────────────────────────────────────
   if (direction.name) {
     parts.push(`Scene: ${direction.name}.`);
   }
 
-  // ── Elements — group by type ──────────────────────────────────────────────
-  const subjects    = elements.filter(e => e.type === "subject").sort((a, b) => b.weight - a.weight);
-  const worlds      = elements.filter(e => e.type === "world").sort((a, b) => b.weight - a.weight);
-  const objects     = elements.filter(e => e.type === "object").sort((a, b) => b.weight - a.weight);
-  const atmospheres = elements.filter(e => e.type === "atmosphere").sort((a, b) => b.weight - a.weight);
+  // ── Sort all element groups by weight descending ───────────────────────────
+  // Higher-weight elements appear first → structural composition priority
+  const byWeight = (a: DirectionElementRow, b: DirectionElementRow) => b.weight - a.weight;
 
+  const subjects    = elements.filter(e => e.type === "subject").sort(byWeight);
+  const worlds      = elements.filter(e => e.type === "world").sort(byWeight);
+  const atmospheres = elements.filter(e => e.type === "atmosphere").sort(byWeight);
+  const objects     = elements.filter(e => e.type === "object").sort(byWeight);
+
+  // ── Subject — lead with who/what is in the scene ─────────────────────────
   if (subjects.length > 0) {
-    const subjectStr = subjects
-      .map(e => `${e.label} (${weightToEmphasis(e.weight)})`)
-      .join(", ");
-    parts.push(`Subject: ${subjectStr}.`);
-  }
+    const subjectStr = subjects.map(e => applyEmphasis(e.label, e.weight)).join(", ");
 
-  if (worlds.length > 0) {
+    // Compose "Subject in World" as a single phrase when both exist.
+    // This produces: "cinematic figure, prominently featured in neon-lit Tokyo alley"
+    // rather than two separate sentences — more natural for image generators.
+    if (worlds.length > 0) {
+      const worldStr = worlds.map(e => e.label).join(", ");
+      parts.push(`${subjectStr} in ${worldStr}`);
+    } else {
+      parts.push(subjectStr);
+    }
+  } else if (worlds.length > 0) {
+    // World without subject (establishing shot / environment)
     const worldStr = worlds.map(e => e.label).join(", ");
-    parts.push(`Setting: ${worldStr}.`);
+    parts.push(worldStr);
   }
 
-  if (objects.length > 0) {
-    const objectStr = objects.map(e => e.label).join(", ");
-    parts.push(`Objects: ${objectStr}.`);
-  }
-
+  // ── Atmosphere — mood before props (establishes scene feel first) ─────────
   if (atmospheres.length > 0) {
-    const atmStr = atmospheres.map(e => e.label).join(", ");
-    parts.push(`Atmosphere: ${atmStr}.`);
+    const atmStr = atmospheres.map(e => applyEmphasis(e.label, e.weight)).join(", ");
+    parts.push(atmStr);
   }
 
-  // ── Refinements — cinematography layer ────────────────────────────────────
+  // ── Objects — specific props and foreground elements ─────────────────────
+  if (objects.length > 0) {
+    const objStr = objects.map(e => applyEmphasis(e.label, e.weight)).join(", ");
+    parts.push(objStr);
+  }
+
+  // ── Cinematography layer ──────────────────────────────────────────────────
   if (refinements) {
     const cineParts: string[] = [];
 
-    if (refinements.shot_type) {
-      cineParts.push(`${refinements.shot_type} shot`);
-    }
-
-    if (refinements.lens) {
-      cineParts.push(`${refinements.lens} lens`);
-    }
-
-    if (refinements.camera_angle) {
-      cineParts.push(`${refinements.camera_angle} angle`);
-    }
+    if (refinements.shot_type)    cineParts.push(`${refinements.shot_type} shot`);
+    if (refinements.lens)         cineParts.push(`${refinements.lens} lens`);
+    if (refinements.camera_angle) cineParts.push(`${refinements.camera_angle} angle`);
 
     if (cineParts.length > 0) {
-      parts.push(`Cinematography: ${cineParts.join(", ")}.`);
+      parts.push(`Shot: ${cineParts.join(", ")}`);
     }
 
     if (refinements.lighting_style) {
-      parts.push(`Lighting: ${refinements.lighting_style}.`);
+      parts.push(`Lighting: ${refinements.lighting_style}`);
     }
 
     if (refinements.color_palette) {
-      parts.push(`Color: ${refinements.color_palette} palette.`);
+      parts.push(`Color: ${refinements.color_palette} palette`);
     }
 
+    // Scene energy → still-image pose language only (no motion words)
     if (refinements.scene_energy) {
-      const energyPhrase = SCENE_ENERGY_PHRASES[refinements.scene_energy] ?? refinements.scene_energy;
-      parts.push(`Pose/Energy: ${energyPhrase}.`);
+      const phrase = SCENE_ENERGY_PHRASES[refinements.scene_energy] ?? refinements.scene_energy;
+      parts.push(phrase);
     }
 
     // Tone intensity → descriptor
     if (typeof refinements.tone_intensity === "number") {
-      const intensity = refinements.tone_intensity;
-      const toneDesc =
-        intensity >= 80 ? "ultra-dramatic, maximum visual impact" :
-        intensity >= 60 ? "high contrast, bold and striking" :
-        intensity >= 40 ? "balanced, cinematic quality" :
-        intensity >= 20 ? "soft, understated elegance" :
-                          "minimal, subtle and refined";
-      parts.push(`Tone: ${toneDesc}.`);
+      parts.push(toneIntensityDesc(refinements.tone_intensity));
     }
   }
 
-  // ── Quality anchor — always appended ─────────────────────────────────────
-  parts.push("Ultra realistic, cinematic, film quality, professional photography, sharp focus.");
+  // ── Mode-aware identity enforcement ──────────────────────────────────────
+  // "locked"  → direction committed for campaign output.
+  //             Inject strict identity language so the generator preserves
+  //             facial features and distinctive characteristics across outputs.
+  // "explore" → loose creative. No identity enforcement; free variation allowed.
+  //             Nothing injected here — the prompt stays open.
+  if (mode === "locked") {
+    parts.push("maintain identity consistency, preserve facial features and distinctive characteristics");
+  }
 
-  return parts.join(" ");
+  // ── Quality anchor — always appended ─────────────────────────────────────
+  parts.push("ultra realistic, cinematic, film still, professional photography, sharp focus");
+
+  return parts.join(", ");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONVENIENCE WRAPPER — accepts DirectionWithContext
+// CONVENIENCE WRAPPER — accepts DirectionWithContext + optional mode override.
+// Mode is auto-derived from direction.is_locked when not explicitly passed.
 // ─────────────────────────────────────────────────────────────────────────────
-export function buildDirectionPromptFromContext(ctx: DirectionWithContext): string {
-  return buildDirectionPrompt(ctx.direction, ctx.refinements, ctx.elements);
+export function buildDirectionPromptFromContext(
+  ctx: DirectionWithContext,
+  modeOverride?: DirectionMode
+): string {
+  const mode: DirectionMode = modeOverride ?? (ctx.direction.is_locked ? "locked" : "explore");
+  return buildDirectionPrompt(ctx.direction, ctx.refinements, ctx.elements, mode);
 }

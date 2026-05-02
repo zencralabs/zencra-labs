@@ -4,48 +4,63 @@
  * Creative Director v2 — direction-aware image generation.
  * Scope: Image Studio only. Still images only. No video / motion.
  *
- * Flow:
- * 1. Load direction — must exist, belong to user, and be locked (is_locked=true)
- * 2. Load direction_refinements (nullable — still builds prompt without them)
- * 3. Load direction_elements
- * 4. Build enriched prompt via buildDirectionPrompt()
- * 5. Select provider — use direction.model_key if locked, else selectCreativeProvider()
- * 6. Reserve credits via spend_credits RPC
- * 7. Insert creative_generation records with direction_id
- * 8. Call studioDispatch with skipCredits=true (credits already deducted)
- * 9. Update generation status + return results
+ * ─── MODE SYSTEM ─────────────────────────────────────────────────────────────
+ * "explore"  direction.is_locked = false
+ *            Loose prompt. Free creative variation. No identity enforcement.
+ *            Generation allowed — users explore before committing.
+ *
+ * "locked"   direction.is_locked = true
+ *            Strict prompt. Identity lock injected. Campaign-ready outputs.
+ *            Enables full Generate button state in UI.
+ *
+ * Mode is derived at dispatch time from direction.is_locked. It is never
+ * stored separately — the scene_snapshot records which mode was active.
+ *
+ * ─── FLOW ────────────────────────────────────────────────────────────────────
+ * 1.  Load direction — must exist and belong to user
+ * 2.  Derive mode ("explore" | "locked") from direction.is_locked
+ * 3.  Verify project ownership (if direction has project_id)
+ * 4.  Load direction_refinements (nullable)
+ * 5.  Load direction_elements (sorted by position asc, weight applied in builder)
+ * 6.  Write scene_snapshot (fire-and-forget) — fast reload + versioning
+ * 7.  Build enriched prompt via buildDirectionPrompt(direction, refinements, elements, mode)
+ * 8.  Select provider — use direction.model_key if set, else selectCreativeProvider()
+ * 9.  Reserve credits via spend_credits RPC
+ * 10. Insert creative_generation records with direction_id set
+ * 11. Call studioDispatch with skipCredits=true (already deducted)
+ * 12. Update generation status + return results
  *
  * Body:
- *   directionId     string   required
- *   count           number   1–4, default 1
- *   aspectRatio     string   optional (e.g. "16:9"), default "1:1"
- *   providerOverride string  optional — override provider selection
- *   modelOverride    string  optional — override model key
- *   idempotencyKey  string   optional
- *   session_id      string   optional
+ *   directionId      string   required
+ *   count            number   1–4, default 1
+ *   aspectRatio      string   optional (e.g. "16:9"), default "1:1"
+ *   providerOverride string   optional — override provider selection
+ *   modelOverride    string   optional — override model key
+ *   idempotencyKey   string   optional
+ *   session_id       string   optional
  */
 
-import { NextResponse }         from "next/server";
-import { getAuthUser }          from "@/lib/supabase/server";
-import { supabaseAdmin }        from "@/lib/supabase/admin";
-import { buildDirectionPrompt } from "@/lib/creative-director/direction-prompt";
+import { NextResponse }           from "next/server";
+import { getAuthUser }            from "@/lib/supabase/server";
+import { supabaseAdmin }          from "@/lib/supabase/admin";
+import { buildDirectionPrompt }   from "@/lib/creative-director/direction-prompt";
 import { selectCreativeProvider } from "@/lib/creative-director/provider-router";
 import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estimator";
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
-import { studioDispatch }       from "@/lib/api/studio-dispatch";
-import { getClientIp }          from "@/lib/security/rate-limit";
+import { studioDispatch }         from "@/lib/api/studio-dispatch";
+import { getClientIp }            from "@/lib/security/rate-limit";
 import type {
   CreativeDirectionRow,
   DirectionRefinementsRow,
   DirectionElementRow,
+  DirectionMode,
   CreativeGenerationRow,
 } from "@/lib/creative-director/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ── Body validation helpers ───────────────────────────────────────────────────
-const VALID_COUNTS   = [1, 2, 3, 4] as const;
+// ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_ASPECT = "1:1";
 
 function clampCount(raw: unknown): number {
@@ -114,14 +129,11 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!dir.is_locked) {
-    return NextResponse.json(
-      { error: "Direction must be locked before generating. Lock the direction first." },
-      { status: 422 }
-    );
-  }
+  // ── Derive mode — NO hard lock gate ───────────────────────────────────────
+  // Both modes allow generation. "explore" = loose, "locked" = strict identity.
+  const mode: DirectionMode = dir.is_locked ? "locked" : "explore";
 
-  // ── Verify direction belongs to a project owned by user ───────────────────
+  // ── Verify project ownership ───────────────────────────────────────────────
   if (dir.project_id) {
     const { data: proj, error: projErr } = await supabaseAdmin
       .from("creative_projects")
@@ -145,6 +157,8 @@ export async function POST(req: Request): Promise<Response> {
   const refinements = (refinementsRow as DirectionRefinementsRow | null) ?? null;
 
   // ── Load elements ─────────────────────────────────────────────────────────
+  // position asc gives the user's intended order; weight sorting happens inside
+  // buildDirectionPrompt per element group.
   const { data: elementsRows } = await supabaseAdmin
     .from("direction_elements")
     .select("*")
@@ -153,22 +167,42 @@ export async function POST(req: Request): Promise<Response> {
 
   const elements = (elementsRows ?? []) as DirectionElementRow[];
 
+  // ── Write scene_snapshot (fire-and-forget) ────────────────────────────────
+  // Snapshot the full direction state at generate time so the UI can fast-reload
+  // without three separate fetches. Also provides the foundation for undo/redo
+  // and FCS versioning. Not awaited — generation proceeds regardless.
+  void supabaseAdmin
+    .from("creative_directions")
+    .update({
+      scene_snapshot: {
+        mode,
+        elements,
+        refinements,
+        snapshot_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", directionId);
+
   // ── Build enriched prompt ─────────────────────────────────────────────────
-  const promptString = buildDirectionPrompt(dir, refinements, elements);
+  const promptString = buildDirectionPrompt(dir, refinements, elements, mode);
 
   // ── Select provider ────────────────────────────────────────────────────────
-  // If direction has a locked model_key, honour it. Otherwise fall back to
-  // selectCreativeProvider with optional caller overrides.
-  const effectiveModelKey = (modelOverride as string | undefined) ?? dir.model_key ?? undefined;
+  // Honour direction.model_key (user locked model choice during commit) first.
+  // Caller modelOverride takes precedence over direction.model_key.
+  const effectiveModelKey =
+    (typeof modelOverride === "string" ? modelOverride : null) ??
+    dir.model_key ??
+    undefined;
 
   const providerDecision = selectCreativeProvider({
-    providerOverride: providerOverride as string | undefined,
+    providerOverride: typeof providerOverride === "string" ? providerOverride : undefined,
     modelOverride:    effectiveModelKey,
-    // No brief/concept signals — direction already carries creative intent
-    textRenderingIntent: undefined,
-    realismVsDesign:     undefined,
-    stylePreset:         undefined,
-    projectType:         "image",
+    // No brief/concept signals — direction already carries full creative intent
+    textRenderingIntent:  undefined,
+    realismVsDesign:      undefined,
+    stylePreset:          undefined,
+    projectType:          "image",
     conceptRecommendation: null,
   });
 
@@ -178,9 +212,9 @@ export async function POST(req: Request): Promise<Response> {
   const { data: creditResult, error: creditErr } = await supabaseAdmin.rpc(
     "spend_credits",
     {
-      p_user_id:    user.id,
-      p_amount:     totalCost,
-      p_description: `Creative Director — ${count} image(s) via ${providerDecision.provider}`,
+      p_user_id:     user.id,
+      p_amount:      totalCost,
+      p_description: `Creative Director (${mode}) — ${count} image(s) via ${providerDecision.provider}`,
     }
   );
 
@@ -206,20 +240,21 @@ export async function POST(req: Request): Promise<Response> {
 
     try {
       const gen = await saveGeneration({
-        project_id:   dir.project_id ?? "",
-        concept_id:   dir.concept_id ?? undefined,
-        direction_id: directionId,
-        user_id:      user.id,
+        project_id:      dir.project_id ?? "",
+        concept_id:      dir.concept_id ?? undefined,
+        direction_id:    directionId,
+        user_id:         user.id,
         generation_type: "base",
-        provider:     providerDecision.provider,
-        model:        providerDecision.model,
+        provider:        providerDecision.provider,
+        model:           providerDecision.model,
         request_payload: {
           promptString,
           aspectRatio,
           count,
           directionId,
+          mode,
         },
-        normalized_prompt: { directionPrompt: promptString },
+        normalized_prompt: { directionPrompt: promptString, mode },
         status:            "processing",
         credit_cost:       computeTotalGenerationCost(providerDecision.model, 1, "base"),
         idempotency_key:   iKey,
@@ -232,7 +267,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // ── Dispatch via studioDispatch ───────────────────────────────────────────
-  // Credits already deducted above → skipCredits=true prevents double-charge.
+  // Credits already deducted above via spend_credits → skipCredits=true.
   const clientIp = getClientIp(req);
 
   const dispatchResults = await Promise.allSettled(
@@ -253,21 +288,21 @@ export async function POST(req: Request): Promise<Response> {
           job.status === "success"  ? "completed"  : "failed";
 
         await updateGenerationStatus(gen.id, status, assetId);
-        return { ...gen, status, asset_id: assetId, url: job.result?.url ?? null };
+        return { ...gen, status, asset_id: assetId, url: job.result?.url ?? null, mode };
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown dispatch error";
         await updateGenerationStatus(gen.id, "failed", undefined, errMsg);
-        return { ...gen, status: "failed", error_message: errMsg };
+        return { ...gen, status: "failed", error_message: errMsg, mode };
       }
     })
   );
 
   const finalGenerations = dispatchResults.map((result, idx) => {
     if (result.status === "fulfilled") return result.value;
-    return { ...generationRecords[idx], status: "failed" };
+    return { ...generationRecords[idx], status: "failed", mode };
   });
 
-  // ── Update project last_activity ───────────────────────────────────────────
+  // ── Update project last_activity (fire-and-forget) ─────────────────────────
   if (dir.project_id) {
     void supabaseAdmin
       .from("creative_projects")
@@ -279,5 +314,5 @@ export async function POST(req: Request): Promise<Response> {
       .eq("id", dir.project_id);
   }
 
-  return NextResponse.json({ generations: finalGenerations });
+  return NextResponse.json({ generations: finalGenerations, mode });
 }

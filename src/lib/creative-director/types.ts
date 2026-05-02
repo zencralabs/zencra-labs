@@ -309,6 +309,20 @@ export type CameraAngle =
 
 export type DirectionElementType = "subject" | "world" | "object" | "atmosphere";
 
+/**
+ * DirectionMode — generation behaviour at dispatch time.
+ *
+ * "explore"  direction not locked — loose prompt, free creative exploration,
+ *            no identity enforcement, outputs not campaign-consistent.
+ *
+ * "locked"   direction committed — strict prompt, identity lock enforced,
+ *            campaign-ready outputs. Enables Generate button fully in UI.
+ *
+ * Derived at the generate route from direction.is_locked; never stored
+ * separately. The mode is snapshotted into scene_snapshot for fast reload.
+ */
+export type DirectionMode = "explore" | "locked";
+
 export interface CreativeDirectionRow {
   id: string;
   user_id: string;
@@ -318,6 +332,13 @@ export interface CreativeDirectionRow {
   name?: string;
   is_locked: boolean;
   model_key?: string;
+  /**
+   * scene_snapshot — denormalized JSON of full direction state.
+   * Written fire-and-forget by the generate route (and lock route).
+   * Shape: { mode, elements, refinements, snapshot_at }
+   * Used for fast UI reload, undo/redo foundation, FCS compatibility.
+   */
+  scene_snapshot?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
