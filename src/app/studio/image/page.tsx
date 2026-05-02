@@ -451,17 +451,50 @@ const MODELS: StudioModel[] = [
   },
 ];
 
+// ── Creative Director v1 — Role system ───────────────────────────────────────
+
+type ImageRole = "character" | "environment" | "style" | "lighting" | "object";
+
+const ROLES: ImageRole[] = ["character", "environment", "style", "lighting", "object"];
+
+const ROLE_CONFIG: Record<ImageRole, {
+  label:  string;
+  short:  string;   // fits inside 52px chip
+  color:  string;   // full opacity — use with alpha for borders/glows
+  bg:     string;   // chip background
+}> = {
+  character:   { label: "Character",   short: "Char",  color: "rgba(59,130,246,1)",  bg: "rgba(59,130,246,0.13)"  },
+  environment: { label: "Environment", short: "Env",   color: "rgba(34,197,94,1)",   bg: "rgba(34,197,94,0.13)"   },
+  style:       { label: "Style",       short: "Style", color: "rgba(139,92,246,1)",  bg: "rgba(139,92,246,0.13)"  },
+  lighting:    { label: "Lighting",    short: "Light", color: "rgba(245,158,11,1)",  bg: "rgba(245,158,11,0.13)"  },
+  object:      { label: "Object",      short: "Obj",   color: "rgba(148,163,184,1)", bg: "rgba(148,163,184,0.10)" },
+};
+
+/** Inject alpha into an rgba() color string: replaces the last numeric component. */
+function roleColor(color: string, alpha: number): string {
+  return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
+}
+
+const ROLE_LABEL: Record<ImageRole, string> = {
+  character:   "Character Reference",
+  environment: "Environment Reference",
+  style:       "Style Reference",
+  lighting:    "Lighting Reference",
+  object:      "Object Reference",
+};
+
 // ── Reference image mention enrichment ───────────────────────────────────────
 // Builds an enriched prompt string that maps @imgN references for backend clarity.
 // Only used internally before sending to the API — never shown in the UI textarea.
 //
+// Role injection: [Character Reference: url] / [Environment Reference: url] / …
 // Natural language detection (safe):
 //   "image 1" / "image attached 1" / "uploaded image 1" / "analyse image 1"
 //   → normalized to @imgN tag only when refs exist AND index is in range.
 //   Textarea text is NEVER mutated — this runs only in the API send path.
 function buildEnrichedPrompt(
   userPrompt: string,
-  refs: Array<{ cdnUrl: string }>,
+  refs: Array<{ cdnUrl: string; role: ImageRole }>,
 ): string {
   const uploaded = refs.filter(r => r.cdnUrl);
   if (uploaded.length === 0) return userPrompt;
@@ -476,10 +509,13 @@ function buildEnrichedPrompt(
     return (n >= 1 && n <= uploaded.length) ? `@img${n}` : match;
   });
 
-  const header = uploaded
-    .map((_, i) => `[IMG ${i + 1}] uploaded reference image ${i + 1}`)
+  // Role-based reference header — each image gets its semantic label + CDN URL.
+  // Fallback to "Image Reference" if role is somehow absent.
+  const roleHeader = uploaded
+    .map(r => `[${ROLE_LABEL[r.role] ?? "Image Reference"}: ${r.cdnUrl}]`)
     .join("\n");
-  return `Reference images:\n${header}\n\nUser prompt: ${processedPrompt}`;
+
+  return `${roleHeader}\n\nUser prompt: ${processedPrompt}`;
 }
 
 // ASPECT_RATIOS is now model-specific — see NB_STANDARD_PRO_AR / NB2_AR / DALLE_AR above.
@@ -1095,6 +1131,7 @@ function ImageStudioInner() {
     previewUrl: string;   // blob URL for display
     cdnUrl: string;       // real CDN URL — empty while uploading
     uploading: boolean;
+    role: ImageRole;      // Creative Director v1 — semantic role
   }>>([]);
 
   // Derived values from referenceImages array
@@ -1118,6 +1155,8 @@ function ImageStudioInner() {
 
   // Thumbnail hover state — drives 120px floating preview above the hovered chip.
   const [hoverRefIdx, setHoverRefIdx] = useState<number | null>(null);
+  // Role dropdown — which thumbnail has its role menu open (null = none).
+  const [roleMenuIdx, setRoleMenuIdx] = useState<number | null>(null);
 
   // ── Dock collapse state ───────────────────────────────────────────────────────
   const [isDockCollapsed, setIsDockCollapsed] = useState(false);
@@ -3173,7 +3212,11 @@ function ImageStudioInner() {
 
               const id = `ref-${Date.now()}-${Math.random()}`;
               const blobPreview = URL.createObjectURL(file);
-              setReferenceImages(prev => [...prev, { id, previewUrl: blobPreview, cdnUrl: "", uploading: true }]);
+              // Default role: first image → character, subsequent → environment.
+              setReferenceImages(prev => [
+                ...prev,
+                { id, previewUrl: blobPreview, cdnUrl: "", uploading: true, role: prev.length === 0 ? "character" : "environment" },
+              ]);
 
               try {
                 const form = new FormData();
@@ -3208,14 +3251,15 @@ function ImageStudioInner() {
             }}>
               {referenceImages.map((ref, idx) => {
                 const isActive = activeRefIndices.has(idx);
+                const rc = ROLE_CONFIG[ref.role];
                 return (
                 <div
                   key={ref.id}
-                  style={{ position: "relative", flexShrink: 0 }}
+                  style={{ position: "relative", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}
                   onMouseEnter={() => setHoverRefIdx(idx)}
                   onMouseLeave={() => setHoverRefIdx(null)}
                 >
-                  {/* 120px hover preview — floats above the thumbnail */}
+                  {/* ── 120px hover preview — floats above the thumbnail ───── */}
                   {hoverRefIdx === idx && (ref.cdnUrl || ref.previewUrl) && !ref.uploading && (
                     <div style={{
                       position: "absolute",
@@ -3234,7 +3278,7 @@ function ImageStudioInner() {
                           width: 120, height: 120, objectFit: "cover",
                           borderRadius: 10,
                           boxShadow: "0 8px 32px rgba(0,0,0,0.65)",
-                          border: "1.5px solid rgba(59,130,246,0.55)",
+                          border: `1.5px solid ${roleColor(rc.color, 0.55)}`,
                           display: "block",
                         }}
                       />
@@ -3245,73 +3289,150 @@ function ImageStudioInner() {
                         width: 0, height: 0,
                         borderLeft: "7px solid transparent",
                         borderRight: "7px solid transparent",
-                        borderTop: "7px solid rgba(59,130,246,0.55)",
+                        borderTop: `7px solid ${roleColor(rc.color, 0.55)}`,
                       }} />
                     </div>
                   )}
 
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ref.previewUrl || ref.cdnUrl}
-                    alt={`Reference ${idx + 1}`}
-                    style={{
-                      width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block",
-                      border: ref.cdnUrl
-                        ? (isActive ? "1.5px solid rgba(59,130,246,0.9)" : "1.5px solid rgba(37,99,235,0.6)")
-                        : "1px solid rgba(255,255,255,0.2)",
-                      opacity: ref.uploading ? 0.45 : 1,
-                      // Glow + subtle scale when this image is @-mentioned in the prompt
-                      boxShadow: isActive
-                        ? "0 0 0 1.5px rgba(59,130,246,0.7), 0 0 12px rgba(59,130,246,0.45)"
-                        : "none",
-                      transform: isActive ? "scale(1.04)" : "scale(1)",
-                      transition: "box-shadow 0.22s ease, transform 0.22s ease, opacity 0.2s, border-color 0.22s ease",
-                    }}
-                  />
-                  {/* IMG N label */}
-                  <div style={{
-                    position: "absolute", bottom: 0, left: 0, right: 0,
-                    background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
-                    borderRadius: "0 0 10px 10px",
-                    padding: "6px 4px 3px",
-                    textAlign: "center",
-                    fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
-                    color: isActive ? "rgba(147,197,253,0.95)" : "rgba(255,255,255,0.92)",
-                    pointerEvents: "none",
-                    transition: "color 0.22s ease",
-                  }}>
-                    IMG {idx + 1}
-                  </div>
-                  {/* Upload spinner */}
-                  {ref.uploading && (
-                    <div style={{ position: "absolute", inset: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(96,165,250,0.25)", borderTopColor: "#60A5FA", animation: "spin 0.7s linear infinite" }} />
+                  {/* ── Image chip wrapper (52 × 52) ─────────────────────── */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ref.previewUrl || ref.cdnUrl}
+                      alt={`Reference ${idx + 1}`}
+                      style={{
+                        width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block",
+                        border: ref.cdnUrl
+                          ? `1.5px solid ${roleColor(rc.color, isActive ? 0.9 : 0.45)}`
+                          : "1px solid rgba(255,255,255,0.2)",
+                        opacity: ref.uploading ? 0.45 : 1,
+                        // Role-colored glow intensifies when @-mentioned in prompt
+                        boxShadow: isActive
+                          ? `0 0 0 1.5px ${roleColor(rc.color, 0.65)}, 0 0 12px ${roleColor(rc.color, 0.4)}`
+                          : "none",
+                        transform: isActive ? "scale(1.04)" : "scale(1)",
+                        transition: "box-shadow 0.22s ease, transform 0.22s ease, opacity 0.2s, border-color 0.22s ease",
+                      }}
+                    />
+                    {/* IMG N label — bottom gradient overlay */}
+                    <div style={{
+                      position: "absolute", bottom: 0, left: 0, right: 0,
+                      background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                      borderRadius: "0 0 10px 10px",
+                      padding: "6px 4px 3px",
+                      textAlign: "center",
+                      fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
+                      color: isActive ? roleColor(rc.color, 0.95) : "rgba(255,255,255,0.92)",
+                      pointerEvents: "none",
+                      transition: "color 0.22s ease",
+                    }}>
+                      IMG {idx + 1}
                     </div>
-                  )}
-                  {/* Green check */}
-                  {ref.cdnUrl && !ref.uploading && (
-                    <div style={{ position: "absolute", bottom: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none" }}>✓</div>
-                  )}
-                  {/* Remove — strips @imgN from prompt + renumbers subsequent tags */}
-                  <button
-                    onClick={() => {
-                      const removedN = idx + 1;
-                      // Check if the removed tag appears in the prompt
-                      const tagRe = new RegExp(`@img${removedN}\\b`, "gi");
-                      const tagInPrompt = tagRe.test(prompt);
-                      // Strip removed tag, then shift subsequent @imgK (K > removedN) down by 1
-                      let updated = prompt.replace(new RegExp(`@img${removedN}\\b`, "gi"), "");
-                      for (let k = removedN + 1; k <= referenceImages.length; k++) {
-                        updated = updated.replace(new RegExp(`@img${k}\\b`, "gi"), `@img${k - 1}`);
-                      }
-                      updated = updated.replace(/\s{2,}/g, " ").trim();
-                      setPrompt(updated);
-                      if (tagInPrompt) showToast(`@img${removedN} removed from prompt`, "info");
-                      URL.revokeObjectURL(ref.previewUrl);
-                      setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
-                    }}
-                    style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                  >×</button>
+                    {/* Upload spinner */}
+                    {ref.uploading && (
+                      <div style={{ position: "absolute", inset: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
+                        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(96,165,250,0.25)", borderTopColor: "#60A5FA", animation: "spin 0.7s linear infinite" }} />
+                      </div>
+                    )}
+                    {/* Green check */}
+                    {ref.cdnUrl && !ref.uploading && (
+                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none" }}>✓</div>
+                    )}
+                    {/* Remove — strips @imgN from prompt + renumbers subsequent tags */}
+                    <button
+                      onClick={() => {
+                        const removedN = idx + 1;
+                        const tagRe = new RegExp(`@img${removedN}\\b`, "gi");
+                        const tagInPrompt = tagRe.test(prompt);
+                        let updated = prompt.replace(new RegExp(`@img${removedN}\\b`, "gi"), "");
+                        for (let k = removedN + 1; k <= referenceImages.length; k++) {
+                          updated = updated.replace(new RegExp(`@img${k}\\b`, "gi"), `@img${k - 1}`);
+                        }
+                        updated = updated.replace(/\s{2,}/g, " ").trim();
+                        setPrompt(updated);
+                        if (tagInPrompt) showToast(`@img${removedN} removed from prompt`, "info");
+                        URL.revokeObjectURL(ref.previewUrl);
+                        setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
+                        setRoleMenuIdx(null);
+                      }}
+                      style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                    >×</button>
+                  </div>
+
+                  {/* ── Role chip — compact 52px-wide selector below the image ── */}
+                  <div style={{ position: "relative", width: 52 }}>
+                    <button
+                      onClick={() => setRoleMenuIdx(roleMenuIdx === idx ? null : idx)}
+                      onBlur={() => setTimeout(() => setRoleMenuIdx(prev => prev === idx ? null : prev), 160)}
+                      style={{
+                        width: "100%", height: 17,
+                        borderRadius: 5,
+                        border: `1px solid ${roleColor(rc.color, 0.32)}`,
+                        background: rc.bg,
+                        color: roleColor(rc.color, 0.9),
+                        fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 2,
+                        transition: "border-color 0.15s, background 0.15s",
+                      }}
+                    >
+                      {rc.short}
+                      <svg width="6" height="4" viewBox="0 0 6 4" style={{ opacity: 0.7 }}>
+                        <path d="M0 0l3 4 3-4z" fill="currentColor" />
+                      </svg>
+                    </button>
+
+                    {/* Role dropdown — opens upward, 5 options */}
+                    {roleMenuIdx === idx && (
+                      <div style={{
+                        position: "absolute",
+                        bottom: "calc(100% + 5px)",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 130,
+                        background: "rgba(9,11,20,0.97)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 9,
+                        overflow: "hidden",
+                        zIndex: 300,
+                        backdropFilter: "blur(20px)",
+                        WebkitBackdropFilter: "blur(20px)",
+                        animation: "refSlideIn 0.12s ease",
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                      }}>
+                        {ROLES.map(role => {
+                          const r = ROLE_CONFIG[role];
+                          const isSelected = ref.role === role;
+                          return (
+                            <button
+                              key={role}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setReferenceImages(prev => prev.map((ri, i) => i === idx ? { ...ri, role } : ri));
+                                setRoleMenuIdx(null);
+                              }}
+                              style={{
+                                width: "100%", padding: "7px 11px",
+                                border: "none",
+                                background: isSelected ? r.bg : "transparent",
+                                color: isSelected ? roleColor(r.color, 0.95) : "rgba(255,255,255,0.65)",
+                                fontSize: 11, fontWeight: isSelected ? 700 : 400,
+                                cursor: "pointer",
+                                display: "flex", alignItems: "center", gap: 8,
+                                textAlign: "left" as const,
+                                transition: "background 0.1s",
+                              }}
+                              onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+                              onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: roleColor(r.color, 0.9), flexShrink: 0 }} />
+                              {r.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 );
               })}
@@ -3367,7 +3488,11 @@ function ImageStudioInner() {
             <div style={{ flex: 1, position: "relative" }}>
               {/* @ mention suggestion menu */}
               {atMenuOpen && referenceImages.length > 0 && (() => {
-                const allTags = referenceImages.map((_, i) => ({ tag: `@img${i + 1}`, label: `Image ${i + 1}` }));
+                const allTags = referenceImages.map((ref, i) => ({
+                  tag:   `@img${i + 1}`,
+                  label: `Image ${i + 1} · ${ROLE_CONFIG[ref.role].label}`,
+                  color: ROLE_CONFIG[ref.role].color,
+                }));
                 const filtered = atMenuFilter ? allTags.filter(({ tag }) => tag.includes(atMenuFilter)) : allTags;
                 if (filtered.length === 0) return null;
                 return (
@@ -3381,16 +3506,20 @@ function ImageStudioInner() {
                     <div style={{ padding: "6px 10px 4px", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" as const }}>
                       Reference images
                     </div>
-                    {filtered.map(({ tag, label }) => (
+                    {filtered.map(({ tag, label, color }) => (
                       <button
                         key={tag}
                         onMouseDown={(e) => { e.preventDefault(); insertAtMention(tag); }}
                         style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", border: "none", background: "transparent", color: "#fff", cursor: "pointer", transition: "background 0.12s", textAlign: "left" as const }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.12)"; }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                       >
-                        <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 700, minWidth: 48 }}>{tag}</span>
-                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{label}</span>
+                        {/* Role-colored dot + @tag */}
+                        <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 62 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: roleColor(color, 0.9), flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: roleColor(color, 0.95), fontWeight: 700 }}>{tag}</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{label}</span>
                       </button>
                     ))}
                   </div>
