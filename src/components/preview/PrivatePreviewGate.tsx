@@ -391,9 +391,17 @@ function GateInner({ children }: { children: ReactNode }) {
     setGranted(isAlreadyGranted());
   }, []);
 
-  // Render nothing until we've confirmed the access state client-side.
-  // This is a single paint cycle — imperceptible to users.
-  if (granted === null) return null;
+  // While checking localStorage, render a solid background that matches the
+  // page background. This prevents a white flash on first paint and avoids
+  // any layout shift — looks intentional, not broken.
+  if (granted === null) {
+    return (
+      <div
+        aria-hidden="true"
+        style={{ height: "100vh", background: "var(--page-bg, #050509)" }}
+      />
+    );
+  }
 
   if (granted) {
     return <>{children}</>;
