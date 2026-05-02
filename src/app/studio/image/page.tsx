@@ -1153,10 +1153,12 @@ function ImageStudioInner() {
     return indices;
   }, [prompt, referenceImages.length]);
 
-  // Thumbnail hover state — drives 120px floating preview above the hovered chip.
+  // Thumbnail hover state — drives floating preview above the hovered chip.
   const [hoverRefIdx, setHoverRefIdx] = useState<number | null>(null);
   // Role dropdown — which thumbnail has its role menu open (null = none).
   const [roleMenuIdx, setRoleMenuIdx] = useState<number | null>(null);
+  // Add-button tooltip — managed manually so it reliably hides when file dialog opens.
+  const [addBtnHovered, setAddBtnHovered] = useState(false);
 
   // ── Dock collapse state ───────────────────────────────────────────────────────
   const [isDockCollapsed, setIsDockCollapsed] = useState(false);
@@ -3265,27 +3267,49 @@ function ImageStudioInner() {
                   onMouseEnter={() => setHoverRefIdx(idx)}
                   onMouseLeave={() => setHoverRefIdx(null)}
                 >
-                  {/* ── 120px hover preview — floats above the thumbnail ───── */}
+                  {/* ── Premium hover preview — glass card floats above thumbnail ── */}
                   {hoverRefIdx === idx && (ref.cdnUrl || ref.previewUrl) && !ref.uploading && (
                     <div style={{
                       position: "absolute",
-                      bottom: "calc(100% + 10px)",
+                      bottom: "calc(100% + 12px)",
                       left: "50%",
                       transform: "translateX(-50%)",
                       zIndex: 200,
                       pointerEvents: "none",
                       animation: "refSlideIn 0.12s ease",
+                      width: 132,
+                      background: "rgba(8,10,20,0.92)",
+                      backdropFilter: "blur(18px)",
+                      WebkitBackdropFilter: "blur(18px)",
+                      border: `1px solid ${roleColor(rc.color, 0.55)}`,
+                      borderRadius: 10,
+                      boxShadow: `0 16px 40px rgba(0,0,0,0.45), 0 0 24px ${roleColor(rc.color, 0.28)}`,
+                      padding: "8px 8px 6px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 5,
                     }}>
+                      {/* Header label — IMG N · Role */}
+                      <div style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
+                        color: roleColor(rc.color, 0.9),
+                        textTransform: "uppercase" as const,
+                        alignSelf: "flex-start",
+                        paddingLeft: 1,
+                      }}>
+                        IMG {idx + 1} · {rc.label}
+                      </div>
+                      {/* Square image */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={ref.cdnUrl || ref.previewUrl}
                         alt={`Preview ${idx + 1}`}
                         style={{
-                          width: 120, height: 120, objectFit: "cover",
-                          borderRadius: 10,
-                          boxShadow: "0 8px 32px rgba(0,0,0,0.65)",
-                          border: `1.5px solid ${roleColor(rc.color, 0.55)}`,
+                          width: 112, height: 112, objectFit: "cover",
+                          borderRadius: 6,
                           display: "block",
+                          flexShrink: 0,
                         }}
                       />
                       {/* Caret pointer */}
@@ -3323,14 +3347,15 @@ function ImageStudioInner() {
                     {/* IMG N label — bottom gradient overlay */}
                     <div style={{
                       position: "absolute", bottom: 0, left: 0, right: 0,
-                      background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                      background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
                       borderRadius: "0 0 10px 10px",
                       padding: "6px 4px 3px",
                       textAlign: "center",
                       fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
-                      color: isActive ? roleColor(rc.color, 0.95) : "rgba(255,255,255,0.92)",
+                      color: isActive ? roleColor(rc.color, 1) : "rgba(255,255,255,0.97)",
                       pointerEvents: "none",
                       transition: "color 0.22s ease",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.8)",
                     }}>
                       IMG {idx + 1}
                     </div>
@@ -3395,16 +3420,16 @@ function ImageStudioInner() {
                         bottom: "calc(100% + 5px)",
                         left: "50%",
                         transform: "translateX(-50%)",
-                        width: 130,
-                        background: "rgba(9,11,20,0.97)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        borderRadius: 9,
+                        width: 150,
+                        background: "rgba(8,10,20,0.97)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: 10,
                         overflow: "hidden",
                         zIndex: 300,
-                        backdropFilter: "blur(20px)",
-                        WebkitBackdropFilter: "blur(20px)",
+                        backdropFilter: "blur(24px)",
+                        WebkitBackdropFilter: "blur(24px)",
                         animation: "refSlideIn 0.12s ease",
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                        boxShadow: "0 12px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",
                       }}>
                         {ROLES.map(role => {
                           const r = ROLE_CONFIG[role];
@@ -3418,20 +3443,32 @@ function ImageStudioInner() {
                                 setRoleMenuIdx(null);
                               }}
                               style={{
-                                width: "100%", padding: "7px 11px",
+                                width: "100%", padding: "10px 12px",
                                 border: "none",
+                                borderLeft: isSelected ? `2px solid ${roleColor(r.color, 0.8)}` : "2px solid transparent",
                                 background: isSelected ? r.bg : "transparent",
-                                color: isSelected ? roleColor(r.color, 0.95) : "rgba(255,255,255,0.65)",
-                                fontSize: 11, fontWeight: isSelected ? 700 : 400,
+                                color: isSelected ? roleColor(r.color, 1) : "rgba(255,255,255,0.85)",
+                                fontSize: 13, fontWeight: isSelected ? 700 : 600,
                                 cursor: "pointer",
-                                display: "flex", alignItems: "center", gap: 8,
+                                display: "flex", alignItems: "center", gap: 9,
                                 textAlign: "left" as const,
-                                transition: "background 0.1s",
+                                transition: "background 0.1s, color 0.1s",
+                                lineHeight: 1,
                               }}
-                              onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
-                              onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                              onMouseEnter={e => {
+                                if (!isSelected) {
+                                  (e.currentTarget as HTMLElement).style.background = roleColor(r.color, 0.1);
+                                  (e.currentTarget as HTMLElement).style.color = roleColor(r.color, 0.95);
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                if (!isSelected) {
+                                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                                  (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)";
+                                }
+                              }}
                             >
-                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: roleColor(r.color, 0.9), flexShrink: 0 }} />
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: roleColor(r.color, isSelected ? 1 : 0.8), flexShrink: 0 }} />
                               {r.label}
                             </button>
                           );
@@ -3473,12 +3510,19 @@ function ImageStudioInner() {
 
           {/* ── Prompt row — add button always fixed, textarea never shifts ──── */}
           <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0", gap: 0 }}>
-            {/* Add button — ALWAYS rendered at same position */}
-            <Tooltip content={referenceImages.length >= maxRefs ? `Max ${maxRefs} reference image${maxRefs === 1 ? "" : "s"} reached` : `Add reference image (${referenceImages.length}/${maxRefs})`}>
+            {/* Add button — manual hover tooltip so it reliably hides when file dialog opens */}
+            <div
+              style={{ position: "relative", flexShrink: 0, marginRight: 10, marginTop: 2 }}
+              onMouseEnter={() => setAddBtnHovered(true)}
+              onMouseLeave={() => setAddBtnHovered(false)}
+            >
               <button
-                onClick={() => { if (referenceImages.length < maxRefs) referenceInputRef.current?.click(); }}
+                onClick={() => {
+                  setAddBtnHovered(false); // immediately kill tooltip before dialog steals focus
+                  if (referenceImages.length < maxRefs) referenceInputRef.current?.click();
+                }}
                 style={{
-                  width: 44, height: 44, borderRadius: 10, flexShrink: 0, marginRight: 10, marginTop: 2,
+                  width: 44, height: 44, borderRadius: 10,
                   background: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.05)",
                   border: referenceImages.length >= maxRefs ? "1.5px dashed rgba(255,255,255,0.1)" : "1.5px dashed rgba(60,100,255,0.35)",
                   color: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.4)",
@@ -3488,7 +3532,32 @@ function ImageStudioInner() {
                 onMouseEnter={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; } }}
                 onMouseLeave={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; } }}
               >+</button>
-            </Tooltip>
+              {/* Inline tooltip — only visible while hovering, reliably dismissed on click */}
+              {addBtnHovered && (
+                <div style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  whiteSpace: "nowrap" as const,
+                  background: "rgba(10,12,22,0.96)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 7,
+                  padding: "5px 10px",
+                  fontSize: 11, fontWeight: 500,
+                  color: "rgba(255,255,255,0.85)",
+                  pointerEvents: "none",
+                  zIndex: 400,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                }}>
+                  {referenceImages.length >= maxRefs
+                    ? `Max ${maxRefs} reference image${maxRefs === 1 ? "" : "s"} reached`
+                    : `Add reference image (${referenceImages.length}/${maxRefs})`}
+                </div>
+              )}
+            </div>
 
             {/* Textarea wrapper — contains @ mention menu */}
             <div style={{ flex: 1, position: "relative" }}>
