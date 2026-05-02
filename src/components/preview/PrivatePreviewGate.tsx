@@ -18,7 +18,7 @@
  * The gate never appears on /studio/*, /dashboard/*, /auth/*, /admin/*.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 // ── ENV flag check — evaluated once at module load ────────────────────────────
 const GATE_ENABLED = process.env.NEXT_PUBLIC_ZENCRA_PREVIEW_GATE === "true";
@@ -374,11 +374,26 @@ export function PrivatePreviewGate({ children }: { children: ReactNode }) {
 
 /** Inner component — only mounted when GATE_ENABLED is true */
 function GateInner({ children }: { children: ReactNode }) {
-  // Lazy initializer runs synchronously on the client before first paint.
-  // On the server window is undefined → false → gate HTML is SSR'd.
-  // On the client if localStorage says granted → true → children render
-  // immediately during hydration with no visible flash.
-  const [granted, setGranted] = useState<boolean>(() => isAlreadyGranted());
+  /**
+   * null  = not yet checked (server render + client pre-hydration)
+   * true  = localStorage confirms access granted → show children
+   * false = no stored grant → show gate screen
+   *
+   * We use null instead of a lazy initializer so that the server render
+   * and the client's first paint agree on the same output (null → nothing
+   * rendered). After hydration, useEffect checks localStorage and flips
+   * the state. This eliminates the hydration mismatch that occurred when
+   * the lazy initializer returned true on the client but false on the server.
+   */
+  const [granted, setGranted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setGranted(isAlreadyGranted());
+  }, []);
+
+  // Render nothing until we've confirmed the access state client-side.
+  // This is a single paint cycle — imperceptible to users.
+  if (granted === null) return null;
 
   if (granted) {
     return <>{children}</>;
