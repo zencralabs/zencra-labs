@@ -12,9 +12,9 @@
  *   │             ├─────────────────────┤              │
  *   │             │  DirectorHandle(36) │              │
  *   │             ├─────────────────────┤              │
- *   │             │   PromptDock(140px) │              │
+ *   │             │   PromptDock(150px) │              │
  *   └─────────────┴─────────────────────┴──────────────┘
- *                 DirectorPanel (slides up from bottom: 176px)
+ *                 DirectorPanel (slides up from bottom: 186px)
  *
  * Fullscreen strategy:
  *   When isFullscreen=true, we render via React createPortal to document.body.
@@ -234,10 +234,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const leftW  = isFullscreen ? 320 : 280;
   const rightW = isFullscreen ? 380 : 320;
 
-  // DirectorPanel bottom offset: handle(36) + dock(140) = 176
-  const DOCK_HEIGHT     = 140;
+  // DirectorPanel bottom offset: handle(36) + dock(150) = 186
+  const DOCK_HEIGHT     = 150;
   const HANDLE_HEIGHT   = 36;
-  const DIRECTOR_BOTTOM = DOCK_HEIGHT + HANDLE_HEIGHT; // 176
+  const DIRECTOR_BOTTOM = DOCK_HEIGHT + HANDLE_HEIGHT; // 186
 
   // ── CD v2 CSS keyframes ───────────────────────────────────────────────────
   const cdKeyframes = `
