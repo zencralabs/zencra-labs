@@ -140,7 +140,11 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
         boxShadow:      "0 -12px 48px rgba(0,0,0,0.7)",
         overflowY:      "auto",
         maxHeight:      "62%",
-        transform:      directorPanelOpen ? "translateY(0)" : "translateY(110%)",
+        // translateY(200%) guarantees the panel top edge moves below the
+        // container's bottom boundary for any realistic container height,
+        // so overflow:hidden on the center column clips it completely.
+        // 110% was insufficient — left ~120–150px of panel peeking through.
+        transform:      directorPanelOpen ? "translateY(0)" : "translateY(200%)",
         transition:     "transform 0.38s cubic-bezier(0.16,1,0.3,1)",
         pointerEvents:  directorPanelOpen ? "auto" : "none",
         scrollbarWidth: "none",
@@ -428,7 +432,7 @@ function ControlGroup({ label, color, children }: { label: string; color: string
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
         <div style={{ width: 3, height: 12, borderRadius: 2, background: color, opacity: 0.7 }} />
-        <p style={{ fontSize: 9, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.09em", margin: 0 }}>
+        <p style={{ fontSize: 10, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
           {label}
         </p>
       </div>
@@ -467,8 +471,8 @@ function ControlCard({
         boxShadow:     active ? `0 0 12px ${color.replace("1)", "0.2)")}` : hov ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
       }}
     >
-      {icon && <span style={{ fontSize: 13, lineHeight: 1 }}>{icon}</span>}
-      <span style={{ fontSize: 9, fontFamily: "var(--font-sans)", letterSpacing: "0.04em", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+      {icon && <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>}
+      <span style={{ fontSize: 13, fontFamily: "var(--font-sans)", letterSpacing: "0.02em", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
         {label.replace(/-/g, " ")}
       </span>
     </button>
@@ -502,10 +506,10 @@ function EnergyCard({
         boxShadow:    active ? "0 0 16px rgba(139,92,246,0.2)" : hov ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
       }}
     >
-      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400 }}>{label}</div>
-        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-sans)", marginTop: 1 }}>{desc}</div>
+        <div style={{ fontSize: 14, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400 }}>{label}</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-sans)", marginTop: 2 }}>{desc}</div>
       </div>
       {active && (
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(139,92,246,1)", flexShrink: 0, boxShadow: "0 0 6px rgba(139,92,246,0.8)" }} />
@@ -545,8 +549,8 @@ function LockToggle({
         {active ? "🔒" : "○"}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10, fontFamily: "var(--font-sans)", color: active ? "rgba(251,191,36,1)" : "rgba(255,255,255,0.5)", fontWeight: active ? 600 : 400 }}>{label}</div>
-        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "var(--font-sans)", marginTop: 1 }}>{desc}</div>
+        <div style={{ fontSize: 13, fontFamily: "var(--font-sans)", color: active ? "rgba(251,191,36,1)" : "rgba(255,255,255,0.6)", fontWeight: active ? 600 : 400 }}>{label}</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-sans)", marginTop: 2 }}>{desc}</div>
       </div>
       {/* Toggle visual */}
       <div style={{

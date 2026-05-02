@@ -76,7 +76,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
   return (
     <div
       style={{
-        height:          124,
+        height:          140,
         flexShrink:      0,
         display:         "flex",
         flexDirection:   "column",
@@ -184,19 +184,19 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             onBlur={() => setInputFocused(false)}
             placeholder="Direct scene… add a free prompt to guide this generation"
             style={{
-              width:      "100%",
-              boxSizing:  "border-box",
-              background: inputFocused ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.025)",
-              border:     `1px solid ${inputFocused ? "rgba(139,92,246,0.4)" : "rgba(255,255,255,0.08)"}`,
+              width:        "100%",
+              boxSizing:    "border-box",
+              background:   inputFocused ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.025)",
+              border:       `1px solid ${inputFocused ? "rgba(139,92,246,0.4)" : "rgba(255,255,255,0.08)"}`,
               borderRadius: 10,
-              color:      "rgba(255,255,255,0.85)",
-              fontSize:   13,
-              fontFamily: "var(--font-sans)",
-              padding:    "0 14px",
-              height:     44,
-              outline:    "none",
-              transition: "border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
-              boxShadow:  inputFocused ? "0 0 0 3px rgba(139,92,246,0.08)" : "none",
+              color:        "rgba(255,255,255,0.85)",
+              fontSize:     14,
+              fontFamily:   "var(--font-sans)",
+              padding:      "0 16px",
+              height:       58,
+              outline:      "none",
+              transition:   "border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
+              boxShadow:    inputFocused ? "0 0 0 3px rgba(139,92,246,0.08)" : "none",
             }}
           />
         </div>
@@ -208,9 +208,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             gap:          2,
             background:   "rgba(255,255,255,0.03)",
             border:       "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 9,
+            borderRadius: 10,
             padding:      3,
-            height:       44,
+            height:       54,
             alignItems:   "center",
             flexShrink:   0,
           }}
@@ -222,15 +222,15 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               style={{
                 background:    ar === ratio ? "rgba(255,255,255,0.09)" : "transparent",
                 border:        "none",
-                borderRadius:  6,
+                borderRadius:  7,
                 color:         ar === ratio ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)",
-                fontSize:      10,
+                fontSize:      11,
                 fontFamily:    "var(--font-sans)",
                 cursor:        "pointer",
-                padding:       "4px 8px",
+                padding:       "4px 9px",
                 transition:    "all 0.15s ease",
                 letterSpacing: "0.02em",
-                height:        34,
+                height:        44,
                 whiteSpace:    "nowrap",
               }}
             >
@@ -246,9 +246,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             gap:          2,
             background:   "rgba(255,255,255,0.03)",
             border:       "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 9,
+            borderRadius: 10,
             padding:      3,
-            height:       44,
+            height:       54,
             alignItems:   "center",
             flexShrink:   0,
           }}
@@ -262,17 +262,17 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   ? (isLocked ? "rgba(251,191,36,0.15)" : "rgba(139,92,246,0.15)")
                   : "transparent",
                 border:       "none",
-                borderRadius: 6,
+                borderRadius: 7,
                 color:        count === n
                   ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
                   : "rgba(255,255,255,0.3)",
-                fontSize:     11,
+                fontSize:     12,
                 fontFamily:   "var(--font-sans)",
                 fontWeight:   count === n ? 700 : 400,
                 cursor:       "pointer",
-                padding:      "4px 10px",
+                padding:      "4px 12px",
                 transition:   "all 0.15s ease",
-                height:       34,
+                height:       44,
               }}
             >
               {n}×
@@ -289,14 +289,14 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
           style={{
             background:    genBg,
             border:        "none",
-            borderRadius:  11,
+            borderRadius:  12,
             color:         !canGenerate ? "rgba(255,255,255,0.2)" : "white",
-            fontSize:      13,
+            fontSize:      14,
             fontFamily:    "var(--font-display)",
             fontWeight:    700,
             cursor:        canGenerate ? "pointer" : "not-allowed",
-            padding:       "0 24px",
-            height:        48,
+            padding:       "0 26px",
+            height:        56,
             display:       "flex",
             alignItems:    "center",
             gap:           8,

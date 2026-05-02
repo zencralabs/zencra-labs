@@ -222,8 +222,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const leftW  = isFullscreen ? 320 : 280;
   const rightW = isFullscreen ? 380 : 320;
 
-  // ── DirectorPanel bottom offset: handle(36) + dock(124) = 160 ─────────────
-  const DOCK_HEIGHT   = 124;
+  // ── DirectorPanel bottom offset: handle(36) + dock(140) = 176 ─────────────
+  const DOCK_HEIGHT   = 140;
   const HANDLE_HEIGHT = 36;
   const DIRECTOR_BOTTOM = DOCK_HEIGHT + HANDLE_HEIGHT;
 
@@ -269,17 +269,20 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
       <div
         style={{
-          display:        "flex",
-          flexDirection:  "column",
-          background:     "#050507",
-          overflow:       "hidden",
-          // z-index 1200 beats navbar (z-[1100] in Tailwind = 1100)
-          position:       isFullscreen ? "fixed" : "relative",
-          inset:          isFullscreen ? 0 : undefined,
-          zIndex:         isFullscreen ? 1200 : undefined,
-          width:          isFullscreen ? "100vw" : "100%",
-          height:         isFullscreen ? "100vh" : "100%",
-          transition:     "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+          display:       "flex",
+          flexDirection: "column",
+          background:    "#050507",
+          overflow:      "hidden",
+          // Fixed fullscreen beats navbar (z-[1100] = 1100); explicit t/r/b/l
+          // avoids `inset` shorthand quirks in some React/browser combos.
+          position:      isFullscreen ? "fixed" : "relative",
+          top:           isFullscreen ? 0 : undefined,
+          right:         isFullscreen ? 0 : undefined,
+          bottom:        isFullscreen ? 0 : undefined,
+          left:          isFullscreen ? 0 : undefined,
+          zIndex:        isFullscreen ? 1200 : undefined,
+          width:         isFullscreen ? "100vw" : "100%",
+          height:        isFullscreen ? "100vh" : "100%",
         }}
       >
         {/* ── Top bar ──────────────────────────────────────────────────── */}
