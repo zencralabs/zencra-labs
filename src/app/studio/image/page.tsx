@@ -402,7 +402,7 @@ const MODELS: StudioModel[] = [
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "nanobana",
+    icon: "seedream",
     allowedQualities: ["1K"],
   },
   {
@@ -413,7 +413,7 @@ const MODELS: StudioModel[] = [
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "nanobana",
+    icon: "seedream",
     allowedQualities: ["1K"],
   },
   {
@@ -424,7 +424,7 @@ const MODELS: StudioModel[] = [
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "nanobana",
+    icon: "flux",
     allowedQualities: ["1K"],
   },
   {
@@ -435,7 +435,7 @@ const MODELS: StudioModel[] = [
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "nanobana",
+    icon: "flux",
     allowedQualities: ["1K"],
   },
   {
@@ -446,7 +446,7 @@ const MODELS: StudioModel[] = [
     badge: "SOON",
     badgeColor: "#374151",
     available: false,
-    icon: "nanobana",
+    icon: "flux",
     allowedQualities: ["1K"],
   },
 ];
@@ -502,30 +502,81 @@ function ARIcon({ ar, size = 16, selected = false }: { ar: AspectRatio; size?: n
 }
 
 // ── Model icon ────────────────────────────────────────────────────────────────
-function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
+// ── Model logo — branded SVG marks per provider family ───────────────────────
+// Visual approximations of provider identities; not official brand assets.
+function ModelLogo({ type, size = 22 }: { type: string; size?: number }) {
+  const s = Math.round(size * 0.6);
+  const wrap = (bg: string, node: React.ReactNode) => (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, overflow: "hidden",
+    }}>{node}</div>
+  );
+
   if (type === "nanobana") {
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: "50%",
-        background: "linear-gradient(135deg, #F59E0B, #10B981)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size * 0.6, flexShrink: 0,
-      }}>
-        🍌
-      </div>
+    return wrap(
+      "linear-gradient(135deg, #F59E0B 0%, #10B981 100%)",
+      <span style={{ fontSize: Math.round(s * 0.95), lineHeight: 1 }}>🍌</span>,
     );
   }
-  const bg = type === "openai" ? "#10a37f" : type === "playground" ? "#7c3aed" : "#374151";
-  const letter = type === "openai" ? "O" : type === "playground" ? "P" : "I";
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: bg, display: "flex", alignItems: "center",
-      justifyContent: "center", fontSize: size * 0.55, fontWeight: 700, color: "#fff", flexShrink: 0,
-    }}>
-      {letter}
-    </div>
-  );
+
+  if (type === "openai") {
+    // Geometric approximation of the OpenAI knot — 3 interlocked ellipses
+    return wrap(
+      "linear-gradient(135deg, #0d9e73 0%, #0a7a56 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none"/>
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none" transform="rotate(60 12 12)"/>
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none" transform="rotate(120 12 12)"/>
+      </svg>,
+    );
+  }
+
+  if (type === "seedream") {
+    // Swirl-inspired mark suggesting flow and generation
+    return wrap(
+      "linear-gradient(135deg, #0c3b5e 0%, #0e5f8a 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 3.5C16.7 3.5 20.5 7.3 20.5 12C20.5 16.7 16.7 20.5 12 20.5C8.6 20.5 6.5 18 6.5 15.5C6.5 13 8.6 11 11 11C12.9 11 14.5 12.5 14.5 14.5C14.5 15.8 13.6 16.8 12.5 17"
+          stroke="white" strokeWidth="1.7" strokeLinecap="round" fill="none"
+        />
+        <circle cx="12" cy="3.5" r="1.2" fill="white"/>
+      </svg>,
+    );
+  }
+
+  if (type === "flux") {
+    // Crystalline triangle mark — geometric precision
+    return wrap(
+      "linear-gradient(135deg, #1a1a30 0%, #2a2a4a 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path d="M12 4L21 19H3L12 4Z" stroke="white" strokeWidth="1.7" strokeLinejoin="round" fill="rgba(255,255,255,0.08)"/>
+        <line x1="12" y1="4" x2="12" y2="19" stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeLinecap="round"/>
+        <line x1="3" y1="19" x2="15.5" y2="11.5" stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeLinecap="round"/>
+        <line x1="21" y1="19" x2="8.5" y2="11.5" stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeLinecap="round"/>
+      </svg>,
+    );
+  }
+
+  return wrap("#374151", <span style={{ fontSize: Math.round(size * 0.42), fontWeight: 700, color: "#fff" }}>AI</span>);
+}
+
+// ── Badge color helpers ───────────────────────────────────────────────────────
+function modelBadgeBg(badge: string | null): string {
+  if (badge === "Fast") return "rgba(6,78,59,0.85)";
+  if (badge === "Pro")  return "rgba(30,58,95,0.85)";
+  if (badge === "NEW")  return "rgba(12,74,110,0.85)";
+  if (badge === "SOON") return "rgba(255,255,255,0.07)";
+  return "rgba(55,65,81,0.85)";
+}
+function modelBadgeFg(badge: string | null): string {
+  if (badge === "Fast") return "#34d399";
+  if (badge === "Pro")  return "#60a5fa";
+  if (badge === "NEW")  return "#38bdf8";
+  if (badge === "SOON") return "rgba(255,255,255,0.32)";
+  return "#fff";
 }
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
@@ -2181,6 +2232,15 @@ function ImageStudioInner() {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes modelSelectPulse {
+          0%   { background: rgba(99,102,241,0.18); }
+          50%  { background: rgba(99,102,241,0.32); }
+          100% { background: rgba(99,102,241,0.18); }
+        }
+        .model-dd-scroll::-webkit-scrollbar { width: 4px; }
+        .model-dd-scroll::-webkit-scrollbar-track { background: transparent; }
+        .model-dd-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .model-dd-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
       `}</style>
       {/* ── TOP BAR WRAPPER — FlowBar hangs below via position:absolute ──── */}
       {/* position:relative here (no zIndex) so FlowBar's zIndex participates  */}
@@ -3379,79 +3439,190 @@ function ImageStudioInner() {
           }}>
             {/* Model selector */}
             <div data-dd style={{ position: "relative" }}>
+              {/* ── Dock chip ── */}
               <button
                 onClick={() => { closeDropdowns(); setShowModelPicker((v) => !v); setModelSearch(""); }}
-                style={{ ...ctrlBtn(showModelPicker), gap: 7 }}
+                style={{ ...ctrlBtn(showModelPicker), gap: 7, padding: "5px 10px 5px 6px" }}
+                title="Change model"
               >
-                <ModelIcon type={currentModel.icon} size={16} />
-                {currentModel.name}
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>›</span>
+                <ModelLogo type={currentModel.icon} size={22} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{currentModel.name}</span>
+                {currentModel.badge && currentModel.available && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 4,
+                    background: modelBadgeBg(currentModel.badge),
+                    color: modelBadgeFg(currentModel.badge),
+                    letterSpacing: "0.06em",
+                  }}>{currentModel.badge}</span>
+                )}
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{
+                  marginLeft: 1, opacity: 0.45,
+                  transform: showModelPicker ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s",
+                }}>
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
 
-              {showModelPicker && (
-                <div style={{
-                  position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-                  background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 14, padding: 8, zIndex: 200, width: 320,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
-                }}>
-                  {/* Search */}
-                  <div style={{ padding: "4px 6px 8px" }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      background: "rgba(255,255,255,0.07)", borderRadius: 9, padding: "7px 10px",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}>
-                      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>🔍</span>
-                      <input
-                        autoFocus
-                        value={modelSearch}
-                        onChange={(e) => setModelSearch(e.target.value)}
-                        placeholder="Search..."
-                        style={{
-                          background: "transparent", border: "none", outline: "none",
-                          color: "#fff", fontSize: 13, flex: 1,
-                          fontFamily: "var(--font-body, system-ui)",
-                        }}
-                      />
-                    </div>
-                  </div>
+              {/* ── Premium dropdown panel ── */}
+              {showModelPicker && (() => {
+                const liveModels   = filteredModels.filter(m =>  m.available);
+                const soonModels   = filteredModels.filter(m => !m.available);
+                const noResults    = liveModels.length === 0 && soonModels.length === 0;
 
-                  <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 6px" }}>
-                    ✦ Featured models
-                  </p>
-
-                  {filteredModels.map((m) => (
+                const renderRow = (m: StudioModel) => {
+                  const isSelected = model === m.id;
+                  const isDisabled = !m.available;
+                  return (
                     <button
                       key={m.id}
-                      disabled={!m.available}
-                      onClick={() => { if (m.available) { setModel(m.id); closeDropdowns(); } }}
-                      style={{ ...ddItem(model === m.id, !m.available) }}
-                      onMouseEnter={(e) => { if (m.available) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = model === m.id ? "rgba(255,255,255,0.1)" : "transparent"; }}
+                      disabled={isDisabled}
+                      aria-disabled={isDisabled}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          setModel(m.id);
+                          closeDropdowns();
+                        }
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        width: "100%", padding: "10px 12px", borderRadius: 10,
+                        border: "none", textAlign: "left", cursor: isDisabled ? "not-allowed" : "pointer",
+                        background: isSelected ? "rgba(99,102,241,0.14)" : "transparent",
+                        boxShadow: isSelected ? "inset 3px 0 0 rgba(99,102,241,0.7)" : "none",
+                        opacity: isDisabled ? 0.52 : 1,
+                        transition: "background 0.12s, box-shadow 0.12s",
+                      }}
+                      onMouseEnter={e => {
+                        if (!isDisabled && !isSelected)
+                          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected)
+                          (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
                     >
-                      <ModelIcon type={m.icon} size={32} />
+                      <ModelLogo type={m.icon} size={38} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{m.name}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.01em" }}>
+                            {m.name}
+                          </span>
                           {m.badge && (
                             <span style={{
                               fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
-                              background: m.badgeColor ?? "#374151", color: "#fff", letterSpacing: "0.05em",
-                            }}>
-                              {m.badge}
-                            </span>
+                              background: modelBadgeBg(m.badge), color: modelBadgeFg(m.badge),
+                              letterSpacing: "0.07em", textTransform: "uppercase",
+                            }}>{m.badge}</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {m.description}
-                        </div>
+                        <div style={{
+                          fontSize: 13, color: "rgba(255,255,255,0.45)",
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>{m.description}</div>
                       </div>
-                      {model === m.id && <span style={{ color: "#60A5FA", fontSize: 14 }}>✓</span>}
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                          <path d="M3 8L6.5 11.5L13 5" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
                     </button>
-                  ))}
-                </div>
-              )}
+                  );
+                };
+
+                return (
+                  <div style={{
+                    position: "absolute", bottom: "calc(100% + 8px)", left: 0,
+                    background: "rgba(9,11,20,0.97)",
+                    backdropFilter: "blur(24px)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 14, zIndex: 200, width: 460,
+                    display: "flex", flexDirection: "column",
+                    boxShadow: [
+                      "0 0 0 1px rgba(59,130,246,0.08)",
+                      "0 32px 80px rgba(0,0,0,0.88)",
+                      "0 8px 24px rgba(0,0,0,0.6)",
+                      "inset 0 1px 0 rgba(255,255,255,0.06)",
+                    ].join(", "),
+                    overflow: "hidden",
+                  }}>
+                    {/* Search bar */}
+                    <div style={{ padding: "12px 12px 8px", flexShrink: 0 }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        background: "rgba(255,255,255,0.06)",
+                        borderRadius: 10, padding: "9px 12px",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                      }}>
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                          <circle cx="8.5" cy="8.5" r="5.5" stroke="rgba(255,255,255,0.38)" strokeWidth="1.6"/>
+                          <path d="m13 13 3.5 3.5" stroke="rgba(255,255,255,0.38)" strokeWidth="1.6" strokeLinecap="round"/>
+                        </svg>
+                        <input
+                          autoFocus
+                          value={modelSearch}
+                          onChange={e => setModelSearch(e.target.value)}
+                          placeholder="Search models…"
+                          style={{
+                            background: "transparent", border: "none", outline: "none",
+                            color: "#fff", fontSize: 15, flex: 1, letterSpacing: "0.01em",
+                            fontFamily: "var(--font-body, system-ui)",
+                          }}
+                        />
+                        {modelSearch && (
+                          <button
+                            onClick={() => setModelSearch("")}
+                            style={{
+                              background: "none", border: "none", cursor: "pointer",
+                              color: "rgba(255,255,255,0.3)", fontSize: 14, padding: 0, lineHeight: 1,
+                              transition: "color 0.12s",
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; }}
+                          >✕</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Scrollable model list */}
+                    <div className="model-dd-scroll" style={{ overflowY: "auto", maxHeight: 430, padding: "0 8px 10px" }}>
+                      {noResults ? (
+                        <div style={{ padding: "20px 16px", textAlign: "center", color: "rgba(255,255,255,0.28)", fontSize: 13 }}>
+                          No models match &ldquo;{modelSearch}&rdquo;
+                        </div>
+                      ) : (
+                        <>
+                          {liveModels.length > 0 && (
+                            <>
+                              <p style={{
+                                fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.38)",
+                                letterSpacing: "0.14em", textTransform: "uppercase",
+                                padding: "8px 10px 4px", margin: 0,
+                              }}>Live Models</p>
+                              {liveModels.map(renderRow)}
+                            </>
+                          )}
+                          {soonModels.length > 0 && (
+                            <>
+                              <div style={{
+                                margin: liveModels.length > 0 ? "10px 10px 4px" : "8px 10px 4px",
+                                paddingTop: liveModels.length > 0 ? 10 : 0,
+                                borderTop: liveModels.length > 0 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                              }}>
+                                <p style={{
+                                  fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.28)",
+                                  letterSpacing: "0.14em", textTransform: "uppercase", margin: 0,
+                                }}>Coming Soon</p>
+                              </div>
+                              {soonModels.map(renderRow)}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Aspect Ratio */}
