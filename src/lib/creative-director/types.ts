@@ -256,6 +256,103 @@ export interface CreativeGenerationRow {
   completed_at?: string;
   /** Links this generation to a project_sessions row (project system) */
   session_id?: string;
+  /** Phase A — links this generation to a creative_directions row */
+  direction_id?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATIVE DIRECTOR v2 — DIRECTION LAYER TYPES
+// Scope: Image Studio only. Still images only. No video/motion logic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SceneEnergy =
+  | "static"
+  | "walking-pose"
+  | "action-pose"
+  | "dramatic-still";
+
+export type ColorPalette =
+  | "warm"
+  | "cool"
+  | "cinematic"
+  | "neon"
+  | "desaturated"
+  | "vivid"
+  | "monochrome";
+
+export type LightingStyle =
+  | "dramatic"
+  | "soft"
+  | "golden-hour"
+  | "neon"
+  | "overcast"
+  | "studio"
+  | "practical";
+
+export type ShotType =
+  | "close"
+  | "medium"
+  | "wide"
+  | "extreme-wide"
+  | "macro"
+  | "aerial";
+
+export type CameraLens = "24mm" | "35mm" | "50mm" | "85mm" | "135mm";
+
+export type CameraAngle =
+  | "eye-level"
+  | "low"
+  | "high"
+  | "dutch"
+  | "top-down"
+  | "worms-eye";
+
+export type DirectionElementType = "subject" | "world" | "object" | "atmosphere";
+
+export interface CreativeDirectionRow {
+  id: string;
+  user_id: string;
+  project_id?: string;
+  session_id?: string;
+  concept_id?: string;
+  name?: string;
+  is_locked: boolean;
+  model_key?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectionRefinementsRow {
+  id: string;
+  direction_id: string;
+  tone_intensity?: number;       // 0–100
+  color_palette?: ColorPalette | string;
+  lighting_style?: LightingStyle | string;
+  shot_type?: ShotType | string;
+  lens?: CameraLens | string;
+  camera_angle?: CameraAngle | string;
+  scene_energy?: SceneEnergy | string;
+  identity_lock: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectionElementRow {
+  id: string;
+  direction_id: string;
+  type: DirectionElementType;
+  label: string;
+  asset_url?: string;
+  weight: number;                // 0–1
+  position: number;
+  created_at: string;
+}
+
+/** Full direction with its refinements and elements — used for prompt building */
+export interface DirectionWithContext {
+  direction: CreativeDirectionRow;
+  refinements: DirectionRefinementsRow | null;
+  elements: DirectionElementRow[];
 }
 
 export interface CreativeActivityRow {
