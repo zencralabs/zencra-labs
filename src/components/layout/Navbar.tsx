@@ -688,16 +688,22 @@ function MobileMenu({
 function NavbarAuthSkeleton() {
   return (
     <div className="hidden items-center gap-3 lg:flex">
-      {/* Credits pill placeholder */}
-      <div
+      {/* Credits pill placeholder — must be <Link> (not <div>) to match the real
+          credits pill element type and avoid a React hydration mismatch. */}
+      <Link
+        href="/dashboard/credits"
         style={{
+          display: "block",
           width: 80,
           height: 34,
           borderRadius: 20,
           background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.07)",
           flexShrink: 0,
+          textDecoration: "none",
         }}
+        aria-hidden
+        tabIndex={-1}
       />
       {/* Avatar + name pill placeholder */}
       <div
