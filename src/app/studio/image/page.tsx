@@ -18,6 +18,7 @@ import FlowBar from "@/components/studio/flow/FlowBar";
 // NextStepPanel removed from Image Studio — premium action panel replaces it
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
+import { CDv2Shell } from "@/components/studio/creative-director-v2/CDv2Shell";
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
@@ -2564,7 +2565,7 @@ function ImageStudioInner() {
       {/* ── Creative Director mode — full-width shell, replaces gallery ── */}
       {studioMode === "creative-director" && (
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <CreativeDirectorShell />
+          <CDv2Shell onExitDirectorMode={() => setStudioMode("standard")} />
         </div>
       )}
 
