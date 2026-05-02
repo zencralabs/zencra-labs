@@ -194,6 +194,29 @@ export function OutputCard({ output, isBest = false }: OutputCardProps) {
         </div>
       )}
 
+      {/* ── Creative Director source badge ───────────────────────────────── */}
+      <div style={{
+        position:      "absolute",
+        bottom:        8,
+        left:          8,
+        fontSize:      8,
+        fontFamily:    "var(--font-sans)",
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        color:         "rgba(139,92,246,0.7)",
+        background:    "rgba(10,8,18,0.75)",
+        border:        "1px solid rgba(139,92,246,0.18)",
+        borderRadius:  5,
+        padding:       "2px 6px",
+        backdropFilter: "blur(6px)",
+        display:       "flex",
+        alignItems:    "center",
+        gap:           4,
+      }}>
+        <span style={{ fontSize: 7 }}>✦</span>
+        CD
+      </div>
+
       {/* ── Credit cost badge ─────────────────────────────────────────────── */}
       {isCompleted && (
         <div style={{

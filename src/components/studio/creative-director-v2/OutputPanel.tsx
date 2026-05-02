@@ -8,11 +8,12 @@
  * isBest flag: first completed output in locked mode gets "✦ Best" badge.
  *
  * Outputs come from useDirectionStore — never fetched directly from DB here.
+ * Gallery link: "Open Image Gallery" → /studio/image (opens in same tab).
  */
 
-import { useMemo }       from "react";
+import { useMemo, useState } from "react";
 import { useDirectionStore, selectOutputs, selectMode, selectIsGenerating } from "@/lib/creative-director/store";
-import { OutputCard }    from "./OutputCard";
+import { OutputCard }        from "./OutputCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -32,7 +33,6 @@ export function OutputPanel() {
     return outputs; // already newest-first from store
   }, [outputs, mode]);
 
-  // First completed output in locked mode gets the "Best" badge
   const bestId = useMemo(() => {
     if (mode !== "locked") return null;
     return sorted.find((o) => o.status === "completed")?.id ?? null;
@@ -82,20 +82,23 @@ export function OutputPanel() {
           )}
         </div>
 
-        {mode === "locked" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ fontSize: 8, color: "rgba(251,191,36,0.5)" }}>◆</span>
-            <span style={{
-              fontSize:      9,
-              color:         "rgba(251,191,36,0.6)",
-              fontFamily:    "var(--font-sans)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}>
-              Best first
-            </span>
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {mode === "locked" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 8, color: "rgba(251,191,36,0.5)" }}>◆</span>
+              <span style={{
+                fontSize:      9,
+                color:         "rgba(251,191,36,0.6)",
+                fontFamily:    "var(--font-sans)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}>
+                Best first
+              </span>
+            </div>
+          )}
+          <GalleryLink />
+        </div>
       </div>
 
       {/* ── Error banner ─────────────────────────────────────────────────── */}
@@ -121,22 +124,18 @@ export function OutputPanel() {
         padding:        14,
         scrollbarWidth: "none",
       }}>
-        {/* Generating skeletons + real outputs in 2-col grid */}
         {(isGenerating || hasOutputs) && (
           <div style={{
             display:             "grid",
             gridTemplateColumns: "1fr 1fr",
             gap:                 10,
           }}>
-            {/* Skeleton cards while generating */}
             {isGenerating && (
               <>
                 <SkeletonCard />
                 <SkeletonCard />
               </>
             )}
-
-            {/* Real output cards */}
             {sorted.map((output) => (
               <OutputCard
                 key={output.id}
@@ -146,11 +145,50 @@ export function OutputPanel() {
             ))}
           </div>
         )}
-
-        {/* Empty state */}
         {!isGenerating && !hasOutputs && <EmptyState mode={mode} />}
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function GalleryLink() {
+  const [hov, setHov] = useState(false);
+  return (
+    <a
+      href="/studio/image"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display:        "flex",
+        alignItems:     "center",
+        gap:            5,
+        fontSize:       9,
+        fontFamily:     "var(--font-sans)",
+        letterSpacing:  "0.06em",
+        textTransform:  "uppercase",
+        color:          hov ? "rgba(139,92,246,0.9)" : "rgba(255,255,255,0.25)",
+        textDecoration: "none",
+        background:     hov ? "rgba(139,92,246,0.08)" : "rgba(255,255,255,0.03)",
+        border:         `1px solid ${hov ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.08)"}`,
+        borderRadius:   7,
+        padding:        "3px 8px",
+        transition:     "all 0.15s ease",
+        flexShrink:     0,
+      }}
+    >
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <rect x="1" y="1" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" />
+        <rect x="5.5" y="1" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" />
+        <rect x="1" y="5.5" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" />
+        <rect x="5.5" y="5.5" width="3.5" height="3.5" rx="0.8" stroke="currentColor" strokeWidth="1.2" />
+      </svg>
+      Gallery
+      <svg width="7" height="7" viewBox="0 0 7 7" fill="none">
+        <path d="M1 6L6 1M6 1H3M6 1V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    </a>
   );
 }
 
@@ -168,21 +206,19 @@ function EmptyState({ mode }: { mode: string }) {
       textAlign:      "center",
       minHeight:      240,
     }}>
-      {/* Icon ring */}
       <div style={{
-        width:        56,
-        height:       56,
-        borderRadius: "50%",
-        background:   "rgba(139,92,246,0.07)",
-        border:       "1px solid rgba(139,92,246,0.18)",
-        display:      "flex",
-        alignItems:   "center",
+        width:          56,
+        height:         56,
+        borderRadius:   "50%",
+        background:     "rgba(139,92,246,0.07)",
+        border:         "1px solid rgba(139,92,246,0.18)",
+        display:        "flex",
+        alignItems:     "center",
         justifyContent: "center",
-        fontSize:     22,
-        color:        "rgba(139,92,246,0.45)",
-        position:     "relative",
+        fontSize:       22,
+        color:          "rgba(139,92,246,0.45)",
+        position:       "relative",
       }}>
-        {/* Outer dashed ring */}
         <div style={{
           position:     "absolute",
           inset:        -8,
@@ -191,7 +227,6 @@ function EmptyState({ mode }: { mode: string }) {
         }} />
         ✦
       </div>
-
       <div>
         <p style={{
           fontSize:   14,
@@ -221,12 +256,12 @@ function EmptyState({ mode }: { mode: string }) {
 function SkeletonCard() {
   return (
     <div style={{
-      aspectRatio:  "1 / 1",
-      borderRadius: 12,
-      background:   "rgba(255,255,255,0.03)",
-      border:       "1px solid rgba(139,92,246,0.12)",
-      animation:    "cd-shimmer 1.6s ease-in-out infinite",
-      backgroundSize: "200% 100%",
+      aspectRatio:     "1 / 1",
+      borderRadius:    12,
+      background:      "rgba(255,255,255,0.03)",
+      border:          "1px solid rgba(139,92,246,0.12)",
+      animation:       "cd-shimmer 1.6s ease-in-out infinite",
+      backgroundSize:  "200% 100%",
       backgroundImage: "linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(139,92,246,0.06) 50%, rgba(255,255,255,0.02) 100%)",
     }} />
   );

@@ -88,6 +88,7 @@ export async function POST(req: Request): Promise<Response> {
     aspectRatio:      rawAspect,
     providerOverride,
     modelOverride,
+    promptSuffix,
     idempotencyKey,
     session_id,
   } = body as Record<string, unknown>;
@@ -192,7 +193,9 @@ export async function POST(req: Request): Promise<Response> {
     .eq("id", directionId);
 
   // ── Build enriched prompt ─────────────────────────────────────────────────
-  const promptString = buildDirectionPrompt(dir, refinements, elements, mode);
+  const basePrompt   = buildDirectionPrompt(dir, refinements, elements, mode);
+  const suffix       = typeof promptSuffix === "string" && promptSuffix.trim() ? `, ${promptSuffix.trim()}` : "";
+  const promptString = `${basePrompt}${suffix}`;
 
   // ── Select provider ────────────────────────────────────────────────────────
   // Honour direction.model_key (user locked model choice during commit) first.

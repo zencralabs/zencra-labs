@@ -97,6 +97,71 @@ export const STYLE_MOOD_PRESETS: StyleMoodPresetDef[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Character Direction — local controls that build a prompt suffix.
+// Not stored in DB; injected as promptSuffix at generate time.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface CharacterDirection {
+  faceExpression: "neutral" | "smile" | "serious" | "angry" | "surprised" | "emotional" | null;
+  hairstyleLock:  boolean;
+  outfitLock:     boolean;
+  bodyView:       "front" | "left-profile" | "right-profile" | "back" | "three-quarter" | null;
+  headDirection:  "left" | "right" | "up" | "down" | "forward" | null;
+  eyeDirection:   "left" | "right" | "up" | "down" | "camera" | null;
+  poseAction:     "standing" | "walking" | "running" | "jumping" | "driving" | "sitting" | null;
+  handsLegs:      "natural-hands" | "visible-hands" | "full-body" | "dynamic-legs" | null;
+}
+
+export const DEFAULT_CHARACTER_DIRECTION: CharacterDirection = {
+  faceExpression: null,
+  hairstyleLock:  false,
+  outfitLock:     false,
+  bodyView:       null,
+  headDirection:  null,
+  eyeDirection:   null,
+  poseAction:     null,
+  handsLegs:      null,
+};
+
+/**
+ * Build a prompt suffix from character direction state.
+ * Returns empty string if no meaningful fields are set.
+ */
+export function buildCharacterDirectionSuffix(cd: CharacterDirection): string {
+  const parts: string[] = [];
+  if (cd.faceExpression)                  parts.push(`${cd.faceExpression} expression`);
+  if (cd.bodyView)                        parts.push(`${cd.bodyView.replace("-", " ")} view`);
+  if (cd.headDirection)                   parts.push(`head turned ${cd.headDirection}`);
+  if (cd.eyeDirection)                    parts.push(`eyes looking ${cd.eyeDirection}`);
+  if (cd.poseAction)                      parts.push(`${cd.poseAction} pose`);
+  if (cd.handsLegs)                       parts.push(cd.handsLegs.replace("-", " "));
+  if (cd.hairstyleLock)                   parts.push("consistent hairstyle");
+  if (cd.outfitLock)                      parts.push("consistent outfit");
+  return parts.length > 0 ? parts.join(", ") : "";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Image model keys available in Creative Director
+// ─────────────────────────────────────────────────────────────────────────────
+export interface CDModelDef {
+  key:    string;
+  label:  string;
+  active: boolean;
+  soon?:  boolean;
+}
+
+export const CD_MODELS: CDModelDef[] = [
+  { key: "gpt-image-1",          label: "GPT Image 1",    active: true  },
+  { key: "nano-banana-standard", label: "Nano Banana",    active: true  },
+  { key: "nano-banana-pro",      label: "NB Pro",         active: true  },
+  { key: "nano-banana-2",        label: "NB 2",           active: true  },
+  { key: "seedream-4-5",         label: "Seedream 4.5",   active: true  },
+  { key: "seedream-v5",          label: "Seedream v5",    active: true  },
+  { key: "flux-kontext",         label: "FLUX Kontext",   active: true  },
+  { key: "gpt-image-2",          label: "GPT Image 2",    active: false, soon: true },
+  { key: "flux-2-image",         label: "Flux.2 Pro",     active: false, soon: true },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // State shape
 // ─────────────────────────────────────────────────────────────────────────────
 export interface DirectionState {
@@ -116,6 +181,12 @@ export interface DirectionState {
 
   // ── Active style mood chip (drives refinements.color_palette + lighting_style)
   activeStyleMood: StyleMoodPreset | null;
+
+  // ── Selected image model ─────────────────────────────────────────────────
+  selectedModel: string;
+
+  // ── Character direction (local — injected as promptSuffix) ───────────────
+  characterDirection: CharacterDirection;
 
   // ── Director panel ────────────────────────────────────────────────────────
   directorPanelOpen: boolean;
@@ -155,6 +226,13 @@ export interface DirectionActions {
   // Style mood chips
   setStyleMood: (preset: StyleMoodPreset | null) => void;
 
+  // Model selection
+  setSelectedModel: (model: string) => void;
+
+  // Character direction (local, builds promptSuffix)
+  patchCharacterDirection: (patch: Partial<CharacterDirection>) => void;
+  resetCharacterDirection: () => void;
+
   // Director panel
   openDirectorPanel:   () => void;
   closeDirectorPanel:  () => void;
@@ -174,18 +252,20 @@ export interface DirectionActions {
 // Initial state
 // ─────────────────────────────────────────────────────────────────────────────
 const INITIAL: DirectionState = {
-  directionId:       null,
-  mode:              "explore",
-  directionVersion:  1,
-  sceneIntent:       { text: "", uploadedUrl: null },
-  elements:          [],
-  refinements:       null,
-  activeStyleMood:   null,
-  directorPanelOpen: false,
-  outputs:           [],
-  isGenerating:      false,
-  lastGenError:      null,
-  directionCreated:  false,
+  directionId:         null,
+  mode:                "explore",
+  directionVersion:    1,
+  sceneIntent:         { text: "", uploadedUrl: null },
+  elements:            [],
+  refinements:         null,
+  activeStyleMood:     null,
+  selectedModel:       "gpt-image-1",
+  characterDirection:  DEFAULT_CHARACTER_DIRECTION,
+  directorPanelOpen:   false,
+  outputs:             [],
+  isGenerating:        false,
+  lastGenError:        null,
+  directionCreated:    false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,6 +306,15 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
     })),
 
   setRefinements: (r) => set({ refinements: r }),
+
+  // ── Model selection ───────────────────────────────────────────────────────
+  setSelectedModel: (model) => set({ selectedModel: model }),
+
+  // ── Character direction ───────────────────────────────────────────────────
+  patchCharacterDirection: (patch) =>
+    set((s) => ({ characterDirection: { ...s.characterDirection, ...patch } })),
+
+  resetCharacterDirection: () => set({ characterDirection: DEFAULT_CHARACTER_DIRECTION }),
 
   // ── Style mood chips ──────────────────────────────────────────────────────
   // Apply preset → writes color_palette + lighting_style into refinements
