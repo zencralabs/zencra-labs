@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Zap } from "lucide-react";
+import { Zap, RotateCcw, Download, Maximize2, Play, ChevronUp, ChevronDown } from "lucide-react";
 import { downloadAsset } from "@/lib/client/downloadAsset";
 import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
 import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
@@ -4242,8 +4242,9 @@ function ImageStudioInner() {
                     el.style.transform = "translateY(0)";
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>▶</span>
-                  Animate {panelAnimateOpen ? "▲" : "▾"}
+                  <Play size={16} style={{ flexShrink: 0 }} />
+                  Animate
+                  {panelAnimateOpen ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
                 </button>
 
                 {/* Inline dropdown */}
@@ -4303,7 +4304,7 @@ function ImageStudioInner() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ↩ Reuse Prompt
+                  <RotateCcw size={11} style={{ flexShrink: 0 }} /> Reuse Prompt
                 </button>
               )}
 
@@ -4321,7 +4322,7 @@ function ImageStudioInner() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ↓ Download
+                  <Download size={11} style={{ flexShrink: 0 }} /> Download
                 </button>
               )}
 
@@ -4339,7 +4340,7 @@ function ImageStudioInner() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ⛶ Fullscreen
+                  <Maximize2 size={11} style={{ flexShrink: 0 }} /> Fullscreen
                 </button>
               )}
             </div>

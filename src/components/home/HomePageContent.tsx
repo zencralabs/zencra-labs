@@ -743,8 +743,11 @@ export function HomePageContent() {
                 </button>
                 <button
                   type="button"
+                  onClick={handleStartCreating}
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)", cursor: "pointer", borderRadius: 0 }}
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)", cursor: "pointer", borderRadius: 0, transition: "background 0.15s ease, color 0.15s ease" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)"; }}
                 >
                   {/* Circle-play icon */}
                   <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
