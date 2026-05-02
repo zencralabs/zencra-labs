@@ -58,6 +58,7 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
   const [email,      setEmail]      = useState("");
   const [loading,    setLoading]    = useState(false);
   const [errorMsg,   setErrorMsg]   = useState<string | null>(null);
+  const [showCode,   setShowCode]   = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -214,41 +215,86 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ marginTop: "36px" }}>
-          {/* Access code */}
-          <input
-            type="text"
-            placeholder="Access code"
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            disabled={loading}
-            style={{
-              display:          "block",
-              width:            "100%",
-              height:           "56px",
-              border:           "1px solid rgba(255,255,255,0.14)",
-              background:       "rgba(0,0,0,0.35)",
-              padding:          "0 20px",
-              fontSize:         "17px",
-              color:            "#fff",
-              outline:          "none",
-              boxSizing:        "border-box",
-              marginBottom:     "12px",
-              letterSpacing:    "0.05em",
-              transition:       "border-color 0.2s, box-shadow 0.2s",
-            }}
-            onFocus={e => {
-              e.currentTarget.style.borderColor = "rgba(216,180,254,0.70)";
-              e.currentTarget.style.boxShadow   = "0 0 0 2px rgba(168,85,247,0.20)";
-            }}
-            onBlur={e => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
-              e.currentTarget.style.boxShadow   = "none";
-            }}
-          />
+          {/* Access code — password field with show/hide toggle */}
+          <div style={{ position: "relative", marginBottom: "12px" }}>
+            <input
+              type={showCode ? "text" : "password"}
+              placeholder="Access code"
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              autoComplete="current-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              disabled={loading}
+              style={{
+                display:       "block",
+                width:         "100%",
+                height:        "56px",
+                border:        "1px solid rgba(255,255,255,0.14)",
+                background:    "rgba(0,0,0,0.35)",
+                padding:       "0 52px 0 20px",
+                fontSize:      "17px",
+                color:         "#fff",
+                outline:       "none",
+                boxSizing:     "border-box",
+                letterSpacing: showCode ? "0.05em" : "0.12em",
+                transition:    "border-color 0.2s, box-shadow 0.2s",
+              }}
+              onFocus={e => {
+                e.currentTarget.style.borderColor = "rgba(216,180,254,0.70)";
+                e.currentTarget.style.boxShadow   = "0 0 0 2px rgba(168,85,247,0.20)";
+              }}
+              onBlur={e => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+                e.currentTarget.style.boxShadow   = "none";
+              }}
+            />
+            {/* Show / Hide toggle */}
+            <button
+              type="button"
+              aria-label={showCode ? "Hide access code" : "Show access code"}
+              onClick={() => setShowCode(v => !v)}
+              tabIndex={-1}
+              style={{
+                position:        "absolute",
+                right:           0,
+                top:             0,
+                height:          "56px",
+                width:           "48px",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
+                background:      "transparent",
+                border:          "none",
+                cursor:          "pointer",
+                color:           "rgba(255,255,255,0.40)",
+                padding:         0,
+                transition:      "color 0.15s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.80)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.40)";
+              }}
+            >
+              {showCode ? (
+                /* Eye-off: slash across eye */
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                /* Eye: open */
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
 
           {/* Optional email */}
           <input
