@@ -454,16 +454,32 @@ const MODELS: StudioModel[] = [
 // ── Reference image mention enrichment ───────────────────────────────────────
 // Builds an enriched prompt string that maps @imgN references for backend clarity.
 // Only used internally before sending to the API — never shown in the UI textarea.
+//
+// Natural language detection (safe):
+//   "image 1" / "image attached 1" / "uploaded image 1" / "analyse image 1"
+//   → normalized to @imgN tag only when refs exist AND index is in range.
+//   Textarea text is NEVER mutated — this runs only in the API send path.
 function buildEnrichedPrompt(
   userPrompt: string,
   refs: Array<{ cdnUrl: string }>,
 ): string {
   const uploaded = refs.filter(r => r.cdnUrl);
   if (uploaded.length === 0) return userPrompt;
+
+  // Normalize natural-language image references → @imgN tags.
+  // Pattern matches (in priority order, most specific first):
+  //   "uploaded image N"  /  "image attached N"  /  "image N"
+  // "analyse image N" is handled because "image N" matches the tail after "analyse ".
+  const nlPattern = /\b(?:uploaded\s+image|image\s+attached|image)\s*(\d+)\b/gi;
+  const processedPrompt = userPrompt.replace(nlPattern, (match, numStr) => {
+    const n = parseInt(numStr, 10);
+    return (n >= 1 && n <= uploaded.length) ? `@img${n}` : match;
+  });
+
   const header = uploaded
     .map((_, i) => `[IMG ${i + 1}] uploaded reference image ${i + 1}`)
     .join("\n");
-  return `Reference images:\n${header}\n\nUser prompt: ${userPrompt}`;
+  return `Reference images:\n${header}\n\nUser prompt: ${processedPrompt}`;
 }
 
 // ASPECT_RATIOS is now model-specific — see NB_STANDARD_PRO_AR / NB2_AR / DALLE_AR above.
@@ -1087,6 +1103,21 @@ function ImageStudioInner() {
   // Backward compat for character lock logic (uses first image):
   const referenceImageUrl = referenceImageUrls[0] ?? "";
   const referencePreviewUrl = referenceImages[0]?.previewUrl ?? "";
+
+  // ── @imgN intelligence — derived from prompt ──────────────────────────────────
+  // Set of 0-based indices of reference images currently mentioned in the prompt.
+  // Used to drive thumbnail glow without any extra state atom.
+  const activeRefIndices = useMemo(() => {
+    const indices = new Set<number>();
+    for (const m of prompt.matchAll(/@img(\d+)\b/gi)) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= referenceImages.length) indices.add(n - 1);
+    }
+    return indices;
+  }, [prompt, referenceImages.length]);
+
+  // Thumbnail hover state — drives 120px floating preview above the hovered chip.
+  const [hoverRefIdx, setHoverRefIdx] = useState<number | null>(null);
 
   // ── Dock collapse state ───────────────────────────────────────────────────────
   const [isDockCollapsed, setIsDockCollapsed] = useState(false);
@@ -3175,17 +3206,66 @@ function ImageStudioInner() {
               padding: "12px 16px 0",
               animation: "refSlideIn 0.18s ease",
             }}>
-              {referenceImages.map((ref, idx) => (
-                <div key={ref.id} style={{ position: "relative", flexShrink: 0 }}>
+              {referenceImages.map((ref, idx) => {
+                const isActive = activeRefIndices.has(idx);
+                return (
+                <div
+                  key={ref.id}
+                  style={{ position: "relative", flexShrink: 0 }}
+                  onMouseEnter={() => setHoverRefIdx(idx)}
+                  onMouseLeave={() => setHoverRefIdx(null)}
+                >
+                  {/* 120px hover preview — floats above the thumbnail */}
+                  {hoverRefIdx === idx && (ref.cdnUrl || ref.previewUrl) && !ref.uploading && (
+                    <div style={{
+                      position: "absolute",
+                      bottom: "calc(100% + 10px)",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 200,
+                      pointerEvents: "none",
+                      animation: "refSlideIn 0.12s ease",
+                    }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ref.cdnUrl || ref.previewUrl}
+                        alt={`Preview ${idx + 1}`}
+                        style={{
+                          width: 120, height: 120, objectFit: "cover",
+                          borderRadius: 10,
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.65)",
+                          border: "1.5px solid rgba(59,130,246,0.55)",
+                          display: "block",
+                        }}
+                      />
+                      {/* Caret pointer */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: -6, left: "50%", transform: "translateX(-50%)",
+                        width: 0, height: 0,
+                        borderLeft: "7px solid transparent",
+                        borderRight: "7px solid transparent",
+                        borderTop: "7px solid rgba(59,130,246,0.55)",
+                      }} />
+                    </div>
+                  )}
+
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={ref.previewUrl || ref.cdnUrl}
                     alt={`Reference ${idx + 1}`}
                     style={{
                       width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block",
-                      border: ref.cdnUrl ? "1.5px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.2)",
+                      border: ref.cdnUrl
+                        ? (isActive ? "1.5px solid rgba(59,130,246,0.9)" : "1.5px solid rgba(37,99,235,0.6)")
+                        : "1px solid rgba(255,255,255,0.2)",
                       opacity: ref.uploading ? 0.45 : 1,
-                      transition: "opacity 0.2s",
+                      // Glow + subtle scale when this image is @-mentioned in the prompt
+                      boxShadow: isActive
+                        ? "0 0 0 1.5px rgba(59,130,246,0.7), 0 0 12px rgba(59,130,246,0.45)"
+                        : "none",
+                      transform: isActive ? "scale(1.04)" : "scale(1)",
+                      transition: "box-shadow 0.22s ease, transform 0.22s ease, opacity 0.2s, border-color 0.22s ease",
                     }}
                   />
                   {/* IMG N label */}
@@ -3196,8 +3276,9 @@ function ImageStudioInner() {
                     padding: "6px 4px 3px",
                     textAlign: "center",
                     fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
-                    color: "rgba(255,255,255,0.92)",
+                    color: isActive ? "rgba(147,197,253,0.95)" : "rgba(255,255,255,0.92)",
                     pointerEvents: "none",
+                    transition: "color 0.22s ease",
                   }}>
                     IMG {idx + 1}
                   </div>
@@ -3211,13 +3292,29 @@ function ImageStudioInner() {
                   {ref.cdnUrl && !ref.uploading && (
                     <div style={{ position: "absolute", bottom: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none" }}>✓</div>
                   )}
-                  {/* Remove */}
+                  {/* Remove — strips @imgN from prompt + renumbers subsequent tags */}
                   <button
-                    onClick={() => { URL.revokeObjectURL(ref.previewUrl); setReferenceImages(prev => prev.filter(r => r.id !== ref.id)); }}
+                    onClick={() => {
+                      const removedN = idx + 1;
+                      // Check if the removed tag appears in the prompt
+                      const tagRe = new RegExp(`@img${removedN}\\b`, "gi");
+                      const tagInPrompt = tagRe.test(prompt);
+                      // Strip removed tag, then shift subsequent @imgK (K > removedN) down by 1
+                      let updated = prompt.replace(new RegExp(`@img${removedN}\\b`, "gi"), "");
+                      for (let k = removedN + 1; k <= referenceImages.length; k++) {
+                        updated = updated.replace(new RegExp(`@img${k}\\b`, "gi"), `@img${k - 1}`);
+                      }
+                      updated = updated.replace(/\s{2,}/g, " ").trim();
+                      setPrompt(updated);
+                      if (tagInPrompt) showToast(`@img${removedN} removed from prompt`, "info");
+                      URL.revokeObjectURL(ref.previewUrl);
+                      setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
+                    }}
                     style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                   >×</button>
                 </div>
-              ))}
+                );
+              })}
 
               {/* Character lock — lives in thumbnail strip */}
               {referenceImages[0]?.cdnUrl && refFaceDetected && (

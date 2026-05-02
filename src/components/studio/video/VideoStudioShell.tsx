@@ -1213,9 +1213,18 @@ export default function VideoStudioShell() {
       const sceneAudioRequested = audioMode === "scene" && model.capabilities.nativeAudio;
       console.log("[VideoStudio] dispatch", { modelKey, prompt, aspectRatio, durationSeconds: duration, audioMode, sceneAudioRequested });
 
+      // When arriving via Animate Start/End Frame the prompt may be empty.
+      // Supply a cinematic default so the server validator (min 3 chars) passes.
+      const effectivePrompt =
+        prompt.trim().length > 0
+          ? prompt
+          : (frameMode === "start_frame" && (startSlot.url || endSlot.url))
+            ? "Animate this image"
+            : prompt;
+
       const body: Record<string, unknown> = {
         modelKey,
-        prompt,
+        prompt: effectivePrompt,
         negativePrompt:  negPrompt || undefined,
         durationSeconds: duration,
         aspectRatio,
@@ -1734,10 +1743,15 @@ export default function VideoStudioShell() {
     handleReadiness[detectedHandles[0]] === false &&
     useStartFrame;
 
+  // In start_frame mode a prompt is optional — the image IS the primary input.
+  // Allow generate when a frame is loaded even if the textarea is empty.
+  const hasFrameInput =
+    frameMode === "start_frame" && (!!startSlot.url || !!endSlot.url);
+
   const canGenerate =
     !!model?.available &&
     USER_CREDITS >= creditEstimate &&
-    prompt.trim().length > 0 &&
+    (prompt.trim().length > 0 || hasFrameInput) &&
     !effectiveGenerating &&
     !barHandleNotReady;
 
