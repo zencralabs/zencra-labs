@@ -1352,7 +1352,16 @@ function ImageStudioInner() {
   // Observes galleryScrollRef (the scroll container with padding: 24px).
   // contentBoxSize.inlineSize reports the content-box width, i.e. after padding
   // is subtracted — exactly the space available to gallery rows.
+  //
+  // BUG FIX: This effect depends on studioMode so it re-runs whenever the user
+  // switches back to "standard" mode. Without this, the gallery div is conditionally
+  // unmounted in Creative Director mode — some browsers fire the ResizeObserver
+  // callback one final time with width=0 on unmount, zeroing containerWidth. When
+  // the gallery div remounts, the old [] effect never re-runs, leaving containerWidth=0
+  // and justifiedRows empty → blank gallery. Re-running on studioMode change re-seeds
+  // from the freshly mounted div and re-attaches the observer.
   useEffect(() => {
+    if (studioMode !== "standard") return; // gallery div is not mounted in CD mode
     const el = galleryScrollRef.current;
     if (!el) return;
     // Seed immediately so the first layout pass runs synchronously
@@ -1367,9 +1376,9 @@ function ImageStudioInner() {
     });
     ro.observe(el);
     return () => ro.disconnect();
-  // galleryScrollRef is stable — no deps needed
+  // studioMode included — re-seed & re-attach when switching back to standard
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [studioMode]);
 
   // ── Character Consistency: detect face when CDN URL becomes available ────────
   const firstRefCdnUrl = referenceImages[0]?.cdnUrl ?? "";
