@@ -749,6 +749,12 @@ function NavbarAuthSkeleton() {
 // MAIN NAVBAR
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Routes where the Navbar must not render.
+ * Matches the isolated-route set in FooterConditional — keep both in sync.
+ */
+const NAVBAR_HIDDEN_ROUTES = ["/waitlist"];
+
 export function Navbar() {
   const [scrolled, setScrolled]             = useState(false);
   const [mobileOpen, setMobileOpen]         = useState(false);
@@ -757,6 +763,9 @@ export function Navbar() {
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
+
+  // Isolated full-screen routes (e.g. /waitlist) must not show the Navbar.
+  if (NAVBAR_HIDDEN_ROUTES.some(r => pathname.startsWith(r))) return null;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
