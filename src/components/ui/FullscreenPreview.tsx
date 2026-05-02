@@ -257,11 +257,22 @@ export function FullscreenPreview({
 
   const PANEL_W = hasMeta ? 300 : 0;
 
-  // FIX 1 — true centering in remaining left space, with safe gap so close
-  // button never slides behind the right panel even on tall/wide images
-  const panelGap  = 24;
+  // ── Layout geometry ────────────────────────────────────────────────────────
+  // The external right panel (Image Studio 360px, z:9020) is a separate fixed
+  // element — NOT a flex sibling. We must calculate the available left width
+  // explicitly so the image centres in the visible area, not behind the panel.
+  //
+  // KEY RULE: imgMaxW uses the SAME formula as leftW and is ALWAYS explicit
+  // (never a percentage). This means the image's rendered size does NOT change
+  // between panel-open and panel-closed states — the close button anchors to
+  // the image corner and never drifts.
+  const panelGap  = 24;   // safe buffer so translated close button clears panel
   const panelWidth = rightPanelWidth || 0;
-  const mediaWidth = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "100vw";
+  // Left centering zone width
+  const leftW  = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "100vw";
+  // Explicit image max-width — avoids circular % inside inline-block
+  const imgMaxW = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "min(100vw, 1280px)";
+  const imgMaxH = "calc(100vh - 64px)";
 
   return (
     <div
@@ -274,21 +285,29 @@ export function FullscreenPreview({
         display: "flex", alignItems: "stretch",
       }}
     >
-      {/* ── Media area ──────────────────────────────────────────────────── */}
+      {/* ── Left centering zone ──────────────────────────────────────────── */}
+      {/* Has definite width = leftW; image is centred inside via flex.      */}
+      {/* The inline-block wrapper then shrinks to the image's rendered size */}
+      {/* so the close button is always anchored to the image corner.        */}
       <div
         onClick={handleBackdropClick}
         style={{
-          width: mediaWidth,
+          width: leftW,
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           height: "100vh",
         }}
       >
-        {/* FIX 2 — inline-block wrapper so close button anchors to image edge */}
+        {/* inline-block: shrinks to image size → button truly follows corner */}
         <div
           onClick={e => e.stopPropagation()}
-          style={{ position: "relative", display: "inline-block" }}
+          style={{
+            position: "relative",
+            display: "inline-block",
+            lineHeight: 0,    // removes phantom inline whitespace gap below img
+          }}
         >
           {type === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -297,8 +316,8 @@ export function FullscreenPreview({
               alt="Full size preview"
               style={{
                 display: "block",
-                maxWidth: panelWidth > 0 ? "calc(100% - 32px)" : "min(100%, 1280px)",
-                maxHeight: "calc(100vh - 96px)",
+                maxWidth: imgMaxW,
+                maxHeight: imgMaxH,
                 objectFit: "contain",
                 borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
@@ -314,8 +333,8 @@ export function FullscreenPreview({
               loop
               style={{
                 display: "block",
-                maxWidth: panelWidth > 0 ? "calc(100% - 32px)" : "min(100%, 1280px)",
-                maxHeight: "calc(100vh - 96px)",
+                maxWidth: imgMaxW,
+                maxHeight: imgMaxH,
                 borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
                 background: "#0a0f1a",
@@ -323,14 +342,22 @@ export function FullscreenPreview({
             />
           )}
 
-          {/* ── Close button — inset 8px from image corner, always clickable ── */}
+          {/* ── Close button ────────────────────────────────────────────────
+              Anchored to image corner via position:absolute top:0 right:0.
+              translate(50%, -50%) places button CENTRE at exact image corner.
+              Works correctly in BOTH panel-open and panel-closed states
+              because the wrapper always shrinks to the image's rendered size.
+              The 24px panelGap ensures the translated overhang never clips
+              behind the external right panel.
+          ─────────────────────────────────────────────────────────────────── */}
           <button
             onClick={onClose}
             title="Close (Esc)"
             style={{
               position: "absolute",
-              top: 8, right: 8,
-              width: 32, height: 32,
+              top: 0, right: 0,
+              transform: "translate(50%, -50%)",
+              width: 34, height: 34,
               borderRadius: "50%",
               background: "rgba(8,12,26,0.92)",
               border: "1px solid rgba(255,255,255,0.14)",
@@ -340,18 +367,20 @@ export function FullscreenPreview({
               pointerEvents: "auto",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              transition: "background 0.15s, color 0.15s",
+              transition: "background 0.2s ease, color 0.2s ease",
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(220,38,38,0.88)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(255,60,60,0.9)";
               (e.currentTarget as HTMLElement).style.color = "#fff";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,100,100,0.4)";
             }}
             onMouseLeave={e => {
               (e.currentTarget as HTMLElement).style.background = "rgba(8,12,26,0.92)";
               (e.currentTarget as HTMLElement).style.color = "rgba(224,232,255,0.80)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.14)";
             }}
           >
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
       </div>
