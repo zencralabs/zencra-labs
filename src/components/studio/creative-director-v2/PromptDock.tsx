@@ -76,7 +76,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
   return (
     <div
       style={{
-        height:          140,
+        height:          150,
         flexShrink:      0,
         display:         "flex",
         flexDirection:   "column",
@@ -193,7 +193,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               fontSize:     14,
               fontFamily:   "var(--font-sans)",
               padding:      "0 16px",
-              height:       58,
+              minHeight:    62,
               outline:      "none",
               transition:   "border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
               boxShadow:    inputFocused ? "0 0 0 3px rgba(139,92,246,0.08)" : "none",
@@ -296,7 +296,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             fontWeight:    700,
             cursor:        canGenerate ? "pointer" : "not-allowed",
             padding:       "0 26px",
-            height:        56,
+            height:        58,
             display:       "flex",
             alignItems:    "center",
             gap:           8,
