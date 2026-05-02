@@ -3866,7 +3866,7 @@ function ImageStudioInner() {
           type="image"
           url={viewingImage.url}
           onClose={handleCloseFullscreen}
-          zIndex={9800}
+          zIndex={12000}
           rightPanelWidth={
             selectedImage && selectedImage.status === "done" && !panelCollapsed
               ? 360

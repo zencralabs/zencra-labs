@@ -225,7 +225,7 @@ function ProjectRow({ projectId, projectName, onMoveToProject }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function FullscreenPreview({
-  type, url, thumbnailUrl, metadata, onClose, onMoveToProject, zIndex = 9800,
+  type, url, thumbnailUrl, metadata, onClose, onMoveToProject, zIndex = 12000,
   rightPanelWidth = 0,
 }: FullscreenPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -259,36 +259,48 @@ export function FullscreenPreview({
 
   // ── Layout geometry ────────────────────────────────────────────────────────
   // The external right panel (Image Studio 360px, z:9020) is a separate fixed
-  // element — NOT a flex sibling. We must calculate the available left width
-  // explicitly so the image centres in the visible area, not behind the panel.
+  // element — NOT a flex sibling. We calculate the available left width
+  // explicitly so the image centres in the visible area, never behind the panel.
   //
-  // KEY RULE: imgMaxW uses the SAME formula as leftW and is ALWAYS explicit
-  // (never a percentage). This means the image's rendered size does NOT change
-  // between panel-open and panel-closed states — the close button anchors to
-  // the image corner and never drifts.
-  const panelGap  = 24;   // safe buffer so translated close button clears panel
+  // When rightPanelWidth > 0:
+  //   leftW  = calc(100vw - rightPanelWidth)   — full available left area
+  //   padding on the media wrapper gives 48px breathing room on all 4 sides
+  //   image  maxWidth: 90%  maxHeight: calc(100vh - 120px)  — ~10% smaller
+  //
+  // When panel closed:
+  //   leftW  = 100vw — full viewport
+  //   image  maxWidth: min(100vw, 1280px)  maxHeight: calc(100vh - 96px)
+  //
+  // Close button sits INSIDE the image at top:10 right:10 (no transform).
+  // No overflow-clip on wrapper → button is always fully visible + clickable.
   const panelWidth = rightPanelWidth || 0;
-  // Left centering zone width
-  const leftW  = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "100vw";
-  // Explicit image max-width — avoids circular % inside inline-block
-  const imgMaxW = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "min(100vw, 1280px)";
-  const imgMaxH = "calc(100vh - 64px)";
+  const panelOpen  = panelWidth > 0;
+
+  // Left centering zone — takes all space left of the external right panel
+  const leftW = panelOpen ? `calc(100vw - ${panelWidth}px)` : "100vw";
+
+  // Inner padding creates visible black breathing room around the image
+  const mediaPad = panelOpen ? "48px" : "32px";
+
+  // Image constraints — explicit (never %) to avoid circular inline-block dependency
+  const imgMaxW = panelOpen ? "90%" : "min(100%, 1280px)";
+  const imgMaxH = panelOpen ? "calc(100vh - 120px)" : "calc(100vh - 96px)";
 
   return (
     <div
       onClick={handleBackdropClick}
       style={{
-        position: "fixed", inset: 0, zIndex,
-        background: "rgba(5,5,9,0.85)",
+        position: "fixed", inset: 0,
+        // Issue 2 — overlay is highest z-index on the page; nothing can intercept clicks above it
+        zIndex,
+        background: "rgba(5,5,9,0.88)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         display: "flex", alignItems: "stretch",
       }}
     >
       {/* ── Left centering zone ──────────────────────────────────────────── */}
-      {/* Has definite width = leftW; image is centred inside via flex.      */}
-      {/* The inline-block wrapper then shrinks to the image's rendered size */}
-      {/* so the close button is always anchored to the image corner.        */}
+      {/* Explicit width = leftW so image never slides behind the right panel */}
       <div
         onClick={handleBackdropClick}
         style={{
@@ -298,15 +310,20 @@ export function FullscreenPreview({
           alignItems: "center",
           justifyContent: "center",
           height: "100vh",
+          // Padding provides visible black breathing room on all 4 sides.
+          // box-sizing: border-box keeps total width = leftW (no overflow).
+          padding: mediaPad,
+          boxSizing: "border-box",
         }}
       >
-        {/* inline-block: shrinks to image size → button truly follows corner */}
+        {/* inline-block: shrinks to image rendered size → button follows corner */}
         <div
           onClick={e => e.stopPropagation()}
           style={{
             position: "relative",
             display: "inline-block",
-            lineHeight: 0,    // removes phantom inline whitespace gap below img
+            lineHeight: 0,  // removes phantom whitespace gap below img
+            // NO overflow:hidden — close button must be fully visible at corner
           }}
         >
           {type === "image" ? (
@@ -343,31 +360,35 @@ export function FullscreenPreview({
           )}
 
           {/* ── Close button ────────────────────────────────────────────────
-              Anchored to image corner via position:absolute top:0 right:0.
-              translate(50%, -50%) places button CENTRE at exact image corner.
-              Works correctly in BOTH panel-open and panel-closed states
-              because the wrapper always shrinks to the image's rendered size.
-              The 24px panelGap ensures the translated overhang never clips
-              behind the external right panel.
+              Issue 2 fix:
+              - position:absolute, top:10 right:10 — INSIDE the image, never
+                outside the wrapper so no transform-overflow or clip issues.
+              - NO transform — safe across all aspect ratios and panel states.
+              - zIndex: 12010 (above overlay root at 12000) — guaranteed on top.
+              - pointerEvents: "auto" — always receives clicks regardless of
+                any parent pointer-events rule.
+              Issue 3: onClose from page.tsx already calls handleCloseFullscreen
+              which clears viewingImage + selectedImage, removes fullscreen-active
+              class, and restores body scroll. No extra logic needed here.
           ─────────────────────────────────────────────────────────────────── */}
           <button
             onClick={onClose}
             title="Close (Esc)"
             style={{
               position: "absolute",
-              top: 0, right: 0,
-              transform: "translate(50%, -50%)",
+              top: 10, right: 10,
+              transform: "none",
               width: 34, height: 34,
               borderRadius: "50%",
               background: "rgba(8,12,26,0.92)",
               border: "1px solid rgba(255,255,255,0.14)",
               color: "rgba(224,232,255,0.80)", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              zIndex: 20,
+              zIndex: 12010,
               pointerEvents: "auto",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
-              transition: "background 0.2s ease, color 0.2s ease",
+              transition: "background 0.2s ease, color 0.2s ease, border-color 0.2s ease",
             }}
             onMouseEnter={e => {
               (e.currentTarget as HTMLElement).style.background = "rgba(255,60,60,0.9)";
