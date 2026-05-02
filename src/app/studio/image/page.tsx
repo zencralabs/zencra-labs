@@ -2315,6 +2315,25 @@ function ImageStudioInner() {
           50%  { background: rgba(99,102,241,0.32); }
           100% { background: rgba(99,102,241,0.18); }
         }
+        @keyframes dockBreathGlow {
+          0%, 100% {
+            box-shadow:
+              0 0 0 1px rgba(255,255,255,0.28),
+              0 0 22px rgba(255,255,255,0.14),
+              0 0 54px rgba(120,180,255,0.08),
+              inset 0 1px 0 rgba(255,255,255,0.12);
+          }
+          50% {
+            box-shadow:
+              0 0 0 1px rgba(255,255,255,0.42),
+              0 0 30px rgba(255,255,255,0.22),
+              0 0 72px rgba(120,180,255,0.14),
+              inset 0 1px 0 rgba(255,255,255,0.18);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .dock-breath { animation: none !important; }
+        }
         .model-dd-scroll::-webkit-scrollbar { width: 4px; }
         .model-dd-scroll::-webkit-scrollbar-track { background: transparent; }
         .model-dd-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
@@ -3189,16 +3208,19 @@ function ImageStudioInner() {
             transition: "max-height 0.35s ease, opacity 0.22s ease",
             pointerEvents: isDockCollapsed ? "none" : "auto",
           }}>
-        <div style={{
+        <div
+          className="dock-breath"
+          style={{
           background: "rgba(4,8,20,0.98)", backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.18)",
+          border: "1px solid rgba(255,255,255,0.75)",
           borderRadius: 20,
           boxShadow: [
-            "0 0 0 1px rgba(59,130,246,0.18)",
-            "0 0 30px rgba(59,130,246,0.18)",
-            "inset 0 1px 0 rgba(255,255,255,0.08)",
-            "0 8px 80px rgba(0,0,0,0.85)",
+            "0 0 0 1px rgba(255,255,255,0.35)",
+            "0 0 25px rgba(255,255,255,0.18)",
+            "0 0 60px rgba(120,180,255,0.10)",
+            "inset 0 1px 0 rgba(255,255,255,0.15)",
           ].join(", "),
+          animation: "dockBreathGlow 8s ease-in-out infinite",
           overflow: "visible",
           pointerEvents: "all",
         }}>
