@@ -720,13 +720,15 @@ function NavbarAuthSkeleton() {
           user from localStorage via AuthContext's provisional-user initializer). */}
       <Link href={CREDITS_PILL_HREF} style={creditsPillStyle}>
         <Zap size={13} />
-        <span style={{
-          display:      "inline-block",
-          width:        52,
-          height:       13,
-          borderRadius: 6,
-          background:   "rgba(96,165,250,0.18)",
-        }} />
+        {/* Same span tag + style as the real credits pill.
+            suppressHydrationWarning lets the text differ (placeholder vs real)
+            without React throwing a hydration mismatch error. */}
+        <span
+          suppressHydrationWarning
+          style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
+        >
+          ••••• cr
+        </span>
       </Link>
       {/* Avatar + name pill placeholder */}
       <div
@@ -953,7 +955,14 @@ export function Navbar() {
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                 >
                   <Zap size={13} />
-                  <span>{user.credits} cr</span>
+                  {/* Same span tag + style as the skeleton — suppressHydrationWarning
+                      silences the text-content diff (placeholder vs real credits). */}
+                  <span
+                    suppressHydrationWarning
+                    style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
+                  >
+                    {user.credits} cr
+                  </span>
                 </Link>
                 {/* FCS Active pill — clickable Link to Cinema Studio */}
                 {hasFCSAccess(user) && (
