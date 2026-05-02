@@ -863,7 +863,7 @@ function ImageStudioInner() {
   const [panelDetails, setPanelDetails]     = useState<AssetDetailsResponse | null>(null);
   const [panelLoading, setPanelLoading]     = useState(false);
   const [panelAnimateOpen, setPanelAnimateOpen] = useState(false);   // animate dropdown
-  const [panelMetaExpanded, setPanelMetaExpanded] = useState(false); // metadata accordion
+  const [panelMetaExpanded, setPanelMetaExpanded] = useState(true); // metadata accordion — open by default
   const [panelCollapsed, setPanelCollapsed]     = useState(false);  // collapse/expand handle
 
   // ── Workflow transition modal ──────────────────────────────────────────────────
@@ -4360,15 +4360,15 @@ function ImageStudioInner() {
                 style={{
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                   background: "none", border: "none", cursor: "pointer", padding: "2px 0 4px",
-                  color: "rgba(255,255,255,0.32)", transition: "color 0.15s",
+                  color: "rgba(255,255,255,0.55)", transition: "color 0.15s",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.32)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.80)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
               >
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
                   Details
                 </span>
-                <span style={{ fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.3)" }}>
+                <span style={{ fontSize: 12, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.45)" }}>
                   ▾
                 </span>
               </button>
@@ -4379,14 +4379,14 @@ function ImageStudioInner() {
 
                   {/* Generation Details */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 6px" }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", margin: "4px 0 6px" }}>
                       Generation
                     </p>
 
                     {/* Prompt */}
                     <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "8px 10px" }}>
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>PROMPT</span>
-                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, margin: 0 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 4, letterSpacing: "0.05em" }}>PROMPT</span>
+                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", lineHeight: 1.6, margin: 0 }}>
                         {selectedImage.prompt || "—"}
                       </p>
                     </div>
@@ -4400,8 +4400,8 @@ function ImageStudioInner() {
                         { label: "QUALITY",  val: panelDetails?.generation_metadata?.quality as string | undefined },
                       ].filter(({ val }) => !!val).map(({ label, val }) => (
                         <div key={label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>{label}</span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{val}</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>{label}</span>
+                          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 500 }}>{val}</span>
                         </div>
                       ))}
                     </div>
@@ -4409,8 +4409,8 @@ function ImageStudioInner() {
                     {/* Credits */}
                     {(panelDetails?.asset.credits_cost != null || panelDetails?.generation_metadata?.credits_used != null) && (
                       <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
-                        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>CREDITS</span>
-                        <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 600 }}>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>CREDITS</span>
+                        <span style={{ fontSize: 14, color: "rgba(120,180,255,0.95)", fontWeight: 600 }}>
                           {panelDetails?.generation_metadata?.credits_used ?? panelDetails?.asset.credits_cost} cr
                         </span>
                       </div>
@@ -4421,18 +4421,18 @@ function ImageStudioInner() {
                   {panelLoading ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.08)", borderTopColor: "#60A5FA", animation: "panelSpin 0.8s linear infinite" }} />
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Analyzing…</span>
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>Analyzing…</span>
                     </div>
                   ) : panelDetails?.enriched_metadata && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 2px" }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", margin: "4px 0 2px" }}>
                         Cinematic
                       </p>
 
                       {/* Visual summary */}
                       {panelDetails.enriched_metadata.visual_summary && (
                         <div style={{ background: "rgba(37,99,235,0.07)", borderRadius: 7, padding: "8px 10px", border: "1px solid rgba(37,99,235,0.15)" }}>
-                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
+                          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>
                             {String(panelDetails.enriched_metadata.visual_summary)}
                           </p>
                         </div>
@@ -4444,8 +4444,8 @@ function ImageStudioInner() {
                         if (!val) return null;
                         return (
                           <div key={field} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", minWidth: 52, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{field}</span>
-                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", minWidth: 52, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{field}</span>
+                            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
                               {String(val)}
                             </span>
                           </div>
@@ -4460,11 +4460,11 @@ function ImageStudioInner() {
                         if (!Array.isArray(val) || val.length === 0) return null;
                         return (
                           <div key={field}>
-                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", display: "block", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>{labels[field]}</span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>{labels[field]}</span>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                               {(val as string[]).map((tag: string) => (
                                 <span key={tag} style={{
-                                  fontSize: 10, padding: "2px 7px", borderRadius: 20,
+                                  fontSize: 12, padding: "2px 7px", borderRadius: 20,
                                   background: `${colors[field]}15`,
                                   border: `1px solid ${colors[field]}28`,
                                   color: colors[field], fontWeight: 500,
@@ -4480,11 +4480,11 @@ function ImageStudioInner() {
                       {/* Confidence bar */}
                       {typeof panelDetails.enriched_metadata.confidence === "number" && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 2 }}>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>CONFIDENCE</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>CONFIDENCE</span>
                           <div style={{ flex: 1, height: 2, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${(panelDetails.enriched_metadata.confidence as number) * 100}%`, background: "linear-gradient(90deg, #2563EB, #7C3AED)", borderRadius: 2 }} />
                           </div>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", minWidth: 24, textAlign: "right" as const }}>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", minWidth: 24, textAlign: "right" as const }}>
                             {Math.round((panelDetails.enriched_metadata.confidence as number) * 100)}%
                           </span>
                         </div>
