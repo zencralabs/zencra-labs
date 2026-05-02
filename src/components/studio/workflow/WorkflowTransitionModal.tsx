@@ -23,6 +23,9 @@ export interface WorkflowTransitionAsset {
   projectId?: string;
   sessionId?: string;
   conceptId?: string;
+  /** Aspect ratio of the source image (e.g. "16:9", "9:16", "1:1").
+   *  Transferred to Video Studio so it opens with a matching AR. */
+  aspectRatio?: string;
 }
 
 interface WorkflowTransitionModalProps {
@@ -175,15 +178,26 @@ export default function WorkflowTransitionModal({
       flow: selectedFlow,
     });
 
+    // ── Image placement ────────────────────────────────────────────────────────
     if (selectedFlow === "animate" || selectedFlow === "start-frame") {
       p.set("startFrame", asset.url);
     } else if (selectedFlow === "end-frame") {
       p.set("endFrame", asset.url);
     }
 
-    // Frame-level flows require Kling 3.0 (only model with end-frame support)
-    if (selectedFlow === "start-frame" || selectedFlow === "end-frame") {
+    // ── Model selection ────────────────────────────────────────────────────────
+    // animate   → Kling 2.6 (image-to-video, no end-frame)
+    // start/end → Kling 3.0 (start+end frame support)
+    if (selectedFlow === "animate") {
+      p.set("model", "kling-26");
+    } else if (selectedFlow === "start-frame" || selectedFlow === "end-frame") {
       p.set("model", "kling-30");
+    }
+
+    // ── Aspect ratio ───────────────────────────────────────────────────────────
+    // Transfer the source image AR so Video Studio opens with the same ratio.
+    if (asset.aspectRatio && asset.aspectRatio !== "Auto") {
+      p.set("aspectRatio", asset.aspectRatio);
     }
 
     if (asset.prompt)    p.set("prompt",    asset.prompt);

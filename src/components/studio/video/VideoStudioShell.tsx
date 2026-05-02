@@ -687,7 +687,14 @@ export default function VideoStudioShell() {
   const [frameMode,      setFrameMode]      = useState<FrameMode>(
     (startFrameParam || endFrameParam || flowParam === "animate" || flowParam === "start-frame" || flowParam === "end-frame") ? "start_frame" : "text_to_video"
   );
-  const [aspectRatio,    setAspectRatio]    = useState<VideoAR>("16:9");
+  // Aspect ratio — seed from ?aspectRatio= when arriving from Image Studio / Creative Director.
+  // Only accept valid VideoAR values; fall back to 16:9 for anything unknown.
+  const VALID_VIDEO_ARS: VideoAR[] = ["16:9", "9:16", "1:1"];
+  const arParam = searchParams.get("aspectRatio") ?? "";
+  const seedAR: VideoAR = (VALID_VIDEO_ARS as string[]).includes(arParam)
+    ? (arParam as VideoAR)
+    : "16:9";
+  const [aspectRatio,    setAspectRatio]    = useState<VideoAR>(seedAR);
   const [quality,        setQuality]        = useState<Quality>("std");
   const [duration,       setDuration]       = useState<number>(5);
   // Motion preset — prompt-layer cinematic movement instruction.

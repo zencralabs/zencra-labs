@@ -1067,10 +1067,15 @@ function ImageStudioInner() {
       open: true,
       defaultFlow: flow,
       asset: {
-        url: img.url,
-        prompt:    img.prompt    || undefined,
-        assetId:   img.assetId   || undefined,
-        projectId: img.project_id || undefined,
+        url:         img.url,
+        prompt:      img.prompt       || undefined,
+        assetId:     img.assetId      || undefined,
+        projectId:   img.project_id   || undefined,
+        // Transfer the image's own AR so Video Studio opens with the same ratio.
+        // Exclude "Auto" — VideoStudioShell will fall back to its own default.
+        aspectRatio: (img.aspectRatio && img.aspectRatio !== "Auto")
+          ? img.aspectRatio
+          : undefined,
       },
     });
   }, []);
