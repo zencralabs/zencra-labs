@@ -167,20 +167,27 @@ export async function POST(req: Request): Promise<Response> {
 
   const elements = (elementsRows ?? []) as DirectionElementRow[];
 
-  // ── Write scene_snapshot (fire-and-forget) ────────────────────────────────
-  // Snapshot the full direction state at generate time so the UI can fast-reload
-  // without three separate fetches. Also provides the foundation for undo/redo
-  // and FCS versioning. Not awaited — generation proceeds regardless.
-  void supabaseAdmin
+  // ── Write scene_snapshot (AWAITED — before generation) ────────────────────
+  // Must be persisted BEFORE dispatch so that:
+  //   1. The snapshot represents the exact state used for this generation.
+  //   2. If the user reloads mid-generation, the UI sees the correct scene.
+  //   3. No race condition between snapshot write and generation completion.
+  //
+  // Shape: { mode, elements, refinements, direction_version, snapshot_at }
+  // direction_version is included so future rollback knows which version
+  // of the scene produced a given set of outputs.
+  const snapshotAt = new Date().toISOString();
+  await supabaseAdmin
     .from("creative_directions")
     .update({
       scene_snapshot: {
         mode,
         elements,
         refinements,
-        snapshot_at: new Date().toISOString(),
+        direction_version: dir.direction_version,
+        snapshot_at:       snapshotAt,
       },
-      updated_at: new Date().toISOString(),
+      updated_at: snapshotAt,
     })
     .eq("id", directionId);
 

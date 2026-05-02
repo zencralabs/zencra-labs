@@ -79,6 +79,18 @@ function applyEmphasis(label: string, weight: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SUBJECT EMPHASIS WITH IDENTITY BOOST
+// When identity_lock is active, ALL subjects are treated as maximum weight
+// regardless of their configured value. This forces the image generator to
+// anchor on the character identity first — critical for AI influencer,
+// campaign consistency, and @handle persona outputs.
+// ─────────────────────────────────────────────────────────────────────────────
+function applySubjectEmphasis(label: string, weight: number, identityLock: boolean): string {
+  if (identityLock) return `${label}, prominently featured`; // always max when locked
+  return applyEmphasis(label, weight);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN BUILDER
 // ─────────────────────────────────────────────────────────────────────────────
 export function buildDirectionPrompt(
@@ -89,13 +101,20 @@ export function buildDirectionPrompt(
 ): string {
   const parts: string[] = [];
 
+  // Identity lock flag — drives subject boost and strong identity block below.
+  // identity_lock is a refinement setting independent of the locked/explore mode.
+  // It is designed for AI influencer, @handle persona, and campaign consistency.
+  const identityLock = refinements?.identity_lock === true;
+
   // ── Scene name framing (optional) ─────────────────────────────────────────
   if (direction.name) {
     parts.push(`Scene: ${direction.name}.`);
   }
 
   // ── Sort all element groups by weight descending ───────────────────────────
-  // Higher-weight elements appear first → structural composition priority
+  // Higher-weight elements appear first → structural composition priority.
+  // When identityLock is active, subjects are additionally boosted to max
+  // emphasis (see applySubjectEmphasis) to anchor the character identity.
   const byWeight = (a: DirectionElementRow, b: DirectionElementRow) => b.weight - a.weight;
 
   const subjects    = elements.filter(e => e.type === "subject").sort(byWeight);
@@ -104,12 +123,15 @@ export function buildDirectionPrompt(
   const objects     = elements.filter(e => e.type === "object").sort(byWeight);
 
   // ── Subject — lead with who/what is in the scene ─────────────────────────
+  // applySubjectEmphasis treats all subjects as max weight when identityLock
+  // is active — the generator must anchor on the character before anything else.
   if (subjects.length > 0) {
-    const subjectStr = subjects.map(e => applyEmphasis(e.label, e.weight)).join(", ");
+    const subjectStr = subjects
+      .map(e => applySubjectEmphasis(e.label, e.weight, identityLock))
+      .join(", ");
 
     // Compose "Subject in World" as a single phrase when both exist.
-    // This produces: "cinematic figure, prominently featured in neon-lit Tokyo alley"
-    // rather than two separate sentences — more natural for image generators.
+    // Produces: "cinematic figure, prominently featured in neon-lit Tokyo alley"
     if (worlds.length > 0) {
       const worldStr = worlds.map(e => e.label).join(", ");
       parts.push(`${subjectStr} in ${worldStr}`);
@@ -166,14 +188,21 @@ export function buildDirectionPrompt(
     }
   }
 
-  // ── Mode-aware identity enforcement ──────────────────────────────────────
-  // "locked"  → direction committed for campaign output.
-  //             Inject strict identity language so the generator preserves
-  //             facial features and distinctive characteristics across outputs.
-  // "explore" → loose creative. No identity enforcement; free variation allowed.
-  //             Nothing injected here — the prompt stays open.
-  if (mode === "locked") {
-    parts.push("maintain identity consistency, preserve facial features and distinctive characteristics");
+  // ── Identity lock enforcement ─────────────────────────────────────────────
+  // Fires when refinements.identity_lock === true — independent of mode.
+  // This is the mechanism for AI influencer, @handle persona outputs, and
+  // multi-output campaign consistency. Subject weight is ALSO boosted at the
+  // element level above (applySubjectEmphasis), so this block is the second
+  // layer — a direct instruction to the generator about character fidelity.
+  //
+  // "explore" + identity_lock = lock the face, explore the scene around it.
+  // "locked"  + identity_lock = maximum consistency — campaign-grade output.
+  if (identityLock) {
+    parts.push(
+      "preserve exact facial features, maintain same character identity, " +
+      "consistent face structure, same person across all outputs, " +
+      "do not alter or reinterpret the subject's appearance"
+    );
   }
 
   // ── Quality anchor — always appended ─────────────────────────────────────

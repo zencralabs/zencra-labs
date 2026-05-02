@@ -334,11 +334,17 @@ export interface CreativeDirectionRow {
   model_key?: string;
   /**
    * scene_snapshot — denormalized JSON of full direction state.
-   * Written fire-and-forget by the generate route (and lock route).
-   * Shape: { mode, elements, refinements, snapshot_at }
+   * Written (awaited) by the generate route before dispatch.
+   * Shape: { mode, elements, refinements, snapshot_at, direction_version }
    * Used for fast UI reload, undo/redo foundation, FCS compatibility.
    */
   scene_snapshot?: Record<string, unknown> | null;
+  /**
+   * direction_version — monotonically increasing integer, starts at 1.
+   * Incremented on significant direction edits (re-lock after changes).
+   * Foundation for rollback, A/B scene comparison, FCS versioning.
+   */
+  direction_version: number;
   created_at: string;
   updated_at: string;
 }
