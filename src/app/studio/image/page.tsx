@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Zap, RotateCcw, Download, Maximize2, Play, ChevronUp, ChevronDown } from "lucide-react";
+import { Zap, RotateCcw, Download, Play, ChevronUp, ChevronDown } from "lucide-react";
 import { downloadAsset } from "@/lib/client/downloadAsset";
 import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
 import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
@@ -4198,6 +4198,7 @@ function ImageStudioInner() {
                   setAspectRatio(srcAr);
                   setSelectedImage(null);
                   setPanelDetails(null);
+                  setViewingImage(null);  // Issue 5: close fullscreen before generating
                   // generate() reads overrides — pass values directly so we don't
                   // depend on state having already updated before the call
                   setTimeout(() => generate({
@@ -4347,23 +4348,7 @@ function ImageStudioInner() {
                 </button>
               )}
 
-              {/* Fullscreen */}
-              {selectedImage.url && (
-                <button
-                  onClick={() => setViewingImage(selectedImage)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                    padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
-                    cursor: "pointer", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
-                >
-                  <Maximize2 size={11} style={{ flexShrink: 0 }} /> Fullscreen
-                </button>
-              )}
+              {/* Fullscreen button removed — panel already visible during fullscreen; redundant */}
             </div>
 
             {/* ══ METADATA — collapsed by default ══════════════════════════════ */}

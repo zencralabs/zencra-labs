@@ -257,9 +257,11 @@ export function FullscreenPreview({
 
   const PANEL_W = hasMeta ? 300 : 0;
 
-  // FIX 1 — true centering in remaining left space
+  // FIX 1 — true centering in remaining left space, with safe gap so close
+  // button never slides behind the right panel even on tall/wide images
+  const panelGap  = 24;
   const panelWidth = rightPanelWidth || 0;
-  const mediaWidth = panelWidth > 0 ? `calc(100vw - ${panelWidth}px)` : "100vw";
+  const mediaWidth = panelWidth > 0 ? `calc(100vw - ${panelWidth + panelGap}px)` : "100vw";
 
   return (
     <div
@@ -295,8 +297,8 @@ export function FullscreenPreview({
               alt="Full size preview"
               style={{
                 display: "block",
-                maxWidth: "100%",
-                maxHeight: "90vh",
+                maxWidth: panelWidth > 0 ? "calc(100% - 32px)" : "min(100%, 1280px)",
+                maxHeight: "calc(100vh - 96px)",
                 objectFit: "contain",
                 borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
@@ -312,8 +314,8 @@ export function FullscreenPreview({
               loop
               style={{
                 display: "block",
-                maxWidth: "100%",
-                maxHeight: "90vh",
+                maxWidth: panelWidth > 0 ? "calc(100% - 32px)" : "min(100%, 1280px)",
+                maxHeight: "calc(100vh - 96px)",
                 borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
                 background: "#0a0f1a",
@@ -321,21 +323,21 @@ export function FullscreenPreview({
             />
           )}
 
-          {/* ── Close button — sits exactly on the image/video top-right corner ── */}
+          {/* ── Close button — inset 8px from image corner, always clickable ── */}
           <button
             onClick={onClose}
             title="Close (Esc)"
             style={{
               position: "absolute",
-              top: 0, right: 0,
-              transform: "translate(50%, -50%)",
+              top: 8, right: 8,
               width: 32, height: 32,
               borderRadius: "50%",
               background: "rgba(8,12,26,0.92)",
               border: "1px solid rgba(255,255,255,0.14)",
               color: "rgba(224,232,255,0.80)", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              zIndex: 10,
+              zIndex: 20,
+              pointerEvents: "auto",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               transition: "background 0.15s, color 0.15s",

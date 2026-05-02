@@ -181,6 +181,11 @@ export default function WorkflowTransitionModal({
       p.set("endFrame", asset.url);
     }
 
+    // Frame-level flows require Kling 3.0 (only model with end-frame support)
+    if (selectedFlow === "start-frame" || selectedFlow === "end-frame") {
+      p.set("model", "kling-30");
+    }
+
     if (asset.prompt)    p.set("prompt",    asset.prompt);
     if (asset.assetId)   p.set("assetId",   asset.assetId);
     if (asset.projectId) p.set("projectId", asset.projectId);

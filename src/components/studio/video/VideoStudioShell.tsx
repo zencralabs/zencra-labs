@@ -685,7 +685,7 @@ export default function VideoStudioShell() {
   // Controls
   // Open in start_frame mode when a start image is provided or flow indicates frame-level use
   const [frameMode,      setFrameMode]      = useState<FrameMode>(
-    (startFrameParam || flowParam === "animate" || flowParam === "start-frame") ? "start_frame" : "text_to_video"
+    (startFrameParam || endFrameParam || flowParam === "animate" || flowParam === "start-frame" || flowParam === "end-frame") ? "start_frame" : "text_to_video"
   );
   const [aspectRatio,    setAspectRatio]    = useState<VideoAR>("16:9");
   const [quality,        setQuality]        = useState<Quality>("std");
