@@ -679,6 +679,32 @@ function MobileMenu({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CREDITS PILL — shared style constant
+//
+// Both the loading skeleton and the real authenticated credits pill must
+// render with IDENTICAL outer element type, href, and style so that React
+// hydration never sees a structural mismatch between the SSR output and the
+// first client render (which may already have a cached user from localStorage).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CREDITS_PILL_HREF = "/hub/credits";
+
+const creditsPillStyle: React.CSSProperties = {
+  display:        "flex",
+  alignItems:     "center",
+  gap:            "7px",
+  background:     "rgba(37,99,235,0.1)",
+  border:         "1px solid rgba(37,99,235,0.25)",
+  borderRadius:   "20px",
+  padding:        "7px 15px",
+  fontSize:       "13px",
+  fontWeight:     600,
+  color:          "#60A5FA",
+  textDecoration: "none",
+  transition:     "all 0.2s",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AUTH LOADING SKELETON
 // Shown in the desktop action slot while auth state is resolving.
 // Matches the approximate dimensions of the credits pill + avatar pill so
@@ -688,23 +714,20 @@ function MobileMenu({
 function NavbarAuthSkeleton() {
   return (
     <div className="hidden items-center gap-3 lg:flex">
-      {/* Credits pill placeholder — must be <Link> (not <div>) to match the real
-          credits pill element type and avoid a React hydration mismatch. */}
-      <Link
-        href="/dashboard/credits"
-        style={{
-          display: "block",
-          width: 80,
-          height: 34,
-          borderRadius: 20,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          flexShrink: 0,
-          textDecoration: "none",
-        }}
-        aria-hidden
-        tabIndex={-1}
-      />
+      {/* Credits pill skeleton — same href, style, and children SHAPE as the real
+          credits pill so React hydration sees no structural mismatch between the
+          SSR output and the first client render (which may already have a cached
+          user from localStorage via AuthContext's provisional-user initializer). */}
+      <Link href={CREDITS_PILL_HREF} style={creditsPillStyle}>
+        <Zap size={13} />
+        <span style={{
+          display:      "inline-block",
+          width:        52,
+          height:       13,
+          borderRadius: 6,
+          background:   "rgba(96,165,250,0.18)",
+        }} />
+      </Link>
       {/* Avatar + name pill placeholder */}
       <div
         style={{
@@ -922,15 +945,15 @@ export function Navbar() {
               <NavbarAuthSkeleton />
             ) : user ? (
               <div className="hidden items-center gap-3 lg:flex">
-                {/* Credits pill */}
+                {/* Credits pill — uses shared href + style to match the skeleton exactly */}
                 <Link
-                  href={user.role === "admin" ? "/hub/credits" : "/dashboard/credits"}
-                  style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "7px 15px", fontSize: "13px", fontWeight: 600, color: "#60A5FA", textDecoration: "none", transition: "all 0.2s" }}
+                  href={CREDITS_PILL_HREF}
+                  style={creditsPillStyle}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                 >
                   <Zap size={13} />
-                  {user.credits} cr
+                  <span>{user.credits} cr</span>
                 </Link>
                 {/* FCS Active pill — clickable Link to Cinema Studio */}
                 {hasFCSAccess(user) && (
