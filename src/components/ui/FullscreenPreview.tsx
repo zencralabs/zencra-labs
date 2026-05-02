@@ -276,14 +276,21 @@ export function FullscreenPreview({
   const panelWidth = rightPanelWidth || 0;
   const panelOpen  = panelWidth > 0;
 
-  // Left centering zone — takes all space left of the external right panel
+  // ── Breathing-room padding ─────────────────────────────────────────────────
+  // Applied as padding on the centering zone so black space appears on all sides.
+  const PAD = panelOpen ? 48 : 32;
+
+  // Left centering zone — full remaining viewport width beside the external panel
   const leftW = panelOpen ? `calc(100vw - ${panelWidth}px)` : "100vw";
 
-  // Inner padding creates visible black breathing room around the image
-  const mediaPad = panelOpen ? "48px" : "32px";
-
-  // Image constraints — explicit (never %) to avoid circular inline-block dependency
-  const imgMaxW = panelOpen ? "90%" : "min(100%, 1280px)";
+  // ── Image hard limits — ALWAYS explicit calc/min, NEVER % ────────────────
+  // WHY: inside a flex container, a child's percentage maxWidth resolves against
+  // the flex container's width (leftW), not the inline-block wrapper. This makes
+  // the wrapper wider than the rendered image and the button floats outside it.
+  // Solution: compute the exact available space (leftW − 2×PAD) in concrete units.
+  const imgMaxW = panelOpen
+    ? `calc(100vw - ${panelWidth + PAD * 2}px)`   // = leftW − 2×PAD exactly
+    : `min(calc(100vw - ${PAD * 2}px), 1280px)`;
   const imgMaxH = panelOpen ? "calc(100vh - 120px)" : "calc(100vh - 96px)";
 
   return (
@@ -300,30 +307,34 @@ export function FullscreenPreview({
       }}
     >
       {/* ── Left centering zone ──────────────────────────────────────────── */}
-      {/* Explicit width = leftW so image never slides behind the right panel */}
+      {/* Explicit width = leftW; padding gives breathing room on all sides.  */}
       <div
         onClick={handleBackdropClick}
         style={{
           width: leftW,
           flexShrink: 0,
+          height: "100vh",
+          padding: `${PAD}px`,
+          boxSizing: "border-box",   // padding inside leftW, never overflows
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          height: "100vh",
-          // Padding provides visible black breathing room on all 4 sides.
-          // box-sizing: border-box keeps total width = leftW (no overflow).
-          padding: mediaPad,
-          boxSizing: "border-box",
         }}
       >
-        {/* inline-block: shrinks to image rendered size → button follows corner */}
+        {/* ── Image wrapper ─────────────────────────────────────────────────
+            width: max-content — the block flex item shrinks to EXACTLY the
+            image's rendered pixel width (determined by imgMaxW + imgMaxH).
+            This is the key fix: inline-block inside flex does NOT reliably
+            shrink-wrap; max-content does, unambiguously, in all browsers.
+            The close button at top:10 right:10 therefore always lands on
+            the image corner, regardless of aspect ratio or panel state.
+        ─────────────────────────────────────────────────────────────────── */}
         <div
           onClick={e => e.stopPropagation()}
           style={{
             position: "relative",
-            display: "inline-block",
-            lineHeight: 0,  // removes phantom whitespace gap below img
-            // NO overflow:hidden — close button must be fully visible at corner
+            width: "max-content",   // ← shrinks to rendered image width
+            lineHeight: 0,          // removes phantom whitespace gap below img
           }}
         >
           {type === "image" ? (
