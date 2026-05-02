@@ -55,3 +55,6 @@ public/voice-previews/**/*.ogg
 
 # ─── Local build utilities ────────────────────────────────────────────────────
 loader.mjs
+
+# Hero videos are served from CDN/storage, not Git
+public/hero/videos/
