@@ -352,6 +352,29 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
         >
           Access is currently limited to invited creators, partners, and early testers.
         </p>
+
+        {/* Waitlist link */}
+        <p style={{ marginTop: "12px", fontSize: "15px", lineHeight: 1.5, margin: "12px 0 0" }}>
+          <a
+            href="/waitlist"
+            style={{
+              color:              "rgba(255,255,255,0.45)",
+              textDecoration:     "none",
+              textUnderlineOffset:"4px",
+              transition:         "color 0.15s",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.70)";
+              (e.currentTarget as HTMLElement).style.textDecoration = "underline";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
+              (e.currentTarget as HTMLElement).style.textDecoration = "none";
+            }}
+          >
+            Don&apos;t have a code? Join the waitlist.
+          </a>
+        </p>
       </div>
     </div>
   );

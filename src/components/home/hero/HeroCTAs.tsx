@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 /**
  * HeroCTAs — Homepage hero call-to-action buttons.
@@ -131,6 +132,33 @@ export function HeroCTAs() {
           <path d="M6.5 5.5l4 2.5-4 2.5V5.5z" fill="currentColor" />
         </svg>
       </button>
+
+      {/* ── Tertiary — Join Waitlist ──────────────────────────────────────── */}
+      <Link
+        href="/waitlist"
+        style={{
+          display:       "inline-flex",
+          alignItems:    "center",
+          height:        "52px",
+          padding:       "0 24px",
+          border:        "1px solid rgba(255,255,255,0.15)",
+          background:    "rgba(255,255,255,0.06)",
+          color:         "rgba(255,255,255,0.82)",
+          fontSize:      "16px",
+          fontWeight:    600,
+          textDecoration:"none",
+          whiteSpace:    "nowrap",
+          transition:    "background 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.10)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)";
+        }}
+      >
+        Join Waitlist
+      </Link>
     </div>
   );
 }
