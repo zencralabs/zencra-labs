@@ -1582,6 +1582,27 @@ function ImageStudioInner() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
 
+  // FIX 3 — Hide navbar + lock scroll while fullscreen is open
+  useEffect(() => {
+    if (viewingImage) {
+      document.body.classList.add("fullscreen-active");
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.classList.remove("fullscreen-active");
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.classList.remove("fullscreen-active");
+      document.body.style.overflow = "";
+    };
+  }, [viewingImage]);
+
+  // FIX 5 — Close handler: reset BOTH fullscreen + panel cleanly
+  function handleCloseFullscreen() {
+    setViewingImage(null);
+    setSelectedImage(null);
+  }
+
   // ── Fetch asset details when a card is selected ───────────────────────────────
   useEffect(() => {
     if (!selectedImage?.assetId || !session?.access_token) {
@@ -3844,7 +3865,7 @@ function ImageStudioInner() {
         <FullscreenPreview
           type="image"
           url={viewingImage.url}
-          onClose={() => setViewingImage(null)}
+          onClose={handleCloseFullscreen}
           zIndex={9800}
           rightPanelWidth={
             selectedImage && selectedImage.status === "done" && !panelCollapsed
@@ -4012,7 +4033,7 @@ function ImageStudioInner() {
             the inner body div so the collapse handle can overflow the left edge. */}
         <div
           style={{
-            position: "fixed", top: 64, right: 0, bottom: 0,
+            position: "fixed", top: 0, right: 0, bottom: 0,
             width: 360, zIndex: 9020,
             background: "linear-gradient(170deg, rgba(9,9,18,0.99) 0%, rgba(12,10,22,0.99) 50%, rgba(8,9,16,0.99) 100%)",
             backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)",

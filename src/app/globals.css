@@ -487,3 +487,11 @@
 .img-card-wrapper:hover .img-checkbox { opacity: 1 !important; }
 /* Sequence number badge: visible on card hover */
 .img-card-wrapper:hover .img-seq-num  { opacity: 1 !important; }
+
+/* ── Fullscreen mode — hide + neutralise navbar ─────────────────────────────── */
+/* Applied via JS: document.body.classList.add("fullscreen-active")             */
+.fullscreen-active nav {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}

@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useCallback } from "react";
+import { X } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -256,34 +257,36 @@ export function FullscreenPreview({
 
   const PANEL_W = hasMeta ? 300 : 0;
 
+  // FIX 1 — true centering in remaining left space
+  const panelWidth = rightPanelWidth || 0;
+  const mediaWidth = panelWidth > 0 ? `calc(100vw - ${panelWidth}px)` : "100vw";
+
   return (
     <div
       onClick={handleBackdropClick}
       style={{
         position: "fixed", inset: 0, zIndex,
-        background: "rgba(0,0,0,0.9)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
+        background: "rgba(5,5,9,0.85)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
         display: "flex", alignItems: "stretch",
       }}
     >
       {/* ── Media area ──────────────────────────────────────────────────── */}
-      {/* When rightPanelWidth > 0, constrain to the left available space so  */}
-      {/* the image never centres under the external action panel.             */}
       <div
         onClick={handleBackdropClick}
         style={{
-          ...(rightPanelWidth > 0
-            ? { width: `calc(100vw - ${rightPanelWidth}px)`, flexShrink: 0 }
-            : { flex: 1, minWidth: 0 }),
-          display: "flex", alignItems: "center", justifyContent: "center",
-          padding: "48px 32px 32px",
+          width: mediaWidth,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
         }}
       >
-        {/* position:relative wrapper — close button is absolutely anchored here */}
+        {/* FIX 2 — inline-block wrapper so close button anchors to image edge */}
         <div
           onClick={e => e.stopPropagation()}
-          style={{ position: "relative", lineHeight: 0 }}
+          style={{ position: "relative", display: "inline-block" }}
         >
           {type === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -292,10 +295,8 @@ export function FullscreenPreview({
               alt="Full size preview"
               style={{
                 display: "block",
-                maxWidth: rightPanelWidth > 0
-                  ? "min(100%, 1280px)"
-                  : `min(${hasMeta ? `calc(100vw - ${PANEL_W + 80}px)` : "88vw"}, 1280px)`,
-                maxHeight: "calc(100vh - 80px)",
+                maxWidth: "100%",
+                maxHeight: "90vh",
                 objectFit: "contain",
                 borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
@@ -311,11 +312,9 @@ export function FullscreenPreview({
               loop
               style={{
                 display: "block",
-                maxWidth: rightPanelWidth > 0
-                  ? "min(100%, 1280px)"
-                  : `min(${hasMeta ? `calc(100vw - ${PANEL_W + 80}px)` : "88vw"}, 1280px)`,
-                maxHeight: "calc(100vh - 80px)",
-                borderRadius: 12,
+                maxWidth: "100%",
+                maxHeight: "90vh",
+                borderRadius: 0,
                 boxShadow: "0 32px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06)",
                 background: "#0a0f1a",
               }}
@@ -329,30 +328,28 @@ export function FullscreenPreview({
             style={{
               position: "absolute",
               top: 0, right: 0,
-              width: 34, height: 34,
-              borderRadius: 0,
-              background: "rgba(8,12,26,0.88)",
-              border: "none",
-              borderBottom: "1px solid rgba(255,255,255,0.10)",
-              borderLeft: "1px solid rgba(255,255,255,0.10)",
-              color: "rgba(224,232,255,0.75)", fontSize: 14, cursor: "pointer",
+              transform: "translate(50%, -50%)",
+              width: 32, height: 32,
+              borderRadius: "50%",
+              background: "rgba(8,12,26,0.92)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(224,232,255,0.80)", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              zIndex: 2,
+              zIndex: 10,
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               transition: "background 0.15s, color 0.15s",
-              lineHeight: 1,
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(220,38,38,0.82)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(220,38,38,0.88)";
               (e.currentTarget as HTMLElement).style.color = "#fff";
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = "rgba(8,12,26,0.88)";
-              (e.currentTarget as HTMLElement).style.color = "rgba(224,232,255,0.75)";
+              (e.currentTarget as HTMLElement).style.background = "rgba(8,12,26,0.92)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(224,232,255,0.80)";
             }}
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
       </div>
