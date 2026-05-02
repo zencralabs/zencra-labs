@@ -382,7 +382,89 @@ const MODELS: StudioModel[] = [
     nbVariant: "nb2",
     allowedQualities: ["1K", "2K", "4K"],
   },
+  // ── Coming-soon models — UI-visible, no backend route yet ────────────────
+  {
+    id: "gpt-image-2",
+    name: "GPT Image 2",
+    provider: "OpenAI",
+    description: "OpenAI's next-generation image model · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "openai",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "seedream-45",
+    name: "Seedream 4.5",
+    provider: "ByteDance",
+    description: "High-fidelity text-to-image · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "nanobana",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "seedream-50-lite",
+    name: "Seedream 5.0 Lite",
+    provider: "ByteDance",
+    description: "Fast, affordable high-quality generation · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "nanobana",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-pro",
+    name: "Flux.2 Pro",
+    provider: "Black Forest Labs",
+    description: "Professional-grade photorealistic output · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "nanobana",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-flex",
+    name: "Flux.2 Flex",
+    provider: "Black Forest Labs",
+    description: "Flexible creative control · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "nanobana",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-max",
+    name: "Flux.2 Max",
+    provider: "Black Forest Labs",
+    description: "Maximum quality · 8K capability · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "nanobana",
+    allowedQualities: ["1K"],
+  },
 ];
+
+// ── Reference image mention enrichment ───────────────────────────────────────
+// Builds an enriched prompt string that maps @imgN references for backend clarity.
+// Only used internally before sending to the API — never shown in the UI textarea.
+function buildEnrichedPrompt(
+  userPrompt: string,
+  refs: Array<{ cdnUrl: string }>,
+): string {
+  const uploaded = refs.filter(r => r.cdnUrl);
+  if (uploaded.length === 0) return userPrompt;
+  const header = uploaded
+    .map((_, i) => `[IMG ${i + 1}] uploaded reference image ${i + 1}`)
+    .join("\n");
+  return `Reference images:\n${header}\n\nUser prompt: ${userPrompt}`;
+}
 
 // ASPECT_RATIOS is now model-specific — see NB_STANDARD_PRO_AR / NB2_AR / DALLE_AR above.
 // This alias is kept only for GeneratingPlaceholder's ratioMap (all possible values).
@@ -854,6 +936,9 @@ function ImageStudioInner() {
   // Panel state — never auto-replaces prompt
   const [enhancerOpen, setEnhancerOpen]         = useState(false);
   const [enhancedResult, setEnhancedResult]     = useState<string | null>(null);
+  // ── @ mention menu ────────────────────────────────────────────────────────────
+  const [atMenuOpen, setAtMenuOpen]             = useState(false);
+  const [atMenuFilter, setAtMenuFilter]         = useState("");
 
   // ── Fullscreen viewer ────────────────────────────────────────────────────────
   const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
@@ -1640,12 +1725,14 @@ function ImageStudioInner() {
 
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = useCallback(async (overrides?: { prompt?: string; model?: string; aspectRatio?: string }) => {
-    const activePrompt = overrides?.prompt     ?? prompt;
+    const rawPrompt   = overrides?.prompt ?? prompt;
+    // Enrich with reference-image mapping for backend clarity (UI prompt unchanged)
+    const activePrompt = buildEnrichedPrompt(rawPrompt, referenceImages);
     const activeModel  = overrides?.model      ?? model;
     const activeAr     = (overrides?.aspectRatio ?? aspectRatio) as AspectRatio;
     const activeCurrentModel = MODELS.find((m) => m.id === activeModel) ?? MODELS[0];
 
-    if (!activePrompt.trim()) return;
+    if (!rawPrompt.trim()) return;
     if (!user) { setAuthModal(true); return; }
     if (!activeCurrentModel.available) return;
 
@@ -1669,10 +1756,11 @@ function ImageStudioInner() {
     console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr });
 
     // Add placeholder(s) immediately so the grid shows shimmer
+    // Store rawPrompt (not enriched) so the card displays the user's original text
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
       id: `gen-${Date.now()}-${i}`,
       url: null,
-      prompt: activePrompt,
+      prompt: rawPrompt,
       model:  activeModel,
       aspectRatio: activeAr,
       status: "generating" as const,
@@ -2017,6 +2105,26 @@ function ImageStudioInner() {
     }
   }, []);
 
+  // ── @ mention insertion ────────────────────────────────────────────────────────
+  const insertAtMention = useCallback((tag: string) => {
+    const textarea = promptRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? prompt.length;
+    const end   = textarea.selectionEnd   ?? start;
+    const before = prompt.slice(0, start);
+    const atStart = before.lastIndexOf("@");
+    const newPrompt = (atStart >= 0 ? prompt.slice(0, atStart) : prompt) + tag + " " + prompt.slice(end);
+    setPrompt(newPrompt);
+    setAtMenuOpen(false);
+    setAtMenuFilter("");
+    setTimeout(() => {
+      if (!textarea) return;
+      const newPos = (atStart >= 0 ? atStart : start) + tag.length + 1;
+      textarea.focus();
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [prompt]);
+
   // ── Styles ──────────────────────────────────────────────────────────────────
   const ctrlBtn = (active?: boolean): React.CSSProperties => ({
     display: "flex", alignItems: "center", gap: 6,
@@ -2068,6 +2176,10 @@ function ImageStudioInner() {
           0%   { box-shadow: inset 0 0 0 2px rgba(59,130,246,0.4), inset 0 0 28px rgba(59,130,246,0.15); }
           50%  { box-shadow: inset 0 0 0 2px rgba(59,130,246,0.6), inset 0 0 40px rgba(59,130,246,0.22); }
           100% { box-shadow: inset 0 0 0 2px rgba(59,130,246,0), inset 0 0 0 rgba(59,130,246,0); }
+        }
+        @keyframes refSlideIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
       {/* ── TOP BAR WRAPPER — FlowBar hangs below via position:absolute ──── */}
@@ -2941,66 +3053,68 @@ function ImageStudioInner() {
           }}>
         <div style={{
           background: "rgba(4,8,20,0.98)", backdropFilter: "blur(24px)",
-          // Deep navy with blue-silver gradient border:
-          border: "1px solid rgba(96,165,250,0.28)",
+          border: "1px solid rgba(255,255,255,0.18)",
           borderRadius: 20,
           boxShadow: [
+            "0 0 0 1px rgba(59,130,246,0.18)",
+            "0 0 30px rgba(59,130,246,0.18)",
+            "inset 0 1px 0 rgba(255,255,255,0.08)",
             "0 8px 80px rgba(0,0,0,0.85)",
-            "0 0 0 1px rgba(147,197,253,0.12)",          // outer silver highlight ring
-            "inset 0 1px 0 rgba(255,255,255,0.07)",       // top inner highlight
-            "0 0 60px rgba(37,99,235,0.18)",              // blue ambient glow
-            "0 0 120px rgba(37,99,235,0.06)",             // wider soft halo
           ].join(", "),
           overflow: "visible",
           pointerEvents: "all",
         }}>
-          {/* Prompt row */}
-          <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0" }}>
-            {/* Hidden file input for reference image */}
-            <input
-              ref={referenceInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file || !user) return;
-                e.target.value = "";
+          {/* ── Hidden file input for reference upload ─────────────────────── */}
+          <input
+            ref={referenceInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !user) return;
+              e.target.value = "";
 
-                if (referenceImages.length >= maxRefs) {
-                  showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
-                  return;
-                }
+              if (referenceImages.length >= maxRefs) {
+                showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
+                return;
+              }
 
-                const id = `ref-${Date.now()}-${Math.random()}`;
-                const blobPreview = URL.createObjectURL(file);
-                setReferenceImages(prev => [...prev, { id, previewUrl: blobPreview, cdnUrl: "", uploading: true }]);
+              const id = `ref-${Date.now()}-${Math.random()}`;
+              const blobPreview = URL.createObjectURL(file);
+              setReferenceImages(prev => [...prev, { id, previewUrl: blobPreview, cdnUrl: "", uploading: true }]);
 
-                try {
-                  const form = new FormData();
-                  form.append("file", file);
-                  const res = await fetch("/api/studio/upload-reference", {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
-                    body: form,
-                  });
-                  const json = await res.json();
-                  if (res.ok && json.url) {
-                    setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
-                  } else {
-                    URL.revokeObjectURL(blobPreview);
-                    setReferenceImages(prev => prev.filter(r => r.id !== id));
-                    showToast("Upload failed — please try again", "error");
-                  }
-                } catch {
+              try {
+                const form = new FormData();
+                form.append("file", file);
+                const res = await fetch("/api/studio/upload-reference", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+                  body: form,
+                });
+                const json = await res.json();
+                if (res.ok && json.url) {
+                  setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
+                } else {
                   URL.revokeObjectURL(blobPreview);
                   setReferenceImages(prev => prev.filter(r => r.id !== id));
-                  showToast("Upload failed — network error", "error");
+                  showToast("Upload failed — please try again", "error");
                 }
-              }}
-            />
-            {/* Reference images: thumbnails row + add button */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 2, flexShrink: 0 }}>
+              } catch {
+                URL.revokeObjectURL(blobPreview);
+                setReferenceImages(prev => prev.filter(r => r.id !== id));
+                showToast("Upload failed — network error", "error");
+              }
+            }}
+          />
+
+          {/* ── Thumbnail strip — slides in above prompt row when images uploaded ── */}
+          {referenceImages.length > 0 && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "12px 16px 0",
+              animation: "refSlideIn 0.18s ease",
+            }}>
               {referenceImages.map((ref, idx) => (
                 <div key={ref.id} style={{ position: "relative", flexShrink: 0 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3008,91 +3122,54 @@ function ImageStudioInner() {
                     src={ref.previewUrl || ref.cdnUrl}
                     alt={`Reference ${idx + 1}`}
                     style={{
-                      width: 52, height: 52, borderRadius: 10, objectFit: "cover",
+                      width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block",
                       border: ref.cdnUrl ? "1.5px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.2)",
                       opacity: ref.uploading ? 0.45 : 1,
                       transition: "opacity 0.2s",
                     }}
                   />
+                  {/* IMG N label */}
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0,
+                    background: "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                    borderRadius: "0 0 10px 10px",
+                    padding: "6px 4px 3px",
+                    textAlign: "center",
+                    fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
+                    color: "rgba(255,255,255,0.92)",
+                    pointerEvents: "none",
+                  }}>
+                    IMG {idx + 1}
+                  </div>
                   {/* Upload spinner */}
                   {ref.uploading && (
-                    <div style={{
-                      position: "absolute", inset: 0, borderRadius: 10,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "rgba(0,0,0,0.4)",
-                    }}>
-                      <div style={{
-                        width: 16, height: 16, borderRadius: "50%",
-                        border: "2px solid rgba(96,165,250,0.25)",
-                        borderTopColor: "#60A5FA",
-                        animation: "spin 0.7s linear infinite",
-                      }} />
+                    <div style={{ position: "absolute", inset: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(96,165,250,0.25)", borderTopColor: "#60A5FA", animation: "spin 0.7s linear infinite" }} />
                     </div>
                   )}
-                  {/* Green check — uploaded */}
+                  {/* Green check */}
                   {ref.cdnUrl && !ref.uploading && (
-                    <div style={{
-                      position: "absolute", bottom: -4, right: -4,
-                      width: 14, height: 14, borderRadius: "50%",
-                      background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
-                    }}>✓</div>
+                    <div style={{ position: "absolute", bottom: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none" }}>✓</div>
                   )}
-                  {/* Remove button */}
+                  {/* Remove */}
                   <button
-                    onClick={() => {
-                      URL.revokeObjectURL(ref.previewUrl);
-                      setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
-                    }}
-                    style={{
-                      position: "absolute", top: -6, right: -6,
-                      width: 16, height: 16, borderRadius: "50%",
-                      background: "rgba(239,68,68,0.9)", border: "none",
-                      color: "#fff", fontSize: 9, cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
-                    }}
+                    onClick={() => { URL.revokeObjectURL(ref.previewUrl); setReferenceImages(prev => prev.filter(r => r.id !== ref.id)); }}
+                    style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
                   >×</button>
                 </div>
               ))}
 
-              {/* Add button — hidden when at cap */}
-              {referenceImages.length < maxRefs && (
-                <Tooltip content={`Add reference image (${referenceImages.length}/${maxRefs})`}>
-                  <button
-                    onClick={() => referenceInputRef.current?.click()}
-                    style={{
-                      width: 52, height: 52, borderRadius: 10, flexShrink: 0,
-                      background: "rgba(255,255,255,0.05)", border: "1.5px dashed rgba(60,100,255,0.35)",
-                      color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 22,
-                      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; }}
-                  >+</button>
-                </Tooltip>
-              )}
-
-              {/* Character lock toggle — shown when first image has a face detected */}
-              {referenceImages.length > 0 && referenceImages[0]?.cdnUrl && refFaceDetected && (
+              {/* Character lock — lives in thumbnail strip */}
+              {referenceImages[0]?.cdnUrl && refFaceDetected && (
                 <Tooltip content="Lock character face identity across generations">
                   <button
                     onClick={() => setCharacterLock((prev) => !prev)}
                     style={{
-                      alignSelf: "flex-end", marginBottom: 2,
-                      height: 18, padding: "0 6px",
-                      borderRadius: 10,
-                      border: characterLock
-                        ? "1px solid rgba(245,158,11,0.6)"
-                        : "1px solid rgba(255,255,255,0.12)",
-                      background: characterLock
-                        ? "rgba(245,158,11,0.14)"
-                        : "rgba(255,255,255,0.05)",
-                      color: characterLock
-                        ? "rgba(252,211,77,0.95)"
-                        : "rgba(160,175,205,0.7)",
-                      fontSize: 9, fontWeight: 700,
-                      cursor: "pointer", whiteSpace: "nowrap",
+                      height: 20, padding: "0 7px", borderRadius: 10,
+                      border: characterLock ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.12)",
+                      background: characterLock ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.05)",
+                      color: characterLock ? "rgba(252,211,77,0.95)" : "rgba(160,175,205,0.7)",
+                      fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const,
                       display: "flex", alignItems: "center", gap: 3,
                       transition: "all 0.15s ease",
                     }}
@@ -3102,81 +3179,105 @@ function ImageStudioInner() {
                   </button>
                 </Tooltip>
               )}
+
+              {/* @ hint when images exist */}
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", marginLeft: 2, letterSpacing: "0.02em" }}>
+                type @ to reference
+              </span>
             </div>
+          )}
 
-            {/* Prompt textarea */}
-            <textarea
-              ref={promptRef}
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
-                // Manual edit clears undo and error state
-                if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
-                if (enhanceError !== null) setEnhanceError(null);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe the scene you imagine…"
-              rows={1}
-              style={{
-                flex: 1, background: "transparent", border: "none", outline: "none",
-                color: enhancing ? "rgba(255,255,255,0.45)" : "#fff",
-                fontSize: 15, lineHeight: 1.6, resize: "none",
-                padding: "6px 14px", fontFamily: "var(--font-body, system-ui)",
-                minHeight: 36, maxHeight: 140, boxSizing: "border-box",
-                transition: "color 0.2s",
-              }}
-            />
-
-            {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
-            <div style={{
-              flexShrink: 0, alignSelf: "center", marginRight: 4,
-              opacity: prompt.trim() ? 1 : 0.35,
-              pointerEvents: prompt.trim() ? "auto" : "none",
-              transition: "opacity 0.15s ease-out",
-            }}>
-              <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}>
+          {/* ── Prompt row — add button always fixed, textarea never shifts ──── */}
+          <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0", gap: 0 }}>
+            {/* Add button — ALWAYS rendered at same position */}
+            <Tooltip content={referenceImages.length >= maxRefs ? `Max ${maxRefs} reference image${maxRefs === 1 ? "" : "s"} reached` : `Add reference image (${referenceImages.length}/${maxRefs})`}>
               <button
-                onClick={handleEnhance}
-                disabled={enhancing || !prompt.trim()}
+                onClick={() => { if (referenceImages.length < maxRefs) referenceInputRef.current?.click(); }}
                 style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  border: "1px solid rgba(139,92,246,0.35)",
-                  background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
-                  color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
-                  cursor: enhancing ? "not-allowed" : "pointer",
-                  transition: "all 0.15s", letterSpacing: "0.01em",
+                  width: 44, height: 44, borderRadius: 10, flexShrink: 0, marginRight: 10, marginTop: 2,
+                  background: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.05)",
+                  border: referenceImages.length >= maxRefs ? "1.5px dashed rgba(255,255,255,0.1)" : "1.5px dashed rgba(60,100,255,0.35)",
+                  color: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.4)",
+                  cursor: referenceImages.length >= maxRefs ? "not-allowed" : "pointer",
+                  fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
                 }}
-                onMouseEnter={e => {
-                  if (!enhancing) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)";
-                    (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
+                onMouseEnter={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; } }}
+                onMouseLeave={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; } }}
+              >+</button>
+            </Tooltip>
+
+            {/* Textarea wrapper — contains @ mention menu */}
+            <div style={{ flex: 1, position: "relative" }}>
+              {/* @ mention suggestion menu */}
+              {atMenuOpen && referenceImages.length > 0 && (() => {
+                const allTags = referenceImages.map((_, i) => ({ tag: `@img${i + 1}`, label: `Image ${i + 1}` }));
+                const filtered = atMenuFilter ? allTags.filter(({ tag }) => tag.includes(atMenuFilter)) : allTags;
+                if (filtered.length === 0) return null;
+                return (
+                  <div style={{
+                    position: "absolute", bottom: "calc(100% + 6px)", left: 0,
+                    background: "#141420", border: "1px solid rgba(96,165,250,0.25)",
+                    borderRadius: 10, overflow: "hidden", zIndex: 300,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.7)",
+                    minWidth: 180,
+                  }}>
+                    <div style={{ padding: "6px 10px 4px", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" as const }}>
+                      Reference images
+                    </div>
+                    {filtered.map(({ tag, label }) => (
+                      <button
+                        key={tag}
+                        onMouseDown={(e) => { e.preventDefault(); insertAtMention(tag); }}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", border: "none", background: "transparent", color: "#fff", cursor: "pointer", transition: "background 0.12s", textAlign: "left" as const }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.12)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 700, minWidth: 48 }}>{tag}</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <textarea
+                ref={promptRef}
+                value={prompt}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPrompt(val);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+                  if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
+                  if (enhanceError !== null) setEnhanceError(null);
+                  // @ mention detection
+                  const cursorPos = e.target.selectionStart ?? val.length;
+                  const textBeforeCursor = val.slice(0, cursorPos);
+                  const atMatch = textBeforeCursor.match(/@(\w*)$/);
+                  if (atMatch && referenceImages.length > 0) {
+                    setAtMenuOpen(true);
+                    setAtMenuFilter((atMatch[1] ?? "").toLowerCase());
+                  } else {
+                    setAtMenuOpen(false);
+                    setAtMenuFilter("");
                   }
                 }}
-                onMouseLeave={e => {
-                  if (!enhancing) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
-                    (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.9)";
-                  }
+                onKeyDown={(e) => {
+                  if (atMenuOpen && e.key === "Escape") { setAtMenuOpen(false); return; }
+                  handleKeyDown(e);
                 }}
-              >
-                {enhancing ? (
-                  <>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      border: "1.5px solid rgba(167,139,250,0.25)",
-                      borderTopColor: "rgba(167,139,250,0.7)",
-                      animation: "spin 0.7s linear infinite", flexShrink: 0,
-                    }} />
-                    Enhancing…
-                  </>
-                ) : <>✦ Enhance</>}
-              </button>
-              </Tooltip>
+                onBlur={() => { setTimeout(() => setAtMenuOpen(false), 150); }}
+                placeholder="Describe the scene you imagine…"
+                rows={1}
+                style={{
+                  width: "100%", background: "transparent", border: "none", outline: "none",
+                  color: enhancing ? "rgba(255,255,255,0.45)" : "#fff",
+                  fontSize: 15, lineHeight: 1.6, resize: "none",
+                  padding: "6px 14px 6px 0", fontFamily: "var(--font-body, system-ui)",
+                  minHeight: 44, maxHeight: 140, boxSizing: "border-box",
+                  transition: "color 0.2s",
+                }}
+              />
             </div>
           </div>
 
@@ -3524,11 +3625,35 @@ function ImageStudioInner() {
             {/* Spacer */}
             <div style={{ flex: 1 }} />
 
-            {/* Cmd+Enter hint */}
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", gap: 4 }}>
-              <kbd style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.25)", background: "transparent" }}>⌘</kbd>
-              <kbd style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.25)", background: "transparent" }}>↵</kbd>
-            </span>
+            {/* ✦ Enhance chip — icon only, directly left of Generate */}
+            {(() => {
+              const enhanceDisabled = !prompt.trim() || enhancing;
+              return (
+                <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt"}>
+                  <button
+                    onClick={handleEnhance}
+                    disabled={enhanceDisabled}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      border: "1px solid rgba(139,92,246,0.35)",
+                      background: "rgba(139,92,246,0.12)",
+                      color: enhanceDisabled ? "rgba(167,139,250,0.35)" : "rgba(167,139,250,0.9)",
+                      cursor: enhanceDisabled ? "not-allowed" : "pointer",
+                      opacity: !prompt.trim() ? 0.45 : 1,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!enhanceDisabled) { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)"; } }}
+                    onMouseLeave={e => { if (!enhanceDisabled) { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)"; } }}
+                  >
+                    {enhancing
+                      ? <div style={{ width: 12, height: 12, borderRadius: "50%", border: "1.5px solid rgba(167,139,250,0.25)", borderTopColor: "rgba(167,139,250,0.7)", animation: "spin 0.7s linear infinite" }} />
+                      : <span style={{ fontSize: 14, lineHeight: 1 }}>✦</span>
+                    }
+                  </button>
+                </Tooltip>
+              );
+            })()}
 
             {/* Generate button — disabled while reference image is uploading */}
             {(() => {
@@ -3546,16 +3671,17 @@ function ImageStudioInner() {
                     padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
                     border: "none",
                     cursor: isDisabled ? "not-allowed" : "pointer",
-                    background: isDisabled
-                      ? "rgba(255,255,255,0.07)"
-                      : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-                    color: isDisabled ? "rgba(255,255,255,0.2)" : "#fff",
+                    background: "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                    color: "#fff",
+                    opacity: isDisabled ? 0.52 : 1,
                     transition: "all 0.2s", letterSpacing: "0.02em",
-                    boxShadow: isDisabled ? "none" : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
+                    boxShadow: isDisabled
+                      ? "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"
+                      : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
                     minWidth: 140,
                   }}
                   onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "none"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                 >
                   {isUploadWait ? (
                     <>
