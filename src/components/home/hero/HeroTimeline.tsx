@@ -7,20 +7,24 @@ import { HeroCard } from "./HeroCard";
  * HERO_SCENES — cinematic showcase cards shown below the hero content.
  *
  * 10 entries — row overflows the viewport on most screens, users slide/swipe.
- * Videos live in /public/hero/videos/{id}.mp4
- * Posters live in /public/hero/{id}.jpg  (optional — card shows dark fallback if missing)
+ * Videos live in /public/hero/videos/{id}.mp4  — only IDs in AVAILABLE_VIDEOS get a src.
+ * Posters cycle between the 3 images that are committed to the repo.
  */
+
+/** The 3 poster images that actually exist on disk — cycle for all 10 cards. */
+const IMG = ["/hero/cyberpunk.jpg", "/hero/product.jpg", "/hero/ugc.jpg"] as const;
+
 export const HERO_SCENES = [
-  { id: "cyberpunk",     title: "Cyberpunk Chase",     tag: "Short Film",   image: "/hero/cyberpunk.jpg"     },
-  { id: "emotional",     title: "Emotional Scene",     tag: "Cinematic",    image: "/hero/emotional.jpg"     },
-  { id: "desert",        title: "Desert Warrior",      tag: "Epic Scene",   image: "/hero/desert.jpg"        },
-  { id: "product",       title: "Product Ad",          tag: "Commercial",   image: "/hero/product.jpg"       },
-  { id: "ugc",           title: "AI Influencer",       tag: "UGC Video",    image: "/hero/ugc.jpg"           },
-  { id: "music",         title: "Music Video",         tag: "Music Video",  image: "/hero/music.jpg"         },
-  { id: "travel",        title: "Travel Reel",         tag: "Travel Reel",  image: "/hero/travel.jpg"        },
-  { id: "fitness",       title: "Fitness Reel",        tag: "Fitness Reel", image: "/hero/fitness.jpg"       },
-  { id: "food",          title: "Food Ad",             tag: "Food Ad",      image: "/hero/food.jpg"          },
-  { id: "behind-scenes", title: "Behind the Scenes",   tag: "BTS",          image: "/hero/behind-scenes.jpg" },
+  { id: "cyberpunk",     title: "Cyberpunk Chase",    tag: "Short Film",   image: IMG[0] },
+  { id: "emotional",     title: "Emotional Scene",    tag: "Cinematic",    image: IMG[1] },
+  { id: "desert",        title: "Desert Warrior",     tag: "Epic Scene",   image: IMG[2] },
+  { id: "product",       title: "Product Ad",         tag: "Commercial",   image: IMG[0] },
+  { id: "ugc",           title: "AI Influencer",      tag: "UGC Video",    image: IMG[1] },
+  { id: "music",         title: "Music Video",        tag: "Music Video",  image: IMG[2] },
+  { id: "travel",        title: "Travel Reel",        tag: "Travel Reel",  image: IMG[0] },
+  { id: "fitness",       title: "Fitness Reel",       tag: "Fitness Reel", image: IMG[1] },
+  { id: "food",          title: "Food Ad",            tag: "Food Ad",      image: IMG[2] },
+  { id: "behind-scenes", title: "Behind the Scenes",  tag: "BTS",          image: IMG[0] },
 ] as const;
 
 /**

@@ -28,77 +28,27 @@ import { useRef, useState } from "react";
  *   • Autoplay muted loop — no play icon, no duration badge
  */
 
+/**
+ * Poster images — only cycle the 3 that exist on disk:
+ *   /hero/cyberpunk.jpg  /hero/product.jpg  /hero/ugc.jpg
+ *
+ * videoPrimary — set to null for all stories until vertical MP4s are added
+ *   to public/home/vertical/. The <source> is conditionally rendered so no
+ *   404 requests are fired for missing files.
+ */
+const IMG = ["/hero/cyberpunk.jpg", "/hero/product.jpg", "/hero/ugc.jpg"] as const;
+
 const STORIES = [
-  {
-    id: "fashion",
-    label: "Fashion Reel",
-    poster: "/hero/emotional.jpg",
-    videoPrimary: "/home/vertical/fashion.mp4",
-    accent: "#3B82F6",
-  },
-  {
-    id: "influencer",
-    label: "AI Influencer",
-    poster: "/hero/ugc.jpg",
-    videoPrimary: "/home/vertical/influencer.mp4",
-    accent: "#8B5CF6",
-  },
-  {
-    id: "product",
-    label: "Product Ad",
-    poster: "/hero/product.jpg",
-    videoPrimary: "/home/vertical/product.mp4",
-    accent: "#6366F1",
-  },
-  {
-    id: "story",
-    label: "Story Clip",
-    poster: "/hero/cyberpunk.jpg",
-    videoPrimary: "/home/vertical/story.mp4",
-    accent: "#A855F7",
-  },
-  {
-    id: "music",
-    label: "Music Video",
-    poster: "/hero/music.jpg",
-    videoPrimary: "/home/vertical/music.mp4",
-    accent: "#7C3AED",
-  },
-  {
-    id: "travel",
-    label: "Travel Reel",
-    poster: "/hero/desert.jpg",
-    videoPrimary: "/home/vertical/travel.mp4",
-    accent: "#4F46E5",
-  },
-  {
-    id: "fitness",
-    label: "Fitness Reel",
-    poster: "/hero/emotional.jpg",
-    videoPrimary: "/home/vertical/fitness.mp4",
-    accent: "#3B82F6",
-  },
-  {
-    id: "food",
-    label: "Food Ad",
-    poster: "/hero/product.jpg",
-    videoPrimary: "/home/vertical/food.mp4",
-    accent: "#8B5CF6",
-  },
-  {
-    id: "luxury",
-    label: "Luxury Brand",
-    poster: "/hero/ugc.jpg",
-    videoPrimary: "/home/vertical/luxury.mp4",
-    accent: "#7C3AED",
-  },
-  {
-    id: "behind-scenes",
-    label: "Behind the Scenes",
-    poster: "/hero/cyberpunk.jpg",
-    videoPrimary: "/home/vertical/behind-scenes.mp4",
-    accent: "#6366F1",
-  },
+  { id: "fashion",      label: "Fashion Reel",       poster: IMG[0], videoPrimary: null, accent: "#3B82F6" },
+  { id: "influencer",   label: "AI Influencer",       poster: IMG[2], videoPrimary: null, accent: "#8B5CF6" },
+  { id: "product",      label: "Product Ad",          poster: IMG[1], videoPrimary: null, accent: "#6366F1" },
+  { id: "story",        label: "Story Clip",          poster: IMG[0], videoPrimary: null, accent: "#A855F7" },
+  { id: "music",        label: "Music Video",         poster: IMG[2], videoPrimary: null, accent: "#7C3AED" },
+  { id: "travel",       label: "Travel Reel",         poster: IMG[1], videoPrimary: null, accent: "#4F46E5" },
+  { id: "fitness",      label: "Fitness Reel",        poster: IMG[0], videoPrimary: null, accent: "#3B82F6" },
+  { id: "food",         label: "Food Ad",             poster: IMG[1], videoPrimary: null, accent: "#8B5CF6" },
+  { id: "luxury",       label: "Luxury Brand",        poster: IMG[2], videoPrimary: null, accent: "#7C3AED" },
+  { id: "behind-scenes",label: "Behind the Scenes",  poster: IMG[0], videoPrimary: null, accent: "#6366F1" },
 ] as const;
 
 /** Single 9:16 story card — autoplay muted loop, no play icon, no duration badge */
@@ -107,7 +57,13 @@ function StoryCard({
   poster,
   videoPrimary,
   accent,
-}: (typeof STORIES)[number]) {
+}: {
+  id: string;
+  label: string;
+  poster: string;
+  videoPrimary: string | null;
+  accent: string;
+}) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -173,7 +129,7 @@ function StoryCard({
           (e.currentTarget as HTMLVideoElement).style.display = "none";
         }}
       >
-        <source src={videoPrimary} type="video/mp4" />
+        {videoPrimary && <source src={videoPrimary} type="video/mp4" />}
       </video>
 
       {/* ── Bottom gradient — label readability ──────────────────────────── */}

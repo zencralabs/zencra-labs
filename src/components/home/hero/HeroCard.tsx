@@ -28,6 +28,9 @@ export interface HeroCardProps {
  *
  * Hover: scale(1.03) + purple border glow.
  */
+/** Only these video files are committed to /public/hero/videos/ */
+const AVAILABLE_VIDEOS = new Set(["desert", "emotional"]);
+
 export function HeroCard({ id, title, tag, image }: HeroCardProps) {
   const [hovered,  setHovered]  = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -112,7 +115,7 @@ export function HeroCard({ id, title, tag, image }: HeroCardProps) {
           transition: "opacity 0.25s ease",
         }}
       >
-        <source src={videoSrc} type="video/mp4" />
+        {AVAILABLE_VIDEOS.has(id) && <source src={videoSrc} type="video/mp4" />}
         {/* No <track> — decorative preview, no captions needed */}
       </video>
 
