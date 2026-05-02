@@ -205,39 +205,40 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
           </ControlGroup>
         </div>
 
-        {/* Lighting + Scene Energy */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <ControlGroup label="Lighting" color="rgba(251,191,36,1)">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
-              {LIGHTING_STYLES.map(({ key, icon, color }) => (
-                <ControlCard
-                  key={key}
-                  label={key}
-                  icon={icon}
-                  active={refinements?.lighting_style === key}
-                  color={color}
-                  onClick={() => onRefinementChange("lighting_style", key)}
-                />
-              ))}
-            </div>
-          </ControlGroup>
+        {/* Lighting only */}
+        <ControlGroup label="Lighting" color="rgba(251,191,36,1)">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            {LIGHTING_STYLES.map(({ key, icon, color }) => (
+              <ControlCard
+                key={key}
+                label={key}
+                icon={icon}
+                active={refinements?.lighting_style === key}
+                color={color}
+                onClick={() => onRefinementChange("lighting_style", key)}
+              />
+            ))}
+          </div>
+        </ControlGroup>
+      </div>
 
-          <ControlGroup label="Scene Energy" color="rgba(139,92,246,1)">
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {SCENE_ENERGIES.map(({ key, icon, label, desc }) => (
-                <EnergyCard
-                  key={key}
-                  energyKey={key}
-                  icon={icon}
-                  label={label}
-                  desc={desc}
-                  active={refinements?.scene_energy === key}
-                  onClick={() => onRefinementChange("scene_energy", key)}
-                />
-              ))}
-            </div>
-          </ControlGroup>
-        </div>
+      {/* ── Scene Energy — full-width horizontal row ──────────────────────── */}
+      <div style={{ padding: "0 24px 20px" }}>
+        <ControlGroup label="Scene Energy" color="rgba(139,92,246,1)">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {SCENE_ENERGIES.map(({ key, icon, label, desc }) => (
+              <EnergyCard
+                key={key}
+                energyKey={key}
+                icon={icon}
+                label={label}
+                desc={desc}
+                active={refinements?.scene_energy === key}
+                onClick={() => onRefinementChange("scene_energy", key)}
+              />
+            ))}
+          </div>
+        </ControlGroup>
       </div>
 
       {/* ── Section divider ───────────────────────────────────────────────── */}
@@ -491,29 +492,40 @@ function EnergyCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background:   active ? "rgba(139,92,246,0.12)" : hov ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.025)",
-        border:       `1px solid ${active ? "rgba(139,92,246,0.35)" : hov ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)"}`,
-        borderRadius: 9,
-        color:        active ? "rgba(139,92,246,1)" : hov ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.4)",
-        cursor:       "pointer",
-        padding:      "9px 12px",
-        display:      "flex",
-        alignItems:   "center",
-        gap:          10,
-        textAlign:    "left",
-        transition:   "all 0.15s ease",
-        transform:    hov && !active ? "translateY(-1px)" : "none",
-        boxShadow:    active ? "0 0 16px rgba(139,92,246,0.2)" : hov ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
+        background:    active ? "rgba(139,92,246,0.12)" : hov ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.025)",
+        border:        `1px solid ${active ? "rgba(139,92,246,0.35)" : hov ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)"}`,
+        borderRadius:  10,
+        color:         active ? "rgba(139,92,246,1)" : hov ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.45)",
+        cursor:        "pointer",
+        padding:       "10px 10px 9px",
+        display:       "flex",
+        flexDirection: "column",
+        alignItems:    "center",
+        justifyContent: "center",
+        gap:           5,
+        textAlign:     "center",
+        transition:    "all 0.15s ease",
+        transform:     hov && !active ? "translateY(-1px)" : "none",
+        boxShadow:     active ? "0 0 16px rgba(139,92,246,0.2)" : hov ? "0 4px 12px rgba(0,0,0,0.3)" : "none",
+        position:      "relative",
       }}
     >
-      <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400 }}>{label}</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "var(--font-sans)", marginTop: 2 }}>{desc}</div>
-      </div>
+      {/* Active indicator dot */}
       {active && (
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(139,92,246,1)", flexShrink: 0, boxShadow: "0 0 6px rgba(139,92,246,0.8)" }} />
+        <div style={{
+          position:   "absolute",
+          top:        6,
+          right:      6,
+          width:      5,
+          height:     5,
+          borderRadius: "50%",
+          background: "rgba(139,92,246,1)",
+          boxShadow:  "0 0 6px rgba(139,92,246,0.9)",
+        }} />
       )}
+      <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
+      <div style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-sans)", lineHeight: 1.3 }}>{desc}</div>
     </button>
   );
 }
