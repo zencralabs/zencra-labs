@@ -153,7 +153,9 @@ export async function POST(req: Request): Promise<Response> {
   // random generation when the user explicitly requested an identity.
   const rawHandles = [
     ...new Set(
-      [...prompt!.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1].toLowerCase())
+      [...prompt!.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)]
+        .map(m => m[1].toLowerCase())
+        .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
     ),
   ];
 

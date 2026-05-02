@@ -1274,7 +1274,13 @@ function ImageStudioInner() {
   // show "Using @[handle] identity" badges before the user hits Generate.
   // The server-side resolveInfluencerHandles() is the authority for actual resolution.
   const detectedHandles = useMemo(
-    () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
+    () => [
+      ...new Set(
+        [...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)]
+          .map(m => m[1])
+          .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
+      ),
+    ],
     [prompt],
   );
 

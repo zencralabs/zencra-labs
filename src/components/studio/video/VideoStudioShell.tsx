@@ -737,7 +737,13 @@ export default function VideoStudioShell() {
   // Syntactic only — no DB call. Computed here (single source of truth) and
   // passed down to VideoPromptPanel so both badge and start-frame card share it.
   const detectedHandles = useMemo(
-    () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
+    () => [
+      ...new Set(
+        [...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)]
+          .map(m => m[1])
+          .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
+      ),
+    ],
     [prompt],
   );
 
