@@ -107,7 +107,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
       >
         {/* Expand button */}
         <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 6px" }}>
-          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand panel" />
+          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Expand panel" />
         </div>
 
         {/* Thin divider */}
@@ -143,7 +143,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
           flexShrink:     0,
         }}
       >
-        <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
+        <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
       </div>
 
       {/* ── Scene Intent ────────────────────────────────────────────────── */}
@@ -158,8 +158,8 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
             background:   "rgba(255,255,255,0.03)",
             border:       "1px solid rgba(255,255,255,0.08)",
             borderRadius: 10,
-            color:        "rgba(255,255,255,0.85)",
-            fontSize:     13,
+            color:        "#E8ECF5",
+            fontSize:     14,
             fontFamily:   "var(--font-sans)",
             lineHeight:   1.6,
             padding:      "10px 12px",
@@ -211,8 +211,8 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
                       background:   "rgba(255,255,255,0.04)",
                       border:       `1px solid ${r.color.replace("1)", "0.35)")}`,
                       borderRadius: 8,
-                      color:        "rgba(255,255,255,0.9)",
-                      fontSize:     12,
+                      color:        "#E8ECF5",
+                      fontSize:     14,
                       fontFamily:   "var(--font-sans)",
                       padding:      "8px 12px",
                       outline:      "none",
@@ -290,17 +290,17 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{
-              fontSize:   12,
-              color:      "rgba(255,255,255,0.75)",
+              fontSize:   13,
+              color:      "#B8C0D4",
               fontFamily: "var(--font-sans)",
               margin:     0,
-              fontWeight: 500,
+              fontWeight: 600,
             }}>
               Lock character identity
             </p>
             <p style={{
-              fontSize:   10,
-              color:      "rgba(255,255,255,0.3)",
+              fontSize:   11,
+              color:      "#9AA3B2",
               fontFamily: "var(--font-sans)",
               margin:     "3px 0 0",
               lineHeight: 1.4,
@@ -324,21 +324,22 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
         style={{
           background:    "none",
           border:        "none",
-          color:         "rgba(255,255,255,0.3)",
-          fontSize:      10,
+          color:         "#9AA3B2",
+          fontSize:      13,
           fontFamily:    "var(--font-sans)",
+          fontWeight:    600,
           cursor:        "pointer",
           padding:       "12px 16px",
           textAlign:     "left",
           display:       "flex",
           alignItems:    "center",
           gap:           7,
-          letterSpacing: "0.08em",
+          letterSpacing: "0.06em",
           textTransform: "uppercase",
           transition:    "color 0.15s",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#E8ECF5")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "#9AA3B2")}
       >
         <span style={{ fontSize: 8, opacity: 0.6 }}>{advancedOpen ? "▾" : "▸"}</span>
         Advanced
@@ -508,13 +509,14 @@ function Section({ label, symbol, children }: { label: string; symbol: string; c
         gap:          7,
         marginBottom: 12,
       }}>
-        <span style={{ fontSize: 10, color: "rgba(139,92,246,0.5)", lineHeight: 1 }}>{symbol}</span>
+        <span style={{ fontSize: 12, color: "rgba(139,92,246,0.75)", lineHeight: 1 }}>{symbol}</span>
         <p style={{
-          fontSize:      10,
-          color:         "rgba(255,255,255,0.35)",
+          fontSize:      13,
+          color:         "#9AA3B2",
           fontFamily:    "var(--font-sans)",
+          fontWeight:    600,
           margin:        0,
-          letterSpacing: "0.09em",
+          letterSpacing: "0.06em",
           textTransform: "uppercase",
         }}>
           {label}
@@ -580,8 +582,8 @@ function RoleButton({
         borderRadius: 10,
         padding:      "10px 14px",
         cursor:       "pointer",
-        color:        active ? "rgba(255,255,255,0.92)" : hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.4)",
-        fontSize:     12,
+        color:        active ? "#E8ECF5" : hov ? "#B8C0D4" : "#9AA3B2",
+        fontSize:     13,
         fontFamily:   "var(--font-sans)",
         transition:   "all 0.15s ease",
         transform:    hov && !active ? "translateY(-1px)" : "none",
@@ -608,8 +610,8 @@ function MoodChip({ label, active, onClick }: { label: string; active: boolean; 
         background:    active ? "rgba(139,92,246,0.14)" : hov ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)",
         border:        `1px solid ${active ? "rgba(139,92,246,0.45)" : hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"}`,
         borderRadius:  100,
-        color:         active ? "rgba(139,92,246,1)" : hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.4)",
-        fontSize:      11,
+        color:         active ? "rgba(139,92,246,1)" : hov ? "#B8C0D4" : "#9AA3B2",
+        fontSize:      13,
         fontFamily:    "var(--font-sans)",
         padding:       "6px 14px",
         cursor:        "pointer",

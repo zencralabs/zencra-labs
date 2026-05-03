@@ -269,7 +269,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
       {/* ── Section 1: Director Controls ─────────────────────────────────── */}
       <div style={{ padding: "0 24px 4px", display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(139,92,246,1)", boxShadow: "0 0 8px rgba(139,92,246,0.8)" }} />
-        <span style={{ fontSize: 11, fontFamily: "var(--font-display)", color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+        <span style={{ fontSize: 14, fontFamily: "var(--font-display)", fontWeight: 600, color: "#E8ECF5", letterSpacing: "0.07em", textTransform: "uppercase" }}>
           Director Controls
         </span>
       </div>
@@ -372,7 +372,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
           }}
         >
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(251,146,60,1)", boxShadow: "0 0 8px rgba(251,146,60,0.7)" }} />
-          <span style={{ fontSize: 11, fontFamily: "var(--font-display)", color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em", textTransform: "uppercase", flex: 1, textAlign: "left" }}>
+          <span style={{ fontSize: 14, fontFamily: "var(--font-display)", fontWeight: 600, color: "#E8ECF5", letterSpacing: "0.07em", textTransform: "uppercase", flex: 1, textAlign: "left" }}>
             Character Direction
           </span>
           <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)" }}>{charOpen ? "▼" : "▲"}</span>
@@ -405,7 +405,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                 <div style={{ width: 3, height: 12, borderRadius: 2, background: "rgba(251,146,60,0.7)" }} />
-                <p style={{ fontSize: 10, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+                <p style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: 600, color: "#9AA3B2", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
                   Quick Presets
                 </p>
               </div>
@@ -580,8 +580,8 @@ function ControlGroup({ label, color, children }: { label: string; color: string
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <div style={{ width: 3, height: 12, borderRadius: 2, background: color, opacity: 0.7 }} />
-        <p style={{ fontSize: 10, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+        <div style={{ width: 3, height: 12, borderRadius: 2, background: color, opacity: 0.85 }} />
+        <p style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: 600, color: "#9AA3B2", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
           {label}
         </p>
       </div>
@@ -621,7 +621,7 @@ function ControlCard({
       }}
     >
       {icon && <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>}
-      <span style={{ fontSize: 13, fontFamily: "var(--font-sans)", letterSpacing: "0.02em", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+      <span style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: 500, letterSpacing: "0.02em", textTransform: "capitalize", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
         {label.replace(/-/g, " ")}
       </span>
     </button>
@@ -672,8 +672,8 @@ function EnergyCard({
         }} />
       )}
       <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
-      <div style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{label}</div>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-sans)", lineHeight: 1.3 }}>{desc}</div>
+      <div style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 500, color: active ? "rgba(139,92,246,1)" : "#B8C0D4", lineHeight: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 11, color: "#9AA3B2", fontFamily: "var(--font-sans)", lineHeight: 1.3 }}>{desc}</div>
     </button>
   );
 }

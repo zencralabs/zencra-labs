@@ -344,6 +344,13 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       75%  { transform: scale(0.97); opacity: 1; }
       100% { transform: scale(1.00); opacity: 1; }
     }
+    /* ── Text hierarchy tokens ──────────────────────────────────────────── */
+    :root {
+      --cd-text-primary:   #E8ECF5;
+      --cd-text-secondary: #B8C0D4;
+      --cd-text-label:     #9AA3B2;
+      --cd-text-disabled:  #6B7280;
+    }
     .cd-btn-lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
     .cd-btn-lift:hover { transform: translateY(-2px); }
     .cd-btn-lift:active { transform: translateY(0) scale(0.97); }
@@ -405,7 +412,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         // Core styles always applied
         display:       "flex",
         flexDirection: "column",
-        background:    "#03040a",
+        background:    "radial-gradient(ellipse at center, #0E0F1A 0%, #06070C 70%)",
         overflow:      "hidden",
       }}
     >

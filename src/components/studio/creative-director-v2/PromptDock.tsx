@@ -5,49 +5,29 @@
  *
  * Layout (150px outer — unchanged so DIRECTOR_BOTTOM math stays correct):
  *   ┌──────────────────────────────────────────────────────────┐
- *   │  Model Pills (scroll)    AssetTray  Quality  [— hide]   │  44px
+ *   │  Model Group Selector    AssetTray  Quality  [— hide]   │  44px
  *   ├──────────────────────────────────────────────────────────┤  1px
  *   │  [textarea]                [AR] [N×]                     │  flex:1
  *   │  [@tag chips — 1 row]     [🎬 Refine Prompt] [▸ Gen]    │
  *   └──────────────────────────────────────────────────────────┘
  *
- * Phase B.2.7 additions:
+ * Usability pass (FIX 2 + FIX 3 + FIX 5):
  *
- * Multiline textarea
- *   Input replaced with <textarea>. Enter = newline (native). Cmd/Ctrl+Enter
- *   calls onGenerate. resize: none. Fills available height via flexbox.
+ * FIX 3 — ModelGroupSelector replaces horizontal pill scroll:
+ *   4 brand group buttons (GPT Image, Nano Banana, Seedream, Flux).
+ *   Each button shows the active model label if one from that group is
+ *   selected, otherwise the brand name. Click → vertical dropdown listing
+ *   all models in that group. Click-outside closes. 36px height, 14px text.
  *
- * Tag chips (compact, 1 row, max overflow hidden)
- *   Derived from STORE STATE — NOT text parsing:
- *   - One chip per element type present (@subject @world @atm @object)
- *   - @identity when mode === "locked"
- *   - @style when any refinement is set
- *   - @img1 @img2 @img3 from uploadedAssets (max 3)
- *   Chips sit inline below textarea, compact ~18px height strip.
+ * FIX 2 — Typography upgrades:
+ *   Textarea: 13→16px. Tag chips: 9→11px. Refine Prompt: 11→13px.
+ *   Quality / AR / Count buttons: bumped to 11–12px.
  *
- * 🎬 Refine Prompt button
- *   Client-side cinematic rewrite of prompt text.
- *   Opens a glass preview card (position:absolute, bottom:calc(100%+8px),
- *   center-aligned, max-width 420px). Apply → setDirectInput. No API call.
- *   Separate from AI Assist Bar's "Direct Scene" — this rewrites prompt text
- *   while the AI Bar generates structural direction notes.
- *
- * Dock Hide / Mini mode
- *   — button in top row collapses dock to a 28px glass strip.
- *   — Mini strip: glass, "Open Console" label, hover glow.
- *   — When isGenerating, auto-restores (dock cannot be hidden during generation).
- *   — Outer container stays at 150px (no layout shift for AIAssistBar/DirectorPanel).
- *   — Background becomes transparent when hidden so canvas shows through.
- *
- * Visual hierarchy
- *   Subtle linear-gradient top shimmer. Input inner glow on focus.
- *   Row separator unchanged.
- *
- * Generation behavior
- *   All existing generate logic preserved. No backend changes.
+ * FIX 5 — Visual hierarchy color tokens:
+ *   Textarea color → #E8ECF5. Active states use full role/accent colors.
  */
 
-import { useState, useMemo, useEffect, useCallback }  from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   useDirectionStore,
   CD_MODELS,
@@ -63,6 +43,14 @@ const QUALITY_OPTIONS: Array<{ key: "standard" | "hd"; label: string }> = [
   { key: "standard", label: "STD" },
   { key: "hd",       label: "HD"  },
 ];
+
+// Brand groups for the model selector (FIX 3)
+const MODEL_GROUPS = [
+  { key: "gpt-image",   label: "GPT Image",   models: ["gpt-image-1",         "gpt-image-2"]          },
+  { key: "nano-banana", label: "Nano Banana",  models: ["nano-banana-standard", "nano-banana-pro", "nano-banana-2"] },
+  { key: "seedream",    label: "Seedream",     models: ["seedream-4-5",         "seedream-v5"]          },
+  { key: "flux",        label: "Flux",         models: ["flux-kontext",         "flux-2-image"]         },
+] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -171,21 +159,21 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
     const chips: { label: string; color: string }[] = [];
     const presentTypes = new Set(elements.map((e) => e.type));
 
-    if (presentTypes.has("subject"))    chips.push({ label: "@subject",  color: "rgba(59,130,246,0.8)"  });
-    if (presentTypes.has("world"))      chips.push({ label: "@world",    color: "rgba(34,197,94,0.8)"   });
-    if (presentTypes.has("atmosphere")) chips.push({ label: "@atmosphere", color: "rgba(139,92,246,0.8)"  });
-    if (presentTypes.has("object"))     chips.push({ label: "@object",   color: "rgba(249,115,22,0.8)"  });
-    if (isLocked)                       chips.push({ label: "@identity", color: "rgba(251,191,36,0.8)"  });
+    if (presentTypes.has("subject"))    chips.push({ label: "@subject",    color: "rgba(59,130,246,0.85)"  });
+    if (presentTypes.has("world"))      chips.push({ label: "@world",      color: "rgba(34,197,94,0.85)"   });
+    if (presentTypes.has("atmosphere")) chips.push({ label: "@atmosphere", color: "rgba(139,92,246,0.85)"  });
+    if (presentTypes.has("object"))     chips.push({ label: "@object",     color: "rgba(249,115,22,0.85)"  });
+    if (isLocked)                       chips.push({ label: "@identity",   color: "rgba(251,191,36,0.85)"  });
 
     // @style: any refinement key has a non-null/non-empty value
     const hasStyle = refinements != null && Object.values(refinements).some(
       (v) => v !== null && v !== undefined && v !== ""
     );
-    if (hasStyle) chips.push({ label: "@style", color: "rgba(236,72,153,0.8)" });
+    if (hasStyle) chips.push({ label: "@style", color: "rgba(236,72,153,0.85)" });
 
     // @img1, @img2, @img3 from uploaded assets (max 3)
     (uploadedAssets ?? []).slice(0, 3).forEach((_, i) => {
-      chips.push({ label: `@img${i + 1}`, color: "rgba(255,255,255,0.38)" });
+      chips.push({ label: `@img${i + 1}`, color: "rgba(255,255,255,0.45)" });
     });
 
     return chips;
@@ -259,9 +247,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
           }}
         >
           <div style={{
-            fontSize:      10,
+            fontSize:      11,
             fontFamily:    "var(--font-sans)",
-            color:         "rgba(255,255,255,0.42)",
+            color:         "rgba(255,255,255,0.5)",
             letterSpacing: "0.07em",
             textTransform: "uppercase",
             marginBottom:  10,
@@ -269,9 +257,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             🎬 Refine Prompt Preview
           </div>
           <p style={{
-            fontSize:   13,
+            fontSize:   14,
             fontFamily: "var(--font-sans)",
-            color:      "rgba(255,255,255,0.8)",
+            color:      "#B8C0D4",
             lineHeight: 1.6,
             margin:     "0 0 12px",
             wordBreak:  "break-word",
@@ -281,14 +269,14 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
             <button
               onClick={() => setRefineOpen(false)}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.65)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#B8C0D4"; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
               style={{
                 background:    "transparent",
                 border:        "1px solid rgba(255,255,255,0.1)",
                 borderRadius:  8,
                 color:         "rgba(255,255,255,0.35)",
-                fontSize:      11,
+                fontSize:      12,
                 fontFamily:    "var(--font-sans)",
                 padding:       "5px 14px",
                 cursor:        "pointer",
@@ -307,7 +295,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   border:        "none",
                   borderRadius:  8,
                   color:         "white",
-                  fontSize:      11,
+                  fontSize:      12,
                   fontFamily:    "var(--font-sans)",
                   fontWeight:    600,
                   padding:       "5px 16px",
@@ -355,7 +343,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             <path d="M2 6.5L5 3.5L8 6.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span style={{
-            fontSize:      9,
+            fontSize:      10,
             fontFamily:    "var(--font-sans)",
             color:         hideHovered ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.28)",
             letterSpacing: "0.08em",
@@ -368,7 +356,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
       ) : (
         /* ── Full dock content ──────────────────────────────────────────── */
         <>
-          {/* ── Top row: model pills + AssetTray + quality + hide ──────── */}
+          {/* ── Top row: model group selector + AssetTray + quality + hide ── */}
           <div
             style={{
               height:     44,
@@ -380,29 +368,12 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               overflow:   "hidden",
             }}
           >
-            {/* Scrollable model pills */}
-            <div
-              style={{
-                flex:           1,
-                display:        "flex",
-                alignItems:     "center",
-                gap:            5,
-                overflowX:      "auto",
-                scrollbarWidth: "none",
-                paddingRight:   4,
-              }}
-            >
-              {CD_MODELS.map((m) => (
-                <ModelPill
-                  key={m.key}
-                  modelKey={m.key}
-                  label={m.label}
-                  active={selectedModel === m.key}
-                  disabled={!m.active}
-                  soon={m.soon}
-                  onClick={() => m.active && setSelectedModel(m.key)}
-                />
-              ))}
+            {/* FIX 3 — Brand-grouped model selector */}
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <ModelGroupSelector
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+              />
             </div>
 
             {/* Asset tray */}
@@ -427,8 +398,8 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     background:    quality === key ? "rgba(255,255,255,0.1)" : "transparent",
                     border:        `1px solid ${quality === key ? "rgba(255,255,255,0.18)" : "transparent"}`,
                     borderRadius:  6,
-                    color:         quality === key ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)",
-                    fontSize:      9,
+                    color:         quality === key ? "#E8ECF5" : "rgba(255,255,255,0.35)",
+                    fontSize:      11,
                     fontFamily:    "var(--font-sans)",
                     fontWeight:    quality === key ? 700 : 400,
                     cursor:        "pointer",
@@ -449,7 +420,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                 title="Minimize console  (click strip to restore)"
                 className="cd-btn-lift"
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color        = "rgba(255,255,255,0.6)";
+                  e.currentTarget.style.color        = "#B8C0D4";
                   e.currentTarget.style.borderColor  = "rgba(255,255,255,0.18)";
                 }}
                 onMouseLeave={(e) => {
@@ -498,6 +469,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                 gap:           5,
               }}
             >
+              {/* FIX 2 — textarea 13→16px, color upgraded */}
               <textarea
                 value={directInput}
                 onChange={(e) => setDirectInput(e.target.value)}
@@ -513,8 +485,8 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   background:    inputFocused ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.025)",
                   border:        `1px solid ${inputFocused ? "rgba(139,92,246,0.4)" : "rgba(255,255,255,0.08)"}`,
                   borderRadius:  10,
-                  color:         "rgba(255,255,255,0.85)",
-                  fontSize:      13,
+                  color:         "#E8ECF5",
+                  fontSize:      16,
                   fontFamily:    "var(--font-sans)",
                   lineHeight:    1.55,
                   padding:       "9px 12px",
@@ -527,7 +499,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                 }}
               />
 
-              {/* Tag chips — compact single row, derived from store state */}
+              {/* FIX 2 — Tag chips 9→11px, colors boosted */}
               {tagChips.length > 0 && (
                 <div
                   style={{
@@ -540,23 +512,22 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   }}
                 >
                   {tagChips.map((chip, i) => {
-                    // Convert "rgba(r,g,b,0.8)" → "rgba(r,g,b,X)" safely
-                    const dimBg  = chip.color.replace(/[\d.]+\)$/, "0.09)");
-                    const dimBdr = chip.color.replace(/[\d.]+\)$/, "0.2)");
+                    const dimBg  = chip.color.replace(/[\d.]+\)$/, "0.1)");
+                    const dimBdr = chip.color.replace(/[\d.]+\)$/, "0.22)");
                     return (
                       <span
                         key={i}
                         className="cd-tag-chip"
                         style={{
-                          fontSize:      9,
+                          fontSize:      11,
                           fontFamily:    "var(--font-sans)",
                           fontWeight:    500,
                           color:         chip.color,
                           background:    dimBg,
                           border:        `1px solid ${dimBdr}`,
                           borderRadius:  100,
-                          padding:       "1px 7px",
-                          letterSpacing: "0.04em",
+                          padding:       "2px 8px",
+                          letterSpacing: "0.03em",
                           whiteSpace:    "nowrap",
                           flexShrink:    0,
                           lineHeight:    1.6,
@@ -602,9 +573,10 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                         background:    ar === ratio ? "rgba(255,255,255,0.09)" : "transparent",
                         border:        "none",
                         borderRadius:  6,
-                        color:         ar === ratio ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.28)",
-                        fontSize:      10,
+                        color:         ar === ratio ? "#E8ECF5" : "rgba(255,255,255,0.32)",
+                        fontSize:      12,
                         fontFamily:    "var(--font-sans)",
+                        fontWeight:    ar === ratio ? 600 : 400,
                         cursor:        "pointer",
                         padding:       "3px 8px",
                         transition:    "all 0.15s ease",
@@ -639,8 +611,8 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                         borderRadius: 6,
                         color:        count === n
                           ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
-                          : "rgba(255,255,255,0.28)",
-                        fontSize:     11,
+                          : "rgba(255,255,255,0.32)",
+                        fontSize:     12,
                         fontFamily:   "var(--font-sans)",
                         fontWeight:   count === n ? 700 : 400,
                         cursor:       "pointer",
@@ -657,7 +629,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               {/* 🎬 Refine Prompt + Generate row */}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 
-                {/* Refine Prompt button */}
+                {/* FIX 2 — Refine Prompt button 11→13px */}
                 <button
                   onClick={handleRefine}
                   onMouseEnter={() => setRefineHover(true)}
@@ -670,9 +642,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     border:        `1px solid ${refineHover ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.08)"}`,
                     borderRadius:  10,
                     color:         refineHover
-                      ? "rgba(139,92,246,0.9)"
-                      : "rgba(255,255,255,0.4)",
-                    fontSize:      11,
+                      ? "rgba(139,92,246,0.95)"
+                      : "#9AA3B2",
+                    fontSize:      13,
                     fontFamily:    "var(--font-sans)",
                     cursor:        "pointer",
                     padding:       "0 14px",
@@ -686,7 +658,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     flexShrink:    0,
                   }}
                 >
-                  <span style={{ fontSize: 13, lineHeight: 1 }}>🎬</span>
+                  <span style={{ fontSize: 14, lineHeight: 1 }}>🎬</span>
                   Refine Prompt
                 </button>
 
@@ -762,76 +734,214 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FIX 3 — ModelGroupSelector: brand-grouped dropdown selector
 
-function ModelPill({
-  modelKey, label, active, disabled, soon, onClick,
+function ModelGroupSelector({
+  selectedModel,
+  setSelectedModel,
 }: {
-  modelKey: string;
-  label:    string;
-  active:   boolean;
-  disabled: boolean;
-  soon?:    boolean;
-  onClick:  () => void;
+  selectedModel: string;
+  setSelectedModel: (key: string) => void;
 }) {
-  const [hov, setHov] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Click-outside to close any open dropdown
+  useEffect(() => {
+    if (!openGroup) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpenGroup(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openGroup]);
+
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => !disabled && setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      disabled={disabled}
-      title={modelKey}
-      className={disabled ? undefined : "cd-btn-lift"}
+    <div
+      ref={ref}
       style={{
-        background:    active
-          ? "rgba(139,92,246,0.18)"
-          : hov ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
-        border:        `1px solid ${
-          active
-            ? "rgba(139,92,246,0.45)"
-            : hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"
-        }`,
-        borderRadius:  100,
-        color:         active
-          ? "rgba(139,92,246,1)"
-          : disabled ? "rgba(255,255,255,0.2)" : hov ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.4)",
-        fontSize:      10,
-        fontFamily:    "var(--font-sans)",
-        fontWeight:    active ? 700 : 400,
-        cursor:        disabled ? "not-allowed" : "pointer",
-        padding:       "3px 10px",
-        whiteSpace:    "nowrap",
-        flexShrink:    0,
-        letterSpacing: "0.03em",
-        display:       "flex",
-        alignItems:    "center",
-        gap:           5,
-        transition:    "all 0.15s ease",
-        boxShadow:     active ? "0 0 10px rgba(139,92,246,0.25)" : "none",
+        display:    "flex",
+        gap:        4,
+        alignItems: "center",
       }}
     >
-      {active && (
-        <span style={{
-          width: 5, height: 5, borderRadius: "50%",
-          background: "rgba(139,92,246,1)", flexShrink: 0,
-          boxShadow: "0 0 6px rgba(139,92,246,1)",
-        }} />
-      )}
-      {label}
-      {soon && (
-        <span style={{
-          fontSize:      7,
-          background:    "rgba(255,255,255,0.08)",
-          border:        "1px solid rgba(255,255,255,0.12)",
-          borderRadius:  4,
-          padding:       "1px 4px",
-          color:         "rgba(255,255,255,0.3)",
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-        }}>
-          Soon
-        </span>
-      )}
-    </button>
+      {MODEL_GROUPS.map((group) => {
+        const isOpen = openGroup === group.key;
+
+        // Find active model within this group
+        const groupModels = group.models as readonly string[];
+        const activeModel = CD_MODELS.find(
+          (m) => groupModels.includes(m.key) && m.key === selectedModel
+        );
+        const groupSelected = !!activeModel;
+        const buttonLabel   = activeModel ? activeModel.label : group.label;
+
+        return (
+          <div key={group.key} style={{ position: "relative" }}>
+            {/* ── Group brand button ──────────────────────────────────── */}
+            <button
+              onClick={() => setOpenGroup(isOpen ? null : group.key)}
+              className={!isOpen ? "cd-btn-lift" : undefined}
+              style={{
+                height:        36,
+                padding:       "0 12px",
+                background:    groupSelected
+                  ? "rgba(139,92,246,0.18)"
+                  : isOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+                border:        `1px solid ${
+                  groupSelected
+                    ? "rgba(139,92,246,0.45)"
+                    : isOpen ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)"
+                }`,
+                borderRadius:  8,
+                color:         groupSelected
+                  ? "rgba(139,92,246,1)"
+                  : isOpen ? "#B8C0D4" : "#9AA3B2",
+                fontSize:      14,
+                fontFamily:    "var(--font-sans)",
+                fontWeight:    groupSelected ? 700 : 400,
+                cursor:        "pointer",
+                whiteSpace:    "nowrap",
+                display:       "flex",
+                alignItems:    "center",
+                gap:           6,
+                transition:    "all 0.15s ease",
+                boxShadow:     groupSelected ? "0 0 12px rgba(139,92,246,0.25)" : "none",
+              }}
+            >
+              {/* Active dot */}
+              {groupSelected && (
+                <span style={{
+                  width:      5,
+                  height:     5,
+                  borderRadius: "50%",
+                  background: "rgba(139,92,246,1)",
+                  boxShadow:  "0 0 6px rgba(139,92,246,1)",
+                  flexShrink: 0,
+                }} />
+              )}
+
+              {buttonLabel}
+
+              {/* Chevron */}
+              <svg
+                width="10" height="10" viewBox="0 0 10 10" fill="none"
+                style={{
+                  opacity:    0.45,
+                  transform:  isOpen ? "rotate(180deg)" : "none",
+                  transition: "transform 0.15s ease",
+                  flexShrink: 0,
+                }}
+              >
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* ── Dropdown panel ─────────────────────────────────────── */}
+            {isOpen && (
+              <div
+                style={{
+                  position:             "absolute",
+                  top:                  "calc(100% + 4px)",
+                  left:                 0,
+                  background:           "#0E0F1A",
+                  border:               "1px solid rgba(255,255,255,0.08)",
+                  borderRadius:         10,
+                  padding:              4,
+                  zIndex:               50,
+                  minWidth:             "100%",
+                  boxShadow:            "0 8px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)",
+                  backdropFilter:       "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  animation:            "cd-slide-up 0.15s ease",
+                }}
+              >
+                {group.models.map((modelKey) => {
+                  const modelDef  = CD_MODELS.find((m) => m.key === modelKey);
+                  if (!modelDef) return null;
+                  const isActive   = selectedModel === modelKey;
+                  const isDisabled = !modelDef.active;
+
+                  return (
+                    <button
+                      key={modelKey}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          setSelectedModel(modelKey);
+                          setOpenGroup(null);
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isDisabled && !isActive) {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isDisabled && !isActive) {
+                          e.currentTarget.style.background = "transparent";
+                        }
+                      }}
+                      style={{
+                        display:        "flex",
+                        alignItems:     "center",
+                        gap:            8,
+                        width:          "100%",
+                        padding:        "7px 10px",
+                        background:     isActive ? "rgba(139,92,246,0.15)" : "transparent",
+                        border:         "none",
+                        borderRadius:   7,
+                        color:          isActive
+                          ? "rgba(139,92,246,1)"
+                          : isDisabled ? "rgba(255,255,255,0.22)" : "#B8C0D4",
+                        fontSize:       13,
+                        fontFamily:     "var(--font-sans)",
+                        fontWeight:     isActive ? 600 : 400,
+                        cursor:         isDisabled ? "not-allowed" : "pointer",
+                        textAlign:      "left",
+                        whiteSpace:     "nowrap",
+                        transition:     "background 0.1s ease",
+                        boxShadow:      isActive ? "inset 3px 0 0 rgba(139,92,246,0.7)" : "none",
+                      }}
+                    >
+                      {/* Active dot */}
+                      {isActive && (
+                        <span style={{
+                          width:      5,
+                          height:     5,
+                          borderRadius: "50%",
+                          background: "rgba(139,92,246,1)",
+                          flexShrink: 0,
+                        }} />
+                      )}
+
+                      {modelDef.label}
+
+                      {/* Soon badge */}
+                      {modelDef.soon && (
+                        <span style={{
+                          fontSize:      8,
+                          background:    "rgba(255,255,255,0.07)",
+                          border:        "1px solid rgba(255,255,255,0.11)",
+                          borderRadius:  4,
+                          padding:       "1px 5px",
+                          color:         "rgba(255,255,255,0.28)",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginLeft:    "auto",
+                        }}>
+                          Soon
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

@@ -99,7 +99,7 @@ export function OutputPanel({
             flexShrink:     0,
           }}
         >
-          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand outputs" />
+          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Expand outputs" />
         </div>
 
         {/* Thin divider */}
@@ -148,24 +148,26 @@ export function OutputPanel({
         justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 8, color: "rgba(139,92,246,0.5)" }}>✦</span>
+          <span style={{ fontSize: 10, color: "rgba(139,92,246,0.7)" }}>✦</span>
           <span style={{
-            fontSize:      10,
-            color:         "rgba(255,255,255,0.35)",
+            fontSize:      14,
+            fontWeight:    600,
+            color:         "#E8ECF5",
             fontFamily:    "var(--font-sans)",
             textTransform: "uppercase",
-            letterSpacing: "0.09em",
+            letterSpacing: "0.06em",
           }}>
             Outputs
           </span>
           {hasOutputs && (
             <span style={{
-              fontSize:     9,
-              background:   "rgba(255,255,255,0.07)",
+              fontSize:     11,
+              background:   "rgba(255,255,255,0.08)",
               borderRadius: 100,
-              padding:      "2px 8px",
-              color:        "rgba(255,255,255,0.4)",
+              padding:      "2px 9px",
+              color:        "#B8C0D4",
               fontFamily:   "var(--font-sans)",
+              fontWeight:   600,
             }}>
               {outputs.length}
             </span>
@@ -190,7 +192,7 @@ export function OutputPanel({
           <GalleryLink />
 
           {/* Collapse button */}
-          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse outputs" />
+          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Collapse outputs" />
         </div>
       </div>
 
