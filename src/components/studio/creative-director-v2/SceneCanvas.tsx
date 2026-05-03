@@ -113,7 +113,11 @@ function getNodeOutputHandle(pos: CanvasPosition): CanvasPosition {
   };
 }
 
-/** Canvas-space position of a FrameNode's input handle (left edge, vertical center). */
+/**
+ * Canvas-space position of a FrameNode's input handle (left edge, vertical center).
+ * Used only for drop-detection in onMouseUp — the visual handle dot is rendered
+ * inside FrameNode itself so it follows the frame during drag without store lag.
+ */
 function getFrameInputHandle(frame: GenerationFrame): CanvasPosition {
   const fw    = frame.width ?? DEFAULT_FRAME_WIDTH;
   const ratio = FRAME_RATIO_VALUES[frame.aspectRatio];
@@ -789,50 +793,26 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           );
         })}
 
-        {/* Generation Frame nodes + input handles */}
-        {frames.map((frame) => {
-          const hp = getFrameInputHandle(frame);
-          const isTargeted = !!pendingConn; // dim handle glow when not in a drag
-          return (
-            <React.Fragment key={frame.id}>
-              <FrameNode
-                frame={frame}
-                isSelected={selectedFrameId === frame.id}
-                scale={canvasTransform.scale}
-                isSpring={springFrames.has(frame.id)}
-                onSelect={setSelectedFrameId}
-                onDelete={removeFrame}
-                onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
-                onResize={(id, width, pos) => {
-                  const patch: Parameters<typeof updateFrame>[1] = { width };
-                  if (pos) patch.position = pos;
-                  updateFrame(id, patch);
-                }}
-              />
-              {/* Input handle — left-center of frame. Visible during any connection drag. */}
-              <div
-                style={{
-                  position:     "absolute",
-                  left:         hp.x - 7,
-                  top:          hp.y - 7,
-                  width:        14,
-                  height:       14,
-                  borderRadius: "50%",
-                  background:   isTargeted
-                    ? "rgba(255,255,255,0.25)"
-                    : "rgba(255,255,255,0.08)",
-                  border:       isTargeted
-                    ? "1.5px solid rgba(255,255,255,0.55)"
-                    : "1.5px solid rgba(255,255,255,0.2)",
-                  boxShadow:    isTargeted ? "0 0 8px rgba(255,255,255,0.2)" : "none",
-                  zIndex:       22,
-                  pointerEvents: "none", // hit detection is distance-based in onMouseUp
-                  transition:   "all 0.2s ease",
-                }}
-              />
-            </React.Fragment>
-          );
-        })}
+        {/* Generation Frame nodes — input handle is rendered inside FrameNode
+            so it stays attached during header-drag (which bypasses the store). */}
+        {frames.map((frame) => (
+          <FrameNode
+            key={frame.id}
+            frame={frame}
+            isSelected={selectedFrameId === frame.id}
+            scale={canvasTransform.scale}
+            isSpring={springFrames.has(frame.id)}
+            pendingConnActive={!!pendingConn}
+            onSelect={setSelectedFrameId}
+            onDelete={removeFrame}
+            onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
+            onResize={(id, width, pos) => {
+              const patch: Parameters<typeof updateFrame>[1] = { width };
+              if (pos) patch.position = pos;
+              updateFrame(id, patch);
+            }}
+          />
+        ))}
       </div>
 
       {/* ── Zoom controls (top-right, outside transform) ──────────────── */}

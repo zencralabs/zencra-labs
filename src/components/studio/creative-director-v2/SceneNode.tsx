@@ -240,44 +240,6 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
         animation:  hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
       }}
     >
-      {/* ── Left connection point dot ───────────────────────────────────── */}
-      <div
-        title="Connection point"
-        style={{
-          position:     "absolute",
-          left:         -5,
-          top:          "50%",
-          transform:    "translateY(-50%)",
-          width:        6,
-          height:       6,
-          borderRadius: "50%",
-          background:   roleColor,
-          boxShadow:    `0 0 6px ${roleColor.replace("1)", "0.6)")}`,
-          zIndex:       30,
-          pointerEvents: "none",
-          opacity:      hovered ? 1 : 0.5,
-          transition:   "opacity 0.2s ease",
-        }}
-      />
-      {/* ── Right connection point dot ──────────────────────────────────── */}
-      <div
-        title="Connection point"
-        style={{
-          position:     "absolute",
-          right:        -5,
-          top:          "50%",
-          transform:    "translateY(-50%)",
-          width:        6,
-          height:       6,
-          borderRadius: "50%",
-          background:   roleColor,
-          boxShadow:    `0 0 6px ${roleColor.replace("1)", "0.6)")}`,
-          zIndex:       30,
-          pointerEvents: "none",
-          opacity:      hovered ? 1 : 0.5,
-          transition:   "opacity 0.2s ease",
-        }}
-      />
       {/* ── Glass card ─────────────────────────────────────────────────── */}
       <div
         style={{

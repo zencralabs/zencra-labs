@@ -66,14 +66,15 @@ function parseRatio(ar: FrameAspectRatio): number {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface FrameNodeProps {
-  frame:      GenerationFrame;
-  isSelected: boolean;
-  scale:      number;                              // canvas zoom (0–200)
-  isSpring:   boolean;
-  onSelect:   (id: string) => void;
-  onDelete:   (id: string) => void;
-  onDragEnd:  (id: string, pos: { x: number; y: number }) => void;
-  onResize:   (id: string, width: number, pos?: { x: number; y: number }) => void;
+  frame:             GenerationFrame;
+  isSelected:        boolean;
+  scale:             number;                       // canvas zoom (0–200)
+  isSpring:          boolean;
+  pendingConnActive: boolean;                      // true while a node→frame connection is being dragged
+  onSelect:          (id: string) => void;
+  onDelete:          (id: string) => void;
+  onDragEnd:         (id: string, pos: { x: number; y: number }) => void;
+  onResize:          (id: string, width: number, pos?: { x: number; y: number }) => void;
 }
 
 // ─── Corner handle types ───────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ export function FrameNode({
   isSelected,
   scale,
   isSpring,
+  pendingConnActive,
   onSelect,
   onDelete,
   onDragEnd,
@@ -130,7 +132,7 @@ export function FrameNode({
     window.addEventListener("mouseup",   onUp);
   }, [frame.id, frame.position, scale, onDragEnd]);
 
-  // ── Resize (corner handles) ────────────────────────────────────────────────
+  // ── Resize (corner handles) — center-scale: frame expands from its center ──
   const handleResizeMouseDown = useCallback((
     e:      React.MouseEvent,
     corner: Corner,
@@ -144,38 +146,38 @@ export function FrameNode({
     const startMx     = e.clientX;
     const startW      = frameWidth;
     const startPx     = frame.position.x;
+    const startPy     = frame.position.y;
+    const arRatio     = parseRatio(frame.aspectRatio); // captured once; AR never changes mid-resize
 
+    // Left-side corners grow when dragged left; right-side when dragged right.
     const isLeft = corner === "sw" || corner === "nw";
 
-    const onMove = (ev: MouseEvent) => {
-      const screenDx   = ev.clientX - startMx;
-      const canvasDx   = screenDx / scaleFactor;
-      const rawWidth   = isLeft ? startW - canvasDx : startW + canvasDx;
-      const newWidth   = Math.max(MIN_FRAME_WIDTH, Math.min(MAX_FRAME_WIDTH, rawWidth));
+    const compute = (ev: MouseEvent) => {
+      const screenDx = ev.clientX - startMx;
+      const canvasDx = screenDx / scaleFactor;
+      const rawWidth = isLeft ? startW - canvasDx : startW + canvasDx;
+      const newWidth = Math.max(MIN_FRAME_WIDTH, Math.min(MAX_FRAME_WIDTH, rawWidth));
+      const deltaW   = newWidth - startW;
+      // Height change follows from locked aspect ratio (body only, header is fixed)
+      const deltaH   = deltaW / arRatio;
+      return {
+        newWidth,
+        newX: startPx - deltaW / 2,
+        newY: startPy - deltaH / 2,
+      };
+    };
 
+    const onMove = (ev: MouseEvent) => {
+      const { newWidth, newX, newY } = compute(ev);
       if (outerRef.current) {
-        outerRef.current.style.width = `${newWidth}px`;
-        if (isLeft) {
-          const actualDelta = startW - newWidth;
-          outerRef.current.style.transform =
-            `translate(${startPx + actualDelta}px, ${frame.position.y}px)`;
-        }
+        outerRef.current.style.width     = `${newWidth}px`;
+        outerRef.current.style.transform = `translate(${newX}px, ${newY}px)`;
       }
     };
 
     const onUp = (ev: MouseEvent) => {
-      const screenDx   = ev.clientX - startMx;
-      const canvasDx   = screenDx / scaleFactor;
-      const rawWidth   = isLeft ? startW - canvasDx : startW + canvasDx;
-      const newWidth   = Math.max(MIN_FRAME_WIDTH, Math.min(MAX_FRAME_WIDTH, rawWidth));
-
-      if (isLeft) {
-        const actualDelta = startW - newWidth;
-        onResize(frame.id, newWidth, { x: startPx + actualDelta, y: frame.position.y });
-      } else {
-        onResize(frame.id, newWidth);
-      }
-
+      const { newWidth, newX, newY } = compute(ev);
+      onResize(frame.id, newWidth, { x: newX, y: newY });
       setResizeCorner(null);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup",   onUp);
@@ -183,7 +185,7 @@ export function FrameNode({
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup",   onUp);
-  }, [frame.id, frame.position, frameWidth, scale, onResize]);
+  }, [frame.id, frame.position, frame.aspectRatio, frameWidth, scale, onResize]);
 
   // ── Click (select) ─────────────────────────────────────────────────────────
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -256,9 +258,12 @@ export function FrameNode({
         position:   "absolute",
         top:        0,
         left:       0,
+        // transform controls position — keep it clear of the spring animation
         transform:  `translate(${frame.position.x}px, ${frame.position.y}px)`,
         width:      frameWidth,
-        animation:  isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
+        // NOTE: animation is intentionally NOT here — it would override translate and
+        // cause the frame to flash to (0,0) on first render. Animation lives on the
+        // glass shell div instead so only the visual shell scales in.
         zIndex:     isSelected ? 20 : 10,
         userSelect: "none",
         cursor:     isResizing ? "none" : "default",
@@ -267,7 +272,30 @@ export function FrameNode({
         transition: isResizing ? "none" : "box-shadow 0.18s ease",
       }}
     >
-      {/* ── Glass shell ────────────────────────────────────────────────────── */}
+      {/* ── Input connection handle — rendered inside outerRef so it follows during drag ─ */}
+      {/* Drop detection in SceneCanvas is distance-based; this dot is purely visual.        */}
+      <div
+        style={{
+          position:     "absolute",
+          left:         -7,
+          top:          FRAME_HEADER_HEIGHT + bodyHeight / 2 - 7,
+          width:        14,
+          height:       14,
+          borderRadius: "50%",
+          background:   pendingConnActive
+            ? "rgba(255,255,255,0.25)"
+            : "rgba(255,255,255,0.08)",
+          border:       pendingConnActive
+            ? "1.5px solid rgba(255,255,255,0.55)"
+            : "1.5px solid rgba(255,255,255,0.2)",
+          boxShadow:    pendingConnActive ? "0 0 8px rgba(255,255,255,0.2)" : "none",
+          zIndex:       22,
+          pointerEvents: "none",
+          transition:   "all 0.2s ease",
+        }}
+      />
+
+      {/* ── Glass shell — spring entry animation lives here, not on outer ─── */}
       <div
         style={{
           width:        "100%",
@@ -277,6 +305,7 @@ export function FrameNode({
           background:   "#000000",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
+          animation:    isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
           transition:   isResizing ? "none" : "border-color 0.18s ease, background 0.18s ease",
         }}
       >
