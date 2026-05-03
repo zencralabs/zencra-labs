@@ -334,12 +334,16 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
             display:      "flex",
             gap:          6,
             marginBottom: 8,
-            animation:    "cd-slide-up 0.25s ease",
             alignItems:   "center",
           }}
         >
-          {chips.map((chip) => (
-            <ChipButton key={chip.id} chip={chip} onClick={() => void handleChipClick(chip)} />
+          {chips.map((chip, i) => (
+            <ChipButton
+              key={chip.id}
+              chip={chip}
+              index={i}
+              onClick={() => void handleChipClick(chip)}
+            />
           ))}
           <button
             onClick={() => setChipsVisible(false)}
@@ -664,9 +668,11 @@ function BarButton({
 
 function ChipButton({
   chip,
+  index = 0,
   onClick,
 }: {
   chip:    SuggestionChip;
+  index?:  number;
   onClick: () => void;
 }) {
   const color = ROLE_COLORS[chip.type];
@@ -698,6 +704,7 @@ function ChipButton({
         boxShadow:           `0 4px 16px rgba(0,0,0,0.4), 0 0 8px ${color.replace("1)", "0.12)")}`,
         transition:          "all 0.15s ease",
         whiteSpace:          "nowrap",
+        animation:           `cd-slide-up 0.22s ease ${index * 35}ms both`,
       }}
     >
       {chip.label}

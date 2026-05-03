@@ -229,10 +229,11 @@ export function OutputPanel({
                 <SkeletonCard />
               </>
             )}
-            {sorted.map((output) => (
+            {sorted.map((output, i) => (
               <OutputCard
                 key={output.id}
                 output={output}
+                index={i}
                 isBest={output.id === bestId}
                 onReEditInDirector={
                   output.url
@@ -517,7 +518,7 @@ function SkeletonCard() {
       borderRadius:    12,
       background:      "rgba(255,255,255,0.03)",
       border:          "1px solid rgba(139,92,246,0.12)",
-      animation:       "cd-shimmer 1.6s ease-in-out infinite",
+      animation:       "cd-shimmer 1.6s ease-in-out infinite, cd-generate-pulse 2.5s ease-in-out infinite",
       backgroundSize:  "200% 100%",
       backgroundImage: "linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(139,92,246,0.06) 50%, rgba(255,255,255,0.02) 100%)",
     }} />

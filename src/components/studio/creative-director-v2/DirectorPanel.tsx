@@ -419,10 +419,11 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                   scrollSnapType:   "x mandatory",
                 }}
               >
-                {DIRECTOR_PRESETS.map((preset) => (
+                {DIRECTOR_PRESETS.map((preset, i) => (
                   <PresetCard
                     key={preset.id}
                     preset={preset}
+                    index={i}
                     active={activePresetId === preset.id}
                     onApply={() => {
                       patchCharacterDirection(preset.values);
@@ -434,7 +435,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
             </div>
 
             {/* ── 3-column manual controls ───────────────────────────────── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, animation: "cd-fade-in 0.25s ease 0.12s both" }}>
 
             {/* Column 1: Face + Locks */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -679,10 +680,12 @@ function EnergyCard({
 
 function PresetCard({
   preset,
+  index = 0,
   active,
   onApply,
 }: {
   preset:   DirectorPreset;
+  index?:   number;
   active:   boolean;
   onApply:  () => void;
 }) {
@@ -696,6 +699,7 @@ function PresetCard({
         flexShrink:    0,
         width:         130,
         scrollSnapAlign: "start",
+        animation:     `cd-slide-up 0.3s ease ${index * 40}ms both`,
         background:    active
           ? "rgba(251,146,60,0.12)"
           : hov

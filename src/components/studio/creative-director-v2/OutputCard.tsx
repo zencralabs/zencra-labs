@@ -19,6 +19,7 @@ import type { CDGenerationOutput } from "@/lib/creative-director/store";
 
 interface OutputCardProps {
   output:               CDGenerationOutput;
+  index?:               number;
   isBest?:              boolean;
   onReEditInDirector?:  () => void;
   onRegenVariation?:    () => void;
@@ -26,6 +27,7 @@ interface OutputCardProps {
 
 export function OutputCard({
   output,
+  index = 0,
   isBest = false,
   onReEditInDirector,
   onRegenVariation,
@@ -46,21 +48,32 @@ export function OutputCard({
         ? "rgba(255,255,255,0.1)"
         : "rgba(139,92,246,0.3)";
 
+  // Spring entrance: only when completed (prevents re-animation flicker on state updates)
+  const entranceAnimation = isCompleted
+    ? `cd-spring 0.45s cubic-bezier(0.16,1,0.3,1) ${index * 55}ms both`
+    : "none";
+
+  // Locked pulse: explicit priority — hover shadow always wins
+  const lockedPulse = isCompleted && output.mode === "locked"
+    ? hovered ? "none" : "cd-locked-pulse 2s ease-in-out infinite"
+    : "none";
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        position:     "relative",
-        borderRadius: 12,
-        overflow:     "hidden",
-        background:   "rgba(12,10,16,0.9)",
-        border:       `1px solid ${borderColor}`,
-        aspectRatio:  "1 / 1",
-        flexShrink:   0,
-        transition:   "border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease",
-        transform:    hovered && isCompleted ? "scale(1.015)" : "scale(1)",
-        boxShadow:    hovered && isCompleted
+        position:       "relative",
+        borderRadius:   12,
+        overflow:       "hidden",
+        background:     "rgba(12,10,16,0.9)",
+        border:         `1px solid ${borderColor}`,
+        aspectRatio:    "1 / 1",
+        flexShrink:     0,
+        transition:     "border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease",
+        transform:      hovered && isCompleted ? "scale(1.015)" : "scale(1)",
+        animation:      lockedPulse !== "none" ? lockedPulse : entranceAnimation,
+        boxShadow:      hovered && isCompleted
           ? (isBest
               ? "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(251,191,36,0.25)"
               : "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.15)")
