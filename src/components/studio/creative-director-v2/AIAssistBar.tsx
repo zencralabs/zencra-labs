@@ -321,7 +321,6 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
         left:          0,
         right:         0,
         zIndex:        30,
-        pointerEvents: "none", // outer wrapper is just a layout anchor
         display:       "flex",
         flexDirection: "column",
         alignItems:    "center",
@@ -332,12 +331,11 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
       {chipsVisible && chips.length > 0 && (
         <div
           style={{
-            display:       "flex",
-            gap:           6,
-            marginBottom:  8,
-            pointerEvents: "auto",
-            animation:     "cd-slide-up 0.25s ease",
-            alignItems:    "center",
+            display:      "flex",
+            gap:          6,
+            marginBottom: 8,
+            animation:    "cd-slide-up 0.25s ease",
+            alignItems:   "center",
           }}
         >
           {chips.map((chip) => (
@@ -348,11 +346,11 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
             style={{
               background:    "transparent",
               border:        "none",
-              color:         "rgba(255,255,255,0.2)",
-              fontSize:      10,
-              cursor:        "pointer",
-              padding:       "5px 6px",
-              lineHeight:    1,
+              color:      "rgba(255,255,255,0.2)",
+              fontSize:   10,
+              cursor:     "pointer",
+              padding:    "5px 6px",
+              lineHeight: 1,
             }}
           >
             ✕
@@ -373,9 +371,8 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
             backdropFilter:      "blur(24px)",
             WebkitBackdropFilter:"blur(24px)",
             boxShadow:           "0 8px 40px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)",
-            padding:             "14px 16px",
-            pointerEvents:       "auto",
-            animation:           "cd-slide-up 0.2s ease",
+            padding:   "14px 16px",
+            animation: "cd-slide-up 0.2s ease",
             maxHeight:           260,
             overflowY:           "auto",
             scrollbarWidth:      "none",
