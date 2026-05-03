@@ -173,7 +173,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
 
     if (presentTypes.has("subject"))    chips.push({ label: "@subject",  color: "rgba(59,130,246,0.8)"  });
     if (presentTypes.has("world"))      chips.push({ label: "@world",    color: "rgba(34,197,94,0.8)"   });
-    if (presentTypes.has("atmosphere")) chips.push({ label: "@atm",      color: "rgba(139,92,246,0.8)"  });
+    if (presentTypes.has("atmosphere")) chips.push({ label: "@atmosphere", color: "rgba(139,92,246,0.8)"  });
     if (presentTypes.has("object"))     chips.push({ label: "@object",   color: "rgba(249,115,22,0.8)"  });
     if (isLocked)                       chips.push({ label: "@identity", color: "rgba(251,191,36,0.8)"  });
 
