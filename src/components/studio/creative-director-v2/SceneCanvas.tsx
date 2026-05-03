@@ -24,6 +24,8 @@ interface CanvasPosition { x: number; y: number; }
 interface SceneCanvasProps {
   onAddElement:             (type: DirectionElementType, label: string) => void;
   onOpenDirectorControls?:  () => void;
+  /** Called when an AssetTray thumbnail is dropped onto the canvas. */
+  onDropAsset?:             (assetId: string, role: DirectionElementType) => void;
 }
 
 const ROLES: Array<{ type: DirectionElementType; label: string; color: string }> = [
@@ -44,7 +46,7 @@ function defaultPosition(idx: number, total: number, w: number, h: number): Canv
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function SceneCanvas({ onAddElement, onOpenDirectorControls }: SceneCanvasProps) {
+export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset }: SceneCanvasProps) {
   const elements  = useDirectionStore(selectElements);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [positions,  setPositions]  = useState<Record<string, CanvasPosition>>({});
@@ -106,7 +108,23 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls }: SceneCanva
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
-        e.preventDefault(); setDragOver(false);
+        e.preventDefault();
+        setDragOver(false);
+
+        // ── Asset tray drop (priority) ─────────────────────────────────────
+        const assetJson = e.dataTransfer.getData("application/cd-asset");
+        if (assetJson) {
+          try {
+            const asset = JSON.parse(assetJson) as { id: string; url: string; name: string };
+            // Default role: subject. Role-zone detection is a future phase.
+            const role: DirectionElementType = "subject";
+            onAddElement(role, asset.name || "Reference");
+            onDropAsset?.(asset.id, role);
+          } catch { /* malformed payload — ignore */ }
+          return;
+        }
+
+        // ── Plain text drop (existing behavior) ───────────────────────────
         const text = e.dataTransfer.getData("text/plain").trim();
         if (text) onAddElement("subject", text);
       }}
@@ -243,7 +261,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls }: SceneCanva
           background: "rgba(139,92,246,0.03)",
         }}>
           <span style={{ fontSize: 13, color: "rgba(139,92,246,0.7)", fontFamily: "var(--font-sans)" }}>
-            Drop to add to scene
+            Drop reference or text to add to scene
           </span>
         </div>
       )}

@@ -115,6 +115,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     patchRefinements,
     toggleDirectorPanel,
     openDirectorPanel,
+    assignAssetToRole,
   } = useDirectionStore();
 
   const [isFullscreen,   setIsFullscreen]   = useState(false);
@@ -342,6 +343,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           <SceneCanvas
             onAddElement={handleAddElement}
             onOpenDirectorControls={openDirectorPanel}
+            onDropAsset={(assetId, role) => assignAssetToRole(assetId, role)}
           />
 
           {/* Director handle — slim strip toggling the panel */}

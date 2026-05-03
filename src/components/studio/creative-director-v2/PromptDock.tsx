@@ -17,6 +17,7 @@
 
 import { useState }                        from "react";
 import { useDirectionStore, CD_MODELS }    from "@/lib/creative-director/store";
+import { AssetTray }                       from "./AssetTray";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             />
           ))}
         </div>
+
+        {/* Asset tray — reference image uploads */}
+        <AssetTray />
 
         {/* Quality toggle */}
         <div

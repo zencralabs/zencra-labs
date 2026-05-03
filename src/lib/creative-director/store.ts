@@ -140,6 +140,18 @@ export function buildCharacterDirectionSuffix(cd: CharacterDirection): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Uploaded assets — local object URLs for image references.
+// Assigned to a scene role via drag-to-canvas or manual assignment.
+// URL.revokeObjectURL is called on removeUploadedAsset to prevent memory leaks.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface UploadedAsset {
+  id:           string;
+  url:          string;          // object URL (blob:…)
+  name:         string;          // original file name
+  assignedRole: "subject" | "world" | "atmosphere" | "object" | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Image model keys available in Creative Director
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CDModelDef {
@@ -188,6 +200,9 @@ export interface DirectionState {
   // ── Character direction (local — injected as promptSuffix) ───────────────
   characterDirection: CharacterDirection;
 
+  // ── Uploaded asset references (local object URLs) ─────────────────────────
+  uploadedAssets: UploadedAsset[];
+
   // ── Director panel ────────────────────────────────────────────────────────
   directorPanelOpen: boolean;
 
@@ -233,6 +248,11 @@ export interface DirectionActions {
   patchCharacterDirection: (patch: Partial<CharacterDirection>) => void;
   resetCharacterDirection: () => void;
 
+  // Uploaded assets
+  addUploadedAsset:    (asset: UploadedAsset) => void;
+  removeUploadedAsset: (id: string) => void;
+  assignAssetToRole:   (id: string, role: UploadedAsset["assignedRole"]) => void;
+
   // Director panel
   openDirectorPanel:   () => void;
   closeDirectorPanel:  () => void;
@@ -261,6 +281,7 @@ const INITIAL: DirectionState = {
   activeStyleMood:     null,
   selectedModel:       "gpt-image-1",
   characterDirection:  DEFAULT_CHARACTER_DIRECTION,
+  uploadedAssets:      [],
   directorPanelOpen:   false,
   outputs:             [],
   isGenerating:        false,
@@ -332,6 +353,26 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
         : { color_palette: def.color_palette, lighting_style: def.lighting_style } as Partial<DirectionRefinementsRow>,
     }));
   },
+
+  // ── Uploaded assets ───────────────────────────────────────────────────────
+  addUploadedAsset: (asset) =>
+    set((s) => ({ uploadedAssets: [...s.uploadedAssets, asset] })),
+
+  removeUploadedAsset: (id) =>
+    set((s) => {
+      const target = s.uploadedAssets.find((a) => a.id === id);
+      if (target?.url.startsWith("blob:")) {
+        try { URL.revokeObjectURL(target.url); } catch { /* silent */ }
+      }
+      return { uploadedAssets: s.uploadedAssets.filter((a) => a.id !== id) };
+    }),
+
+  assignAssetToRole: (id, role) =>
+    set((s) => ({
+      uploadedAssets: s.uploadedAssets.map((a) =>
+        a.id === id ? { ...a, assignedRole: role } : a
+      ),
+    })),
 
   // ── Director panel ────────────────────────────────────────────────────────
   openDirectorPanel:   () => set({ directorPanelOpen: true }),
