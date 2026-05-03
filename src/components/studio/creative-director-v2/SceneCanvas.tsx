@@ -65,6 +65,7 @@ import {
 import type { FrameAspectRatio, GenerationFrame } from "@/lib/creative-director/store";
 import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
 import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
+import { CDOnboardingOverlay } from "./CDOnboardingOverlay";
 import type { DirectionElementType } from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,6 +187,19 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
   const [framePickerPos,  setFramePickerPos] = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
+
+  // ── Onboarding — shown once when canvas is empty and flag is unset ────
+  // Initialized lazily so sessionStorage is only read client-side.
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;  // SSR guard
+    const hasContent = elements.length > 0 || frames.length > 0;
+    if (hasContent) return false;
+    try {
+      return sessionStorage.getItem("cd_onboarding_seen") !== "1";
+    } catch {
+      return false; // private/restricted mode
+    }
+  });
 
   // ── Phase C.1 — pending connection drag + hover-delete ───────────────────
   const [pendingConn, setPendingConn] = useState<{
@@ -531,9 +545,15 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
         position:   "relative",
         overflow:   "hidden",
         cursor:     isPanning ? "grabbing" : "crosshair",
+        // Cinematic background — base #0b0f1a + centered purple/blue radial glow
+        // Slightly brighter than before for daylight-screen readability while
+        // preserving the deep premium feel.
         background: dragOver
-          ? "rgba(139,92,246,0.04)"
-          : "radial-gradient(ellipse at 45% 35%, rgba(24,18,40,1) 0%, rgba(14,11,28,1) 40%, rgba(6,5,10,1) 75%)",
+          ? "rgba(139,92,246,0.06)"
+          : [
+            "radial-gradient(circle at 50% 40%, rgba(120,80,255,0.18), transparent 60%)",
+            "radial-gradient(ellipse at 45% 35%, rgba(28,20,52,1) 0%, rgba(17,13,34,1) 42%, rgba(11,9,20,1) 75%)",
+          ].join(", "),
         transition:  "background 0.4s ease",
         userSelect:  "none",
       }}
@@ -542,7 +562,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
       {/* Dot grid */}
       <div aria-hidden style={{
         position:        "absolute", inset: 0, pointerEvents: "none",
-        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px)",
+        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.082) 1px, transparent 1px)",
         backgroundSize:  "32px 32px",
       }} />
 
@@ -1056,6 +1076,11 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           }}
           onClose={() => setDropPicker(null)}
         />
+      )}
+
+      {/* ── Onboarding overlay — first visit, empty canvas only ──────── */}
+      {showOnboarding && (
+        <CDOnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
       )}
     </div>
   );
