@@ -251,11 +251,19 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     setIsPanning(true);
   }, []);
 
-  // ── Click: quick-add or close menus (skip if pan happened) ───────────────
+  // ── Click: close menus only — no QuickAdd on single click ───────────────
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (panHappenedRef.current) { panHappenedRef.current = false; return; }
     if ((e.target as HTMLElement).closest("[data-scene-node]")) return;
+    // Close any open menus — nothing else on single left click
     if (contextMenu) { setContextMenu(null); return; }
+    if (quickAdd)    { setQuickAdd(null);    return; }
+  }, [contextMenu, quickAdd]);
+
+  // ── Double-click: open QuickAddPicker ────────────────────────────────────
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("[data-scene-node]")) return;
+    if (contextMenu) { setContextMenu(null); }
     const rect = canvasRef.current!.getBoundingClientRect();
     setQuickAdd({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   }, [contextMenu]);
@@ -311,6 +319,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     <div
       ref={canvasRef}
       onClick={handleCanvasClick}
+      onDoubleClick={handleDoubleClick}
       onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
       onWheel={handleWheel}
@@ -584,7 +593,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             </p>
             <p style={{ fontSize: 12, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.50)", margin: 0, lineHeight: 1.6 }}>
               Add a subject, set the world, choose a mood.<br />
-              Right-click or click to add scene elements.
+              Double-click to add · Right-click for commands
             </p>
           </div>
           {/* Role chips — text and border brightened, not neon */}

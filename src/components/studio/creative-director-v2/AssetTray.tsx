@@ -77,6 +77,7 @@ export function AssetTray() {
         onClick={() => fileInputRef.current?.click()}
         onMouseEnter={() => setHovUpload(true)}
         onMouseLeave={() => setHovUpload(false)}
+        title="Upload reference images"
         style={{
           background:    hovUpload ? "rgba(139,92,246,0.12)" : "rgba(255,255,255,0.04)",
           border:        `1px solid ${hovUpload ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.1)"}`,
@@ -100,7 +101,7 @@ export function AssetTray() {
         <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
           <path d="M4.5 1v7M1 4.5h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
-        Refs
+        Images
       </button>
 
       {/* Hidden file input */}
