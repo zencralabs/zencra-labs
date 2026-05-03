@@ -30,7 +30,11 @@ const ROLE_COLORS: Record<string, string> = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AssetTray() {
+interface AssetTrayProps {
+  onInsertTag?: (tag: string) => void;
+}
+
+export function AssetTray({ onInsertTag }: AssetTrayProps) {
   const { uploadedAssets, addUploadedAsset, removeUploadedAsset } = useDirectionStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hovUpload, setHovUpload] = useState(false);
@@ -115,11 +119,12 @@ export function AssetTray() {
       />
 
       {/* Thumbnails */}
-      {uploadedAssets.map((asset) => (
+      {uploadedAssets.map((asset, idx) => (
         <AssetThumb
           key={asset.id}
           asset={asset}
           onRemove={removeUploadedAsset}
+          onInsertTag={onInsertTag ? () => onInsertTag(`@img${idx + 1}`) : undefined}
         />
       ))}
     </div>
@@ -133,9 +138,11 @@ export function AssetTray() {
 function AssetThumb({
   asset,
   onRemove,
+  onInsertTag,
 }: {
-  asset:    UploadedAsset;
-  onRemove: (id: string) => void;
+  asset:        UploadedAsset;
+  onRemove:     (id: string) => void;
+  onInsertTag?: () => void;
 }) {
   const [hov,      setHov]      = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -161,7 +168,8 @@ function AssetThumb({
       onDragEnd={handleDragEnd}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      title={asset.name}
+      onClick={() => { if (!dragging && onInsertTag) onInsertTag(); }}
+      title={onInsertTag ? `${asset.name} — click to insert tag` : asset.name}
       style={{
         position:     "relative",
         width:        36,
@@ -202,6 +210,32 @@ function AssetThumb({
         }}
         draggable={false}
       />
+
+      {/* @imgN insert overlay — shows on hover when onInsertTag is wired */}
+      {hov && !dragging && onInsertTag && (
+        <div
+          style={{
+            position:       "absolute",
+            inset:          0,
+            background:     "rgba(139,92,246,0.35)",
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "center",
+            zIndex:         3,
+            pointerEvents:  "none",
+          }}
+        >
+          <span style={{
+            fontSize:   8,
+            fontFamily: "var(--font-sans)",
+            fontWeight: 700,
+            color:      "rgba(255,255,255,0.95)",
+            letterSpacing: "0.02em",
+          }}>
+            insert
+          </span>
+        </div>
+      )}
 
       {/* Remove button — top-right on hover */}
       {hov && !dragging && (

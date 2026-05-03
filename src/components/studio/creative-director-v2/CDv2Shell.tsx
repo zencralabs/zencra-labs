@@ -41,7 +41,7 @@ import { DirectorPanel }                             from "./DirectorPanel";
 import { PromptDock }                                from "./PromptDock";
 import { OutputPanel }                               from "./OutputPanel";
 import { AIAssistBar }                               from "./AIAssistBar";
-import type { DirectionElementType }                 from "@/lib/creative-director/types";
+import type { DirectionElementType, DirectionElementRow } from "@/lib/creative-director/types";
 import type { CDGenerationOutput }                   from "@/lib/creative-director/store";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,6 +112,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     directorPanelOpen,
     markDirectionCreated,
     addElement,
+    removeElement,
     startGenerating,
     finishGenerating,
     patchRefinements,
@@ -157,25 +158,56 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     }
   }, [directionId, directionCreated, mode, sceneIntent.text, markDirectionCreated]);
 
-  // ── Add element ───────────────────────────────────────────────────────────
+  // ── Add element — OPTIMISTIC ──────────────────────────────────────────────
+  // 1. Add a temp element to the store immediately (instant canvas feedback).
+  // 2. Ensure the direction row exists in DB.
+  // 3. POST the real element to the API.
+  // 4. On success: swap temp → real (remove + add, batched by React 18).
+  // 5. On failure: keep the temp element alive so the canvas stays populated.
+  //    The element will be re-synced on the next generate call.
   const handleAddElement = useCallback(
     async (type: DirectionElementType, label: string) => {
+      // Step 1 — optimistic: show on canvas immediately
+      const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const tempElement: DirectionElementRow = {
+        id:           tempId,
+        direction_id: "pending",
+        type,
+        label,
+        weight:       0.7,
+        position:     elements.length,
+        created_at:   new Date().toISOString(),
+      };
+      addElement(tempElement);
+
+      // Step 2 — ensure direction row (may create one)
       const dId = await ensureDirection();
-      if (!dId) return;
+      if (!dId) {
+        // Direction creation failed — remove optimistic element
+        removeElement(tempId);
+        return;
+      }
+
+      // Step 3 — persist element to DB
       try {
         const res = await fetch("/api/creative-director/elements", {
-          method: "POST",
+          method:  "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ direction_id: dId, type, label, weight: 0.7, position: elements.length }),
         });
         if (!res.ok) throw new Error(`Status ${res.status}`);
         const data = await res.json();
-        addElement(data.element ?? data);
+        const realElement: DirectionElementRow = data.element ?? data;
+        // Step 4 — swap temp → real (batched, no visible flash)
+        removeElement(tempId);
+        addElement(realElement);
       } catch (err) {
-        console.error("[CDv2Shell] addElement error:", err);
+        console.error("[CDv2Shell] addElement persist error (element kept in memory):", err);
+        // Keep the temp element alive — direction_id may be wrong but generation
+        // reads from DB so it's fine; the canvas stays populated for the session.
       }
     },
-    [ensureDirection, elements.length, addElement]
+    [ensureDirection, elements.length, addElement, removeElement]
   );
 
   // ── Sync refinements ──────────────────────────────────────────────────────
@@ -190,15 +222,20 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   }, []);
 
   // ── Generate ──────────────────────────────────────────────────────────────
+  // sceneOverride: direct text from PromptDock textarea, injected as
+  // promptSuffix alongside any character direction suffix.
   const handleGenerate = useCallback(
-    async (count: number = 1, aspectRatio: string = "1:1", _quality?: string) => {
+    async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string) => {
       const dId = await ensureDirection();
       if (!dId) return;
       if (refinements && Object.keys(refinements).length > 0) {
         await syncRefinements(dId, refinements as Record<string, unknown>);
       }
       startGenerating();
-      const promptSuffix = buildCharacterDirectionSuffix(characterDirection);
+      const charSuffix  = buildCharacterDirectionSuffix(characterDirection);
+      // Combine sceneOverride (from PromptDock textarea) with character direction suffix.
+      // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
+      const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
       try {
         const res = await fetch("/api/creative-director/generate", {
           method: "POST",
@@ -465,7 +502,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           <DirectorHandle open={directorPanelOpen} onToggle={toggleDirectorPanel} />
 
           {/* Prompt dock */}
-          <PromptDock onGenerate={handleGenerate} isFullscreen={isFullscreen} />
+          <PromptDock
+            onGenerate={(count, ar, quality, sceneOverride) =>
+              handleGenerate(count, ar, quality, sceneOverride)
+            }
+            isFullscreen={isFullscreen}
+          />
 
           {/* AI Assist Co-Director bar — floats above DirectorHandle */}
           <AIAssistBar

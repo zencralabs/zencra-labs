@@ -32,6 +32,7 @@ import { createPortal } from "react-dom";
 import {
   useDirectionStore,
   CD_MODELS,
+  STYLE_MOOD_PRESETS,
   buildCharacterDirectionSuffix,
 }                                                      from "@/lib/creative-director/store";
 import { AssetTray }                                   from "./AssetTray";
@@ -78,7 +79,7 @@ const MODEL_GROUPS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface PromptDockProps {
-  onGenerate:    (count: number, aspectRatio: string, quality?: string) => void;
+  onGenerate:    (count: number, aspectRatio: string, quality?: string, sceneOverride?: string) => void;
   isFullscreen?: boolean;
 }
 
@@ -130,6 +131,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
     uploadedAssets,
     refinements,
     characterDirection,
+    activeStyleMood,
   } = useDirectionStore();
 
   const [count,        setCount]        = useState<1 | 2 | 4>(1);
@@ -138,6 +140,9 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
   const [directInput,  setDirectInput]  = useState("");
   const [genHover,     setGenHover]     = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+
+  // Ref for tag chip click-to-insert (focus after appending tag text)
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Dock hide / mini mode
   const [dockHidden,   setDockHidden]   = useState(false);
@@ -156,7 +161,10 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
   // ── Derived ───────────────────────────────────────────────────────────────
   const canGenerate =
     !isGenerating &&
-    (directionCreated || sceneIntent.text.trim().length > 0 || elements.length > 0);
+    (directionCreated ||
+      sceneIntent.text.trim().length > 0 ||
+      elements.length > 0 ||
+      directInput.trim().length > 0);
 
   const isLocked = mode === "locked";
 
@@ -215,16 +223,41 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
     setRefineOpen(false);
   }, [refinePreview]);
 
+  // ── Director active-state labels ─────────────────────────────────────────
+  // Builds a compact label list from any active characterDirection field or
+  // activeStyleMood. Capped at 4 entries for the narrow pill strip.
+  const activeDirectorLabels = useMemo(() => {
+    const labels: string[] = [];
+
+    if (activeStyleMood) {
+      const def = STYLE_MOOD_PRESETS.find((p) => p.key === activeStyleMood);
+      if (def) labels.push(def.label);
+    }
+
+    const cd = characterDirection;
+    if (cd) {
+      if (cd.bodyView)       labels.push(cd.bodyView.replace(/-/g, " "));
+      if (cd.headDirection)  labels.push(cd.headDirection.replace(/-/g, " "));
+      if (cd.faceExpression) labels.push(cd.faceExpression.replace(/-/g, " "));
+      if (cd.poseAction)     labels.push(cd.poseAction.replace(/-/g, " "));
+      if (cd.eyeDirection)   labels.push(cd.eyeDirection.replace(/-/g, " "));
+      if (cd.hairstyleLock)  labels.push("Hair Locked");
+      if (cd.outfitLock)     labels.push("Outfit Locked");
+    }
+
+    return labels.slice(0, 4);
+  }, [activeStyleMood, characterDirection]);
+
   // ── Textarea key handler ──────────────────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        if (canGenerate) onGenerate(count, ar, quality);
+        if (canGenerate) onGenerate(count, ar, quality, directInput.trim() || undefined);
       }
       // Plain Enter → native newline, no interception needed
     },
-    [canGenerate, count, ar, quality, onGenerate]
+    [canGenerate, count, ar, quality, directInput, onGenerate]
   );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -399,8 +432,14 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               />
             </div>
 
-            {/* Asset tray */}
-            <AssetTray />
+            {/* Asset tray — click thumbnail to insert @imgN tag into prompt */}
+            <AssetTray
+              onInsertTag={(tag) => {
+                const sep = directInput && !directInput.endsWith(" ") ? " " : "";
+                setDirectInput((prev) => prev + sep + tag + " ");
+                setTimeout(() => textareaRef.current?.focus(), 0);
+              }}
+            />
 
             {/* Quality toggle */}
             <div style={{
@@ -494,6 +533,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
             >
               {/* FIX 2 — textarea 13→16px, color upgraded */}
               <textarea
+                ref={textareaRef}
                 value={directInput}
                 onChange={(e) => setDirectInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -538,9 +578,17 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     const dimBg  = chip.color.replace(/[\d.]+\)$/, "0.1)");
                     const dimBdr = chip.color.replace(/[\d.]+\)$/, "0.22)");
                     return (
-                      <span
+                      <button
                         key={i}
                         className="cd-tag-chip"
+                        title={`Insert ${chip.label} into prompt`}
+                        onClick={() => {
+                          // Append the tag to directInput, ensuring a space separator
+                          const sep = directInput && !directInput.endsWith(" ") ? " " : "";
+                          setDirectInput((prev) => prev + sep + chip.label + " ");
+                          // Re-focus textarea so user can keep typing
+                          setTimeout(() => textareaRef.current?.focus(), 0);
+                        }}
                         style={{
                           fontSize:      11,
                           fontFamily:    "var(--font-sans)",
@@ -554,10 +602,12 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                           whiteSpace:    "nowrap",
                           flexShrink:    0,
                           lineHeight:    1.6,
+                          cursor:        "pointer",
+                          transition:    "background 0.12s ease, box-shadow 0.12s ease",
                         }}
                       >
                         {chip.label}
-                      </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -649,6 +699,41 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                 </div>
               </div>
 
+              {/* ── Director active-state strip ────────────────────── */}
+              {activeDirectorLabels.length > 0 && (
+                <div
+                  style={{
+                    display:    "flex",
+                    gap:        4,
+                    alignItems: "center",
+                    overflow:   "hidden",
+                    flexWrap:   "nowrap",
+                  }}
+                >
+                  {activeDirectorLabels.map((label, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        fontSize:      8,
+                        fontFamily:    "var(--font-sans)",
+                        fontWeight:    600,
+                        color:         "rgba(139,92,246,0.85)",
+                        background:    "rgba(139,92,246,0.08)",
+                        border:        "1px solid rgba(139,92,246,0.2)",
+                        borderRadius:  100,
+                        padding:       "2px 7px",
+                        letterSpacing: "0.04em",
+                        whiteSpace:    "nowrap",
+                        textTransform: "capitalize" as const,
+                        lineHeight:    1.5,
+                      }}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* 🎬 Refine Prompt + Generate row */}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 
@@ -687,7 +772,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
 
                 {/* Generate CTA */}
                 <button
-                  onClick={() => canGenerate && onGenerate(count, ar, quality)}
+                  onClick={() => canGenerate && onGenerate(count, ar, quality, directInput.trim() || undefined)}
                   disabled={!canGenerate}
                   onMouseEnter={() => setGenHover(true)}
                   onMouseLeave={() => setGenHover(false)}
@@ -905,7 +990,7 @@ function ModelGroupSelector({
               border:               "1px solid rgba(255,255,255,0.10)",
               borderRadius:         10,
               padding:              4,
-              zIndex:               9999,
+              zIndex:               100001, // above CDv2Shell fullscreen portal (99999)
               minWidth:             160,
               boxShadow:            "0 -8px 32px rgba(0,0,0,0.7), 0 -2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
               backdropFilter:       "blur(20px)",

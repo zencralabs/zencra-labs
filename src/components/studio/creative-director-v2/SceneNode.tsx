@@ -42,6 +42,7 @@ import {
   selectMode,
 }                                                    from "@/lib/creative-director/store";
 import type { DirectionElementRow }                  from "@/lib/creative-director/types";
+import type { UploadedAsset }                        from "@/lib/creative-director/store";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -77,8 +78,14 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
     updateElement,
     directionId,
     directionCreated,
+    uploadedAssets,
   } = useDirectionStore();
   const mode = useDirectionStore(selectMode);
+
+  // Find the first uploaded asset that has been assigned to this element's role
+  const thumbnailAsset: UploadedAsset | undefined = uploadedAssets.find(
+    (a) => a.assignedRole === element.type
+  );
 
   const [hovered,     setHovered]    = useState(false);
   const [editing,     setEditing]    = useState(false);
@@ -230,6 +237,55 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
           width:              196,
         }}
       >
+        {/* ── Thumbnail strip — shows when an asset is assigned to this role ── */}
+        {thumbnailAsset && (
+          <div style={{
+            margin:       "-9px -12px 0 -11px",   // bleed to card edges
+            borderRadius: "11px 11px 0 0",         // match card top corners
+            overflow:     "hidden",
+            height:       52,
+            position:     "relative",
+            flexShrink:   0,
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbnailAsset.url}
+              alt={thumbnailAsset.name}
+              draggable={false}
+              style={{
+                width:     "100%",
+                height:    "100%",
+                objectFit: "cover",
+                display:   "block",
+                userSelect:"none",
+                pointerEvents: "none",
+              }}
+            />
+            {/* role-colored gradient overlay at bottom so label stays readable */}
+            <div style={{
+              position:   "absolute",
+              inset:      0,
+              background: `linear-gradient(to bottom, transparent 30%, ${roleColor.replace("1)", "0.55)")} 100%)`,
+              pointerEvents: "none",
+            }} />
+            {/* "Ref" micro-label bottom-left */}
+            <span style={{
+              position:      "absolute",
+              bottom:        4,
+              left:          7,
+              fontSize:      8,
+              fontFamily:    "var(--font-sans)",
+              fontWeight:    600,
+              color:         "rgba(255,255,255,0.75)",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              pointerEvents: "none",
+            }}>
+              Ref
+            </span>
+          </div>
+        )}
+
         {/* ── Top row ──────────────────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {/* Role glow dot */}

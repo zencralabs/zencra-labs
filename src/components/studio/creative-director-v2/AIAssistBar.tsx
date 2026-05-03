@@ -156,16 +156,16 @@ function chipsFor(elements: { type: string; label: string }[]): SuggestionChip[]
   const types = new Set(elements.map((e) => e.type));
   const out: SuggestionChip[] = [];
   if (elements.length === 0) {
-    out.push({ id: "sub0", type: "subject",    label: "+ Add Subject",      desc: "Start with a focal subject" });
+    out.push({ id: "sub0", type: "subject",    label: "Primary Subject",  desc: "Add a focal subject to your scene" });
   }
   if (!types.has("atmosphere")) {
-    out.push({ id: "atm0", type: "atmosphere", label: "+ Atmospheric Mood", desc: "Add a mood layer"           });
+    out.push({ id: "atm0", type: "atmosphere", label: "Mood Layer",       desc: "Add atmospheric mood to the scene" });
   }
   if (!types.has("world")) {
-    out.push({ id: "wld0", type: "world",      label: "+ World Context",    desc: "Add an environment"         });
+    out.push({ id: "wld0", type: "world",      label: "Environment",      desc: "Add a world or environment context" });
   }
   if (!types.has("object")) {
-    out.push({ id: "obj0", type: "object",     label: "+ Key Object",       desc: "Add a focal object"         });
+    out.push({ id: "obj0", type: "object",     label: "Focal Object",     desc: "Add a key object for narrative weight" });
   }
   return out.slice(0, 3);
 }
@@ -304,7 +304,7 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
 
   const handleChipClick = useCallback(async (chip: SuggestionChip) => {
     setChipsVisible(false);
-    await onAddElement(chip.type, chip.label.replace(/^\+ /, ""));
+    await onAddElement(chip.type, chip.label);
   }, [onAddElement]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -331,34 +331,48 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
       {chipsVisible && chips.length > 0 && (
         <div
           style={{
-            display:      "flex",
-            gap:          6,
-            marginBottom: 8,
-            alignItems:   "center",
+            display:       "flex",
+            flexDirection: "column",
+            alignItems:    "center",
+            gap:           6,
+            marginBottom:  8,
           }}
         >
-          {chips.map((chip, i) => (
-            <ChipButton
-              key={chip.id}
-              chip={chip}
-              index={i}
-              onClick={() => void handleChipClick(chip)}
-            />
-          ))}
-          <button
-            onClick={() => setChipsVisible(false)}
-            style={{
-              background:    "transparent",
-              border:        "none",
-              color:      "rgba(255,255,255,0.2)",
-              fontSize:   10,
-              cursor:     "pointer",
-              padding:    "5px 6px",
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
+          {/* "Co-Director Suggests" label — distinguishes from canvas role chips */}
+          <div style={{
+            fontSize:      9,
+            fontFamily:    "var(--font-sans)",
+            color:         "rgba(255,255,255,0.28)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            animation:     "cd-slide-up 0.18s ease both",
+          }}>
+            Co-Director Suggests
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {chips.map((chip, i) => (
+              <ChipButton
+                key={chip.id}
+                chip={chip}
+                index={i}
+                onClick={() => void handleChipClick(chip)}
+              />
+            ))}
+            <button
+              onClick={() => setChipsVisible(false)}
+              style={{
+                background:    "transparent",
+                border:        "none",
+                color:      "rgba(255,255,255,0.2)",
+                fontSize:   10,
+                cursor:     "pointer",
+                padding:    "5px 6px",
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
