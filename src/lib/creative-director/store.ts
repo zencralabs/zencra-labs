@@ -164,7 +164,7 @@ export interface CDModelDef {
 export const CD_MODELS: CDModelDef[] = [
   // GPT Image
   { key: "gpt-image-1",          label: "GPT Image 1.5",    active: true  },
-  { key: "gpt-image-2",          label: "GPT Image 2",      active: false, soon: true },
+  { key: "gpt-image-2",          label: "GPT Image 2",      active: true  },
   // Nano Banana
   { key: "nano-banana-standard", label: "Nano Banana",      active: true  },
   { key: "nano-banana-pro",      label: "Nano Banana Pro",  active: true  },
@@ -291,7 +291,7 @@ const INITIAL: DirectionState = {
   elements:            [],
   refinements:         null,
   activeStyleMood:     null,
-  selectedModel:       "gpt-image-1",
+  selectedModel:       "gpt-image-2",
   characterDirection:  DEFAULT_CHARACTER_DIRECTION,
   uploadedAssets:      [],
   canvasTransform:     { x: 0, y: 0, scale: 100 },

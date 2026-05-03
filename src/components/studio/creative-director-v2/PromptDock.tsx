@@ -28,6 +28,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   useDirectionStore,
   CD_MODELS,
@@ -757,6 +758,11 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FIX 3 — ModelGroupSelector: brand-grouped dropdown selector
+//
+// Dropdown renders via createPortal into document.body (position:fixed) to
+// fully escape any parent overflow:hidden / stacking-context clipping.
+// Opens on mouseenter, closes on mouseleave (150ms grace delay so the cursor
+// can move from the button into the dropdown without it disappearing).
 
 function ModelGroupSelector({
   selectedModel,
@@ -765,207 +771,231 @@ function ModelGroupSelector({
   selectedModel: string;
   setSelectedModel: (key: string) => void;
 }) {
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
+  const [openGroup,  setOpenGroup]  = useState<string | null>(null);
+  const [portalPos,  setPortalPos]  = useState<{ bottom: number; left: number } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const btnRefs    = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Click-outside to close any open dropdown
-  useEffect(() => {
-    if (!openGroup) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpenGroup(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openGroup]);
+  // Clear any pending close timer
+  const clearClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  // Schedule a close after 150 ms (cancelled if cursor re-enters)
+  const scheduleClose = () => {
+    clearClose();
+    closeTimer.current = setTimeout(() => setOpenGroup(null), 150);
+  };
+
+  // Open a group and record where to paint the portal dropdown
+  const openDropdown = (groupKey: string) => {
+    clearClose();
+    const btn = btnRefs.current[groupKey];
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setPortalPos({
+        // "bottom" in fixed coords = distance from viewport bottom to button top − 8px gap
+        bottom: window.innerHeight - rect.top + 8,
+        left:   rect.left,
+      });
+    }
+    setOpenGroup(groupKey);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => () => clearClose(), []);
+
+  const currentGroup = MODEL_GROUPS.find((g) => g.key === openGroup);
 
   return (
-    <div
-      ref={ref}
-      style={{
-        display:    "flex",
-        gap:        4,
-        alignItems: "center",
-      }}
-    >
-      {MODEL_GROUPS.map((group) => {
-        const isOpen = openGroup === group.key;
+    <>
+      {/* ── Group button row ───────────────────────────────────────────────── */}
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        {MODEL_GROUPS.map((group) => {
+          const isOpen       = openGroup === group.key;
+          const groupModels  = group.models as readonly string[];
+          const activeModel  = CD_MODELS.find(
+            (m) => groupModels.includes(m.key) && m.key === selectedModel
+          );
+          const groupSelected = !!activeModel;
+          const buttonLabel   = activeModel ? activeModel.label : group.defaultLabel;
 
-        // Find active model within this group
-        const groupModels = group.models as readonly string[];
-        const activeModel = CD_MODELS.find(
-          (m) => groupModels.includes(m.key) && m.key === selectedModel
-        );
-        const groupSelected = !!activeModel;
-        // Show active model label if selected from this group; otherwise show the group's latest/default name
-        const buttonLabel   = activeModel ? activeModel.label : group.defaultLabel;
-
-        return (
-          <div key={group.key} style={{ position: "relative" }}>
-            {/* ── Group brand button ──────────────────────────────────── */}
-            <button
-              onClick={() => setOpenGroup(isOpen ? null : group.key)}
-              className={!isOpen ? "cd-btn-lift" : undefined}
-              style={{
-                height:        36,
-                padding:       "0 12px",
-                background:    groupSelected
-                  ? "rgba(139,92,246,0.18)"
-                  : isOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
-                border:        `1px solid ${
-                  groupSelected
-                    ? "rgba(139,92,246,0.45)"
-                    : isOpen ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)"
-                }`,
-                borderRadius:  8,
-                color:         groupSelected
-                  ? "rgba(139,92,246,1)"
-                  : isOpen ? "#B8C0D4" : "#9AA3B2",
-                fontSize:      14,
-                fontFamily:    "var(--font-sans)",
-                fontWeight:    groupSelected ? 700 : 400,
-                cursor:        "pointer",
-                whiteSpace:    "nowrap",
-                display:       "flex",
-                alignItems:    "center",
-                gap:           6,
-                transition:    "all 0.15s ease",
-                boxShadow:     groupSelected ? "0 0 12px rgba(139,92,246,0.25)" : "none",
-              }}
+          return (
+            <div
+              key={group.key}
+              onMouseEnter={() => openDropdown(group.key)}
+              onMouseLeave={scheduleClose}
             >
-              {/* Active dot */}
-              {groupSelected && (
-                <span style={{
-                  width:      5,
-                  height:     5,
-                  borderRadius: "50%",
-                  background: "rgba(139,92,246,1)",
-                  boxShadow:  "0 0 6px rgba(139,92,246,1)",
-                  flexShrink: 0,
-                }} />
-              )}
-
-              {buttonLabel}
-
-              {/* Chevron */}
-              <svg
-                width="10" height="10" viewBox="0 0 10 10" fill="none"
+              <button
+                ref={(el) => { btnRefs.current[group.key] = el; }}
+                className={!isOpen ? "cd-btn-lift" : undefined}
                 style={{
-                  opacity:    0.45,
-                  transform:  isOpen ? "rotate(180deg)" : "none",
-                  transition: "transform 0.15s ease",
-                  flexShrink: 0,
+                  height:     36,
+                  padding:    "0 12px",
+                  background: groupSelected
+                    ? "rgba(139,92,246,0.18)"
+                    : isOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${
+                    groupSelected
+                      ? "rgba(139,92,246,0.45)"
+                      : isOpen ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)"
+                  }`,
+                  borderRadius:  8,
+                  color:         groupSelected
+                    ? "rgba(139,92,246,1)"
+                    : isOpen ? "#B8C0D4" : "#9AA3B2",
+                  fontSize:      14,
+                  fontFamily:    "var(--font-sans)",
+                  fontWeight:    groupSelected ? 700 : 400,
+                  cursor:        "pointer",
+                  whiteSpace:    "nowrap",
+                  display:       "flex",
+                  alignItems:    "center",
+                  gap:           6,
+                  transition:    "all 0.15s ease",
+                  boxShadow:     groupSelected ? "0 0 12px rgba(139,92,246,0.25)" : "none",
                 }}
               >
-                <path d="M2 3.5L5 6.5L8 3.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+                {/* Active dot */}
+                {groupSelected && (
+                  <span style={{
+                    width:        5,
+                    height:       5,
+                    borderRadius: "50%",
+                    background:   "rgba(139,92,246,1)",
+                    boxShadow:    "0 0 6px rgba(139,92,246,1)",
+                    flexShrink:   0,
+                  }} />
+                )}
 
-            {/* ── Dropdown panel — opens UPWARD, clears dock + textarea ── */}
-            {isOpen && (
-              <div
-                style={{
-                  position:             "absolute",
-                  bottom:               "calc(100% + 8px)",  // opens upward above the button
-                  top:                  "auto",
-                  left:                 0,
-                  background:           "#0E0F1A",
-                  border:               "1px solid rgba(255,255,255,0.10)",
-                  borderRadius:         10,
-                  padding:              4,
-                  zIndex:               200,  // clears dock (z:10), textarea, and prompt dock entirely
-                  minWidth:             "100%",
-                  boxShadow:            "0 -8px 32px rgba(0,0,0,0.7), 0 -2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
-                  backdropFilter:       "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  animation:            "cd-slide-up 0.15s ease",
-                }}
-              >
-                {group.models.map((modelKey) => {
-                  const modelDef  = CD_MODELS.find((m) => m.key === modelKey);
-                  if (!modelDef) return null;
-                  const isActive   = selectedModel === modelKey;
-                  const isDisabled = !modelDef.active;
+                {buttonLabel}
 
-                  return (
-                    <button
-                      key={modelKey}
-                      onClick={() => {
-                        if (!isDisabled) {
-                          setSelectedModel(modelKey);
-                          setOpenGroup(null);
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isDisabled && !isActive) {
-                          e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isDisabled && !isActive) {
-                          e.currentTarget.style.background = "transparent";
-                        }
-                      }}
-                      style={{
-                        display:        "flex",
-                        alignItems:     "center",
-                        gap:            8,
-                        width:          "100%",
-                        padding:        "7px 10px",
-                        background:     isActive ? "rgba(139,92,246,0.15)" : "transparent",
-                        border:         "none",
-                        borderRadius:   7,
-                        color:          isActive
-                          ? "rgba(139,92,246,1)"
-                          : isDisabled ? "rgba(255,255,255,0.22)" : "#B8C0D4",
-                        fontSize:       13,
-                        fontFamily:     "var(--font-sans)",
-                        fontWeight:     isActive ? 600 : 400,
-                        cursor:         isDisabled ? "not-allowed" : "pointer",
-                        textAlign:      "left",
-                        whiteSpace:     "nowrap",
-                        transition:     "background 0.1s ease",
-                        boxShadow:      isActive ? "inset 3px 0 0 rgba(139,92,246,0.7)" : "none",
-                      }}
-                    >
-                      {/* Active dot */}
-                      {isActive && (
-                        <span style={{
-                          width:      5,
-                          height:     5,
-                          borderRadius: "50%",
-                          background: "rgba(139,92,246,1)",
-                          flexShrink: 0,
-                        }} />
-                      )}
+                {/* Chevron */}
+                <svg
+                  width="10" height="10" viewBox="0 0 10 10" fill="none"
+                  style={{
+                    opacity:    0.45,
+                    transform:  isOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 0.15s ease",
+                    flexShrink: 0,
+                  }}
+                >
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          );
+        })}
+      </div>
 
-                      {modelDef.label}
+      {/* ── Portal dropdown — escapes overflow:hidden via document.body ──── */}
+      {openGroup && currentGroup && portalPos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onMouseEnter={clearClose}
+            onMouseLeave={scheduleClose}
+            style={{
+              position:             "fixed",
+              bottom:               portalPos.bottom,
+              left:                 portalPos.left,
+              background:           "#0E0F1A",
+              border:               "1px solid rgba(255,255,255,0.10)",
+              borderRadius:         10,
+              padding:              4,
+              zIndex:               9999,
+              minWidth:             160,
+              boxShadow:            "0 -8px 32px rgba(0,0,0,0.7), 0 -2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
+              backdropFilter:       "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              animation:            "cd-slide-up 0.15s ease",
+            }}
+          >
+            {currentGroup.models.map((modelKey) => {
+              const modelDef  = CD_MODELS.find((m) => m.key === modelKey);
+              if (!modelDef) return null;
+              const isActive   = selectedModel === modelKey;
+              const isDisabled = !modelDef.active;
 
-                      {/* Soon badge */}
-                      {modelDef.soon && (
-                        <span style={{
-                          fontSize:      8,
-                          background:    "rgba(255,255,255,0.07)",
-                          border:        "1px solid rgba(255,255,255,0.11)",
-                          borderRadius:  4,
-                          padding:       "1px 5px",
-                          color:         "rgba(255,255,255,0.28)",
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          marginLeft:    "auto",
-                        }}>
-                          Soon
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              return (
+                <button
+                  key={modelKey}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      setSelectedModel(modelKey);
+                      setOpenGroup(null);
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDisabled && !isActive) {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDisabled && !isActive) {
+                      e.currentTarget.style.background = "transparent";
+                    }
+                  }}
+                  style={{
+                    display:     "flex",
+                    alignItems:  "center",
+                    gap:         8,
+                    width:       "100%",
+                    padding:     "7px 10px",
+                    background:  isActive ? "rgba(139,92,246,0.15)" : "transparent",
+                    border:      "none",
+                    borderRadius: 7,
+                    color:        isActive
+                      ? "rgba(139,92,246,1)"
+                      : isDisabled ? "rgba(255,255,255,0.22)" : "#B8C0D4",
+                    fontSize:    13,
+                    fontFamily:  "var(--font-sans)",
+                    fontWeight:  isActive ? 600 : 400,
+                    cursor:      isDisabled ? "not-allowed" : "pointer",
+                    textAlign:   "left",
+                    whiteSpace:  "nowrap",
+                    transition:  "background 0.1s ease",
+                    boxShadow:   isActive ? "inset 3px 0 0 rgba(139,92,246,0.7)" : "none",
+                  }}
+                >
+                  {/* Active dot */}
+                  {isActive && (
+                    <span style={{
+                      width:        5,
+                      height:       5,
+                      borderRadius: "50%",
+                      background:   "rgba(139,92,246,1)",
+                      flexShrink:   0,
+                    }} />
+                  )}
+
+                  {modelDef.label}
+
+                  {/* Soon badge */}
+                  {modelDef.soon && (
+                    <span style={{
+                      fontSize:      8,
+                      background:    "rgba(255,255,255,0.07)",
+                      border:        "1px solid rgba(255,255,255,0.11)",
+                      borderRadius:  4,
+                      padding:       "1px 5px",
+                      color:         "rgba(255,255,255,0.28)",
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      marginLeft:    "auto",
+                    }}>
+                      Soon
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )
+      }
+    </>
   );
 }
