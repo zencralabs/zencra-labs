@@ -32,10 +32,16 @@ import { OutputCard }        from "./OutputCard";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OutputPanelProps {
-  onCollapsedChange?: (collapsed: boolean) => void;
+  onCollapsedChange?:  (collapsed: boolean) => void;
+  onReEditInDirector?: (url: string) => void;
+  onRegenVariation?:   () => void;
 }
 
-export function OutputPanel({ onCollapsedChange }: OutputPanelProps) {
+export function OutputPanel({
+  onCollapsedChange,
+  onReEditInDirector,
+  onRegenVariation,
+}: OutputPanelProps) {
   const outputs      = useDirectionStore(selectOutputs);
   const mode         = useDirectionStore(selectMode);
   const isGenerating = useDirectionStore(selectIsGenerating);
@@ -228,6 +234,12 @@ export function OutputPanel({ onCollapsedChange }: OutputPanelProps) {
                 key={output.id}
                 output={output}
                 isBest={output.id === bestId}
+                onReEditInDirector={
+                  output.url
+                    ? () => onReEditInDirector?.(output.url!)
+                    : undefined
+                }
+                onRegenVariation={onRegenVariation}
               />
             ))}
           </div>

@@ -33,6 +33,7 @@ import {
   useDirectionStore,
   buildCharacterDirectionSuffix,
 }                                                    from "@/lib/creative-director/store";
+import type { UploadedAsset }                        from "@/lib/creative-director/store";
 import { CDv2TopBar }                                from "./CDv2TopBar";
 import { LeftPanel }                                 from "./LeftPanel";
 import { SceneCanvas }                               from "./SceneCanvas";
@@ -117,6 +118,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     toggleDirectorPanel,
     openDirectorPanel,
     assignAssetToRole,
+    addUploadedAsset,
   } = useDirectionStore();
 
   const [isFullscreen,   setIsFullscreen]   = useState(false);
@@ -233,6 +235,68 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     },
     [patchRefinements, directionId, directionCreated, syncRefinements]
   );
+
+  // ── Re-edit in Director ───────────────────────────────────────────────────
+  // Loads the output image back into the store as an uploaded reference asset,
+  // making it available in AssetTray and canvas. Does NOT restore scene_snapshot.
+  const handleReEditInDirector = useCallback((url: string) => {
+    if (!url) return;
+    const asset: UploadedAsset = {
+      id:           `redit-${Date.now()}`,
+      url,
+      name:         "CD Output",
+      assignedRole: null,
+    };
+    addUploadedAsset(asset);
+    openDirectorPanel(); // surface the panel so user can see the asset was added
+  }, [addUploadedAsset, openDirectorPanel]);
+
+  // ── Regenerate Variation ──────────────────────────────────────────────────
+  // Real API call to the existing generate route with a variation suffix.
+  // Costs credits. Uses current directionId, refinements, model, and character
+  // direction — exactly the same as a normal generate, but appends the suffix.
+  const VARIATION_SUFFIX = "same subject and composition, subtle variation, refined cinematic detail";
+
+  const handleRegenVariation = useCallback(async () => {
+    const dId = await ensureDirection();
+    if (!dId) return;
+    if (refinements && Object.keys(refinements).length > 0) {
+      await syncRefinements(dId, refinements as Record<string, unknown>);
+    }
+    startGenerating();
+    const charSuffix   = buildCharacterDirectionSuffix(characterDirection);
+    const promptSuffix = [charSuffix, VARIATION_SUFFIX].filter(Boolean).join(", ");
+    try {
+      const res = await fetch("/api/creative-director/generate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          directionId:   dId,
+          count:         1,
+          aspectRatio:   "1:1",
+          modelOverride: selectedModel,
+          promptSuffix:  promptSuffix || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        finishGenerating([], err.error ?? `Variation failed (${res.status})`);
+        return;
+      }
+      const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
+      finishGenerating(data.generations ?? []);
+    } catch (err) {
+      finishGenerating([], err instanceof Error ? err.message : "Network error");
+    }
+  }, [
+    ensureDirection,
+    refinements,
+    syncRefinements,
+    startGenerating,
+    finishGenerating,
+    selectedModel,
+    characterDirection,
+  ]);
 
   // ── Layout constants ──────────────────────────────────────────────────────
   // Collapsed widths: left 56px (icon rail), right 78px (thumbnail strip).
@@ -408,7 +472,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         </div>
 
         {/* Right output stream */}
-        <OutputPanel onCollapsedChange={setRightCollapsed} />
+        <OutputPanel
+          onCollapsedChange={setRightCollapsed}
+          onReEditInDirector={handleReEditInDirector}
+          onRegenVariation={handleRegenVariation}
+        />
       </div>
     </div>
   );

@@ -18,11 +18,18 @@ import type { CDGenerationOutput } from "@/lib/creative-director/store";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OutputCardProps {
-  output: CDGenerationOutput;
-  isBest?: boolean;
+  output:               CDGenerationOutput;
+  isBest?:              boolean;
+  onReEditInDirector?:  () => void;
+  onRegenVariation?:    () => void;
 }
 
-export function OutputCard({ output, isBest = false }: OutputCardProps) {
+export function OutputCard({
+  output,
+  isBest = false,
+  onReEditInDirector,
+  onRegenVariation,
+}: OutputCardProps) {
   const [imgError, setImgError] = useState(false);
   const [hovered,  setHovered]  = useState(false);
 
@@ -238,7 +245,12 @@ export function OutputCard({ output, isBest = false }: OutputCardProps) {
 
       {/* ── Hover action overlay ─────────────────────────────────────────── */}
       {isCompleted && hasUrl && (
-        <HoverActions url={output.url!} visible={hovered} />
+        <HoverActions
+          url={output.url!}
+          visible={hovered}
+          onReEditInDirector={onReEditInDirector}
+          onRegenVariation={onRegenVariation}
+        />
       )}
     </div>
   );
@@ -246,7 +258,17 @@ export function OutputCard({ output, isBest = false }: OutputCardProps) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HoverActions({ url, visible }: { url: string; visible: boolean }) {
+function HoverActions({
+  url,
+  visible,
+  onReEditInDirector,
+  onRegenVariation,
+}: {
+  url:                  string;
+  visible:              boolean;
+  onReEditInDirector?:  () => void;
+  onRegenVariation?:    () => void;
+}) {
   const handleDownload = async () => {
     try {
       const res  = await fetch(url);
@@ -262,66 +284,122 @@ function HoverActions({ url, visible }: { url: string; visible: boolean }) {
 
   return (
     <div style={{
-      position:       "absolute",
-      inset:          0,
-      background:     visible
-        ? "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)"
+      position:      "absolute",
+      inset:         0,
+      background:    visible
+        ? "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.22) 55%, transparent 100%)"
         : "transparent",
-      transition:     "background 0.25s ease",
-      display:        "flex",
-      alignItems:     "flex-end",
+      transition:    "background 0.25s ease",
+      display:       "flex",
+      alignItems:    "flex-end",
       justifyContent: "center",
-      padding:        "0 0 12px",
-      gap:            8,
-      pointerEvents:  visible ? "auto" : "none",
+      padding:       "0 8px 10px",
+      pointerEvents: visible ? "auto" : "none",
     }}>
       {visible && (
-        <>
-          <ActionBtn title="Download" onClick={handleDownload}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v8M4 6l3 3 3-3M2 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 5,
+          width: "100%",
+        }}>
+          {/* Row 1: Open in Studio + Re-edit */}
+          <IconActionBtn
+            title="Open in Image Studio"
+            onClick={() => { window.location.href = "/studio/image?from=cd"; }}
+            accent="rgba(139,92,246,1)"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="1" y="1" width="4" height="4" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+              <rect x="7" y="1" width="4" height="4" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+              <rect x="1" y="7" width="4" height="4" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+              <rect x="7" y="7" width="4" height="4" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+            </svg>
+            Studio
+          </IconActionBtn>
+
+          <IconActionBtn
+            title="Load as reference in Director"
+            onClick={() => onReEditInDirector?.()}
+            accent="rgba(251,146,60,1)"
+            disabled={!onReEditInDirector}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="2" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M6 1v1.5M6 9.5V11M1 6h1.5M9.5 6H11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            Re-edit
+          </IconActionBtn>
+
+          {/* Row 2: Variation + Download */}
+          <IconActionBtn
+            title="Regenerate variation (costs credits)"
+            onClick={() => onRegenVariation?.()}
+            accent="rgba(34,197,94,1)"
+            disabled={!onRegenVariation}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M9.5 2A5 5 0 1 0 11 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              <path d="M9.5 2v2.5H12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Variation
+          </IconActionBtn>
+
+          <IconActionBtn
+            title="Download image"
+            onClick={handleDownload}
+            accent="rgba(255,255,255,0.7)"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1v7M3.5 5.5 6 8l2.5-2.5M1.5 11h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Download
-          </ActionBtn>
-          <ActionBtn title="Open full size" onClick={() => window.open(url, "_blank")}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M6 2H2v10h10V8M8 1h5v5M13 1 7.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Open
-          </ActionBtn>
-        </>
+          </IconActionBtn>
+        </div>
       )}
     </div>
   );
 }
 
-function ActionBtn({ title, onClick, children }: {
-  title:    string;
-  onClick:  () => void;
-  children: React.ReactNode;
+function IconActionBtn({
+  title,
+  onClick,
+  children,
+  accent = "rgba(255,255,255,0.7)",
+  disabled = false,
+}: {
+  title:     string;
+  onClick:   () => void;
+  children:  React.ReactNode;
+  accent?:   string;
+  disabled?: boolean;
 }) {
   const [hov, setHov] = useState(false);
+  const accentBg = accent.replace(/[\d.]+\)$/, "0.12)");
   return (
     <button
       title={title}
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
+      onClick={disabled ? undefined : onClick}
+      onMouseEnter={() => !disabled && setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background:    hov ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.55)",
-        border:        "1px solid rgba(255,255,255,0.2)",
-        borderRadius:  8,
-        color:         "rgba(255,255,255,0.9)",
-        cursor:        "pointer",
-        padding:       "6px 12px",
-        display:       "flex",
-        alignItems:    "center",
-        gap:           6,
-        fontSize:      10,
-        fontFamily:    "var(--font-sans)",
+        background:     hov ? accentBg : "rgba(0,0,0,0.55)",
+        border:         `1px solid ${hov ? accent.replace(/[\d.]+\)$/, "0.35)") : "rgba(255,255,255,0.14)"}`,
+        borderRadius:   8,
+        color:          disabled ? "rgba(255,255,255,0.25)" : hov ? accent : "rgba(255,255,255,0.7)",
+        cursor:         disabled ? "default" : "pointer",
+        padding:        "6px 8px",
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        gap:            5,
+        fontSize:       9,
+        fontFamily:     "var(--font-sans)",
         backdropFilter: "blur(10px)",
-        transition:    "background 0.15s ease",
-        letterSpacing: "0.03em",
+        transition:     "all 0.15s ease",
+        letterSpacing:  "0.04em",
+        opacity:        disabled ? 0.4 : 1,
+        whiteSpace:     "nowrap",
       }}
     >
       {children}
