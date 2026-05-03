@@ -44,13 +44,35 @@ const QUALITY_OPTIONS: Array<{ key: "standard" | "hd"; label: string }> = [
   { key: "hd",       label: "HD"  },
 ];
 
-// Brand groups for the model selector (FIX 3)
+// Brand groups for the model selector.
+// models[] order = oldest → newest (top → bottom when dropdown opens upward).
+// defaultLabel = shown on the group button when no model from this group is selected.
 const MODEL_GROUPS = [
-  { key: "gpt-image",   label: "GPT Image",   models: ["gpt-image-1",         "gpt-image-2"]          },
-  { key: "nano-banana", label: "Nano Banana",  models: ["nano-banana-standard", "nano-banana-pro", "nano-banana-2"] },
-  { key: "seedream",    label: "Seedream",     models: ["seedream-4-5",         "seedream-v5"]          },
-  { key: "flux",        label: "Flux",         models: ["flux-kontext",         "flux-2-image"]         },
-] as const;
+  {
+    key:          "gpt-image",
+    label:        "GPT Image",
+    defaultLabel: "GPT Image 2",
+    models:       ["gpt-image-1", "gpt-image-2"] as const,
+  },
+  {
+    key:          "nano-banana",
+    label:        "Nano Banana",
+    defaultLabel: "Nano Banana 2",
+    models:       ["nano-banana-standard", "nano-banana-pro", "nano-banana-2"] as const,
+  },
+  {
+    key:          "seedream",
+    label:        "Seedream",
+    defaultLabel: "Seedream 5.0 Lite",
+    models:       ["seedream-4-5", "seedream-v5"] as const,
+  },
+  {
+    key:          "flux",
+    label:        "Flux",
+    defaultLabel: "Flux.2 Max",
+    models:       ["flux-kontext", "flux-2-image", "flux-2-max"] as const,
+  },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -776,7 +798,8 @@ function ModelGroupSelector({
           (m) => groupModels.includes(m.key) && m.key === selectedModel
         );
         const groupSelected = !!activeModel;
-        const buttonLabel   = activeModel ? activeModel.label : group.label;
+        // Show active model label if selected from this group; otherwise show the group's latest/default name
+        const buttonLabel   = activeModel ? activeModel.label : group.defaultLabel;
 
         return (
           <div key={group.key} style={{ position: "relative" }}>
@@ -839,20 +862,21 @@ function ModelGroupSelector({
               </svg>
             </button>
 
-            {/* ── Dropdown panel ─────────────────────────────────────── */}
+            {/* ── Dropdown panel — opens UPWARD, clears dock + textarea ── */}
             {isOpen && (
               <div
                 style={{
                   position:             "absolute",
-                  top:                  "calc(100% + 4px)",
+                  bottom:               "calc(100% + 8px)",  // opens upward above the button
+                  top:                  "auto",
                   left:                 0,
                   background:           "#0E0F1A",
-                  border:               "1px solid rgba(255,255,255,0.08)",
+                  border:               "1px solid rgba(255,255,255,0.10)",
                   borderRadius:         10,
                   padding:              4,
-                  zIndex:               50,
+                  zIndex:               200,  // clears dock (z:10), textarea, and prompt dock entirely
                   minWidth:             "100%",
-                  boxShadow:            "0 8px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)",
+                  boxShadow:            "0 -8px 32px rgba(0,0,0,0.7), 0 -2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
                   backdropFilter:       "blur(20px)",
                   WebkitBackdropFilter: "blur(20px)",
                   animation:            "cd-slide-up 0.15s ease",

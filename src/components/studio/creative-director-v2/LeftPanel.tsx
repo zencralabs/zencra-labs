@@ -107,7 +107,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
       >
         {/* Expand button */}
         <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 6px" }}>
-          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Expand panel" />
+          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand panel" />
         </div>
 
         {/* Thin divider */}
@@ -143,7 +143,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
           flexShrink:     0,
         }}
       >
-        <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
+        <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
       </div>
 
       {/* ── Scene Intent ────────────────────────────────────────────────── */}

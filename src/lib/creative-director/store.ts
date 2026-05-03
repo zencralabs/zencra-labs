@@ -162,15 +162,20 @@ export interface CDModelDef {
 }
 
 export const CD_MODELS: CDModelDef[] = [
-  { key: "gpt-image-1",          label: "GPT Image 1",    active: true  },
-  { key: "nano-banana-standard", label: "Nano Banana",    active: true  },
-  { key: "nano-banana-pro",      label: "NB Pro",         active: true  },
-  { key: "nano-banana-2",        label: "NB 2",           active: true  },
-  { key: "seedream-4-5",         label: "Seedream 4.5",   active: true  },
-  { key: "seedream-v5",          label: "Seedream v5",    active: true  },
-  { key: "flux-kontext",         label: "FLUX Kontext",   active: true  },
-  { key: "gpt-image-2",          label: "GPT Image 2",    active: false, soon: true },
-  { key: "flux-2-image",         label: "Flux.2 Pro",     active: false, soon: true },
+  // GPT Image
+  { key: "gpt-image-1",          label: "GPT Image 1.5",    active: true  },
+  { key: "gpt-image-2",          label: "GPT Image 2",      active: false, soon: true },
+  // Nano Banana
+  { key: "nano-banana-standard", label: "Nano Banana",      active: true  },
+  { key: "nano-banana-pro",      label: "Nano Banana Pro",  active: true  },
+  { key: "nano-banana-2",        label: "Nano Banana 2",    active: true  },
+  // Seedream
+  { key: "seedream-4-5",         label: "Seedream 4.5",     active: true  },
+  { key: "seedream-v5",          label: "Seedream 5.0 Lite", active: true  },
+  // Flux
+  { key: "flux-kontext",         label: "Flux.2 Flex",      active: true  },
+  { key: "flux-2-image",         label: "Flux.2 Pro",       active: false, soon: true },
+  { key: "flux-2-max",           label: "Flux.2 Max",       active: false, soon: true },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
