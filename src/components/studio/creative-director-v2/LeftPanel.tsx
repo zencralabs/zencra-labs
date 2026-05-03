@@ -9,6 +9,12 @@
  *   3. Style Mood      — premium chip presets → direction_refinements
  *   4. Identity Lock   — premium toggle switch (48×26) → refinements.identity_lock
  *   5. Advanced        — collapsible: tone intensity
+ *
+ * Collapse:
+ *   Expanded: 280px, all sections visible.
+ *   Collapsed: 56px, icon-only rail with 5 nav icons + right-side tooltips.
+ *   Parent (CDv2Shell) controls the grid column width; this component
+ *   signals collapse state changes via onCollapsedChange.
  */
 
 import { useState, useCallback }          from "react";
@@ -18,26 +24,36 @@ import type { DirectionElementType }      from "@/lib/creative-director/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LeftPanelProps {
-  onAddElement:       (type: DirectionElementType, label: string) => void;
-  onEnsureDirection:  () => Promise<string | null>;
+  onAddElement:        (type: DirectionElementType, label: string) => void;
+  onEnsureDirection:   () => Promise<string | null>;
+  onCollapsedChange?:  (collapsed: boolean) => void;
 }
 
 const ROLE_BUTTONS: Array<{
   type:        DirectionElementType;
   label:       string;
   color:       string;
-  symbol:      string;
+  shape:       "circle";
   placeholder: string;
 }> = [
-  { type: "subject",    label: "Subject",    color: "rgba(59,130,246,1)",  symbol: "◉", placeholder: "e.g. a dancer mid-leap" },
-  { type: "world",      label: "World",      color: "rgba(34,197,94,1)",   symbol: "◎", placeholder: "e.g. neon-lit Tokyo alley" },
-  { type: "atmosphere", label: "Atmosphere", color: "rgba(139,92,246,1)",  symbol: "◈", placeholder: "e.g. moody fog, 3am energy" },
-  { type: "object",     label: "Object",     color: "rgba(249,115,22,1)",  symbol: "◆", placeholder: "e.g. chrome motorcycle" },
+  { type: "subject",    label: "Subject",    color: "rgba(59,130,246,1)",  shape: "circle", placeholder: "e.g. a dancer mid-leap" },
+  { type: "world",      label: "World",      color: "rgba(34,197,94,1)",   shape: "circle", placeholder: "e.g. neon-lit Tokyo alley" },
+  { type: "atmosphere", label: "Atmosphere", color: "rgba(139,92,246,1)",  shape: "circle", placeholder: "e.g. moody fog, 3am energy" },
+  { type: "object",     label: "Object",     color: "rgba(249,115,22,1)",  shape: "circle", placeholder: "e.g. chrome motorcycle" },
 ];
+
+// 5 rail icons for the collapsed state — one per section
+const RAIL_ICONS = [
+  { icon: "✦", label: "Scene Intent",  color: "rgba(139,92,246,0.5)" },
+  { icon: "＋", label: "Add to Scene", color: "rgba(139,92,246,0.5)" },
+  { icon: "◈", label: "Style Mood",    color: "rgba(139,92,246,0.5)" },
+  { icon: "⬡", label: "Identity Lock", color: "rgba(251,191,36,0.5)" },
+  { icon: "▸", label: "Advanced",      color: "rgba(255,255,255,0.3)" },
+] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
+export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }: LeftPanelProps) {
   const {
     sceneIntent,
     activeStyleMood,
@@ -47,9 +63,16 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
     patchRefinements,
   } = useDirectionStore();
 
-  const [activeRole, setActiveRole]     = useState<DirectionElementType | null>(null);
-  const [roleInput, setRoleInput]       = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [isCollapsed,   setIsCollapsed]   = useState(false);
+  const [activeRole,    setActiveRole]    = useState<DirectionElementType | null>(null);
+  const [roleInput,     setRoleInput]     = useState("");
+  const [advancedOpen,  setAdvancedOpen]  = useState(false);
+
+  const handleToggleCollapse = useCallback(() => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    onCollapsedChange?.(next);
+  }, [isCollapsed, onCollapsedChange]);
 
   const handleIntentChange = useCallback(
     async (val: string) => {
@@ -68,7 +91,37 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
 
   const identityLock = refinements?.identity_lock === true;
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Collapsed: 56px icon rail ─────────────────────────────────────────────
+  if (isCollapsed) {
+    return (
+      <div
+        style={{
+          height:        "100%",
+          display:       "flex",
+          flexDirection: "column",
+          background:    "rgba(8,8,11,0.98)",
+          overflow:      "visible", // allow tooltips to escape into canvas column
+          position:      "relative",
+          zIndex:        10,
+        }}
+      >
+        {/* Expand button */}
+        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 6px" }}>
+          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand panel" />
+        </div>
+
+        {/* Thin divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0 10px 6px" }} />
+
+        {/* Nav icons */}
+        {RAIL_ICONS.map((item) => (
+          <NavRailIcon key={item.label} icon={item.icon} label={item.label} color={item.color} />
+        ))}
+      </div>
+    );
+  }
+
+  // ── Expanded: full panel ──────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -81,6 +134,18 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
         scrollbarWidth: "none",
       }}
     >
+      {/* Collapse button row */}
+      <div
+        style={{
+          display:        "flex",
+          justifyContent: "flex-end",
+          padding:        "8px 10px 4px",
+          flexShrink:     0,
+        }}
+      >
+        <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
+      </div>
+
       {/* ── Scene Intent ────────────────────────────────────────────────── */}
       <Section label="Scene Intent" symbol="✦">
         <textarea
@@ -89,19 +154,19 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
           placeholder="Describe the scene, mood, or story in your own words…"
           rows={3}
           style={{
-            width:       "100%",
-            background:  "rgba(255,255,255,0.03)",
-            border:      "1px solid rgba(255,255,255,0.08)",
+            width:        "100%",
+            background:   "rgba(255,255,255,0.03)",
+            border:       "1px solid rgba(255,255,255,0.08)",
             borderRadius: 10,
-            color:       "rgba(255,255,255,0.85)",
-            fontSize:    13,
-            fontFamily:  "var(--font-sans)",
-            lineHeight:  1.6,
-            padding:     "10px 12px",
-            resize:      "none",
-            outline:     "none",
-            boxSizing:   "border-box",
-            transition:  "border-color 0.2s, box-shadow 0.2s",
+            color:        "rgba(255,255,255,0.85)",
+            fontSize:     13,
+            fontFamily:   "var(--font-sans)",
+            lineHeight:   1.6,
+            padding:      "10px 12px",
+            resize:       "none",
+            outline:      "none",
+            boxSizing:    "border-box",
+            transition:   "border-color 0.2s, box-shadow 0.2s",
           }}
           onFocus={(e) => {
             e.target.style.borderColor = "rgba(139,92,246,0.4)";
@@ -121,7 +186,6 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {ROLE_BUTTONS.map((r) => (
             <div key={r.type}>
-              {/* Role button — min-height 44px for premium feel */}
               <RoleButton
                 r={r}
                 active={activeRole === r.type}
@@ -131,7 +195,6 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
                 }}
               />
 
-              {/* Inline input */}
               {activeRole === r.type && (
                 <div style={{ display: "flex", gap: 6, marginTop: 5, paddingLeft: 2 }}>
                   <input
@@ -144,33 +207,33 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
                     }}
                     placeholder={r.placeholder}
                     style={{
-                      flex:        1,
-                      background:  "rgba(255,255,255,0.04)",
-                      border:      `1px solid ${r.color.replace("1)", "0.35)")}`,
+                      flex:         1,
+                      background:   "rgba(255,255,255,0.04)",
+                      border:       `1px solid ${r.color.replace("1)", "0.35)")}`,
                       borderRadius: 8,
-                      color:       "rgba(255,255,255,0.9)",
-                      fontSize:    12,
-                      fontFamily:  "var(--font-sans)",
-                      padding:     "8px 12px",
-                      outline:     "none",
-                      boxShadow:   `0 0 0 2px ${r.color.replace("1)", "0.06)")}`,
+                      color:        "rgba(255,255,255,0.9)",
+                      fontSize:     12,
+                      fontFamily:   "var(--font-sans)",
+                      padding:      "8px 12px",
+                      outline:      "none",
+                      boxShadow:    `0 0 0 2px ${r.color.replace("1)", "0.06)")}`,
                     }}
                   />
                   <button
                     onClick={commitRoleInput}
                     disabled={!roleInput.trim()}
                     style={{
-                      background:  roleInput.trim() ? r.color.replace("1)", "0.18)") : "rgba(255,255,255,0.03)",
-                      border:      `1px solid ${roleInput.trim() ? r.color.replace("1)", "0.4)") : "rgba(255,255,255,0.06)"}`,
+                      background:   roleInput.trim() ? r.color.replace("1)", "0.18)") : "rgba(255,255,255,0.03)",
+                      border:       `1px solid ${roleInput.trim() ? r.color.replace("1)", "0.4)") : "rgba(255,255,255,0.06)"}`,
                       borderRadius: 8,
-                      color:       roleInput.trim() ? r.color : "rgba(255,255,255,0.25)",
-                      fontSize:    12,
-                      fontFamily:  "var(--font-sans)",
-                      fontWeight:  600,
-                      cursor:      roleInput.trim() ? "pointer" : "not-allowed",
-                      padding:     "8px 14px",
-                      transition:  "all 0.15s ease",
-                      whiteSpace:  "nowrap",
+                      color:        roleInput.trim() ? r.color : "rgba(255,255,255,0.25)",
+                      fontSize:     12,
+                      fontFamily:   "var(--font-sans)",
+                      fontWeight:   600,
+                      cursor:       roleInput.trim() ? "pointer" : "not-allowed",
+                      padding:      "8px 14px",
+                      transition:   "all 0.15s ease",
+                      whiteSpace:   "nowrap",
                     }}
                   >
                     Add
@@ -199,10 +262,10 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
 
         {activeStyleMood && (
           <div style={{
-            marginTop:   8,
-            padding:     "8px 10px",
-            background:  "rgba(139,92,246,0.06)",
-            border:      "1px solid rgba(139,92,246,0.15)",
+            marginTop:    8,
+            padding:      "8px 10px",
+            background:   "rgba(139,92,246,0.06)",
+            border:       "1px solid rgba(139,92,246,0.15)",
             borderRadius: 8,
           }}>
             <p style={{
@@ -319,17 +382,131 @@ export function LeftPanel({ onAddElement, onEnsureDirection }: LeftPanelProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
+// Collapsed rail sub-components
 // ─────────────────────────────────────────────────────────────────────────────
+
+function NavRailIcon({ icon, label, color }: { icon: string; label: string; color: string }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      style={{ position: "relative" }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <div
+        style={{
+          width:          56,
+          height:         46,
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          cursor:         "default",
+          background:     hov ? "rgba(255,255,255,0.04)" : "transparent",
+          transition:     "background 0.15s ease",
+        }}
+      >
+        <span style={{
+          fontSize:   15,
+          color:      hov ? "rgba(255,255,255,0.75)" : color,
+          transition: "color 0.15s ease",
+          lineHeight: 1,
+        }}>
+          {icon}
+        </span>
+      </div>
+
+      {/* Right-side tooltip */}
+      {hov && (
+        <div
+          style={{
+            position:      "absolute",
+            left:          60,
+            top:           "50%",
+            transform:     "translateY(-50%)",
+            background:    "rgba(10,10,16,0.96)",
+            border:        "1px solid rgba(255,255,255,0.1)",
+            borderRadius:  6,
+            padding:       "5px 11px",
+            whiteSpace:    "nowrap",
+            fontSize:      11,
+            color:         "rgba(255,255,255,0.8)",
+            fontFamily:    "var(--font-sans)",
+            letterSpacing: "0.02em",
+            zIndex:        50,
+            pointerEvents: "none",
+            boxShadow:     "0 4px 20px rgba(0,0,0,0.5)",
+          }}
+        >
+          {label}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Chevron collapse / expand button */
+function ChevronBtn({
+  direction,
+  onToggle,
+  tooltip,
+}: {
+  direction: "left" | "right";
+  onToggle:  () => void;
+  tooltip:   string;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onToggle}
+      title={tooltip}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width:        28,
+        height:       28,
+        display:      "flex",
+        alignItems:   "center",
+        justifyContent: "center",
+        background:   hov ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+        border:       `1px solid ${hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"}`,
+        borderRadius: 7,
+        cursor:       "pointer",
+        flexShrink:   0,
+        transition:   "all 0.15s ease",
+        padding:      0,
+      }}
+    >
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+        style={{ transform: direction === "right" ? "rotate(180deg)" : "none" }}
+      >
+        <path
+          d="M6.5 2L3.5 5L6.5 8"
+          stroke={hov ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)"}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
 
 function Section({ label, symbol, children }: { label: string; symbol: string; children: React.ReactNode }) {
   return (
     <div style={{ padding: "16px 16px 14px" }}>
       <div style={{
-        display:       "flex",
-        alignItems:    "center",
-        gap:           7,
-        marginBottom:  12,
+        display:      "flex",
+        alignItems:   "center",
+        gap:          7,
+        marginBottom: 12,
       }}>
         <span style={{ fontSize: 10, color: "rgba(139,92,246,0.5)", lineHeight: 1 }}>{symbol}</span>
         <p style={{
@@ -359,6 +536,26 @@ function Divider() {
   );
 }
 
+function RoleIcon({ color, active, hov }: { shape: "circle"; color: string; active: boolean; hov: boolean }) {
+  const opacity  = active ? 1 : hov ? 0.8 : 0.55;
+  const glowSize = active ? "8px" : hov ? "5px" : "0px";
+  const glowClr  = color.replace("1)", "0.7)");
+
+  return (
+    <span style={{
+      display:      "inline-block",
+      width:        9,
+      height:       9,
+      borderRadius: "50%",
+      background:   color,
+      flexShrink:   0,
+      opacity,
+      boxShadow:    `0 0 ${glowSize} ${glowClr}`,
+      transition:   "opacity 0.2s, box-shadow 0.2s",
+    }} />
+  );
+}
+
 function RoleButton({
   r, active, onClick,
 }: {
@@ -373,47 +570,26 @@ function RoleButton({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        width:       "100%",
-        minHeight:   44,
-        display:     "flex",
-        alignItems:  "center",
-        gap:         10,
-        background:  active ? r.color.replace("1)", "0.08)") : hov ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.02)",
-        border:      `1px solid ${active ? r.color.replace("1)", "0.35)") : hov ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}`,
+        width:        "100%",
+        minHeight:    44,
+        display:      "flex",
+        alignItems:   "center",
+        gap:          10,
+        background:   active ? r.color.replace("1)", "0.08)") : hov ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.02)",
+        border:       `1px solid ${active ? r.color.replace("1)", "0.35)") : hov ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)"}`,
         borderRadius: 10,
-        padding:     "10px 14px",
-        cursor:      "pointer",
-        color:       active ? "rgba(255,255,255,0.92)" : hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.4)",
-        fontSize:    12,
-        fontFamily:  "var(--font-sans)",
-        transition:  "all 0.15s ease",
-        transform:   hov && !active ? "translateY(-1px)" : "none",
-        boxShadow:   active ? `0 0 16px ${r.color.replace("1)", "0.12)")}` : hov ? "0 4px 12px rgba(0,0,0,0.25)" : "none",
+        padding:      "10px 14px",
+        cursor:       "pointer",
+        color:        active ? "rgba(255,255,255,0.92)" : hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.4)",
+        fontSize:     12,
+        fontFamily:   "var(--font-sans)",
+        transition:   "all 0.15s ease",
+        transform:    hov && !active ? "translateY(-1px)" : "none",
+        boxShadow:    active ? `0 0 16px ${r.color.replace("1)", "0.12)")}` : hov ? "0 4px 12px rgba(0,0,0,0.25)" : "none",
       }}
     >
-      {/* Color dot */}
-      <span style={{
-        width:        9,
-        height:       9,
-        borderRadius: "50%",
-        background:   r.color,
-        flexShrink:   0,
-        boxShadow:    active ? `0 0 8px ${r.color.replace("1)", "0.7)")}` : "none",
-        transition:   "box-shadow 0.2s",
-      }} />
-
-      {/* Symbol */}
-      <span style={{
-        fontSize:  11,
-        color:     active ? r.color : r.color.replace("1)", "0.4)"),
-        flexShrink: 0,
-        transition: "color 0.2s",
-      }}>
-        {r.symbol}
-      </span>
-
+      <RoleIcon shape={r.shape} color={r.color} active={active} hov={hov} />
       <span style={{ flex: 1, textAlign: "left", letterSpacing: "0.01em" }}>{r.label}</span>
-
       <span style={{ opacity: 0.3, fontSize: 9, flexShrink: 0 }}>
         {active ? "▲" : "▼"}
       </span>

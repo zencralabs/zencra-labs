@@ -8,7 +8,7 @@
  *   │                CDv2TopBar (64px)                 │
  *   ├─────────────┬─────────────────────┬──────────────┤
  *   │  LeftPanel  │    SceneCanvas      │  OutputPanel │
- *   │   (280px)   │     (flex:1)        │   (320px)    │
+ *   │  280→56px   │     (flex:1)        │  320→78px    │
  *   │             ├─────────────────────┤              │
  *   │             │  DirectorHandle(36) │              │
  *   │             ├─────────────────────┤              │
@@ -117,7 +117,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     openDirectorPanel,
   } = useDirectionStore();
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen,   setIsFullscreen]   = useState(false);
+  const [leftCollapsed,  setLeftCollapsed]  = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   // Guard: createPortal needs document.body — only available on client.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -231,8 +233,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   );
 
   // ── Layout constants ──────────────────────────────────────────────────────
-  const leftW  = isFullscreen ? 320 : 280;
-  const rightW = isFullscreen ? 380 : 320;
+  // Collapsed widths: left 56px (icon rail), right 78px (thumbnail strip).
+  // Expanded widths grow in fullscreen for extra breathing room.
+  const leftW  = leftCollapsed  ? 56  : (isFullscreen ? 320 : 280);
+  const rightW = rightCollapsed ? 78  : (isFullscreen ? 380 : 320);
 
   // DirectorPanel bottom offset: handle(36) + dock(150) = 186
   const DOCK_HEIGHT     = 150;
@@ -317,7 +321,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         }}
       >
         {/* Left assist panel */}
-        <LeftPanel onAddElement={handleAddElement} onEnsureDirection={ensureDirection} />
+        <LeftPanel
+          onAddElement={handleAddElement}
+          onEnsureDirection={ensureDirection}
+          onCollapsedChange={setLeftCollapsed}
+        />
 
         {/* Center: canvas → handle → dock (+ director overlay) */}
         <div
@@ -350,7 +358,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         </div>
 
         {/* Right output stream */}
-        <OutputPanel />
+        <OutputPanel onCollapsedChange={setRightCollapsed} />
       </div>
     </div>
   );

@@ -9,19 +9,45 @@
  *
  * Outputs come from useDirectionStore — never fetched directly from DB here.
  * Gallery link: "Open Image Gallery" → /studio/image (opens in same tab).
+ *
+ * Collapse:
+ *   Expanded: 320px, full output grid.
+ *   Collapsed: 78px, vertical strip of latest 3–4 completed thumbnails.
+ *   Hover on thumbnail shows a 160px preview to the left of the strip.
+ *   If no outputs: glowing ✦ CD icon centered.
+ *   Parent (CDv2Shell) controls grid column width; collapse state signalled
+ *   via onCollapsedChange callback.
  */
 
 import { useMemo, useState } from "react";
-import { useDirectionStore, selectOutputs, selectMode, selectIsGenerating } from "@/lib/creative-director/store";
+import {
+  useDirectionStore,
+  selectOutputs,
+  selectMode,
+  selectIsGenerating,
+} from "@/lib/creative-director/store";
+import type { CDGenerationOutput } from "@/lib/creative-director/store";
 import { OutputCard }        from "./OutputCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function OutputPanel() {
+interface OutputPanelProps {
+  onCollapsedChange?: (collapsed: boolean) => void;
+}
+
+export function OutputPanel({ onCollapsedChange }: OutputPanelProps) {
   const outputs      = useDirectionStore(selectOutputs);
   const mode         = useDirectionStore(selectMode);
   const isGenerating = useDirectionStore(selectIsGenerating);
   const lastGenError = useDirectionStore((s) => s.lastGenError);
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleToggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    onCollapsedChange?.(next);
+  };
 
   const sorted = useMemo(() => {
     if (mode === "locked") {
@@ -30,7 +56,7 @@ export function OutputPanel() {
         return (order[a.status] ?? 2) - (order[b.status] ?? 2);
       });
     }
-    return outputs; // already newest-first from store
+    return outputs;
   }, [outputs, mode]);
 
   const bestId = useMemo(() => {
@@ -40,6 +66,64 @@ export function OutputPanel() {
 
   const hasOutputs = outputs.length > 0;
 
+  // ── Collapsed: 78px thumbnail strip ───────────────────────────────────────
+  if (isCollapsed) {
+    const completed = outputs
+      .filter((o) => o.status === "completed" && o.url)
+      .slice(0, 4);
+
+    return (
+      <div
+        style={{
+          height:        "100%",
+          display:       "flex",
+          flexDirection: "column",
+          background:    "rgba(7,7,10,0.99)",
+          overflow:      "visible", // allow thumbnail preview to escape into canvas column
+          position:      "relative",
+          zIndex:        10,
+        }}
+      >
+        {/* Expand button */}
+        <div
+          style={{
+            display:        "flex",
+            justifyContent: "center",
+            padding:        "10px 0 6px",
+            flexShrink:     0,
+          }}
+        >
+          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand outputs" />
+        </div>
+
+        {/* Thin divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0 10px 8px", flexShrink: 0 }} />
+
+        {/* Thumbnails or empty icon */}
+        <div
+          style={{
+            flex:           1,
+            display:        "flex",
+            flexDirection:  "column",
+            alignItems:     "center",
+            gap:            6,
+            padding:        "0 6px 12px",
+            overflowY:      "hidden",
+          }}
+        >
+          {completed.length > 0 ? (
+            completed.map((o) => (
+              <ThumbCard key={o.id} output={o} />
+            ))
+          ) : (
+            <CollapsedEmptyIcon isGenerating={isGenerating} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expanded: full panel ───────────────────────────────────────────────────
   return (
     <div style={{
       height:        "100%",
@@ -98,6 +182,9 @@ export function OutputPanel() {
             </div>
           )}
           <GalleryLink />
+
+          {/* Collapse button */}
+          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse outputs" />
         </div>
       </div>
 
@@ -152,6 +239,166 @@ export function OutputPanel() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Collapsed strip sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ThumbCard({ output }: { output: CDGenerationOutput }) {
+  const [hov, setHov] = useState(false);
+
+  return (
+    <div
+      style={{ position: "relative", flexShrink: 0 }}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      {/* Thumbnail */}
+      <div
+        style={{
+          width:        62,
+          height:       62,
+          borderRadius: 8,
+          overflow:     "hidden",
+          border:       `1px solid ${hov ? "rgba(139,92,246,0.5)" : "rgba(255,255,255,0.08)"}`,
+          background:   "rgba(255,255,255,0.03)",
+          transition:   "border-color 0.15s ease, transform 0.15s ease",
+          transform:    hov ? "scale(1.04)" : "scale(1)",
+          cursor:       "default",
+          flexShrink:   0,
+        }}
+      >
+        {output.url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={output.url}
+            alt="output"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        )}
+      </div>
+
+      {/* Left-side hover preview */}
+      {hov && output.url && (
+        <div
+          style={{
+            position:     "absolute",
+            right:        70,
+            top:          "50%",
+            transform:    "translateY(-50%)",
+            width:        160,
+            height:       160,
+            borderRadius: 10,
+            overflow:     "hidden",
+            border:       "1px solid rgba(139,92,246,0.3)",
+            boxShadow:    "0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.1)",
+            zIndex:       50,
+            pointerEvents: "none",
+            background:   "#03040a",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={output.url}
+            alt="preview"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CollapsedEmptyIcon({ isGenerating }: { isGenerating: boolean }) {
+  return (
+    <div
+      style={{
+        flex:           1,
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
+        gap:            8,
+        paddingBottom:  24,
+      }}
+    >
+      <div
+        style={{
+          width:          40,
+          height:         40,
+          borderRadius:   "50%",
+          background:     "rgba(139,92,246,0.07)",
+          border:         "1px solid rgba(139,92,246,0.2)",
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          fontSize:       16,
+          color:          "rgba(139,92,246,0.45)",
+          animation:      isGenerating ? "cd-node-glow 2s ease-in-out infinite" : "none",
+        }}
+      >
+        ✦
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared sub-components
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Chevron collapse / expand button — direction controls which way it points */
+function ChevronBtn({
+  direction,
+  onToggle,
+  tooltip,
+}: {
+  direction: "left" | "right";
+  onToggle:  () => void;
+  tooltip:   string;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onToggle}
+      title={tooltip}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width:          28,
+        height:         28,
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        background:     hov ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+        border:         `1px solid ${hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"}`,
+        borderRadius:   7,
+        cursor:         "pointer",
+        flexShrink:     0,
+        transition:     "all 0.15s ease",
+        padding:        0,
+      }}
+    >
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+        style={{ transform: direction === "right" ? "rotate(180deg)" : "none" }}
+      >
+        <path
+          d="M6.5 2L3.5 5L6.5 8"
+          stroke={hov ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)"}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expanded panel sub-components (unchanged)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function GalleryLink() {
   const [hov, setHov] = useState(false);
@@ -191,8 +438,6 @@ function GalleryLink() {
     </a>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function EmptyState({ mode }: { mode: string }) {
   return (
