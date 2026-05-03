@@ -48,7 +48,7 @@
  *   regardless of zoom level.
  */
 
-import {
+import React, {
   useState,
   useCallback,
   useRef,
@@ -60,10 +60,11 @@ import {
   selectElements,
   selectCanvasTransform,
   selectFrames,
+  selectConnections,
 } from "@/lib/creative-director/store";
-import type { FrameAspectRatio } from "@/lib/creative-director/store";
-import { SceneNode }  from "./SceneNode";
-import { FrameNode }  from "./FrameNode";
+import type { FrameAspectRatio, GenerationFrame } from "@/lib/creative-director/store";
+import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
+import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
 import type { DirectionElementType } from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +102,28 @@ const MAGNETIC_ZONES: Record<DirectionElementType, { cx: number; cy: number }> =
   object:     { cx: 0.63, cy: 0.70 },
 };
 
+// ── Handle geometry helpers ────────────────────────────────────────────────────
+// These use exported constants so we never hardcode or assume dimensions.
+
+/** Canvas-space position of a SceneNode's output handle (right edge, top area). */
+function getNodeOutputHandle(pos: CanvasPosition): CanvasPosition {
+  return {
+    x: pos.x + SCENE_NODE_CARD_WIDTH,
+    y: pos.y + SCENE_NODE_HANDLE_Y_OFFSET,
+  };
+}
+
+/** Canvas-space position of a FrameNode's input handle (left edge, vertical center). */
+function getFrameInputHandle(frame: GenerationFrame): CanvasPosition {
+  const fw    = frame.width ?? DEFAULT_FRAME_WIDTH;
+  const ratio = FRAME_RATIO_VALUES[frame.aspectRatio];
+  const bodyH = fw / ratio;
+  return {
+    x: frame.position.x,
+    y: frame.position.y + FRAME_HEADER_HEIGHT + bodyH / 2,
+  };
+}
+
 function getMagneticPosition(
   type:          DirectionElementType,
   sameTypeIdx:   number,
@@ -132,6 +155,10 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const removeFrame = useDirectionStore((s) => s.removeFrame);
   const updateFrame = useDirectionStore((s) => s.updateFrame);
 
+  const nodeConnections  = useDirectionStore(selectConnections);
+  const addConnection    = useDirectionStore((s) => s.addConnection);
+  const removeConnection = useDirectionStore((s) => s.removeConnection);
+
   const canvasRef       = useRef<HTMLDivElement>(null);
   const panStartRef     = useRef<{
     clientX: number; clientY: number;
@@ -155,6 +182,19 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
   const [framePickerPos,  setFramePickerPos] = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
+
+  // ── Phase C.1 — pending connection drag + hover-delete ───────────────────
+  const [pendingConn, setPendingConn] = useState<{
+    fromNodeId: string;
+    cursorPos:  CanvasPosition;
+  } | null>(null);
+  const [hoveredConnId, setHoveredConnId] = useState<string | null>(null);
+
+  // Ref so the global mouse handlers (stable closure) can access latest state
+  const pendingConnRef = useRef<typeof pendingConn>(null);
+
+  // Sync ref every render so handlers always see the latest pendingConn
+  pendingConnRef.current = pendingConn;
 
   // ── Detect newly added elements → initialize positions + spring ───────────
   useEffect(() => {
@@ -247,19 +287,61 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     });
   }, []);
 
-  // ── Pan — global mouse handlers (registered once) ─────────────────────────
+  // ── Pan + pending-connection — global mouse handlers (registered once) ───
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
+      // ── Pending connection drag ──────────────────────────────────────────
+      if (pendingConnRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const ct = useDirectionStore.getState().canvasTransform;
+          const s  = ct.scale / 100;
+          setPendingConn({
+            fromNodeId: pendingConnRef.current.fromNodeId,
+            cursorPos: {
+              x: (e.clientX - rect.left - ct.x) / s,
+              y: (e.clientY - rect.top  - ct.y) / s,
+            },
+          });
+        }
+        return; // don't pan while dragging a connection
+      }
+      // ── Pan ──────────────────────────────────────────────────────────────
       if (!panStartRef.current) return;
       const dx   = e.clientX - panStartRef.current.clientX;
       const dy   = e.clientY - panStartRef.current.clientY;
       const newX = Math.max(-200, Math.min(200, panStartRef.current.startX + dx));
       const newY = Math.max(-200, Math.min(200, panStartRef.current.startY + dy));
-      // Use getState() so we don't need canvasTransform in deps
       useDirectionStore.getState().setCanvasTransform({ x: newX, y: newY });
     };
 
     const onMouseUp = (e: MouseEvent) => {
+      // ── Pending connection drop ──────────────────────────────────────────
+      if (pendingConnRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const ct    = useDirectionStore.getState().canvasTransform;
+          const s     = ct.scale / 100;
+          const curX  = (e.clientX - rect.left - ct.x) / s;
+          const curY  = (e.clientY - rect.top  - ct.y) / s;
+          const { frames: currentFrames } = useDirectionStore.getState();
+          for (const frame of currentFrames) {
+            const hp   = getFrameInputHandle(frame);
+            const dist = Math.sqrt((curX - hp.x) ** 2 + (curY - hp.y) ** 2);
+            if (dist < 28) {
+              useDirectionStore.getState().addConnection({
+                id:         `conn-${Date.now()}`,
+                fromNodeId: pendingConnRef.current.fromNodeId,
+                toFrameId:  frame.id,
+              });
+              break;
+            }
+          }
+        }
+        setPendingConn(null);
+        return;
+      }
+      // ── Pan end ───────────────────────────────────────────────────────────
       if (!panStartRef.current) return;
       const dx    = e.clientX - panStartRef.current.clientX;
       const dy    = e.clientY - panStartRef.current.clientY;
@@ -289,6 +371,25 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     };
     setIsPanning(true);
   }, []);
+
+  // ── Start a node-to-frame connection drag ────────────────────────────────
+  const handleOutputHandleMouseDown = useCallback(
+    (e: React.MouseEvent, nodeId: string) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const ct   = useDirectionStore.getState().canvasTransform;
+      const s    = ct.scale / 100;
+      setPendingConn({
+        fromNodeId: nodeId,
+        cursorPos: {
+          x: (e.clientX - rect.left - ct.x) / s,
+          y: (e.clientY - rect.top  - ct.y) / s,
+        },
+      });
+    },
+    [],
+  );
 
   // ── Add Frame — create a new generation frame at canvas center ───────────
   const handleAddFrame = useCallback((aspectRatio: FrameAspectRatio) => {
@@ -364,7 +465,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); setFramePickerPos(null); }
+      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); setFramePickerPos(null); setPendingConn(null); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -467,106 +568,271 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           willChange:      "transform",
         }}
       >
-        {/* SVG connection lines — drawn in canvas (pre-transform) space */}
-        {connectionsWithNew.length > 0 && (
-          <svg
-            aria-hidden
-            style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              pointerEvents: "none", zIndex: 5,
-            }}
-          >
-            <defs>
-              <linearGradient id="conn-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%"   stopColor="rgba(59,130,246,0.5)" />
-                <stop offset="100%" stopColor="rgba(139,92,246,0.5)" />
-              </linearGradient>
-            </defs>
-            {connectionsWithNew.map(({ from, to, weight, isNew }) => {
-              const fi = elements.findIndex((e) => e.id === from);
-              const ti = elements.findIndex((e) => e.id === to);
-              const fp = getPosition(from, fi);
-              const tp = getPosition(to,   ti);
-              const x1 = fp.x + 90;  const y1 = fp.y + 22;
-              const x2 = tp.x + 90;  const y2 = tp.y + 22;
-              const mx = (x1 + x2) / 2;
-              const my = (y1 + y2) / 2 - 40;
-              // Thin, consistent lines — not variable-width based on weight.
-              // weight still influences opacity so higher-weight connections
-              // read as more important without changing the visual noise level.
-              const opacity = 0.40 + weight * 0.25;   // range 0.40–0.65
-              const strokeW = 1.5;                     // fixed 1.5px — never thicker
-              return (
-                <g
-                  key={`${from}-${to}`}
-                  style={{ animation: isNew ? "cd-fade-in 0.5s ease" : "none" }}
-                >
-                  {/* Glow backing — halved multiplier vs original */}
-                  <path
-                    d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
-                    fill="none"
-                    stroke={`rgba(139,92,246,${(opacity * 0.18).toFixed(3)})`}
-                    strokeWidth={strokeW * 2.5}
-                    strokeLinecap="round"
-                  />
-                  {/* Main dashed line */}
-                  <path
-                    d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
-                    fill="none"
-                    stroke="url(#conn-grad)"
-                    strokeWidth={strokeW}
-                    strokeLinecap="round"
-                    strokeOpacity={opacity}
-                    strokeDasharray="5 8"
-                  />
-                </g>
-              );
-            })}
-          </svg>
-        )}
+        {/* ── SVG: element→element connections + node→frame connections + pending ─ */}
+        <svg
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0,
+            width: "100%", height: "100%",
+            pointerEvents: "none", zIndex: 7,
+            overflow: "visible",
+          }}
+        >
+          <defs>
+            <linearGradient id="conn-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stopColor="rgba(59,130,246,0.5)" />
+              <stop offset="100%" stopColor="rgba(139,92,246,0.5)" />
+            </linearGradient>
+          </defs>
 
-        {/* Scene nodes */}
-        {elements.map((el, idx) => (
-          <div
-            key={el.id}
-            data-scene-node="true"
-            style={{
-              position:  "absolute",
-              top:       0,
-              left:      0,
-              animation: springNodes.has(el.id)
-                ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both"
-                : "none",
-            }}
-          >
-            <SceneNode
-              element={el}
-              x={getPosition(el.id, idx).x}
-              y={getPosition(el.id, idx).y}
-              onMove={handleMove}
-            />
-          </div>
-        ))}
+          {/* ── Layer 1: element → element decorative lines ─────────────────── */}
+          {connectionsWithNew.map(({ from, to, weight, isNew }) => {
+            const fi = elements.findIndex((e) => e.id === from);
+            const ti = elements.findIndex((e) => e.id === to);
+            const fp = getPosition(from, fi);
+            const tp = getPosition(to,   ti);
+            const x1 = fp.x + 90;  const y1 = fp.y + 22;
+            const x2 = tp.x + 90;  const y2 = tp.y + 22;
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2 - 40;
+            const opacity = 0.40 + weight * 0.25;
+            const strokeW = 1.5;
+            return (
+              <g
+                key={`el-${from}-${to}`}
+                style={{ animation: isNew ? "cd-fade-in 0.5s ease" : "none" }}
+              >
+                <path
+                  d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
+                  fill="none"
+                  stroke={`rgba(139,92,246,${(opacity * 0.18).toFixed(3)})`}
+                  strokeWidth={strokeW * 2.5}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
+                  fill="none"
+                  stroke="url(#conn-grad)"
+                  strokeWidth={strokeW}
+                  strokeLinecap="round"
+                  strokeOpacity={opacity}
+                  strokeDasharray="5 8"
+                />
+              </g>
+            );
+          })}
 
-        {/* Generation Frame nodes */}
-        {frames.map((frame) => (
-          <FrameNode
-            key={frame.id}
-            frame={frame}
-            isSelected={selectedFrameId === frame.id}
-            scale={canvasTransform.scale}
-            isSpring={springFrames.has(frame.id)}
-            onSelect={setSelectedFrameId}
-            onDelete={removeFrame}
-            onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
-            onResize={(id, width, pos) => {
-              const patch: Parameters<typeof updateFrame>[1] = { width };
-              if (pos) patch.position = pos;
-              updateFrame(id, patch);
-            }}
-          />
-        ))}
+          {/* ── Layer 2: node → frame committed connections ───────────────── */}
+          {nodeConnections.map((conn) => {
+            const nodeIdx = elements.findIndex((e) => e.id === conn.fromNodeId);
+            const frame   = frames.find((f) => f.id === conn.toFrameId);
+            if (nodeIdx < 0 || !frame) return null;
+            const nodePos = getPosition(conn.fromNodeId, nodeIdx);
+            const from    = getNodeOutputHandle(nodePos);
+            const to      = getFrameInputHandle(frame);
+            const offset  = Math.abs(to.x - from.x) * 0.45 + 30;
+            const d       = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
+            const isHovered = hoveredConnId === conn.id;
+            // Midpoint for hover × delete
+            const mx = (from.x + to.x) / 2;
+            const my = (from.y + to.y) / 2;
+            return (
+              <g
+                key={conn.id}
+                style={{ animation: "cd-fade-in 0.35s ease" }}
+                onMouseEnter={() => setHoveredConnId(conn.id)}
+                onMouseLeave={() => setHoveredConnId(null)}
+              >
+                {/* Wider invisible hit area */}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={16}
+                  style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                />
+                {/* Glow */}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={isHovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.06)"}
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke 0.15s ease" }}
+                />
+                {/* Main white line */}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={isHovered ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.55)"}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke 0.15s ease" }}
+                />
+                {/* Hover × delete midpoint — foreignObject so we can use a real button */}
+                {isHovered && (
+                  <foreignObject
+                    x={mx - 9}
+                    y={my - 9}
+                    width={18}
+                    height={18}
+                    style={{ pointerEvents: "all", overflow: "visible" }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeConnection(conn.id);
+                        setHoveredConnId(null);
+                      }}
+                      style={{
+                        width:        18,
+                        height:       18,
+                        borderRadius: "50%",
+                        background:   "rgba(20,16,32,0.95)",
+                        border:       "1px solid rgba(255,255,255,0.3)",
+                        color:        "rgba(255,255,255,0.85)",
+                        fontSize:     9,
+                        cursor:       "pointer",
+                        display:      "flex",
+                        alignItems:   "center",
+                        justifyContent: "center",
+                        lineHeight:   1,
+                        padding:      0,
+                        fontFamily:   "sans-serif",
+                      }}
+                      title="Remove connection"
+                    >
+                      ×
+                    </button>
+                  </foreignObject>
+                )}
+              </g>
+            );
+          })}
+
+          {/* ── Layer 3: pending connection drag line ─────────────────────── */}
+          {pendingConn && (() => {
+            const nodeIdx = elements.findIndex((e) => e.id === pendingConn.fromNodeId);
+            if (nodeIdx < 0) return null;
+            const nodePos = getPosition(pendingConn.fromNodeId, nodeIdx);
+            const from    = getNodeOutputHandle(nodePos);
+            const to      = pendingConn.cursorPos;
+            const offset  = Math.abs(to.x - from.x) * 0.45 + 30;
+            const d       = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
+            return (
+              <g>
+                <path d={d} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={4} strokeLinecap="round" />
+                <path d={d} fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth={1.5} strokeLinecap="round" strokeDasharray="6 5" />
+              </g>
+            );
+          })()}
+        </svg>
+
+        {/* Scene nodes + output handles */}
+        {elements.map((el, idx) => {
+          const pos = getPosition(el.id, idx);
+          const hx  = pos.x + SCENE_NODE_CARD_WIDTH;
+          const hy  = pos.y + SCENE_NODE_HANDLE_Y_OFFSET;
+          return (
+            <div
+              key={el.id}
+              data-scene-node="true"
+              style={{
+                position:  "absolute",
+                top:       0,
+                left:      0,
+                animation: springNodes.has(el.id)
+                  ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both"
+                  : "none",
+              }}
+            >
+              <SceneNode
+                element={el}
+                x={pos.x}
+                y={pos.y}
+                onMove={handleMove}
+              />
+              {/* Interactive output handle — right edge of card, rendered from SceneCanvas
+                  so position is computed from exported constants (not DOM refs). */}
+              <div
+                onMouseDown={(e) => handleOutputHandleMouseDown(e, el.id)}
+                title="Drag to connect to a frame"
+                style={{
+                  position:        "absolute",
+                  left:            hx - 6,
+                  top:             hy - 6,
+                  width:           12,
+                  height:          12,
+                  borderRadius:    "50%",
+                  background:      pendingConn?.fromNodeId === el.id
+                    ? "rgba(255,255,255,0.95)"
+                    : "rgba(255,255,255,0.35)",
+                  border:          "1.5px solid rgba(255,255,255,0.6)",
+                  cursor:          "crosshair",
+                  zIndex:          25,
+                  transition:      "background 0.15s ease, transform 0.15s ease",
+                  boxShadow:       "0 0 6px rgba(255,255,255,0.25)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background  = "rgba(255,255,255,0.95)";
+                  e.currentTarget.style.transform   = "scale(1.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background  =
+                    pendingConn?.fromNodeId === el.id
+                      ? "rgba(255,255,255,0.95)"
+                      : "rgba(255,255,255,0.35)";
+                  e.currentTarget.style.transform   = "scale(1)";
+                }}
+              />
+            </div>
+          );
+        })}
+
+        {/* Generation Frame nodes + input handles */}
+        {frames.map((frame) => {
+          const hp = getFrameInputHandle(frame);
+          const isTargeted = !!pendingConn; // dim handle glow when not in a drag
+          return (
+            <React.Fragment key={frame.id}>
+              <FrameNode
+                frame={frame}
+                isSelected={selectedFrameId === frame.id}
+                scale={canvasTransform.scale}
+                isSpring={springFrames.has(frame.id)}
+                onSelect={setSelectedFrameId}
+                onDelete={removeFrame}
+                onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
+                onResize={(id, width, pos) => {
+                  const patch: Parameters<typeof updateFrame>[1] = { width };
+                  if (pos) patch.position = pos;
+                  updateFrame(id, patch);
+                }}
+              />
+              {/* Input handle — left-center of frame. Visible during any connection drag. */}
+              <div
+                style={{
+                  position:     "absolute",
+                  left:         hp.x - 7,
+                  top:          hp.y - 7,
+                  width:        14,
+                  height:       14,
+                  borderRadius: "50%",
+                  background:   isTargeted
+                    ? "rgba(255,255,255,0.25)"
+                    : "rgba(255,255,255,0.08)",
+                  border:       isTargeted
+                    ? "1.5px solid rgba(255,255,255,0.55)"
+                    : "1.5px solid rgba(255,255,255,0.2)",
+                  boxShadow:    isTargeted ? "0 0 8px rgba(255,255,255,0.2)" : "none",
+                  zIndex:       22,
+                  pointerEvents: "none", // hit detection is distance-based in onMouseUp
+                  transition:   "all 0.2s ease",
+                }}
+              />
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* ── Zoom controls (top-right, outside transform) ──────────────── */}

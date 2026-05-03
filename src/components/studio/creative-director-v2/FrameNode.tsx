@@ -33,13 +33,24 @@ import { useState, useRef, useCallback } from "react";
 import type { GenerationFrame, FrameAspectRatio } from "@/lib/creative-director/store";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DEFAULT_FRAME_WIDTH = 220;
-const MIN_FRAME_WIDTH     = 140;
-const MAX_FRAME_WIDTH     = 520;
-const HEADER_HEIGHT       = 30;
-const HANDLE_SIZE         = 12;   // hit-area of each corner handle
+/** Default canvas-pixel width for a newly created frame. */
+export const DEFAULT_FRAME_WIDTH = 220;
+const MIN_FRAME_WIDTH            = 140;
+const MAX_FRAME_WIDTH            = 520;
+/** Pixel height of the frame header bar (used by SceneCanvas for handle geometry). */
+export const FRAME_HEADER_HEIGHT = 30;
+const HEADER_HEIGHT              = FRAME_HEADER_HEIGHT;   // internal alias
+const HANDLE_SIZE                = 12;   // hit-area of each corner handle
 
 // ─── Aspect ratio helpers ──────────────────────────────────────────────────────
+/** Numeric width/height ratios for each aspect ratio key (width ÷ height). */
+export const FRAME_RATIO_VALUES: Record<FrameAspectRatio, number> = {
+  "1:1":  1,
+  "16:9": 16 / 9,
+  "9:16": 9 / 16,
+  "4:5":  4 / 5,
+};
+
 const RATIO_MAP: Record<FrameAspectRatio, string> = {
   "1:1":  "1 / 1",
   "16:9": "16 / 9",

@@ -44,6 +44,20 @@ import {
 import type { DirectionElementRow }                  from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Geometry constants — exported so SceneCanvas can compute handle positions
+// without reading DOM refs or coupling to internal layout.
+// ─────────────────────────────────────────────────────────────────────────────
+/** Full pixel width of the glass card (matches `width: 196` in the card style). */
+export const SCENE_NODE_CARD_WIDTH = 196;
+
+/**
+ * Vertical offset from the node's canvas-space `position.y` to the center of
+ * the output handle dot on the right edge.  The dot sits near the card top
+ * (top-row area ≈ 22px from the top of the card).
+ */
+export const SCENE_NODE_HANDLE_Y_OFFSET = 22;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ROLE_COLORS: Record<string, string> = {
   subject:    "rgba(59,130,246,1)",

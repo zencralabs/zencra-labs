@@ -166,6 +166,16 @@ export interface GenerationFrame {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Node Connection — manual wiring from a scene element → a Generation Frame.
+// Session-only (not persisted to DB).
+// ─────────────────────────────────────────────────────────────────────────────
+export interface NodeConnection {
+  id:         string;
+  fromNodeId: string;   // DirectionElementRow.id
+  toFrameId:  string;   // GenerationFrame.id
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Image model keys available in Creative Director
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CDModelDef {
@@ -238,6 +248,9 @@ export interface DirectionState {
 
   // ── Generation frames (canvas output targets, session-only) ──────────────
   frames: GenerationFrame[];
+
+  // ── Manual node → frame connections (session-only) ────────────────────────
+  connections: NodeConnection[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -298,6 +311,10 @@ export interface DirectionActions {
   removeFrame: (id: string) => void;
   updateFrame: (id: string, patch: Partial<Pick<GenerationFrame, "position" | "generatedImageUrl" | "width">>) => void;
 
+  // Node → frame connections (session-only)
+  addConnection:    (c: NodeConnection) => void;
+  removeConnection: (id: string) => void;
+
   // Full reset (switching back to standard mode / new direction)
   reset: () => void;
 }
@@ -323,6 +340,7 @@ const INITIAL: DirectionState = {
   lastGenError:        null,
   directionCreated:    false,
   frames:              [],
+  connections:         [],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -454,6 +472,21 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
       frames: s.frames.map((f) => (f.id === id ? { ...f, ...patch } : f)),
     })),
 
+  // ── Node → frame connections ──────────────────────────────────────────────
+  addConnection: (c) =>
+    set((s) => {
+      const exists = s.connections.some(
+        (e) => e.fromNodeId === c.fromNodeId && e.toFrameId === c.toFrameId
+      );
+      if (exists) return s;
+      return { connections: [...s.connections, c] };
+    }),
+
+  removeConnection: (id) =>
+    set((s) => ({
+      connections: s.connections.filter((c) => c.id !== id),
+    })),
+
   // ── Reset ─────────────────────────────────────────────────────────────────
   reset: () => set(INITIAL),
 }));
@@ -469,3 +502,4 @@ export const selectMode           = (s: DirectionState & DirectionActions) => s.
 export const selectIsGenerating   = (s: DirectionState & DirectionActions) => s.isGenerating;
 export const selectCanvasTransform = (s: DirectionState & DirectionActions) => s.canvasTransform;
 export const selectFrames          = (s: DirectionState & DirectionActions) => s.frames;
+export const selectConnections     = (s: DirectionState & DirectionActions) => s.connections;
