@@ -66,27 +66,38 @@ function parseRatio(ar: FrameAspectRatio): number {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface FrameNodeProps {
-  frame:             GenerationFrame;
-  isSelected:        boolean;
-  scale:             number;                       // canvas zoom (0–200)
-  isSpring:          boolean;
-  pendingConnActive: boolean;                      // true while a node→frame connection is being dragged
-  onSelect:          (id: string) => void;
-  onDelete:          (id: string) => void;
-  onDragEnd:         (id: string, pos: { x: number; y: number }) => void;
-  onResize:          (id: string, width: number, pos?: { x: number; y: number }) => void;
+  frame:              GenerationFrame;
+  isSelected:         boolean;
+  scale:              number;                      // canvas zoom (0–200)
+  isSpring:           boolean;
+  pendingConnActive:  boolean;                     // true while a node→frame connection is being dragged
+  onboardingSuccess?: boolean;                     // true when subject was successfully dropped into this frame
+  onSelect:           (id: string) => void;
+  onDelete:           (id: string) => void;
+  onDragEnd:          (id: string, pos: { x: number; y: number }) => void;
+  onResize:           (id: string, width: number, pos?: { x: number; y: number }) => void;
 }
 
 // ─── Corner handle types ───────────────────────────────────────────────────────
 type Corner = "se" | "ne" | "sw" | "nw";
 
 // ─── Component ────────────────────────────────────────────────────────────────
+// ─── Onboarding success keyframe ──────────────────────────────────────────────
+const FRAME_SUCCESS_KEYFRAME = `
+@keyframes cd-ob-frame-scale {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+`;
+
 export function FrameNode({
   frame,
   isSelected,
   scale,
   isSpring,
   pendingConnActive,
+  onboardingSuccess,
   onSelect,
   onDelete,
   onDragEnd,
@@ -203,10 +214,12 @@ export function FrameNode({
   const isResizing = resizeCorner !== null;
 
   // ── Outer shadow / selection ring ─────────────────────────────────────────
-  // Default: premium depth (no colour, no glow). Selection: brand purple only.
-  const outerGlow = isSelected
-    ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
-    : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
+  // Onboarding success: bright purple ring + glow. Selection: standard purple. Default: depth only.
+  const outerGlow = onboardingSuccess
+    ? "0 0 0 1px rgba(139,92,246,0.9), 0 0 60px rgba(139,92,246,0.50)"
+    : isSelected
+      ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
+      : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
 
   // Shell border: always ultra-subtle white; purple only when selected
   const shellBorder = isSelected
@@ -249,6 +262,8 @@ export function FrameNode({
   };
 
   return (
+    <>
+    {onboardingSuccess && <style>{FRAME_SUCCESS_KEYFRAME}</style>}
     <div
       ref={outerRef}
       onMouseEnter={() => setHovered(true)}
@@ -295,7 +310,7 @@ export function FrameNode({
         }}
       />
 
-      {/* ── Glass shell — spring entry animation lives here, not on outer ─── */}
+      {/* ── Glass shell — spring + onboarding success animation live here, not on outer ─── */}
       <div
         style={{
           width:        "100%",
@@ -305,7 +320,10 @@ export function FrameNode({
           background:   "#000000",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
-          animation:    isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
+          // onboarding success scale overrides spring (both are on shell, not outer, to avoid translate conflict)
+          animation:    onboardingSuccess
+            ? "cd-ob-frame-scale 0.6s ease-out both"
+            : isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
           transition:   isResizing ? "none" : "border-color 0.18s ease, background 0.18s ease",
         }}
       >
@@ -523,5 +541,6 @@ export function FrameNode({
         </>
       )}
     </div>
+    </>
   );
 }

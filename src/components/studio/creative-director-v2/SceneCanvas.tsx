@@ -188,6 +188,16 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const [framePickerPos,  setFramePickerPos] = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
 
+  // ── Onboarding interactive state ──────────────────────────────────────────
+  const [onboardingStep,           setOnboardingStep]           = useState(1);
+  const [onboardingSuccessFrameId, setOnboardingSuccessFrameId] = useState<string | null>(null);
+
+  // Stable refs — updated every render so handleMoveEnd reads current data
+  // without needing elements/frames/positions in its useCallback deps.
+  const elementsRef  = useRef(elements);
+  const framesRef    = useRef(frames);
+  const positionsRef = useRef<Record<string, CanvasPosition>>({});
+
   // ── Onboarding — shown once when canvas is empty and flag is unset ────
   // Initialized lazily so sessionStorage is only read client-side.
   const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
@@ -201,6 +211,21 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     }
   });
 
+  // ── Auto-spawn Subject + Frame on first visit ────────────────────────────
+  // Capture showOnboarding at mount time (lazy state init is always correct here).
+  const showOnboardingOnMount = useRef(showOnboarding);
+  useEffect(() => {
+    if (!showOnboardingOnMount.current) return;
+    onAddElement("subject", "Subject");
+    addFrame({
+      id:          `onb-frm-${Date.now()}`,
+      aspectRatio: "16:9",
+      position:    { x: 320, y: 55 },
+      width:       240,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentional: one-time spawn at mount only
+
   // ── Phase C.1 — pending connection drag + hover-delete ───────────────────
   const [pendingConn, setPendingConn] = useState<{
     fromNodeId: string;
@@ -213,6 +238,10 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
 
   // Sync ref every render so handlers always see the latest pendingConn
   pendingConnRef.current = pendingConn;
+  // Sync stable refs for handleMoveEnd (accessed in callback but not in its deps)
+  elementsRef.current  = elements;
+  framesRef.current    = frames;
+  positionsRef.current = positions;
 
   // ── Detect newly added elements → initialize positions + spring ───────────
   useEffect(() => {
@@ -304,6 +333,38 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
       return { ...prev, [id]: { x: cur.x + dx / s, y: cur.y + dy / s } };
     });
   }, []);
+
+  // ── Onboarding: detect subject-into-frame drop ────────────────────────────
+  // Reads elements/frames/positions via refs so they're never in the deps array
+  // (positions changes on every drag delta — including them would cause all nodes
+  //  to re-render during drag as the callback constantly recreates).
+  const handleMoveEnd = useCallback((id: string) => {
+    if (!showOnboarding || onboardingStep !== 1) return;
+    const el  = elementsRef.current.find((e) => e.id === id);
+    if (!el || el.type !== "subject") return;
+    const pos = positionsRef.current[id];
+    if (!pos) return;
+    // Use the center of the node card as the drop point
+    const nodeCX = pos.x + SCENE_NODE_CARD_WIDTH / 2;
+    const nodeCY = pos.y + 40;   // approx vertical center of top row area
+    for (const frame of framesRef.current) {
+      const fw     = frame.width ?? DEFAULT_FRAME_WIDTH;
+      const ratio  = FRAME_RATIO_VALUES[frame.aspectRatio];
+      const bodyH  = fw / ratio;
+      const totalH = FRAME_HEADER_HEIGHT + bodyH;
+      if (
+        nodeCX >= frame.position.x &&
+        nodeCX <= frame.position.x + fw &&
+        nodeCY >= frame.position.y &&
+        nodeCY <= frame.position.y + totalH
+      ) {
+        try { sessionStorage.setItem("cd_onboarding_seen", "1"); } catch { /* silent */ }
+        setOnboardingStep(2);
+        setOnboardingSuccessFrameId(frame.id);
+        return;
+      }
+    }
+  }, [showOnboarding, onboardingStep]);
 
   // ── Pan + pending-connection — global mouse handlers (registered once) ───
   useEffect(() => {
@@ -775,6 +836,8 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
                 x={pos.x}
                 y={pos.y}
                 onMove={handleMove}
+                onMoveEnd={handleMoveEnd}
+                onboardingHighlight={showOnboarding && onboardingStep === 1 && el.type === "subject"}
               />
               {/* Interactive output handle — right edge of card, rendered from SceneCanvas
                   so position is computed from exported constants (not DOM refs). */}
@@ -823,6 +886,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             scale={canvasTransform.scale}
             isSpring={springFrames.has(frame.id)}
             pendingConnActive={!!pendingConn}
+            onboardingSuccess={onboardingSuccessFrameId === frame.id}
             onSelect={setSelectedFrameId}
             onDelete={removeFrame}
             onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
@@ -1080,7 +1144,10 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
 
       {/* ── Onboarding overlay — first visit, empty canvas only ──────── */}
       {showOnboarding && (
-        <CDOnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
+        <CDOnboardingOverlay
+          onDismiss={() => setShowOnboarding(false)}
+          step={onboardingStep}
+        />
       )}
     </div>
   );

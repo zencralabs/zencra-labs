@@ -79,13 +79,15 @@ const PRIORITY_COLOR = "rgba(251,191,36,1)";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface SceneNodeProps {
-  element: DirectionElementRow;
-  x:       number;
-  y:       number;
-  onMove:  (id: string, dx: number, dy: number) => void;
+  element:              DirectionElementRow;
+  x:                    number;
+  y:                    number;
+  onMove:               (id: string, dx: number, dy: number) => void;
+  onMoveEnd?:           (id: string) => void;
+  onboardingHighlight?: boolean;
 }
 
-export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
+export function SceneNode({ element, x, y, onMove, onMoveEnd, onboardingHighlight }: SceneNodeProps) {
   const {
     removeElement,
     updateElement,
@@ -178,10 +180,11 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
       dragStart.current = null;
       window.removeEventListener("mousemove", onMove_);
       window.removeEventListener("mouseup",   onUp);
+      onMoveEnd?.(element.id);
     };
     window.addEventListener("mousemove", onMove_);
     window.addEventListener("mouseup",   onUp);
-  }, [editing, element.id, onMove]);
+  }, [editing, element.id, onMove, onMoveEnd]);
 
   // ── Remove ────────────────────────────────────────────────────────────────
   const handleRemove = useCallback(async () => {
@@ -222,24 +225,35 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onMouseDown={handleMouseDown}
-      style={{
-        position:   "absolute",
-        left:       x,
-        top:        y,
-        cursor:     editing ? "default" : "grab",
-        userSelect: "none",
-        zIndex:     hovered ? 20 : 10,
-        // Weight → scale: 1.00 at 0%, 1.05 at 100% — subtle cinematic mass
-        transform:  `scale(${(1 + weight * 0.05).toFixed(4)})`,
-        transition: "transform 0.35s ease",
-        // Hover glow animation (cd-node-glow keyframe pulses box-shadow on this div)
-        animation:  hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
-      }}
-    >
+    <>
+      {onboardingHighlight && (
+        <style>{`
+          @keyframes cd-ob-node-pulse {
+            0%, 100% { box-shadow: 0 0 18px rgba(80,120,255,0.30); }
+            50%       { box-shadow: 0 0 36px rgba(80,120,255,0.60), 0 0 60px rgba(80,120,255,0.20); }
+          }
+        `}</style>
+      )}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onMouseDown={handleMouseDown}
+        style={{
+          position:   "absolute",
+          left:       x,
+          top:        y,
+          cursor:     editing ? "default" : "grab",
+          userSelect: "none",
+          zIndex:     hovered ? 20 : 10,
+          // Weight → scale: 1.00 at 0%, 1.05 at 100% — subtle cinematic mass
+          transform:  `scale(${(1 + weight * 0.05).toFixed(4)})`,
+          transition: "transform 0.35s ease",
+          // Onboarding highlight pulse overrides the hover glow
+          animation:  onboardingHighlight
+            ? "cd-ob-node-pulse 1.8s ease-in-out infinite"
+            : hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
+        }}
+      >
       {/* ── Glass card ─────────────────────────────────────────────────── */}
       <div
         style={{
@@ -503,5 +517,6 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
         {isPriority ? "⬆ Priority" : element.type}
       </div>
     </div>
+    </>
   );
 }
