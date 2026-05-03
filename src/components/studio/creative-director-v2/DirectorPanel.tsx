@@ -14,9 +14,9 @@
  * Director Controls write to direction_refinements via onRefinementChange.
  */
 
-import { useState }           from "react";
-import { useDirectionStore }  from "@/lib/creative-director/store";
-import { LensDial }           from "./LensDial";
+import { useState, useCallback }                     from "react";
+import { useDirectionStore, CharacterDirection }      from "@/lib/creative-director/store";
+import { LensDial }                                   from "./LensDial";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,105 @@ const HANDS_LEGS = [
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Actor Direction Presets
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DirectorPreset {
+  id:      string;
+  label:   string;
+  icon:    string;
+  tagline: string;
+  values:  Partial<CharacterDirection>;
+}
+
+const DIRECTOR_PRESETS: DirectorPreset[] = [
+  {
+    id: "hero-walk",
+    label: "Hero Walk",
+    icon: "⟶",
+    tagline: "Confident stride, direct gaze",
+    values: {
+      faceExpression: "serious",
+      bodyView:       "three-quarter",
+      poseAction:     "walking",
+      headDirection:  "forward",
+      eyeDirection:   "camera",
+      handsLegs:      "dynamic-legs",
+    },
+  },
+  {
+    id: "emotional-closeup",
+    label: "Emotional Close-up",
+    icon: "◎",
+    tagline: "Intimate, raw, camera-direct",
+    values: {
+      faceExpression: "emotional",
+      bodyView:       "front",
+      poseAction:     "standing",
+      headDirection:  "forward",
+      eyeDirection:   "camera",
+      handsLegs:      "natural-hands",
+    },
+  },
+  {
+    id: "action-freeze",
+    label: "Action Freeze",
+    icon: "⚡",
+    tagline: "Peak motion, frozen in frame",
+    values: {
+      faceExpression: "serious",
+      bodyView:       "three-quarter",
+      poseAction:     "running",
+      headDirection:  "forward",
+      eyeDirection:   "camera",
+      handsLegs:      "dynamic-legs",
+    },
+  },
+  {
+    id: "fashion-pose",
+    label: "Fashion Pose",
+    icon: "◆",
+    tagline: "Editorial stillness, controlled",
+    values: {
+      faceExpression: "neutral",
+      bodyView:       "three-quarter",
+      poseAction:     "standing",
+      headDirection:  "right",
+      eyeDirection:   "camera",
+      handsLegs:      "visible-hands",
+    },
+  },
+  {
+    id: "driving-scene",
+    label: "Driving Scene",
+    icon: "⊙",
+    tagline: "Profile, hands set, ambient",
+    values: {
+      faceExpression: "serious",
+      bodyView:       "left-profile",
+      poseAction:     "driving",
+      headDirection:  "forward",
+      eyeDirection:   "left",
+      handsLegs:      "visible-hands",
+    },
+  },
+  {
+    id: "back-view-mystery",
+    label: "Back View Mystery",
+    icon: "◑",
+    tagline: "Silhouette, tension, unknown",
+    values: {
+      faceExpression: null,
+      bodyView:       "back",
+      poseAction:     "standing",
+      headDirection:  "forward",
+      eyeDirection:   "left",
+      handsLegs:      "full-body",
+    },
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPanelProps) {
   const {
@@ -123,7 +222,19 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
     resetCharacterDirection,
   } = useDirectionStore();
 
-  const [charOpen, setCharOpen] = useState(true);
+  const [charOpen,       setCharOpen]       = useState(true);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
+  // Wraps patchCharacterDirection — clears the active preset glow
+  // whenever the user manually edits a control after applying a preset.
+  // Glow semantics: "current settings match this preset", not "last used".
+  const handleManualPatch = useCallback(
+    (patch: Parameters<typeof patchCharacterDirection>[0]) => {
+      setActivePresetId(null);
+      patchCharacterDirection(patch);
+    },
+    [patchCharacterDirection]
+  );
 
   return (
     <div
@@ -268,7 +379,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
           {/* Reset button */}
           {charOpen && (
             <button
-              onClick={(e) => { e.stopPropagation(); resetCharacterDirection(); }}
+              onClick={(e) => { e.stopPropagation(); resetCharacterDirection(); setActivePresetId(null); }}
               style={{
                 background:    "rgba(255,255,255,0.05)",
                 border:        "1px solid rgba(255,255,255,0.1)",
@@ -288,6 +399,41 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
         </button>
 
         {charOpen && (
+          <div>
+
+            {/* ── Preset scroll row ──────────────────────────────────────── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <div style={{ width: 3, height: 12, borderRadius: 2, background: "rgba(251,146,60,0.7)" }} />
+                <p style={{ fontSize: 10, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+                  Quick Presets
+                </p>
+              </div>
+              <div
+                style={{
+                  display:          "flex",
+                  gap:              10,
+                  overflowX:        "auto",
+                  paddingBottom:    6,
+                  scrollbarWidth:   "none",
+                  scrollSnapType:   "x mandatory",
+                }}
+              >
+                {DIRECTOR_PRESETS.map((preset) => (
+                  <PresetCard
+                    key={preset.id}
+                    preset={preset}
+                    active={activePresetId === preset.id}
+                    onApply={() => {
+                      patchCharacterDirection(preset.values);
+                      setActivePresetId(preset.id);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* ── 3-column manual controls ───────────────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
 
             {/* Column 1: Face + Locks */}
@@ -301,7 +447,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.faceExpression === key}
                       color="rgba(251,146,60,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         faceExpression: characterDirection.faceExpression === key ? null : key,
                       })}
                     />
@@ -315,13 +461,13 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                     label="Hairstyle Lock"
                     desc="Keep hair consistent"
                     active={characterDirection.hairstyleLock}
-                    onClick={() => patchCharacterDirection({ hairstyleLock: !characterDirection.hairstyleLock })}
+                    onClick={() => handleManualPatch({ hairstyleLock: !characterDirection.hairstyleLock })}
                   />
                   <LockToggle
                     label="Outfit Lock"
                     desc="Keep outfit consistent"
                     active={characterDirection.outfitLock}
-                    onClick={() => patchCharacterDirection({ outfitLock: !characterDirection.outfitLock })}
+                    onClick={() => handleManualPatch({ outfitLock: !characterDirection.outfitLock })}
                   />
                 </div>
               </ControlGroup>
@@ -338,7 +484,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.bodyView === key}
                       color="rgba(59,130,246,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         bodyView: characterDirection.bodyView === key ? null : key,
                       })}
                     />
@@ -355,7 +501,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.headDirection === key}
                       color="rgba(34,197,94,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         headDirection: characterDirection.headDirection === key ? null : key,
                       })}
                     />
@@ -372,7 +518,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.eyeDirection === key}
                       color="rgba(139,92,246,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         eyeDirection: characterDirection.eyeDirection === key ? null : key,
                       })}
                     />
@@ -392,7 +538,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.poseAction === key}
                       color="rgba(239,68,68,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         poseAction: characterDirection.poseAction === key ? null : key,
                       })}
                     />
@@ -409,7 +555,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                       icon=""
                       active={characterDirection.handsLegs === key}
                       color="rgba(148,163,184,1)"
-                      onClick={() => patchCharacterDirection({
+                      onClick={() => handleManualPatch({
                         handsLegs: characterDirection.handsLegs === key ? null : key,
                       })}
                     />
@@ -417,6 +563,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
                 </div>
               </ControlGroup>
             </div>
+          </div>
           </div>
         )}
       </div>
@@ -526,6 +673,104 @@ function EnergyCard({
       <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
       <div style={{ fontSize: 13, fontFamily: "var(--font-sans)", fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{label}</div>
       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-sans)", lineHeight: 1.3 }}>{desc}</div>
+    </button>
+  );
+}
+
+function PresetCard({
+  preset,
+  active,
+  onApply,
+}: {
+  preset:   DirectorPreset;
+  active:   boolean;
+  onApply:  () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onApply}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flexShrink:    0,
+        width:         130,
+        scrollSnapAlign: "start",
+        background:    active
+          ? "rgba(251,146,60,0.12)"
+          : hov
+            ? "rgba(255,255,255,0.06)"
+            : "rgba(255,255,255,0.03)",
+        border:        `1px solid ${
+          active
+            ? "rgba(251,146,60,0.45)"
+            : hov
+              ? "rgba(255,255,255,0.14)"
+              : "rgba(255,255,255,0.07)"
+        }`,
+        borderRadius:  12,
+        cursor:        "pointer",
+        padding:       "12px 12px 10px",
+        display:       "flex",
+        flexDirection: "column",
+        alignItems:    "flex-start",
+        gap:           6,
+        textAlign:     "left",
+        transition:    "all 0.15s ease",
+        transform:     hov && !active ? "translateY(-2px)" : "none",
+        boxShadow:     active
+          ? "0 0 20px rgba(251,146,60,0.18), inset 0 0 0 1px rgba(251,146,60,0.1)"
+          : hov
+            ? "0 6px 20px rgba(0,0,0,0.35)"
+            : "none",
+        position:      "relative",
+      }}
+    >
+      {/* Active glow dot */}
+      {active && (
+        <div style={{
+          position:     "absolute",
+          top:          8,
+          right:        8,
+          width:        6,
+          height:       6,
+          borderRadius: "50%",
+          background:   "rgba(251,146,60,1)",
+          boxShadow:    "0 0 8px rgba(251,146,60,0.9)",
+        }} />
+      )}
+
+      {/* Icon */}
+      <span style={{
+        fontSize:   18,
+        lineHeight: 1,
+        color:      active ? "rgba(251,146,60,1)" : "rgba(255,255,255,0.55)",
+        transition: "color 0.15s ease",
+      }}>
+        {preset.icon}
+      </span>
+
+      {/* Label */}
+      <div style={{
+        fontSize:    12,
+        fontFamily:  "var(--font-sans)",
+        fontWeight:  active ? 600 : 500,
+        color:       active ? "rgba(251,146,60,1)" : hov ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.65)",
+        lineHeight:  1.2,
+        transition:  "color 0.15s ease",
+      }}>
+        {preset.label}
+      </div>
+
+      {/* Tagline */}
+      <div style={{
+        fontSize:   10,
+        fontFamily: "var(--font-sans)",
+        color:      "rgba(255,255,255,0.28)",
+        lineHeight: 1.4,
+      }}>
+        {preset.tagline}
+      </div>
     </button>
   );
 }
