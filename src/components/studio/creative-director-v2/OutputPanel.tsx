@@ -32,13 +32,13 @@ import { OutputCard }        from "./OutputCard";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface OutputPanelProps {
-  onCollapsedChange?:  (collapsed: boolean) => void;
+  isCollapsed?:        boolean;   // controlled by CDv2Shell — no internal state
   onReEditInDirector?: (url: string) => void;
   onRegenVariation?:   () => void;
 }
 
 export function OutputPanel({
-  onCollapsedChange,
+  isCollapsed = false,
   onReEditInDirector,
   onRegenVariation,
 }: OutputPanelProps) {
@@ -46,14 +46,6 @@ export function OutputPanel({
   const mode         = useDirectionStore(selectMode);
   const isGenerating = useDirectionStore(selectIsGenerating);
   const lastGenError = useDirectionStore((s) => s.lastGenError);
-
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const handleToggleCollapse = () => {
-    const next = !isCollapsed;
-    setIsCollapsed(next);
-    onCollapsedChange?.(next);
-  };
 
   const sorted = useMemo(() => {
     if (mode === "locked") {
@@ -90,17 +82,8 @@ export function OutputPanel({
           zIndex:        10,
         }}
       >
-        {/* Expand button */}
-        <div
-          style={{
-            display:        "flex",
-            justifyContent: "center",
-            padding:        "10px 0 6px",
-            flexShrink:     0,
-          }}
-        >
-          <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Expand outputs" />
-        </div>
+        {/* Top spacer (toggle lives in CDv2Shell now) */}
+        <div style={{ height: 10, flexShrink: 0 }} />
 
         {/* Thin divider */}
         <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0 10px 8px", flexShrink: 0 }} />
@@ -190,9 +173,6 @@ export function OutputPanel({
             </div>
           )}
           <GalleryLink />
-
-          {/* Collapse button */}
-          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Collapse outputs" />
         </div>
       </div>
 

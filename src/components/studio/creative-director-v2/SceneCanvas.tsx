@@ -68,9 +68,16 @@ import type { DirectionElementType } from "@/lib/creative-director/types";
 interface CanvasPosition { x: number; y: number; }
 
 interface SceneCanvasProps {
-  onAddElement:            (type: DirectionElementType, label: string) => void;
+  onAddElement:            (type: DirectionElementType, label: string, assetUrl?: string) => void;
   onOpenDirectorControls?: () => void;
   onDropAsset?:            (assetId: string, role: DirectionElementType) => void;
+}
+
+// Pending asset drop awaiting role selection
+interface PendingDrop {
+  x:     number;
+  y:     number;
+  asset: { id: string; url: string; name: string };
 }
 
 const ROLES: Array<{ type: DirectionElementType; label: string; color: string }> = [
@@ -135,6 +142,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const [quickAdd,     setQuickAdd]    = useState<{ x: number; y: number } | null>(null);
   const [contextMenu,  setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [springNodes,  setSpringNodes] = useState<Set<string>>(new Set());
+  const [dropPicker,   setDropPicker]  = useState<PendingDrop | null>(null);
 
   // ── Detect newly added elements → initialize positions + spring ───────────
   useEffect(() => {
@@ -256,9 +264,10 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     if (panHappenedRef.current) { panHappenedRef.current = false; return; }
     if ((e.target as HTMLElement).closest("[data-scene-node]")) return;
     // Close any open menus — nothing else on single left click
+    if (dropPicker)  { setDropPicker(null);  return; }
     if (contextMenu) { setContextMenu(null); return; }
     if (quickAdd)    { setQuickAdd(null);    return; }
-  }, [contextMenu, quickAdd]);
+  }, [dropPicker, contextMenu, quickAdd]);
 
   // ── Double-click: open QuickAddPicker ────────────────────────────────────
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -291,7 +300,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); }
+      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -329,14 +338,17 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
         e.preventDefault();
         setDragOver(false);
 
-        // ── Asset tray drop (priority) ───────────────────────────────────
+        // ── Asset tray drop (priority) — show role picker at drop point ──
         const assetJson = e.dataTransfer.getData("application/cd-asset");
         if (assetJson) {
           try {
             const asset = JSON.parse(assetJson) as { id: string; url: string; name: string };
-            const role: DirectionElementType = "subject"; // role picker deferred
-            onAddElement(role, asset.name || "Reference");
-            onDropAsset?.(asset.id, role);
+            const rect  = canvasRef.current!.getBoundingClientRect();
+            setDropPicker({
+              x:     e.clientX - rect.left,
+              y:     e.clientY - rect.top,
+              asset,
+            });
           } catch { /* malformed — ignore */ }
           return;
         }
@@ -416,19 +428,22 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
               const x2 = tp.x + 90;  const y2 = tp.y + 22;
               const mx = (x1 + x2) / 2;
               const my = (y1 + y2) / 2 - 40;
-              const opacity  = 0.15 + weight * 0.55;
-              const strokeW  = 1.0  + weight * 1.5;
+              // Thin, consistent lines — not variable-width based on weight.
+              // weight still influences opacity so higher-weight connections
+              // read as more important without changing the visual noise level.
+              const opacity = 0.40 + weight * 0.25;   // range 0.40–0.65
+              const strokeW = 1.5;                     // fixed 1.5px — never thicker
               return (
                 <g
                   key={`${from}-${to}`}
                   style={{ animation: isNew ? "cd-fade-in 0.5s ease" : "none" }}
                 >
-                  {/* Glow backing */}
+                  {/* Glow backing — halved multiplier vs original */}
                   <path
                     d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
                     fill="none"
-                    stroke={`rgba(139,92,246,${(opacity * 0.28).toFixed(3)})`}
-                    strokeWidth={strokeW * 5}
+                    stroke={`rgba(139,92,246,${(opacity * 0.18).toFixed(3)})`}
+                    strokeWidth={strokeW * 2.5}
                     strokeLinecap="round"
                   />
                   {/* Main dashed line */}
@@ -649,7 +664,152 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           onOpenDirectorControls={() => { onOpenDirectorControls?.(); setContextMenu(null); }}
         />
       )}
+
+      {/* ── Asset drop role picker ────────────────────────────────────── */}
+      {dropPicker && (
+        <AssetRolePicker
+          x={dropPicker.x}
+          y={dropPicker.y}
+          asset={dropPicker.asset}
+          onSelect={(role) => {
+            onAddElement(role, dropPicker.asset.name || "Reference", dropPicker.asset.url);
+            onDropAsset?.(dropPicker.asset.id, role);
+            setDropPicker(null);
+          }}
+          onClose={() => setDropPicker(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AssetRolePicker — role assignment popup shown when an asset is dropped
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AssetRolePicker({ x, y, asset, onSelect, onClose }: {
+  x:        number;
+  y:        number;
+  asset:    { id: string; url: string; name: string };
+  onSelect: (role: DirectionElementType) => void;
+  onClose:  () => void;
+}) {
+  return (
+    <>
+      <div style={{ position: "absolute", inset: 0, zIndex: 30 }} onClick={onClose} />
+      <div
+        style={{
+          position:       "absolute",
+          left:           Math.min(x, 9999), // will be clamped by parent overflow:hidden
+          top:            y,
+          zIndex:         31,
+          background:     "rgba(12,10,18,0.98)",
+          border:         "1px solid rgba(255,255,255,0.1)",
+          borderRadius:   12,
+          padding:        8,
+          display:        "flex",
+          flexDirection:  "column",
+          gap:            3,
+          boxShadow:      "0 12px 48px rgba(0,0,0,0.75), 0 0 0 1px rgba(139,92,246,0.12)",
+          backdropFilter: "blur(20px)",
+          minWidth:       170,
+          animation:      "cd-slide-up 0.2s ease",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Reference image preview strip */}
+        <div style={{
+          borderRadius: 8,
+          overflow:     "hidden",
+          height:       52,
+          marginBottom: 4,
+          position:     "relative",
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={asset.url}
+            alt={asset.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div style={{
+            position:   "absolute",
+            inset:      0,
+            background: "linear-gradient(to top, rgba(12,10,18,0.8) 0%, transparent 60%)",
+            display:    "flex",
+            alignItems: "flex-end",
+            padding:    "4px 7px",
+          }}>
+            <span style={{
+              fontSize:      8,
+              fontFamily:    "var(--font-sans)",
+              fontWeight:    600,
+              color:         "rgba(255,255,255,0.75)",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+            }}>
+              {asset.name || "Reference"}
+            </span>
+          </div>
+        </div>
+
+        <p style={{
+          fontSize:      9,
+          color:         "rgba(255,255,255,0.25)",
+          fontFamily:    "var(--font-sans)",
+          margin:        "2px 8px 6px",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}>
+          Assign role
+        </p>
+
+        {ROLES.map((r) => (
+          <AssetRoleItem key={r.type} role={r} onSelect={onSelect} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function AssetRoleItem({
+  role,
+  onSelect,
+}: {
+  role:     { type: DirectionElementType; label: string; color: string };
+  onSelect: (type: DirectionElementType) => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={() => onSelect(role.type)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background:  hov ? "rgba(255,255,255,0.06)" : "transparent",
+        border:      "none",
+        borderRadius: 8,
+        color:       hov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.65)",
+        fontSize:    13,
+        fontFamily:  "var(--font-sans)",
+        cursor:      "pointer",
+        padding:     "8px 10px",
+        textAlign:   "left",
+        display:     "flex",
+        alignItems:  "center",
+        gap:         10,
+        transition:  "all 0.12s ease",
+      }}
+    >
+      <span style={{
+        width:     10,
+        height:    10,
+        borderRadius: "50%",
+        background: role.color,
+        flexShrink: 0,
+        boxShadow: `0 0 6px ${role.color.replace("1)", "0.5)")}`,
+      }} />
+      {role.label}
+    </button>
   );
 }
 

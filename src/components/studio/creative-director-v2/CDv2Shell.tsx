@@ -27,7 +27,7 @@
  *   A `mounted` flag guards against SSR (document.body is client-only).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { createPortal }                              from "react-dom";
 import {
   useDirectionStore,
@@ -99,6 +99,61 @@ function DirectorHandle({ open, onToggle }: { open: boolean; onToggle: () => voi
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Panel edge toggle button — always visible at panel boundaries regardless of
+// collapse state. Lives in CDv2Shell (outside panels) so it's never clipped
+// or hidden when a panel collapses or the window resizes.
+function PanelToggleBtn({
+  onClick,
+  tooltip,
+  pointing,
+}: {
+  onClick:  () => void;
+  tooltip:  string;
+  pointing: "left" | "right";
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      title={tooltip}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width:          28,
+        height:         28,
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        background:     hov ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+        border:         `1px solid ${hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"}`,
+        borderRadius:   7,
+        cursor:         "pointer",
+        flexShrink:     0,
+        transition:     "all 0.15s ease",
+        padding:        0,
+      }}
+    >
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+        style={{ transform: pointing === "right" ? "rotate(180deg)" : "none" }}
+      >
+        <path
+          d="M6.5 2L3.5 5L6.5 8"
+          stroke={hov ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)"}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const {
     directionId,
@@ -128,6 +183,15 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // Guard: createPortal needs document.body — only available on client.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // ── Force re-render on window resize ─────────────────────────────────────
+  // Keeps the external panel toggle buttons anchored to the correct pixel
+  // position when the user resizes or maximises the window.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    window.addEventListener("resize", forceUpdate);
+    return () => window.removeEventListener("resize", forceUpdate);
+  }, []);
 
   const creatingRef = useRef(false);
 
@@ -166,7 +230,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // 5. On failure: keep the temp element alive so the canvas stays populated.
   //    The element will be re-synced on the next generate call.
   const handleAddElement = useCallback(
-    async (type: DirectionElementType, label: string) => {
+    async (type: DirectionElementType, label: string, assetUrl?: string) => {
       // Step 1 — optimistic: show on canvas immediately
       const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const tempElement: DirectionElementRow = {
@@ -174,6 +238,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         direction_id: "pending",
         type,
         label,
+        asset_url:    assetUrl,   // ← attach blob URL so SceneNode can show thumbnail
         weight:       0.7,
         position:     elements.length,
         created_at:   new Date().toISOString(),
@@ -195,11 +260,13 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         const res = await fetch("/api/creative-director/elements", {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ direction_id: dId, type, label, weight: 0.7, position: elements.length }),
+          body: JSON.stringify({ direction_id: dId, type, label, weight: 0.7, position: elements.length, asset_url: assetUrl }),
         });
         if (!res.ok) throw new Error(`Status ${res.status}`);
         const data = await res.json();
         const realElement: DirectionElementRow = data.element ?? data;
+        // Preserve blob URL on the real element — the DB row may not store blob: URLs
+        if (assetUrl && !realElement.asset_url) realElement.asset_url = assetUrl;
         // Step 4 — swap temp → real (batched, no visible flash)
         removeElement(tempId);
         addElement(realElement);
@@ -468,6 +535,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       {/* ── 3-zone body ──────────────────────────────────────────────── */}
       <div
         style={{
+          position:            "relative",   // anchor for external toggle buttons
           flex:                1,
           display:             "grid",
           gridTemplateColumns: `${leftW}px 1fr ${rightW}px`,
@@ -475,11 +543,48 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           transition:          "grid-template-columns 0.35s cubic-bezier(0.16,1,0.3,1)",
         }}
       >
+        {/* ── External panel toggle buttons — always visible at panel edges ── */}
+        {/* Left toggle: straddles the left panel / canvas boundary */}
+        <div
+          style={{
+            position:  "absolute",
+            left:      leftW - 14,
+            top:       "50%",
+            transform: "translateY(-50%)",
+            zIndex:    100,
+            transition: "left 0.35s cubic-bezier(0.16,1,0.3,1)",
+          }}
+        >
+          <PanelToggleBtn
+            onClick={() => setLeftCollapsed((c) => !c)}
+            tooltip={leftCollapsed ? "Expand panel" : "Collapse panel"}
+            pointing={leftCollapsed ? "right" : "left"}
+          />
+        </div>
+
+        {/* Right toggle: straddles the canvas / right panel boundary */}
+        <div
+          style={{
+            position:   "absolute",
+            right:      rightW - 14,
+            top:        "50%",
+            transform:  "translateY(-50%)",
+            zIndex:     100,
+            transition: "right 0.35s cubic-bezier(0.16,1,0.3,1)",
+          }}
+        >
+          <PanelToggleBtn
+            onClick={() => setRightCollapsed((c) => !c)}
+            tooltip={rightCollapsed ? "Expand outputs" : "Collapse outputs"}
+            pointing={rightCollapsed ? "left" : "right"}
+          />
+        </div>
+
         {/* Left assist panel */}
         <LeftPanel
           onAddElement={handleAddElement}
           onEnsureDirection={ensureDirection}
-          onCollapsedChange={setLeftCollapsed}
+          isCollapsed={leftCollapsed}
         />
 
         {/* Center: canvas → handle → dock (+ director overlay) */}
@@ -526,7 +631,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
         {/* Right output stream */}
         <OutputPanel
-          onCollapsedChange={setRightCollapsed}
+          isCollapsed={rightCollapsed}
           onReEditInDirector={handleReEditInDirector}
           onRegenVariation={handleRegenVariation}
         />

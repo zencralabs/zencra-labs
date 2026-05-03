@@ -24,9 +24,9 @@ import type { DirectionElementType }      from "@/lib/creative-director/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface LeftPanelProps {
-  onAddElement:        (type: DirectionElementType, label: string) => void;
-  onEnsureDirection:   () => Promise<string | null>;
-  onCollapsedChange?:  (collapsed: boolean) => void;
+  onAddElement:      (type: DirectionElementType, label: string) => void;
+  onEnsureDirection: () => Promise<string | null>;
+  isCollapsed:       boolean;   // controlled by CDv2Shell — no internal state
 }
 
 const ROLE_BUTTONS: Array<{
@@ -53,7 +53,7 @@ const RAIL_ICONS = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }: LeftPanelProps) {
+export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: LeftPanelProps) {
   const {
     sceneIntent,
     activeStyleMood,
@@ -63,16 +63,9 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
     patchRefinements,
   } = useDirectionStore();
 
-  const [isCollapsed,   setIsCollapsed]   = useState(false);
-  const [activeRole,    setActiveRole]    = useState<DirectionElementType | null>(null);
-  const [roleInput,     setRoleInput]     = useState("");
-  const [advancedOpen,  setAdvancedOpen]  = useState(false);
-
-  const handleToggleCollapse = useCallback(() => {
-    const next = !isCollapsed;
-    setIsCollapsed(next);
-    onCollapsedChange?.(next);
-  }, [isCollapsed, onCollapsedChange]);
+  const [activeRole,   setActiveRole]   = useState<DirectionElementType | null>(null);
+  const [roleInput,    setRoleInput]    = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const handleIntentChange = useCallback(
     async (val: string) => {
@@ -105,10 +98,8 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
           zIndex:        10,
         }}
       >
-        {/* Expand button */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 6px" }}>
-          <ChevronBtn direction="right" onToggle={handleToggleCollapse} tooltip="Expand panel" />
-        </div>
+        {/* Thin spacer at top (toggle lives in CDv2Shell now) */}
+        <div style={{ height: 10, flexShrink: 0 }} />
 
         {/* Thin divider */}
         <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "0 10px 6px" }} />
@@ -134,17 +125,8 @@ export function LeftPanel({ onAddElement, onEnsureDirection, onCollapsedChange }
         scrollbarWidth: "none",
       }}
     >
-      {/* Collapse button row */}
-      <div
-        style={{
-          display:        "flex",
-          justifyContent: "flex-end",
-          padding:        "8px 10px 4px",
-          flexShrink:     0,
-        }}
-      >
-        <ChevronBtn direction="left" onToggle={handleToggleCollapse} tooltip="Collapse panel" />
-      </div>
+      {/* Top spacer (toggle lives in CDv2Shell now) */}
+      <div style={{ height: 8, flexShrink: 0 }} />
 
       {/* ── Scene Intent ────────────────────────────────────────────────── */}
       <Section label="Scene Intent" symbol="✦">

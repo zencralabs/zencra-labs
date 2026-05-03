@@ -42,7 +42,6 @@ import {
   selectMode,
 }                                                    from "@/lib/creative-director/store";
 import type { DirectionElementRow }                  from "@/lib/creative-director/types";
-import type { UploadedAsset }                        from "@/lib/creative-director/store";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -82,15 +81,25 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
   } = useDirectionStore();
   const mode = useDirectionStore(selectMode);
 
-  // Find the first uploaded asset that has been assigned to this element's role
-  const thumbnailAsset: UploadedAsset | undefined = uploadedAssets.find(
-    (a) => a.assignedRole === element.type
-  );
+  // Resolve the thumbnail URL for this specific element.
+  // Priority:
+  //   1. element.asset_url — set directly on the element when dragged from AssetTray
+  //      (per-element, no type collision even with multiple same-role nodes)
+  //   2. Role-based lookup — legacy: find the first asset assigned to this role
+  //      (keeps backwards compat for nodes created before asset_url was wired)
+  const thumbnailUrl: string | undefined =
+    element.asset_url ??
+    uploadedAssets.find((a) => a.assignedRole === element.type)?.url;
+  const thumbnailName: string | undefined =
+    uploadedAssets.find((a) => a.url === thumbnailUrl)?.name ?? element.label;
 
   const [hovered,     setHovered]    = useState(false);
   const [editing,     setEditing]    = useState(false);
   const [editLabel,   setEditLabel]  = useState(element.label);
   const [isDragging,  setIsDragging] = useState(false);
+  // Dynamic aspect ratio — detected from the image's natural dimensions on load.
+  // Buckets: landscape (>1.3) → 16/9, portrait (<0.8) → 9/16, square → 1/1.
+  const [imgAspect,   setImgAspect]  = useState<string>("16/9"); // default to landscape until loaded
   const [localWeight, setLocalWeight] = useState(
     () => Math.round((element.weight ?? 0.5) * 100)
   );
@@ -217,6 +226,44 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
         animation:  hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
       }}
     >
+      {/* ── Left connection point dot ───────────────────────────────────── */}
+      <div
+        title="Connection point"
+        style={{
+          position:     "absolute",
+          left:         -5,
+          top:          "50%",
+          transform:    "translateY(-50%)",
+          width:        6,
+          height:       6,
+          borderRadius: "50%",
+          background:   roleColor,
+          boxShadow:    `0 0 6px ${roleColor.replace("1)", "0.6)")}`,
+          zIndex:       30,
+          pointerEvents: "none",
+          opacity:      hovered ? 1 : 0.5,
+          transition:   "opacity 0.2s ease",
+        }}
+      />
+      {/* ── Right connection point dot ──────────────────────────────────── */}
+      <div
+        title="Connection point"
+        style={{
+          position:     "absolute",
+          right:        -5,
+          top:          "50%",
+          transform:    "translateY(-50%)",
+          width:        6,
+          height:       6,
+          borderRadius: "50%",
+          background:   roleColor,
+          boxShadow:    `0 0 6px ${roleColor.replace("1)", "0.6)")}`,
+          zIndex:       30,
+          pointerEvents: "none",
+          opacity:      hovered ? 1 : 0.5,
+          transition:   "opacity 0.2s ease",
+        }}
+      />
       {/* ── Glass card ─────────────────────────────────────────────────── */}
       <div
         style={{
@@ -237,27 +284,34 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
           width:              196,
         }}
       >
-        {/* ── Thumbnail strip — shows when an asset is assigned to this role ── */}
-        {thumbnailAsset && (
+        {/* ── Thumbnail strip — shows when an asset URL is linked to this element ── */}
+        {thumbnailUrl && (
           <div style={{
-            margin:       "-9px -12px 0 -11px",   // bleed to card edges
-            borderRadius: "11px 11px 0 0",         // match card top corners
+            margin:      "-9px -12px 0 -11px",   // bleed to card edges
+            borderRadius: "11px 11px 0 0",        // match card top corners
             overflow:     "hidden",
-            height:       52,
+            aspectRatio:  imgAspect,              // dynamic: 16/9, 9/16, or 1/1
             position:     "relative",
             flexShrink:   0,
           }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={thumbnailAsset.url}
-              alt={thumbnailAsset.name}
+              src={thumbnailUrl}
+              alt={thumbnailName}
               draggable={false}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                const ratio = img.naturalWidth / img.naturalHeight;
+                if (ratio > 1.3)      setImgAspect("16/9");
+                else if (ratio < 0.8) setImgAspect("9/16");
+                else                  setImgAspect("1/1");
+              }}
               style={{
-                width:     "100%",
-                height:    "100%",
-                objectFit: "cover",
-                display:   "block",
-                userSelect:"none",
+                width:         "100%",
+                height:        "100%",
+                objectFit:     "cover",
+                display:       "block",
+                userSelect:    "none",
                 pointerEvents: "none",
               }}
             />
@@ -365,30 +419,33 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
             </div>
           )}
 
-          {/* Remove button */}
-          {hovered && !editing && (
+          {/* Remove button — always visible, dims when not hovered */}
+          {!editing && (
             <button
               onClick={(e) => { e.stopPropagation(); void handleRemove(); }}
               onMouseDown={(e) => e.stopPropagation()}
+              title="Remove node"
               style={{
-                background:   "rgba(239,68,68,0.08)",
-                border:       "1px solid rgba(239,68,68,0.2)",
+                background:   hovered ? "rgba(239,68,68,0.12)" : "rgba(239,68,68,0.04)",
+                border:       `1px solid ${hovered ? "rgba(239,68,68,0.3)" : "rgba(239,68,68,0.1)"}`,
                 borderRadius: 5,
-                color:        "rgba(239,68,68,0.65)",
+                color:        hovered ? "rgba(239,68,68,0.8)" : "rgba(239,68,68,0.3)",
                 cursor:       "pointer",
-                padding:      "2px 6px",
+                padding:      "2px 5px",
                 fontSize:     10,
                 flexShrink:   0,
                 lineHeight:   1,
-                transition:   "background 0.15s, color 0.15s",
+                transition:   "all 0.15s ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(239,68,68,0.18)";
+                e.currentTarget.style.background = "rgba(239,68,68,0.22)";
                 e.currentTarget.style.color      = "rgba(239,68,68,1)";
+                e.currentTarget.style.borderColor = "rgba(239,68,68,0.5)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(239,68,68,0.08)";
-                e.currentTarget.style.color      = "rgba(239,68,68,0.65)";
+                e.currentTarget.style.background  = hovered ? "rgba(239,68,68,0.12)" : "rgba(239,68,68,0.04)";
+                e.currentTarget.style.color       = hovered ? "rgba(239,68,68,0.8)" : "rgba(239,68,68,0.3)";
+                e.currentTarget.style.borderColor = hovered ? "rgba(239,68,68,0.3)" : "rgba(239,68,68,0.1)";
               }}
             >
               ✕
