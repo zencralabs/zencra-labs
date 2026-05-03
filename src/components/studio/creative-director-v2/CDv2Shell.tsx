@@ -39,6 +39,7 @@ import { SceneCanvas }                               from "./SceneCanvas";
 import { DirectorPanel }                             from "./DirectorPanel";
 import { PromptDock }                                from "./PromptDock";
 import { OutputPanel }                               from "./OutputPanel";
+import { AIAssistBar }                               from "./AIAssistBar";
 import type { DirectionElementType }                 from "@/lib/creative-director/types";
 import type { CDGenerationOutput }                   from "@/lib/creative-director/store";
 
@@ -392,6 +393,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
           {/* Prompt dock */}
           <PromptDock onGenerate={handleGenerate} isFullscreen={isFullscreen} />
+
+          {/* AI Assist Co-Director bar — floats above DirectorHandle */}
+          <AIAssistBar
+            onAddElement={handleAddElement}
+            bottomOffset={DIRECTOR_BOTTOM + 8}
+          />
 
           {/* Director panel — slides up from bottom: 176px */}
           <DirectorPanel
