@@ -59,8 +59,11 @@ import {
   useDirectionStore,
   selectElements,
   selectCanvasTransform,
+  selectFrames,
 } from "@/lib/creative-director/store";
-import { SceneNode }     from "./SceneNode";
+import type { FrameAspectRatio } from "@/lib/creative-director/store";
+import { SceneNode }  from "./SceneNode";
+import { FrameNode }  from "./FrameNode";
 import type { DirectionElementType } from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +127,11 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const setCanvasTransform = useDirectionStore((s) => s.setCanvasTransform);
   const resetCanvasView    = useDirectionStore((s) => s.resetCanvasView);
 
+  const frames      = useDirectionStore(selectFrames);
+  const addFrame    = useDirectionStore((s) => s.addFrame);
+  const removeFrame = useDirectionStore((s) => s.removeFrame);
+  const updateFrame = useDirectionStore((s) => s.updateFrame);
+
   const canvasRef       = useRef<HTMLDivElement>(null);
   const panStartRef     = useRef<{
     clientX: number; clientY: number;
@@ -132,17 +140,21 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const panHappenedRef  = useRef(false);
   const scaleRef        = useRef<number>(100);
   const prevElIdsRef    = useRef<Set<string>>(new Set());
+  const prevFrameIdsRef = useRef<Set<string>>(new Set());
 
   // Track current scale in a ref so handleMove stays stable
   scaleRef.current = canvasTransform.scale;
 
-  const [positions,    setPositions]   = useState<Record<string, CanvasPosition>>({});
-  const [dragOver,     setDragOver]    = useState(false);
-  const [isPanning,    setIsPanning]   = useState(false);
-  const [quickAdd,     setQuickAdd]    = useState<{ x: number; y: number } | null>(null);
-  const [contextMenu,  setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [springNodes,  setSpringNodes] = useState<Set<string>>(new Set());
-  const [dropPicker,   setDropPicker]  = useState<PendingDrop | null>(null);
+  const [positions,       setPositions]      = useState<Record<string, CanvasPosition>>({});
+  const [dragOver,        setDragOver]       = useState(false);
+  const [isPanning,       setIsPanning]      = useState(false);
+  const [quickAdd,        setQuickAdd]       = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu,     setContextMenu]    = useState<{ x: number; y: number } | null>(null);
+  const [springNodes,     setSpringNodes]    = useState<Set<string>>(new Set());
+  const [dropPicker,      setDropPicker]     = useState<PendingDrop | null>(null);
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  const [framePickerPos,  setFramePickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
 
   // ── Detect newly added elements → initialize positions + spring ───────────
   useEffect(() => {
@@ -190,6 +202,25 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
 
     prevElIdsRef.current = currentIds;
   }, [elements]);
+
+  // ── Detect newly added frames → spring animation ─────────────────────────
+  useEffect(() => {
+    const currentIds = new Set(frames.map((f) => f.id));
+    const newFrames  = frames.filter((f) => !prevFrameIdsRef.current.has(f.id));
+    if (newFrames.length > 0) {
+      setSpringFrames((prev) => new Set([...prev, ...newFrames.map((f) => f.id)]));
+      newFrames.forEach(({ id }) => {
+        setTimeout(() => {
+          setSpringFrames((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 600);
+      });
+    }
+    prevFrameIdsRef.current = currentIds;
+  }, [frames]);
 
   // ── Get position: prefer local state, else magnetic zone ─────────────────
   const getPosition = useCallback(
@@ -259,15 +290,32 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     setIsPanning(true);
   }, []);
 
+  // ── Add Frame — create a new generation frame at canvas center ───────────
+  const handleAddFrame = useCallback((aspectRatio: FrameAspectRatio) => {
+    const rect   = canvasRef.current?.getBoundingClientRect();
+    const w      = rect?.width  ?? 600;
+    const h      = rect?.height ?? 400;
+    const s      = canvasTransform.scale / 100;
+    const offset = frames.length * 24;
+    const cx     = (w / 2 - canvasTransform.x) / s - 110 + offset;
+    const cy     = (h / 2 - canvasTransform.y) / s - 80  + offset;
+    addFrame({ id: `frame-${Date.now()}`, aspectRatio, position: { x: cx, y: cy } });
+    setFramePickerPos(null);
+    setContextMenu(null);
+    setQuickAdd(null);
+  }, [addFrame, canvasTransform, frames.length]);
+
   // ── Click: close menus only — no QuickAdd on single click ───────────────
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (panHappenedRef.current) { panHappenedRef.current = false; return; }
     if ((e.target as HTMLElement).closest("[data-scene-node]")) return;
     // Close any open menus — nothing else on single left click
-    if (dropPicker)  { setDropPicker(null);  return; }
-    if (contextMenu) { setContextMenu(null); return; }
-    if (quickAdd)    { setQuickAdd(null);    return; }
-  }, [dropPicker, contextMenu, quickAdd]);
+    if (framePickerPos) { setFramePickerPos(null); return; }
+    if (dropPicker)     { setDropPicker(null);     return; }
+    if (contextMenu)    { setContextMenu(null);    return; }
+    if (quickAdd)       { setQuickAdd(null);       return; }
+    setSelectedFrameId(null);
+  }, [framePickerPos, dropPicker, contextMenu, quickAdd]);
 
   // ── Double-click: open QuickAddPicker ────────────────────────────────────
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -300,7 +348,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); }
+      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); setFramePickerPos(null); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -484,6 +532,20 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             />
           </div>
         ))}
+
+        {/* Generation Frame nodes */}
+        {frames.map((frame) => (
+          <FrameNode
+            key={frame.id}
+            frame={frame}
+            isSelected={selectedFrameId === frame.id}
+            scale={canvasTransform.scale}
+            isSpring={springFrames.has(frame.id)}
+            onSelect={setSelectedFrameId}
+            onDelete={removeFrame}
+            onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
+          />
+        ))}
       </div>
 
       {/* ── Zoom controls (top-right, outside transform) ──────────────── */}
@@ -555,6 +617,43 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           }}
         >
           ⟳
+        </button>
+        {/* Separator */}
+        <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)", margin: "0 3px" }} />
+        {/* Add Frame */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = canvasRef.current!.getBoundingClientRect();
+            setFramePickerPos({ x: rect.width - 12, y: 48 });
+            setContextMenu(null);
+            setQuickAdd(null);
+          }}
+          title="Add Generation Frame"
+          style={{
+            background:    "transparent",
+            border:        "1px solid transparent",
+            borderRadius:  7,
+            color:         "rgba(255,255,255,0.35)",
+            fontSize:      10,
+            cursor:        "pointer",
+            padding:       "3px 9px",
+            letterSpacing: "0.02em",
+            fontFamily:    "var(--font-sans)",
+            transition:    "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background  = "rgba(139,92,246,0.1)";
+            e.currentTarget.style.color       = "rgba(139,92,246,0.85)";
+            e.currentTarget.style.borderColor = "rgba(139,92,246,0.25)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background  = "transparent";
+            e.currentTarget.style.color       = "rgba(255,255,255,0.35)";
+            e.currentTarget.style.borderColor = "transparent";
+          }}
+        >
+          + Frame
         </button>
       </div>
 
@@ -644,12 +743,13 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
         </div>
       )}
 
-      {/* ── Quick-add picker (left-click on empty) ────────────────────── */}
+      {/* ── Quick-add picker (double-click on empty canvas) ──────────── */}
       {quickAdd && !contextMenu && (
         <QuickAddPicker
           x={quickAdd.x}
           y={quickAdd.y}
           onSelect={(type) => { onAddElement(type, `New ${type}`); setQuickAdd(null); }}
+          onAddFrame={() => { setFramePickerPos({ x: quickAdd.x, y: quickAdd.y }); setQuickAdd(null); }}
           onClose={() => setQuickAdd(null)}
         />
       )}
@@ -661,7 +761,18 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onAddElement={(type) => { onAddElement(type, `New ${type}`); setContextMenu(null); }}
+          onAddFrame={() => { setFramePickerPos({ x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
           onOpenDirectorControls={() => { onOpenDirectorControls?.(); setContextMenu(null); }}
+        />
+      )}
+
+      {/* ── Frame aspect ratio picker ─────────────────────────────────── */}
+      {framePickerPos && (
+        <FrameAspectRatioPicker
+          x={framePickerPos.x}
+          y={framePickerPos.y}
+          onSelect={handleAddFrame}
+          onClose={() => setFramePickerPos(null)}
         />
       )}
 
@@ -817,11 +928,12 @@ function AssetRoleItem({
 // QuickAddPicker — small pill menu on left-click
 // ─────────────────────────────────────────────────────────────────────────────
 
-function QuickAddPicker({ x, y, onSelect, onClose }: {
-  x:        number;
-  y:        number;
-  onSelect: (type: DirectionElementType) => void;
-  onClose:  () => void;
+function QuickAddPicker({ x, y, onSelect, onAddFrame, onClose }: {
+  x:          number;
+  y:          number;
+  onSelect:   (type: DirectionElementType) => void;
+  onAddFrame: () => void;
+  onClose:    () => void;
 }) {
   return (
     <>
@@ -841,7 +953,7 @@ function QuickAddPicker({ x, y, onSelect, onClose }: {
           gap:            3,
           boxShadow:      "0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.1)",
           backdropFilter: "blur(20px)",
-          minWidth:       150,
+          minWidth:       160,
           animation:      "cd-slide-up 0.2s ease",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -878,6 +990,34 @@ function QuickAddPicker({ x, y, onSelect, onClose }: {
             {r.label}
           </button>
         ))}
+        {/* Divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "4px 0" }} />
+        {/* Add Frame */}
+        <button
+          onClick={onAddFrame}
+          style={{
+            background:  "transparent", border: "none", borderRadius: 8,
+            color:       "rgba(139,92,246,0.65)", fontSize: 13,
+            fontFamily:  "var(--font-sans)", cursor: "pointer",
+            padding:     "8px 10px", textAlign: "left",
+            display:     "flex", alignItems: "center", gap: 10,
+            transition:  "all 0.12s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+            e.currentTarget.style.color      = "rgba(139,92,246,0.9)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color      = "rgba(139,92,246,0.65)";
+          }}
+        >
+          <span style={{
+            width: 10, height: 10, borderRadius: 3,
+            border: "1.5px dashed rgba(139,92,246,0.6)", flexShrink: 0,
+          }} />
+          Add Frame
+        </button>
       </div>
     </>
   );
@@ -887,11 +1027,12 @@ function QuickAddPicker({ x, y, onSelect, onClose }: {
 // CDContextMenu — premium right-click menu
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CDContextMenu({ x, y, onClose, onAddElement, onOpenDirectorControls }: {
+function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onOpenDirectorControls }: {
   x:                      number;
   y:                      number;
   onClose:                () => void;
   onAddElement:           (type: DirectionElementType) => void;
+  onAddFrame:             () => void;
   onOpenDirectorControls: () => void;
 }) {
   return (
@@ -929,6 +1070,16 @@ function CDContextMenu({ x, y, onClose, onAddElement, onOpenDirectorControls }: 
             onClick={() => onAddElement(r.type)}
           />
         ))}
+        <ContextMenuItem
+          label="Add Frame"
+          icon={
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="1.5" y="1.5" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.3" strokeDasharray="2.5 1.5" />
+            </svg>
+          }
+          iconColor="rgba(139,92,246,0.75)"
+          onClick={onAddFrame}
+        />
         <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "6px 0" }} />
         <ContextMenuItem
           label="Open Director Controls"
@@ -983,6 +1134,128 @@ function ContextMenuItem({ label, dot, icon, iconColor, onClick }: {
         <span style={{ color: iconColor ?? "currentColor", display: "flex", alignItems: "center", flexShrink: 0 }}>{icon}</span>
       )}
       {label}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FrameAspectRatioPicker — 4-choice popup for selecting frame aspect ratio
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ASPECT_CHOICES: Array<{ ratio: FrameAspectRatio; label: string; w: number; h: number }> = [
+  { ratio: "1:1",  label: "Square",    w: 32, h: 32 },
+  { ratio: "16:9", label: "Landscape", w: 36, h: 20 },
+  { ratio: "9:16", label: "Portrait",  w: 20, h: 36 },
+  { ratio: "4:5",  label: "Story",     w: 28, h: 35 },
+];
+
+function FrameAspectRatioPicker({ x, y, onSelect, onClose }: {
+  x:        number;
+  y:        number;
+  onSelect: (ratio: FrameAspectRatio) => void;
+  onClose:  () => void;
+}) {
+  // Clamp to reasonable left position
+  const left = Math.max(10, x - 90);
+  return (
+    <>
+      <div style={{ position: "absolute", inset: 0, zIndex: 40 }} onClick={onClose} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position:       "absolute",
+          left,
+          top:            Math.max(10, y - 10),
+          zIndex:         41,
+          background:     "rgba(10,8,16,0.99)",
+          border:         "1px solid rgba(255,255,255,0.1)",
+          borderRadius:   14,
+          padding:        "10px",
+          boxShadow:      "0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.15)",
+          backdropFilter: "blur(24px)",
+          animation:      "cd-slide-up 0.18s ease",
+        }}
+      >
+        <p style={{
+          fontSize:      9,
+          color:         "rgba(255,255,255,0.25)",
+          fontFamily:    "var(--font-sans)",
+          margin:        "0 4px 10px",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+        }}>
+          Frame size
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          {ASPECT_CHOICES.map(({ ratio, label, w, h }) => (
+            <FrameARChoice key={ratio} ratio={ratio} label={label} w={w} h={h} onSelect={onSelect} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function FrameARChoice({ ratio, label, w, h, onSelect }: {
+  ratio:    FrameAspectRatio;
+  label:    string;
+  w:        number;
+  h:        number;
+  onSelect: (ratio: FrameAspectRatio) => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={() => onSelect(ratio)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background:     hov ? "rgba(139,92,246,0.1)" : "rgba(255,255,255,0.03)",
+        border:         `1px solid ${hov ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.1)"}`,
+        borderRadius:   10,
+        cursor:         "pointer",
+        padding:        "10px 8px",
+        display:        "flex",
+        flexDirection:  "column",
+        alignItems:     "center",
+        gap:            8,
+        minWidth:       56,
+        transition:     "all 0.15s ease",
+      }}
+    >
+      {/* Aspect ratio thumbnail */}
+      <div style={{
+        width:        w,
+        height:       h,
+        borderRadius: 3,
+        border:       `1.5px dashed ${hov ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.25)"}`,
+        background:   hov ? "rgba(139,92,246,0.08)" : "transparent",
+        transition:   "all 0.15s ease",
+        flexShrink:   0,
+      }} />
+      {/* Ratio label */}
+      <span style={{
+        fontSize:      9,
+        fontFamily:    "var(--font-sans)",
+        fontWeight:    600,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase" as const,
+        color:         hov ? "rgba(139,92,246,0.9)" : "rgba(255,255,255,0.4)",
+        transition:    "color 0.15s ease",
+        lineHeight:    1,
+      }}>
+        {ratio}
+      </span>
+      {/* Size name */}
+      <span style={{
+        fontSize:   9,
+        fontFamily: "var(--font-sans)",
+        color:      hov ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)",
+        lineHeight: 1,
+        transition: "color 0.15s ease",
+      }}>
+        {label}
+      </span>
     </button>
   );
 }

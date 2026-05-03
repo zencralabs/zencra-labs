@@ -152,6 +152,19 @@ export interface UploadedAsset {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Generation Frame — canvas-level output/preview target.
+// Session-only (not persisted to DB). Separate from scene elements.
+// ─────────────────────────────────────────────────────────────────────────────
+export type FrameAspectRatio = "1:1" | "16:9" | "9:16" | "4:5";
+
+export interface GenerationFrame {
+  id:                 string;
+  aspectRatio:        FrameAspectRatio;
+  position:           { x: number; y: number };
+  generatedImageUrl?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Image model keys available in Creative Director
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CDModelDef {
@@ -221,6 +234,9 @@ export interface DirectionState {
 
   // ── Creation flag — has a direction row been written to DB? ───────────────
   directionCreated: boolean;
+
+  // ── Generation frames (canvas output targets, session-only) ──────────────
+  frames: GenerationFrame[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -276,6 +292,11 @@ export interface DirectionActions {
   appendOutputs:      (outputs: CDGenerationOutput[]) => void;
   clearOutputs:       () => void;
 
+  // Generation frames
+  addFrame:    (frame: GenerationFrame) => void;
+  removeFrame: (id: string) => void;
+  updateFrame: (id: string, patch: Partial<Pick<GenerationFrame, "position" | "generatedImageUrl">>) => void;
+
   // Full reset (switching back to standard mode / new direction)
   reset: () => void;
 }
@@ -300,6 +321,7 @@ const INITIAL: DirectionState = {
   isGenerating:        false,
   lastGenError:        null,
   directionCreated:    false,
+  frames:              [],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,6 +441,18 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
 
   clearOutputs: () => set({ outputs: [] }),
 
+  // ── Generation frames ─────────────────────────────────────────────────────
+  addFrame: (frame) =>
+    set((s) => ({ frames: [...s.frames, frame] })),
+
+  removeFrame: (id) =>
+    set((s) => ({ frames: s.frames.filter((f) => f.id !== id) })),
+
+  updateFrame: (id, patch) =>
+    set((s) => ({
+      frames: s.frames.map((f) => (f.id === id ? { ...f, ...patch } : f)),
+    })),
+
   // ── Reset ─────────────────────────────────────────────────────────────────
   reset: () => set(INITIAL),
 }));
@@ -433,3 +467,4 @@ export const selectOutputs        = (s: DirectionState & DirectionActions) => s.
 export const selectMode           = (s: DirectionState & DirectionActions) => s.mode;
 export const selectIsGenerating   = (s: DirectionState & DirectionActions) => s.isGenerating;
 export const selectCanvasTransform = (s: DirectionState & DirectionActions) => s.canvasTransform;
+export const selectFrames          = (s: DirectionState & DirectionActions) => s.frames;
