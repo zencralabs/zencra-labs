@@ -238,6 +238,7 @@ export function CDv2TopBar({ onExitDirectorMode, isFullscreen, onToggleFullscree
           onClick={toggleDirectorPanel}
           onMouseEnter={() => setDirectorHover(true)}
           onMouseLeave={() => setDirectorHover(false)}
+          className="cd-btn-lift"
           style={{
             background:   directorPanelOpen
               ? "rgba(139,92,246,0.15)"
@@ -281,6 +282,7 @@ export function CDv2TopBar({ onExitDirectorMode, isFullscreen, onToggleFullscree
           onMouseEnter={() => setFsHover(true)}
           onMouseLeave={() => setFsHover(false)}
           title={isFullscreen ? "Exit Cinema Mode" : "Enter Cinema Mode"}
+          className="cd-btn-lift"
           style={{
             background:   isFullscreen
               ? "rgba(251,191,36,0.12)"

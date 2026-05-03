@@ -695,6 +695,7 @@ function PresetCard({
       onClick={onApply}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      className="cd-btn-lift"
       style={{
         flexShrink:    0,
         width:         130,
@@ -721,7 +722,6 @@ function PresetCard({
         gap:           6,
         textAlign:     "left",
         transition:    "all 0.15s ease",
-        transform:     hov && !active ? "translateY(-2px)" : "none",
         boxShadow:     active
           ? "0 0 20px rgba(251,146,60,0.18), inset 0 0 0 1px rgba(251,146,60,0.1)"
           : hov

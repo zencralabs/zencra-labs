@@ -642,6 +642,7 @@ function BarButton({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       disabled={disabled}
+      className={disabled ? undefined : "cd-btn-lift"}
       style={{
         background:    bg,
         border:        bdr,
@@ -680,14 +681,13 @@ function ChipButton({
     <button
       onClick={onClick}
       title={chip.desc}
+      className="cd-btn-lift"
       onMouseEnter={(e) => {
         e.currentTarget.style.background  = "rgba(20,14,36,0.96)";
-        e.currentTarget.style.transform   = "translateY(-2px)";
         e.currentTarget.style.boxShadow   = `0 6px 20px rgba(0,0,0,0.5), 0 0 12px ${color.replace("1)", "0.2)")}`;
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background  = "rgba(10,8,20,0.92)";
-        e.currentTarget.style.transform   = "translateY(0)";
         e.currentTarget.style.boxShadow   = `0 4px 16px rgba(0,0,0,0.4), 0 0 8px ${color.replace("1)", "0.12)")}`;
       }}
       style={{

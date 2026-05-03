@@ -447,6 +447,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               <button
                 onClick={() => setDockHidden(true)}
                 title="Minimize console  (click strip to restore)"
+                className="cd-btn-lift"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color        = "rgba(255,255,255,0.6)";
                   e.currentTarget.style.borderColor  = "rgba(255,255,255,0.18)";
@@ -660,6 +661,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   onClick={handleRefine}
                   onMouseEnter={() => setRefineHover(true)}
                   onMouseLeave={() => setRefineHover(false)}
+                  className="cd-btn-lift"
                   style={{
                     background:    refineHover
                       ? "rgba(139,92,246,0.12)"
@@ -693,6 +695,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                   disabled={!canGenerate}
                   onMouseEnter={() => setGenHover(true)}
                   onMouseLeave={() => setGenHover(false)}
+                  className={canGenerate ? "cd-btn-lift" : undefined}
                   style={{
                     background:    genBg,
                     border:        "none",
@@ -709,8 +712,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     gap:           8,
                     whiteSpace:    "nowrap",
                     letterSpacing: "0.02em",
-                    transition:    "transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease",
-                    transform:     genHover && canGenerate ? "translateY(-2px)" : "translateY(0)",
+                    transition:    "box-shadow 0.2s ease, background 0.2s ease",
                     boxShadow:     genGlow,
                     animation:     genAnimation,
                     flexShrink:    0,
@@ -778,6 +780,7 @@ function ModelPill({
       onMouseLeave={() => setHov(false)}
       disabled={disabled}
       title={modelKey}
+      className={disabled ? undefined : "cd-btn-lift"}
       style={{
         background:    active
           ? "rgba(139,92,246,0.18)"

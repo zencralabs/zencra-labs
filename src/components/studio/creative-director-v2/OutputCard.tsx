@@ -395,6 +395,7 @@ function IconActionBtn({
       onClick={disabled ? undefined : onClick}
       onMouseEnter={() => !disabled && setHov(true)}
       onMouseLeave={() => setHov(false)}
+      className={disabled ? undefined : "cd-btn-lift"}
       style={{
         background:     hov ? accentBg : "rgba(0,0,0,0.55)",
         border:         `1px solid ${hov ? accent.replace(/[\d.]+\)$/, "0.35)") : "rgba(255,255,255,0.14)"}`,
