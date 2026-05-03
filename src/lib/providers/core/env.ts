@@ -31,18 +31,24 @@ function optional(key: string, fallback?: string): string | undefined {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OPENAI — GPT Image (gpt-image-1)
+// OPENAI — GPT Image (gpt-image-1 + gpt-image-2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface OpenAIEnv {
   apiKey: string;
+  /** Exact model string sent to OpenAI for gpt-image-1 generations. */
   model: string;
+  /** Exact model string sent to OpenAI for gpt-image-2 generations.
+   *  Set GPT_IMAGE_2_MODEL_ID once OpenAI publishes the confirmed API string.
+   *  Default "gpt-image-2" matches the expected upstream identifier. */
+  model2: string;
 }
 
 export function getOpenAIEnv(): OpenAIEnv {
   return {
     apiKey: required("OPENAI_API_KEY"),
-    model:  optional("GPT_IMAGE_MODEL_ID", "gpt-image-1") as string,
+    model:  optional("GPT_IMAGE_MODEL_ID",   "gpt-image-1") as string,
+    model2: optional("GPT_IMAGE_2_MODEL_ID",  "gpt-image-2") as string,
   };
 }
 

@@ -90,6 +90,21 @@ export function selectCreativeProvider(
   const styleLower = input.stylePreset?.toLowerCase() ?? "";
   const typeLower = input.projectType?.toLowerCase() ?? "";
 
+  // ── Priority 0: Direct model key override (user selected from UI model picker) ──
+  // When the CD model selector sends a specific Zencra model key, honour it
+  // exactly — bypass all style/signal routing entirely.
+  // This is the PRIMARY path for CDv2 generation (selectedModel → modelOverride).
+  if (input.modelOverride && !input.providerOverride) {
+    const resolvedProvider = resolveProviderForModelKey(input.modelOverride);
+    if (resolvedProvider) {
+      return buildDecision(
+        resolvedProvider,
+        input.modelOverride,
+        `User-selected model: ${input.modelOverride}`
+      );
+    }
+  }
+
   // ── Priority 1: Explicit provider override ────────────────────────────────
   if (input.providerOverride) {
     return buildDecision(
@@ -171,6 +186,32 @@ function buildDecision(
   reason: string
 ): CDProviderDecision {
   return { provider, model, reason };
+}
+
+/**
+ * resolveProviderForModelKey — Maps a Zencra model key to its provider name.
+ * Used by Priority 0 to honour direct model-key overrides from the UI model picker.
+ * Must be kept in sync with MODEL_REGISTRY providerFamily values and the
+ * SUPPORTED_PROVIDERS set above.
+ */
+function resolveProviderForModelKey(modelKey: string): string | null {
+  const MODEL_TO_PROVIDER: Record<string, string> = {
+    // OpenAI
+    "gpt-image-1":          "openai",
+    "gpt-image-2":          "openai",
+    // Nano Banana
+    "nano-banana-standard": "nano-banana",
+    "nano-banana-pro":      "nano-banana",
+    "nano-banana-2":        "nano-banana",
+    // Seedream (via fal.ai)
+    "seedream-v5":          "seedream",
+    "seedream-4-5":         "seedream",
+    // Flux (via fal.ai)
+    "flux-kontext":         "flux",
+    "flux-2-image":         "flux",
+    "flux-2-max":           "flux",
+  };
+  return MODEL_TO_PROVIDER[modelKey] ?? null;
 }
 
 /**

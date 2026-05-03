@@ -112,6 +112,30 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     creditMultiplier:   2,
   },
 
+  {
+    key:            "gpt-image-2",
+    providerBrand:  "OpenAI",
+    displayName:    "GPT Image 2",
+    // apiModelId must match the exact string OpenAI's API accepts.
+    // Override at runtime via GPT_IMAGE_2_MODEL_ID env var once confirmed.
+    apiModelId:     "gpt-image-2",
+    studio:         "image",
+    providerFamily: "openai",
+    description:    "OpenAI's next-generation image model — enhanced quality, richer creative control",
+    phase:          1,
+    status:         "active",
+    badge:          "GPT",
+    badgeColor:     "#10A37F",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "photoreal"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "sync",
+    supportsWebhook: false,
+    supportsPolling: false,
+    estimatedCostRange: "4–10 credits",
+    creditMultiplier:   2,
+  },
+
   // ── Nano Banana ────────────────────────────────────────────────────────────
   // Vendor API: api.nanobananaapi.ai
   // Endpoints:
@@ -295,6 +319,31 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: true,
     estimatedCostRange: "TBD",
     creditMultiplier:   2,
+    comingSoonLabel: "Coming Phase 2",
+  },
+
+  // FLUX.2 Max — highest tier. Registered as coming-soon until BFL publishes the endpoint.
+  // fal.ai endpoint TBD. Update FAL_MODEL_FLUX_2_MAX env var when available.
+  {
+    key:            "flux-2-max",
+    providerBrand:  "Black Forest Labs",
+    displayName:    "FLUX.2 Max",
+    apiModelId:     "fal-ai/flux-2-ultra",    // placeholder — update when BFL publishes endpoint
+    studio:         "image",
+    providerFamily: "fal",
+    description:    "Black Forest Labs FLUX.2 Max — highest generation tier, maximum quality output",
+    phase:          2,
+    status:         "coming-soon",
+    badge:          "SOON",
+    badgeColor:     "#374151",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "consistency", "photoreal"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "TBD",
+    creditMultiplier:   2.5,
     comingSoonLabel: "Coming Phase 2",
   },
 

@@ -1,13 +1,16 @@
 /**
- * Image Studio — GPT Image Provider (gpt-image-1)
+ * Image Studio — GPT Image Provider (gpt-image-1 + gpt-image-2)
  *
- * Replaces the legacy DALL-E provider completely.
- * Uses OpenAI's gpt-image-1 model for:
- *   - Text to image (standard generation)
- *   - Image to image (edit mode with source image)
+ * Both generations use the same OpenAI images API. The model string sent
+ * to the API is driven by env vars:
+ *   GPT_IMAGE_MODEL_ID   → gpt-image-1 (default: "gpt-image-1")
+ *   GPT_IMAGE_2_MODEL_ID → gpt-image-2 (default: "gpt-image-2")
+ *
+ * A shared factory (makeGptImageProvider) avoids duplication while keeping
+ * each provider's modelKey and upload path distinct.
  *
  * Provider: api.openai.com/v1/images
- * Env: OPENAI_API_KEY
+ * Env: OPENAI_API_KEY, GPT_IMAGE_MODEL_ID, GPT_IMAGE_2_MODEL_ID
  * Async: sync (OpenAI images API responds inline)
  */
 
@@ -34,166 +37,202 @@ const ASPECT_TO_SIZE: Record<string, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GPT IMAGE PROVIDER
+// PROVIDER FACTORY
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const gptImageProvider: ZProvider = {
-  providerId:  "openai",
-  modelKey:    "gpt-image-1",
-  studio:      "image",
-  displayName: "GPT Image 1.5",
-  status:      "active",
+/**
+ * makeGptImageProvider — Creates a ZProvider for a given GPT Image generation.
+ *
+ * @param key         Zencra model key ("gpt-image-1" | "gpt-image-2")
+ * @param resolveModel  Returns the exact API model string to send to OpenAI.
+ *                     Called at dispatch time so env overrides are honoured.
+ * @param displayName   Human-readable name for admin/logging surfaces.
+ */
+function makeGptImageProvider(
+  key: "gpt-image-1" | "gpt-image-2",
+  resolveModel: () => string,
+  displayName: string,
+): ZProvider {
+  const storageFolder = key; // "gpt-image-1" or "gpt-image-2" in Supabase Storage
 
-  getCapabilities(): ProviderCapabilities {
-    return {
-      supportedInputModes:   ["text", "image"],
-      supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
-      capabilities:          ["text_to_image", "image_to_image", "edit", "photoreal"],
-      asyncMode:             "sync",
-      supportsWebhook:       false,
-      supportsPolling:       false,
-    };
-  },
+  return {
+    providerId:  "openai",
+    modelKey:    key,
+    studio:      "image",
+    displayName,
+    status:      "active",
 
-  validateInput(input: ZProviderInput): ValidationResult {
-    const errors: string[] = [];
-    if (!input.prompt || input.prompt.trim().length < 3) {
-      errors.push("Prompt must be at least 3 characters.");
-    }
-    return { valid: errors.length === 0, errors, warnings: [] };
-  },
+    getCapabilities(): ProviderCapabilities {
+      return {
+        supportedInputModes:   ["text", "image"],
+        supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+        capabilities:          ["text_to_image", "image_to_image", "edit", "photoreal"],
+        asyncMode:             "sync",
+        supportsWebhook:       false,
+        supportsPolling:       false,
+      };
+    },
 
-  estimateCost(input: ZProviderInput): CreditEstimate {
-    const isEdit    = !!input.imageUrl;
-    // gpt-image-1 quality tiers: "low" | "medium" | "high" | "auto"
-    const isHigh    = input.providerParams?.quality === "high";
-    const base      = isEdit ? 6 : 4;
-    const highExtra = isHigh ? 2 : 0;
-    const total     = base + highExtra;
-    return {
-      min:       4,
-      max:       8,
-      expected:  total,
-      breakdown: { base, high_extra: highExtra },
-    };
-  },
+    validateInput(input: ZProviderInput): ValidationResult {
+      const errors: string[] = [];
+      if (!input.prompt || input.prompt.trim().length < 3) {
+        errors.push("Prompt must be at least 3 characters.");
+      }
+      return { valid: errors.length === 0, errors, warnings: [] };
+    },
 
-  async createJob(input: ZProviderInput): Promise<ZJob> {
-    const { apiKey, model } = getOpenAIEnv();
-    const jobId             = newJobId();
-    const isEdit            = !!input.imageUrl;
-    const size              = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
-    // gpt-image-1 quality: "low" | "medium" | "high" | "auto"  (NOT "standard"/"hd" — those are DALL-E 3)
-    const quality           = (input.providerParams?.quality as string | undefined) ?? "auto";
+    estimateCost(input: ZProviderInput): CreditEstimate {
+      const isEdit    = !!input.imageUrl;
+      // gpt-image quality tiers: "low" | "medium" | "high" | "auto"
+      const isHigh    = input.providerParams?.quality === "high";
+      const base      = isEdit ? 6 : 4;
+      const highExtra = isHigh ? 2 : 0;
+      const total     = base + highExtra;
+      return {
+        min:       4,
+        max:       10,
+        expected:  total,
+        breakdown: { base, high_extra: highExtra },
+      };
+    },
 
-    let url: string | undefined;
+    async createJob(input: ZProviderInput): Promise<ZJob> {
+      const { apiKey } = getOpenAIEnv();
+      const model      = resolveModel();
+      const jobId      = newJobId();
+      const isEdit     = !!input.imageUrl;
+      const size       = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
+      // Quality tiers: "low" | "medium" | "high" | "auto"  (NOT "standard"/"hd" — those are DALL-E 3)
+      const quality    = (input.providerParams?.quality as string | undefined) ?? "auto";
 
-    if (isEdit && input.imageUrl) {
-      // Image editing endpoint — requires source image as blob
-      const form = new FormData();
-      form.append("model",   model);
-      form.append("prompt",  input.prompt);
-      form.append("size",    size);
-      form.append("n",       "1");
+      let url: string | undefined;
 
-      const imgRes = await fetch(input.imageUrl, { signal: AbortSignal.timeout(20_000) });
-      if (!imgRes.ok) throw new Error("Failed to fetch source image for GPT Image edit.");
-      form.append("image", await imgRes.blob(), "image.png");
+      if (isEdit && input.imageUrl) {
+        // Image editing endpoint — requires source image as blob
+        const form = new FormData();
+        form.append("model",   model);
+        form.append("prompt",  input.prompt);
+        form.append("size",    size);
+        form.append("n",       "1");
 
-      const res = await fetch("https://api.openai.com/v1/images/edits", {
-        method:  "POST",
-        headers: { "Authorization": `Bearer ${apiKey}` },
-        body:    form,
-        signal:  AbortSignal.timeout(120_000),
-      });
-      if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
-      const editData = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
-      const editRaw  = editData.data[0];
-      if (editRaw?.url) {
-        url = editRaw.url;
-      } else if (editRaw?.b64_json) {
-        url = await uploadGeneratedImage(editRaw.b64_json, jobId);
+        const imgRes = await fetch(input.imageUrl, { signal: AbortSignal.timeout(20_000) });
+        if (!imgRes.ok) throw new Error("Failed to fetch source image for GPT Image edit.");
+        form.append("image", await imgRes.blob(), "image.png");
+
+        const res = await fetch("https://api.openai.com/v1/images/edits", {
+          method:  "POST",
+          headers: { "Authorization": `Bearer ${apiKey}` },
+          body:    form,
+          signal:  AbortSignal.timeout(120_000),
+        });
+        if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
+        const editData = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
+        const editRaw  = editData.data[0];
+        if (editRaw?.url) {
+          url = editRaw.url;
+        } else if (editRaw?.b64_json) {
+          url = await uploadGeneratedImage(editRaw.b64_json, jobId, storageFolder);
+        }
+
+      } else {
+        // Standard generation endpoint.
+        // gpt-image models do NOT support response_format — always return b64_json.
+        const res = await fetch("https://api.openai.com/v1/images/generations", {
+          method:  "POST",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body:    JSON.stringify({ model, prompt: input.prompt, size, quality, n: 1 }),
+          signal:  AbortSignal.timeout(120_000),
+        });
+        if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
+        const data = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
+        const raw  = data.data[0];
+
+        if (raw?.url) {
+          url = raw.url;
+        } else if (raw?.b64_json) {
+          url = await uploadGeneratedImage(raw.b64_json, jobId, storageFolder);
+        }
       }
 
-    } else {
-      // Standard generation endpoint.
-      // gpt-image-1 does NOT support response_format — always returns b64_json.
-      const res = await fetch("https://api.openai.com/v1/images/generations", {
-        method:  "POST",
-        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body:    JSON.stringify({ model, prompt: input.prompt, size, quality, n: 1 }),
-        signal:  AbortSignal.timeout(120_000),
-      });
-      if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
-      const data = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
-      const raw = data.data[0];
+      if (!url) throw new Error(`${displayName} returned no image URL.`);
 
-      if (raw?.url) {
-        // OpenAI returned a direct URL (possible in future API versions)
-        url = raw.url;
-      } else if (raw?.b64_json) {
-        // gpt-image-1 default: upload b64 buffer to Supabase Storage → return real CDN URL
-        url = await uploadGeneratedImage(raw.b64_json, jobId);
-      }
-    }
+      const now: Date = new Date();
+      const result: ZProviderResult = {
+        jobId, provider: "openai", modelKey: key,
+        status: "success", url,
+        metadata: { size, quality, mode: isEdit ? "edit" : "generate" },
+      };
 
-    if (!url) throw new Error("GPT Image returned no image URL.");
+      return {
+        id: jobId, provider: "openai", modelKey: key,
+        studioType: "image", status: "success",
+        externalJobId: jobId, createdAt: now, updatedAt: now, completedAt: now,
+        result, identity: input.identity, estimatedCredits: input.estimatedCredits,
+      };
+    },
 
-    const now: Date = new Date();
-    const result: ZProviderResult = {
-      jobId, provider: "openai", modelKey: "gpt-image-1",
-      status: "success", url,
-      metadata: { size, quality, mode: isEdit ? "edit" : "generate" },
-    };
+    async getJobStatus(externalJobId: string): Promise<ZJobStatus> {
+      // Sync provider — always complete
+      return { jobId: externalJobId, status: "success" };
+    },
 
-    return {
-      id: jobId, provider: "openai", modelKey: "gpt-image-1",
-      studioType: "image", status: "success",
-      externalJobId: jobId, createdAt: now, updatedAt: now, completedAt: now,
-      result, identity: input.identity, estimatedCredits: input.estimatedCredits,
-    };
-  },
+    async cancelJob(_: string): Promise<void> { /* sync — no-op */ },
 
-  async getJobStatus(externalJobId: string): Promise<ZJobStatus> {
-    // Sync provider — always complete
-    return { jobId: externalJobId, status: "success" };
-  },
+    normalizeOutput(raw: unknown): ZProviderResult {
+      const data = raw as Record<string, unknown>;
+      return {
+        jobId: String(data.jobId ?? ""), provider: "openai", modelKey: key,
+        status: "success", url: String(data.url ?? ""),
+      };
+    },
 
-  async cancelJob(_: string): Promise<void> { /* sync — no-op */ },
+    async handleWebhook(_: WebhookPayload): Promise<ZJobStatus> {
+      return { jobId: _.jobId, status: "success" };
+    },
+  };
+}
 
-  normalizeOutput(raw: unknown): ZProviderResult {
-    const data = raw as Record<string, unknown>;
-    return {
-      jobId: String(data.jobId ?? ""), provider: "openai", modelKey: "gpt-image-1",
-      status: "success", url: String(data.url ?? ""),
-    };
-  },
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORTED PROVIDERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-  async handleWebhook(_: WebhookPayload): Promise<ZJobStatus> {
-    return { jobId: _.jobId, status: "success" };
-  },
-};
+/** GPT Image 1.5 — current production model (gpt-image-1). */
+export const gptImageProvider = makeGptImageProvider(
+  "gpt-image-1",
+  () => getOpenAIEnv().model,
+  "GPT Image 1.5",
+);
+
+/** GPT Image 2 — next-generation model (gpt-image-2).
+ *  Set GPT_IMAGE_2_MODEL_ID env var once OpenAI confirms the exact API string. */
+export const gptImage2Provider = makeGptImageProvider(
+  "gpt-image-2",
+  () => getOpenAIEnv().model2,
+  "GPT Image 2",
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Upload a base64-encoded PNG from gpt-image-1 to Supabase Storage.
+ * Upload a base64-encoded PNG from OpenAI to Supabase Storage.
  * Returns the public CDN URL. Throws on upload failure.
  *
- * gpt-image-1 always returns b64_json — it does not support response_format.
+ * gpt-image models always return b64_json — they do not support response_format.
  * Storing b64 directly as a URL is not viable (multi-KB string in the DB).
  * Uploading here gives the asset a real, stable, shareable URL.
+ *
+ * @param folder   Storage folder prefix — "gpt-image-1" or "gpt-image-2"
  */
-async function uploadGeneratedImage(b64: string, jobId: string): Promise<string> {
+async function uploadGeneratedImage(b64: string, jobId: string, folder: string): Promise<string> {
   const { url: supabaseUrl, serviceRoleKey } = getSupabaseEnv();
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   });
 
   const buffer = Buffer.from(b64, "base64");
-  const path   = `gpt-image/${jobId}.png`;
+  const path   = `${folder}/${jobId}.png`;
 
   const { error } = await supabase.storage
     .from("generations")
@@ -204,7 +243,7 @@ async function uploadGeneratedImage(b64: string, jobId: string): Promise<string>
     });
 
   if (error) {
-    throw new Error(`[gpt-image] Supabase upload failed: ${error.message}`);
+    throw new Error(`[${folder}] Supabase upload failed: ${error.message}`);
   }
 
   const { data } = supabase.storage.from("generations").getPublicUrl(path);
