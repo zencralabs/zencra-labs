@@ -102,12 +102,12 @@ const FRAME_P2_KEYFRAME = `
 }
 `;
 
-/** Phase 3 — generated image appears: fade + scale + sharpen reveal */
+/** Phase 3 — generated image appears: fade + scale + sharpen + brightness/contrast pop */
 const FRAME_REVEAL_KEYFRAME = `
 @keyframes cd-ob-frame-reveal {
-  0%   { opacity: 0; transform: scale(1.02); filter: blur(6px); }
-  60%  { opacity: 1; transform: scale(1.00); filter: blur(1px); }
-  100% { opacity: 1; transform: scale(1.00); filter: blur(0px); }
+  0%   { opacity: 0;   transform: scale(1.02);  filter: blur(6px)  brightness(0.9)  contrast(0.92); }
+  65%  { opacity: 1;   transform: scale(0.999); filter: blur(0px)  brightness(1.07) contrast(1.1);  }
+  100% { opacity: 1;   transform: scale(1.00);  filter: blur(0px)  brightness(1)    contrast(1);    }
 }
 `;
 
@@ -478,15 +478,16 @@ export function FrameNode({
             /* ── Phase 3 loading shimmer ─────────────────────────────────────── */
             <div
               style={{
-                width:           "100%",
-                height:          "100%",
-                position:        "relative",
-                background:      "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
-                backgroundSize:  "400% 100%",
-                animation:       "cd-shimmer 1.6s ease-in-out infinite",
-                display:         "flex",
-                alignItems:      "center",
-                justifyContent:  "center",
+                width:          "100%",
+                height:         "100%",
+                position:       "relative",
+                background:     "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
+                backgroundSize: "400% 100%",
+                animation:      "cd-shimmer 1.6s ease-in-out infinite",
+                display:        "flex",
+                alignItems:     "center",
+                justifyContent: "center",
+                overflow:       "hidden",
               }}
             >
               <style>{`
@@ -494,14 +495,43 @@ export function FrameNode({
                   0%   { background-position: 100% 0; }
                   100% { background-position: -100% 0; }
                 }
+                @keyframes cd-gen-glow {
+                  0%, 100% { opacity: 0.0; transform: scale(0.7); }
+                  50%       { opacity: 0.5; transform: scale(1.1); }
+                }
+                @keyframes cd-gen-vignette {
+                  0%, 100% { opacity: 0.3; }
+                  50%       { opacity: 0.7; }
+                }
               `}</style>
+              {/* Pulsing inner glow — radial center bloom */}
+              <div
+                style={{
+                  position:      "absolute",
+                  inset:         0,
+                  background:    "radial-gradient(ellipse 55% 45% at 50% 50%, rgba(139,92,246,0.18) 0%, transparent 70%)",
+                  animation:     "cd-gen-glow 2.4s ease-in-out infinite",
+                  pointerEvents: "none",
+                }}
+              />
+              {/* Tightening vignette */}
+              <div
+                style={{
+                  position:      "absolute",
+                  inset:         0,
+                  background:    "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.45) 100%)",
+                  animation:     "cd-gen-vignette 2.4s ease-in-out infinite",
+                  pointerEvents: "none",
+                }}
+              />
               <span
                 style={{
+                  position:      "relative",
                   fontFamily:    "var(--font-syne), sans-serif",
                   fontSize:      11,
                   fontWeight:    500,
                   letterSpacing: "0.1em",
-                  color:         "rgba(255,255,255,0.35)",
+                  color:         "rgba(255,255,255,0.4)",
                   textTransform: "uppercase",
                   userSelect:    "none",
                 }}
@@ -525,6 +555,36 @@ export function FrameNode({
                   animation: frameJustFilled ? "cd-ob-frame-reveal 0.5s ease-out both" : "none",
                 }}
               />
+              {/* Action hints — fade in on hover, soft text only (not buttons) */}
+              <div
+                style={{
+                  position:       "absolute",
+                  bottom:         0,
+                  left:           0,
+                  right:          0,
+                  padding:        "12px 12px 8px",
+                  background:     "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                  display:        "flex",
+                  alignItems:     "center",
+                  justifyContent: "center",
+                  opacity:        hovered ? 1 : 0,
+                  transition:     "opacity 0.2s ease",
+                  pointerEvents:  "none",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily:    "var(--font-familjen-grotesk), sans-serif",
+                    fontSize:      9,
+                    letterSpacing: "0.1em",
+                    color:         "rgba(255,255,255,0.55)",
+                    userSelect:    "none",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Regenerate · Edit · Download
+                </span>
+              </div>
             </>
           ) : (
             /* ── Empty state ────────────────────────────────────────────────── */
