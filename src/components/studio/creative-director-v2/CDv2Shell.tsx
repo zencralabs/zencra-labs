@@ -285,6 +285,41 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     .cd-node-hover:hover { animation: cd-node-glow 2s ease-in-out infinite; }
     .cd-model-pill { transition: all 0.12s ease; }
     .cd-model-pill:hover { background: rgba(255,255,255,0.07) !important; }
+    .cd-weight-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 3px;
+      border-radius: 99px;
+      outline: none;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+    }
+    .cd-weight-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--role-clr, rgba(139,92,246,1));
+      box-shadow: 0 0 6px var(--role-clr, rgba(139,92,246,0.7));
+      cursor: grab;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      border: none;
+    }
+    .cd-weight-slider:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.3);
+      box-shadow: 0 0 10px var(--role-clr, rgba(139,92,246,0.9));
+    }
+    .cd-weight-slider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--role-clr, rgba(139,92,246,1));
+      border: none;
+      cursor: grab;
+    }
   `;
 
   // ── Shell content (shared between normal and portal/fullscreen render) ────
