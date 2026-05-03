@@ -563,36 +563,39 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           gap:           20,        pointerEvents: "none",
           animation:     "cd-fade-in 0.6s ease",
         }}>
+          {/* Icon ring — glow lifted for daylight readability */}
           <div style={{
             width:      72,  height: 72, borderRadius: "50%",
-            border:     "1px solid rgba(139,92,246,0.2)",
+            border:     "1px solid rgba(139,92,246,0.28)",
             display:    "flex", alignItems: "center", justifyContent: "center",
             position:   "relative",
-            boxShadow:  "0 0 32px rgba(139,92,246,0.08), inset 0 0 20px rgba(139,92,246,0.04)",
+            boxShadow:  "0 0 36px rgba(139,92,246,0.18), inset 0 0 20px rgba(139,92,246,0.10)",
           }}>
             <div style={{
               position: "absolute", inset: -8, borderRadius: "50%",
-              border:   "1px dashed rgba(139,92,246,0.1)",
+              border:   "1px dashed rgba(139,92,246,0.22)",
             }} />
-            <span style={{ fontSize: 28, color: "rgba(139,92,246,0.5)" }}>✦</span>
+            <span style={{ fontSize: 28, color: "rgba(139,92,246,0.75)" }}>✦</span>
           </div>
+          {/* Text block — title and subtitle both lifted */}
           <div style={{ textAlign: "center", maxWidth: 260 }}>
-            <p style={{ fontSize: 15, fontFamily: "var(--font-display)", color: "rgba(255,255,255,0.35)", margin: "0 0 8px", letterSpacing: "0.02em" }}>
+            <p style={{ fontSize: 17, fontFamily: "var(--font-display)", color: "#B8C0D4", margin: "0 0 8px", letterSpacing: "0.02em" }}>
               Your scene awaits direction
             </p>
-            <p style={{ fontSize: 12, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.18)", margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 12, fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.50)", margin: 0, lineHeight: 1.6 }}>
               Add a subject, set the world, choose a mood.<br />
               Right-click or click to add scene elements.
             </p>
           </div>
+          {/* Role chips — text and border brightened, not neon */}
           <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
             {ROLES.map((r) => (
               <div key={r.type} style={{
-                fontSize:   10, fontFamily: "var(--font-sans)",
-                color:      r.color.replace("1)", "0.5)"),
-                background: r.color.replace("1)", "0.06)"),
-                border:     `1px solid ${r.color.replace("1)", "0.15)")}`,
-                borderRadius: 100, padding: "4px 10px",
+                fontSize:      12, fontFamily: "var(--font-sans)",
+                color:         r.color.replace("1)", "0.70)"),
+                background:    r.color.replace("1)", "0.10)"),
+                border:        `1px solid ${r.color.replace("1)", "0.25)")}`,
+                borderRadius:  100, padding: "4px 10px",
                 letterSpacing: "0.04em",
               }}>
                 {r.label}

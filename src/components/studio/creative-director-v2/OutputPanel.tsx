@@ -466,40 +466,44 @@ function EmptyState({ mode }: { mode: string }) {
       textAlign:      "center",
       minHeight:      240,
     }}>
+      {/* Icon — glow + color lifted for daylight readability */}
       <div style={{
         width:          56,
         height:         56,
         borderRadius:   "50%",
-        background:     "rgba(139,92,246,0.07)",
-        border:         "1px solid rgba(139,92,246,0.18)",
+        background:     "rgba(139,92,246,0.10)",
+        border:         "1px solid rgba(139,92,246,0.28)",
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
         fontSize:       22,
-        color:          "rgba(139,92,246,0.45)",
+        color:          "rgba(139,92,246,0.65)",
         position:       "relative",
+        boxShadow:      "0 0 28px rgba(139,92,246,0.18), inset 0 0 16px rgba(139,92,246,0.08)",
       }}>
         <div style={{
           position:     "absolute",
           inset:        -8,
           borderRadius: "50%",
-          border:       "1px dashed rgba(139,92,246,0.1)",
+          border:       "1px dashed rgba(139,92,246,0.22)",
         }} />
         ✦
       </div>
       <div>
+        {/* Title — lifted from 0.45 to #B8C0D4 */}
         <p style={{
-          fontSize:   14,
+          fontSize:   15,
           fontFamily: "var(--font-display)",
-          color:      "rgba(255,255,255,0.45)",
+          color:      "#B8C0D4",
           margin:     "0 0 6px",
         }}>
           {mode === "locked" ? "Scene committed" : "Build your scene"}
         </p>
+        {/* Subtitle — lifted from 0.20 to 0.50 */}
         <p style={{
           fontSize:   11,
           fontFamily: "var(--font-sans)",
-          color:      "rgba(255,255,255,0.2)",
+          color:      "rgba(255,255,255,0.50)",
           margin:     0,
           lineHeight: 1.6,
           maxWidth:   180,
