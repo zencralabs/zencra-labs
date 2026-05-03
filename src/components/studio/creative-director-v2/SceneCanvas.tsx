@@ -305,6 +305,22 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
     setQuickAdd(null);
   }, [addFrame, canvasTransform, frames.length]);
 
+  // ── Compute safe picker position using real canvas dimensions ─────────────
+  // Estimated picker dimensions for the vertical FrameAspectRatioPicker layout.
+  // These are used only for clamping; slight over-estimate is fine.
+  const PICKER_W = 190;
+  const PICKER_H = 210;
+
+  const computePickerPos = useCallback((triggerX: number, triggerY: number): { x: number; y: number } => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cw   = rect?.width  ?? 600;
+    const ch   = rect?.height ?? 400;
+    return {
+      x: Math.max(8, Math.min(triggerX, cw - PICKER_W - 8)),
+      y: Math.max(8, Math.min(triggerY, ch - PICKER_H - 8)),
+    };
+  }, []);
+
   // ── Click: close menus only — no QuickAdd on single click ───────────────
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (panHappenedRef.current) { panHappenedRef.current = false; return; }
@@ -544,6 +560,11 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             onSelect={setSelectedFrameId}
             onDelete={removeFrame}
             onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
+            onResize={(id, width, pos) => {
+              const patch: Parameters<typeof updateFrame>[1] = { width };
+              if (pos) patch.position = pos;
+              updateFrame(id, patch);
+            }}
           />
         ))}
       </div>
@@ -624,8 +645,8 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
         <button
           onClick={(e) => {
             e.stopPropagation();
-            const rect = canvasRef.current!.getBoundingClientRect();
-            setFramePickerPos({ x: rect.width - 12, y: 48 });
+            // 99999 → clamped to right edge by computePickerPos
+            setFramePickerPos(computePickerPos(99999, 52));
             setContextMenu(null);
             setQuickAdd(null);
           }}
@@ -679,7 +700,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
       )}
 
       {/* ── Empty state ────────────────────────────────────────────────── */}
-      {elements.length === 0 && (
+      {elements.length === 0 && frames.length === 0 && (
         <div aria-hidden style={{
           position:      "absolute", inset: 0, display: "flex",
           flexDirection: "column",  alignItems: "center", justifyContent: "center",
@@ -749,7 +770,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           x={quickAdd.x}
           y={quickAdd.y}
           onSelect={(type) => { onAddElement(type, `New ${type}`); setQuickAdd(null); }}
-          onAddFrame={() => { setFramePickerPos({ x: quickAdd.x, y: quickAdd.y }); setQuickAdd(null); }}
+          onAddFrame={() => { setFramePickerPos(computePickerPos(quickAdd.x, quickAdd.y)); setQuickAdd(null); }}
           onClose={() => setQuickAdd(null)}
         />
       )}
@@ -761,7 +782,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onAddElement={(type) => { onAddElement(type, `New ${type}`); setContextMenu(null); }}
-          onAddFrame={() => { setFramePickerPos({ x: contextMenu.x, y: contextMenu.y }); setContextMenu(null); }}
+          onAddFrame={() => { setFramePickerPos(computePickerPos(contextMenu.x, contextMenu.y)); setContextMenu(null); }}
           onOpenDirectorControls={() => { onOpenDirectorControls?.(); setContextMenu(null); }}
         />
       )}
@@ -1139,14 +1160,15 @@ function ContextMenuItem({ label, dot, icon, iconColor, onClick }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FrameAspectRatioPicker — 4-choice popup for selecting frame aspect ratio
+// FrameAspectRatioPicker — vertical 4-choice popup for selecting aspect ratio.
+// x,y are pre-clamped canvas-local coordinates from computePickerPos.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ASPECT_CHOICES: Array<{ ratio: FrameAspectRatio; label: string; w: number; h: number }> = [
-  { ratio: "1:1",  label: "Square",    w: 32, h: 32 },
-  { ratio: "16:9", label: "Landscape", w: 36, h: 20 },
-  { ratio: "9:16", label: "Portrait",  w: 20, h: 36 },
-  { ratio: "4:5",  label: "Story",     w: 28, h: 35 },
+  { ratio: "16:9", label: "Landscape", w: 40, h: 22 },
+  { ratio: "1:1",  label: "Square",    w: 28, h: 28 },
+  { ratio: "4:5",  label: "Story",     w: 24, h: 30 },
+  { ratio: "9:16", label: "Portrait",  w: 18, h: 32 },
 ];
 
 function FrameAspectRatioPicker({ x, y, onSelect, onClose }: {
@@ -1155,8 +1177,6 @@ function FrameAspectRatioPicker({ x, y, onSelect, onClose }: {
   onSelect: (ratio: FrameAspectRatio) => void;
   onClose:  () => void;
 }) {
-  // Clamp to reasonable left position
-  const left = Math.max(10, x - 90);
   return (
     <>
       <div style={{ position: "absolute", inset: 0, zIndex: 40 }} onClick={onClose} />
@@ -1164,33 +1184,35 @@ function FrameAspectRatioPicker({ x, y, onSelect, onClose }: {
         onClick={(e) => e.stopPropagation()}
         style={{
           position:       "absolute",
-          left,
-          top:            Math.max(10, y - 10),
+          left:           x,
+          top:            y,
           zIndex:         41,
           background:     "rgba(10,8,16,0.99)",
           border:         "1px solid rgba(255,255,255,0.1)",
           borderRadius:   14,
-          padding:        "10px",
+          padding:        "8px",
+          minWidth:       180,
           boxShadow:      "0 16px 48px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.15)",
           backdropFilter: "blur(24px)",
           animation:      "cd-slide-up 0.18s ease",
+          display:        "flex",
+          flexDirection:  "column",
+          gap:            3,
         }}
       >
         <p style={{
           fontSize:      9,
           color:         "rgba(255,255,255,0.25)",
           fontFamily:    "var(--font-sans)",
-          margin:        "0 4px 10px",
+          margin:        "2px 8px 6px",
           textTransform: "uppercase",
           letterSpacing: "0.1em",
         }}>
           Frame size
         </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          {ASPECT_CHOICES.map(({ ratio, label, w, h }) => (
-            <FrameARChoice key={ratio} ratio={ratio} label={label} w={w} h={h} onSelect={onSelect} />
-          ))}
-        </div>
+        {ASPECT_CHOICES.map(({ ratio, label, w, h }) => (
+          <FrameARChoice key={ratio} ratio={ratio} label={label} w={w} h={h} onSelect={onSelect} />
+        ))}
       </div>
     </>
   );
@@ -1210,52 +1232,54 @@ function FrameARChoice({ ratio, label, w, h, onSelect }: {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background:     hov ? "rgba(139,92,246,0.1)" : "rgba(255,255,255,0.03)",
-        border:         `1px solid ${hov ? "rgba(139,92,246,0.35)" : "rgba(255,255,255,0.1)"}`,
-        borderRadius:   10,
-        cursor:         "pointer",
-        padding:        "10px 8px",
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
-        gap:            8,
-        minWidth:       56,
-        transition:     "all 0.15s ease",
+        background:    hov ? "rgba(139,92,246,0.1)" : "transparent",
+        border:        `1px solid ${hov ? "rgba(139,92,246,0.35)" : "transparent"}`,
+        borderRadius:  9,
+        cursor:        "pointer",
+        padding:       "7px 10px",
+        display:       "flex",
+        alignItems:    "center",
+        gap:           10,
+        width:         "100%",
+        textAlign:     "left",
+        transition:    "all 0.15s ease",
       }}
     >
       {/* Aspect ratio thumbnail */}
       <div style={{
         width:        w,
         height:       h,
-        borderRadius: 3,
-        border:       `1.5px dashed ${hov ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.25)"}`,
+        borderRadius: 2,
+        border:       `1.5px dashed ${hov ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.22)"}`,
         background:   hov ? "rgba(139,92,246,0.08)" : "transparent",
         transition:   "all 0.15s ease",
         flexShrink:   0,
       }} />
-      {/* Ratio label */}
-      <span style={{
-        fontSize:      9,
-        fontFamily:    "var(--font-sans)",
-        fontWeight:    600,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase" as const,
-        color:         hov ? "rgba(139,92,246,0.9)" : "rgba(255,255,255,0.4)",
-        transition:    "color 0.15s ease",
-        lineHeight:    1,
-      }}>
-        {ratio}
-      </span>
-      {/* Size name */}
-      <span style={{
-        fontSize:   9,
-        fontFamily: "var(--font-sans)",
-        color:      hov ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)",
-        lineHeight: 1,
-        transition: "color 0.15s ease",
-      }}>
-        {label}
-      </span>
+      {/* Labels */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <span style={{
+          fontSize:      10,
+          fontFamily:    "var(--font-sans)",
+          fontWeight:    600,
+          letterSpacing: "0.04em",
+          color:         hov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.65)",
+          lineHeight:    1,
+          transition:    "color 0.15s ease",
+        }}>
+          {label}
+        </span>
+        <span style={{
+          fontSize:      8,
+          fontFamily:    "var(--font-sans)",
+          letterSpacing: "0.06em",
+          color:         hov ? "rgba(139,92,246,0.8)" : "rgba(255,255,255,0.3)",
+          lineHeight:    1,
+          transition:    "color 0.15s ease",
+          textTransform: "uppercase",
+        }}>
+          {ratio}
+        </span>
+      </div>
     </button>
   );
 }

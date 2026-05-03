@@ -162,6 +162,7 @@ export interface GenerationFrame {
   aspectRatio:        FrameAspectRatio;
   position:           { x: number; y: number };
   generatedImageUrl?: string;
+  width?:             number;   // canvas-pixel width; height is derived from aspectRatio
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -295,7 +296,7 @@ export interface DirectionActions {
   // Generation frames
   addFrame:    (frame: GenerationFrame) => void;
   removeFrame: (id: string) => void;
-  updateFrame: (id: string, patch: Partial<Pick<GenerationFrame, "position" | "generatedImageUrl">>) => void;
+  updateFrame: (id: string, patch: Partial<Pick<GenerationFrame, "position" | "generatedImageUrl" | "width">>) => void;
 
   // Full reset (switching back to standard mode / new direction)
   reset: () => void;
