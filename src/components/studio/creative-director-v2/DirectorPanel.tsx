@@ -357,9 +357,12 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
 
       {/* ── Section 2: Character Direction ───────────────────────────────── */}
       <div style={{ padding: "0 24px 24px" }}>
-        {/* Section header — collapsible */}
-        <button
+        {/* Section header — collapsible. Outer is a div to avoid button-in-button. */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setCharOpen((o) => !o)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCharOpen((o) => !o); } }}
           style={{
             background:    "none",
             border:        "none",
@@ -376,7 +379,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
             Character Direction
           </span>
           <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)" }}>{charOpen ? "▼" : "▲"}</span>
-          {/* Reset button */}
+          {/* Reset button — lives inside the div row but is a real button, no nesting violation */}
           {charOpen && (
             <button
               onClick={(e) => { e.stopPropagation(); resetCharacterDirection(); setActivePresetId(null); }}
@@ -396,7 +399,7 @@ export function DirectorPanel({ onRefinementChange, bottomOffset }: DirectorPane
               Reset
             </button>
           )}
-        </button>
+        </div>
 
         {charOpen && (
           <div>

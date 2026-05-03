@@ -83,7 +83,7 @@ export function LensDial({ value, onChange }: LensDialProps) {
         <circle cx={CX} cy={CY} r={R} fill="url(#lens-bg)" stroke="rgba(255,255,255,0.07)" strokeWidth={2}
           strokeDasharray={`${(SWEEP / 360) * fullCirc} ${fullCirc}`}
           strokeDashoffset={dashOffset}
-          strokeLinecap="round" fill-opacity="0" />
+          strokeLinecap="round" fillOpacity={0} />
 
         {/* Active arc fill */}
         {activeIdx >= 0 && (

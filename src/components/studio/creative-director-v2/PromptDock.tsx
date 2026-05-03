@@ -270,6 +270,8 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
         display:         "flex",
         flexDirection:   "column",
         borderTop:       dockHidden ? "none" : "1px solid rgba(255,255,255,0.07)",
+        // Bottom border ensures the dock edge is always visible above the viewport floor
+        borderBottom:    dockHidden ? "none" : "2px solid rgba(255,255,255,0.04)",
         background:      dockHidden ? "transparent" : "rgba(6,6,9,0.99)",
         zIndex:          10,
         transition:      "background 0.3s ease",
@@ -518,7 +520,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
               display:     "flex",
               alignItems:  "flex-start",
               gap:         10,
-              padding:     `9px ${px} 10px`,
+              padding:     `9px ${px} 12px`,
             }}
           >
             {/* ── Left: textarea + tag chips ───────────────────────────── */}

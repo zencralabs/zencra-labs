@@ -183,8 +183,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       // Step 2 — ensure direction row (may create one)
       const dId = await ensureDirection();
       if (!dId) {
-        // Direction creation failed — remove optimistic element
-        removeElement(tempId);
+        // Direction creation failed — keep the temp element alive so the canvas
+        // stays populated. The user can still see and work with the node; it will
+        // be re-synced when they hit Generate (which also calls ensureDirection).
+        console.warn("[CDv2Shell] direction creation failed — element kept locally:", tempId);
         return;
       }
 
