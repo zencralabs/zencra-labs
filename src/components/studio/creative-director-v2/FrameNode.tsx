@@ -29,7 +29,7 @@
 
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { GenerationFrame, FrameAspectRatio } from "@/lib/creative-director/store";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -71,8 +71,9 @@ export interface FrameNodeProps {
   scale:              number;                      // canvas zoom (0–200)
   isSpring:           boolean;
   pendingConnActive:  boolean;                     // true while a node→frame connection is being dragged
-  onboardingSuccess?:       boolean;               // Phase 1: subject dropped into frame
+  onboardingSuccess?:        boolean;              // Phase 1: subject dropped into frame
   onboardingPhase2Complete?: boolean;              // Phase 2: system finished wiring all nodes → frame
+  isGenerating?:             boolean;              // Phase 3: auto-generate in progress — show shimmer
   onSelect:           (id: string) => void;
   onDelete:           (id: string) => void;
   onDragEnd:          (id: string, pos: { x: number; y: number }) => void;
@@ -101,6 +102,15 @@ const FRAME_P2_KEYFRAME = `
 }
 `;
 
+/** Phase 3 — generated image appears: fade + scale + sharpen reveal */
+const FRAME_REVEAL_KEYFRAME = `
+@keyframes cd-ob-frame-reveal {
+  0%   { opacity: 0; transform: scale(1.02); filter: blur(6px); }
+  60%  { opacity: 1; transform: scale(1.00); filter: blur(1px); }
+  100% { opacity: 1; transform: scale(1.00); filter: blur(0px); }
+}
+`;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FrameNode({
@@ -111,6 +121,7 @@ export function FrameNode({
   pendingConnActive,
   onboardingSuccess,
   onboardingPhase2Complete,
+  isGenerating,
   onSelect,
   onDelete,
   onDragEnd,
@@ -119,6 +130,19 @@ export function FrameNode({
   const [hovered,       setHovered]       = useState(false);
   const [resizeCorner,  setResizeCorner]  = useState<Corner | null>(null);
   const outerRef                          = useRef<HTMLDivElement>(null);
+
+  // Phase 3: detect when generatedImageUrl first arrives → trigger reveal animation
+  const prevFilledRef                     = useRef(false);
+  const [frameJustFilled, setFrameJustFilled] = useState(false);
+  const filled = !!frame.generatedImageUrl;
+  useEffect(() => {
+    if (filled && !prevFilledRef.current) {
+      setFrameJustFilled(true);
+      const t = setTimeout(() => setFrameJustFilled(false), 700);
+      return () => clearTimeout(t);
+    }
+    prevFilledRef.current = filled;
+  }, [filled]);
 
   const frameWidth = frame.width ?? DEFAULT_FRAME_WIDTH;
   const ratio      = parseRatio(frame.aspectRatio);
@@ -223,7 +247,7 @@ export function FrameNode({
   }, [frame.id, onDelete]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const filled     = !!frame.generatedImageUrl;
+  // `filled` is derived above (before frameJustFilled effect) — don't redeclare it.
   const isResizing = resizeCorner !== null;
 
   // ── Outer shadow / selection ring ──────────────────────────────────────────
@@ -450,19 +474,58 @@ export function FrameNode({
             overflow:    "hidden",
           }}
         >
-          {filled ? (
-            /* ── Filled state ───────────────────────────────────────────────── */
-            <img
-              src={frame.generatedImageUrl}
-              alt="Generated frame"
-              draggable={false}
+          {isGenerating && !filled ? (
+            /* ── Phase 3 loading shimmer ─────────────────────────────────────── */
+            <div
               style={{
-                width:     "100%",
-                height:    "100%",
-                objectFit: "cover",
-                display:   "block",
+                width:           "100%",
+                height:          "100%",
+                position:        "relative",
+                background:      "linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%)",
+                backgroundSize:  "400% 100%",
+                animation:       "cd-shimmer 1.6s ease-in-out infinite",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
               }}
-            />
+            >
+              <style>{`
+                @keyframes cd-shimmer {
+                  0%   { background-position: 100% 0; }
+                  100% { background-position: -100% 0; }
+                }
+              `}</style>
+              <span
+                style={{
+                  fontFamily:    "var(--font-syne), sans-serif",
+                  fontSize:      11,
+                  fontWeight:    500,
+                  letterSpacing: "0.1em",
+                  color:         "rgba(255,255,255,0.35)",
+                  textTransform: "uppercase",
+                  userSelect:    "none",
+                }}
+              >
+                Rendering…
+              </span>
+            </div>
+          ) : filled ? (
+            /* ── Filled state ───────────────────────────────────────────────── */
+            <>
+              {frameJustFilled && <style>{FRAME_REVEAL_KEYFRAME}</style>}
+              <img
+                src={frame.generatedImageUrl}
+                alt="Generated frame"
+                draggable={false}
+                style={{
+                  width:     "100%",
+                  height:    "100%",
+                  objectFit: "cover",
+                  display:   "block",
+                  animation: frameJustFilled ? "cd-ob-frame-reveal 0.5s ease-out both" : "none",
+                }}
+              />
+            </>
           ) : (
             /* ── Empty state ────────────────────────────────────────────────── */
             <>
