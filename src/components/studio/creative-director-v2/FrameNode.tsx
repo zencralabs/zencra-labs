@@ -189,18 +189,16 @@ export function FrameNode({
   const filled     = !!frame.generatedImageUrl;
   const isResizing = resizeCorner !== null;
 
-  // ── Glow / border colours ─────────────────────────────────────────────────
+  // ── Outer shadow / selection ring ─────────────────────────────────────────
+  // Default: premium depth (no colour, no glow). Selection: brand purple only.
   const outerGlow = isSelected
-    ? "0 0 0 1.5px rgba(139,92,246,0.85), 0 0 28px rgba(139,92,246,0.22), 0 12px 40px rgba(0,0,0,0.45)"
-    : hovered
-      ? "0 0 0 1px rgba(139,92,246,0.35), 0 8px 32px rgba(0,0,0,0.35)"
-      : "0 4px 20px rgba(0,0,0,0.28)";
+    ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
+    : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
 
+  // Shell border: always ultra-subtle white; purple only when selected
   const shellBorder = isSelected
-    ? "1px solid rgba(139,92,246,0.5)"
-    : hovered
-      ? "1px solid rgba(139,92,246,0.28)"
-      : "1px solid rgba(255,255,255,0.08)";
+    ? "1px solid rgba(139,92,246,0.35)"
+    : "1px solid rgba(255,255,255,0.08)";
 
   // ── Corner handle render helper ────────────────────────────────────────────
   const renderHandle = (corner: Corner) => {
@@ -265,11 +263,9 @@ export function FrameNode({
           borderRadius: 12,
           overflow:     "hidden",
           border:       shellBorder,
-          background:   filled
-            ? "rgba(12,10,20,0.92)"
-            : "linear-gradient(160deg, rgba(28,22,48,0.92) 0%, rgba(14,11,26,0.96) 100%)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          background:   "#000000",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           transition:   isResizing ? "none" : "border-color 0.18s ease, background 0.18s ease",
         }}
       >
@@ -284,10 +280,8 @@ export function FrameNode({
             padding:        "0 10px",
             cursor:         "grab",
             userSelect:     "none",
-            borderBottom:   "1px solid rgba(139,92,246,0.12)",
-            background:     isSelected
-              ? "rgba(139,92,246,0.08)"
-              : "rgba(255,255,255,0.03)",
+            borderBottom:   "1px solid rgba(255,255,255,0.06)",
+            background:     "rgba(255,255,255,0.025)",
             flexShrink:     0,
           }}
         >
@@ -297,11 +291,11 @@ export function FrameNode({
             height="10"
             viewBox="0 0 22 22"
             fill="none"
-            style={{ opacity: isSelected ? 0.75 : 0.4, flexShrink: 0 }}
+            style={{ opacity: 0.35, flexShrink: 0 }}
           >
             <path
               d="M11 1L12.8 8.2L20 10L12.8 11.8L11 19L9.2 11.8L2 10L9.2 8.2L11 1Z"
-              fill="rgba(139,92,246,1)"
+              fill="rgba(255,255,255,1)"
             />
           </svg>
 
@@ -313,7 +307,7 @@ export function FrameNode({
               fontWeight:     600,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color:          isSelected ? "rgba(139,92,246,0.9)" : "rgba(255,255,255,0.45)",
+              color:          isSelected ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.38)",
               flex:           1,
               lineHeight:     1,
               transition:     "color 0.18s ease",
@@ -393,12 +387,12 @@ export function FrameNode({
           ) : (
             /* ── Empty state ────────────────────────────────────────────────── */
             <>
-              {/* Glass shimmer overlay */}
+              {/* Subtle depth overlay — no colour, no glow */}
               <div
                 style={{
-                  position:   "absolute",
-                  inset:      0,
-                  background: "linear-gradient(135deg, rgba(139,92,246,0.06) 0%, transparent 50%, rgba(139,92,246,0.04) 100%)",
+                  position:      "absolute",
+                  inset:         0,
+                  background:    "linear-gradient(160deg, rgba(255,255,255,0.012) 0%, transparent 100%)",
                   pointerEvents: "none",
                 }}
               />
@@ -417,32 +411,52 @@ export function FrameNode({
                   position:        "relative",
                 }}
               >
-                {/* ✦ large icon */}
+                {/* ✦ center indicator — toned down, not a glow */}
                 <svg
-                  width="26"
-                  height="26"
+                  width="24"
+                  height="24"
                   viewBox="0 0 22 22"
                   fill="none"
-                  style={{ opacity: isSelected ? 0.45 : 0.2, flexShrink: 0, transition: "opacity 0.18s ease" }}
+                  style={{
+                    opacity:    0.4,
+                    filter:     "blur(0.5px)",
+                    flexShrink: 0,
+                  }}
                 >
                   <path
                     d="M11 1L12.8 8.2L20 10L12.8 11.8L11 19L9.2 11.8L2 10L9.2 8.2L11 1Z"
-                    fill="rgba(139,92,246,1)"
+                    fill="rgba(255,255,255,1)"
                   />
                 </svg>
 
-                {/* Hint */}
-                <span
-                  style={{
-                    fontFamily:  "var(--font-familjen-grotesk), sans-serif",
-                    fontSize:     11,
-                    color:        "rgba(255,255,255,0.2)",
-                    lineHeight:   1.4,
-                    textAlign:    "center",
-                  }}
-                >
-                  Generate to fill
-                </span>
+                {/* Render-target copy */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <span
+                    style={{
+                      fontFamily:    "var(--font-syne), sans-serif",
+                      fontSize:       12,
+                      fontWeight:     500,
+                      letterSpacing: "0.04em",
+                      color:          "rgba(255,255,255,0.35)",
+                      lineHeight:     1,
+                      textAlign:      "center",
+                    }}
+                  >
+                    Ready to render
+                  </span>
+                  <span
+                    style={{
+                      fontFamily:    "var(--font-familjen-grotesk), sans-serif",
+                      fontSize:       10,
+                      letterSpacing: "0.04em",
+                      color:          "rgba(255,255,255,0.18)",
+                      lineHeight:     1.4,
+                      textAlign:      "center",
+                    }}
+                  >
+                    Connect nodes + prompt
+                  </span>
+                </div>
               </div>
 
               {/* Subtle vignette */}
