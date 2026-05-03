@@ -546,6 +546,7 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
                     return (
                       <span
                         key={i}
+                        className="cd-tag-chip"
                         style={{
                           fontSize:      9,
                           fontFamily:    "var(--font-sans)",

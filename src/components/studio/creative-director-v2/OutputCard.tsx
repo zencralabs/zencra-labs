@@ -71,7 +71,7 @@ export function OutputCard({
         aspectRatio:    "1 / 1",
         flexShrink:     0,
         transition:     "border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease",
-        transform:      hovered && isCompleted ? "scale(1.015)" : "scale(1)",
+        transform:      hovered && isCompleted ? "scale(1.025)" : "scale(1)",
         animation:      lockedPulse !== "none" ? lockedPulse : entranceAnimation,
         boxShadow:      hovered && isCompleted
           ? (isBest

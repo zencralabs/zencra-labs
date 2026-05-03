@@ -80,9 +80,10 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
   } = useDirectionStore();
   const mode = useDirectionStore(selectMode);
 
-  const [hovered,    setHovered]    = useState(false);
-  const [editing,    setEditing]    = useState(false);
-  const [editLabel,  setEditLabel]  = useState(element.label);
+  const [hovered,     setHovered]    = useState(false);
+  const [editing,     setEditing]    = useState(false);
+  const [editLabel,   setEditLabel]  = useState(element.label);
+  const [isDragging,  setIsDragging] = useState(false);
   const [localWeight, setLocalWeight] = useState(
     () => Math.round((element.weight ?? 0.5) * 100)
   );
@@ -118,6 +119,8 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
     isPriority
       ? `0 0 ${Math.round(glowRadius * 0.6)}px ${PRIORITY_COLOR.replace("1)", "0.25)")}`
       : "",
+    // Drag glow: layered on top of role glow only while dragging; role glow returns immediately on release
+    isDragging ? "0 0 16px rgba(139,92,246,0.4)" : "",
   ].filter(Boolean).join(", ");
 
   // Slider track gradient (filled left side = localWeight %)
@@ -363,10 +366,14 @@ export function SceneNode({ element, x, y, onMove }: SceneNodeProps) {
             value={localWeight}
             onChange={handleWeightChange}
             onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={() => setIsDragging(true)}
+            onPointerUp={() => setIsDragging(false)}
+            onPointerLeave={() => setIsDragging(false)}
             className="cd-weight-slider"
             style={{
               flex:       1,
               background: trackBg,
+              cursor:     isDragging ? "grabbing" : undefined,
               // CSS custom property for the thumb color (used by ::webkit-slider-thumb in CDv2Shell CSS)
               "--role-clr": roleColor,
             } as React.CSSProperties}

@@ -349,7 +349,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     .cd-btn-lift:active { transform: translateY(0) scale(0.97); }
     .cd-node-hover:hover { animation: cd-node-glow 2s ease-in-out infinite; }
     .cd-model-pill { transition: all 0.12s ease; }
-    .cd-model-pill:hover { background: rgba(255,255,255,0.07) !important; }
+    .cd-model-pill:hover { background: rgba(255,255,255,0.07) !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .cd-tag-chip { transition: border-color 0.12s ease, box-shadow 0.12s ease; }
+    .cd-tag-chip:hover { border-color: rgba(139,92,246,0.5) !important; box-shadow: 0 0 8px rgba(139,92,246,0.15); }
     .cd-weight-slider {
       -webkit-appearance: none;
       appearance: none;

@@ -700,7 +700,9 @@ function PresetCard({
         flexShrink:    0,
         width:         130,
         scrollSnapAlign: "start",
-        animation:     `cd-slide-up 0.3s ease ${index * 40}ms both`,
+        animation:     active
+          ? `cd-slide-up 0.3s ease ${index * 40}ms both, cd-node-glow 2.5s ease-in-out infinite`
+          : `cd-slide-up 0.3s ease ${index * 40}ms both`,
         background:    active
           ? "rgba(251,146,60,0.12)"
           : hov
@@ -723,7 +725,7 @@ function PresetCard({
         textAlign:     "left",
         transition:    "all 0.15s ease",
         boxShadow:     active
-          ? "0 0 20px rgba(251,146,60,0.18), inset 0 0 0 1px rgba(251,146,60,0.1)"
+          ? undefined  // cd-node-glow animation controls box-shadow when active
           : hov
             ? "0 6px 20px rgba(0,0,0,0.35)"
             : "none",
