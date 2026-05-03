@@ -71,7 +71,8 @@ export interface FrameNodeProps {
   scale:              number;                      // canvas zoom (0–200)
   isSpring:           boolean;
   pendingConnActive:  boolean;                     // true while a node→frame connection is being dragged
-  onboardingSuccess?: boolean;                     // true when subject was successfully dropped into this frame
+  onboardingSuccess?:       boolean;               // Phase 1: subject dropped into frame
+  onboardingPhase2Complete?: boolean;              // Phase 2: system finished wiring all nodes → frame
   onSelect:           (id: string) => void;
   onDelete:           (id: string) => void;
   onDragEnd:          (id: string, pos: { x: number; y: number }) => void;
@@ -81,8 +82,8 @@ export interface FrameNodeProps {
 // ─── Corner handle types ───────────────────────────────────────────────────────
 type Corner = "se" | "ne" | "sw" | "nw";
 
-// ─── Component ────────────────────────────────────────────────────────────────
-// ─── Onboarding success keyframe ──────────────────────────────────────────────
+// ─── Onboarding keyframes ──────────────────────────────────────────────────────
+/** Phase 1 — user dropped subject into frame: stronger scale pop */
 const FRAME_SUCCESS_KEYFRAME = `
 @keyframes cd-ob-frame-scale {
   0%   { transform: scale(1); }
@@ -91,6 +92,17 @@ const FRAME_SUCCESS_KEYFRAME = `
 }
 `;
 
+/** Phase 2 — system completed scene build: softer, more sustained glow */
+const FRAME_P2_KEYFRAME = `
+@keyframes cd-ob-frame-p2 {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+`;
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function FrameNode({
   frame,
   isSelected,
@@ -98,6 +110,7 @@ export function FrameNode({
   isSpring,
   pendingConnActive,
   onboardingSuccess,
+  onboardingPhase2Complete,
   onSelect,
   onDelete,
   onDragEnd,
@@ -213,13 +226,17 @@ export function FrameNode({
   const filled     = !!frame.generatedImageUrl;
   const isResizing = resizeCorner !== null;
 
-  // ── Outer shadow / selection ring ─────────────────────────────────────────
-  // Onboarding success: bright purple ring + glow. Selection: standard purple. Default: depth only.
+  // ── Outer shadow / selection ring ──────────────────────────────────────────
+  // Phase 1 success: bright ring + strong glow (user action)
+  // Phase 2 complete: softer ring + extended glow (system action — different feel)
+  // Selection: standard purple. Default: depth only.
   const outerGlow = onboardingSuccess
     ? "0 0 0 1px rgba(139,92,246,0.9), 0 0 60px rgba(139,92,246,0.50)"
-    : isSelected
-      ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
-      : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
+    : onboardingPhase2Complete
+      ? "0 0 0 1px rgba(139,92,246,0.55), 0 0 80px rgba(139,92,246,0.28)"
+      : isSelected
+        ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
+        : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
 
   // Shell border: always ultra-subtle white; purple only when selected
   const shellBorder = isSelected
@@ -263,7 +280,8 @@ export function FrameNode({
 
   return (
     <>
-    {onboardingSuccess && <style>{FRAME_SUCCESS_KEYFRAME}</style>}
+    {onboardingSuccess        && <style>{FRAME_SUCCESS_KEYFRAME}</style>}
+    {onboardingPhase2Complete && <style>{FRAME_P2_KEYFRAME}</style>}
     <div
       ref={outerRef}
       onMouseEnter={() => setHovered(true)}
@@ -320,10 +338,13 @@ export function FrameNode({
           background:   "#000000",
           backdropFilter: "blur(8px)",
           WebkitBackdropFilter: "blur(8px)",
-          // onboarding success scale overrides spring (both are on shell, not outer, to avoid translate conflict)
+          // Animation priority: Phase 1 success > Phase 2 complete > spring entry
+          // All live on the shell (not outer) to avoid translate conflict on outer div
           animation:    onboardingSuccess
             ? "cd-ob-frame-scale 0.6s ease-out both"
-            : isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
+            : onboardingPhase2Complete
+              ? "cd-ob-frame-p2 0.7s ease-in-out both"
+              : isSpring ? "cd-spring 0.45s cubic-bezier(0.34,1.56,0.64,1) both" : "none",
           transition:   isResizing ? "none" : "border-color 0.18s ease, background 0.18s ease",
         }}
       >

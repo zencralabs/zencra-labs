@@ -85,9 +85,12 @@ interface SceneNodeProps {
   onMove:               (id: string, dx: number, dy: number) => void;
   onMoveEnd?:           (id: string) => void;
   onboardingHighlight?: boolean;
+  /** Phase 2: spawn index (0, 1, 2). Triggers a fade-in animation with
+   *  animation-delay = index × 120ms so nodes appear staggered. */
+  autoSpawnIndex?:      number;
 }
 
-export function SceneNode({ element, x, y, onMove, onMoveEnd, onboardingHighlight }: SceneNodeProps) {
+export function SceneNode({ element, x, y, onMove, onMoveEnd, onboardingHighlight, autoSpawnIndex }: SceneNodeProps) {
   const {
     removeElement,
     updateElement,
@@ -234,6 +237,14 @@ export function SceneNode({ element, x, y, onMove, onMoveEnd, onboardingHighligh
           }
         `}</style>
       )}
+      {autoSpawnIndex !== undefined && (
+        <style>{`
+          @keyframes cd-ob-node-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+        `}</style>
+      )}
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -248,10 +259,12 @@ export function SceneNode({ element, x, y, onMove, onMoveEnd, onboardingHighligh
           // Weight → scale: 1.00 at 0%, 1.05 at 100% — subtle cinematic mass
           transform:  `scale(${(1 + weight * 0.05).toFixed(4)})`,
           transition: "transform 0.35s ease",
-          // Onboarding highlight pulse overrides the hover glow
+          // Animation priority: onboarding pulse > Phase 2 spawn > hover glow
           animation:  onboardingHighlight
             ? "cd-ob-node-pulse 1.8s ease-in-out infinite"
-            : hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
+            : autoSpawnIndex !== undefined
+              ? `cd-ob-node-in 0.38s ease-out ${autoSpawnIndex * 120}ms both`
+              : hovered ? "cd-node-glow 2s ease-in-out infinite" : "none",
         }}
       >
       {/* ── Glass card ─────────────────────────────────────────────────── */}

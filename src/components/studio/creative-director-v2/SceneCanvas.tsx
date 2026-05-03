@@ -66,6 +66,7 @@ import type { FrameAspectRatio, GenerationFrame } from "@/lib/creative-director/
 import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
 import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
 import { CDOnboardingOverlay } from "./CDOnboardingOverlay";
+import { CDAutoSceneHint }    from "./CDAutoSceneHint";
 import type { DirectionElementType } from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,11 +193,21 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   const [onboardingStep,           setOnboardingStep]           = useState(1);
   const [onboardingSuccessFrameId, setOnboardingSuccessFrameId] = useState<string | null>(null);
 
+  // Phase 2 state — auto scene build
+  const [onboardingAnimConnIds, setOnboardingAnimConnIds] = useState<Set<string>>(new Set());
+  const [phase2FrameComplete,   setPhase2FrameComplete]   = useState(false);
+
   // Stable refs — updated every render so handleMoveEnd reads current data
   // without needing elements/frames/positions in its useCallback deps.
   const elementsRef  = useRef(elements);
   const framesRef    = useRef(frames);
   const positionsRef = useRef<Record<string, CanvasPosition>>({});
+
+  // Phase 2 refs — pre-registered before onAddElement is called so the
+  // elements useEffect picks up directional positions instead of magnetic zones.
+  const onAddElementRef       = useRef(onAddElement);
+  const phase2PendingPositions = useRef<Map<string, CanvasPosition>>(new Map());  // type → pos
+  const phase2SpawnIndexes     = useRef<Map<string, number>>(new Map());           // type → anim index
 
   // ── Onboarding — shown once when canvas is empty and flag is unset ────
   // Initialized lazily so sessionStorage is only read client-side.
@@ -239,9 +250,10 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
   // Sync ref every render so handlers always see the latest pendingConn
   pendingConnRef.current = pendingConn;
   // Sync stable refs for handleMoveEnd (accessed in callback but not in its deps)
-  elementsRef.current  = elements;
-  framesRef.current    = frames;
-  positionsRef.current = positions;
+  elementsRef.current    = elements;
+  framesRef.current      = frames;
+  positionsRef.current   = positions;
+  onAddElementRef.current = onAddElement;
 
   // ── Detect newly added elements → initialize positions + spring ───────────
   useEffect(() => {
@@ -257,6 +269,13 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
         const next = { ...prev };
         newEls.forEach((el) => {
           if (next[el.id]) return; // already manually positioned
+          // Phase 2: use pre-registered directional position instead of magnetic zone
+          const p2pos = phase2PendingPositions.current.get(el.type);
+          if (p2pos) {
+            next[el.id] = p2pos;
+            phase2PendingPositions.current.delete(el.type); // claim: one node per type
+            return;
+          }
           const sameType    = elements.filter((e) => e.type === el.type);
           const sameTypeIdx = sameType.findIndex((e) => e.id === el.id);
           next[el.id] = getMagneticPosition(el.type, sameTypeIdx, sameType.length, w, h);
@@ -365,6 +384,112 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
       }
     }
   }, [showOnboarding, onboardingStep]);
+
+  // ── Phase 2: auto scene build — spawn missing nodes, then wire connections ──
+  //
+  // Step 2 → 3: after Phase 1 animation settles (~200ms), determine which of
+  //   world / atmosphere / object are absent.  Pre-register their directional
+  //   positions so the elements-useEffect uses them instead of magnetic zones.
+  //   Spawn each missing node with a 120ms stagger; advance to step 3 when done.
+  //
+  // Step 3 → 4: connect every element → first frame (skip existing pairs),
+  //   mark those connection IDs for the draw-in animation, fire frame Phase 2
+  //   reaction after ~600ms, then advance to step 4 after ~1100ms total.
+
+  useEffect(() => {
+    if (onboardingStep !== 2) return;
+
+    const timer = setTimeout(() => {
+      const frame = framesRef.current[0];
+      if (!frame) { setOnboardingStep(3); return; }
+
+      const fw    = frame.width ?? DEFAULT_FRAME_WIDTH;
+      const ratio = FRAME_RATIO_VALUES[frame.aspectRatio];
+      const bodyH = fw / ratio;
+      const fx    = frame.position.x;
+      const fy    = frame.position.y;
+      const fh    = FRAME_HEADER_HEIGHT + bodyH;
+
+      // Directional positions relative to frame (locked per spec)
+      const PHASE2_POS: Partial<Record<string, CanvasPosition>> = {
+        world:      { x: fx - 140,      y: fy + fh + 60 },
+        atmosphere: { x: fx + fw + 120, y: fy - 40 },
+        object:     { x: fx + fw + 120, y: fy + fh + 40 },
+      };
+      const PHASE2_LABELS: Record<string, string> = {
+        world: "Environment", atmosphere: "Lighting", object: "Details",
+      };
+
+      const existingTypes = new Set(elementsRef.current.map((e) => e.type));
+      const missing = (["world", "atmosphere", "object"] as DirectionElementType[]).filter(
+        (t) => !existingTypes.has(t),
+      );
+
+      if (missing.length === 0) {
+        // All nodes already exist — skip directly to connection phase
+        setOnboardingStep(3);
+        return;
+      }
+
+      // Pre-register positions + spawn indexes so elements useEffect uses them
+      missing.forEach((type, i) => {
+        const pos = PHASE2_POS[type];
+        if (pos) phase2PendingPositions.current.set(type, pos);
+        phase2SpawnIndexes.current.set(type, i);
+      });
+
+      // Stagger spawn: 0ms, 120ms, 240ms
+      missing.forEach((type, i) => {
+        setTimeout(() => {
+          onAddElementRef.current(type, PHASE2_LABELS[type]);
+        }, i * 120);
+      });
+
+      // Advance to step 3 once all spawns are in flight + one frame settle
+      setTimeout(() => setOnboardingStep(3), missing.length * 120 + 80);
+    }, 200); // let Phase 1 scale animation finish
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingStep]); // intentional: no onAddElement in deps (uses ref)
+
+  useEffect(() => {
+    if (onboardingStep !== 3) return;
+
+    // Short pause to let newly spawned nodes settle into the DOM
+    const timer = setTimeout(() => {
+      const frame = framesRef.current[0];
+      if (!frame) { setOnboardingStep(4); return; }
+
+      const existingConns = useDirectionStore.getState().connections;
+      const newConnIds: string[]= [];
+
+      elementsRef.current.forEach((node) => {
+        const alreadyConnected = existingConns.some(
+          (c) => c.fromNodeId === node.id && c.toFrameId === frame.id,
+        );
+        if (alreadyConnected) return;
+        const connId = `onb-conn-${node.type}-${Date.now()}-${node.id.slice(-4)}`;
+        addConnection({ id: connId, fromNodeId: node.id, toFrameId: frame.id });
+        newConnIds.push(connId);
+      });
+
+      if (newConnIds.length > 0) {
+        setOnboardingAnimConnIds(new Set(newConnIds));
+      }
+
+      // Frame Phase 2 glow reaction after draw-in completes (~600ms)
+      setTimeout(() => setPhase2FrameComplete(true), 600);
+
+      // Advance to step 4 and clear animation IDs (~1100ms)
+      setTimeout(() => {
+        setOnboardingAnimConnIds(new Set());
+        setOnboardingStep(4);
+      }, 1100);
+    }, 180);
+
+    return () => clearTimeout(timer);
+  }, [onboardingStep, addConnection]);
 
   // ── Pan + pending-connection — global mouse handlers (registered once) ───
   useEffect(() => {
@@ -668,6 +793,19 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
               <stop offset="0%"   stopColor="rgba(59,130,246,0.5)" />
               <stop offset="100%" stopColor="rgba(139,92,246,0.5)" />
             </linearGradient>
+            {/* Phase 2 onboarding connection animations */}
+            <style>{`
+              @keyframes cd-ob-conn-draw {
+                from { stroke-dasharray: 600; stroke-dashoffset: 600; opacity: 0; }
+                to   { stroke-dasharray: 600; stroke-dashoffset: 0;   opacity: 1; }
+              }
+              @keyframes cd-ob-conn-pulse {
+                0%   { stroke-dasharray: 0 600;  stroke-dashoffset: 0;    opacity: 0; }
+                15%  { stroke-dasharray: 24 600; stroke-dashoffset: -20;  opacity: 1; }
+                85%  { stroke-dasharray: 24 600; stroke-dashoffset: -540; opacity: 1; }
+                100% { stroke-dasharray: 0 600;  stroke-dashoffset: -600; opacity: 0; }
+              }
+            `}</style>
           </defs>
 
           {/* ── Layer 1: element → element decorative lines ─────────────────── */}
@@ -712,19 +850,20 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             const nodeIdx = elements.findIndex((e) => e.id === conn.fromNodeId);
             const frame   = frames.find((f) => f.id === conn.toFrameId);
             if (nodeIdx < 0 || !frame) return null;
-            const nodePos = getPosition(conn.fromNodeId, nodeIdx);
-            const from    = getNodeOutputHandle(nodePos);
-            const to      = getFrameInputHandle(frame);
-            const offset  = Math.abs(to.x - from.x) * 0.45 + 30;
-            const d       = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
+            const nodePos   = getPosition(conn.fromNodeId, nodeIdx);
+            const from      = getNodeOutputHandle(nodePos);
+            const to        = getFrameInputHandle(frame);
+            const offset    = Math.abs(to.x - from.x) * 0.45 + 30;
+            const d         = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
             const isHovered = hoveredConnId === conn.id;
+            const isObConn  = onboardingAnimConnIds.has(conn.id);
             // Midpoint for hover × delete
             const mx = (from.x + to.x) / 2;
             const my = (from.y + to.y) / 2;
             return (
               <g
                 key={conn.id}
-                style={{ animation: "cd-fade-in 0.35s ease" }}
+                style={{ animation: isObConn ? "none" : "cd-fade-in 0.35s ease" }}
                 onMouseEnter={() => setHoveredConnId(conn.id)}
                 onMouseLeave={() => setHoveredConnId(null)}
               >
@@ -736,24 +875,42 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
                   strokeWidth={16}
                   style={{ pointerEvents: "stroke", cursor: "pointer" }}
                 />
-                {/* Glow */}
+                {/* Glow — draw-in animation for Phase 2 onboarding connections */}
                 <path
                   d={d}
                   fill="none"
                   stroke={isHovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.06)"}
                   strokeWidth={4}
                   strokeLinecap="round"
-                  style={{ transition: "stroke 0.15s ease" }}
+                  style={isObConn
+                    ? { animation: "cd-ob-conn-draw 0.55s cubic-bezier(0.16,1,0.3,1) both", transition: "stroke 0.15s ease" }
+                    : { transition: "stroke 0.15s ease" }}
                 />
-                {/* Main white line */}
+                {/* Main white line — draw-in animation for Phase 2 onboarding connections */}
                 <path
                   d={d}
                   fill="none"
                   stroke={isHovered ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.55)"}
                   strokeWidth={1.5}
                   strokeLinecap="round"
-                  style={{ transition: "stroke 0.15s ease" }}
+                  style={isObConn
+                    ? { animation: "cd-ob-conn-draw 0.55s cubic-bezier(0.16,1,0.3,1) both", transition: "stroke 0.15s ease" }
+                    : { transition: "stroke 0.15s ease" }}
                 />
+                {/* Phase 2 pulse dot — traveling dot along bezier path */}
+                {isObConn && (
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.85)"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    style={{
+                      animation:       "cd-ob-conn-pulse 1.1s cubic-bezier(0.4,0,0.6,1) 0.55s both",
+                      pointerEvents:   "none",
+                    }}
+                  />
+                )}
                 {/* Hover × delete midpoint — foreignObject so we can use a real button */}
                 {isHovered && (
                   <foreignObject
@@ -838,6 +995,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
                 onMove={handleMove}
                 onMoveEnd={handleMoveEnd}
                 onboardingHighlight={showOnboarding && onboardingStep === 1 && el.type === "subject"}
+                autoSpawnIndex={phase2SpawnIndexes.current.get(el.type)}
               />
               {/* Interactive output handle — right edge of card, rendered from SceneCanvas
                   so position is computed from exported constants (not DOM refs). */}
@@ -887,6 +1045,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
             isSpring={springFrames.has(frame.id)}
             pendingConnActive={!!pendingConn}
             onboardingSuccess={onboardingSuccessFrameId === frame.id}
+            onboardingPhase2Complete={phase2FrameComplete && onboardingSuccessFrameId === frame.id}
             onSelect={setSelectedFrameId}
             onDelete={removeFrame}
             onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
@@ -1141,6 +1300,9 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset 
           onClose={() => setDropPicker(null)}
         />
       )}
+
+      {/* ── Phase 2 hint — floating glass pill while auto scene builds ── */}
+      {showOnboarding && onboardingStep === 3 && <CDAutoSceneHint />}
 
       {/* ── Onboarding overlay — first visit, empty canvas only ──────── */}
       {showOnboarding && (
