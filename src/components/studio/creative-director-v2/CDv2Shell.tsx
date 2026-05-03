@@ -273,6 +273,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       0%   { background-position: -400% center; }
       100% { background-position: 400% center; }
     }
+    @keyframes cd-spring {
+      0%   { transform: scale(0.82); opacity: 0; }
+      55%  { transform: scale(1.06); opacity: 1; }
+      75%  { transform: scale(0.97); opacity: 1; }
+      100% { transform: scale(1.00); opacity: 1; }
+    }
     .cd-btn-lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
     .cd-btn-lift:hover { transform: translateY(-2px); }
     .cd-btn-lift:active { transform: translateY(0) scale(0.97); }

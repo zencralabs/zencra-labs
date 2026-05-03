@@ -203,6 +203,9 @@ export interface DirectionState {
   // ── Uploaded asset references (local object URLs) ─────────────────────────
   uploadedAssets: UploadedAsset[];
 
+  // ── Canvas viewport transform (pan + discrete zoom) ──────────────────────
+  canvasTransform: { x: number; y: number; scale: number };
+
   // ── Director panel ────────────────────────────────────────────────────────
   directorPanelOpen: boolean;
 
@@ -253,6 +256,10 @@ export interface DirectionActions {
   removeUploadedAsset: (id: string) => void;
   assignAssetToRole:   (id: string, role: UploadedAsset["assignedRole"]) => void;
 
+  // Canvas transform
+  setCanvasTransform: (patch: Partial<{ x: number; y: number; scale: number }>) => void;
+  resetCanvasView:    () => void;
+
   // Director panel
   openDirectorPanel:   () => void;
   closeDirectorPanel:  () => void;
@@ -282,6 +289,7 @@ const INITIAL: DirectionState = {
   selectedModel:       "gpt-image-1",
   characterDirection:  DEFAULT_CHARACTER_DIRECTION,
   uploadedAssets:      [],
+  canvasTransform:     { x: 0, y: 0, scale: 100 },
   directorPanelOpen:   false,
   outputs:             [],
   isGenerating:        false,
@@ -374,6 +382,18 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
       ),
     })),
 
+  // ── Canvas transform ──────────────────────────────────────────────────────
+  setCanvasTransform: (patch) =>
+    set((s) => ({
+      canvasTransform: {
+        x:     patch.x     !== undefined ? patch.x     : s.canvasTransform.x,
+        y:     patch.y     !== undefined ? patch.y     : s.canvasTransform.y,
+        scale: patch.scale !== undefined ? patch.scale : s.canvasTransform.scale,
+      },
+    })),
+
+  resetCanvasView: () => set({ canvasTransform: { x: 0, y: 0, scale: 100 } }),
+
   // ── Director panel ────────────────────────────────────────────────────────
   openDirectorPanel:   () => set({ directorPanelOpen: true }),
   closeDirectorPanel:  () => set({ directorPanelOpen: false }),
@@ -402,8 +422,9 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
 // Convenience selectors — stable references so components don't re-render on
 // unrelated state changes.
 // ─────────────────────────────────────────────────────────────────────────────
-export const selectElements    = (s: DirectionState & DirectionActions) => s.elements;
-export const selectRefinements = (s: DirectionState & DirectionActions) => s.refinements;
-export const selectOutputs     = (s: DirectionState & DirectionActions) => s.outputs;
-export const selectMode        = (s: DirectionState & DirectionActions) => s.mode;
-export const selectIsGenerating = (s: DirectionState & DirectionActions) => s.isGenerating;
+export const selectElements       = (s: DirectionState & DirectionActions) => s.elements;
+export const selectRefinements    = (s: DirectionState & DirectionActions) => s.refinements;
+export const selectOutputs        = (s: DirectionState & DirectionActions) => s.outputs;
+export const selectMode           = (s: DirectionState & DirectionActions) => s.mode;
+export const selectIsGenerating   = (s: DirectionState & DirectionActions) => s.isGenerating;
+export const selectCanvasTransform = (s: DirectionState & DirectionActions) => s.canvasTransform;
