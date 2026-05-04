@@ -1089,8 +1089,27 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   }
                 }}
               />
-              {/* TextNode output handle — right edge at vertical center.
-                  Purple tint matching text connection wire style. */}
+              {/* TextNode LEFT input handle — visual affordance for future connections. */}
+              <div
+                title="Input connector"
+                style={{
+                  position:     "absolute",
+                  left:         tn.x - 6,
+                  top:          thy - 6,
+                  width:        12,
+                  height:       12,
+                  borderRadius: "50%",
+                  background:   "rgba(120,140,200,0.25)",
+                  border:       "1.5px solid rgba(120,140,200,0.45)",
+                  cursor:       "default",
+                  zIndex:       25,
+                  pointerEvents: "none",
+                  transition:   "background 0.15s ease",
+                  boxShadow:    "0 0 4px rgba(120,140,200,0.15)",
+                }}
+              />
+
+              {/* TextNode RIGHT output handle — drag to wire to a frame. */}
               <div
                 onMouseDown={(e) => handleTextOutputHandleMouseDown(e, tn.id)}
                 title="Drag to wire this text to a frame"

@@ -224,6 +224,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     openDirectorPanel,
     assignAssetToRole,
     addUploadedAsset,
+    updateFrame,
   } = useDirectionStore();
 
   const [isFullscreen,        setIsFullscreen]        = useState(false);
@@ -369,7 +370,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
       const dId = await ensureDirection();
-      if (!dId) return;
+      if (!dId) {
+        // Surface the error so the user sees it — don't silently swallow it.
+        finishGenerating([], "Could not start session — please refresh and try again.");
+        return;
+      }
       if (refinements && Object.keys(refinements).length > 0) {
         await syncRefinements(dId, refinements as Record<string, unknown>);
       }
@@ -379,13 +384,16 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
       const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
 
-      // ── Resolve TextNode input for the target frame ──────────────────────
+      // ── Resolve TextNode input + target frame ────────────────────────────
       // Target frame: explicit override > user-selected frame > first frame in store.
-      // Only resolves if there are text connections wired to that frame.
-      let textNodeInput: string | undefined;
+      // Hoisted out of the text-node block so we can use it for result wiring below.
       const { frames: currentFrames, connections, textNodes } = useDirectionStore.getState();
-      if (currentFrames.length > 0) {
-        const targetFrameId = frameIdOverride ?? selectedFrameId ?? currentFrames[0].id;
+      const targetFrameId = currentFrames.length > 0
+        ? (frameIdOverride ?? selectedFrameId ?? currentFrames[0].id)
+        : null;
+
+      let textNodeInput: string | undefined;
+      if (targetFrameId) {
         const connectedTexts = connections
           .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
           .map((c) => c.type === "text" ? textNodes.find((t) => t.id === c.fromTextId) : null)
@@ -418,11 +426,23 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         }
         const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
         finishGenerating(data.generations ?? []);
+
+        // ── Wire result image to the target FrameNode ─────────────────────
+        // If a frame was targeted and the first completed generation has a URL,
+        // update the frame's generatedImageUrl so the canvas shows the result.
+        if (targetFrameId) {
+          const firstDone = (data.generations ?? []).find(
+            (g) => g.status === "completed" && g.url
+          );
+          if (firstDone?.url) {
+            updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
+          }
+        }
       } catch (err) {
         finishGenerating([], err instanceof Error ? err.message : "Network error");
       }
     },
-    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId]
+    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame]
   );
 
   // ── Frame Regenerate (Phase 4.2 — Director Flow) ───────────────────────────

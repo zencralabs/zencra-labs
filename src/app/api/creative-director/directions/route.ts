@@ -7,10 +7,11 @@
  * Scope: Image Studio / Creative Director only. Still images.
  *
  * Body:
- *   projectId  string   required
+ *   projectId  string   optional — if provided, direction is linked to the project
  *   sessionId  string   optional
  *   conceptId  string   optional — link to an AI concept card
  *   name       string   optional — label e.g. "Neon Night Scene"
+ *   is_locked  boolean  optional — whether direction is in locked mode
  */
 
 import { NextResponse }     from "next/server";
@@ -37,22 +38,24 @@ export async function POST(req: Request): Promise<Response> {
     sessionId,
     conceptId,
     name,
-  } = body as Record<string, string | undefined>;
+    is_locked,
+  } = body as Record<string, string | boolean | undefined>;
 
-  if (!projectId) {
-    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
-  }
+  // ── Optionally verify project belongs to user ─────────────────────────────
+  // projectId is optional — CDv2 canvas creates "free" directions without a project.
+  let resolvedProjectId: string | null = null;
+  if (projectId && typeof projectId === "string") {
+    const { data: project, error: projErr } = await supabaseAdmin
+      .from("creative_projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("user_id", user.id)
+      .single();
 
-  // ── Verify project belongs to user ────────────────────────────────────────
-  const { data: project, error: projErr } = await supabaseAdmin
-    .from("creative_projects")
-    .select("id")
-    .eq("id", projectId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (projErr || !project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (projErr || !project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    resolvedProjectId = projectId;
   }
 
   // ── Create direction ──────────────────────────────────────────────────────
@@ -60,11 +63,11 @@ export async function POST(req: Request): Promise<Response> {
     .from("creative_directions")
     .insert({
       user_id:    user.id,
-      project_id: projectId,
-      session_id: sessionId ?? null,
-      concept_id: conceptId ?? null,
-      name:       name ?? null,
-      is_locked:  false,
+      project_id: resolvedProjectId,
+      session_id: typeof sessionId === "string" ? sessionId : null,
+      concept_id: typeof conceptId === "string" ? conceptId : null,
+      name:       typeof name === "string" && name.trim() ? name.trim() : null,
+      is_locked:  is_locked === true,
     })
     .select()
     .single();
