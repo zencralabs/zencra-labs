@@ -52,7 +52,6 @@ import React, {
   useState,
   useCallback,
   useRef,
-  useMemo,
   useEffect,
 } from "react";
 import {
@@ -74,10 +73,12 @@ import type { DirectionElementType } from "@/lib/creative-director/types";
 interface CanvasPosition { x: number; y: number; }
 
 interface SceneCanvasProps {
-  onAddElement:            (type: DirectionElementType, label: string, assetUrl?: string) => void;
-  onOpenDirectorControls?: () => void;
-  onDropAsset?:            (assetId: string, role: DirectionElementType) => void;
-  onAutoGenerate?:         (prompt: string, modelKey: string, aspectRatio: string) => Promise<string | null>;
+  onAddElement:              (type: DirectionElementType, label: string, assetUrl?: string) => void;
+  onToggleDirectorControls?: () => void;
+  directorPanelOpen?:        boolean;
+  onDropAsset?:              (assetId: string, role: DirectionElementType) => void;
+  onAutoGenerate?:           (prompt: string, modelKey: string, aspectRatio: string) => Promise<string | null>;
+  onFrameSelect?:            (frameId: string | null) => void;
 }
 
 // Pending asset drop awaiting role selection
@@ -151,7 +152,7 @@ function getMagneticPosition(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset, onAutoGenerate }: SceneCanvasProps) {
+export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect }: SceneCanvasProps) {
   const elements        = useDirectionStore(selectElements);
   const canvasTransform = useDirectionStore(selectCanvasTransform);
   const setCanvasTransform = useDirectionStore((s) => s.setCanvasTransform);
@@ -186,8 +187,9 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
   const [contextMenu,     setContextMenu]    = useState<{ x: number; y: number } | null>(null);
   const [springNodes,     setSpringNodes]    = useState<Set<string>>(new Set());
   const [dropPicker,      setDropPicker]     = useState<PendingDrop | null>(null);
-  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
-  const [framePickerPos,  setFramePickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [selectedFrameId,   setSelectedFrameId]   = useState<string | null>(null);
+  const [showResetConfirm,  setShowResetConfirm]  = useState(false);
+  const [framePickerPos,    setFramePickerPos]    = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
 
   // ── Onboarding interactive state ──────────────────────────────────────────
@@ -734,21 +736,6 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ── Connection lines: all non-subjects → first subject ───────────────────
-  const connections = useMemo(() => {
-    const firstSubject = elements.find((e) => e.type === "subject");
-    if (!firstSubject) return [];
-    return elements
-      .filter((e) => e.id !== firstSubject.id)
-      .map((e) => ({ from: firstSubject.id, to: e.id, weight: e.weight, isNew: false }));
-  }, [elements]);
-
-  // Mark connection as new if its target is a spring node (evaluated at render)
-  const connectionsWithNew = connections.map((c) => ({
-    ...c,
-    isNew: springNodes.has(c.to),
-  }));
-
   // CSS transform for the viewport
   const viewportTransform = `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale / 100})`;
 
@@ -873,44 +860,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
             `}</style>
           </defs>
 
-          {/* ── Layer 1: element → element decorative lines ─────────────────── */}
-          {connectionsWithNew.map(({ from, to, weight, isNew }) => {
-            const fi = elements.findIndex((e) => e.id === from);
-            const ti = elements.findIndex((e) => e.id === to);
-            const fp = getPosition(from, fi);
-            const tp = getPosition(to,   ti);
-            const x1 = fp.x + 90;  const y1 = fp.y + 22;
-            const x2 = tp.x + 90;  const y2 = tp.y + 22;
-            const mx = (x1 + x2) / 2;
-            const my = (y1 + y2) / 2 - 40;
-            const opacity = 0.40 + weight * 0.25;
-            const strokeW = 1.5;
-            return (
-              <g
-                key={`el-${from}-${to}`}
-                style={{ animation: isNew ? "cd-fade-in 0.5s ease" : "none" }}
-              >
-                <path
-                  d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
-                  fill="none"
-                  stroke={`rgba(139,92,246,${(opacity * 0.18).toFixed(3)})`}
-                  strokeWidth={strokeW * 2.5}
-                  strokeLinecap="round"
-                />
-                <path
-                  d={`M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`}
-                  fill="none"
-                  stroke="url(#conn-grad)"
-                  strokeWidth={strokeW}
-                  strokeLinecap="round"
-                  strokeOpacity={opacity}
-                  strokeDasharray="5 8"
-                />
-              </g>
-            );
-          })}
-
-          {/* ── Layer 2: node → frame committed connections ───────────────── */}
+          {/* ── Layer 1: node → frame committed connections ───────────────── */}
           {nodeConnections.map((conn) => {
             const nodeIdx = elements.findIndex((e) => e.id === conn.fromNodeId);
             const frame   = frames.find((f) => f.id === conn.toFrameId);
@@ -1127,7 +1077,7 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
             onboardingSuccess={onboardingSuccessFrameId === frame.id}
             onboardingPhase2Complete={phase2FrameComplete && onboardingSuccessFrameId === frame.id}
             isGenerating={phase3Loading === frame.id}
-            onSelect={setSelectedFrameId}
+            onSelect={(id) => { setSelectedFrameId(id); onFrameSelect?.(id); }}
             onDelete={removeFrame}
             onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
             onResize={(id, width, pos) => {
@@ -1184,30 +1134,36 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
         <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)", margin: "0 3px" }} />
         {/* Reset view */}
         <button
-          onClick={(e) => { e.stopPropagation(); resetCanvasView(); }}
-          title="Reset view"
+          onClick={(e) => { e.stopPropagation(); setShowResetConfirm(true); }}
+          title="Reset canvas view"
           style={{
             background:   "transparent",
             border:       "1px solid transparent",
             borderRadius: 7,
-            color:        "rgba(255,255,255,0.25)",
-            fontSize:     11,
+            color:        "rgba(255,255,255,0.45)",
             cursor:       "pointer",
-            padding:      "2px 7px",
+            padding:      "4px 6px",
+            display:      "flex",
+            alignItems:   "center",
+            justifyContent: "center",
             transition:   "all 0.15s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background   = "rgba(255,255,255,0.06)";
-            e.currentTarget.style.color        = "rgba(255,255,255,0.55)";
-            e.currentTarget.style.borderColor  = "rgba(255,255,255,0.1)";
+            e.currentTarget.style.background  = "rgba(255,255,255,0.06)";
+            e.currentTarget.style.color       = "rgba(255,255,255,0.75)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background   = "transparent";
-            e.currentTarget.style.color        = "rgba(255,255,255,0.25)";
-            e.currentTarget.style.borderColor  = "transparent";
+            e.currentTarget.style.background  = "transparent";
+            e.currentTarget.style.color       = "rgba(255,255,255,0.45)";
+            e.currentTarget.style.borderColor = "transparent";
           }}
         >
-          ⟳
+          {/* Home / reset icon — crosshair with center dot */}
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M7.5 1v2.5M7.5 11.5V14M1 7.5h2.5M11.5 7.5H14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
         </button>
         {/* Separator */}
         <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)", margin: "0 3px" }} />
@@ -1340,7 +1296,6 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
           x={quickAdd.x}
           y={quickAdd.y}
           onSelect={(type) => { onAddElement(type, `New ${type}`); setQuickAdd(null); }}
-          onAddFrame={() => { setFramePickerPos(computePickerPos(quickAdd.x, quickAdd.y)); setQuickAdd(null); }}
           onClose={() => setQuickAdd(null)}
         />
       )}
@@ -1353,7 +1308,9 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
           onClose={() => setContextMenu(null)}
           onAddElement={(type) => { onAddElement(type, `New ${type}`); setContextMenu(null); }}
           onAddFrame={() => { setFramePickerPos(computePickerPos(contextMenu.x, contextMenu.y)); setContextMenu(null); }}
-          onOpenDirectorControls={() => { onOpenDirectorControls?.(); setContextMenu(null); }}
+          onToggleDirectorControls={() => { onToggleDirectorControls?.(); setContextMenu(null); }}
+          directorPanelOpen={!!directorPanelOpen}
+          onResetView={() => { setShowResetConfirm(true); setContextMenu(null); }}
         />
       )}
 
@@ -1430,6 +1387,74 @@ export function SceneCanvas({ onAddElement, onOpenDirectorControls, onDropAsset,
           onDismiss={() => setShowOnboarding(false)}
           step={onboardingStep}
         />
+      )}
+
+      {/* ── Reset canvas view confirmation dialog ────────────────────── */}
+      {showResetConfirm && (
+        <>
+          <div
+            style={{ position: "absolute", inset: 0, zIndex: 60 }}
+            onClick={() => setShowResetConfirm(false)}
+          />
+          <div
+            style={{
+              position:       "absolute",
+              top:            "50%",
+              left:           "50%",
+              transform:      "translate(-50%, -50%)",
+              zIndex:         61,
+              background:     "rgba(10,8,18,0.98)",
+              border:         "1px solid rgba(255,255,255,0.12)",
+              borderRadius:   16,
+              padding:        "24px 28px 20px",
+              minWidth:       220,
+              boxShadow:      "0 24px 64px rgba(0,0,0,0.8), 0 0 0 1px rgba(139,92,246,0.12)",
+              backdropFilter: "blur(24px)",
+              animation:      "cd-slide-up 0.18s ease",
+              display:        "flex",
+              flexDirection:  "column",
+              gap:            16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="2.2" stroke="rgba(139,92,246,0.9)" strokeWidth="1.5" />
+                <path d="M8 1.5v2.8M8 11.7v2.8M1.5 8h2.8M11.7 8h2.8" stroke="rgba(139,92,246,0.9)" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontFamily: "var(--font-syne), sans-serif", fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)", letterSpacing: "0.01em" }}>
+                Reset canvas view?
+              </span>
+            </div>
+            <p style={{ fontFamily: "var(--font-familjen-grotesk), sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.5 }}>
+              Pan and zoom will return to default. Your nodes and connections are not affected.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                style={{
+                  background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8, color: "rgba(255,255,255,0.5)", fontSize: 12,
+                  fontFamily: "var(--font-familjen-grotesk), sans-serif",
+                  cursor: "pointer", padding: "6px 14px",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { resetCanvasView(); setShowResetConfirm(false); }}
+                style={{
+                  background: "rgba(139,92,246,0.2)", border: "1px solid rgba(139,92,246,0.4)",
+                  borderRadius: 8, color: "rgba(139,92,246,1)", fontSize: 12, fontWeight: 600,
+                  fontFamily: "var(--font-familjen-grotesk), sans-serif",
+                  cursor: "pointer", padding: "6px 14px",
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1569,12 +1594,11 @@ function AssetRoleItem({
 // QuickAddPicker — small pill menu on left-click
 // ─────────────────────────────────────────────────────────────────────────────
 
-function QuickAddPicker({ x, y, onSelect, onAddFrame, onClose }: {
-  x:          number;
-  y:          number;
-  onSelect:   (type: DirectionElementType) => void;
-  onAddFrame: () => void;
-  onClose:    () => void;
+function QuickAddPicker({ x, y, onSelect, onClose }: {
+  x:        number;
+  y:        number;
+  onSelect: (type: DirectionElementType) => void;
+  onClose:  () => void;
 }) {
   return (
     <>
@@ -1631,34 +1655,6 @@ function QuickAddPicker({ x, y, onSelect, onAddFrame, onClose }: {
             {r.label}
           </button>
         ))}
-        {/* Divider */}
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "4px 0" }} />
-        {/* Add Frame */}
-        <button
-          onClick={onAddFrame}
-          style={{
-            background:  "transparent", border: "none", borderRadius: 8,
-            color:       "rgba(139,92,246,0.65)", fontSize: 13,
-            fontFamily:  "var(--font-sans)", cursor: "pointer",
-            padding:     "8px 10px", textAlign: "left",
-            display:     "flex", alignItems: "center", gap: 10,
-            transition:  "all 0.12s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(139,92,246,0.08)";
-            e.currentTarget.style.color      = "rgba(139,92,246,0.9)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color      = "rgba(139,92,246,0.65)";
-          }}
-        >
-          <span style={{
-            width: 10, height: 10, borderRadius: 3,
-            border: "1.5px dashed rgba(139,92,246,0.6)", flexShrink: 0,
-          }} />
-          Add Frame
-        </button>
       </div>
     </>
   );
@@ -1668,13 +1664,15 @@ function QuickAddPicker({ x, y, onSelect, onAddFrame, onClose }: {
 // CDContextMenu — premium right-click menu
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onOpenDirectorControls }: {
-  x:                      number;
-  y:                      number;
-  onClose:                () => void;
-  onAddElement:           (type: DirectionElementType) => void;
-  onAddFrame:             () => void;
-  onOpenDirectorControls: () => void;
+function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onToggleDirectorControls, directorPanelOpen, onResetView }: {
+  x:                       number;
+  y:                       number;
+  onClose:                 () => void;
+  onAddElement:            (type: DirectionElementType) => void;
+  onAddFrame:              () => void;
+  onToggleDirectorControls: () => void;
+  directorPanelOpen:       boolean;
+  onResetView:             () => void;
 }) {
   return (
     <>
@@ -1723,7 +1721,18 @@ function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onOpenDirector
         />
         <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "6px 0" }} />
         <ContextMenuItem
-          label="Open Director Controls"
+          label="Reset Canvas View"
+          icon={
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="1.8" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M6 1v2M6 9v2M1 6h2M9 6h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          }
+          iconColor="rgba(255,255,255,0.5)"
+          onClick={onResetView}
+        />
+        <ContextMenuItem
+          label={directorPanelOpen ? "Close Director Controls" : "Open Director Controls"}
           icon={
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <circle cx="6" cy="6" r="2" stroke="currentColor" strokeWidth="1.3" />
@@ -1731,7 +1740,7 @@ function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onOpenDirector
             </svg>
           }
           iconColor="rgba(139,92,246,0.8)"
-          onClick={onOpenDirectorControls}
+          onClick={onToggleDirectorControls}
         />
       </div>
     </>

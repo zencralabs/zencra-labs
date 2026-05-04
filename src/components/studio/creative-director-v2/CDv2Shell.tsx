@@ -160,6 +160,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     directionCreated,
     mode,
     elements,
+    frames,
     refinements,
     sceneIntent,
     selectedModel,
@@ -177,9 +178,19 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     addUploadedAsset,
   } = useDirectionStore();
 
-  const [isFullscreen,   setIsFullscreen]   = useState(false);
-  const [leftCollapsed,  setLeftCollapsed]  = useState(false);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [isFullscreen,     setIsFullscreen]     = useState(false);
+  const [leftCollapsed,    setLeftCollapsed]    = useState(false);
+  const [rightCollapsed,   setRightCollapsed]   = useState(false);
+  const [selectedFrameId,  setSelectedFrameId]  = useState<string | null>(null);
+
+  // Derive AR from selected frame (one-way: canvas selection → dock)
+  const selectedFrameAr = selectedFrameId
+    ? (frames.find((f) => f.id === selectedFrameId)?.aspectRatio ?? undefined)
+    : undefined;
+
+  const handleFrameSelect = useCallback((frameId: string | null) => {
+    setSelectedFrameId(frameId);
+  }, []);
   // Guard: createPortal needs document.body — only available on client.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -404,6 +415,45 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     characterDirection,
   ]);
 
+  // ── Phase 3 — auto generate "WOW" moment ─────────────────────────────────
+  // Called by SceneCanvas when onboardingStep reaches 4.
+  // Reuses the same orchestration path as the manual Generate button:
+  //   ensureDirection → startGenerating → POST /api/creative-director/generate
+  //   → finishGenerating (pushes result to OutputPanel) → return imageUrl.
+  // Returns null on any failure (onboarding continues gracefully).
+  const handleAutoGenerate = useCallback(
+    async (prompt: string, modelKey: string, aspectRatio: string): Promise<string | null> => {
+      const dId = await ensureDirection();
+      if (!dId) return null;
+      startGenerating();
+      try {
+        const res = await fetch("/api/creative-director/generate", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            directionId:   dId,
+            count:         1,
+            aspectRatio,
+            modelOverride: modelKey,
+            promptSuffix:  prompt,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          finishGenerating([], err.error ?? `Auto-generation failed (${res.status})`);
+          return null;
+        }
+        const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
+        finishGenerating(data.generations ?? []);
+        return data.generations?.[0]?.url ?? null;
+      } catch (err) {
+        finishGenerating([], err instanceof Error ? err.message : "Network error");
+        return null;
+      }
+    },
+    [ensureDirection, startGenerating, finishGenerating]
+  );
+
   // ── Layout constants ──────────────────────────────────────────────────────
   // Collapsed widths: left 56px (icon rail), right 78px (thumbnail strip).
   // Expanded widths grow in fullscreen for extra breathing room.
@@ -601,8 +651,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           {/* Scene canvas — takes remaining height */}
           <SceneCanvas
             onAddElement={handleAddElement}
-            onOpenDirectorControls={openDirectorPanel}
+            onToggleDirectorControls={toggleDirectorPanel}
+            directorPanelOpen={directorPanelOpen}
             onDropAsset={(assetId, role) => assignAssetToRole(assetId, role)}
+            onAutoGenerate={handleAutoGenerate}
+            onFrameSelect={handleFrameSelect}
           />
 
           {/* Director handle — slim strip toggling the panel */}
@@ -614,6 +667,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
               handleGenerate(count, ar, quality, sceneOverride)
             }
             isFullscreen={isFullscreen}
+            defaultAr={selectedFrameAr}
           />
 
           {/* AI Assist Co-Director bar — floats above DirectorHandle */}

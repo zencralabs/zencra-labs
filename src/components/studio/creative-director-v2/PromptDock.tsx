@@ -81,6 +81,7 @@ const MODEL_GROUPS = [
 interface PromptDockProps {
   onGenerate:    (count: number, aspectRatio: string, quality?: string, sceneOverride?: string) => void;
   isFullscreen?: boolean;
+  defaultAr?:    string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ function buildRefinedPrompt(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
+export function PromptDock({ onGenerate, isFullscreen, defaultAr }: PromptDockProps) {
   const {
     isGenerating,
     mode,
@@ -152,6 +153,11 @@ export function PromptDock({ onGenerate, isFullscreen }: PromptDockProps) {
   const [refineOpen,    setRefineOpen]    = useState(false);
   const [refinePreview, setRefinePreview] = useState("");
   const [refineHover,   setRefineHover]   = useState(false);
+
+  // Sync AR from selected frame (one-way: frame → dock)
+  useEffect(() => {
+    if (defaultAr) setAr(defaultAr);
+  }, [defaultAr]);
 
   // Auto-restore dock when generating (cannot hide during generation)
   useEffect(() => {
