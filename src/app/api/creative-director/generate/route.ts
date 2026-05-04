@@ -289,11 +289,9 @@ export async function POST(req: Request): Promise<Response> {
             ...(batchSeed !== undefined ? { seed: batchSeed } : {}),
           };
         } else {
-          // gpt-image-* and unknown models — imageUrl only (model manages reference weight)
+          // gpt-image-* and unknown models — imageUrl only (model manages reference weight).
+          // GPT Image API does NOT accept a seed parameter — do not set dispatchProviderParams.
           dispatchImageUrl = refUrl;
-          if (batchSeed !== undefined) {
-            dispatchProviderParams = { seed: batchSeed };
-          }
         }
 
         console.log(

@@ -256,9 +256,10 @@ export interface DirectionState {
   directorPanelOpen: boolean;
 
   // ── Generation outputs ────────────────────────────────────────────────────
-  outputs:       CDGenerationOutput[];
-  isGenerating:  boolean;
-  lastGenError:  string | null;
+  outputs:          CDGenerationOutput[];
+  isGenerating:     boolean;
+  generatingCount:  number;   // exact count sent to API — drives skeleton card count in OutputPanel
+  lastGenError:     string | null;
 
   // ── Creation flag — has a direction row been written to DB? ───────────────
   directionCreated: boolean;
@@ -321,7 +322,7 @@ export interface DirectionActions {
   toggleDirectorPanel: () => void;
 
   // Generation
-  startGenerating:    () => void;
+  startGenerating:    (count?: number) => void;   // count drives skeleton card allocation
   finishGenerating:   (outputs: CDGenerationOutput[], error?: string) => void;
   appendOutputs:      (outputs: CDGenerationOutput[]) => void;
   clearOutputs:       () => void;
@@ -368,6 +369,7 @@ const INITIAL: DirectionState = {
   directorPanelOpen:   false,
   outputs:             [],
   isGenerating:        false,
+  generatingCount:     0,
   lastGenError:        null,
   directionCreated:    false,
   frames:              [],
@@ -478,13 +480,14 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
   toggleDirectorPanel: () => set((s) => ({ directorPanelOpen: !s.directorPanelOpen })),
 
   // ── Generation ────────────────────────────────────────────────────────────
-  startGenerating: () => set({ isGenerating: true, lastGenError: null }),
+  startGenerating: (count = 1) => set({ isGenerating: true, generatingCount: count, lastGenError: null }),
 
   finishGenerating: (outputs, error) =>
     set((s) => ({
-      isGenerating: false,
-      lastGenError: error ?? null,
-      outputs: [...outputs, ...s.outputs].slice(0, 50), // cap at 50 outputs
+      isGenerating:    false,
+      generatingCount: 0,
+      lastGenError:    error ?? null,
+      outputs:         [...outputs, ...s.outputs].slice(0, 50), // cap at 50 outputs
     })),
 
   appendOutputs: (outputs) =>
@@ -558,7 +561,8 @@ export const selectElements       = (s: DirectionState & DirectionActions) => s.
 export const selectRefinements    = (s: DirectionState & DirectionActions) => s.refinements;
 export const selectOutputs        = (s: DirectionState & DirectionActions) => s.outputs;
 export const selectMode           = (s: DirectionState & DirectionActions) => s.mode;
-export const selectIsGenerating   = (s: DirectionState & DirectionActions) => s.isGenerating;
+export const selectIsGenerating    = (s: DirectionState & DirectionActions) => s.isGenerating;
+export const selectGeneratingCount = (s: DirectionState & DirectionActions) => s.generatingCount;
 export const selectCanvasTransform = (s: DirectionState & DirectionActions) => s.canvasTransform;
 export const selectFrames          = (s: DirectionState & DirectionActions) => s.frames;
 export const selectConnections     = (s: DirectionState & DirectionActions) => s.connections;

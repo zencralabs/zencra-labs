@@ -477,7 +477,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         if (refinements && Object.keys(refinements).length > 0) {
           await syncRefinements(dId, refinements as Record<string, unknown>);
         }
-        startGenerating();
+        startGenerating(count);
         const charSuffix  = buildCharacterDirectionSuffix(characterDirection);
         // Combine sceneOverride (from PromptDock textarea) with character direction suffix.
         // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
@@ -507,6 +507,22 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
         try {
           const authHdrs = await getAuthHeaders();
+
+          // ── Pre-request payload log ────────────────────────────────────────
+          // Logged before fetch so failures are diagnosable without server access.
+          const subjectElements = elements.filter((el) => el.type === "subject" && el.asset_url);
+          console.log("[CDv2 generate payload]", {
+            model:             selectedModel,
+            count,
+            aspectRatio,
+            identity_lock:     refinements?.identity_lock ?? false,
+            hasReferenceImage: subjectElements.length > 0,
+            referenceUrls:     subjectElements.map((el) => el.asset_url),
+            hasTextNodeInput:  !!textNodeInput,
+            hasPromptSuffix:   !!(promptSuffix),
+            directionId:       dId,
+          });
+
           const res = await fetch("/api/creative-director/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...authHdrs },

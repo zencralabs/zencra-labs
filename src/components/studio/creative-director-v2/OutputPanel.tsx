@@ -25,6 +25,7 @@ import {
   selectOutputs,
   selectMode,
   selectIsGenerating,
+  selectGeneratingCount,
 } from "@/lib/creative-director/store";
 import type { CDGenerationOutput } from "@/lib/creative-director/store";
 import { OutputCard }        from "./OutputCard";
@@ -42,10 +43,11 @@ export function OutputPanel({
   onReEditInDirector,
   onRegenVariation,
 }: OutputPanelProps) {
-  const outputs      = useDirectionStore(selectOutputs);
-  const mode         = useDirectionStore(selectMode);
-  const isGenerating = useDirectionStore(selectIsGenerating);
-  const lastGenError = useDirectionStore((s) => s.lastGenError);
+  const outputs          = useDirectionStore(selectOutputs);
+  const mode             = useDirectionStore(selectMode);
+  const isGenerating     = useDirectionStore(selectIsGenerating);
+  const generatingCount  = useDirectionStore(selectGeneratingCount);
+  const lastGenError     = useDirectionStore((s) => s.lastGenError);
 
   const sorted = useMemo(() => {
     if (mode === "locked") {
@@ -205,12 +207,9 @@ export function OutputPanel({
             gridTemplateColumns: "1fr 1fr",
             gap:                 10,
           }}>
-            {isGenerating && (
-              <>
-                <SkeletonCard />
-                <SkeletonCard />
-              </>
-            )}
+            {isGenerating && Array.from({ length: Math.max(generatingCount, 1) }).map((_, i) => (
+              <SkeletonCard key={`skeleton-${i}`} />
+            ))}
             {sorted.map((output, i) => (
               <OutputCard
                 key={output.id}
