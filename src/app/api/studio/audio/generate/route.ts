@@ -33,7 +33,7 @@ import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
 import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
 import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
-import { checkEntitlement, consumeTrialUsage, consumeFreeUsage }
+import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
                                      from "@/lib/providers/core/model-integrity";
@@ -104,11 +104,6 @@ export async function POST(req: Request): Promise<Response> {
     // ── Trial usage consumption (fire-and-forget) ─────────────────────────────
     if (entitlement.path === "trial" && entitlement.trialEndsAt) {
       void consumeTrialUsage(userId, "audio", entitlement.trialEndsAt);
-    }
-
-    // ── Free-tier usage consumption (fire-and-forget) ─────────────────────────
-    if (entitlement.path === "free") {
-      void consumeFreeUsage(userId, "audio");
     }
 
     return accepted({

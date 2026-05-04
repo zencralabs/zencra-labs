@@ -56,9 +56,10 @@ export interface EntitlementResult {
   trialEndsAt?:    string;
   /**
    * Remaining free-tier generations — present only when path === "free".
+   * Only image and video have free allowances; audio/character/ugc/fcs are paid-only.
    * Informational; actual enforcement is handled by checkEntitlement.
    */
-  freeRemaining?: { images: number; videos: number; audio: number };
+  freeRemaining?: { images: number; videos: number };
 }
 
 // Raw shape returned by get_user_entitlement RPC
@@ -164,46 +165,48 @@ export async function checkEntitlement(
 
   // ── No active subscription — free-tier path ────────────────────────────────
   // Users with no subscription get a permanent free tier:
-  //   10 images (image + character), 3 videos (video + ugc), 3 audio.
-  // After limits are reached they are redirected to /pricing.
+  //   10 image generations, 3 video generations.
+  // All other studios (audio, character, ugc, fcs) require a paid subscription.
+  // After limits are reached, users are redirected to /pricing.
   // Paid users who reach credits=0 NEVER hit this path — they remain "active"
   // and are shown a boost/purchase flow instead. These paths are strictly separate.
   if (ent.status === "inactive" || !ent.subscription) {
-    // FCS is always blocked on free tier
-    if (studioType === "fcs") {
+    // Locked free allowance: ONLY image and video.
+    // audio, character, ugc, fcs are all paid-only — block with FREE_LIMIT_REACHED
+    // so the UI redirects to /pricing (same UX as exhausted allowance).
+    const FREE_TIER_PAID_ONLY: StudioType[] = ["fcs", "audio", "character", "ugc"];
+    if (FREE_TIER_PAID_ONLY.includes(studioType)) {
       throw new StudioDispatchError(
-        "Future Cinema Studio requires a Pro or Business subscription.",
-        "FCS_NOT_ALLOWED"
+        `${studioType === "fcs" ? "Future Cinema Studio" : studioType.charAt(0).toUpperCase() + studioType.slice(1)} generation requires a paid subscription. Upgrade to continue.`,
+        "FREE_LIMIT_REACHED"
       );
     }
 
-    // Read current free usage (non-atomic pre-check — same pattern as trial)
+    // Only image and video reach here — read just those columns
     const { data: freeRow } = await supabaseAdmin
       .from("free_usage")
-      .select("images_used, images_max, videos_used, videos_max, audio_used, audio_max")
+      .select("images_used, images_max, videos_used, videos_max")
       .eq("user_id", userId)
       .maybeSingle();
 
-    // Defaults: no row = 0 used across all categories
+    // Defaults: no row = 0 used (first generation creates the row via the RPC)
     const fu = freeRow as {
       images_used: number; images_max: number;
       videos_used: number; videos_max: number;
-      audio_used:  number; audio_max:  number;
     } | null;
     const imagesUsed = fu?.images_used ?? 0;
     const imagesMax  = fu?.images_max  ?? 10;
     const videosUsed = fu?.videos_used ?? 0;
     const videosMax  = fu?.videos_max  ?? 3;
-    const audioUsed  = fu?.audio_used  ?? 0;
-    const audioMax   = fu?.audio_max   ?? 3;
 
-    const category = resolveTrialCategory(studioType);
-    const used = category === "images" ? imagesUsed : category === "videos" ? videosUsed : audioUsed;
-    const max  = category === "images" ? imagesMax  : category === "videos" ? videosMax  : audioMax;
+    const isImage = studioType === "image";
+    const used    = isImage ? imagesUsed : videosUsed;
+    const max     = isImage ? imagesMax  : videosMax;
+    const label   = isImage ? "images"   : "videos";
 
     if (used >= max) {
       throw new StudioDispatchError(
-        `You've used all ${max} free ${category}. Upgrade to a paid plan to continue generating.`,
+        `You've used all ${max} free ${label}. Upgrade to a paid plan to continue generating.`,
         "FREE_LIMIT_REACHED"
       );
     }
@@ -216,7 +219,6 @@ export async function checkEntitlement(
       freeRemaining: {
         images: Math.max(0, imagesMax - imagesUsed),
         videos: Math.max(0, videosMax - videosUsed),
-        audio:  Math.max(0, audioMax  - audioUsed),
       },
     };
   }

@@ -9,6 +9,11 @@
 --   time-gated at 7 days). Free-tier users can generate within limits at any
 --   time; once exhausted they are redirected to /pricing to subscribe.
 --
+-- LOCKED FREE ALLOWANCE (Phase 1C):
+--   - 10 free image generations (image studio only)
+--   - 3  free video generations (video studio only)
+--   - Audio, character, UGC, FCS = paid credits only — no free allowance
+--
 -- WHY A SEPARATE TABLE (not reusing trial_usage):
 --   trial_usage carries a trial_ends_at column and the consume_trial_usage RPC
 --   blocks when trial_ends_at < now(). Free tier has no time gate — reusing
@@ -17,12 +22,10 @@
 --
 -- COLUMNS:
 --   user_id      — FK to auth.users; one row per user
---   images_used  — lifetime image generations consumed (image + character modes)
+--   images_used  — lifetime image generations consumed (image studio only)
 --   images_max   — cap (default 10)
---   videos_used  — lifetime video generations consumed (video + ugc modes)
+--   videos_used  — lifetime video generations consumed (video studio only)
 --   videos_max   — cap (default 3)
---   audio_used   — lifetime audio generations consumed
---   audio_max    — cap (default 3)
 --   created_at   — row creation timestamp
 --   updated_at   — last increment timestamp
 --
@@ -39,8 +42,6 @@ CREATE TABLE IF NOT EXISTS public.free_usage (
   images_max   integer     NOT NULL DEFAULT 10,
   videos_used  integer     NOT NULL DEFAULT 0,
   videos_max   integer     NOT NULL DEFAULT 3,
-  audio_used   integer     NOT NULL DEFAULT 0,
-  audio_max    integer     NOT NULL DEFAULT 3,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
@@ -60,15 +61,16 @@ CREATE POLICY IF NOT EXISTS "Users can view own free_usage"
 -- ── 2. RPC: consume_free_usage ─────────────────────────────────────────────────
 --
 -- Called AFTER a successful free-tier generation to atomically increment the
--- relevant counter. Does NOT re-check the limit (that happens in checkEntitlement
--- before dispatch — same optimistic pre-check pattern as consume_trial_usage).
+-- relevant counter. Only handles 'image' and 'video' studio types.
+-- Audio, character, UGC, and FCS are blocked in checkEntitlement before dispatch
+-- and will never reach this RPC.
 --
 -- Parameters:
 --   p_user_id     — the generating user's ID
---   p_studio_type — one of: 'image', 'character', 'video', 'ugc', 'audio',
---                   'fcs' (fcs is always blocked for free users — never reaches here)
+--   p_studio_type — one of: 'image', 'video'
+--                   (all other types are blocked for free users before dispatch)
 --
--- Returns: jsonb { remaining: { images: int, videos: int, audio: int } }
+-- Returns: jsonb { remaining: { images: int, videos: int } }
 -- ──────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.consume_free_usage(
@@ -85,10 +87,12 @@ DECLARE
   v_row       public.free_usage%ROWTYPE;
 BEGIN
   -- Map studio type to the column to increment
+  -- Only 'image' and 'video' are valid free-tier studio types
   CASE p_studio_type
-    WHEN 'image', 'character' THEN v_col_used := 'images_used';
-    WHEN 'video',  'ugc'      THEN v_col_used := 'videos_used';
-    ELSE                           v_col_used := 'audio_used';
+    WHEN 'image' THEN v_col_used := 'images_used';
+    WHEN 'video' THEN v_col_used := 'videos_used';
+    ELSE
+      RAISE EXCEPTION 'consume_free_usage: unsupported studio type "%". Only image and video have free allowances.', p_studio_type;
   END CASE;
 
   -- Ensure the row exists (idempotent; first generation creates it)
@@ -108,8 +112,7 @@ BEGIN
   RETURN jsonb_build_object(
     'remaining', jsonb_build_object(
       'images', GREATEST(0, v_row.images_max - v_row.images_used),
-      'videos', GREATEST(0, v_row.videos_max - v_row.videos_used),
-      'audio',  GREATEST(0, v_row.audio_max  - v_row.audio_used)
+      'videos', GREATEST(0, v_row.videos_max - v_row.videos_used)
     )
   );
 END;
