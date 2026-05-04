@@ -123,6 +123,7 @@ export function AssetTray({ onInsertTag }: AssetTrayProps) {
         <AssetThumb
           key={asset.id}
           asset={asset}
+          tagLabel={`@img${idx + 1}`}
           onRemove={removeUploadedAsset}
           onInsertTag={onInsertTag ? () => onInsertTag(`@img${idx + 1}`) : undefined}
         />
@@ -137,10 +138,12 @@ export function AssetTray({ onInsertTag }: AssetTrayProps) {
 
 function AssetThumb({
   asset,
+  tagLabel,
   onRemove,
   onInsertTag,
 }: {
   asset:        UploadedAsset;
+  tagLabel:     string;
   onRemove:     (id: string) => void;
   onInsertTag?: () => void;
 }) {
@@ -211,6 +214,32 @@ function AssetThumb({
         draggable={false}
       />
 
+      {/* Permanent @imgN tag badge — bottom-left, always visible unless hovering */}
+      {!hov && !dragging && (
+        <div
+          style={{
+            position:       "absolute",
+            bottom:         2,
+            left:           3,
+            zIndex:         3,
+            pointerEvents:  "none",
+          }}
+        >
+          <span style={{
+            fontSize:      7,
+            fontFamily:    "var(--font-sans)",
+            fontWeight:    700,
+            color:         "rgba(255,255,255,0.70)",
+            letterSpacing: "0.02em",
+            background:    "rgba(0,0,0,0.55)",
+            borderRadius:  3,
+            padding:       "1px 3px",
+          }}>
+            {tagLabel}
+          </span>
+        </div>
+      )}
+
       {/* @imgN insert overlay — shows on hover when onInsertTag is wired */}
       {hov && !dragging && onInsertTag && (
         <div
@@ -226,13 +255,13 @@ function AssetThumb({
           }}
         >
           <span style={{
-            fontSize:   8,
-            fontFamily: "var(--font-sans)",
-            fontWeight: 700,
-            color:      "rgba(255,255,255,0.95)",
+            fontSize:      8,
+            fontFamily:    "var(--font-sans)",
+            fontWeight:    700,
+            color:         "rgba(255,255,255,0.95)",
             letterSpacing: "0.02em",
           }}>
-            insert
+            {tagLabel}
           </span>
         </div>
       )}
