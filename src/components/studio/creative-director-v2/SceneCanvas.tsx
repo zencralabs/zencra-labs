@@ -131,6 +131,11 @@ const CONN_SNAP_RADIUS = 24;
  *  drag end. Hold Alt while dragging to disable snapping. */
 const GRID_SIZE = 10;
 
+/** Snap guide alignment threshold in canvas pixels.
+ *  When a dragged node's edge/center comes within this distance of another
+ *  node's matching axis, a guide line is shown and the node softly snaps. */
+const GUIDE_THRESHOLD = 8;
+
 // Magnetic zone definitions — (cx, cy) as fractions of canvas (w, h)
 const MAGNETIC_ZONES: Record<DirectionElementType, { cx: number; cy: number }> = {
   subject:    { cx: 0.33, cy: 0.48 },
@@ -323,6 +328,11 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
   /** Tracks whether Alt is currently held — disables grid snap when true. */
   const altHeldRef           = useRef(false);
 
+  /** Active alignment guide lines shown during node drag.
+   *  h = canvas-space Y coordinates for horizontal guides.
+   *  v = canvas-space X coordinates for vertical guides. */
+  const [snapGuides, setSnapGuides] = useState<{ h: number[]; v: number[] }>({ h: [], v: [] });
+
   // Sync refs every render so handlers always see the latest state
   pendingConnRef.current      = pendingConn;
   snapTargetFrameIdRef.current = snapTargetFrameId;
@@ -427,17 +437,37 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
     [positions, elements],
   );
 
-  // ── Scale-aware drag ──────────────────────────────────────────────────────
+  // ── Scale-aware drag with snap guide detection ────────────────────────────
   const handleMove = useCallback((id: string, dx: number, dy: number) => {
     const s = scaleRef.current / 100;
+
+    // Guide detection reads positionsRef (1 frame stale max — fine for visual guides).
+    // Estimate where this node is heading so we can compare against peers.
+    const snap = positionsRef.current[id] ?? { x: 0, y: 0 };
+    const estX = snap.x + dx / s;
+    const estY = snap.y + dy / s;
+    const hGuides: number[] = [];
+    const vGuides: number[] = [];
+    Object.entries(positionsRef.current).forEach(([otherId, op]) => {
+      if (otherId === id) return;
+      if (Math.abs(estY - op.y) < GUIDE_THRESHOLD) hGuides.push(op.y);
+      if (Math.abs(estX - op.x) < GUIDE_THRESHOLD) vGuides.push(op.x);
+    });
+    // Only update guide state when something changed to avoid extra renders
+    if (hGuides.length !== snapGuides.h.length || vGuides.length !== snapGuides.v.length) {
+      setSnapGuides({ h: hGuides, v: vGuides });
+    }
+
+    // Actual position update uses functional updater for correctness (never stale).
     setPositions((prev) => {
       const cur = prev[id] ?? { x: 0, y: 0 };
       return { ...prev, [id]: { x: cur.x + dx / s, y: cur.y + dy / s } };
     });
-  }, []);
+  }, [snapGuides.h.length, snapGuides.v.length]);
 
-  // ── Node drag end — snap to grid (Alt disables) ───────────────────────────
+  // ── Node drag end — clear guides, snap to grid (Alt disables) ───────────
   const handleMoveEnd = useCallback((id: string) => {
+    setSnapGuides({ h: [], v: [] });
     if (altHeldRef.current) return;
     setPositions((prev) => {
       const p = prev[id];
@@ -489,7 +519,14 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
             const hp   = getFrameInputHandle(frame, liveDragFramePosRef.current[frame.id]);
             const dist = Math.sqrt((cursorPos.x - hp.x) ** 2 + (cursorPos.y - hp.y) ** 2);
             if (dist < snapRadius) {
-              cursorPos = hp;   // snap tip to handle center
+              // Smooth magnetic pull using smoothstep easing:
+              // t=0 at snap radius edge → no pull; t=1 at handle center → full snap.
+              const t    = 1 - dist / snapRadius;
+              const ease = t * t * (3 - 2 * t); // smoothstep
+              cursorPos = {
+                x: cursorPos.x + (hp.x - cursorPos.x) * ease,
+                y: cursorPos.y + (hp.y - cursorPos.y) * ease,
+              };
               snappedId = frame.id;
               break;
             }
@@ -776,40 +813,58 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
   // CSS transform for the viewport
   const viewportTransform = `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale / 100})`;
 
-  // ── Auto Align — rearrange all nodes into a clean layout ─────────────────
+  // ── Auto Align v2 — left-to-right grouped layout ─────────────────────────
+  // Layout: subjects (col A) → world/atmosphere/object (col B) → text (col C)
+  //         → frames (col D). Each column stacks vertically with equal spacing.
+  //         Columns are centered against the tallest column's height.
   const autoAlign = useCallback(() => {
-    const allElements = [...elements, ...textNodes.map((t) => ({ id: t.id, _isText: true as const }))];
-    if (allElements.length === 0) return;
+    if (elements.length === 0 && frames.length === 0 && textNodes.length === 0) return;
 
-    // Build a flat ordered list: scene nodes first, then text nodes
-    const sceneIds = elements.map((el) => el.id);
-    const textIds  = textNodes.map((t) => t.id);
+    const SPACING   = 150;  // vertical gap between nodes in a column
+    const START_Y   = 80;   // top of first node in each column
+    const COL_A     = 80;   // subjects
+    const COL_B     = 360;  // world / atmosphere / object
+    const COL_C     = 560;  // text nodes (offset so text sits between nodes and frame)
+    const COL_D     = 760;  // frames
 
-    const startY   = 120;
-    const spacing  = 140;
-    const nodeX    = 160;
+    const subjects = elements.filter((e) => e.type === "subject");
+    const others   = elements.filter((e) => e.type !== "subject");
+    const texts    = textNodes;
+
+    // Tighten column C if there are no "others" — text nodes slide left
+    const effectiveColC = others.length === 0 ? COL_B : COL_C;
+    // Push frames further right if both middle columns have content
+    const effectiveColD = others.length > 0 && texts.length > 0 ? COL_D : COL_C + 200;
 
     const nextPositions: Record<string, CanvasPosition> = {};
 
-    // Stack scene nodes vertically
-    sceneIds.forEach((id, i) => {
-      nextPositions[id] = { x: nodeX, y: startY + i * spacing };
+    // Col A — subject nodes
+    subjects.forEach((el, i) => {
+      nextPositions[el.id] = { x: COL_A, y: START_Y + i * SPACING };
     });
 
-    // Stack text nodes below scene nodes
-    textIds.forEach((id, i) => {
-      nextPositions[id] = { x: nodeX, y: startY + (sceneIds.length + i) * spacing };
+    // Col B — other scene nodes (world, atmosphere, object)
+    others.forEach((el, i) => {
+      nextPositions[el.id] = { x: COL_B, y: START_Y + i * SPACING };
     });
 
-    // Place frames at x=700, centered vertically relative to total node height
-    const totalH   = (sceneIds.length + textIds.length) * spacing;
-    const centerY  = startY + totalH / 2;
+    // Col C — text nodes
+    texts.forEach((t, i) => {
+      nextPositions[t.id] = { x: effectiveColC, y: START_Y + i * SPACING };
+    });
+
+    // Col D — frames: center vertically against the tallest node column
+    const tallestCol = Math.max(subjects.length, others.length, texts.length);
+    const totalNodeH = tallestCol * SPACING;
+    const colCenterY = START_Y + totalNodeH / 2;
     frames.forEach((frame, i) => {
       const ratio  = FRAME_RATIO_VALUES[frame.aspectRatio];
       const fw     = frame.width ?? DEFAULT_FRAME_WIDTH;
       const fh     = fw / ratio;
-      const frameY = centerY - fh / 2 + i * (fh + 48);
-      useDirectionStore.getState().updateFrame(frame.id, { position: { x: 700, y: frameY } });
+      const frameH = fh + 40; // include gap between stacked frames
+      const stackH = frames.length * frameH;
+      const frameY = colCenterY - stackH / 2 + i * frameH;
+      useDirectionStore.getState().updateFrame(frame.id, { position: { x: effectiveColD, y: frameY } });
     });
 
     setPositions((prev) => ({ ...prev, ...nextPositions }));
@@ -869,7 +924,9 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
         flex:       1,
         position:   "relative",
         overflow:   "visible",   // Fix: allow frames/text to move freely; CDv2Shell center column clips at its boundary
-        cursor:     isPanning ? "grabbing" : pendingConn ? "crosshair" : "default",
+        cursor:     isPanning ? "grabbing"
+                  : pendingConn ? (snapTargetFrameId ? "cell" : "crosshair")
+                  : "default",
         // Cinematic background — base #0b0f1a + centered purple/blue radial glow
         // Slightly brighter than before for daylight-screen readability while
         // preserving the deep premium feel.
@@ -933,6 +990,28 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
               <stop offset="100%" stopColor="rgba(139,92,246,0.5)" />
             </linearGradient>
           </defs>
+
+          {/* ── Snap alignment guides (shown during node drag) ────────────── */}
+          {snapGuides.h.map((y, i) => (
+            <line
+              key={`hg-${i}`}
+              x1={-9999} y1={y} x2={99999} y2={y}
+              stroke="rgba(99,179,237,0.60)"
+              strokeWidth={1}
+              strokeDasharray="6 4"
+              style={{ pointerEvents: "none" }}
+            />
+          ))}
+          {snapGuides.v.map((x, i) => (
+            <line
+              key={`vg-${i}`}
+              x1={x} y1={-9999} x2={x} y2={99999}
+              stroke="rgba(99,179,237,0.60)"
+              strokeWidth={1}
+              strokeDasharray="6 4"
+              style={{ pointerEvents: "none" }}
+            />
+          ))}
 
           {/* ── Layer 1: node/text → frame committed connections ─────────── */}
           {nodeConnections.map((conn) => {
@@ -1141,32 +1220,36 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
                 title="Drag to connect to a frame"
                 style={{
                   position:        "absolute",
-                  left:            hx - 6,
-                  top:             hy - 6,
-                  width:           12,
-                  height:          12,
+                  left:            hx - 7,
+                  top:             hy - 7,
+                  width:           14,
+                  height:          14,
                   borderRadius:    "50%",
                   background:      (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
-                    ? "rgba(255,255,255,0.95)"
-                    : "rgba(255,255,255,0.35)",
-                  border:          "1.5px solid rgba(255,255,255,0.6)",
+                    ? "rgba(255,255,255,0.98)"
+                    : "rgba(255,255,255,0.38)",
+                  border:          "1.5px solid rgba(255,255,255,0.65)",
                   cursor:          (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
                     ? "grabbing"
-                    : "pointer",
+                    : "grab",
                   zIndex:          25,
-                  transition:      "background 0.15s ease, transform 0.15s ease",
-                  boxShadow:       "0 0 6px rgba(255,255,255,0.25)",
+                  transition:      "background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease",
+                  boxShadow:       (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
+                    ? "0 0 0 4px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.45)"
+                    : "0 0 6px rgba(255,255,255,0.28)",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background  = "rgba(255,255,255,0.95)";
-                  e.currentTarget.style.transform   = "scale(1.3)";
+                  e.currentTarget.style.background  = "rgba(255,255,255,0.98)";
+                  e.currentTarget.style.transform   = "scale(1.45)";
+                  e.currentTarget.style.boxShadow   = "0 0 0 4px rgba(255,255,255,0.12), 0 0 14px rgba(255,255,255,0.50)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background  =
-                    (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
-                      ? "rgba(255,255,255,0.95)"
-                      : "rgba(255,255,255,0.35)";
+                  const isActive = pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id;
+                  e.currentTarget.style.background  = isActive ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.38)";
                   e.currentTarget.style.transform   = "scale(1)";
+                  e.currentTarget.style.boxShadow   = isActive
+                    ? "0 0 0 4px rgba(255,255,255,0.15), 0 0 12px rgba(255,255,255,0.45)"
+                    : "0 0 6px rgba(255,255,255,0.28)";
                 }}
               />
             </div>
@@ -1307,38 +1390,40 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(funct
                 title="Drag to wire this text to a frame"
                 style={{
                   position:     "absolute",
-                  left:         thx - 6,
-                  top:          thy - 6,
-                  width:        12,
-                  height:       12,
+                  left:         thx - 7,
+                  top:          thy - 7,
+                  width:        14,
+                  height:       14,
                   borderRadius: "50%",
                   background:   (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
                     ? "rgba(180,160,255,0.98)"
                     : isTnConnected
-                      ? "rgba(180,160,255,0.70)"
-                      : "rgba(180,160,255,0.35)",
-                  border:       `1.5px solid ${isTnConnected ? "rgba(180,160,255,0.85)" : "rgba(180,160,255,0.5)"}`,
+                      ? "rgba(180,160,255,0.75)"
+                      : "rgba(180,160,255,0.38)",
+                  border:       `1.5px solid ${isTnConnected ? "rgba(180,160,255,0.88)" : "rgba(180,160,255,0.55)"}`,
                   cursor:       (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
                     ? "grabbing"
-                    : "pointer",
+                    : "grab",
                   zIndex:       25,
-                  transition:   "background 0.15s ease, transform 0.15s ease",
+                  transition:   "background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease",
                   boxShadow:    isTnConnected
-                    ? "0 0 8px rgba(180,160,255,0.45)"
-                    : "0 0 5px rgba(180,160,255,0.20)",
+                    ? "0 0 0 3px rgba(180,160,255,0.12), 0 0 10px rgba(180,160,255,0.48)"
+                    : "0 0 6px rgba(180,160,255,0.22)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background  = "rgba(180,160,255,0.98)";
-                  e.currentTarget.style.transform   = "scale(1.3)";
+                  e.currentTarget.style.transform   = "scale(1.45)";
+                  e.currentTarget.style.boxShadow   = "0 0 0 4px rgba(180,160,255,0.14), 0 0 14px rgba(180,160,255,0.55)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background  =
-                    (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
-                      ? "rgba(180,160,255,0.98)"
-                      : isTnConnected
-                        ? "rgba(180,160,255,0.70)"
-                        : "rgba(180,160,255,0.35)";
+                  const isActive = pendingConn?.type === "text" && pendingConn.fromTextId === tn.id;
+                  e.currentTarget.style.background  = isActive
+                    ? "rgba(180,160,255,0.98)"
+                    : isTnConnected ? "rgba(180,160,255,0.75)" : "rgba(180,160,255,0.38)";
                   e.currentTarget.style.transform   = "scale(1)";
+                  e.currentTarget.style.boxShadow   = isTnConnected
+                    ? "0 0 0 3px rgba(180,160,255,0.12), 0 0 10px rgba(180,160,255,0.48)"
+                    : "0 0 6px rgba(180,160,255,0.22)";
                 }}
               />
             </React.Fragment>
