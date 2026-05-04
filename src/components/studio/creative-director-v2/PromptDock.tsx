@@ -79,9 +79,13 @@ const MODEL_GROUPS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface PromptDockProps {
-  onGenerate:    (count: number, aspectRatio: string, quality?: string, sceneOverride?: string) => void;
-  isFullscreen?: boolean;
-  defaultAr?:    string;
+  onGenerate:         (count: number, aspectRatio: string, quality?: string, sceneOverride?: string) => void;
+  isFullscreen?:      boolean;
+  defaultAr?:         string;
+  /** Controlled from CDv2Shell — true when the entire bottom stack is slid away */
+  isMinimized?:       boolean;
+  /** Fired when the dock's internal minimize button is clicked */
+  onMinimizedChange?: (minimized: boolean) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ function buildRefinedPrompt(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PromptDock({ onGenerate, isFullscreen, defaultAr }: PromptDockProps) {
+export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, onMinimizedChange }: PromptDockProps) {
   const {
     isGenerating,
     mode,
@@ -148,6 +152,12 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr }: PromptDockPr
   // Dock hide / mini mode
   const [dockHidden,   setDockHidden]   = useState(false);
   const [hideHovered,  setHideHovered]  = useState(false);
+
+  // Sync: when parent (CDv2Shell) opens the dock via the shell-level mini strip,
+  // reset internal dockHidden so the full console content shows.
+  useEffect(() => {
+    if (isMinimized === false) setDockHidden(false);
+  }, [isMinimized]);
 
   // Refine Prompt card
   const [refineOpen,    setRefineOpen]    = useState(false);
@@ -486,7 +496,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr }: PromptDockPr
             {/* Hide / minimize button — disabled during generation */}
             {!isGenerating && (
               <button
-                onClick={() => setDockHidden(true)}
+                onClick={() => { setDockHidden(true); onMinimizedChange?.(true); }}
                 title="Minimize console  (click strip to restore)"
                 className="cd-btn-lift"
                 onMouseEnter={(e) => {

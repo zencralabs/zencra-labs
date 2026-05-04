@@ -178,10 +178,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     addUploadedAsset,
   } = useDirectionStore();
 
-  const [isFullscreen,     setIsFullscreen]     = useState(false);
-  const [leftCollapsed,    setLeftCollapsed]    = useState(false);
-  const [rightCollapsed,   setRightCollapsed]   = useState(false);
-  const [selectedFrameId,  setSelectedFrameId]  = useState<string | null>(null);
+  const [isFullscreen,        setIsFullscreen]        = useState(false);
+  const [leftCollapsed,       setLeftCollapsed]       = useState(false);
+  const [rightCollapsed,      setRightCollapsed]      = useState(false);
+  const [selectedFrameId,     setSelectedFrameId]     = useState<string | null>(null);
+  const [dockMinimized,       setDockMinimized]       = useState(false);
+  const [miniConsoleHovered,  setMiniConsoleHovered]  = useState(false);
 
   // Derive AR from selected frame (one-way: canvas selection → dock)
   const selectedFrameAr = selectedFrameId
@@ -648,7 +650,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             borderRight:   "1px solid rgba(255,255,255,0.05)",
           }}
         >
-          {/* Scene canvas — takes remaining height */}
+          {/* Scene canvas — fills all remaining height (flex: 1) */}
           <SceneCanvas
             onAddElement={handleAddElement}
             onToggleDirectorControls={toggleDirectorPanel}
@@ -658,29 +660,103 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             onFrameSelect={handleFrameSelect}
           />
 
-          {/* Director handle — slim strip toggling the panel */}
-          <DirectorHandle open={directorPanelOpen} onToggle={toggleDirectorPanel} />
+          {/* AI Assist bar — fades with dock so it never hangs in canvas alone */}
+          <div
+            style={{
+              position:      "absolute",
+              bottom:        DIRECTOR_BOTTOM + 8,
+              left:          0,
+              right:         0,
+              zIndex:        30,
+              opacity:       dockMinimized ? 0 : 1,
+              pointerEvents: dockMinimized ? "none" : "auto",
+              transition:    "opacity 0.32s cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            {/* bottomOffset={0}: AIAssistBar positions itself relative to this wrapper */}
+            <AIAssistBar onAddElement={handleAddElement} bottomOffset={0} />
+          </div>
 
-          {/* Prompt dock */}
-          <PromptDock
-            onGenerate={(count, ar, quality, sceneOverride) =>
-              handleGenerate(count, ar, quality, sceneOverride)
-            }
-            isFullscreen={isFullscreen}
-            defaultAr={selectedFrameAr}
-          />
-
-          {/* AI Assist Co-Director bar — floats above DirectorHandle */}
-          <AIAssistBar
-            onAddElement={handleAddElement}
-            bottomOffset={DIRECTOR_BOTTOM + 8}
-          />
-
-          {/* Director panel — slides up from bottom: 176px */}
+          {/* Director panel — slides up from bottom; NOT part of the dock stack */}
           <DirectorPanel
             onRefinementChange={handleRefinementChange}
             bottomOffset={DIRECTOR_BOTTOM}
           />
+
+          {/* ── Bottom stack — DirectorHandle + PromptDock slide as one unit ── */}
+          {/* translateY(calc(100%−28px)) leaves exactly 28px of the Open Console  */}
+          {/* strip visible at the bottom edge. overflow:hidden on parent clips rest. */}
+          <div
+            style={{
+              position:   "absolute",
+              bottom:     0,
+              left:       0,
+              right:      0,
+              zIndex:     10,
+              transform:  dockMinimized
+                ? "translateY(calc(100% - 28px))"
+                : "translateY(0)",
+              transition: "transform 0.32s cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            {/* ── Open Console mini strip — top 28px visible when minimized ── */}
+            <div
+              onClick={() => setDockMinimized(false)}
+              onMouseEnter={() => setMiniConsoleHovered(true)}
+              onMouseLeave={() => setMiniConsoleHovered(false)}
+              style={{
+                height:               28,
+                display:              "flex",
+                alignItems:           "center",
+                justifyContent:       "center",
+                gap:                  6,
+                cursor:               "pointer",
+                background:           miniConsoleHovered
+                  ? "rgba(255,255,255,0.04)"
+                  : "rgba(6,6,9,0.95)",
+                borderTop:            `1px solid ${miniConsoleHovered
+                  ? "rgba(139,92,246,0.28)"
+                  : "rgba(255,255,255,0.07)"}`,
+                boxShadow:            miniConsoleHovered
+                  ? "0 0 20px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.06)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.03)",
+                backdropFilter:       "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+                transition:           "all 0.2s ease",
+                // Invisible but in flow when expanded — keeps container height stable
+                opacity:              dockMinimized ? 1 : 0,
+                pointerEvents:        dockMinimized ? "auto" : "none",
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.45 }}>
+                <path d="M2 6.5L5 3.5L8 6.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span style={{
+                fontSize:      10,
+                fontFamily:    "var(--font-sans)",
+                color:         miniConsoleHovered ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.28)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                transition:    "color 0.2s ease",
+              }}>
+                Open Console
+              </span>
+            </div>
+
+            {/* Director handle */}
+            <DirectorHandle open={directorPanelOpen} onToggle={toggleDirectorPanel} />
+
+            {/* Prompt dock */}
+            <PromptDock
+              onGenerate={(count, ar, quality, sceneOverride) =>
+                handleGenerate(count, ar, quality, sceneOverride)
+              }
+              isFullscreen={isFullscreen}
+              defaultAr={selectedFrameAr}
+              isMinimized={dockMinimized}
+              onMinimizedChange={(m) => setDockMinimized(m)}
+            />
+          </div>
         </div>
 
         {/* Right output stream */}
