@@ -25,12 +25,13 @@
  * in each group, giving them structural priority.
  *
  * ─── COMPOSITION ORDER ───────────────────────────────────────────────────────
- * 1. TextNode input — leading creative vision from wired TextNode (if present)
- * 2. Scene intent / direction.name — secondary context (demoted if TextNode present)
- * 3. Elements — subject/world/atmosphere/object sorted by weight
- * 4. Director controls — cinematography, scene energy, tone intensity
- * 5. Character direction suffix — identity lock enforcement
- * 6. Quality anchor — always appended last
+ * 1. Identity anchor — LEADS when identity_lock is ON (character fidelity first)
+ * 2. TextNode input — leading creative vision from wired TextNode (if present)
+ * 3. Scene intent / direction.name — secondary context (demoted if TextNode present)
+ * 4. Elements — subject/world/atmosphere/object sorted by weight
+ * 5. Director controls — cinematography, scene energy, tone intensity
+ * 6. Character direction suffix — identity lock enforcement (second layer)
+ * 7. Quality anchor — always appended last
  */
 
 import type {
@@ -105,15 +106,29 @@ export function buildDirectionPrompt(
   // It is designed for AI influencer, @handle persona, and campaign consistency.
   const identityLock = refinements?.identity_lock === true;
 
-  // ── STEP 1: TextNode input — leading creative vision ─────────────────────
-  // When a TextNode is wired to the frame, its text is the PRIMARY creative
-  // directive. It leads the prompt so image generators anchor on it first.
+  // ── STEP 1: Identity anchor — MUST lead when identity lock is ON ─────────
+  // When identity_lock is true the generator must anchor on character fidelity
+  // BEFORE processing any scene or action instructions. Placing this first
+  // gives it structural priority in the model's attention.
+  // The subject element emphasis (applySubjectEmphasis) and the identity block
+  // at the end are the second and third layers of the same lock.
+  if (identityLock) {
+    parts.push(
+      "Identity-locked character: maintain exact facial features, same person, " +
+      "consistent identity across all outputs"
+    );
+  }
+
+  // ── STEP 2: TextNode input — leading creative vision ─────────────────────
+  // When a TextNode is wired to the frame, its text is the PRIMARY scene/action
+  // directive. It leads after the identity anchor so generators understand both
+  // who is in the scene AND what is happening.
   const hasTextNode = typeof textNodeInput === "string" && textNodeInput.trim().length > 0;
   if (hasTextNode) {
     parts.push(textNodeInput!.trim());
   }
 
-  // ── STEP 2: Scene intent / direction name ─────────────────────────────────
+  // ── STEP 3: Scene intent / direction name ─────────────────────────────────
   // When TextNode is present, scene intent is demoted to secondary context
   // (prefix changes from "Scene:" to "Context:").
   // When no TextNode, it leads as the primary scene framing.

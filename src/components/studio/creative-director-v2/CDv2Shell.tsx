@@ -567,6 +567,15 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
                     status: "failed",
                     error_message: err ?? "Generation failed",
                   };
+                  // Trigger credit refund for this async failure.
+                  // The generate route charged credits upfront; the provider
+                  // failed asynchronously, so we must explicitly refund here.
+                  if (gen.id) {
+                    void fetch(`/api/creative-director/generations/${gen.id}/refund`, {
+                      method:  "POST",
+                      headers: authHdrs,
+                    });
+                  }
                 }
                 // status "pending" → keep looping
               } catch {

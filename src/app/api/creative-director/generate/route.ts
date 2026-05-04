@@ -49,6 +49,7 @@ import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estim
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
 import { studioDispatch }         from "@/lib/api/studio-dispatch";
 import { getClientIp }            from "@/lib/security/rate-limit";
+import { getModelCapabilities }   from "@/lib/studio/model-capabilities";
 import type {
   CreativeDirectionRow,
   DirectionRefinementsRow,
@@ -220,6 +221,46 @@ export async function POST(req: Request): Promise<Response> {
     conceptRecommendation: null,
   });
 
+  // ── Identity lock — extract subject reference image ────────────────────────
+  // When identity_lock is ON, the connected subject image MUST be sent to the
+  // provider as a reference image. Prompt text alone is insufficient — the model
+  // needs the pixel-level visual anchor to preserve facial identity.
+  //
+  // Priority: highest-weight subject element that has a stored asset_url.
+  // Provider routing:
+  //   gpt-image-1/2  → imageUrl field
+  //   nano-banana-*  → providerParams.referenceUrls[]
+  //   seedream-*     → providerParams.referenceUrls[]
+  //   flux-*         → imageUrl field (single reference only)
+  //   fallback       → imageUrl field
+  const identityLock       = refinements?.identity_lock === true;
+  const modelCaps          = getModelCapabilities(providerDecision.model);
+
+  let dispatchImageUrl:      string | undefined;
+  let dispatchProviderParams: Record<string, unknown> | undefined;
+
+  if (identityLock && modelCaps.maxReferenceImages > 0) {
+    const subjectWithImage = elements
+      .filter((e) => e.type === "subject" && !!e.asset_url)
+      .sort((a, b) => b.weight - a.weight)[0];
+
+    if (subjectWithImage?.asset_url) {
+      const refUrl = subjectWithImage.asset_url;
+      const isNanoBanana = providerDecision.model.startsWith("nano-banana") ||
+                           providerDecision.model.startsWith("seedream");
+
+      if (isNanoBanana) {
+        dispatchProviderParams = { referenceUrls: [refUrl] };
+      } else {
+        // gpt-image-*, flux-kontext, and unknown models — use imageUrl
+        dispatchImageUrl = refUrl;
+      }
+      console.log(`[cd/generate] identity_lock=true → reference image injected for ${providerDecision.model} (${isNanoBanana ? "referenceUrls" : "imageUrl"})`);
+    } else {
+      console.warn(`[cd/generate] identity_lock=true but no subject element has an asset_url — generation will be prompt-only`);
+    }
+  }
+
   // ── Reserve credits ────────────────────────────────────────────────────────
   const totalCost = computeTotalGenerationCost(providerDecision.model, count, "base");
 
@@ -290,13 +331,15 @@ export async function POST(req: Request): Promise<Response> {
     generationRecords.map(async (gen) => {
       try {
         const { job, assetId } = await studioDispatch({
-          userId:      user.id,
-          ip:          clientIp,
-          studio:      "image",
-          modelKey:    providerDecision.model,
-          prompt:      promptString,
+          userId:         user.id,
+          ip:             clientIp,
+          studio:         "image",
+          modelKey:       providerDecision.model,
+          prompt:         promptString,
+          imageUrl:       dispatchImageUrl,
+          providerParams: dispatchProviderParams,
           aspectRatio,
-          skipCredits: true,
+          skipCredits:    true,
         });
 
         const status: CreativeGenerationRow["status"] =
@@ -305,6 +348,16 @@ export async function POST(req: Request): Promise<Response> {
 
         console.log(`[cd/generate] job=${job.id} provider=${providerDecision.provider} status=${job.status} → ${status} assetId=${assetId}`);
 
+        // Refund immediately if sync provider reported failure
+        if (status === "failed") {
+          const genCost = computeTotalGenerationCost(providerDecision.model, 1, "base");
+          void supabaseAdmin.rpc("refund_credits", {
+            p_user_id:     user.id,
+            p_amount:      genCost,
+            p_description: `Refund: CD (${mode}) — provider error via ${providerDecision.provider}`,
+          });
+        }
+
         await updateGenerationStatus(gen.id, status, assetId);
         // job.id is the internal UUID the client needs to poll
         // GET /api/studio/jobs/[job_id]/status for async providers.
@@ -312,6 +365,13 @@ export async function POST(req: Request): Promise<Response> {
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown dispatch error";
         await updateGenerationStatus(gen.id, "failed", undefined, errMsg);
+        // Refund credits for this dispatch failure
+        const genCost = computeTotalGenerationCost(providerDecision.model, 1, "base");
+        void supabaseAdmin.rpc("refund_credits", {
+          p_user_id:     user.id,
+          p_amount:      genCost,
+          p_description: `Refund: CD (${mode}) — dispatch error via ${providerDecision.provider}`,
+        });
         return { ...gen, status: "failed", error_message: errMsg, mode };
       }
     })
