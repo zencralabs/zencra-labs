@@ -47,6 +47,12 @@ export interface CreditStore {
   getBalance(userId: string): Promise<number>;
   /** Append an immutable transaction record. */
   log(entry: CreditLogEntry): Promise<void>;
+  /**
+   * Look up the base_credits for a model from credit_model_costs.
+   * Returns 0 if the model is not found or the row is inactive.
+   * Non-throwing — a lookup failure falls back to studio defaults.
+   */
+  lookupModelCost(modelKey: string): Promise<number>;
 }
 
 export interface CreditLogEntry {
@@ -142,6 +148,25 @@ export function buildSupabaseCreditStore(supabase: SupabaseClient): CreditStore 
         });
       // log insert failure is intentionally non-fatal — we swallow the error
     },
+
+    async lookupModelCost(modelKey: string): Promise<number> {
+      // Reads base_credits from credit_model_costs for the given model_key.
+      // Only returns a value for active rows — inactive (Phase 2 hidden) models return 0.
+      // Returns 0 on any DB error so a transient lookup failure never blocks generation.
+      try {
+        const { data, error } = await supabase
+          .from("credit_model_costs")
+          .select("base_credits")
+          .eq("model_key", modelKey)
+          .eq("active", true)
+          .single();
+
+        if (error || !data) return 0;
+        return (data as { base_credits: number }).base_credits ?? 0;
+      } catch {
+        return 0;
+      }
+    },
   };
 }
 
@@ -178,18 +203,41 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
 
   return {
     async estimate(input: ZProviderInput): Promise<CreditEstimate> {
-      // Default estimate based on studio type — providers override via estimateCost()
-      const studioDefaults: Record<string, CreditEstimate> = {
-        image:     { min: 2, max: 10, expected: 4,  breakdown: { base: 4  } },
-        video:     { min: 5, max: 30, expected: 12, breakdown: { base: 12 } },
-        audio:     { min: 2, max: 8,  expected: 3,  breakdown: { base: 3  } },
-        character: { min: 5, max: 20, expected: 8,  breakdown: { base: 8  } },
-        ugc:       { min: 15,max: 45, expected: 20, breakdown: { base: 20 } },
-        fcs:       { min: 10,max: 35, expected: 15, breakdown: { base: 15 } },
-      };
-      // If input already has an estimate (from provider.estimateCost), use it
+      // ── Priority 1: provider-supplied estimate (e.g. duration-scaled costs) ──
+      // Providers can call estimateCost() with full context (duration, resolution, etc.)
+      // and attach the result to the input. Use it if present.
       if (input.estimatedCredits) return input.estimatedCredits;
-      return studioDefaults[input.studioType] ?? { min: 2, max: 10, expected: 5, breakdown: { base: 5 } };
+
+      // ── Priority 2: DB lookup from credit_model_costs (locked spec values) ──
+      // This is the authoritative source for per-model costs. A successful lookup
+      // replaces all hardcoded studio defaults. Failure falls through to defaults.
+      const dbCost = await ctx.store.lookupModelCost(ctx.modelKey);
+      if (dbCost > 0) {
+        console.log(`[credits] estimate model=${ctx.modelKey} cost=${dbCost}cr (DB)`);
+        return {
+          min:      dbCost,
+          max:      dbCost,
+          expected: dbCost,
+          breakdown: { base: dbCost },
+        };
+      }
+
+      // ── Priority 3: Studio-level fallbacks (safety net only) ─────────────────
+      // These fire ONLY if the model_key is missing from credit_model_costs or the
+      // row is inactive. A DB miss is logged so it can be caught and fixed quickly.
+      console.warn(
+        `[credits] estimate fallback for model=${ctx.modelKey} studio=${ctx.studio} — ` +
+        `add to credit_model_costs to use locked spec pricing`
+      );
+      const studioDefaults: Record<string, CreditEstimate> = {
+        image:     { min: 8,   max: 35,  expected: 10,  breakdown: { base: 10  } },
+        video:     { min: 120, max: 420, expected: 150, breakdown: { base: 150 } },
+        audio:     { min: 8,   max: 20,  expected: 8,   breakdown: { base: 8   } },
+        character: { min: 25,  max: 80,  expected: 25,  breakdown: { base: 25  } },
+        ugc:       { min: 120, max: 600, expected: 180, breakdown: { base: 180 } },
+        fcs:       { min: 350, max: 600, expected: 350, breakdown: { base: 350 } },
+      };
+      return studioDefaults[input.studioType] ?? { min: 8, max: 35, expected: 10, breakdown: { base: 10 } };
     },
 
     async reserve(userId: string, jobId: string, estimate: CreditEstimate): Promise<boolean> {
