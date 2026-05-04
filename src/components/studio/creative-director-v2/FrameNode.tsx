@@ -290,13 +290,13 @@ export function FrameNode({
     : onboardingPhase2Complete
       ? "0 0 0 1px rgba(139,92,246,0.55), 0 0 80px rgba(139,92,246,0.28)"
       : isSelected
-        ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25)"
-        : "0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
+        ? "0 0 0 1px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.25), 0 0 0 1px rgba(139,92,246,0.25)"
+        : "0 0 0 1px rgba(120,160,255,0.15), 0 20px 60px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02)";
 
-  // Shell border: always ultra-subtle white; purple only when selected
+  // Shell border: blue when unselected, stronger purple when selected
   const shellBorder = isSelected
-    ? "1px solid rgba(139,92,246,0.35)"
-    : "1px solid rgba(255,255,255,0.08)";
+    ? "1px solid rgba(139,92,246,0.6)"
+    : "1px solid rgba(120,160,255,0.35)";
 
   // ── Corner handle render helper ────────────────────────────────────────────
   const renderHandle = (corner: Corner) => {
@@ -417,7 +417,7 @@ export function FrameNode({
             padding:        "0 10px",
             cursor:         "grab",
             userSelect:     "none",
-            borderBottom:   "1px solid rgba(255,255,255,0.06)",
+            borderBottom:   "1px solid rgba(120,160,255,0.12)",
             background:     "rgba(255,255,255,0.025)",
             flexShrink:     0,
           }}

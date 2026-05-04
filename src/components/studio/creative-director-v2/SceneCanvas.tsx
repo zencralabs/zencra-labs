@@ -730,10 +730,10 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         // Slightly brighter than before for daylight-screen readability while
         // preserving the deep premium feel.
         background: dragOver
-          ? "rgba(139,92,246,0.06)"
+          ? "rgba(37,99,235,0.08)"
           : [
-            "radial-gradient(circle at 50% 40%, rgba(120,80,255,0.18), transparent 60%)",
-            "radial-gradient(ellipse at 45% 35%, rgba(28,20,52,1) 0%, rgba(17,13,34,1) 42%, rgba(11,9,20,1) 75%)",
+            "radial-gradient(circle at 50% 40%, rgba(37,99,235,0.18), transparent 55%)",
+            "radial-gradient(ellipse at 45% 35%, rgba(5,7,15,1) 0%, rgba(5,7,15,1) 100%)",
           ].join(", "),
         transition:  "background 0.4s ease",
         userSelect:  "none",
@@ -743,14 +743,14 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       {/* Dot grid */}
       <div aria-hidden style={{
         position:        "absolute", inset: 0, pointerEvents: "none",
-        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.082) 1px, transparent 1px)",
+        backgroundImage: "radial-gradient(circle, rgba(125,162,255,0.22) 1px, transparent 1px)",
         backgroundSize:  "32px 32px",
       }} />
 
       {/* Ambient corner glows */}
       <div aria-hidden style={{
         position:   "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(ellipse at 0% 100%, rgba(139,92,246,0.06) 0%, transparent 50%), radial-gradient(ellipse at 100% 0%, rgba(59,130,246,0.05) 0%, transparent 50%)",
+        background: "radial-gradient(ellipse at 0% 100%, rgba(37,99,235,0.08) 0%, transparent 50%), radial-gradient(ellipse at 100% 0%, rgba(120,160,255,0.07) 0%, transparent 50%)",
       }} />
 
       {/* Bottom vignette */}
@@ -924,7 +924,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
               <g>
                 <path
                   d={d} fill="none"
-                  stroke={isTextPending ? "rgba(180,160,255,0.14)" : "rgba(255,255,255,0.12)"}
+                  stroke={isTextPending ? "rgba(180,160,255,0.22)" : "rgba(255,255,255,0.20)"}
                   strokeWidth={4} strokeLinecap="round"
                 />
                 <path
@@ -1143,8 +1143,8 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           display:        "flex",
           alignItems:     "center",
           gap:            2,
-          background:     "rgba(6,5,10,0.82)",
-          border:         "1px solid rgba(255,255,255,0.08)",
+          background:     "rgba(6,5,10,0.88)",
+          border:         "1px solid rgba(120,160,255,0.18)",
           borderRadius:   10,
           padding:        3,
           backdropFilter: "blur(12px)",
@@ -1193,9 +1193,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             transition:   "all 0.15s ease",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background  = "rgba(255,255,255,0.06)";
-            e.currentTarget.style.color       = "rgba(255,255,255,0.75)";
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+            e.currentTarget.style.background  = "rgba(120,160,255,0.15)";
+            e.currentTarget.style.color       = "rgba(255,255,255,0.85)";
+            e.currentTarget.style.borderColor = "rgba(120,160,255,0.40)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background  = "transparent";

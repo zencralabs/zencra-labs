@@ -89,13 +89,16 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
     return (
       <div
         style={{
-          height:        "100%",
-          display:       "flex",
-          flexDirection: "column",
-          background:    "rgba(8,8,11,0.98)",
-          overflow:      "visible", // allow tooltips to escape into canvas column
-          position:      "relative",
-          zIndex:        10,
+          height:          "100%",
+          display:         "flex",
+          flexDirection:   "column",
+          background:      "rgba(10,12,20,0.75)",
+          backdropFilter:  "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          borderRight:     "1px solid rgba(120,160,255,0.18)",
+          overflow:        "visible", // allow tooltips to escape into canvas column
+          position:        "relative",
+          zIndex:          10,
         }}
       >
         {/* Thin spacer at top (toggle lives in CDv2Shell now) */}
@@ -116,13 +119,16 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
   return (
     <div
       style={{
-        height:         "100%",
-        overflowY:      "auto",
-        background:     "rgba(8,8,11,0.98)",
-        display:        "flex",
-        flexDirection:  "column",
-        gap:            0,
-        scrollbarWidth: "none",
+        height:               "100%",
+        overflowY:            "auto",
+        background:           "rgba(10,12,20,0.75)",
+        backdropFilter:       "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        borderRight:          "1px solid rgba(120,160,255,0.18)",
+        display:              "flex",
+        flexDirection:        "column",
+        gap:                  0,
+        scrollbarWidth:       "none",
       }}
     >
       {/* Top spacer (toggle lives in CDv2Shell now) */}

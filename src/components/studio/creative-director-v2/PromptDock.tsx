@@ -301,10 +301,10 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
         position:        "relative",
         display:         "flex",
         flexDirection:   "column",
-        borderTop:       dockHidden ? "none" : "1px solid rgba(255,255,255,0.07)",
+        borderTop:       dockHidden ? "none" : "1px solid rgba(120,160,255,0.25)",
         // Bottom border ensures the dock edge is always visible above the viewport floor
-        borderBottom:    dockHidden ? "none" : "2px solid rgba(255,255,255,0.04)",
-        background:      dockHidden ? "transparent" : "rgba(6,6,9,0.99)",
+        borderBottom:    dockHidden ? "none" : "2px solid rgba(120,160,255,0.08)",
+        background:      dockHidden ? "transparent" : "rgba(8,10,18,0.95)",
         zIndex:          10,
         transition:      "background 0.3s ease",
         // Subtle top shimmer when visible
@@ -325,8 +325,8 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
             transform:            "translateX(-50%)",
             width:                "calc(100% - 28px)",
             maxWidth:             420,
-            background:           "rgba(8,6,18,0.97)",
-            border:               "1px solid rgba(255,255,255,0.09)",
+            background:           "rgba(8,10,18,0.97)",
+            border:               "1px solid rgba(120,160,255,0.25)",
             borderRadius:         14,
             backdropFilter:       "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
@@ -419,7 +419,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
             gap:                  6,
             cursor:               "pointer",
             background:           hideHovered ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
-            borderTop:            `1px solid ${hideHovered ? "rgba(139,92,246,0.28)" : "rgba(255,255,255,0.07)"}`,
+            borderTop:            `1px solid ${hideHovered ? "rgba(139,92,246,0.35)" : "rgba(120,160,255,0.18)"}`,
             boxShadow:            hideHovered
               ? "0 0 20px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.06)"
               : "inset 0 1px 0 rgba(255,255,255,0.03)",
