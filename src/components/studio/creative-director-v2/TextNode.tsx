@@ -111,19 +111,26 @@ export function TextNode({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const outerRef    = useRef<HTMLDivElement>(null);
 
+  // Stable ref so ResizeObserver never needs to re-register when the callback identity changes
+  const onHeightChangeRef = useRef(onHeightChange);
+  onHeightChangeRef.current = onHeightChange;
+
   // ── ResizeObserver — report true DOM height to parent (SceneCanvas) ────────
+  // Empty dep array: the observer is created once on mount.
+  // Using onHeightChangeRef.current instead of onHeightChange directly prevents
+  // the infinite loop caused by SceneCanvas creating a new function ref each render.
   useEffect(() => {
-    if (!outerRef.current || !onHeightChange) return;
+    if (!outerRef.current) return;
     const el = outerRef.current;
     const ro = new ResizeObserver((entries) => {
       const h = entries[0]?.contentRect.height;
-      if (h !== undefined) onHeightChange(Math.round(h));
+      if (h !== undefined) onHeightChangeRef.current?.(Math.round(h));
     });
     ro.observe(el);
     // Initial report
-    onHeightChange(Math.round(el.getBoundingClientRect().height));
+    onHeightChangeRef.current?.(Math.round(el.getBoundingClientRect().height));
     return () => ro.disconnect();
-  }, [onHeightChange]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus textarea when editing starts
   useEffect(() => {

@@ -29,6 +29,8 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { createPortal }                              from "react-dom";
+import { useAuth }                                   from "@/components/auth/AuthContext";
+import { supabase }                                  from "@/lib/supabase";
 import {
   useDirectionStore,
   buildCharacterDirectionSuffix,
@@ -267,15 +269,29 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
   const creatingRef = useRef(false);
 
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  // All CDv2 API routes require a Bearer token in the Authorization header.
+  // We use supabase.auth.getSession() to get the freshest token (avoids
+  // stale-closure issues where session from useAuth() may not yet be refreshed).
+  const { session } = useAuth();
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    // Try live session first — covers auto-refresh scenarios
+    const { data: { session: live } } = await supabase.auth.getSession();
+    const token = live?.access_token ?? session?.access_token;
+    if (!token) return {};
+    return { Authorization: `Bearer ${token}` };
+  }, [session]);
+
   // ── Ensure direction row exists ───────────────────────────────────────────
   const ensureDirection = useCallback(async (): Promise<string | null> => {
     if (directionCreated && directionId) return directionId;
     if (creatingRef.current) return directionId;
     creatingRef.current = true;
     try {
+      const authHdrs = await getAuthHeaders();
       const res = await fetch("/api/creative-director/directions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHdrs },
         body: JSON.stringify({
           name:      sceneIntent.text.trim() || undefined,
           is_locked: mode === "locked",
@@ -292,7 +308,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     } finally {
       creatingRef.current = false;
     }
-  }, [directionId, directionCreated, mode, sceneIntent.text, markDirectionCreated]);
+  }, [directionId, directionCreated, mode, sceneIntent.text, markDirectionCreated, getAuthHeaders]);
 
   // ── Add element — OPTIMISTIC ──────────────────────────────────────────────
   // 1. Add a temp element to the store immediately (instant canvas feedback).
@@ -329,9 +345,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
       // Step 3 — persist element to DB
       try {
+        const authHdrs = await getAuthHeaders();
         const res = await fetch("/api/creative-director/elements", {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHdrs },
           body: JSON.stringify({ direction_id: dId, type, label, weight: 0.7, position: elements.length, asset_url: assetUrl }),
         });
         if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -348,19 +365,20 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         // reads from DB so it's fine; the canvas stays populated for the session.
       }
     },
-    [ensureDirection, elements.length, addElement, removeElement]
+    [ensureDirection, elements.length, addElement, removeElement, getAuthHeaders]
   );
 
   // ── Sync refinements ──────────────────────────────────────────────────────
   const syncRefinements = useCallback(async (dId: string, patch: Record<string, unknown>) => {
     try {
+      const authHdrs = await getAuthHeaders();
       await fetch("/api/creative-director/refinements", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHdrs },
         body: JSON.stringify({ direction_id: dId, ...patch }),
       });
     } catch { /* silent */ }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ── Generate ──────────────────────────────────────────────────────────────
   // sceneOverride: direct text from PromptDock textarea, injected as
@@ -407,9 +425,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       }
 
       try {
+        const authHdrs = await getAuthHeaders();
         const res = await fetch("/api/creative-director/generate", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHdrs },
           body: JSON.stringify({
             directionId:   dId,
             count,
@@ -442,7 +461,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         finishGenerating([], err instanceof Error ? err.message : "Network error");
       }
     },
-    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame]
+    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame, getAuthHeaders]
   );
 
   // ── Frame Regenerate (Phase 4.2 — Director Flow) ───────────────────────────
@@ -521,9 +540,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     const charSuffix   = buildCharacterDirectionSuffix(characterDirection);
     const promptSuffix = [charSuffix, VARIATION_SUFFIX].filter(Boolean).join(", ");
     try {
+      const authHdrs = await getAuthHeaders();
       const res = await fetch("/api/creative-director/generate", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHdrs },
         body: JSON.stringify({
           directionId:   dId,
           count:         1,
@@ -550,6 +570,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     finishGenerating,
     selectedModel,
     characterDirection,
+    getAuthHeaders,
   ]);
 
   // ── Phase 3 — auto generate "WOW" moment ─────────────────────────────────
@@ -564,9 +585,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       if (!dId) return null;
       startGenerating();
       try {
+        const authHdrs = await getAuthHeaders();
         const res = await fetch("/api/creative-director/generate", {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHdrs },
           body: JSON.stringify({
             directionId:   dId,
             count:         1,
@@ -589,7 +611,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         return null;
       }
     },
-    [ensureDirection, startGenerating, finishGenerating]
+    [ensureDirection, startGenerating, finishGenerating, getAuthHeaders]
   );
 
   // ── Canvas autosave — write canvas state to DB ───────────────────────────
@@ -601,9 +623,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     isSavingCanvas.current = true;
     setSaveStatus("saving");
     try {
+      const authHdrs = await getAuthHeaders();
       const res = await fetch(`/api/creative-director/directions/${id}/canvas`, {
         method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHdrs },
         body:    JSON.stringify({ canvas_state: snapshot }),
       });
       if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -618,7 +641,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     } finally {
       isSavingCanvas.current = false;
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // ── Debounced autosave — 1 500 ms after last canvas change ───────────────
   // Before a direction exists: writes to localStorage only (temp buffer).
@@ -703,7 +726,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         // If we have a saved directionId, try to fetch the freshest state from DB
         if (savedId) {
           try {
-            const res = await fetch(`/api/creative-director/directions/${savedId}/canvas`);
+            const authHdrs = await getAuthHeaders();
+            const res = await fetch(`/api/creative-director/directions/${savedId}/canvas`, {
+              headers: { ...authHdrs },
+            });
             if (res.ok) {
               const data = await res.json() as { canvas_state: CDv2CanvasStateV1 | null };
               if (data.canvas_state?.version === 1) {
