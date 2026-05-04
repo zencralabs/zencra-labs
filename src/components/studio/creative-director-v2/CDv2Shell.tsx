@@ -430,13 +430,17 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // frameIdOverride: used by handleFrameRegenerate to bypass selectedFrameId closure.
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
+      console.log("[CDv2] handleGenerate called", { count, aspectRatio, sceneOverride, frameIdOverride });
       // ── Synchronous concurrency guard ────────────────────────────────────
       // isGenerating is React state — it resets to false immediately after
       // async providers (NB Pro) return "processing", making the button
       // re-clickable before the visual feedback arrives. This ref guard is
       // checked synchronously so rapid clicks or frame-regenerate calls
       // cannot fire concurrent API requests.
-      if (generateInProgressRef.current) return;
+      if (generateInProgressRef.current) {
+        console.log("[CDv2] handleGenerate blocked — generateInProgressRef is true");
+        return;
+      }
       generateInProgressRef.current = true;
 
       try {
@@ -1122,7 +1126,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             {/* Director handle */}
             <DirectorHandle open={directorPanelOpen} onToggle={toggleDirectorPanel} />
 
-            {/* P4 — Live prompt preview strip */}
+            {/* P4 — Live prompt preview strip (read-only, must never intercept pointer events) */}
             {livePromptPreview && (
               <div
                 style={{
@@ -1135,6 +1139,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
                   overflow:       "hidden",
                   backdropFilter: "blur(8px)",
                   flexShrink:     0,
+                  pointerEvents:  "none",
                 }}
               >
                 {/* Icon */}
