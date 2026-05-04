@@ -533,12 +533,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     {showOnboarding && (
       <style>{`
         @keyframes cd-onb-pulse-blue {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.35); }
-          50%       { box-shadow: 0 0 0 5px rgba(59,130,246,0.0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.55), 0 0 8px 0 rgba(59,130,246,0.0); }
+          50%       { box-shadow: 0 0 0 6px rgba(59,130,246,0.0), 0 0 10px 3px rgba(59,130,246,0.18); }
         }
         @keyframes cd-onb-pulse-purple {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.35); }
-          50%       { box-shadow: 0 0 0 6px rgba(139,92,246,0.0); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.50); }
+          50%       { box-shadow: 0 0 0 7px rgba(139,92,246,0.0); }
         }
       `}</style>
     )}
@@ -922,10 +922,10 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           }}
           title="Add Generation Frame"
           style={{
-            background:    showOnboarding ? "rgba(139,92,246,0.08)" : "transparent",
-            border:        showOnboarding ? "1px solid rgba(139,92,246,0.28)" : "1px solid transparent",
+            background:    showOnboarding ? "rgba(139,92,246,0.10)" : "transparent",
+            border:        showOnboarding ? "1px solid rgba(139,92,246,0.48)" : "1px solid transparent",
             borderRadius:  7,
-            color:         showOnboarding ? "rgba(139,92,246,0.80)" : "rgba(255,255,255,0.35)",
+            color:         showOnboarding ? "rgba(139,92,246,0.88)" : "rgba(255,255,255,0.35)",
             fontSize:      10,
             cursor:        "pointer",
             padding:       "3px 9px",
@@ -935,14 +935,14 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             ...(showOnboarding ? { animation: "cd-onb-pulse-purple 2.2s ease-in-out infinite" } : {}),
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background  = "rgba(139,92,246,0.1)";
-            e.currentTarget.style.color       = "rgba(139,92,246,0.85)";
-            e.currentTarget.style.borderColor = "rgba(139,92,246,0.25)";
+            e.currentTarget.style.background  = "rgba(139,92,246,0.18)";
+            e.currentTarget.style.color       = "rgba(139,92,246,1)";
+            e.currentTarget.style.borderColor = showOnboarding ? "rgba(139,92,246,0.65)" : "rgba(139,92,246,0.35)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background  = "transparent";
-            e.currentTarget.style.color       = "rgba(255,255,255,0.35)";
-            e.currentTarget.style.borderColor = "transparent";
+            e.currentTarget.style.background  = showOnboarding ? "rgba(139,92,246,0.10)" : "transparent";
+            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.88)" : "rgba(255,255,255,0.35)";
+            e.currentTarget.style.borderColor = showOnboarding ? "rgba(139,92,246,0.48)" : "transparent";
           }}
         >
           + Frame
@@ -1090,41 +1090,67 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       {/* ── Onboarding hint — first visit, non-blocking top-center text ─ */}
       {showOnboarding && elements.length === 0 && frames.length === 0 && (
         <div
-          aria-hidden
           style={{
             position:      "absolute",
-            top:           28,
+            top:           44,
             left:          "50%",
             transform:     "translateX(-50%)",
             zIndex:        20,
-            pointerEvents: "none",
+            pointerEvents: "auto",
             textAlign:     "center",
             display:       "flex",
             flexDirection: "column",
-            gap:           4,
+            alignItems:    "center",
+            gap:           5,
           }}
         >
           <p style={{
             margin:        0,
             fontFamily:    "var(--font-syne), sans-serif",
-            fontSize:      14,
+            fontSize:      15,
             fontWeight:    500,
             letterSpacing: "0.02em",
-            color:         "rgba(255,255,255,0.60)",
+            color:         "#E8ECF5",
             lineHeight:    1,
+            pointerEvents: "none",
           }}>
             Direct the Frame
           </p>
           <p style={{
             margin:        0,
             fontFamily:    "var(--font-familjen-grotesk), sans-serif",
-            fontSize:      11,
-            color:         "rgba(255,255,255,0.28)",
+            fontSize:      12,
+            color:         "#B8C0D4",
             letterSpacing: "0.03em",
             lineHeight:    1,
+            pointerEvents: "none",
           }}>
             Add a subject to begin
           </p>
+          {/* Skip link — only interactive element in the hint */}
+          <button
+            onClick={() => {
+              try { sessionStorage.setItem("cd_onboarding_seen", "1"); } catch { /* silent */ }
+              setShowOnboarding(false);
+            }}
+            style={{
+              marginTop:     2,
+              background:    "transparent",
+              border:        "none",
+              padding:       0,
+              cursor:        "pointer",
+              fontFamily:    "var(--font-familjen-grotesk), sans-serif",
+              fontSize:      10,
+              color:         "rgba(255,255,255,0.22)",
+              letterSpacing: "0.04em",
+              lineHeight:    1,
+              transition:    "color 0.15s ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.50)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.22)"; }}
+          >
+            skip
+          </button>
         </div>
       )}
 
