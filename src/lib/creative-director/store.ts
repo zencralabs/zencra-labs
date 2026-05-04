@@ -324,6 +324,7 @@ export interface DirectionActions {
   // Generation
   startGenerating:    (count?: number) => void;   // count drives skeleton card allocation
   finishGenerating:   (outputs: CDGenerationOutput[], error?: string) => void;
+  cancelGenerating:   () => void;                 // user-initiated cancel — stops loading, marks processing outputs as cancelled
   appendOutputs:      (outputs: CDGenerationOutput[]) => void;
   clearOutputs:       () => void;
 
@@ -488,6 +489,19 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
       generatingCount: 0,
       lastGenError:    error ?? null,
       outputs:         [...outputs, ...s.outputs].slice(0, 50), // cap at 50 outputs
+    })),
+
+  cancelGenerating: () =>
+    set((s) => ({
+      isGenerating:    false,
+      generatingCount: 0,
+      lastGenError:    "Generation cancelled.",
+      // Mark any in-flight "processing" outputs as failed
+      outputs: s.outputs.map((o) =>
+        o.status === "processing"
+          ? { ...o, status: "failed" as const, error_message: "Cancelled by user." }
+          : o
+      ),
     })),
 
   appendOutputs: (outputs) =>

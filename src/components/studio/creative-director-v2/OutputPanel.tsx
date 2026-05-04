@@ -36,12 +36,14 @@ interface OutputPanelProps {
   isCollapsed?:        boolean;   // controlled by CDv2Shell — no internal state
   onReEditInDirector?: (url: string) => void;
   onRegenVariation?:   () => void;
+  onCancel?:           () => void;  // called when user clicks Cancel during generation
 }
 
 export function OutputPanel({
   isCollapsed = false,
   onReEditInDirector,
   onRegenVariation,
+  onCancel,
 }: OutputPanelProps) {
   const outputs          = useDirectionStore(selectOutputs);
   const mode             = useDirectionStore(selectMode);
@@ -208,7 +210,7 @@ export function OutputPanel({
             gap:                 10,
           }}>
             {isGenerating && Array.from({ length: Math.max(generatingCount, 1) }).map((_, i) => (
-              <SkeletonCard key={`skeleton-${i}`} />
+              <SkeletonCard key={`skeleton-${i}`} showCancel={i === 0} onCancel={onCancel} />
             ))}
             {sorted.map((output, i) => (
               <OutputCard
@@ -496,7 +498,7 @@ function EmptyState({ mode }: { mode: string }) {
   );
 }
 
-function SkeletonCard() {
+function SkeletonCard({ showCancel, onCancel }: { showCancel?: boolean; onCancel?: () => void }) {
   return (
     <div style={{
       aspectRatio:     "1 / 1",
@@ -506,6 +508,47 @@ function SkeletonCard() {
       animation:       "cd-shimmer 1.6s ease-in-out infinite, cd-generate-pulse 2.5s ease-in-out infinite",
       backgroundSize:  "200% 100%",
       backgroundImage: "linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(139,92,246,0.06) 50%, rgba(255,255,255,0.02) 100%)",
-    }} />
+      position:        "relative",
+      overflow:        "hidden",
+    }}>
+      {/* Cancel button — only on the first skeleton card */}
+      {showCancel && onCancel && (
+        <button
+          onClick={onCancel}
+          title="Cancel generation"
+          style={{
+            position:     "absolute",
+            bottom:       10,
+            left:         "50%",
+            transform:    "translateX(-50%)",
+            background:   "rgba(0,0,0,0.55)",
+            border:       "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 8,
+            color:        "rgba(255,255,255,0.55)",
+            fontSize:     10,
+            fontFamily:   "var(--font-sans)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            padding:      "5px 12px",
+            cursor:       "pointer",
+            whiteSpace:   "nowrap",
+            transition:   "all 0.15s ease",
+            zIndex:       2,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.2)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.4)";
+            (e.currentTarget as HTMLButtonElement).style.color = "rgba(239,68,68,0.9)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,0,0,0.55)";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.14)";
+            (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.55)";
+          }}
+        >
+          Cancel
+        </button>
+      )}
+    </div>
   );
 }

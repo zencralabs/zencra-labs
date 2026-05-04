@@ -225,6 +225,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     removeElement,
     startGenerating,
     finishGenerating,
+    cancelGenerating,
     patchRefinements,
     toggleDirectorPanel,
     openDirectorPanel,
@@ -319,6 +320,16 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // state update propagates (isGenerating resets immediately for async providers
   // like NB Pro that return "processing", making the button re-clickable).
   const generateInProgressRef = useRef(false);
+  // Cancel ref — set to true by handleCancel to break out of the polling loop
+  // on the next iteration. Reset at the start of every handleGenerate call.
+  const pollCancelledRef = useRef(false);
+
+  /** Stop a running generation: break polling loop + reset store state. */
+  const handleCancel = useCallback(() => {
+    pollCancelledRef.current = true;
+    generateInProgressRef.current = false;
+    cancelGenerating();
+  }, [cancelGenerating]);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   // All CDv2 API routes require a Bearer token in the Authorization header.
@@ -397,10 +408,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       // Step 3 — persist element to DB
       try {
         const authHdrs = await getAuthHeaders();
-        const res = await fetch("/api/creative-director/elements", {
+        const res = await fetch(`/api/creative-director/directions/${dId}/elements`, {
           method:  "POST",
           headers: { "Content-Type": "application/json", ...authHdrs },
-          body: JSON.stringify({ direction_id: dId, type, label, weight: 0.7, position: elements.length, asset_url: assetUrl }),
+          body: JSON.stringify({ type, label, weight: 0.7, position: elements.length, assetUrl }),
         });
         if (!res.ok) throw new Error(`Status ${res.status}`);
         const data = await res.json();
@@ -422,13 +433,24 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // ── Sync refinements ──────────────────────────────────────────────────────
   const syncRefinements = useCallback(async (dId: string, patch: Record<string, unknown>) => {
     try {
+      // Map snake_case store keys → camelCase expected by /refine route
+      const mapped: Record<string, unknown> = {};
+      if (patch.tone_intensity  !== undefined) mapped.toneIntensity  = patch.tone_intensity;
+      if (patch.color_palette   !== undefined) mapped.colorPalette   = patch.color_palette;
+      if (patch.lighting_style  !== undefined) mapped.lightingStyle  = patch.lighting_style;
+      if (patch.shot_type       !== undefined) mapped.shotType       = patch.shot_type;
+      if (patch.lens            !== undefined) mapped.lens           = patch.lens;
+      if (patch.camera_angle    !== undefined) mapped.cameraAngle    = patch.camera_angle;
+      if (patch.scene_energy    !== undefined) mapped.sceneEnergy    = patch.scene_energy;
+      if (patch.identity_lock   !== undefined) mapped.identityLock   = patch.identity_lock;
+      if (Object.keys(mapped).length === 0) return;
       const authHdrs = await getAuthHeaders();
-      await fetch("/api/creative-director/refinements", {
-        method: "POST",
+      await fetch(`/api/creative-director/directions/${dId}/refine`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json", ...authHdrs },
-        body: JSON.stringify({ direction_id: dId, ...patch }),
+        body: JSON.stringify(mapped),
       });
-    } catch { /* silent */ }
+    } catch { /* silent — generate proceeds regardless */ }
   }, [getAuthHeaders]);
 
   // ── Generate ──────────────────────────────────────────────────────────────
@@ -439,6 +461,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
       console.log("[CDv2] handleGenerate called", { count, aspectRatio, sceneOverride, frameIdOverride });
+      // Reset cancel flag at the top of every new generate attempt
+      pollCancelledRef.current = false;
       // ── Synchronous concurrency guard ────────────────────────────────────
       // isGenerating is React state — it resets to false immediately after
       // async providers (NB Pro) return "processing", making the button
@@ -561,6 +585,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           const pollStart  = Date.now();
 
           while (resolved.some((g) => g.status === "processing" && g.job_id)) {
+            // User clicked Cancel — break immediately without calling finishGenerating
+            // (cancelGenerating has already been called from handleCancel).
+            if (pollCancelledRef.current) {
+              console.log("[CDv2] polling cancelled by user");
+              break;
+            }
             if (Date.now() - pollStart > TIMEOUT_MS) {
               console.warn("[CDv2] polling timed out after 90s");
               for (let i = 0; i < resolved.length; i++) {
@@ -636,10 +666,17 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         } catch (err) {
           finishGenerating([], err instanceof Error ? err.message : "Network error");
         }
+      } catch (outerErr) {
+        // Safety net: catches anything that threw after startGenerating() but before
+        // the inner try (e.g. a bad store read, a missing dependency throw).
+        // Without this, isGenerating stays true forever.
+        console.error("[CDv2] unhandled outer generate error:", outerErr);
+        finishGenerating([], outerErr instanceof Error ? outerErr.message : "Unexpected error — please refresh and try again.");
       } finally {
-        // Always release the guard so the user can generate again after
-        // the current request fully resolves (success, error, or network failure).
+        // Always release the guards so the user can generate again after
+        // the current request fully resolves (success, error, cancel, or network failure).
         generateInProgressRef.current = false;
+        pollCancelledRef.current = false;
       }
     },
     [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame, getAuthHeaders]
@@ -1324,6 +1361,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           isCollapsed={rightCollapsed}
           onReEditInDirector={handleReEditInDirector}
           onRegenVariation={handleRegenVariation}
+          onCancel={handleCancel}
         />
       </div>
     </div>

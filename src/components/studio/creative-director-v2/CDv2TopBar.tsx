@@ -13,6 +13,7 @@
 
 import { useState }            from "react";
 import { useDirectionStore }   from "@/lib/creative-director/store";
+import { supabase }            from "@/lib/supabase";
 import type { DirectionMode }  from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,10 +143,14 @@ export function CDv2TopBar({
     setMode(next);
     if (!directionId || !directionCreated) return;
     try {
-      await fetch(`/api/creative-director/directions/${directionId}`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      await fetch(`/api/creative-director/directions/${directionId}/lock`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_locked: next === "locked" }),
+        headers,
+        body: JSON.stringify({ isLocked: next === "locked" }),
       });
     } catch { /* silent — store already updated */ }
   }
