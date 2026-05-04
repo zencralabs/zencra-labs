@@ -101,6 +101,14 @@ const ROLES: Array<{ type: DirectionElementType; label: string; color: string }>
 const ZOOM_LEVELS = [85, 100, 115] as const;
 type ZoomLevel = (typeof ZOOM_LEVELS)[number];
 
+/**
+ * Height of the bottom overlay stack (PromptDock + DirectorHandle) in CDv2Shell.
+ * Mirrors: DOCK_HEIGHT(150) + HANDLE_HEIGHT(36) = 186 from CDv2Shell.tsx.
+ * Used to push the empty-state content above the dock so it centres in the
+ * VISIBLE canvas area. If CDv2Shell dock sizes change, update both.
+ */
+const CANVAS_DOCK_SAFE_ZONE = 186;
+
 // Magnetic zone definitions — (cx, cy) as fractions of canvas (w, h)
 const MAGNETIC_ZONES: Record<DirectionElementType, { cx: number; cy: number }> = {
   subject:    { cx: 0.33, cy: 0.48 },
@@ -1261,9 +1269,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         <div aria-hidden style={{
           position:      "absolute", inset: 0, display: "flex",
           flexDirection: "column",  alignItems: "center", justifyContent: "center",
-          // Fix: push content above the PromptDock + DirectorHandle overlay (186px total)
-          // so the empty-state centres in the VISIBLE canvas area, not behind the dock.
-          paddingBottom: 186,
+          // Fix: push content above the PromptDock + DirectorHandle overlay.
+          // CANVAS_DOCK_SAFE_ZONE = 186 (see constant above).
+          paddingBottom: CANVAS_DOCK_SAFE_ZONE,
           gap:           20,        pointerEvents: "none",
           animation:     "cd-fade-in 0.6s ease",
         }}>
