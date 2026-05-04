@@ -60,8 +60,10 @@ import {
   selectCanvasTransform,
   selectFrames,
   selectConnections,
+  selectTextNodes,
 } from "@/lib/creative-director/store";
-import type { FrameAspectRatio, GenerationFrame } from "@/lib/creative-director/store";
+import type { FrameAspectRatio, GenerationFrame, CanvasTextNode, TextNodeFontSize } from "@/lib/creative-director/store";
+import { TextNode } from "./TextNode";
 import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
 import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
 import type { DirectionElementType } from "@/lib/creative-director/types";
@@ -165,6 +167,11 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const addConnection    = useDirectionStore((s) => s.addConnection);
   const removeConnection = useDirectionStore((s) => s.removeConnection);
 
+  const textNodes       = useDirectionStore(selectTextNodes);
+  const addTextNode_    = useDirectionStore((s) => s.addTextNode);
+  const removeTextNode_ = useDirectionStore((s) => s.removeTextNode);
+  const updateTextNode_ = useDirectionStore((s) => s.updateTextNode);
+
   const canvasRef       = useRef<HTMLDivElement>(null);
   const panStartRef     = useRef<{
     clientX: number; clientY: number;
@@ -189,6 +196,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const [showResetConfirm,  setShowResetConfirm]  = useState(false);
   const [framePickerPos,    setFramePickerPos]    = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
+  // Text nodes — selection + edit mode
+  const [selectedTextId,  setSelectedTextId]  = useState<string | null>(null);
+  const [editingTextId,   setEditingTextId]   = useState<string | null>(null);
 
   // (Onboarding phase 2/3 automation removed — overlay is now a simple welcome card)
 
@@ -444,6 +454,30 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     [],
   );
 
+  // ── Add Text Node — place at a canvas-space position ────────────────────
+  const handleAddTextNode = useCallback((screenX: number, screenY: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const ct   = canvasTransform;
+    const s    = ct.scale / 100;
+    const cx   = rect ? (screenX - ct.x) / s : 80;
+    const cy   = rect ? (screenY - ct.y) / s : 80;
+    const id   = `text-${Date.now()}`;
+    addTextNode_({
+      id,
+      x:        cx,
+      y:        cy,
+      text:     "",
+      fontSize: 13,
+      color:    "rgba(255,255,255,0.88)",
+    });
+    // Immediately enter edit mode
+    setSelectedTextId(id);
+    setEditingTextId(id);
+    // Clear any open menus
+    setQuickAdd(null);
+    setContextMenu(null);
+  }, [addTextNode_, canvasTransform]);
+
   // ── Add Frame — create a new generation frame at canvas center ───────────
   const handleAddFrame = useCallback((aspectRatio: FrameAspectRatio) => {
     const rect   = canvasRef.current?.getBoundingClientRect();
@@ -518,11 +552,23 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setContextMenu(null); setQuickAdd(null); setDropPicker(null); setFramePickerPos(null); setPendingConn(null); }
+      if (e.key === "Escape") {
+        setContextMenu(null);
+        setQuickAdd(null);
+        setDropPicker(null);
+        setFramePickerPos(null);
+        setPendingConn(null);
+        setEditingTextId(null);
+      }
+      // Delete / Backspace with a text node selected (and not editing) → remove it
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedTextId && !editingTextId) {
+        removeTextNode_(selectedTextId);
+        setSelectedTextId(null);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [selectedTextId, editingTextId, removeTextNode_]);
 
   // CSS transform for the viewport
   const viewportTransform = `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale / 100})`;
@@ -831,6 +877,28 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             }}
           />
         ))}
+
+        {/* ── Text nodes — floating canvas annotations ──────────────── */}
+        {textNodes.map((tn: CanvasTextNode) => (
+          <TextNode
+            key={tn.id}
+            node={tn}
+            isSelected={selectedTextId === tn.id}
+            isEditing={editingTextId === tn.id}
+            scale={canvasTransform.scale}
+            onSelect={() => { setSelectedTextId(tn.id); setSelectedFrameId(null); }}
+            onStartEdit={() => setEditingTextId(tn.id)}
+            onEndEdit={() => setEditingTextId(null)}
+            onTextChange={(text) => updateTextNode_(tn.id, { text })}
+            onFontChange={(size: TextNodeFontSize) => updateTextNode_(tn.id, { fontSize: size })}
+            onMove={(dx, dy) => updateTextNode_(tn.id, { x: tn.x + dx, y: tn.y + dy })}
+            onDelete={() => {
+              removeTextNode_(tn.id);
+              if (selectedTextId === tn.id) setSelectedTextId(null);
+              if (editingTextId === tn.id) setEditingTextId(null);
+            }}
+          />
+        ))}
       </div>
 
       {/* ── Zoom controls (top-right, outside transform) ──────────────── */}
@@ -1079,6 +1147,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           x={quickAdd.x}
           y={quickAdd.y}
           onSelect={(type) => { onAddElement(type, `New ${type}`); setQuickAdd(null); }}
+          onAddText={() => handleAddTextNode(quickAdd.x, quickAdd.y)}
           onClose={() => setQuickAdd(null)}
         />
       )}
@@ -1091,6 +1160,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           onClose={() => setContextMenu(null)}
           onAddElement={(type) => { onAddElement(type, `New ${type}`); setContextMenu(null); }}
           onAddFrame={() => { setFramePickerPos(computePickerPos(contextMenu.x, contextMenu.y)); setContextMenu(null); }}
+          onAddText={() => handleAddTextNode(contextMenu.x, contextMenu.y)}
           onToggleDirectorControls={() => { onToggleDirectorControls?.(); setContextMenu(null); }}
           directorPanelOpen={!!directorPanelOpen}
           onResetView={() => { setShowResetConfirm(true); setContextMenu(null); }}
@@ -1395,11 +1465,12 @@ function AssetRoleItem({
 // QuickAddPicker — small pill menu on left-click
 // ─────────────────────────────────────────────────────────────────────────────
 
-function QuickAddPicker({ x, y, onSelect, onClose }: {
-  x:        number;
-  y:        number;
-  onSelect: (type: DirectionElementType) => void;
-  onClose:  () => void;
+function QuickAddPicker({ x, y, onSelect, onAddText, onClose }: {
+  x:          number;
+  y:          number;
+  onSelect:   (type: DirectionElementType) => void;
+  onAddText?: () => void;
+  onClose:    () => void;
 }) {
   return (
     <>
@@ -1456,6 +1527,48 @@ function QuickAddPicker({ x, y, onSelect, onClose }: {
             {r.label}
           </button>
         ))}
+
+        {/* Divider + Text note row */}
+        {onAddText && (
+          <>
+            <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "4px 0 3px" }} />
+            <button
+              onClick={onAddText}
+              style={{
+                background:  "transparent", border: "none", borderRadius: 8,
+                color:       "rgba(255,255,255,0.55)", fontSize: 13,
+                fontFamily:  "var(--font-sans)", cursor: "pointer",
+                padding:     "8px 10px", textAlign: "left",
+                display:     "flex", alignItems: "center", gap: 10,
+                transition:  "all 0.12s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                e.currentTarget.style.color      = "rgba(255,255,255,0.9)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color      = "rgba(255,255,255,0.55)";
+              }}
+            >
+              {/* "T" icon */}
+              <span style={{
+                width:         10,
+                height:        10,
+                display:       "flex",
+                alignItems:    "center",
+                justifyContent: "center",
+                fontSize:      11,
+                fontFamily:    "var(--font-display, 'Syne'), sans-serif",
+                fontWeight:    700,
+                color:         "rgba(255,255,255,0.5)",
+                flexShrink:    0,
+                lineHeight:    1,
+              }}>T</span>
+              Text Note
+            </button>
+          </>
+        )}
       </div>
     </>
   );
@@ -1465,12 +1578,13 @@ function QuickAddPicker({ x, y, onSelect, onClose }: {
 // CDContextMenu — premium right-click menu
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onToggleDirectorControls, directorPanelOpen, onResetView }: {
+function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onAddText, onToggleDirectorControls, directorPanelOpen, onResetView }: {
   x:                       number;
   y:                       number;
   onClose:                 () => void;
   onAddElement:            (type: DirectionElementType) => void;
   onAddFrame:              () => void;
+  onAddText?:              () => void;
   onToggleDirectorControls: () => void;
   directorPanelOpen:       boolean;
   onResetView:             () => void;
@@ -1520,6 +1634,16 @@ function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onToggleDirect
           iconColor="rgba(139,92,246,0.75)"
           onClick={onAddFrame}
         />
+        {onAddText && (
+          <ContextMenuItem
+            label="Add Text Note"
+            icon={
+              <span style={{ fontSize: 11, fontFamily: "var(--font-display,'Syne'),sans-serif", fontWeight: 700, lineHeight: 1 }}>T</span>
+            }
+            iconColor="rgba(255,255,255,0.45)"
+            onClick={onAddText}
+          />
+        )}
         <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "6px 0" }} />
         <ContextMenuItem
           label="Reset Canvas View"

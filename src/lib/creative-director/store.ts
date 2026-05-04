@@ -176,6 +176,21 @@ export interface NodeConnection {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Canvas Text Node — floating annotation / creative copy note on the canvas.
+// Session-only (not persisted to DB). Not a scene element; purely compositional.
+// ─────────────────────────────────────────────────────────────────────────────
+export type TextNodeFontSize = 11 | 13 | 16 | 20 | 26;
+
+export interface CanvasTextNode {
+  id:       string;
+  x:        number;
+  y:        number;
+  text:     string;
+  fontSize: TextNodeFontSize;
+  color:    string;   // CSS color string — defaults to "rgba(255,255,255,0.88)"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Image model keys available in Creative Director
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CDModelDef {
@@ -251,6 +266,9 @@ export interface DirectionState {
 
   // ── Manual node → frame connections (session-only) ────────────────────────
   connections: NodeConnection[];
+
+  // ── Canvas text nodes — floating annotations (session-only) ──────────────
+  textNodes: CanvasTextNode[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -315,6 +333,11 @@ export interface DirectionActions {
   addConnection:    (c: NodeConnection) => void;
   removeConnection: (id: string) => void;
 
+  // Canvas text nodes (session-only)
+  addTextNode:    (node: CanvasTextNode) => void;
+  removeTextNode: (id: string) => void;
+  updateTextNode: (id: string, patch: Partial<Pick<CanvasTextNode, "text" | "fontSize" | "color" | "x" | "y">>) => void;
+
   // Full reset (switching back to standard mode / new direction)
   reset: () => void;
 }
@@ -341,6 +364,7 @@ const INITIAL: DirectionState = {
   directionCreated:    false,
   frames:              [],
   connections:         [],
+  textNodes:           [],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -487,6 +511,18 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
       connections: s.connections.filter((c) => c.id !== id),
     })),
 
+  // ── Canvas text nodes ─────────────────────────────────────────────────────
+  addTextNode: (node) =>
+    set((s) => ({ textNodes: [...s.textNodes, node] })),
+
+  removeTextNode: (id) =>
+    set((s) => ({ textNodes: s.textNodes.filter((n) => n.id !== id) })),
+
+  updateTextNode: (id, patch) =>
+    set((s) => ({
+      textNodes: s.textNodes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
+    })),
+
   // ── Reset ─────────────────────────────────────────────────────────────────
   reset: () => set(INITIAL),
 }));
@@ -503,3 +539,4 @@ export const selectIsGenerating   = (s: DirectionState & DirectionActions) => s.
 export const selectCanvasTransform = (s: DirectionState & DirectionActions) => s.canvasTransform;
 export const selectFrames          = (s: DirectionState & DirectionActions) => s.frames;
 export const selectConnections     = (s: DirectionState & DirectionActions) => s.connections;
+export const selectTextNodes       = (s: DirectionState & DirectionActions) => s.textNodes;
