@@ -46,6 +46,9 @@ export interface CDGenerationOutput {
   id:             string;
   status:         "processing" | "completed" | "failed";
   asset_id?:      string;
+  /** Internal job UUID — returned for async providers so the client can poll
+   *  GET /api/studio/jobs/[job_id]/status until status resolves. */
+  job_id?:        string;
   url?:           string | null;
   error_message?: string;
   mode:           DirectionMode;

@@ -303,8 +303,12 @@ export async function POST(req: Request): Promise<Response> {
           job.status === "pending"  ? "processing" :
           job.status === "success"  ? "completed"  : "failed";
 
+        console.log(`[cd/generate] job=${job.id} provider=${providerDecision.provider} status=${job.status} → ${status} assetId=${assetId}`);
+
         await updateGenerationStatus(gen.id, status, assetId);
-        return { ...gen, status, asset_id: assetId, url: job.result?.url ?? null, mode };
+        // job.id is the internal UUID the client needs to poll
+        // GET /api/studio/jobs/[job_id]/status for async providers.
+        return { ...gen, status, asset_id: assetId, job_id: job.id, url: job.result?.url ?? null, mode };
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : "Unknown dispatch error";
         await updateGenerationStatus(gen.id, "failed", undefined, errMsg);

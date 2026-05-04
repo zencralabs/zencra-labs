@@ -501,19 +501,89 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             return;
           }
           const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
-          finishGenerating(data.generations ?? []);
+          console.log("[CDv2] generate response:", {
+            count:    data.generations?.length,
+            statuses: data.generations?.map((g) => g.status),
+            jobIds:   data.generations?.map((g) => g.job_id ?? "(sync)"),
+          });
 
-          // ── Wire result image to the target FrameNode ──────────────────
-          // If a frame was targeted and the first completed generation has a URL,
-          // update the frame's generatedImageUrl so the canvas shows the result.
-          if (targetFrameId) {
-            const firstDone = (data.generations ?? []).find(
-              (g) => g.status === "completed" && g.url
-            );
-            if (firstDone?.url) {
-              updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
+          // ── Async provider polling ─────────────────────────────────────
+          // Providers like Nano Banana and Seedream return status="processing"
+          // immediately and require polling to get the final image URL.
+          // Poll GET /api/studio/jobs/[job_id]/status every 3s until all
+          // generations resolve or the 90s timeout fires.
+          //
+          // isGenerating stays true (via startGenerating() above) for the
+          // entire polling window so the frame shimmer stays active.
+          const resolved = [...(data.generations ?? [])];
+          const POLL_MS  = 3_000;
+          const TIMEOUT_MS = 90_000;
+          const pollStart  = Date.now();
+
+          while (resolved.some((g) => g.status === "processing" && g.job_id)) {
+            if (Date.now() - pollStart > TIMEOUT_MS) {
+              console.warn("[CDv2] polling timed out after 90s");
+              for (let i = 0; i < resolved.length; i++) {
+                if (resolved[i].status === "processing") {
+                  resolved[i] = {
+                    ...resolved[i],
+                    status: "failed",
+                    error_message: "Generation timed out — please try again.",
+                  };
+                }
+              }
+              break;
+            }
+
+            // Wait before polling
+            await new Promise<void>((r) => setTimeout(r, POLL_MS));
+
+            for (let i = 0; i < resolved.length; i++) {
+              const gen = resolved[i];
+              if (gen.status !== "processing" || !gen.job_id) continue;
+
+              try {
+                const pollRes = await fetch(`/api/studio/jobs/${gen.job_id}/status`, {
+                  headers: authHdrs,
+                });
+                if (!pollRes.ok) continue;
+
+                const pollJson = await pollRes.json();
+                const s   = pollJson?.data?.status as string | undefined;
+                const url = pollJson?.data?.url    as string | undefined;
+                const err = pollJson?.data?.error  as string | undefined;
+
+                console.log("[CDv2] poll", gen.job_id, "→", s, url ?? "");
+
+                if (s === "success" && url) {
+                  resolved[i] = { ...gen, status: "completed", url };
+                  // Wire to frame immediately as it resolves
+                  if (targetFrameId) {
+                    updateFrame(targetFrameId, { generatedImageUrl: url });
+                  }
+                } else if (s === "error" || s === "failed") {
+                  resolved[i] = {
+                    ...gen,
+                    status: "failed",
+                    error_message: err ?? "Generation failed",
+                  };
+                }
+                // status "pending" → keep looping
+              } catch {
+                /* swallow poll error — will retry on next iteration */
+              }
             }
           }
+
+          // ── Wire frame for sync providers ──────────────────────────────
+          // Async results were wired inside the poll loop above.
+          // For sync providers (GPT Image) the loop never runs; wire here.
+          const firstDone = resolved.find((g) => g.status === "completed" && g.url);
+          if (firstDone?.url && targetFrameId) {
+            updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
+          }
+
+          finishGenerating(resolved);
         } catch (err) {
           finishGenerating([], err instanceof Error ? err.message : "Network error");
         }
