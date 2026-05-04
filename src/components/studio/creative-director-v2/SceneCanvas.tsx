@@ -64,7 +64,6 @@ import {
 import type { FrameAspectRatio, GenerationFrame } from "@/lib/creative-director/store";
 import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
 import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
-import { CDOnboardingOverlay } from "./CDOnboardingOverlay";
 import type { DirectionElementType } from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -529,6 +528,20 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const viewportTransform = `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale / 100})`;
 
   return (
+    <>
+    {/* ── Onboarding pulse keyframes — injected once, light cost ───────── */}
+    {showOnboarding && (
+      <style>{`
+        @keyframes cd-onb-pulse-blue {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.35); }
+          50%       { box-shadow: 0 0 0 5px rgba(59,130,246,0.0); }
+        }
+        @keyframes cd-onb-pulse-purple {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.35); }
+          50%       { box-shadow: 0 0 0 6px rgba(139,92,246,0.0); }
+        }
+      `}</style>
+    )}
     <div
       ref={canvasRef}
       onClick={handleCanvasClick}
@@ -909,16 +922,17 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           }}
           title="Add Generation Frame"
           style={{
-            background:    "transparent",
-            border:        "1px solid transparent",
+            background:    showOnboarding ? "rgba(139,92,246,0.08)" : "transparent",
+            border:        showOnboarding ? "1px solid rgba(139,92,246,0.28)" : "1px solid transparent",
             borderRadius:  7,
-            color:         "rgba(255,255,255,0.35)",
+            color:         showOnboarding ? "rgba(139,92,246,0.80)" : "rgba(255,255,255,0.35)",
             fontSize:      10,
             cursor:        "pointer",
             padding:       "3px 9px",
             letterSpacing: "0.02em",
             fontFamily:    "var(--font-sans)",
             transition:    "all 0.15s ease",
+            ...(showOnboarding ? { animation: "cd-onb-pulse-purple 2.2s ease-in-out infinite" } : {}),
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background  = "rgba(139,92,246,0.1)";
@@ -998,6 +1012,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                 border:        `1px solid ${r.color.replace("1)", "0.25)")}`,
                 borderRadius:  100, padding: "4px 10px",
                 letterSpacing: "0.04em",
+                ...(showOnboarding && r.type === "subject" ? {
+                  animation: "cd-onb-pulse-blue 2s ease-in-out infinite",
+                } : {}),
               }}>
                 {r.label}
               </div>
@@ -1070,11 +1087,45 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         />
       )}
 
-      {/* ── Onboarding overlay — first visit, empty canvas only ──────── */}
-      {showOnboarding && (
-        <CDOnboardingOverlay
-          onDismiss={() => setShowOnboarding(false)}
-        />
+      {/* ── Onboarding hint — first visit, non-blocking top-center text ─ */}
+      {showOnboarding && elements.length === 0 && frames.length === 0 && (
+        <div
+          aria-hidden
+          style={{
+            position:      "absolute",
+            top:           28,
+            left:          "50%",
+            transform:     "translateX(-50%)",
+            zIndex:        20,
+            pointerEvents: "none",
+            textAlign:     "center",
+            display:       "flex",
+            flexDirection: "column",
+            gap:           4,
+          }}
+        >
+          <p style={{
+            margin:        0,
+            fontFamily:    "var(--font-syne), sans-serif",
+            fontSize:      14,
+            fontWeight:    500,
+            letterSpacing: "0.02em",
+            color:         "rgba(255,255,255,0.60)",
+            lineHeight:    1,
+          }}>
+            Direct the Frame
+          </p>
+          <p style={{
+            margin:        0,
+            fontFamily:    "var(--font-familjen-grotesk), sans-serif",
+            fontSize:      11,
+            color:         "rgba(255,255,255,0.28)",
+            letterSpacing: "0.03em",
+            lineHeight:    1,
+          }}>
+            Add a subject to begin
+          </p>
+        </div>
       )}
 
       {/* ── Reset canvas view confirmation dialog ────────────────────── */}
@@ -1145,6 +1196,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         </>
       )}
     </div>
+    </>
   );
 }
 
