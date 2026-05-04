@@ -688,7 +688,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       style={{
         flex:       1,
         position:   "relative",
-        overflow:   "hidden",
+        overflow:   "visible",   // Fix: allow frames/text to move freely; CDv2Shell center column clips at its boundary
         cursor:     isPanning ? "grabbing" : "crosshair",
         // Cinematic background — base #0b0f1a + centered purple/blue radial glow
         // Slightly brighter than before for daylight-screen readability while
@@ -1007,7 +1007,13 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                 onEndEdit={() => setEditingTextId(null)}
                 onTextChange={(text) => updateTextNode_(tn.id, { text })}
                 onFontChange={(size: TextNodeFontSize) => updateTextNode_(tn.id, { fontSize: size })}
-                onMove={(dx, dy) => updateTextNode_(tn.id, { x: tn.x + dx, y: tn.y + dy })}
+                onMove={(dx, dy) => {
+                  // Fix: read current position from store at call time to avoid stale closure
+                  // (TextNode uses delta-based drag, so each call accumulates from the LAST
+                  // recorded position — must avoid reading the tn.x/tn.y captured at render).
+                  const cur = useDirectionStore.getState().textNodes.find((n) => n.id === tn.id);
+                  if (cur) updateTextNode_(tn.id, { x: cur.x + dx, y: cur.y + dy });
+                }}
                 onDelete={() => {
                   removeTextNode_(tn.id);
                   if (selectedTextId === tn.id) setSelectedTextId(null);
@@ -1225,7 +1231,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             e.currentTarget.style.borderColor = "transparent";
           }}
         >
-          ?
+          ? Guide
         </button>
       </div>
 
@@ -1255,6 +1261,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         <div aria-hidden style={{
           position:      "absolute", inset: 0, display: "flex",
           flexDirection: "column",  alignItems: "center", justifyContent: "center",
+          // Fix: push content above the PromptDock + DirectorHandle overlay (186px total)
+          // so the empty-state centres in the VISIBLE canvas area, not behind the dock.
+          paddingBottom: 186,
           gap:           20,        pointerEvents: "none",
           animation:     "cd-fade-in 0.6s ease",
         }}>
