@@ -204,8 +204,7 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
   return {
     async estimate(input: ZProviderInput): Promise<CreditEstimate> {
       // ── Priority 1: provider-supplied estimate (e.g. duration-scaled costs) ──
-      // Providers can call estimateCost() with full context (duration, resolution, etc.)
-      // and attach the result to the input. Use it if present.
+      // Providers can attach a pre-computed estimate to the input. Use it if present.
       if (input.estimatedCredits) return input.estimatedCredits;
 
       // ── Priority 2: DB lookup from credit_model_costs (locked spec values) ──
@@ -213,12 +212,88 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
       // replaces all hardcoded studio defaults. Failure falls through to defaults.
       const dbCost = await ctx.store.lookupModelCost(ctx.modelKey);
       if (dbCost > 0) {
-        console.log(`[credits] estimate model=${ctx.modelKey} cost=${dbCost}cr (DB)`);
+        const duration = input.durationSeconds;
+
+        // ── Per-minute scaling (dubbing, voice-isolation) ─────────────────────
+        // These model_keys store the per-MINUTE rate in base_credits.
+        // Dispatch multiplies by Math.ceil(durationSeconds / 60) to get total cost.
+        // Minimum charge: 1 minute (when duration is unknown, we charge 1 minute).
+        const isPerMinuteModel = ctx.modelKey === "dubbing" || ctx.modelKey === "voice-isolation";
+        if (isPerMinuteModel) {
+          const minutes = duration ? Math.ceil(duration / 60) : 1;
+          const total = dbCost * minutes;
+          console.log(
+            `[credits] estimate model=${ctx.modelKey} rate=${dbCost}cr/min` +
+            ` duration=${duration ?? "?"}s minutes=${minutes} total=${total}cr (DB per-min)`
+          );
+          return {
+            min:      total,
+            max:      total,
+            expected: total,
+            breakdown: { base: total },
+          };
+        }
+
+        // ── Duration scaling (video studio — 5-second intervals) ───────────────
+        // Spec: 5s = 1× base, 10s = 2× base.
+        // Formula: multiplier = Math.ceil(durationSeconds / 5).
+        //   5s → 1×, 10s → 2×, 6–10s → 2×, 11–15s → 3×, etc.
+        // Applied to the BASE MODEL cost only — add-ons below are flat regardless of duration.
+        // When no duration is provided for a video, treat as 5s (1× base).
+        let scaledBase = dbCost;
+        let durationIntervals = 1;
+        if (ctx.studio === "video" && duration && duration > 0) {
+          durationIntervals = Math.ceil(duration / 5);
+          scaledBase = dbCost * durationIntervals;
+        }
+
+        // ── Add-on summing ─────────────────────────────────────────────────────
+        // Add-ons are flat charges (not duration-scaled) summed on top of scaledBase.
+        // Each add-on is looked up from credit_model_costs so spec changes take effect
+        // without a code deploy.
+        let addonTotal = 0;
+        const addonBreakdown: Record<string, number> = {};
+
+        // Start + End Frame add-on (+80cr, locked spec):
+        //   Charged when BOTH a start frame (imageUrl) AND an end frame (endImageUrl)
+        //   are provided for a video generation. Using only a start frame for standard
+        //   image-to-video does NOT trigger this add-on.
+        if (ctx.studio === "video" && input.imageUrl && input.endImageUrl) {
+          const addonCost = await ctx.store.lookupModelCost("addon-start-end");
+          if (addonCost > 0) {
+            addonTotal += addonCost;
+            addonBreakdown["addon-start-end"] = addonCost;
+          }
+        }
+
+        // Motion Control add-on (+120cr, locked spec):
+        //   Charged when a motion control preset is active (preset !== "none").
+        //   The video generate route flags this by setting
+        //   providerParams.motionControlActive = true before calling dispatch.
+        if (ctx.studio === "video" && input.providerParams?.motionControlActive === true) {
+          const addonCost = await ctx.store.lookupModelCost("addon-motion-control");
+          if (addonCost > 0) {
+            addonTotal += addonCost;
+            addonBreakdown["addon-motion-control"] = addonCost;
+          }
+        }
+
+        // ── Final total ───────────────────────────────────────────────────────
+        const total = scaledBase + addonTotal;
+        const breakdown: Record<string, number> = { base: scaledBase };
+        if (addonTotal > 0) breakdown.addons = addonTotal;
+        Object.assign(breakdown, addonBreakdown);
+
+        console.log(
+          `[credits] estimate model=${ctx.modelKey}` +
+          (ctx.studio === "video" && duration ? ` duration=${duration}s×${durationIntervals}` : "") +
+          ` base=${dbCost}cr scaled=${scaledBase}cr addons=${addonTotal}cr total=${total}cr (DB)`
+        );
         return {
-          min:      dbCost,
-          max:      dbCost,
-          expected: dbCost,
-          breakdown: { base: dbCost },
+          min:      total,
+          max:      total,
+          expected: total,
+          breakdown,
         };
       }
 

@@ -108,9 +108,11 @@ export async function POST(req: Request): Promise<Response> {
   const aspectRatio       = typeof body!.aspectRatio       === "string" ? body!.aspectRatio       : undefined;
   const negativePrompt = typeof body!.negativePrompt === "string" ? body!.negativePrompt : undefined;
   const seed           = typeof body!.seed           === "number" ? body!.seed           : undefined;
-  const providerParams = typeof body!.providerParams === "object" && body!.providerParams !== null
-    ? body!.providerParams as Record<string, unknown>
-    : undefined;
+  // providerParams is mutable so we can merge in credit-calculation signals below.
+  let providerParams: Record<string, unknown> | undefined =
+    typeof body!.providerParams === "object" && body!.providerParams !== null
+      ? body!.providerParams as Record<string, unknown>
+      : undefined;
 
   // Character Studio context — optional pass-through fields
   const character_id = typeof body!.character_id === "string" ? body!.character_id : undefined;
@@ -281,6 +283,11 @@ export async function POST(req: Request): Promise<Response> {
       if (motionControl.customNote) {
         resolvedPrompt += ` ${motionControl.customNote}`;
       }
+
+      // ── Credit signal: flag motion control active so estimate() can add +120cr ──
+      // The credit hooks read providerParams.motionControlActive to detect this add-on.
+      // This key is credit-calculation-only — providers ignore unknown providerParams keys.
+      providerParams = { ...providerParams, motionControlActive: true };
     }
   }
 
