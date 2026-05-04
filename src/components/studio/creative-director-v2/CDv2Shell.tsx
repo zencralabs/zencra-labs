@@ -654,6 +654,15 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             }
           }
 
+          // ── Cancel guard ────────────────────────────────────────────────
+          // If user cancelled mid-poll, cancelGenerating() was already called from
+          // handleCancel(). Calling finishGenerating() here would prepend the stale
+          // local `resolved` array (which still has status:"processing" entries) back
+          // into the store outputs, re-showing a GENERATING card that should be gone.
+          if (pollCancelledRef.current) {
+            return;
+          }
+
           // ── Wire frame for sync providers ──────────────────────────────
           // Async results were wired inside the poll loop above.
           // For sync providers (GPT Image) the loop never runs; wire here.
