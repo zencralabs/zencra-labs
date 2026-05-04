@@ -181,13 +181,25 @@ interface EnhancePreview {
 }
 
 interface AIAssistBarProps {
-  onAddElement: (type: DirectionElementType, label: string) => Promise<void>;
-  bottomOffset: number; // e.g. DIRECTOR_BOTTOM + 8 = 194
+  onAddElement:           (type: DirectionElementType, label: string) => Promise<void>;
+  bottomOffset:           number; // e.g. DIRECTOR_BOTTOM + 8 = 194
+  /** When set, immediately triggers the corresponding action card. */
+  externalAction?:        "enhance" | "auto-build" | "direct" | null;
+  /** Called after the external action has been handled (so parent can reset). */
+  onExternalActionHandled?: () => void;
+  /** When true, the pill bar is hidden; only suggestion chips + active cards show. */
+  hidePillBar?:           boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
+export function AIAssistBar({
+  onAddElement,
+  bottomOffset,
+  externalAction,
+  onExternalActionHandled,
+  hidePillBar,
+}: AIAssistBarProps) {
   const { elements, directorPanelOpen, updateElement } = useDirectionStore();
   const mode = useDirectionStore(selectMode);
 
@@ -306,6 +318,16 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
     setChipsVisible(false);
     await onAddElement(chip.type, chip.label);
   }, [onAddElement]);
+
+  // ── External action trigger (from LeftPanel buttons) ─────────────────────
+  useEffect(() => {
+    if (!externalAction) return;
+    if (externalAction === "enhance")    handleEnhanceScene();
+    if (externalAction === "auto-build") handleAutoBuild();
+    if (externalAction === "direct")     handleDirectScene();
+    onExternalActionHandled?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalAction]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const isHidden      = directorPanelOpen;
@@ -488,7 +510,8 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
         </div>
       )}
 
-      {/* ── 44px pill bar ────────────────────────────────────────────────── */}
+      {/* ── 44px pill bar — hidden when LeftPanel has Scene Actions ─────── */}
+      {!hidePillBar && (
       <div
         style={{
           display:             "flex",
@@ -548,6 +571,7 @@ export function AIAssistBar({ onAddElement, bottomOffset }: AIAssistBarProps) {
           onClick={handleDirectScene}
         />
       </div>
+      )}
     </div>
   );
 }

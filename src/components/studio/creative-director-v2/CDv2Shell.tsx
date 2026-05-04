@@ -47,6 +47,7 @@ import type {
 import { CDv2TopBar }                                from "./CDv2TopBar";
 import { LeftPanel }                                 from "./LeftPanel";
 import { SceneCanvas }                               from "./SceneCanvas";
+import type { SceneCanvasHandle }                   from "./SceneCanvas";
 import { DirectorPanel }                             from "./DirectorPanel";
 import { PromptDock }                                from "./PromptDock";
 import { OutputPanel }                               from "./OutputPanel";
@@ -238,6 +239,13 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const [selectedFrameId,     setSelectedFrameId]     = useState<string | null>(null);
   const [dockMinimized,       setDockMinimized]       = useState(false);
   const [miniConsoleHovered,  setMiniConsoleHovered]  = useState(false);
+
+  // Scene Actions — ref for autoAlign + trigger state for AIAssistBar
+  const sceneCanvasRef = useRef<SceneCanvasHandle>(null);
+  const [assistAction, setAssistAction] = useState<"enhance" | "auto-build" | "direct" | null>(null);
+  const handleAutoAlign = useCallback(() => {
+    sceneCanvasRef.current?.autoAlign();
+  }, []);
 
   // ── Canvas autosave state + refs ─────────────────────────────────────────
   // saveStatus drives the top-bar badge: idle → unsaved → saving → saved | failed
@@ -441,6 +449,22 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         console.log("[CDv2] handleGenerate blocked — generateInProgressRef is true");
         return;
       }
+
+      // ── Identity Lock validation ──────────────────────────────────────────
+      // If Identity Lock is ON but no subject element has an asset_url (image),
+      // the lock will silently fail. Surface a clear error instead.
+      if (refinements?.identity_lock === true) {
+        const hasSubjectImage = elements.some(
+          (el) => el.type === "subject" && el.asset_url && el.asset_url.trim().length > 0
+        );
+        if (!hasSubjectImage) {
+          console.warn("[CDv2] Identity Lock is ON but no subject element has an asset_url — blocking generate");
+          finishGenerating([], "Identity Lock requires a subject image. Drop a photo onto a Subject node first.");
+          return;
+        }
+        console.log("[CDv2] Identity Lock ON — subject image verified:", elements.find((el) => el.type === "subject")?.asset_url);
+      }
+
       generateInProgressRef.current = true;
 
       try {
@@ -1094,6 +1118,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           onAddElement={handleAddElement}
           onEnsureDirection={ensureDirection}
           isCollapsed={leftCollapsed}
+          onEnhanceScene={() => setAssistAction("enhance")}
+          onAutoBuild={() => setAssistAction("auto-build")}
+          onDirectScene={() => setAssistAction("direct")}
+          onAutoAlign={handleAutoAlign}
         />
 
         {/* Center: canvas → handle → dock (+ director overlay) */}
@@ -1109,6 +1137,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         >
           {/* Scene canvas — fills all remaining height (flex: 1) */}
           <SceneCanvas
+            ref={sceneCanvasRef}
             onAddElement={handleAddElement}
             onToggleDirectorControls={toggleDirectorPanel}
             directorPanelOpen={directorPanelOpen}
@@ -1133,7 +1162,13 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             }}
           >
             {/* bottomOffset={0}: AIAssistBar positions itself relative to this wrapper */}
-            <AIAssistBar onAddElement={handleAddElement} bottomOffset={0} />
+            <AIAssistBar
+              onAddElement={handleAddElement}
+              bottomOffset={0}
+              hidePillBar={true}
+              externalAction={assistAction}
+              onExternalActionHandled={() => setAssistAction(null)}
+            />
           </div>
 
           {/* Director panel — slides up from bottom; NOT part of the dock stack */}

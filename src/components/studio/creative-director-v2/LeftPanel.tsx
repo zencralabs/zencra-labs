@@ -27,6 +27,10 @@ interface LeftPanelProps {
   onAddElement:      (type: DirectionElementType, label: string) => void;
   onEnsureDirection: () => Promise<string | null>;
   isCollapsed:       boolean;   // controlled by CDv2Shell — no internal state
+  onEnhanceScene?:   () => void;
+  onAutoBuild?:      () => void;
+  onDirectScene?:    () => void;
+  onAutoAlign?:      () => void;
 }
 
 const ROLE_BUTTONS: Array<{
@@ -53,7 +57,15 @@ const RAIL_ICONS = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: LeftPanelProps) {
+export function LeftPanel({
+  onAddElement,
+  onEnsureDirection,
+  isCollapsed,
+  onEnhanceScene,
+  onAutoBuild,
+  onDirectScene,
+  onAutoAlign,
+}: LeftPanelProps) {
   const {
     sceneIntent,
     activeStyleMood,
@@ -366,6 +378,21 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
           </div>
         </div>
       )}
+
+      <Divider />
+
+      {/* ── Scene Actions ────────────────────────────────────────────────── */}
+      <Section label="Scene Actions" symbol="⊞">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <SceneActionBtn emoji="✨" label="Enhance Scene"  color="rgba(251,191,36,1)"  onClick={onEnhanceScene} />
+          <SceneActionBtn emoji="⚡" label="Auto Build"     color="rgba(34,197,94,1)"   onClick={onAutoBuild}    />
+          <SceneActionBtn emoji="🎬" label="Direct Scene"   color="rgba(139,92,246,1)"  onClick={onDirectScene}  />
+          <SceneActionBtn emoji="⊞" label="Auto Align"     color="rgba(99,179,237,1)"  onClick={onAutoAlign}    />
+        </div>
+      </Section>
+
+      {/* Bottom breathing room */}
+      <div style={{ height: 16, flexShrink: 0 }} />
     </div>
   );
 }
@@ -583,6 +610,51 @@ function RoleButton({
       <span style={{ opacity: 0.3, fontSize: 9, flexShrink: 0 }}>
         {active ? "▲" : "▼"}
       </span>
+    </button>
+  );
+}
+
+function SceneActionBtn({
+  emoji,
+  label,
+  color,
+  onClick,
+}: {
+  emoji:    string;
+  label:    string;
+  color:    string;
+  onClick?: () => void;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      disabled={!onClick}
+      style={{
+        display:       "flex",
+        alignItems:    "center",
+        gap:           10,
+        width:         "100%",
+        background:    hov ? color.replace("1)", "0.10)") : "rgba(255,255,255,0.03)",
+        border:        `1px solid ${hov ? color.replace("1)", "0.35)") : "rgba(255,255,255,0.07)"}`,
+        borderRadius:  10,
+        color:         hov ? color : "#AEB7D0",
+        fontSize:      13,
+        fontFamily:    "var(--font-sans)",
+        fontWeight:    600,
+        letterSpacing: "0.02em",
+        padding:       "10px 14px",
+        cursor:        onClick ? "pointer" : "not-allowed",
+        opacity:       onClick ? 1 : 0.4,
+        textAlign:     "left",
+        transition:    "all 0.15s ease",
+        boxShadow:     hov ? `0 0 10px ${color.replace("1)", "0.15)")}` : "none",
+      }}
+    >
+      <span style={{ fontSize: 15, lineHeight: 1 }}>{emoji}</span>
+      <span>{label}</span>
     </button>
   );
 }

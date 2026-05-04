@@ -53,6 +53,8 @@ import React, {
   useCallback,
   useRef,
   useEffect,
+  useImperativeHandle,
+  forwardRef,
 } from "react";
 import {
   useDirectionStore,
@@ -72,6 +74,16 @@ import type { DirectionElementType } from "@/lib/creative-director/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CanvasPosition { x: number; y: number; }
+
+/**
+ * Imperative handle exposed to parent via forwardRef.
+ * autoAlign() repositions all scene nodes and frames into a clean layout:
+ *   - Scene/TextNodes stack vertically at x=160, spacing=150
+ *   - Generation Frame(s) placed at x=700, centered vertically
+ */
+export interface SceneCanvasHandle {
+  autoAlign: () => void;
+}
 
 interface SceneCanvasProps {
   onAddElement:              (type: DirectionElementType, label: string, assetUrl?: string) => void;
@@ -203,7 +215,7 @@ function resolvePromptForFrame(
     .join(", ");
 }
 
-export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect, onFrameRegenerate, onFrameDownload }: SceneCanvasProps) {
+export const SceneCanvas = forwardRef<SceneCanvasHandle, SceneCanvasProps>(function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect, onFrameRegenerate, onFrameDownload }: SceneCanvasProps, fwdRef) {
   const elements        = useDirectionStore(selectElements);
   const canvasTransform = useDirectionStore(selectCanvasTransform);
   const setCanvasTransform = useDirectionStore((s) => s.setCanvasTransform);
@@ -460,10 +472,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         if (rect) {
           const ct = useDirectionStore.getState().canvasTransform;
           const s  = ct.scale / 100;
-          // Raw canvas-space cursor position
+          // Raw canvas-space cursor position — corrects for transformOrigin:"center"
+          const W = rect.width;
+          const H = rect.height;
           let cursorPos = {
-            x: (e.clientX - rect.left - ct.x) / s,
-            y: (e.clientY - rect.top  - ct.y) / s,
+            x: (e.clientX - rect.left - W / 2 - ct.x) / s + W / 2,
+            y: (e.clientY - rect.top  - H / 2 - ct.y) / s + H / 2,
           };
 
           // ── Magnetic snap — check every frame's input handle ───────────
@@ -525,8 +539,11 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           if (rect) {
             const ct   = useDirectionStore.getState().canvasTransform;
             const s    = ct.scale / 100;
-            const curX = (e.clientX - rect.left - ct.x) / s;
-            const curY = (e.clientY - rect.top  - ct.y) / s;
+            // Corrects for transformOrigin:"center"
+            const W2   = rect.width;
+            const H2   = rect.height;
+            const curX = (e.clientX - rect.left - W2 / 2 - ct.x) / s + W2 / 2;
+            const curY = (e.clientY - rect.top  - H2 / 2 - ct.y) / s + H2 / 2;
             const { frames: currentFrames } = useDirectionStore.getState();
             for (const frame of currentFrames) {
               const hp   = getFrameInputHandle(frame, liveDragFramePosRef.current[frame.id]);
@@ -594,9 +611,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       const handleRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const ct         = useDirectionStore.getState().canvasTransform;
       const s          = ct.scale / 100;
+      // Corrects for transformOrigin:"center"
+      const W          = canvasRect.width;
+      const H          = canvasRect.height;
       const fromPos: CanvasPosition = {
-        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - ct.x) / s,
-        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - ct.y) / s,
+        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - W / 2 - ct.x) / s + W / 2,
+        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - H / 2 - ct.y) / s + H / 2,
       };
       setPendingConn({ type: "scene", fromNodeId: nodeId, fromPos, cursorPos: fromPos });
     },
@@ -612,9 +632,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       const handleRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const ct         = useDirectionStore.getState().canvasTransform;
       const s          = ct.scale / 100;
+      // Corrects for transformOrigin:"center"
+      const W          = canvasRect.width;
+      const H          = canvasRect.height;
       const fromPos: CanvasPosition = {
-        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - ct.x) / s,
-        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - ct.y) / s,
+        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - W / 2 - ct.x) / s + W / 2,
+        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - H / 2 - ct.y) / s + H / 2,
       };
       setPendingConn({ type: "text", fromTextId: textId, fromPos, cursorPos: fromPos });
     },
@@ -752,6 +775,48 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
 
   // CSS transform for the viewport
   const viewportTransform = `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale / 100})`;
+
+  // ── Auto Align — rearrange all nodes into a clean layout ─────────────────
+  const autoAlign = useCallback(() => {
+    const allElements = [...elements, ...textNodes.map((t) => ({ id: t.id, _isText: true as const }))];
+    if (allElements.length === 0) return;
+
+    // Build a flat ordered list: scene nodes first, then text nodes
+    const sceneIds = elements.map((el) => el.id);
+    const textIds  = textNodes.map((t) => t.id);
+
+    const startY   = 120;
+    const spacing  = 140;
+    const nodeX    = 160;
+
+    const nextPositions: Record<string, CanvasPosition> = {};
+
+    // Stack scene nodes vertically
+    sceneIds.forEach((id, i) => {
+      nextPositions[id] = { x: nodeX, y: startY + i * spacing };
+    });
+
+    // Stack text nodes below scene nodes
+    textIds.forEach((id, i) => {
+      nextPositions[id] = { x: nodeX, y: startY + (sceneIds.length + i) * spacing };
+    });
+
+    // Place frames at x=700, centered vertically relative to total node height
+    const totalH   = (sceneIds.length + textIds.length) * spacing;
+    const centerY  = startY + totalH / 2;
+    frames.forEach((frame, i) => {
+      const ratio  = FRAME_RATIO_VALUES[frame.aspectRatio];
+      const fw     = frame.width ?? DEFAULT_FRAME_WIDTH;
+      const fh     = fw / ratio;
+      const frameY = centerY - fh / 2 + i * (fh + 48);
+      useDirectionStore.getState().updateFrame(frame.id, { position: { x: 700, y: frameY } });
+    });
+
+    setPositions((prev) => ({ ...prev, ...nextPositions }));
+  }, [elements, textNodes, frames]);
+
+  // Expose autoAlign to parent via forwardRef
+  useImperativeHandle(fwdRef, () => ({ autoAlign }), [autoAlign]);
 
   return (
     <>
@@ -1712,7 +1777,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     </div>
     </>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AssetRolePicker — role assignment popup shown when an asset is dropped
