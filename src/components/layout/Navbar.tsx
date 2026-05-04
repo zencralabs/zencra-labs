@@ -760,12 +760,23 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen]         = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey | null>(null);
   const [authModal, setAuthModal]           = useState<"login" | "signup" | null>(null);
+  // mounted gates all client-only auth UI. On the server (and on the first
+  // client render before hydration) this is false, so we always render the
+  // skeleton. After hydration useEffect flips it true and the real credits
+  // pill appears — eliminating the SSR/client content mismatch that caused
+  // React hydration errors when localStorage held a cached user.
+  const [mounted, setMounted]               = useState(false);
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLElement>(null);
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
 
-  // Isolated full-screen routes (e.g. /waitlist) must not show the Navbar.
-  if (NAVBAR_HIDDEN_ROUTES.some(r => pathname.startsWith(r))) return null;
+  // ── All hooks must run unconditionally (Rules of Hooks) ──────────────────
+  // The hidden-route early return lives AFTER every hook so that hook count
+  // never varies between renders regardless of current pathname.
+
+  // Flip mounted after hydration — gates auth UI to client-only render.
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -794,7 +805,6 @@ export function Navbar() {
   }, []);
 
   // Close dropdown on click outside
-  const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
@@ -818,6 +828,10 @@ export function Navbar() {
   useEffect(() => {
     setActiveDropdown(null);
   }, [pathname]);
+
+  // Isolated full-screen routes (e.g. /waitlist) must not show the Navbar.
+  // This return is intentionally placed AFTER all hooks.
+  if (NAVBAR_HIDDEN_ROUTES.some(r => pathname.startsWith(r))) return null;
 
   return (
     <>
@@ -943,16 +957,18 @@ export function Navbar() {
 
             {/* ── Desktop actions ── */}
             {/*
-              Rendering priority:
-                1. loading && !user  →  skeleton (auth resolving, no cached state)
-                2. user              →  credits pill + FCS badge + avatar dropdown
-                3. !user             →  Login + Try Free  (only after loading=false)
+              Rendering priority (after mounted):
+                1. !mounted              →  skeleton (SSR + first client paint — prevents hydration mismatch)
+                2. loading && !user      →  skeleton (auth still resolving, no cached state)
+                3. user                  →  credits pill + FCS badge + avatar dropdown
+                4. !user                 →  Login + Try Free  (only after loading=false)
 
-              This prevents the Login button from ever flashing while a valid
-              session exists. The skeleton is shown only on a truly cold first
-              load where there is no localStorage snapshot to seed `user`.
+              The `mounted` gate is the critical fix: AuthContext seeds `user` from
+              localStorage on the client before React hydrates, so without this gate
+              the server renders skeleton and the client renders the real credits pill,
+              producing a hydration mismatch and re-render flicker.
             */}
-            {loading && !user ? (
+            {!mounted || (loading && !user) ? (
               <NavbarAuthSkeleton />
             ) : user ? (
               <div className="hidden items-center gap-3 lg:flex">
@@ -967,7 +983,6 @@ export function Navbar() {
                   {/* Same span tag + style as the skeleton — suppressHydrationWarning
                       silences the text-content diff (placeholder vs real credits). */}
                   <span
-                    suppressHydrationWarning
                     style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
                   >
                     {user.credits} cr
