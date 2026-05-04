@@ -11,10 +11,10 @@
  * Fullscreen: cinema frame icon — toggles position:fixed layout.
  */
 
-import { useState }            from "react";
-import { useDirectionStore }   from "@/lib/creative-director/store";
-import { supabase }            from "@/lib/supabase";
-import type { DirectionMode }  from "@/lib/creative-director/types";
+import { useState, useCallback } from "react";
+import { useDirectionStore }      from "@/lib/creative-director/store";
+import { supabase }               from "@/lib/supabase";
+import type { DirectionMode }     from "@/lib/creative-director/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -24,6 +24,11 @@ interface CDv2TopBarProps {
   onToggleFullscreen:     () => void;
   saveStatus?:            "idle" | "unsaved" | "saving" | "saved" | "failed";
   onSaveNow?:             () => void;
+  // Scene Actions — wired from CDv2Shell, rendered in the top center bar
+  onEnhanceScene?:        () => void;
+  onAutoBuild?:           () => void;
+  onDirectScene?:         () => void;
+  onAutoAlign?:           () => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +128,10 @@ export function CDv2TopBar({
   onToggleFullscreen,
   saveStatus = "idle",
   onSaveNow,
+  onEnhanceScene,
+  onAutoBuild,
+  onDirectScene,
+  onAutoAlign,
 }: CDv2TopBarProps) {
   const {
     mode,
@@ -134,9 +143,12 @@ export function CDv2TopBar({
     setMode,
   } = useDirectionStore();
 
-  const [backHover, setBackHover]       = useState(false);
-  const [directorHover, setDirectorHover] = useState(false);
-  const [fsHover, setFsHover]           = useState(false);
+  const [backHover, setBackHover]           = useState(false);
+  const [directorHover, setDirectorHover]   = useState(false);
+  const [fsHover, setFsHover]               = useState(false);
+  const [actionHover, setActionHover]       = useState<string | null>(null);
+
+  const handleActionHover = useCallback((key: string | null) => setActionHover(key), []);
 
   async function handleModeToggle(next: DirectionMode) {
     if (next === mode) return;
@@ -159,6 +171,46 @@ export function CDv2TopBar({
 
   // Pill highlight: left = 2px for explore, 50% for locked
   const pillLeft = mode === "locked" ? "calc(50% + 2px)" : "2px";
+
+  // ── Scene action config ──────────────────────────────────────────────────
+  const SCENE_ACTIONS = [
+    {
+      key:     "enhance",
+      emoji:   "✨",
+      label:   "Enhance",
+      color:   "rgba(251,191,36,1)",
+      glow:    "rgba(251,191,36,0.18)",
+      border:  "rgba(251,191,36,0.32)",
+      handler: onEnhanceScene,
+    },
+    {
+      key:     "auto-build",
+      emoji:   "⚡",
+      label:   "Auto Build",
+      color:   "rgba(34,197,94,1)",
+      glow:    "rgba(34,197,94,0.16)",
+      border:  "rgba(34,197,94,0.3)",
+      handler: onAutoBuild,
+    },
+    {
+      key:     "direct",
+      emoji:   "🎬",
+      label:   "Direct",
+      color:   "rgba(139,92,246,1)",
+      glow:    "rgba(139,92,246,0.18)",
+      border:  "rgba(139,92,246,0.32)",
+      handler: onDirectScene,
+    },
+    {
+      key:     "align",
+      emoji:   "⊞",
+      label:   "Auto Align",
+      color:   "rgba(99,179,237,1)",
+      glow:    "rgba(99,179,237,0.16)",
+      border:  "rgba(99,179,237,0.3)",
+      handler: onAutoAlign,
+    },
+  ] as const;
 
   return (
     <div
@@ -217,7 +269,7 @@ export function CDv2TopBar({
             overflow:     "hidden",
             textOverflow: "ellipsis",
             whiteSpace:   "nowrap",
-            maxWidth:     220,
+            maxWidth:     200,
           }}
         >
           {sceneName}
@@ -248,97 +300,158 @@ export function CDv2TopBar({
         )}
       </div>
 
-      {/* ── Center: 3D pill mode switch ────────────────────────────────── */}
+      {/* ── Center: Scene Action Pill (absolute — always perfectly centered) ── */}
       <div
         style={{
-          position:      "relative",
-          display:       "flex",
-          alignItems:    "center",
-          background:    "rgba(255,255,255,0.04)",
-          border:        "1px solid rgba(255,255,255,0.09)",
-          borderRadius:  12,
-          padding:       2,
-          gap:           0,
-          flexShrink:    0,
-          width:         220,
-          height:        44,
+          position:        "absolute",
+          left:            "50%",
+          top:             "50%",
+          transform:       "translate(-50%, -50%)",
+          display:         "flex",
+          alignItems:      "center",
+          gap:             2,
+          background:      "rgba(255,255,255,0.035)",
+          border:          "1px solid rgba(255,255,255,0.08)",
+          borderRadius:    14,
+          padding:         "4px 4px",
+          backdropFilter:  "blur(12px)",
+          pointerEvents:   "auto",
         }}
       >
-        {/* Sliding highlight */}
-        <div
-          style={{
-            position:     "absolute",
-            top:          2,
-            left:         pillLeft,
-            width:        "calc(50% - 4px)",
-            height:       "calc(100% - 4px)",
-            borderRadius: 9,
-            background:   mode === "locked"
-              ? "linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(245,158,11,0.12) 100%)"
-              : "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(109,40,217,0.12) 100%)",
-            border:       `1px solid ${mode === "locked" ? "rgba(251,191,36,0.25)" : "rgba(139,92,246,0.25)"}`,
-            boxShadow:    mode === "locked"
-              ? "0 0 12px rgba(251,191,36,0.15)"
-              : "0 0 12px rgba(139,92,246,0.15)",
-            transition:   "left 0.25s cubic-bezier(0.16,1,0.3,1), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Explore button */}
-        <button
-          onClick={() => void handleModeToggle("explore")}
-          style={{
-            flex:         1,
-            background:   "transparent",
-            border:       "none",
-            borderRadius: 9,
-            color:        mode === "explore" ? "rgba(139,92,246,1)" : "rgba(255,255,255,0.35)",
-            fontSize:     12,
-            fontFamily:   "var(--font-sans)",
-            fontWeight:   mode === "explore" ? 600 : 400,
-            cursor:       "pointer",
-            height:       "100%",
-            letterSpacing: "0.03em",
-            transition:   "color 0.25s ease",
-            position:     "relative",
-            zIndex:       1,
-          }}
-        >
-          Explore
-        </button>
-
-        {/* Locked button */}
-        <button
-          onClick={() => void handleModeToggle("locked")}
-          style={{
-            flex:         1,
-            background:   "transparent",
-            border:       "none",
-            borderRadius: 9,
-            color:        mode === "locked" ? "rgba(251,191,36,1)" : "rgba(255,255,255,0.35)",
-            fontSize:     12,
-            fontFamily:   "var(--font-sans)",
-            fontWeight:   mode === "locked" ? 600 : 400,
-            cursor:       "pointer",
-            height:       "100%",
-            display:      "flex",
-            alignItems:   "center",
-            justifyContent: "center",
-            gap:          5,
-            letterSpacing: "0.03em",
-            transition:   "color 0.25s ease",
-            position:     "relative",
-            zIndex:       1,
-          }}
-        >
-          {mode === "locked" && <span style={{ fontSize: 11 }}>🔒</span>}
-          Locked
-        </button>
+        {SCENE_ACTIONS.map((action, idx) => {
+          const isHov = actionHover === action.key;
+          return (
+            <button
+              key={action.key}
+              onClick={action.handler}
+              onMouseEnter={() => handleActionHover(action.key)}
+              onMouseLeave={() => handleActionHover(null)}
+              disabled={!action.handler}
+              title={action.label}
+              style={{
+                display:       "flex",
+                alignItems:    "center",
+                gap:           6,
+                background:    isHov ? action.glow : "transparent",
+                border:        `1px solid ${isHov ? action.border : "transparent"}`,
+                borderRadius:  10,
+                color:         isHov ? action.color : "rgba(255,255,255,0.45)",
+                fontSize:      12,
+                fontFamily:    "var(--font-sans)",
+                fontWeight:    isHov ? 600 : 400,
+                letterSpacing: "0.02em",
+                padding:       "6px 12px",
+                height:        36,
+                cursor:        action.handler ? "pointer" : "not-allowed",
+                opacity:       action.handler ? 1 : 0.35,
+                transition:    "all 0.16s ease",
+                whiteSpace:    "nowrap",
+                boxShadow:     isHov ? `0 0 12px ${action.glow}` : "none",
+                // Separator between buttons (thin divider after each except last)
+                borderRight:   idx < SCENE_ACTIONS.length - 1 && !isHov
+                  ? "1px solid rgba(255,255,255,0.06)"
+                  : "1px solid transparent",
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1 }}>{action.emoji}</span>
+              <span>{action.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* ── Right: Director + Fullscreen ───────────────────────────────── */}
+      {/* ── Right: mode pill + Director + Fullscreen ───────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+
+        {/* 3D pill mode switch */}
+        <div
+          style={{
+            position:      "relative",
+            display:       "flex",
+            alignItems:    "center",
+            background:    "rgba(255,255,255,0.04)",
+            border:        "1px solid rgba(255,255,255,0.09)",
+            borderRadius:  12,
+            padding:       2,
+            flexShrink:    0,
+            width:         190,
+            height:        40,
+          }}
+        >
+          {/* Sliding highlight */}
+          <div
+            style={{
+              position:     "absolute",
+              top:          2,
+              left:         pillLeft,
+              width:        "calc(50% - 4px)",
+              height:       "calc(100% - 4px)",
+              borderRadius: 9,
+              background:   mode === "locked"
+                ? "linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(245,158,11,0.12) 100%)"
+                : "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(109,40,217,0.12) 100%)",
+              border:       `1px solid ${mode === "locked" ? "rgba(251,191,36,0.25)" : "rgba(139,92,246,0.25)"}`,
+              boxShadow:    mode === "locked"
+                ? "0 0 12px rgba(251,191,36,0.15)"
+                : "0 0 12px rgba(139,92,246,0.15)",
+              transition:   "left 0.25s cubic-bezier(0.16,1,0.3,1), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* Explore button */}
+          <button
+            onClick={() => void handleModeToggle("explore")}
+            style={{
+              flex:         1,
+              background:   "transparent",
+              border:       "none",
+              borderRadius: 9,
+              color:        mode === "explore" ? "rgba(139,92,246,1)" : "rgba(255,255,255,0.35)",
+              fontSize:     12,
+              fontFamily:   "var(--font-sans)",
+              fontWeight:   mode === "explore" ? 600 : 400,
+              cursor:       "pointer",
+              height:       "100%",
+              letterSpacing: "0.03em",
+              transition:   "color 0.25s ease",
+              position:     "relative",
+              zIndex:       1,
+            }}
+          >
+            Explore
+          </button>
+
+          {/* Locked button */}
+          <button
+            onClick={() => void handleModeToggle("locked")}
+            style={{
+              flex:         1,
+              background:   "transparent",
+              border:       "none",
+              borderRadius: 9,
+              color:        mode === "locked" ? "rgba(251,191,36,1)" : "rgba(255,255,255,0.35)",
+              fontSize:     12,
+              fontFamily:   "var(--font-sans)",
+              fontWeight:   mode === "locked" ? 600 : 400,
+              cursor:       "pointer",
+              height:       "100%",
+              display:      "flex",
+              alignItems:   "center",
+              justifyContent: "center",
+              gap:          5,
+              letterSpacing: "0.03em",
+              transition:   "color 0.25s ease",
+              position:     "relative",
+              zIndex:       1,
+            }}
+          >
+            {mode === "locked" && <span style={{ fontSize: 11 }}>🔒</span>}
+            Locked
+          </button>
+        </div>
+
+        <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
 
         {/* Director Panel toggle */}
         <button
@@ -356,8 +469,8 @@ export function CDv2TopBar({
             fontSize:     12,
             fontFamily:   "var(--font-sans)",
             cursor:       "pointer",
-            padding:      "0 16px",
-            height:       44,
+            padding:      "0 14px",
+            height:       40,
             display:      "flex",
             alignItems:   "center",
             gap:          8,
@@ -398,8 +511,8 @@ export function CDv2TopBar({
             borderRadius: 10,
             color:        isFullscreen ? "rgba(251,191,36,0.95)" : fsHover ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)",
             cursor:       "pointer",
-            width:        44,
-            height:       44,
+            width:        40,
+            height:       40,
             display:      "flex",
             alignItems:   "center",
             justifyContent: "center",

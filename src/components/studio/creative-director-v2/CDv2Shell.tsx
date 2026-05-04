@@ -1125,6 +1125,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         onToggleFullscreen={() => setIsFullscreen((f) => !f)}
         saveStatus={saveStatus}
         onSaveNow={handleSaveNow}
+        onEnhanceScene={() => setAssistAction("enhance")}
+        onAutoBuild={() => setAssistAction("auto-build")}
+        onDirectScene={() => setAssistAction("direct")}
+        onAutoAlign={handleAutoAlign}
       />
 
       {/* ── 3-zone body ──────────────────────────────────────────────── */}
@@ -1180,10 +1184,6 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           onAddElement={handleAddElement}
           onEnsureDirection={ensureDirection}
           isCollapsed={leftCollapsed}
-          onEnhanceScene={() => setAssistAction("enhance")}
-          onAutoBuild={() => setAssistAction("auto-build")}
-          onDirectScene={() => setAssistAction("direct")}
-          onAutoAlign={handleAutoAlign}
         />
 
         {/* Center: canvas → handle → dock (+ director overlay) */}
