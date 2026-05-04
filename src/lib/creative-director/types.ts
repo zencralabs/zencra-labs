@@ -236,7 +236,8 @@ export interface CreativeConceptRow {
 
 export interface CreativeGenerationRow {
   id: string;
-  project_id: string;
+  /** Nullable — CDv2 "free" directions have no project. */
+  project_id: string | null;
   concept_id?: string;
   user_id: string;
   generation_type: string;

@@ -249,7 +249,8 @@ export async function saveGeneration(
   const { data: row, error } = await supabaseAdmin
     .from("creative_generations")
     .insert({
-      project_id: data.project_id,
+      // project_id is nullable — CDv2 "free" directions supply null here.
+      project_id: data.project_id ?? null,
       concept_id: data.concept_id ?? null,
       user_id: data.user_id,
       generation_type: data.generation_type ?? "base",

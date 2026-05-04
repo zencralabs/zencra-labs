@@ -34,6 +34,7 @@ import { supabase }                                  from "@/lib/supabase";
 import {
   useDirectionStore,
   buildCharacterDirectionSuffix,
+  CD_MODELS,
 }                                                    from "@/lib/creative-director/store";
 import type {
   UploadedAsset,
@@ -268,6 +269,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   }, []);
 
   const creatingRef = useRef(false);
+  // Synchronous guard — prevents concurrent generate calls even before React
+  // state update propagates (isGenerating resets immediately for async providers
+  // like NB Pro that return "processing", making the button re-clickable).
+  const generateInProgressRef = useRef(false);
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   // All CDv2 API routes require a Bearer token in the Authorization header.
@@ -387,78 +392,93 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // frameIdOverride: used by handleFrameRegenerate to bypass selectedFrameId closure.
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
-      const dId = await ensureDirection();
-      if (!dId) {
-        // Surface the error so the user sees it — don't silently swallow it.
-        finishGenerating([], "Could not start session — please refresh and try again.");
-        return;
-      }
-      if (refinements && Object.keys(refinements).length > 0) {
-        await syncRefinements(dId, refinements as Record<string, unknown>);
-      }
-      startGenerating();
-      const charSuffix  = buildCharacterDirectionSuffix(characterDirection);
-      // Combine sceneOverride (from PromptDock textarea) with character direction suffix.
-      // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
-      const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
-
-      // ── Resolve TextNode input + target frame ────────────────────────────
-      // Target frame: explicit override > user-selected frame > first frame in store.
-      // Hoisted out of the text-node block so we can use it for result wiring below.
-      const { frames: currentFrames, connections, textNodes } = useDirectionStore.getState();
-      const targetFrameId = currentFrames.length > 0
-        ? (frameIdOverride ?? selectedFrameId ?? currentFrames[0].id)
-        : null;
-
-      let textNodeInput: string | undefined;
-      if (targetFrameId) {
-        const connectedTexts = connections
-          .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
-          .map((c) => c.type === "text" ? textNodes.find((t) => t.id === c.fromTextId) : null)
-          .filter((t): t is NonNullable<typeof t> => !!t && t.text.trim().length > 0);
-        if (connectedTexts.length > 0) {
-          textNodeInput = connectedTexts
-            .map((t) => t.text.trim().replace(/[.]+$/, ""))
-            .filter(Boolean)
-            .join(", ");
-        }
-      }
+      // ── Synchronous concurrency guard ────────────────────────────────────
+      // isGenerating is React state — it resets to false immediately after
+      // async providers (NB Pro) return "processing", making the button
+      // re-clickable before the visual feedback arrives. This ref guard is
+      // checked synchronously so rapid clicks or frame-regenerate calls
+      // cannot fire concurrent API requests.
+      if (generateInProgressRef.current) return;
+      generateInProgressRef.current = true;
 
       try {
-        const authHdrs = await getAuthHeaders();
-        const res = await fetch("/api/creative-director/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHdrs },
-          body: JSON.stringify({
-            directionId:   dId,
-            count,
-            aspectRatio,
-            modelOverride: selectedModel,
-            promptSuffix:  promptSuffix || undefined,
-            textNodeInput: textNodeInput || undefined,
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          finishGenerating([], err.error ?? `Generation failed (${res.status})`);
+        const dId = await ensureDirection();
+        if (!dId) {
+          // Surface the error so the user sees it — don't silently swallow it.
+          finishGenerating([], "Could not start session — please refresh and try again.");
           return;
         }
-        const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
-        finishGenerating(data.generations ?? []);
+        if (refinements && Object.keys(refinements).length > 0) {
+          await syncRefinements(dId, refinements as Record<string, unknown>);
+        }
+        startGenerating();
+        const charSuffix  = buildCharacterDirectionSuffix(characterDirection);
+        // Combine sceneOverride (from PromptDock textarea) with character direction suffix.
+        // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
+        const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
 
-        // ── Wire result image to the target FrameNode ─────────────────────
-        // If a frame was targeted and the first completed generation has a URL,
-        // update the frame's generatedImageUrl so the canvas shows the result.
+        // ── Resolve TextNode input + target frame ──────────────────────────
+        // Target frame: explicit override > user-selected frame > first frame in store.
+        // Hoisted out of the text-node block so we can use it for result wiring below.
+        const { frames: currentFrames, connections, textNodes } = useDirectionStore.getState();
+        const targetFrameId = currentFrames.length > 0
+          ? (frameIdOverride ?? selectedFrameId ?? currentFrames[0].id)
+          : null;
+
+        let textNodeInput: string | undefined;
         if (targetFrameId) {
-          const firstDone = (data.generations ?? []).find(
-            (g) => g.status === "completed" && g.url
-          );
-          if (firstDone?.url) {
-            updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
+          const connectedTexts = connections
+            .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
+            .map((c) => c.type === "text" ? textNodes.find((t) => t.id === c.fromTextId) : null)
+            .filter((t): t is NonNullable<typeof t> => !!t && t.text.trim().length > 0);
+          if (connectedTexts.length > 0) {
+            textNodeInput = connectedTexts
+              .map((t) => t.text.trim().replace(/[.]+$/, ""))
+              .filter(Boolean)
+              .join(", ");
           }
         }
-      } catch (err) {
-        finishGenerating([], err instanceof Error ? err.message : "Network error");
+
+        try {
+          const authHdrs = await getAuthHeaders();
+          const res = await fetch("/api/creative-director/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHdrs },
+            body: JSON.stringify({
+              directionId:   dId,
+              count,
+              aspectRatio,
+              modelOverride: selectedModel,
+              promptSuffix:  promptSuffix || undefined,
+              textNodeInput: textNodeInput || undefined,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            finishGenerating([], err.error ?? `Generation failed (${res.status})`);
+            return;
+          }
+          const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
+          finishGenerating(data.generations ?? []);
+
+          // ── Wire result image to the target FrameNode ──────────────────
+          // If a frame was targeted and the first completed generation has a URL,
+          // update the frame's generatedImageUrl so the canvas shows the result.
+          if (targetFrameId) {
+            const firstDone = (data.generations ?? []).find(
+              (g) => g.status === "completed" && g.url
+            );
+            if (firstDone?.url) {
+              updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
+            }
+          }
+        } catch (err) {
+          finishGenerating([], err instanceof Error ? err.message : "Network error");
+        }
+      } finally {
+        // Always release the guard so the user can generate again after
+        // the current request fully resolves (success, error, or network failure).
+        generateInProgressRef.current = false;
       }
     },
     [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame, getAuthHeaders]
@@ -750,7 +770,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       if (cs.frames?.length)      store.setFrames(cs.frames);
       if (cs.textNodes?.length)   store.setTextNodes(cs.textNodes);
       if (cs.connections?.length) store.setConnections(cs.connections);
-      if (cs.selectedModel)       store.setSelectedModel(cs.selectedModel);
+      // Only restore selectedModel if it's still an active model key.
+      // Guards against stale model keys from old sessions (e.g. if a model
+      // was removed from CD_MODELS or was set by an earlier browser test).
+      const isValidModel = cs.selectedModel &&
+        CD_MODELS.some((m) => m.key === cs.selectedModel && m.active !== false);
+      if (isValidModel)            store.setSelectedModel(cs.selectedModel!);
       if (cs.sceneIntent?.text)   store.setSceneIntentText(cs.sceneIntent.text);
       if (cs.canvasTransform)     store.setCanvasTransform(cs.canvasTransform);
       if (savedId) {

@@ -254,7 +254,9 @@ export async function POST(req: Request): Promise<Response> {
 
     try {
       const gen = await saveGeneration({
-        project_id:      dir.project_id ?? "",
+        // project_id is nullable — CDv2 "free" directions have no project.
+        // Passing "" would violate the FK constraint; pass null instead.
+        project_id:      dir.project_id ?? null,
         concept_id:      dir.concept_id ?? undefined,
         direction_id:    directionId,
         user_id:         user.id,
