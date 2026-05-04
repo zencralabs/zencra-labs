@@ -79,6 +79,9 @@ interface SceneCanvasProps {
   onDropAsset?:              (assetId: string, role: DirectionElementType) => void;
   onAutoGenerate?:           (prompt: string, modelKey: string, aspectRatio: string, textNodeInput?: string) => Promise<string | null>;
   onFrameSelect?:            (frameId: string | null) => void;
+  // Phase 4.2 — Director Flow
+  onFrameRegenerate?:        (frameId: string) => void;
+  onFrameDownload?:          (frameId: string) => void;
 }
 
 // Pending asset drop awaiting role selection
@@ -174,7 +177,7 @@ function resolvePromptForFrame(
     .join(", ");
 }
 
-export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect }: SceneCanvasProps) {
+export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect, onFrameRegenerate, onFrameDownload }: SceneCanvasProps) {
   const elements        = useDirectionStore(selectElements);
   const canvasTransform = useDirectionStore(selectCanvasTransform);
   const setCanvasTransform = useDirectionStore((s) => s.setCanvasTransform);
@@ -976,6 +979,8 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
               if (pos) patch.position = pos;
               updateFrame(id, patch);
             }}
+            onRegenerate={onFrameRegenerate ? () => onFrameRegenerate(frame.id) : undefined}
+            onDownload={onFrameDownload ? () => onFrameDownload(frame.id) : undefined}
           />
         ))}
 

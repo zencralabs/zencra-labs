@@ -86,6 +86,13 @@ interface PromptDockProps {
   isMinimized?:       boolean;
   /** Fired when the dock's internal minimize button is clicked */
   onMinimizedChange?: (minimized: boolean) => void;
+  /**
+   * Phase 4.2 — Director Flow.
+   * When true (a filled frame is selected), the Generate CTA changes label
+   * to "Update Scene" to signal that generation will overwrite the existing result.
+   * The underlying onGenerate logic is identical.
+   */
+  selectedFrameIsFilled?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,7 +131,7 @@ function buildRefinedPrompt(
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, onMinimizedChange }: PromptDockProps) {
+export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, onMinimizedChange, selectedFrameIsFilled }: PromptDockProps) {
   const {
     isGenerating,
     mode,
@@ -838,7 +845,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                           </svg>
                         )
                       }
-                      Generate
+                      {selectedFrameIsFilled ? "Update Scene" : "Generate"}
                       <span style={{
                         fontSize:   9,
                         color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)",

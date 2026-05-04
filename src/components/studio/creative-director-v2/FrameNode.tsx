@@ -78,6 +78,9 @@ export interface FrameNodeProps {
   onDelete:           (id: string) => void;
   onDragEnd:          (id: string, pos: { x: number; y: number }) => void;
   onResize:           (id: string, width: number, pos?: { x: number; y: number }) => void;
+  // Phase 4.2 — Director Flow
+  onRegenerate?:      () => void;                  // Trigger regeneration from this frame's hover overlay
+  onDownload?:        () => void;                  // Download the current generated image
 }
 
 // ─── Corner handle types ───────────────────────────────────────────────────────
@@ -126,6 +129,8 @@ export function FrameNode({
   onDelete,
   onDragEnd,
   onResize,
+  onRegenerate,
+  onDownload,
 }: FrameNodeProps) {
   const [hovered,       setHovered]       = useState(false);
   const [resizeCorner,  setResizeCorner]  = useState<Corner | null>(null);
@@ -555,35 +560,131 @@ export function FrameNode({
                   animation: frameJustFilled ? "cd-ob-frame-reveal 0.5s ease-out both" : "none",
                 }}
               />
-              {/* Action hints — fade in on hover, soft text only (not buttons) */}
+              {/* Action overlay — Phase 4.2: real buttons, fade in on hover */}
               <div
                 style={{
                   position:       "absolute",
                   bottom:         0,
                   left:           0,
                   right:          0,
-                  padding:        "12px 12px 8px",
-                  background:     "linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)",
+                  padding:        "20px 10px 8px",
+                  background:     "linear-gradient(to top, rgba(0,0,0,0.78) 0%, transparent 100%)",
                   display:        "flex",
                   alignItems:     "center",
                   justifyContent: "center",
+                  gap:            6,
                   opacity:        hovered ? 1 : 0,
                   transition:     "opacity 0.2s ease",
-                  pointerEvents:  "none",
+                  pointerEvents:  hovered ? "auto" : "none",
                 }}
               >
-                <span
-                  style={{
-                    fontFamily:    "var(--font-familjen-grotesk), sans-serif",
-                    fontSize:      9,
-                    letterSpacing: "0.1em",
-                    color:         "rgba(255,255,255,0.55)",
-                    userSelect:    "none",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Regenerate · Edit · Download
-                </span>
+                {/* Regenerate button */}
+                {onRegenerate && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onRegenerate(); }}
+                    title="Regenerate"
+                    style={{
+                      display:        "flex",
+                      alignItems:     "center",
+                      gap:            4,
+                      padding:        "4px 9px",
+                      borderRadius:   6,
+                      border:         "1px solid rgba(139,92,246,0.45)",
+                      background:     "rgba(139,92,246,0.18)",
+                      color:          "rgba(255,255,255,0.85)",
+                      cursor:         "pointer",
+                      fontFamily:     "var(--font-familjen-grotesk), sans-serif",
+                      fontSize:       10,
+                      fontWeight:     600,
+                      letterSpacing:  "0.06em",
+                      lineHeight:     1,
+                      backdropFilter: "blur(6px)",
+                      transition:     "background 0.15s ease, border-color 0.15s ease",
+                      userSelect:     "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.32)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.7)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,92,246,0.18)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(139,92,246,0.45)";
+                    }}
+                  >
+                    {/* ↺ icon */}
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M13.5 8A5.5 5.5 0 1 1 8 2.5a5.46 5.46 0 0 1 3.5 1.27"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M11.5 1.5 L14 4 L11.5 4"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Regenerate
+                  </button>
+                )}
+
+                {/* Download button */}
+                {onDownload && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDownload(); }}
+                    title="Download"
+                    style={{
+                      display:        "flex",
+                      alignItems:     "center",
+                      gap:            4,
+                      padding:        "4px 9px",
+                      borderRadius:   6,
+                      border:         "1px solid rgba(255,255,255,0.2)",
+                      background:     "rgba(255,255,255,0.08)",
+                      color:          "rgba(255,255,255,0.65)",
+                      cursor:         "pointer",
+                      fontFamily:     "var(--font-familjen-grotesk), sans-serif",
+                      fontSize:       10,
+                      fontWeight:     600,
+                      letterSpacing:  "0.06em",
+                      lineHeight:     1,
+                      backdropFilter: "blur(6px)",
+                      transition:     "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
+                      userSelect:     "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.15)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.35)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.9)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.2)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)";
+                    }}
+                  >
+                    {/* ↓ icon */}
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M8 2v8M5 7l3 3 3-3"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M3 13h10"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Download
+                  </button>
+                )}
               </div>
             </>
           ) : (

@@ -307,8 +307,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // sceneOverride: direct text from PromptDock textarea, injected as
   // promptSuffix alongside any character direction suffix.
   // textNodeInput is resolved from connected TextNodes on the target frame.
+  // frameIdOverride: used by handleFrameRegenerate to bypass selectedFrameId closure.
   const handleGenerate = useCallback(
-    async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string) => {
+    async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
       const dId = await ensureDirection();
       if (!dId) return;
       if (refinements && Object.keys(refinements).length > 0) {
@@ -321,12 +322,12 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
 
       // ── Resolve TextNode input for the target frame ──────────────────────
-      // Target frame: user-selected frame, else first frame in the store.
+      // Target frame: explicit override > user-selected frame > first frame in store.
       // Only resolves if there are text connections wired to that frame.
       let textNodeInput: string | undefined;
       const { frames: currentFrames, connections, textNodes } = useDirectionStore.getState();
       if (currentFrames.length > 0) {
-        const targetFrameId = selectedFrameId ?? currentFrames[0].id;
+        const targetFrameId = frameIdOverride ?? selectedFrameId ?? currentFrames[0].id;
         const connectedTexts = connections
           .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
           .map((c) => c.type === "text" ? textNodes.find((t) => t.id === c.fromTextId) : null)
@@ -365,6 +366,40 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     },
     [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId]
   );
+
+  // ── Frame Regenerate (Phase 4.2 — Director Flow) ───────────────────────────
+  // Triggered by the hover Regenerate button on a filled FrameNode.
+  // Reads frame AR directly from store state to avoid stale closure on selectedFrameId.
+  const handleFrameRegenerate = useCallback((frameId: string) => {
+    const { frames: storeFrames } = useDirectionStore.getState();
+    const frame = storeFrames.find((f) => f.id === frameId);
+    const ar = frame?.aspectRatio ?? "1:1";
+    // Select this frame first so outputs are associated correctly
+    setSelectedFrameId(frameId);
+    // Pass frameId as override so handleGenerate doesn't use stale selectedFrameId
+    void handleGenerate(1, ar, undefined, undefined, frameId);
+  }, [handleGenerate]);
+
+  // ── Frame Download (Phase 4.2) ─────────────────────────────────────────────
+  const handleFrameDownload = useCallback((frameId: string) => {
+    const { frames: storeFrames } = useDirectionStore.getState();
+    const frame = storeFrames.find((f) => f.id === frameId);
+    const url = frame?.generatedImageUrl;
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `frame-${frameId}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, []);
+
+  // ── Derived — Director Flow state ─────────────────────────────────────────
+  // True when the currently selected frame already has a generated image.
+  // Used by PromptDock to show "Update Scene" instead of "Generate".
+  const selectedFrameIsFilled = selectedFrameId
+    ? !!(frames.find((f) => f.id === selectedFrameId)?.generatedImageUrl)
+    : false;
 
   // ── Refinement change ─────────────────────────────────────────────────────
   const handleRefinementChange = useCallback(
@@ -681,6 +716,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             onDropAsset={(assetId, role) => assignAssetToRole(assetId, role)}
             onAutoGenerate={handleAutoGenerate}
             onFrameSelect={handleFrameSelect}
+            onFrameRegenerate={handleFrameRegenerate}
+            onFrameDownload={handleFrameDownload}
           />
 
           {/* AI Assist bar — fades with dock so it never hangs in canvas alone */}
@@ -778,6 +815,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
               defaultAr={selectedFrameAr}
               isMinimized={dockMinimized}
               onMinimizedChange={(m) => setDockMinimized(m)}
+              selectedFrameIsFilled={selectedFrameIsFilled}
             />
           </div>
         </div>
