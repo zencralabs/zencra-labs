@@ -570,7 +570,7 @@ export function FrameNode({
                   userSelect:    "none",
                 }}
               >
-                Rendering…
+                Generating…
               </span>
             </div>
           ) : filled ? (

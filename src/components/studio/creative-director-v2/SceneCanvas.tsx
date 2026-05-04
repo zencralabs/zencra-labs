@@ -61,6 +61,7 @@ import {
   selectFrames,
   selectConnections,
   selectTextNodes,
+  selectIsGenerating,
 } from "@/lib/creative-director/store";
 import type { FrameAspectRatio, GenerationFrame, CanvasTextNode, TextNodeFontSize, NodeConnection } from "@/lib/creative-director/store";
 import { TextNode, TEXT_NODE_DEFAULT_WIDTH } from "./TextNode";
@@ -212,6 +213,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const addTextNode_    = useDirectionStore((s) => s.addTextNode);
   const removeTextNode_ = useDirectionStore((s) => s.removeTextNode);
   const updateTextNode_ = useDirectionStore((s) => s.updateTextNode);
+
+  // P3 — Generate UX: read global generating flag to show shimmer on target frame
+  const storeIsGenerating = useDirectionStore(selectIsGenerating);
 
   const canvasRef       = useRef<HTMLDivElement>(null);
   const panStartRef     = useRef<{
@@ -1002,7 +1006,11 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
 
         {/* Generation Frame nodes — input handle is rendered inside FrameNode
             so it stays attached during header-drag (which bypasses the store). */}
-        {frames.map((frame) => (
+        {frames.map((frame) => {
+          // P3 — the target frame is the selected frame, falling back to the first frame.
+          // Mirror CDv2Shell handleGenerate: targetFrameId = selectedFrameId ?? frames[0].id
+          const isTargetFrame = frame.id === (selectedFrameId ?? frames[0]?.id);
+          return (
           <FrameNode
             key={frame.id}
             frame={frame}
@@ -1010,6 +1018,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             scale={canvasTransform.scale}
             isSpring={springFrames.has(frame.id)}
             pendingConnActive={!!pendingConn}
+            isGenerating={storeIsGenerating && isTargetFrame}
             onSelect={(id) => { setSelectedFrameId(id); onFrameSelect?.(id); }}
             onDelete={removeFrame}
             onDragMove={handleFrameDragMove}
@@ -1031,7 +1040,8 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             onRegenerate={onFrameRegenerate ? () => onFrameRegenerate(frame.id) : undefined}
             onDownload={onFrameDownload ? () => onFrameDownload(frame.id) : undefined}
           />
-        ))}
+          );
+        })}
 
         {/* ── Text nodes — floating canvas annotations ──────────────── */}
         {textNodes.map((tn: CanvasTextNode) => {
@@ -1089,9 +1099,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   }
                 }}
               />
-              {/* TextNode LEFT input handle — visual affordance for future connections. */}
+              {/* TextNode LEFT input handle — active connector, future-ready for incoming wires. */}
               <div
-                title="Input connector"
+                title="Input connector (incoming connections — coming soon)"
                 style={{
                   position:     "absolute",
                   left:         tn.x - 6,
@@ -1099,13 +1109,22 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   width:        12,
                   height:       12,
                   borderRadius: "50%",
-                  background:   "rgba(120,140,200,0.25)",
-                  border:       "1.5px solid rgba(120,140,200,0.45)",
-                  cursor:       "default",
+                  background:   "rgba(120,140,200,0.30)",
+                  border:       "1.5px solid rgba(120,140,200,0.55)",
+                  cursor:       "crosshair",
                   zIndex:       25,
-                  pointerEvents: "none",
-                  transition:   "background 0.15s ease",
-                  boxShadow:    "0 0 4px rgba(120,140,200,0.15)",
+                  transition:   "background 0.15s ease, transform 0.15s ease",
+                  boxShadow:    "0 0 5px rgba(120,140,200,0.20)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background  = "rgba(120,140,200,0.80)";
+                  e.currentTarget.style.transform   = "scale(1.3)";
+                  e.currentTarget.style.boxShadow   = "0 0 8px rgba(120,140,200,0.50)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background  = "rgba(120,140,200,0.30)";
+                  e.currentTarget.style.transform   = "scale(1)";
+                  e.currentTarget.style.boxShadow   = "0 0 5px rgba(120,140,200,0.20)";
                 }}
               />
 

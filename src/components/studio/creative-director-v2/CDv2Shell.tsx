@@ -27,7 +27,7 @@
  *   A `mounted` flag guards against SSR (document.body is client-only).
  */
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal }                              from "react-dom";
 import { useAuth }                                   from "@/components/auth/AuthContext";
 import { supabase }                                  from "@/lib/supabase";
@@ -35,6 +35,8 @@ import {
   useDirectionStore,
   buildCharacterDirectionSuffix,
   CD_MODELS,
+  selectConnections,
+  selectTextNodes,
 }                                                    from "@/lib/creative-director/store";
 import type {
   UploadedAsset,
@@ -246,6 +248,42 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // justRestored: set true when we hydrate from storage so the flush-on-
   // direction-created effect doesn't immediately re-write unchanged state.
   const justRestored    = useRef(false);
+
+  // P4 — Live prompt preview: read TextNodes + connections reactively.
+  // These selectors re-render CDv2Shell only when these slices change.
+  const liveTextNodes   = useDirectionStore(selectTextNodes);
+  const liveConnections = useDirectionStore(selectConnections);
+
+  /**
+   * livePromptPreview — what will be sent to the model when Generate is clicked.
+   * Shows: scene node labels → TextNode text → merged string.
+   * Empty when there are no scene elements and no connected TextNodes.
+   */
+  const livePromptPreview = useMemo(() => {
+    // Scene node labels (subject, world, atmosphere, object)
+    const sceneLabels = elements
+      .map((el) => el.label?.trim())
+      .filter((l): l is string => !!l && l.length > 0)
+      .join(", ");
+
+    // TextNode text wired to the target frame
+    const targetFrameId = selectedFrameId ?? frames[0]?.id ?? null;
+    const textParts: string[] = [];
+    if (targetFrameId) {
+      liveConnections
+        .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
+        .forEach((c) => {
+          if (c.type !== "text") return;
+          const tn = liveTextNodes.find((t) => t.id === c.fromTextId);
+          if (tn && tn.text.trim().length > 0) {
+            textParts.push(tn.text.trim().replace(/[.]+$/, ""));
+          }
+        });
+    }
+
+    const parts = [sceneLabels, ...textParts].filter(Boolean);
+    return parts.join(" + ");
+  }, [elements, frames, selectedFrameId, liveTextNodes, liveConnections]);
 
   // Derive AR from selected frame (one-way: canvas selection → dock)
   const selectedFrameAr = selectedFrameId
@@ -1083,6 +1121,54 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
             {/* Director handle */}
             <DirectorHandle open={directorPanelOpen} onToggle={toggleDirectorPanel} />
+
+            {/* P4 — Live prompt preview strip */}
+            {livePromptPreview && (
+              <div
+                style={{
+                  padding:        "5px 14px",
+                  background:     "rgba(10,9,18,0.72)",
+                  borderTop:      "1px solid rgba(120,160,255,0.08)",
+                  display:        "flex",
+                  alignItems:     "center",
+                  gap:            6,
+                  overflow:       "hidden",
+                  backdropFilter: "blur(8px)",
+                  flexShrink:     0,
+                }}
+              >
+                {/* Icon */}
+                <span
+                  style={{
+                    fontFamily:    "var(--font-syne), sans-serif",
+                    fontSize:       8,
+                    fontWeight:     600,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color:          "rgba(139,92,246,0.55)",
+                    flexShrink:     0,
+                  }}
+                >
+                  ✦ PROMPT
+                </span>
+                <span
+                  style={{
+                    fontFamily:    "var(--font-familjen-grotesk), sans-serif",
+                    fontSize:       10,
+                    fontWeight:     400,
+                    color:          "rgba(174,183,208,0.65)",
+                    whiteSpace:     "nowrap",
+                    overflow:       "hidden",
+                    textOverflow:   "ellipsis",
+                    flex:           1,
+                    lineHeight:     1.3,
+                  }}
+                  title={livePromptPreview}
+                >
+                  {livePromptPreview}
+                </span>
+              </div>
+            )}
 
             {/* Prompt dock */}
             <PromptDock
