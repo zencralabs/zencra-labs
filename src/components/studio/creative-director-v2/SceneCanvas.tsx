@@ -1160,7 +1160,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                 background:    active ? "rgba(139,92,246,0.2)"  : "transparent",
                 border:        `1px solid ${active ? "rgba(139,92,246,0.4)" : "transparent"}`,
                 borderRadius:  7,
-                color:         active ? "rgba(139,92,246,1)" : "rgba(255,255,255,0.35)",
+                color:         active ? "rgba(139,92,246,1)" : "#AEB7D0",
                 fontSize:      10,
                 fontFamily:    "var(--font-sans)",
                 fontWeight:    active ? 700 : 400,
@@ -1184,7 +1184,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             background:   "transparent",
             border:       "1px solid transparent",
             borderRadius: 7,
-            color:        "rgba(255,255,255,0.45)",
+            color:        "#AEB7D0",
             cursor:       "pointer",
             padding:      "4px 6px",
             display:      "flex",
@@ -1199,7 +1199,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background  = "transparent";
-            e.currentTarget.style.color       = "rgba(255,255,255,0.45)";
+            e.currentTarget.style.color       = "#AEB7D0";
             e.currentTarget.style.borderColor = "transparent";
           }}
         >
@@ -1225,7 +1225,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             background:    showOnboarding ? "rgba(139,92,246,0.10)" : "transparent",
             border:        showOnboarding ? "1px solid rgba(139,92,246,0.48)" : "1px solid transparent",
             borderRadius:  7,
-            color:         showOnboarding ? "rgba(139,92,246,0.88)" : "rgba(255,255,255,0.35)",
+            color:         showOnboarding ? "rgba(139,92,246,0.88)" : "#AEB7D0",
             fontSize:      10,
             cursor:        "pointer",
             padding:       "3px 9px",
@@ -1241,7 +1241,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background  = showOnboarding ? "rgba(139,92,246,0.10)" : "transparent";
-            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.88)" : "rgba(255,255,255,0.35)";
+            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.88)" : "#AEB7D0";
             e.currentTarget.style.borderColor = showOnboarding ? "rgba(139,92,246,0.48)" : "transparent";
           }}
         >
@@ -1261,7 +1261,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             background:    "transparent",
             border:        "1px solid transparent",
             borderRadius:  7,
-            color:         showOnboarding ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.30)",
+            color:         showOnboarding ? "rgba(139,92,246,0.85)" : "#AEB7D0",
             fontSize:      10,
             cursor:        "pointer",
             padding:       "3px 8px",
@@ -1276,7 +1276,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background  = "transparent";
-            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.30)";
+            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.85)" : "#AEB7D0";
             e.currentTarget.style.borderColor = "transparent";
           }}
         >
@@ -1295,7 +1295,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             zIndex:        15,
             fontSize:      9,
             fontFamily:    "var(--font-sans)",
-            color:         "rgba(255,255,255,0.18)",
+            color:         "#AEB7D0",
             letterSpacing: "0.06em",
             pointerEvents: "none",
             userSelect:    "none",
@@ -1481,13 +1481,13 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
               cursor:        "pointer",
               fontFamily:    "var(--font-familjen-grotesk), sans-serif",
               fontSize:      10,
-              color:         "rgba(255,255,255,0.22)",
+              color:         "#AEB7D0",
               letterSpacing: "0.04em",
               lineHeight:    1,
               transition:    "color 0.15s ease",
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.50)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#AEB7D0"; }}
           >
             skip
           </button>
@@ -1531,7 +1531,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                 Reset canvas view?
               </span>
             </div>
-            <p style={{ fontFamily: "var(--font-familjen-grotesk), sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontFamily: "var(--font-familjen-grotesk), sans-serif", fontSize: 12, color: "#AEB7D0", margin: 0, lineHeight: 1.5 }}>
               Pan and zoom will return to default. Your nodes and connections are not affected.
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -1637,7 +1637,7 @@ function AssetRolePicker({ x, y, asset, onSelect, onClose }: {
 
         <p style={{
           fontSize:      9,
-          color:         "rgba(255,255,255,0.25)",
+          color:         "#AEB7D0",
           fontFamily:    "var(--font-sans)",
           margin:        "2px 8px 6px",
           textTransform: "uppercase",
@@ -1730,7 +1730,7 @@ function QuickAddPicker({ x, y, onSelect, onAddText, onClose }: {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "var(--font-sans)", margin: "2px 8px 6px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <p style={{ fontSize: 9, color: "#AEB7D0", fontFamily: "var(--font-sans)", margin: "2px 8px 6px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
           Add element
         </p>
         {ROLES.map((r) => (
@@ -1848,7 +1848,7 @@ function CDContextMenu({ x, y, onClose, onAddElement, onAddFrame, onAddText, onT
           animation:      "cd-slide-up 0.18s ease",
         }}
       >
-        <p style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", fontFamily: "var(--font-sans)", margin: "4px 10px 6px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+        <p style={{ fontSize: 9, color: "#AEB7D0", fontFamily: "var(--font-sans)", margin: "4px 10px 6px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Add to scene
         </p>
         {ROLES.map((r) => (
@@ -1991,7 +1991,7 @@ function FrameAspectRatioPicker({ x, y, onSelect, onClose }: {
       >
         <p style={{
           fontSize:      9,
-          color:         "rgba(255,255,255,0.25)",
+          color:         "#AEB7D0",
           fontFamily:    "var(--font-sans)",
           margin:        "2px 8px 6px",
           textTransform: "uppercase",
@@ -2061,7 +2061,7 @@ function FrameARChoice({ ratio, label, w, h, onSelect }: {
           fontSize:      8,
           fontFamily:    "var(--font-sans)",
           letterSpacing: "0.06em",
-          color:         hov ? "rgba(139,92,246,0.8)" : "rgba(255,255,255,0.3)",
+          color:         hov ? "rgba(139,92,246,0.8)" : "#AEB7D0",
           lineHeight:    1,
           transition:    "color 0.15s ease",
           textTransform: "uppercase",

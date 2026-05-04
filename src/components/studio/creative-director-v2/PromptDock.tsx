@@ -339,7 +339,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
           <div style={{
             fontSize:      11,
             fontFamily:    "var(--font-sans)",
-            color:         "rgba(255,255,255,0.5)",
+            color:         "#AEB7D0",
             letterSpacing: "0.07em",
             textTransform: "uppercase",
             marginBottom:  10,
@@ -349,7 +349,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
           <p style={{
             fontSize:   14,
             fontFamily: "var(--font-sans)",
-            color:      "#B8C0D4",
+            color:      "#E6EBFF",
             lineHeight: 1.6,
             margin:     "0 0 12px",
             wordBreak:  "break-word",
@@ -359,13 +359,13 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
             <button
               onClick={() => setRefineOpen(false)}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#B8C0D4"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#E6EBFF"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#AEB7D0"; }}
               style={{
                 background:    "transparent",
                 border:        "1px solid rgba(255,255,255,0.1)",
                 borderRadius:  8,
-                color:         "rgba(255,255,255,0.35)",
+                color:         "#AEB7D0",
                 fontSize:      12,
                 fontFamily:    "var(--font-sans)",
                 padding:       "5px 14px",
@@ -435,7 +435,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
           <span style={{
             fontSize:      10,
             fontFamily:    "var(--font-sans)",
-            color:         hideHovered ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.28)",
+            color:         hideHovered ? "#E6EBFF" : "#AEB7D0",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             transition:    "color 0.2s ease",
@@ -494,7 +494,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                     background:    quality === key ? "rgba(255,255,255,0.1)" : "transparent",
                     border:        `1px solid ${quality === key ? "rgba(255,255,255,0.18)" : "transparent"}`,
                     borderRadius:  6,
-                    color:         quality === key ? "#E8ECF5" : "rgba(255,255,255,0.35)",
+                    color:         quality === key ? "#E8ECF5" : "#AEB7D0",
                     fontSize:      11,
                     fontFamily:    "var(--font-sans)",
                     fontWeight:    quality === key ? 700 : 400,
@@ -520,14 +520,14 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                   e.currentTarget.style.borderColor  = "rgba(255,255,255,0.18)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color        = "rgba(255,255,255,0.25)";
+                  e.currentTarget.style.color        = "#AEB7D0";
                   e.currentTarget.style.borderColor  = "rgba(255,255,255,0.08)";
                 }}
                 style={{
                   background:    "transparent",
                   border:        "1px solid rgba(255,255,255,0.08)",
                   borderRadius:  6,
-                  color:         "rgba(255,255,255,0.25)",
+                  color:         "#AEB7D0",
                   fontSize:      12,
                   fontFamily:    "var(--font-sans)",
                   cursor:        "pointer",
@@ -680,7 +680,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                         background:    ar === ratio ? "rgba(255,255,255,0.09)" : "transparent",
                         border:        "none",
                         borderRadius:  6,
-                        color:         ar === ratio ? "#E8ECF5" : "rgba(255,255,255,0.32)",
+                        color:         ar === ratio ? "#E8ECF5" : "#AEB7D0",
                         fontSize:      12,
                         fontFamily:    "var(--font-sans)",
                         fontWeight:    ar === ratio ? 600 : 400,
@@ -785,7 +785,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                     borderRadius:  10,
                     color:         refineHover
                       ? "rgba(139,92,246,0.95)"
-                      : "#9AA3B2",
+                      : "#AEB7D0",
                     fontSize:      13,
                     fontFamily:    "var(--font-sans)",
                     cursor:        "pointer",
@@ -1068,7 +1068,7 @@ function ModelGroupSelector({
                     borderRadius: 7,
                     color:        isActive
                       ? "rgba(139,92,246,1)"
-                      : isDisabled ? "rgba(255,255,255,0.22)" : "#B8C0D4",
+                      : isDisabled ? "rgba(255,255,255,0.22)" : "#E6EBFF",
                     fontSize:    13,
                     fontFamily:  "var(--font-sans)",
                     fontWeight:  isActive ? 600 : 400,
@@ -1100,7 +1100,7 @@ function ModelGroupSelector({
                       border:        "1px solid rgba(255,255,255,0.11)",
                       borderRadius:  4,
                       padding:       "1px 5px",
-                      color:         "rgba(255,255,255,0.28)",
+                      color:         "#AEB7D0",
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       marginLeft:    "auto",

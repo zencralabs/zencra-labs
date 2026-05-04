@@ -279,7 +279,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{
               fontSize:   13,
-              color:      "#B8C0D4",
+              color:      "#E6EBFF",
               fontFamily: "var(--font-sans)",
               margin:     0,
               fontWeight: 600,
@@ -288,7 +288,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
             </p>
             <p style={{
               fontSize:   11,
-              color:      "#9AA3B2",
+              color:      "#AEB7D0",
               fontFamily: "var(--font-sans)",
               margin:     "3px 0 0",
               lineHeight: 1.4,
@@ -312,7 +312,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
         style={{
           background:    "none",
           border:        "none",
-          color:         "#9AA3B2",
+          color:         "#AEB7D0",
           fontSize:      13,
           fontFamily:    "var(--font-sans)",
           fontWeight:    600,
@@ -326,8 +326,8 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
           textTransform: "uppercase",
           transition:    "color 0.15s",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "#E8ECF5")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "#9AA3B2")}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#E6EBFF")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "#AEB7D0")}
       >
         <span style={{ fontSize: 8, opacity: 0.6 }}>{advancedOpen ? "▾" : "▸"}</span>
         Advanced
@@ -338,7 +338,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
           <label style={{
             display:       "block",
             fontSize:      10,
-            color:         "rgba(255,255,255,0.4)",
+            color:         "#AEB7D0",
             fontFamily:    "var(--font-sans)",
             marginBottom:  8,
             letterSpacing: "0.05em",
@@ -358,7 +358,7 @@ export function LeftPanel({ onAddElement, onEnsureDirection, isCollapsed }: Left
             display:        "flex",
             justifyContent: "space-between",
             fontSize:       9,
-            color:          "rgba(255,255,255,0.2)",
+            color:          "#AEB7D0",
             fontFamily:     "var(--font-sans)",
           }}>
             <span>Minimal</span>
@@ -500,7 +500,7 @@ function Section({ label, symbol, children }: { label: string; symbol: string; c
         <span style={{ fontSize: 12, color: "rgba(139,92,246,0.75)", lineHeight: 1 }}>{symbol}</span>
         <p style={{
           fontSize:      13,
-          color:         "#9AA3B2",
+          color:         "#AEB7D0",
           fontFamily:    "var(--font-sans)",
           fontWeight:    600,
           margin:        0,
@@ -570,7 +570,7 @@ function RoleButton({
         borderRadius: 10,
         padding:      "10px 14px",
         cursor:       "pointer",
-        color:        active ? "#E8ECF5" : hov ? "#B8C0D4" : "#9AA3B2",
+        color:        active ? "#E8ECF5" : hov ? "#E6EBFF" : "#AEB7D0",
         fontSize:     13,
         fontFamily:   "var(--font-sans)",
         transition:   "all 0.15s ease",
@@ -598,7 +598,7 @@ function MoodChip({ label, active, onClick }: { label: string; active: boolean; 
         background:    active ? "rgba(139,92,246,0.14)" : hov ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)",
         border:        `1px solid ${active ? "rgba(139,92,246,0.45)" : hov ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.07)"}`,
         borderRadius:  100,
-        color:         active ? "rgba(139,92,246,1)" : hov ? "#B8C0D4" : "#9AA3B2",
+        color:         active ? "rgba(139,92,246,1)" : hov ? "#E6EBFF" : "#AEB7D0",
         fontSize:      13,
         fontFamily:    "var(--font-sans)",
         padding:       "6px 14px",
