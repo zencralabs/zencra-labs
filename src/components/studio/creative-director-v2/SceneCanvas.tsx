@@ -947,6 +947,41 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         >
           + Frame
         </button>
+        {/* Separator */}
+        <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)", margin: "0 3px" }} />
+        {/* Guide — replay onboarding */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            try { sessionStorage.removeItem("cd_onboarding_seen"); } catch { /* silent */ }
+            setShowOnboarding(true);
+          }}
+          title="Start Creative Director guide"
+          style={{
+            background:    "transparent",
+            border:        "1px solid transparent",
+            borderRadius:  7,
+            color:         showOnboarding ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.30)",
+            fontSize:      10,
+            cursor:        "pointer",
+            padding:       "3px 8px",
+            letterSpacing: "0.02em",
+            fontFamily:    "var(--font-sans)",
+            transition:    "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background  = "rgba(255,255,255,0.05)";
+            e.currentTarget.style.color       = "rgba(255,255,255,0.65)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background  = "transparent";
+            e.currentTarget.style.color       = showOnboarding ? "rgba(139,92,246,0.85)" : "rgba(255,255,255,0.30)";
+            e.currentTarget.style.borderColor = "transparent";
+          }}
+        >
+          ?
+        </button>
       </div>
 
       {/* ── Pan cursor hint (bottom-left) ─────────────────────────────── */}
