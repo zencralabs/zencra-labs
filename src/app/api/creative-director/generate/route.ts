@@ -89,6 +89,7 @@ export async function POST(req: Request): Promise<Response> {
     providerOverride,
     modelOverride,
     promptSuffix,
+    textNodeInput,
     idempotencyKey,
     session_id,
   } = body as Record<string, unknown>;
@@ -193,7 +194,10 @@ export async function POST(req: Request): Promise<Response> {
     .eq("id", directionId);
 
   // ── Build enriched prompt ─────────────────────────────────────────────────
-  const basePrompt   = buildDirectionPrompt(dir, refinements, elements, mode);
+  // textNodeInput (if provided) leads the prompt as the primary creative vision.
+  // promptSuffix appends character direction / other caller suffixes after.
+  const textInput    = typeof textNodeInput === "string" && textNodeInput.trim() ? textNodeInput.trim() : undefined;
+  const basePrompt   = buildDirectionPrompt(dir, refinements, elements, mode, textInput);
   const suffix       = typeof promptSuffix === "string" && promptSuffix.trim() ? `, ${promptSuffix.trim()}` : "";
   const promptString = `${basePrompt}${suffix}`;
 

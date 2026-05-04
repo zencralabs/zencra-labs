@@ -62,8 +62,8 @@ import {
   selectConnections,
   selectTextNodes,
 } from "@/lib/creative-director/store";
-import type { FrameAspectRatio, GenerationFrame, CanvasTextNode, TextNodeFontSize } from "@/lib/creative-director/store";
-import { TextNode } from "./TextNode";
+import type { FrameAspectRatio, GenerationFrame, CanvasTextNode, TextNodeFontSize, NodeConnection } from "@/lib/creative-director/store";
+import { TextNode, TEXT_NODE_DEFAULT_WIDTH } from "./TextNode";
 import { SceneNode, SCENE_NODE_CARD_WIDTH, SCENE_NODE_HANDLE_Y_OFFSET } from "./SceneNode";
 import { FrameNode, FRAME_HEADER_HEIGHT, FRAME_RATIO_VALUES, DEFAULT_FRAME_WIDTH } from "./FrameNode";
 import type { DirectionElementType } from "@/lib/creative-director/types";
@@ -77,7 +77,7 @@ interface SceneCanvasProps {
   onToggleDirectorControls?: () => void;
   directorPanelOpen?:        boolean;
   onDropAsset?:              (assetId: string, role: DirectionElementType) => void;
-  onAutoGenerate?:           (prompt: string, modelKey: string, aspectRatio: string) => Promise<string | null>;
+  onAutoGenerate?:           (prompt: string, modelKey: string, aspectRatio: string, textNodeInput?: string) => Promise<string | null>;
   onFrameSelect?:            (frameId: string | null) => void;
 }
 
@@ -151,6 +151,28 @@ function getMagneticPosition(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// resolvePromptForFrame — pure helper, no side effects.
+// Returns the combined text from all TextNodes wired to the given frame.
+// Multiple TextNodes are joined with ", " after trailing punctuation cleanup.
+// Returns undefined when no TextNodes are wired or all have empty/whitespace text.
+// ─────────────────────────────────────────────────────────────────────────────
+function resolvePromptForFrame(
+  frameId:     string,
+  connections: NodeConnection[],
+  textNodes:   CanvasTextNode[],
+): string | undefined {
+  const connected = connections
+    .filter((c): c is Extract<NodeConnection, { type: "text" }> =>
+      c.type === "text" && c.toFrameId === frameId
+    )
+    .map((c) => textNodes.find((t) => t.id === c.fromTextId))
+    .filter((t): t is CanvasTextNode => !!t && t.text.trim().length > 0);
+  if (connected.length === 0) return undefined;
+  return connected
+    .map((t) => t.text.trim().replace(/[.]+$/, ""))
+    .filter(Boolean)
+    .join(", ");
+}
 
 export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPanelOpen, onDropAsset, onAutoGenerate, onFrameSelect }: SceneCanvasProps) {
   const elements        = useDirectionStore(selectElements);
@@ -196,9 +218,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const [showResetConfirm,  setShowResetConfirm]  = useState(false);
   const [framePickerPos,    setFramePickerPos]    = useState<{ x: number; y: number } | null>(null);
   const [springFrames,    setSpringFrames]   = useState<Set<string>>(new Set());
-  // Text nodes — selection + edit mode
+  // Text nodes — selection + edit mode + DOM heights (for handle positioning)
   const [selectedTextId,  setSelectedTextId]  = useState<string | null>(null);
   const [editingTextId,   setEditingTextId]   = useState<string | null>(null);
+  // textNodeHeights: actual DOM height reported by each TextNode via ResizeObserver.
+  // Used to place the output handle at true vertical center of the node.
+  const [textNodeHeights, setTextNodeHeights] = useState<Record<string, number>>({});
 
   // (Onboarding phase 2/3 automation removed — overlay is now a simple welcome card)
 
@@ -224,14 +249,16 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   });
 
   // ── Phase C.1 — pending connection drag + hover-delete ───────────────────
-  const [pendingConn, setPendingConn] = useState<{
-    fromNodeId: string;
-    cursorPos:  CanvasPosition;
-  } | null>(null);
+  // Discriminated union: "scene" = dragging from a SceneNode, "text" = from a TextNode.
+  type PendingConn =
+    | { type: "scene"; fromNodeId: string; cursorPos: CanvasPosition }
+    | { type: "text";  fromTextId: string; cursorPos: CanvasPosition };
+
+  const [pendingConn, setPendingConn] = useState<PendingConn | null>(null);
   const [hoveredConnId, setHoveredConnId] = useState<string | null>(null);
 
   // Ref so the global mouse handlers (stable closure) can access latest state
-  const pendingConnRef = useRef<typeof pendingConn>(null);
+  const pendingConnRef = useRef<PendingConn | null>(null);
 
   // Sync ref every render so handlers always see the latest pendingConn
   pendingConnRef.current = pendingConn;
@@ -359,13 +386,16 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         if (rect) {
           const ct = useDirectionStore.getState().canvasTransform;
           const s  = ct.scale / 100;
-          setPendingConn({
-            fromNodeId: pendingConnRef.current.fromNodeId,
-            cursorPos: {
-              x: (e.clientX - rect.left - ct.x) / s,
-              y: (e.clientY - rect.top  - ct.y) / s,
-            },
-          });
+          const cursorPos = {
+            x: (e.clientX - rect.left - ct.x) / s,
+            y: (e.clientY - rect.top  - ct.y) / s,
+          };
+          const pc = pendingConnRef.current;
+          if (pc.type === "scene") {
+            setPendingConn({ type: "scene", fromNodeId: pc.fromNodeId, cursorPos });
+          } else {
+            setPendingConn({ type: "text",  fromTextId: pc.fromTextId, cursorPos });
+          }
         }
         return; // don't pan while dragging a connection
       }
@@ -388,15 +418,26 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           const curX  = (e.clientX - rect.left - ct.x) / s;
           const curY  = (e.clientY - rect.top  - ct.y) / s;
           const { frames: currentFrames } = useDirectionStore.getState();
+          const pc = pendingConnRef.current;
           for (const frame of currentFrames) {
             const hp   = getFrameInputHandle(frame);
             const dist = Math.sqrt((curX - hp.x) ** 2 + (curY - hp.y) ** 2);
             if (dist < 28) {
-              useDirectionStore.getState().addConnection({
-                id:         `conn-${Date.now()}`,
-                fromNodeId: pendingConnRef.current.fromNodeId,
-                toFrameId:  frame.id,
-              });
+              if (pc.type === "scene") {
+                useDirectionStore.getState().addConnection({
+                  id:         `conn-${Date.now()}`,
+                  type:       "scene",
+                  fromNodeId: pc.fromNodeId,
+                  toFrameId:  frame.id,
+                });
+              } else {
+                useDirectionStore.getState().addConnection({
+                  id:         `conn-${Date.now()}`,
+                  type:       "text",
+                  fromTextId: pc.fromTextId,
+                  toFrameId:  frame.id,
+                });
+              }
               break;
             }
           }
@@ -444,7 +485,28 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
       const ct   = useDirectionStore.getState().canvasTransform;
       const s    = ct.scale / 100;
       setPendingConn({
+        type:      "scene",
         fromNodeId: nodeId,
+        cursorPos: {
+          x: (e.clientX - rect.left - ct.x) / s,
+          y: (e.clientY - rect.top  - ct.y) / s,
+        },
+      });
+    },
+    [],
+  );
+
+  // ── Start a text-node-to-frame connection drag ───────────────────────────
+  const handleTextOutputHandleMouseDown = useCallback(
+    (e: React.MouseEvent, textId: string) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const ct   = useDirectionStore.getState().canvasTransform;
+      const s    = ct.scale / 100;
+      setPendingConn({
+        type:      "text",
+        fromTextId: textId,
         cursorPos: {
           x: (e.clientX - rect.left - ct.x) / s,
           y: (e.clientY - rect.top  - ct.y) / s,
@@ -689,17 +751,30 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             </linearGradient>
           </defs>
 
-          {/* ── Layer 1: node → frame committed connections ───────────────── */}
+          {/* ── Layer 1: node/text → frame committed connections ─────────── */}
           {nodeConnections.map((conn) => {
-            const nodeIdx = elements.findIndex((e) => e.id === conn.fromNodeId);
-            const frame   = frames.find((f) => f.id === conn.toFrameId);
-            if (nodeIdx < 0 || !frame) return null;
-            const nodePos   = getPosition(conn.fromNodeId, nodeIdx);
-            const from      = getNodeOutputHandle(nodePos);
+            // Resolve "from" position — scene nodes vs TextNodes differ
+            let from: CanvasPosition;
+            if (conn.type === "scene") {
+              const nodeIdx = elements.findIndex((e) => e.id === conn.fromNodeId);
+              if (nodeIdx < 0) return null;
+              from = getNodeOutputHandle(getPosition(conn.fromNodeId, nodeIdx));
+            } else {
+              // type === "text"
+              const tn = textNodes.find((t) => t.id === conn.fromTextId);
+              if (!tn) return null;
+              const tnH = textNodeHeights[tn.id] ?? 90;
+              from = { x: tn.x + TEXT_NODE_DEFAULT_WIDTH, y: tn.y + tnH / 2 };
+            }
+
+            const frame = frames.find((f) => f.id === conn.toFrameId);
+            if (!frame) return null;
+
             const to        = getFrameInputHandle(frame);
             const offset    = Math.abs(to.x - from.x) * 0.45 + 30;
             const d         = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
             const isHovered = hoveredConnId === conn.id;
+            const isText    = conn.type === "text";
             // Midpoint for hover × delete
             const mx = (from.x + to.x) / 2;
             const my = (from.y + to.y) / 2;
@@ -715,25 +790,34 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   d={d}
                   fill="none"
                   stroke="transparent"
-                  strokeWidth={16}
+                  strokeWidth={isText ? 20 : 16}
                   style={{ pointerEvents: "stroke", cursor: "pointer" }}
                 />
                 {/* Glow */}
                 <path
                   d={d}
                   fill="none"
-                  stroke={isHovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.06)"}
+                  stroke={
+                    isText
+                      ? (isHovered ? "rgba(180,160,255,0.28)" : "rgba(180,160,255,0.10)")
+                      : (isHovered ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.06)")
+                  }
                   strokeWidth={4}
                   strokeLinecap="round"
                   style={{ transition: "stroke 0.15s ease" }}
                 />
-                {/* Main white line */}
+                {/* Main line — purple + dashed for text, white for scene */}
                 <path
                   d={d}
                   fill="none"
-                  stroke={isHovered ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.55)"}
+                  stroke={
+                    isText
+                      ? (isHovered ? "rgba(180,160,255,0.95)" : "rgba(180,160,255,0.72)")
+                      : (isHovered ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.55)")
+                  }
                   strokeWidth={1.5}
                   strokeLinecap="round"
+                  strokeDasharray={isText ? "5 3" : undefined}
                   style={{ transition: "stroke 0.15s ease" }}
                 />
                 {/* Hover × delete midpoint — foreignObject so we can use a real button */}
@@ -756,8 +840,8 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                         height:       18,
                         borderRadius: "50%",
                         background:   "rgba(20,16,32,0.95)",
-                        border:       "1px solid rgba(255,255,255,0.3)",
-                        color:        "rgba(255,255,255,0.85)",
+                        border:       `1px solid ${isText ? "rgba(180,160,255,0.4)" : "rgba(255,255,255,0.3)"}`,
+                        color:        isText ? "rgba(180,160,255,0.9)" : "rgba(255,255,255,0.85)",
                         fontSize:     9,
                         cursor:       "pointer",
                         display:      "flex",
@@ -779,17 +863,34 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
 
           {/* ── Layer 3: pending connection drag line ─────────────────────── */}
           {pendingConn && (() => {
-            const nodeIdx = elements.findIndex((e) => e.id === pendingConn.fromNodeId);
-            if (nodeIdx < 0) return null;
-            const nodePos = getPosition(pendingConn.fromNodeId, nodeIdx);
-            const from    = getNodeOutputHandle(nodePos);
-            const to      = pendingConn.cursorPos;
-            const offset  = Math.abs(to.x - from.x) * 0.45 + 30;
-            const d       = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
+            let from: CanvasPosition;
+            const isTextPending = pendingConn.type === "text";
+            if (pendingConn.type === "scene") {
+              const nodeIdx = elements.findIndex((e) => e.id === pendingConn.fromNodeId);
+              if (nodeIdx < 0) return null;
+              from = getNodeOutputHandle(getPosition(pendingConn.fromNodeId, nodeIdx));
+            } else {
+              const tn = textNodes.find((t) => t.id === pendingConn.fromTextId);
+              if (!tn) return null;
+              const tnH = textNodeHeights[tn.id] ?? 90;
+              from = { x: tn.x + TEXT_NODE_DEFAULT_WIDTH, y: tn.y + tnH / 2 };
+            }
+            const to     = pendingConn.cursorPos;
+            const offset = Math.abs(to.x - from.x) * 0.45 + 30;
+            const d      = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
             return (
               <g>
-                <path d={d} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={4} strokeLinecap="round" />
-                <path d={d} fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth={1.5} strokeLinecap="round" strokeDasharray="6 5" />
+                <path
+                  d={d} fill="none"
+                  stroke={isTextPending ? "rgba(180,160,255,0.14)" : "rgba(255,255,255,0.12)"}
+                  strokeWidth={4} strokeLinecap="round"
+                />
+                <path
+                  d={d} fill="none"
+                  stroke={isTextPending ? "rgba(180,160,255,0.80)" : "rgba(255,255,255,0.65)"}
+                  strokeWidth={1.5} strokeLinecap="round"
+                  strokeDasharray={isTextPending ? "5 3" : "6 5"}
+                />
               </g>
             );
           })()}
@@ -832,7 +933,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   width:           12,
                   height:          12,
                   borderRadius:    "50%",
-                  background:      pendingConn?.fromNodeId === el.id
+                  background:      (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
                     ? "rgba(255,255,255,0.95)"
                     : "rgba(255,255,255,0.35)",
                   border:          "1.5px solid rgba(255,255,255,0.6)",
@@ -847,7 +948,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background  =
-                    pendingConn?.fromNodeId === el.id
+                    (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
                       ? "rgba(255,255,255,0.95)"
                       : "rgba(255,255,255,0.35)";
                   e.currentTarget.style.transform   = "scale(1)";
@@ -879,26 +980,97 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         ))}
 
         {/* ── Text nodes — floating canvas annotations ──────────────── */}
-        {textNodes.map((tn: CanvasTextNode) => (
-          <TextNode
-            key={tn.id}
-            node={tn}
-            isSelected={selectedTextId === tn.id}
-            isEditing={editingTextId === tn.id}
-            scale={canvasTransform.scale}
-            onSelect={() => { setSelectedTextId(tn.id); setSelectedFrameId(null); }}
-            onStartEdit={() => setEditingTextId(tn.id)}
-            onEndEdit={() => setEditingTextId(null)}
-            onTextChange={(text) => updateTextNode_(tn.id, { text })}
-            onFontChange={(size: TextNodeFontSize) => updateTextNode_(tn.id, { fontSize: size })}
-            onMove={(dx, dy) => updateTextNode_(tn.id, { x: tn.x + dx, y: tn.y + dy })}
-            onDelete={() => {
-              removeTextNode_(tn.id);
-              if (selectedTextId === tn.id) setSelectedTextId(null);
-              if (editingTextId === tn.id) setEditingTextId(null);
-            }}
-          />
-        ))}
+        {textNodes.map((tn: CanvasTextNode) => {
+          // Derive isConnected — true if any text connection has this TextNode as source
+          const isTnConnected = nodeConnections.some(
+            (c) => c.type === "text" && c.fromTextId === tn.id
+          );
+          // Output handle position — right edge, vertical center of node
+          const tnH  = textNodeHeights[tn.id] ?? 90;
+          const thx  = tn.x + TEXT_NODE_DEFAULT_WIDTH;
+          const thy  = tn.y + tnH / 2;
+          return (
+            <React.Fragment key={tn.id}>
+              <TextNode
+                node={tn}
+                isSelected={selectedTextId === tn.id}
+                isEditing={editingTextId === tn.id}
+                isConnected={isTnConnected}
+                scale={canvasTransform.scale}
+                onSelect={() => { setSelectedTextId(tn.id); setSelectedFrameId(null); }}
+                onStartEdit={() => setEditingTextId(tn.id)}
+                onEndEdit={() => setEditingTextId(null)}
+                onTextChange={(text) => updateTextNode_(tn.id, { text })}
+                onFontChange={(size: TextNodeFontSize) => updateTextNode_(tn.id, { fontSize: size })}
+                onMove={(dx, dy) => updateTextNode_(tn.id, { x: tn.x + dx, y: tn.y + dy })}
+                onDelete={() => {
+                  removeTextNode_(tn.id);
+                  if (selectedTextId === tn.id) setSelectedTextId(null);
+                  if (editingTextId === tn.id) setEditingTextId(null);
+                }}
+                onHeightChange={(h) =>
+                  setTextNodeHeights((prev) => ({ ...prev, [tn.id]: h }))
+                }
+                onEnhance={async () => {
+                  const currentText = tn.text;
+                  try {
+                    const res = await fetch("/api/creative-director/enhance-text", {
+                      method:  "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body:    JSON.stringify({ text: currentText }),
+                    });
+                    if (!res.ok) return;
+                    const { enhanced } = await res.json() as { enhanced: string };
+                    if (typeof enhanced === "string" && enhanced.trim()) {
+                      updateTextNode_(tn.id, { text: enhanced });
+                    }
+                  } catch {
+                    // silent — TextNode handles isEnhancing cleanup
+                  }
+                }}
+              />
+              {/* TextNode output handle — right edge at vertical center.
+                  Purple tint matching text connection wire style. */}
+              <div
+                onMouseDown={(e) => handleTextOutputHandleMouseDown(e, tn.id)}
+                title="Drag to wire this text to a frame"
+                style={{
+                  position:     "absolute",
+                  left:         thx - 6,
+                  top:          thy - 6,
+                  width:        12,
+                  height:       12,
+                  borderRadius: "50%",
+                  background:   (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
+                    ? "rgba(180,160,255,0.98)"
+                    : isTnConnected
+                      ? "rgba(180,160,255,0.70)"
+                      : "rgba(180,160,255,0.35)",
+                  border:       `1.5px solid ${isTnConnected ? "rgba(180,160,255,0.85)" : "rgba(180,160,255,0.5)"}`,
+                  cursor:       "crosshair",
+                  zIndex:       25,
+                  transition:   "background 0.15s ease, transform 0.15s ease",
+                  boxShadow:    isTnConnected
+                    ? "0 0 8px rgba(180,160,255,0.45)"
+                    : "0 0 5px rgba(180,160,255,0.20)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background  = "rgba(180,160,255,0.98)";
+                  e.currentTarget.style.transform   = "scale(1.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background  =
+                    (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
+                      ? "rgba(180,160,255,0.98)"
+                      : isTnConnected
+                        ? "rgba(180,160,255,0.70)"
+                        : "rgba(180,160,255,0.35)";
+                  e.currentTarget.style.transform   = "scale(1)";
+                }}
+              />
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* ── Zoom controls (top-right, outside transform) ──────────────── */}

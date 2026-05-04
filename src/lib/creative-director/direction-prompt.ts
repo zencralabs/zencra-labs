@@ -25,14 +25,12 @@
  * in each group, giving them structural priority.
  *
  * ─── COMPOSITION ORDER ───────────────────────────────────────────────────────
- * 1. Subject — who/what is in the scene, with weight-driven emphasis
- * 2. World   — composed with subject as "X in Y" for natural flow
- * 3. Atmosphere — mood + lighting feel before specific props
- * 4. Objects — specific props and foreground elements
- * 5. Cinematography — shot/lens/angle/lighting/color
- * 6. Scene energy — pose state (still-image language only)
- * 7. Identity lock — injected only in "locked" mode
- * 8. Quality anchor — always appended
+ * 1. TextNode input — leading creative vision from wired TextNode (if present)
+ * 2. Scene intent / direction.name — secondary context (demoted if TextNode present)
+ * 3. Elements — subject/world/atmosphere/object sorted by weight
+ * 4. Director controls — cinematography, scene energy, tone intensity
+ * 5. Character direction suffix — identity lock enforcement
+ * 6. Quality anchor — always appended last
  */
 
 import type {
@@ -97,7 +95,8 @@ export function buildDirectionPrompt(
   direction: CreativeDirectionRow,
   refinements: DirectionRefinementsRow | null,
   elements: DirectionElementRow[],
-  mode: DirectionMode = "explore"
+  mode: DirectionMode = "explore",
+  textNodeInput?: string,
 ): string {
   const parts: string[] = [];
 
@@ -106,9 +105,24 @@ export function buildDirectionPrompt(
   // It is designed for AI influencer, @handle persona, and campaign consistency.
   const identityLock = refinements?.identity_lock === true;
 
-  // ── Scene name framing (optional) ─────────────────────────────────────────
+  // ── STEP 1: TextNode input — leading creative vision ─────────────────────
+  // When a TextNode is wired to the frame, its text is the PRIMARY creative
+  // directive. It leads the prompt so image generators anchor on it first.
+  const hasTextNode = typeof textNodeInput === "string" && textNodeInput.trim().length > 0;
+  if (hasTextNode) {
+    parts.push(textNodeInput!.trim());
+  }
+
+  // ── STEP 2: Scene intent / direction name ─────────────────────────────────
+  // When TextNode is present, scene intent is demoted to secondary context
+  // (prefix changes from "Scene:" to "Context:").
+  // When no TextNode, it leads as the primary scene framing.
   if (direction.name) {
-    parts.push(`Scene: ${direction.name}.`);
+    if (hasTextNode) {
+      parts.push(`Context: ${direction.name}`);
+    } else {
+      parts.push(`Scene: ${direction.name}.`);
+    }
   }
 
   // ── Sort all element groups by weight descending ───────────────────────────
@@ -217,8 +231,9 @@ export function buildDirectionPrompt(
 // ─────────────────────────────────────────────────────────────────────────────
 export function buildDirectionPromptFromContext(
   ctx: DirectionWithContext,
-  modeOverride?: DirectionMode
+  modeOverride?: DirectionMode,
+  textNodeInput?: string,
 ): string {
   const mode: DirectionMode = modeOverride ?? (ctx.direction.is_locked ? "locked" : "explore");
-  return buildDirectionPrompt(ctx.direction, ctx.refinements, ctx.elements, mode);
+  return buildDirectionPrompt(ctx.direction, ctx.refinements, ctx.elements, mode, textNodeInput);
 }

@@ -306,6 +306,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // ── Generate ──────────────────────────────────────────────────────────────
   // sceneOverride: direct text from PromptDock textarea, injected as
   // promptSuffix alongside any character direction suffix.
+  // textNodeInput is resolved from connected TextNodes on the target frame.
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string) => {
       const dId = await ensureDirection();
@@ -318,6 +319,26 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       // Combine sceneOverride (from PromptDock textarea) with character direction suffix.
       // If both exist, join with ", ". Route accepts the combined string as promptSuffix.
       const promptSuffix = [sceneOverride?.trim(), charSuffix].filter(Boolean).join(", ");
+
+      // ── Resolve TextNode input for the target frame ──────────────────────
+      // Target frame: user-selected frame, else first frame in the store.
+      // Only resolves if there are text connections wired to that frame.
+      let textNodeInput: string | undefined;
+      const { frames: currentFrames, connections, textNodes } = useDirectionStore.getState();
+      if (currentFrames.length > 0) {
+        const targetFrameId = selectedFrameId ?? currentFrames[0].id;
+        const connectedTexts = connections
+          .filter((c) => c.type === "text" && c.toFrameId === targetFrameId)
+          .map((c) => c.type === "text" ? textNodes.find((t) => t.id === c.fromTextId) : null)
+          .filter((t): t is NonNullable<typeof t> => !!t && t.text.trim().length > 0);
+        if (connectedTexts.length > 0) {
+          textNodeInput = connectedTexts
+            .map((t) => t.text.trim().replace(/[.]+$/, ""))
+            .filter(Boolean)
+            .join(", ");
+        }
+      }
+
       try {
         const res = await fetch("/api/creative-director/generate", {
           method: "POST",
@@ -328,6 +349,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             aspectRatio,
             modelOverride: selectedModel,
             promptSuffix:  promptSuffix || undefined,
+            textNodeInput: textNodeInput || undefined,
           }),
         });
         if (!res.ok) {
@@ -341,7 +363,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         finishGenerating([], err instanceof Error ? err.message : "Network error");
       }
     },
-    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection]
+    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId]
   );
 
   // ── Refinement change ─────────────────────────────────────────────────────
@@ -424,7 +446,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   //   → finishGenerating (pushes result to OutputPanel) → return imageUrl.
   // Returns null on any failure (onboarding continues gracefully).
   const handleAutoGenerate = useCallback(
-    async (prompt: string, modelKey: string, aspectRatio: string): Promise<string | null> => {
+    async (prompt: string, modelKey: string, aspectRatio: string, textNodeInput?: string): Promise<string | null> => {
       const dId = await ensureDirection();
       if (!dId) return null;
       startGenerating();
@@ -438,6 +460,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             aspectRatio,
             modelOverride: modelKey,
             promptSuffix:  prompt,
+            textNodeInput: textNodeInput || undefined,
           }),
         });
         if (!res.ok) {

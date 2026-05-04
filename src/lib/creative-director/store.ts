@@ -166,14 +166,13 @@ export interface GenerationFrame {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Node Connection — manual wiring from a scene element → a Generation Frame.
+// Node Connection — manual wiring from a source → a Generation Frame.
+// Discriminated union: "scene" wires an element node; "text" wires a TextNode.
 // Session-only (not persisted to DB).
 // ─────────────────────────────────────────────────────────────────────────────
-export interface NodeConnection {
-  id:         string;
-  fromNodeId: string;   // DirectionElementRow.id
-  toFrameId:  string;   // GenerationFrame.id
-}
+export type NodeConnection =
+  | { id: string; type: "scene"; fromNodeId: string; toFrameId: string }
+  | { id: string; type: "text";  fromTextId: string; toFrameId: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Canvas Text Node — floating annotation / creative copy note on the canvas.
@@ -499,9 +498,13 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
   // ── Node → frame connections ──────────────────────────────────────────────
   addConnection: (c) =>
     set((s) => {
-      const exists = s.connections.some(
-        (e) => e.fromNodeId === c.fromNodeId && e.toFrameId === c.toFrameId
-      );
+      // Deduplicate: same source+destination of the same type
+      const exists = s.connections.some((e) => {
+        if (e.toFrameId !== c.toFrameId) return false;
+        if (c.type === "scene" && e.type === "scene") return e.fromNodeId === c.fromNodeId;
+        if (c.type === "text"  && e.type === "text")  return e.fromTextId  === c.fromTextId;
+        return false;
+      });
       if (exists) return s;
       return { connections: [...s.connections, c] };
     }),
@@ -516,7 +519,13 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
     set((s) => ({ textNodes: [...s.textNodes, node] })),
 
   removeTextNode: (id) =>
-    set((s) => ({ textNodes: s.textNodes.filter((n) => n.id !== id) })),
+    set((s) => ({
+      // Remove the text node and all "text" connections that referenced it
+      textNodes:   s.textNodes.filter((n) => n.id !== id),
+      connections: s.connections.filter(
+        (c) => !(c.type === "text" && c.fromTextId === id)
+      ),
+    })),
 
   updateTextNode: (id, patch) =>
     set((s) => ({
