@@ -1,10 +1,15 @@
 -- ──────────────────────────────────────────────────────────────────────────────
 -- 20260505_generation_jobs_audit_cols.sql
 --
--- Phase 1B: Add credit-audit and job-lifecycle columns to generation_jobs.
+-- Phase 1B: Add credit-audit and job-lifecycle columns to generations.
+--
+-- NOTE: This migration was originally written targeting a table named
+-- `generation_jobs`, but production uses `generations` (the actual table
+-- created by the early numbered migrations). All ALTER TABLE statements have
+-- been corrected to target `public.generations`.
 --
 -- WHY: The assets table already records credits_cost + external_job_id per
--- generation via saveAssetMetadata(). generation_jobs is the supplementary
+-- generation via saveAssetMetadata(). `generations` is the supplementary
 -- audit table that tracks the full lifecycle — estimate → reserve → finalize/
 -- rollback. Without these columns the hooks.ts lifecycle has nowhere to persist
 -- audit state, making credit disputes impossible to investigate.
@@ -27,13 +32,13 @@
 
 -- Credits reserved (deducted) at the moment of job dispatch.
 -- Written by hooks.reserve(); NULL until reserve fires.
-ALTER TABLE public.generation_jobs
+ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS estimated_credits integer;
 
 -- Credits actually charged after job completes.
 -- Written by hooks.finalize(); NULL until finalize fires.
 -- May differ from estimated_credits when actual cost varies (e.g. longer video).
-ALTER TABLE public.generation_jobs
+ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS final_credits integer;
 
 
@@ -44,14 +49,14 @@ ALTER TABLE public.generation_jobs
 -- a session window, the API returns the existing job instead of creating a new one.
 -- NULL for legacy jobs (no key was passed). Must be unique when non-NULL
 -- (enforced by the partial unique index below).
-ALTER TABLE public.generation_jobs
+ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS idempotency_key text;
 
 -- Provider-assigned job ID returned by the dispatch layer.
 -- Mirrors assets.external_job_id; stored here for webhook correlation when
 -- no asset has been created yet (e.g. job failed before asset was saved).
 -- NULL until the provider confirms job acceptance.
-ALTER TABLE public.generation_jobs
+ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS external_job_id text;
 
 
@@ -59,7 +64,7 @@ ALTER TABLE public.generation_jobs
 
 -- Set when hooks.rollback() fires or an admin issues a manual credit refund.
 -- NULL = job was never rolled back. Non-NULL = refunded (credits restored).
-ALTER TABLE public.generation_jobs
+ALTER TABLE public.generations
   ADD COLUMN IF NOT EXISTS refunded_at timestamptz;
 
 
@@ -68,18 +73,18 @@ ALTER TABLE public.generation_jobs
 -- Partial unique index: idempotency_key must be unique per user when non-NULL.
 -- Allows: two users to share the same client-generated key (UUID from client).
 -- Prevents: double-spend from a retried request with the same key.
-CREATE UNIQUE INDEX IF NOT EXISTS generation_jobs_idempotency_key_idx
-  ON public.generation_jobs (user_id, idempotency_key)
+CREATE UNIQUE INDEX IF NOT EXISTS generations_idempotency_key_idx
+  ON public.generations (user_id, idempotency_key)
   WHERE idempotency_key IS NOT NULL;
 
 -- Fast lookup of jobs by external provider job ID (webhook correlation).
-CREATE INDEX IF NOT EXISTS generation_jobs_external_job_id_idx
-  ON public.generation_jobs (external_job_id)
+CREATE INDEX IF NOT EXISTS generations_external_job_id_idx
+  ON public.generations (external_job_id)
   WHERE external_job_id IS NOT NULL;
 
 -- Fast lookup of refunded jobs (admin / billing audit queries).
-CREATE INDEX IF NOT EXISTS generation_jobs_refunded_at_idx
-  ON public.generation_jobs (refunded_at)
+CREATE INDEX IF NOT EXISTS generations_refunded_at_idx
+  ON public.generations (refunded_at)
   WHERE refunded_at IS NOT NULL;
 
 
@@ -87,5 +92,5 @@ CREATE INDEX IF NOT EXISTS generation_jobs_refunded_at_idx
 -- SELECT column_name, data_type, is_nullable
 -- FROM information_schema.columns
 -- WHERE table_schema = 'public'
---   AND table_name   = 'generation_jobs'
+--   AND table_name   = 'generations'
 -- ORDER BY ordinal_position;
