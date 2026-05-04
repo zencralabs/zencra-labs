@@ -110,6 +110,15 @@ type ZoomLevel = (typeof ZOOM_LEVELS)[number];
  */
 const CANVAS_DOCK_SAFE_ZONE = 186;
 
+/** Magnetic snap radius in screen pixels. When a pending connection line's
+ *  tip comes within this distance of a frame input handle, the line snaps to
+ *  the handle and the handle lights up with a blue glow. */
+const CONN_SNAP_RADIUS = 24;
+
+/** Grid snap size in canvas pixels. Node positions round to this value on
+ *  drag end. Hold Alt while dragging to disable snapping. */
+const GRID_SIZE = 10;
+
 // Magnetic zone definitions — (cx, cy) as fractions of canvas (w, h)
 const MAGNETIC_ZONES: Record<DirectionElementType, { cx: number; cy: number }> = {
   subject:    { cx: 0.33, cy: 0.48 },
@@ -282,18 +291,30 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
 
   // ── Phase C.1 — pending connection drag + hover-delete ───────────────────
   // Discriminated union: "scene" = dragging from a SceneNode, "text" = from a TextNode.
+  // fromPos: DOM-derived canvas-space origin of the line (set on mousedown from
+  //   getBoundingClientRect of the handle dot — more accurate than computed constants).
   type PendingConn =
-    | { type: "scene"; fromNodeId: string; cursorPos: CanvasPosition }
-    | { type: "text";  fromTextId: string; cursorPos: CanvasPosition };
+    | { type: "scene"; fromNodeId: string; cursorPos: CanvasPosition; fromPos?: CanvasPosition }
+    | { type: "text";  fromTextId: string; cursorPos: CanvasPosition; fromPos?: CanvasPosition };
 
-  const [pendingConn, setPendingConn] = useState<PendingConn | null>(null);
-  const [hoveredConnId, setHoveredConnId] = useState<string | null>(null);
+  const [pendingConn,        setPendingConn]        = useState<PendingConn | null>(null);
+  const [hoveredConnId,      setHoveredConnId]      = useState<string | null>(null);
+  /** Frame ID that the pending connection is currently snapping to (within CONN_SNAP_RADIUS). */
+  const [snapTargetFrameId,  setSnapTargetFrameId]  = useState<string | null>(null);
 
   // Ref so the global mouse handlers (stable closure) can access latest state
-  const pendingConnRef = useRef<PendingConn | null>(null);
+  const pendingConnRef      = useRef<PendingConn | null>(null);
+  /** Ref mirror for snapTargetFrameId — read inside stable mouse handlers. */
+  const snapTargetFrameIdRef = useRef<string | null>(null);
+  /** Ref mirror for liveDragFramePos — read inside stable mouse handlers. */
+  const liveDragFramePosRef  = useRef<Record<string, { x: number; y: number }>>({});
+  /** Tracks whether Alt is currently held — disables grid snap when true. */
+  const altHeldRef           = useRef(false);
 
-  // Sync ref every render so handlers always see the latest pendingConn
-  pendingConnRef.current = pendingConn;
+  // Sync refs every render so handlers always see the latest state
+  pendingConnRef.current      = pendingConn;
+  snapTargetFrameIdRef.current = snapTargetFrameId;
+  liveDragFramePosRef.current  = liveDragFramePos;
   // Sync stable refs for handleMoveEnd (accessed in callback but not in its deps)
   elementsRef.current    = elements;
   framesRef.current      = frames;
@@ -403,10 +424,20 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     });
   }, []);
 
-  // ── Node drag end — stable callback, no onboarding logic needed ──────────
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleMoveEnd = useCallback((_id: string) => {
-    // Reserved for future per-move-end hooks (e.g., snap to grid, connection hint).
+  // ── Node drag end — snap to grid (Alt disables) ───────────────────────────
+  const handleMoveEnd = useCallback((id: string) => {
+    if (altHeldRef.current) return;
+    setPositions((prev) => {
+      const p = prev[id];
+      if (!p) return prev;
+      return {
+        ...prev,
+        [id]: {
+          x: Math.round(p.x / GRID_SIZE) * GRID_SIZE,
+          y: Math.round(p.y / GRID_SIZE) * GRID_SIZE,
+        },
+      };
+    });
   }, []);
 
   // ── Live frame drag — keep SVG connection paths in sync every mousemove ──
@@ -429,16 +460,33 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         if (rect) {
           const ct = useDirectionStore.getState().canvasTransform;
           const s  = ct.scale / 100;
-          const cursorPos = {
+          // Raw canvas-space cursor position
+          let cursorPos = {
             x: (e.clientX - rect.left - ct.x) / s,
             y: (e.clientY - rect.top  - ct.y) / s,
           };
-          const pc = pendingConnRef.current;
-          if (pc.type === "scene") {
-            setPendingConn({ type: "scene", fromNodeId: pc.fromNodeId, cursorPos });
-          } else {
-            setPendingConn({ type: "text",  fromTextId: pc.fromTextId, cursorPos });
+
+          // ── Magnetic snap — check every frame's input handle ───────────
+          // Threshold is in canvas space (screen px / zoom).
+          const snapRadius = CONN_SNAP_RADIUS / s;
+          const { frames: currentFrames } = useDirectionStore.getState();
+          let snappedId: string | null = null;
+          for (const frame of currentFrames) {
+            const hp   = getFrameInputHandle(frame, liveDragFramePosRef.current[frame.id]);
+            const dist = Math.sqrt((cursorPos.x - hp.x) ** 2 + (cursorPos.y - hp.y) ** 2);
+            if (dist < snapRadius) {
+              cursorPos = hp;   // snap tip to handle center
+              snappedId = frame.id;
+              break;
+            }
           }
+          // Update snap state only when it changes (avoids thrash)
+          if (snappedId !== snapTargetFrameIdRef.current) {
+            setSnapTargetFrameId(snappedId);
+          }
+
+          const pc = pendingConnRef.current;
+          setPendingConn({ ...pc, cursorPos });
         }
         return; // don't pan while dragging a connection
       }
@@ -454,38 +502,54 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     const onMouseUp = (e: MouseEvent) => {
       // ── Pending connection drop ──────────────────────────────────────────
       if (pendingConnRef.current) {
-        const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect) {
-          const ct    = useDirectionStore.getState().canvasTransform;
-          const s     = ct.scale / 100;
-          const curX  = (e.clientX - rect.left - ct.x) / s;
-          const curY  = (e.clientY - rect.top  - ct.y) / s;
-          const { frames: currentFrames } = useDirectionStore.getState();
-          const pc = pendingConnRef.current;
-          for (const frame of currentFrames) {
-            const hp   = getFrameInputHandle(frame);
-            const dist = Math.sqrt((curX - hp.x) ** 2 + (curY - hp.y) ** 2);
-            if (dist < 28) {
-              if (pc.type === "scene") {
-                useDirectionStore.getState().addConnection({
-                  id:         `conn-${Date.now()}`,
-                  type:       "scene",
-                  fromNodeId: pc.fromNodeId,
-                  toFrameId:  frame.id,
-                });
-              } else {
-                useDirectionStore.getState().addConnection({
-                  id:         `conn-${Date.now()}`,
-                  type:       "text",
-                  fromTextId: pc.fromTextId,
-                  toFrameId:  frame.id,
-                });
+        const pc = pendingConnRef.current;
+        // Prefer the already-computed snap target (updated in onMouseMove)
+        const snappedFrameId = snapTargetFrameIdRef.current;
+
+        if (snappedFrameId) {
+          // Magnetic snap — connect directly to snapped frame
+          if (pc.type === "scene") {
+            useDirectionStore.getState().addConnection({
+              id: `conn-${Date.now()}`, type: "scene",
+              fromNodeId: pc.fromNodeId, toFrameId: snappedFrameId,
+            });
+          } else {
+            useDirectionStore.getState().addConnection({
+              id: `conn-${Date.now()}`, type: "text",
+              fromTextId: pc.fromTextId, toFrameId: snappedFrameId,
+            });
+          }
+        } else {
+          // Fallback — proximity check for any frame within 28px canvas-space
+          const rect = canvasRef.current?.getBoundingClientRect();
+          if (rect) {
+            const ct   = useDirectionStore.getState().canvasTransform;
+            const s    = ct.scale / 100;
+            const curX = (e.clientX - rect.left - ct.x) / s;
+            const curY = (e.clientY - rect.top  - ct.y) / s;
+            const { frames: currentFrames } = useDirectionStore.getState();
+            for (const frame of currentFrames) {
+              const hp   = getFrameInputHandle(frame, liveDragFramePosRef.current[frame.id]);
+              const dist = Math.sqrt((curX - hp.x) ** 2 + (curY - hp.y) ** 2);
+              if (dist < 28) {
+                if (pc.type === "scene") {
+                  useDirectionStore.getState().addConnection({
+                    id: `conn-${Date.now()}`, type: "scene",
+                    fromNodeId: pc.fromNodeId, toFrameId: frame.id,
+                  });
+                } else {
+                  useDirectionStore.getState().addConnection({
+                    id: `conn-${Date.now()}`, type: "text",
+                    fromTextId: pc.fromTextId, toFrameId: frame.id,
+                  });
+                }
+                break;
               }
-              break;
             }
           }
         }
         setPendingConn(null);
+        setSnapTargetFrameId(null);
         return;
       }
       // ── Pan end ───────────────────────────────────────────────────────────
@@ -520,21 +584,21 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   }, []);
 
   // ── Start a node-to-frame connection drag ────────────────────────────────
+  // Use the handle dot's actual DOM center via getBoundingClientRect — more
+  // accurate than computing from SCENE_NODE_CARD_WIDTH constants.
   const handleOutputHandleMouseDown = useCallback(
     (e: React.MouseEvent, nodeId: string) => {
       e.stopPropagation();
       e.preventDefault();
-      const rect = canvasRef.current!.getBoundingClientRect();
-      const ct   = useDirectionStore.getState().canvasTransform;
-      const s    = ct.scale / 100;
-      setPendingConn({
-        type:      "scene",
-        fromNodeId: nodeId,
-        cursorPos: {
-          x: (e.clientX - rect.left - ct.x) / s,
-          y: (e.clientY - rect.top  - ct.y) / s,
-        },
-      });
+      const canvasRect = canvasRef.current!.getBoundingClientRect();
+      const handleRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const ct         = useDirectionStore.getState().canvasTransform;
+      const s          = ct.scale / 100;
+      const fromPos: CanvasPosition = {
+        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - ct.x) / s,
+        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - ct.y) / s,
+      };
+      setPendingConn({ type: "scene", fromNodeId: nodeId, fromPos, cursorPos: fromPos });
     },
     [],
   );
@@ -544,17 +608,15 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     (e: React.MouseEvent, textId: string) => {
       e.stopPropagation();
       e.preventDefault();
-      const rect = canvasRef.current!.getBoundingClientRect();
-      const ct   = useDirectionStore.getState().canvasTransform;
-      const s    = ct.scale / 100;
-      setPendingConn({
-        type:      "text",
-        fromTextId: textId,
-        cursorPos: {
-          x: (e.clientX - rect.left - ct.x) / s,
-          y: (e.clientY - rect.top  - ct.y) / s,
-        },
-      });
+      const canvasRect = canvasRef.current!.getBoundingClientRect();
+      const handleRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const ct         = useDirectionStore.getState().canvasTransform;
+      const s          = ct.scale / 100;
+      const fromPos: CanvasPosition = {
+        x: (handleRect.left + handleRect.width  / 2 - canvasRect.left - ct.x) / s,
+        y: (handleRect.top  + handleRect.height / 2 - canvasRect.top  - ct.y) / s,
+      };
+      setPendingConn({ type: "text", fromTextId: textId, fromPos, cursorPos: fromPos });
     },
     [],
   );
@@ -654,6 +716,18 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
     useDirectionStore.getState().setCanvasTransform({ scale: ZOOM_LEVELS[newIdx] });
   }, []);
 
+  // ── Alt key tracking — disables grid snap while held ─────────────────────
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Alt") altHeldRef.current = true; };
+    const up   = (e: KeyboardEvent) => { if (e.key === "Alt") altHeldRef.current = false; };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup",   up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup",   up);
+    };
+  }, []);
+
   // ── Escape key ────────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -663,6 +737,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         setDropPicker(null);
         setFramePickerPos(null);
         setPendingConn(null);
+        setSnapTargetFrameId(null);
         setEditingTextId(null);
       }
       // Delete / Backspace with a text node selected (and not editing) → remove it
@@ -729,7 +804,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
         flex:       1,
         position:   "relative",
         overflow:   "visible",   // Fix: allow frames/text to move freely; CDv2Shell center column clips at its boundary
-        cursor:     isPanning ? "grabbing" : "crosshair",
+        cursor:     isPanning ? "grabbing" : pendingConn ? "crosshair" : "default",
         // Cinematic background — base #0b0f1a + centered purple/blue radial glow
         // Slightly brighter than before for daylight-screen readability while
         // preserving the deep premium feel.
@@ -911,7 +986,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
           {pendingConn && (() => {
             let from: CanvasPosition;
             const isTextPending = pendingConn.type === "text";
-            if (pendingConn.type === "scene") {
+            const isSnapping    = !!snapTargetFrameId;
+
+            if (pendingConn.fromPos) {
+              // DOM-accurate position captured at mousedown
+              from = pendingConn.fromPos;
+            } else if (pendingConn.type === "scene") {
               const nodeIdx = elements.findIndex((e) => e.id === pendingConn.fromNodeId);
               if (nodeIdx < 0) return null;
               from = getNodeOutputHandle(getPosition(pendingConn.fromNodeId, nodeIdx));
@@ -921,22 +1001,44 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
               const tnH = textNodeHeights[tn.id] ?? 90;
               from = { x: tn.x + TEXT_NODE_DEFAULT_WIDTH, y: tn.y + tnH / 2 };
             }
+
             const to     = pendingConn.cursorPos;
             const offset = Math.abs(to.x - from.x) * 0.45 + 30;
             const d      = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
+
+            // Snap state overrides color + width — blue when snapping to a frame handle
+            const glowStroke = isSnapping
+              ? "rgba(59,130,246,0.30)"
+              : isTextPending ? "rgba(180,160,255,0.22)" : "rgba(255,255,255,0.20)";
+            const lineStroke = isSnapping
+              ? "rgba(59,130,246,0.92)"
+              : isTextPending ? "rgba(180,160,255,0.80)" : "rgba(255,255,255,0.65)";
+            const lineWidth  = isSnapping ? 2.5 : 1.5;
+            const dashArray  = isSnapping ? undefined : (isTextPending ? "5 3" : "6 5");
+
+            // When snapping, render a glow pulse ring at the target handle
+            let snapGlow: React.ReactNode = null;
+            if (isSnapping) {
+              const snapFrame = frames.find((f) => f.id === snapTargetFrameId);
+              if (snapFrame) {
+                const hp = getFrameInputHandle(snapFrame, liveDragFramePos[snapFrame.id]);
+                snapGlow = (
+                  <circle
+                    cx={hp.x} cy={hp.y} r={11}
+                    fill="rgba(59,130,246,0.18)"
+                    stroke="rgba(59,130,246,0.80)"
+                    strokeWidth={1.5}
+                    style={{ transition: "r 0.12s ease, opacity 0.12s ease" }}
+                  />
+                );
+              }
+            }
+
             return (
               <g>
-                <path
-                  d={d} fill="none"
-                  stroke={isTextPending ? "rgba(180,160,255,0.22)" : "rgba(255,255,255,0.20)"}
-                  strokeWidth={4} strokeLinecap="round"
-                />
-                <path
-                  d={d} fill="none"
-                  stroke={isTextPending ? "rgba(180,160,255,0.80)" : "rgba(255,255,255,0.65)"}
-                  strokeWidth={1.5} strokeLinecap="round"
-                  strokeDasharray={isTextPending ? "5 3" : "6 5"}
-                />
+                <path d={d} fill="none" stroke={glowStroke}    strokeWidth={4}         strokeLinecap="round" />
+                <path d={d} fill="none" stroke={lineStroke}    strokeWidth={lineWidth} strokeLinecap="round" strokeDasharray={dashArray} />
+                {snapGlow}
               </g>
             );
           })()}
@@ -983,7 +1085,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                     ? "rgba(255,255,255,0.95)"
                     : "rgba(255,255,255,0.35)",
                   border:          "1.5px solid rgba(255,255,255,0.6)",
-                  cursor:          "crosshair",
+                  cursor:          (pendingConn?.type === "scene" && pendingConn.fromNodeId === el.id)
+                    ? "grabbing"
+                    : "pointer",
                   zIndex:          25,
                   transition:      "background 0.15s ease, transform 0.15s ease",
                   boxShadow:       "0 0 6px rgba(255,255,255,0.25)",
@@ -1023,8 +1127,12 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             onDelete={removeFrame}
             onDragMove={handleFrameDragMove}
             onDragEnd={(id, pos) => {
-              // Commit final position to store.
-              updateFrame(id, { position: pos });
+              // Commit final position — snap to grid unless Alt is held.
+              const snapped = altHeldRef.current ? pos : {
+                x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
+                y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE,
+              };
+              updateFrame(id, { position: snapped });
               // Clear live drag pos — frame.position in store is now authoritative.
               setLiveDragFramePos((prev) => {
                 const next = { ...prev };
@@ -1111,7 +1219,7 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                   borderRadius: "50%",
                   background:   "rgba(120,140,200,0.30)",
                   border:       "1.5px solid rgba(120,140,200,0.55)",
-                  cursor:       "crosshair",
+                  cursor:       "default",
                   zIndex:       25,
                   transition:   "background 0.15s ease, transform 0.15s ease",
                   boxShadow:    "0 0 5px rgba(120,140,200,0.20)",
@@ -1145,7 +1253,9 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
                       ? "rgba(180,160,255,0.70)"
                       : "rgba(180,160,255,0.35)",
                   border:       `1.5px solid ${isTnConnected ? "rgba(180,160,255,0.85)" : "rgba(180,160,255,0.5)"}`,
-                  cursor:       "crosshair",
+                  cursor:       (pendingConn?.type === "text" && pendingConn.fromTextId === tn.id)
+                    ? "grabbing"
+                    : "pointer",
                   zIndex:       25,
                   transition:   "background 0.15s ease, transform 0.15s ease",
                   boxShadow:    isTnConnected
