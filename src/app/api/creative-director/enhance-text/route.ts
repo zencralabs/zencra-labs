@@ -1,12 +1,15 @@
 /**
  * POST /api/creative-director/enhance-text
  *
- * TextNode Prompt Enhancer — AI-powered cinematic rewrite.
+ * TextNode Prompt Enhancer — Claude-powered cinematic rewrite.
  *
  * Takes raw user text from a TextNode and rewrites it as a concise,
  * cinematic still-image prompt that leads generation intent.
  *
- * Rules applied by the model:
+ * Backed by callClaudeEnhancer() in /lib/ai/claudeEnhancer.ts —
+ * the single source of truth for all Claude enhancement on Zencra.
+ *
+ * Rules applied by Claude:
  *   - Preserve the core subject and emotional intent of the input
  *   - Rewrite as a vivid, concrete still-image description
  *   - No motion language ("moving", "flowing", "dynamic" in temporal sense)
@@ -21,13 +24,13 @@
  *   { enhanced: string }
  *
  * Auth: required (user session)
- * Model: gpt-4o-mini (fast, low-cost, on-task — same key as rest of platform)
+ * Model: claude-haiku-4-5-20251001 (fast, low-cost, on-task)
  * Rate: inherits standard API auth — no extra credit deduction
  */
 
-import OpenAI        from "openai";
-import { NextResponse } from "next/server";
-import { getAuthUser }  from "@/lib/supabase/server";
+import { NextResponse }        from "next/server";
+import { getAuthUser }         from "@/lib/supabase/server";
+import { callClaudeEnhancer }  from "@/lib/ai/claudeEnhancer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,33 +71,20 @@ export async function POST(req: Request): Promise<Response> {
 
   const input = text.trim().slice(0, MAX_INPUT_CHARS);
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
+  const result = await callClaudeEnhancer({
+    systemPrompt: SYSTEM_PROMPT,
+    userInput:    input,
+    maxTokens:    200,
+    // model defaults to claude-haiku-4-5-20251001 in claudeEnhancer.ts
+  });
+
+  if (!result.ok) {
+    console.error("[enhance-text] Claude enhancement failed:", result.error);
+    return NextResponse.json(
+      { error: "Enhancement failed", detail: result.error },
+      { status: 500 },
+    );
   }
 
-  try {
-    const openai = new OpenAI({ apiKey });
-
-    const completion = await openai.chat.completions.create({
-      model:      "gpt-4o-mini",
-      max_tokens: 200,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user",   content: input },
-      ],
-    });
-
-    const enhanced = (completion.choices[0]?.message?.content ?? "").trim();
-
-    if (!enhanced) {
-      return NextResponse.json({ error: "Enhancement produced no output" }, { status: 500 });
-    }
-
-    return NextResponse.json({ enhanced });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("[enhance-text] OpenAI call failed:", msg);
-    return NextResponse.json({ error: "Enhancement failed", detail: msg }, { status: 500 });
-  }
+  return NextResponse.json({ enhanced: result.text });
 }
