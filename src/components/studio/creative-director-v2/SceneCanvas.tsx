@@ -130,16 +130,24 @@ function getNodeOutputHandle(pos: CanvasPosition): CanvasPosition {
 
 /**
  * Canvas-space position of a FrameNode's input handle (left edge, vertical center).
- * Used only for drop-detection in onMouseUp — the visual handle dot is rendered
- * inside FrameNode itself so it follows the frame during drag without store lag.
+ *
+ * @param frame     - The GenerationFrame from the store.
+ * @param posOverride - Live drag position (supplied during header drag).
+ *                     When provided, the handle is computed from the live
+ *                     position rather than the (stale) store value so SVG
+ *                     connection paths stay attached during every drag frame.
  */
-function getFrameInputHandle(frame: GenerationFrame): CanvasPosition {
+function getFrameInputHandle(
+  frame:        GenerationFrame,
+  posOverride?: { x: number; y: number },
+): CanvasPosition {
   const fw    = frame.width ?? DEFAULT_FRAME_WIDTH;
   const ratio = FRAME_RATIO_VALUES[frame.aspectRatio];
   const bodyH = fw / ratio;
+  const pos   = posOverride ?? frame.position;
   return {
-    x: frame.position.x,
-    y: frame.position.y + FRAME_HEADER_HEIGHT + bodyH / 2,
+    x: pos.x,
+    y: pos.y + FRAME_HEADER_HEIGHT + bodyH / 2,
   };
 }
 
@@ -235,6 +243,15 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   // textNodeHeights: actual DOM height reported by each TextNode via ResizeObserver.
   // Used to place the output handle at true vertical center of the node.
   const [textNodeHeights, setTextNodeHeights] = useState<Record<string, number>>({});
+
+  /**
+   * Live frame positions during header drag.
+   * FrameNode fires onDragMove every mousemove → we store the position here.
+   * SVG connection paths read from this map (falling back to frame.position)
+   * so they stay attached to the input handle with zero lag during drag.
+   * Entries are cleared when the drag commits to the store via onDragEnd.
+   */
+  const [liveDragFramePos, setLiveDragFramePos] = useState<Record<string, { x: number; y: number }>>({});
 
   // (Onboarding phase 2/3 automation removed — overlay is now a simple welcome card)
 
@@ -387,6 +404,17 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
   const handleMoveEnd = useCallback((_id: string) => {
     // Reserved for future per-move-end hooks (e.g., snap to grid, connection hint).
   }, []);
+
+  // ── Live frame drag — keep SVG connection paths in sync every mousemove ──
+  // Called by FrameNode on every header-drag mousemove. Stores the live
+  // canvas-space position so the SVG layer can recalculate getFrameInputHandle
+  // from the current drag position rather than the (stale) store value.
+  const handleFrameDragMove = useCallback(
+    (id: string, pos: { x: number; y: number }) => {
+      setLiveDragFramePos((prev) => ({ ...prev, [id]: pos }));
+    },
+    [],
+  );
 
   // ── Pan + pending-connection — global mouse handlers (registered once) ───
   useEffect(() => {
@@ -781,7 +809,10 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             const frame = frames.find((f) => f.id === conn.toFrameId);
             if (!frame) return null;
 
-            const to        = getFrameInputHandle(frame);
+            // Use live drag position if this frame is currently being dragged;
+            // falls back to store position when idle. Keeps the line attached
+            // to the input handle on every mouse-move without any store lag.
+            const to        = getFrameInputHandle(frame, liveDragFramePos[frame.id]);
             const offset    = Math.abs(to.x - from.x) * 0.45 + 30;
             const d         = `M ${from.x} ${from.y} C ${from.x + offset} ${from.y}, ${to.x - offset} ${to.y}, ${to.x} ${to.y}`;
             const isHovered = hoveredConnId === conn.id;
@@ -981,7 +1012,17 @@ export function SceneCanvas({ onAddElement, onToggleDirectorControls, directorPa
             pendingConnActive={!!pendingConn}
             onSelect={(id) => { setSelectedFrameId(id); onFrameSelect?.(id); }}
             onDelete={removeFrame}
-            onDragEnd={(id, pos) => updateFrame(id, { position: pos })}
+            onDragMove={handleFrameDragMove}
+            onDragEnd={(id, pos) => {
+              // Commit final position to store.
+              updateFrame(id, { position: pos });
+              // Clear live drag pos — frame.position in store is now authoritative.
+              setLiveDragFramePos((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
+            }}
             onResize={(id, width, pos) => {
               const patch: Parameters<typeof updateFrame>[1] = { width };
               if (pos) patch.position = pos;

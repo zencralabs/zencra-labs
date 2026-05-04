@@ -76,6 +76,12 @@ export interface FrameNodeProps {
   isGenerating?:             boolean;              // Phase 3: auto-generate in progress — show shimmer
   onSelect:           (id: string) => void;
   onDelete:           (id: string) => void;
+  /**
+   * Fired on every mousemove during a header drag with the live canvas-space
+   * position. SceneCanvas uses this to keep connection SVG paths attached to
+   * the frame input handle in real time — no store update lag.
+   */
+  onDragMove?:        (id: string, pos: { x: number; y: number }) => void;
   onDragEnd:          (id: string, pos: { x: number; y: number }) => void;
   onResize:           (id: string, width: number, pos?: { x: number; y: number }) => void;
   // Phase 4.2 — Director Flow
@@ -127,6 +133,7 @@ export function FrameNode({
   isGenerating,
   onSelect,
   onDelete,
+  onDragMove,
   onDragEnd,
   onResize,
   onRegenerate,
@@ -135,6 +142,14 @@ export function FrameNode({
   const [hovered,       setHovered]       = useState(false);
   const [resizeCorner,  setResizeCorner]  = useState<Corner | null>(null);
   const outerRef                          = useRef<HTMLDivElement>(null);
+
+  /**
+   * Live drag position — non-null only while the header is being dragged.
+   * Drives the JSX transform so React always renders the correct position,
+   * and ensures SceneCanvas re-renders (via onDragMove) don't fight the DOM.
+   * Falls back to frame.position when idle.
+   */
+  const [localDragPos,  setLocalDragPos]  = useState<{ x: number; y: number } | null>(null);
 
   // Phase 3: detect when generatedImageUrl first arrives → trigger reveal animation
   const prevFilledRef                     = useRef(false);
@@ -154,6 +169,11 @@ export function FrameNode({
   const bodyHeight = frameWidth / ratio;
 
   // ── Drag (on header) ───────────────────────────────────────────────────────
+  // Uses React state (localDragPos) instead of imperative DOM so that:
+  //   1. The JSX transform and the live DOM are always in sync — no React
+  //      override conflict when SceneCanvas re-renders for SVG path updates.
+  //   2. onDragMove fires on every move so SceneCanvas can track live position
+  //      and keep connection paths attached to the input handle in real time.
   const handleHeaderMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -165,25 +185,31 @@ export function FrameNode({
     const startPy = frame.position.y;
 
     const onMove = (ev: MouseEvent) => {
-      const dx = (ev.clientX - startMx) / scaleFactor;
-      const dy = (ev.clientY - startMy) / scaleFactor;
-      if (outerRef.current) {
-        outerRef.current.style.transform =
-          `translate(${startPx + dx}px, ${startPy + dy}px)`;
-      }
+      const dx     = (ev.clientX - startMx) / scaleFactor;
+      const dy     = (ev.clientY - startMy) / scaleFactor;
+      const newPos = { x: startPx + dx, y: startPy + dy };
+      // React state drives the transform — keeps React render & visual in sync.
+      setLocalDragPos(newPos);
+      // Notify SceneCanvas so SVG connection paths recalculate every frame.
+      onDragMove?.(frame.id, newPos);
     };
 
     const onUp = (ev: MouseEvent) => {
-      const dx = (ev.clientX - startMx) / scaleFactor;
-      const dy = (ev.clientY - startMy) / scaleFactor;
-      onDragEnd(frame.id, { x: startPx + dx, y: startPy + dy });
+      const dx       = (ev.clientX - startMx) / scaleFactor;
+      const dy       = (ev.clientY - startMy) / scaleFactor;
+      const finalPos = { x: startPx + dx, y: startPy + dy };
+      // Clear local drag state — store position takes over.
+      setLocalDragPos(null);
+      // Commit final position to store (triggers SceneCanvas re-render with
+      // frame.position = finalPos, so transform stays correct after clear).
+      onDragEnd(frame.id, finalPos);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup",   onUp);
     };
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup",   onUp);
-  }, [frame.id, frame.position, scale, onDragEnd]);
+  }, [frame.id, frame.position, scale, onDragMove, onDragEnd]);
 
   // ── Resize (corner handles) — center-scale: frame expands from its center ──
   const handleResizeMouseDown = useCallback((
@@ -320,8 +346,11 @@ export function FrameNode({
         position:   "absolute",
         top:        0,
         left:       0,
-        // transform controls position — keep it clear of the spring animation
-        transform:  `translate(${frame.position.x}px, ${frame.position.y}px)`,
+        // localDragPos is set during header drag so React renders the live
+        // position on every mousemove — avoids any React-override conflict
+        // that would occur if we mixed imperative DOM + React-controlled JSX.
+        // Falls back to frame.position (store) when idle or after drag commits.
+        transform:  `translate(${(localDragPos ?? frame.position).x}px, ${(localDragPos ?? frame.position).y}px)`,
         width:      frameWidth,
         // NOTE: animation is intentionally NOT here — it would override translate and
         // cause the frame to flash to (0,0) on first render. Animation lives on the
