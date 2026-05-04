@@ -87,13 +87,15 @@ SET base_credits = 420, updated_at = now()
 WHERE model_key = 'kling-30-omni';
 
 -- Seedance 1.5 (5s): 20 → 100
--- Not in spec's named tiers — set as legacy/entry pricing.
+-- ⚠ PROVISIONAL — not in spec's named tiers. Inferred as legacy/entry pricing.
+-- Replace with a locked spec value before public launch.
 UPDATE public.credit_model_costs
 SET base_credits = 100, updated_at = now()
 WHERE model_key = 'seedance-15';
 
 -- Seedance 2.0 (5s, regular): 30 → 160
--- Inferred between Fast (120) and Kling 2.5 Turbo (150); not spec-named.
+-- ⚠ PROVISIONAL — not spec-named. Inferred between Seedance Fast (120) and Kling 2.5T (150).
+-- Replace with a locked spec value before public launch.
 UPDATE public.credit_model_costs
 SET base_credits = 160, updated_at = now()
 WHERE model_key = 'seedance-20';
@@ -119,7 +121,9 @@ UPDATE public.credit_model_costs
 SET base_credits = 80, updated_at = now()
 WHERE model_key = 'addon-start-end';
 
--- Multi-element: 6 → 50 (not in spec; set proportionally between addons)
+-- Multi-element: 6 → 50
+-- ⚠ PROVISIONAL — not in spec. Inferred proportionally between start-end (80) and base models.
+-- Replace with a locked spec value before public launch.
 UPDATE public.credit_model_costs
 SET base_credits = 50, updated_at = now()
 WHERE model_key = 'addon-multi-element';

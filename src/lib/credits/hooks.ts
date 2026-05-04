@@ -225,6 +225,10 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
       // ── Priority 3: Studio-level fallbacks (safety net only) ─────────────────
       // These fire ONLY if the model_key is missing from credit_model_costs or the
       // row is inactive. A DB miss is logged so it can be caught and fixed quickly.
+      //
+      // ⚠ PROVISIONAL — these values are NOT locked spec pricing.
+      // They are a last-resort guard against zero-credit charges on unregistered models.
+      // Any model reaching this path MUST be added to credit_model_costs immediately.
       console.warn(
         `[credits] estimate fallback for model=${ctx.modelKey} studio=${ctx.studio} — ` +
         `add to credit_model_costs to use locked spec pricing`
