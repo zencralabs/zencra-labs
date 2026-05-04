@@ -36,7 +36,7 @@ import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
 import type { IdentityContext }      from "@/lib/providers/core/types";
 import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
-import { checkEntitlement, consumeTrialUsage }
+import { checkEntitlement, consumeTrialUsage, consumeFreeUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
                                      from "@/lib/providers/core/model-integrity";
@@ -128,6 +128,12 @@ export async function POST(req: Request): Promise<Response> {
     // character maps to the "images" trial category (resolveTrialCategory)
     if (entitlement.path === "trial" && entitlement.trialEndsAt) {
       void consumeTrialUsage(userId, "character", entitlement.trialEndsAt);
+    }
+
+    // ── Free-tier usage consumption (fire-and-forget) ─────────────────────────
+    // character maps to the "images" free-tier category (resolveTrialCategory)
+    if (entitlement.path === "free") {
+      void consumeFreeUsage(userId, "character");
     }
 
     return accepted({

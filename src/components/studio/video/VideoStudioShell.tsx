@@ -10,7 +10,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useFlowStore } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import {
   VIDEO_MODEL_REGISTRY,
@@ -642,6 +642,7 @@ function Breadcrumb({ modelName }: { modelName: string }) {
 
 export default function VideoStudioShell() {
   const searchParams = useSearchParams();
+  const router       = useRouter();
   const { user }     = useAuth();
 
   const defaultModelId = VIDEO_MODEL_REGISTRY.find(m => m.available)?.id ?? VIDEO_MODEL_REGISTRY[0].id;
@@ -1299,7 +1300,16 @@ export default function VideoStudioShell() {
 
       if (!res.ok) {
         let errMsg = `API error: ${res.status}`;
-        try { const e = await res.json(); if (e.error) errMsg = e.error; } catch { /* ignore */ }
+        let errCode: string | undefined;
+        try { const e = await res.json(); if (e.error) errMsg = e.error; if (e.code) errCode = e.code; } catch { /* ignore */ }
+
+        // ── Free-tier limit reached — redirect to pricing ─────────────────────
+        if (errCode === "FREE_LIMIT_REACHED") {
+          router.push("/pricing");
+          setGenerating(false);
+          return;
+        }
+
         // ── Kling model account gate — friendly surface ───────────────────────
         // When Kling returns code 1201 ("model is not supported"), the provider
         // throws a specific message. Route converts this to PROVIDER_ERROR 502.

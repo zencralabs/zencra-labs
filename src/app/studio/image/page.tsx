@@ -1985,6 +1985,12 @@ function ImageStudioInner() {
           throw new Error(data.error ?? "Insufficient credits — add credits to continue");
         }
 
+        if (res.status === 403 && data.code === "FREE_LIMIT_REACHED") {
+          // Free-tier limit hit — redirect to pricing, do not show error toast
+          router.push("/pricing");
+          return;
+        }
+
         // All other non-ok statuses: surface the server error message directly
         // Server returns { success: false, error: "...", code: "..." }
         if (!res.ok) throw new Error(data.error ?? data.data?.error ?? "Generation failed");

@@ -38,7 +38,7 @@ export type StudioType =
   | "ugc"
   | "fcs";
 
-export type EntitlementPath = "trial" | "paid" | "admin";
+export type EntitlementPath = "trial" | "paid" | "admin" | "free";
 
 export interface EntitlementResult {
   /** Which enforcement path was taken */
@@ -54,6 +54,11 @@ export interface EntitlementResult {
    * Pass to consumeTrialUsage() after a successful generation.
    */
   trialEndsAt?:    string;
+  /**
+   * Remaining free-tier generations — present only when path === "free".
+   * Informational; actual enforcement is handled by checkEntitlement.
+   */
+  freeRemaining?: { images: number; videos: number; audio: number };
 }
 
 // Raw shape returned by get_user_entitlement RPC
@@ -157,12 +162,63 @@ export async function checkEntitlement(
 
   const ent = raw as EntitlementRPCResult;
 
-  // ── No active subscription ──────────────────────────────────────────────────
+  // ── No active subscription — free-tier path ────────────────────────────────
+  // Users with no subscription get a permanent free tier:
+  //   10 images (image + character), 3 videos (video + ugc), 3 audio.
+  // After limits are reached they are redirected to /pricing.
+  // Paid users who reach credits=0 NEVER hit this path — they remain "active"
+  // and are shown a boost/purchase flow instead. These paths are strictly separate.
   if (ent.status === "inactive" || !ent.subscription) {
-    throw new StudioDispatchError(
-      "No active subscription. Please upgrade to continue generating.",
-      "SUBSCRIPTION_INACTIVE"
-    );
+    // FCS is always blocked on free tier
+    if (studioType === "fcs") {
+      throw new StudioDispatchError(
+        "Future Cinema Studio requires a Pro or Business subscription.",
+        "FCS_NOT_ALLOWED"
+      );
+    }
+
+    // Read current free usage (non-atomic pre-check — same pattern as trial)
+    const { data: freeRow } = await supabaseAdmin
+      .from("free_usage")
+      .select("images_used, images_max, videos_used, videos_max, audio_used, audio_max")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // Defaults: no row = 0 used across all categories
+    const fu = freeRow as {
+      images_used: number; images_max: number;
+      videos_used: number; videos_max: number;
+      audio_used:  number; audio_max:  number;
+    } | null;
+    const imagesUsed = fu?.images_used ?? 0;
+    const imagesMax  = fu?.images_max  ?? 10;
+    const videosUsed = fu?.videos_used ?? 0;
+    const videosMax  = fu?.videos_max  ?? 3;
+    const audioUsed  = fu?.audio_used  ?? 0;
+    const audioMax   = fu?.audio_max   ?? 3;
+
+    const category = resolveTrialCategory(studioType);
+    const used = category === "images" ? imagesUsed : category === "videos" ? videosUsed : audioUsed;
+    const max  = category === "images" ? imagesMax  : category === "videos" ? videosMax  : audioMax;
+
+    if (used >= max) {
+      throw new StudioDispatchError(
+        `You've used all ${max} free ${category}. Upgrade to a paid plan to continue generating.`,
+        "FREE_LIMIT_REACHED"
+      );
+    }
+
+    return {
+      path:           "free",
+      billingUserId:  userId,
+      isTeamMember:   false,
+      subscriptionId: "free-tier",
+      freeRemaining: {
+        images: Math.max(0, imagesMax - imagesUsed),
+        videos: Math.max(0, videosMax - videosUsed),
+        audio:  Math.max(0, audioMax  - audioUsed),
+      },
+    };
   }
 
   const sub = ent.subscription;
@@ -319,6 +375,35 @@ export async function consumeTrialUsage(
   if (!result.allowed) {
     // This shouldn't happen (we checked before dispatch), but log it
     console.warn("[entitlement] consume_trial_usage returned not allowed after generation:", result.reason);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// consumeFreeUsage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Called AFTER a successful free-tier generation to atomically increment usage.
+ * Creates the free_usage row if it doesn't exist yet (first-generation case).
+ *
+ * Fire-and-forget — non-fatal. If the RPC fails, generation already succeeded;
+ * log and continue. The pre-dispatch check in checkEntitlement was the gate.
+ *
+ * @param userId      The generating user's ID.
+ * @param studioType  The studio that was used.
+ */
+export async function consumeFreeUsage(
+  userId:       string,
+  studioType:   StudioType,
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc("consume_free_usage", {
+    p_user_id:     userId,
+    p_studio_type: studioType,
+  });
+
+  if (error) {
+    console.error("[entitlement] consume_free_usage RPC error:", error.message);
+    // Non-fatal — generation already succeeded; log and continue
   }
 }
 

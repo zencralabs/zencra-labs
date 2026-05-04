@@ -96,6 +96,7 @@ export type StudioDispatchErrorCode =
   | "SUBSCRIPTION_INACTIVE"
   | "TRIAL_EXHAUSTED"
   | "TRIAL_EXPIRED"
+  | "FREE_LIMIT_REACHED"
   | "FCS_NOT_ALLOWED"
   | "SINGLE_USER_VIOLATION"
   | "PROVIDER_ERROR"
@@ -653,6 +654,7 @@ export function dispatchErrorStatus(code: StudioDispatchErrorCode): number {
     SUBSCRIPTION_INACTIVE:  403,
     TRIAL_EXHAUSTED:        402,
     TRIAL_EXPIRED:          402,
+    FREE_LIMIT_REACHED:     403,
     FCS_NOT_ALLOWED:        403,
     SINGLE_USER_VIOLATION:  403,
     PROVIDER_ERROR:         502,
