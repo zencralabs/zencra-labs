@@ -21,11 +21,108 @@ interface CDv2TopBarProps {
   onExitDirectorMode?:    () => void;
   isFullscreen:           boolean;
   onToggleFullscreen:     () => void;
+  saveStatus?:            "idle" | "unsaved" | "saving" | "saved" | "failed";
+  onSaveNow?:             () => void;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SaveStatusPill — inline save-state indicator
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "failed";
+
+const SAVE_STATUS_CONFIG: Record<
+  Exclude<SaveStatus, "idle">,
+  { label: string; color: string; bg: string; border: string; icon: string }
+> = {
+  unsaved: {
+    label:  "Unsaved",
+    color:  "rgba(255,255,255,0.35)",
+    bg:     "rgba(255,255,255,0.04)",
+    border: "rgba(255,255,255,0.09)",
+    icon:   "●",
+  },
+  saving: {
+    label:  "Saving…",
+    color:  "rgba(139,92,246,0.8)",
+    bg:     "rgba(139,92,246,0.06)",
+    border: "rgba(139,92,246,0.18)",
+    icon:   "◌",
+  },
+  saved: {
+    label:  "Saved",
+    color:  "rgba(52,211,153,0.85)",
+    bg:     "rgba(52,211,153,0.06)",
+    border: "rgba(52,211,153,0.18)",
+    icon:   "✓",
+  },
+  failed: {
+    label:  "Save failed",
+    color:  "rgba(248,113,113,0.9)",
+    bg:     "rgba(248,113,113,0.07)",
+    border: "rgba(248,113,113,0.2)",
+    icon:   "✕",
+  },
+};
+
+function SaveStatusPill({
+  status,
+  onSaveNow,
+}: {
+  status:     Exclude<SaveStatus, "idle">;
+  onSaveNow?: () => void;
+}) {
+  const cfg          = SAVE_STATUS_CONFIG[status];
+  const isClickable  = status === "unsaved" || status === "failed";
+  const [hover, setHover] = useState(false);
+
+  return (
+    <button
+      onClick={isClickable ? onSaveNow : undefined}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={isClickable ? "Save now" : undefined}
+      style={{
+        display:      "flex",
+        alignItems:   "center",
+        gap:          5,
+        fontSize:     10,
+        fontFamily:   "var(--font-sans)",
+        color:        cfg.color,
+        background:   hover && isClickable ? "rgba(255,255,255,0.07)" : cfg.bg,
+        border:       `1px solid ${cfg.border}`,
+        borderRadius: 100,
+        padding:      "3px 10px",
+        letterSpacing: "0.04em",
+        flexShrink:   0,
+        cursor:       isClickable ? "pointer" : "default",
+        transition:   "all 0.2s ease",
+        whiteSpace:   "nowrap",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 8,
+          animation: status === "saving" ? "cd-spin 1.2s linear infinite" : "none",
+          display: "inline-block",
+        }}
+      >
+        {cfg.icon}
+      </span>
+      {status === "unsaved" && hover ? "Save now" : cfg.label}
+    </button>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function CDv2TopBar({ onExitDirectorMode, isFullscreen, onToggleFullscreen }: CDv2TopBarProps) {
+export function CDv2TopBar({
+  onExitDirectorMode,
+  isFullscreen,
+  onToggleFullscreen,
+  saveStatus = "idle",
+  onSaveNow,
+}: CDv2TopBarProps) {
   const {
     mode,
     directionId,
@@ -139,6 +236,11 @@ export function CDv2TopBar({ onExitDirectorMode, isFullscreen, onToggleFullscree
         >
           {mode === "locked" ? "🔒 Locked" : "◎ Explore"}
         </span>
+
+        {/* ── Save status indicator ─────────────────────────────────────── */}
+        {saveStatus !== "idle" && (
+          <SaveStatusPill status={saveStatus} onSaveNow={onSaveNow} />
+        )}
       </div>
 
       {/* ── Center: 3D pill mode switch ────────────────────────────────── */}

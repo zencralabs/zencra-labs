@@ -137,7 +137,9 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
     mode,
     sceneIntent,
     elements,
-    directionCreated,
+    frames,
+    connections,
+    textNodes,
     selectedModel,
     setSelectedModel,
     uploadedAssets,
@@ -182,12 +184,19 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
   }, [isGenerating]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
+  // Signal-based: ANY meaningful input = allow generation.
+  // This is a graph system — the button must activate the moment the user has
+  // built something worth generating from, regardless of which signal they used.
+  const hasFrame       = frames.length > 0;
+  const hasConnections = connections.length > 0;
+  const hasTextNode    = textNodes.some((t) => t.text.trim().length > 0);
+  const hasSceneNodes  = elements.length > 0;
+  const hasDirectInput = directInput.trim().length > 0;
+  const hasSceneIntent = sceneIntent.text.trim().length > 0;
+
   const canGenerate =
     !isGenerating &&
-    (directionCreated ||
-      sceneIntent.text.trim().length > 0 ||
-      elements.length > 0 ||
-      directInput.trim().length > 0);
+    (hasFrame || hasConnections || hasTextNode || hasSceneNodes || hasDirectInput || hasSceneIntent);
 
   const isLocked = mode === "locked";
 

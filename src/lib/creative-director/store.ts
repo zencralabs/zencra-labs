@@ -337,6 +337,12 @@ export interface DirectionActions {
   removeTextNode: (id: string) => void;
   updateTextNode: (id: string, patch: Partial<Pick<CanvasTextNode, "text" | "fontSize" | "color" | "x" | "y">>) => void;
 
+  // Bulk-set actions — used by canvas restore on mount.
+  // Replace entire arrays atomically so the canvas hydrates in a single render.
+  setFrames:      (frames: GenerationFrame[]) => void;
+  setConnections: (connections: NodeConnection[]) => void;
+  setTextNodes:   (textNodes: CanvasTextNode[]) => void;
+
   // Full reset (switching back to standard mode / new direction)
   reset: () => void;
 }
@@ -531,6 +537,11 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
     set((s) => ({
       textNodes: s.textNodes.map((n) => (n.id === id ? { ...n, ...patch } : n)),
     })),
+
+  // ── Bulk-set (canvas restore) ─────────────────────────────────────────────
+  setFrames:      (frames)      => set({ frames }),
+  setConnections: (connections) => set({ connections }),
+  setTextNodes:   (textNodes)   => set({ textNodes }),
 
   // ── Reset ─────────────────────────────────────────────────────────────────
   reset: () => set(INITIAL),

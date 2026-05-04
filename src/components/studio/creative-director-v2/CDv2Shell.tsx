@@ -33,7 +33,12 @@ import {
   useDirectionStore,
   buildCharacterDirectionSuffix,
 }                                                    from "@/lib/creative-director/store";
-import type { UploadedAsset }                        from "@/lib/creative-director/store";
+import type {
+  UploadedAsset,
+  GenerationFrame,
+  CanvasTextNode,
+  NodeConnection,
+}                                                    from "@/lib/creative-director/store";
 import { CDv2TopBar }                                from "./CDv2TopBar";
 import { LeftPanel }                                 from "./LeftPanel";
 import { SceneCanvas }                               from "./SceneCanvas";
@@ -49,6 +54,49 @@ import type { CDGenerationOutput }                   from "@/lib/creative-direct
 interface CDv2ShellProps {
   onExitDirectorMode: () => void;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Canvas autosave — module-level helpers (read from store outside React render)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Versioned snapshot of the CDv2 canvas for DB persistence.
+ * version field allows safe forward migration when the shape evolves.
+ */
+interface CDv2CanvasStateV1 {
+  version:         1;
+  frames:          GenerationFrame[];
+  textNodes:       CanvasTextNode[];
+  connections:     NodeConnection[];
+  selectedModel:   string;
+  sceneIntent:     { text: string; uploadedUrl: string | null };
+  canvasTransform: { x: number; y: number; scale: number };
+  savedAt:         string;
+}
+
+/** Build a serialisable snapshot from current Zustand state. */
+function buildCDv2CanvasState(): CDv2CanvasStateV1 {
+  const s = useDirectionStore.getState();
+  return {
+    version:         1,
+    frames:          s.frames,
+    textNodes:       s.textNodes,
+    connections:     s.connections,
+    selectedModel:   s.selectedModel,
+    sceneIntent:     s.sceneIntent,
+    canvasTransform: s.canvasTransform,
+    savedAt:         new Date().toISOString(),
+  };
+}
+
+/** JSON hash excluding `savedAt` so identical canvas state doesn't re-trigger saves. */
+function getCDv2CanvasHash(cs: CDv2CanvasStateV1): string {
+  const { savedAt: _savedAt, version: _v, ...rest } = cs;
+  return JSON.stringify(rest);
+}
+
+/** localStorage key for the pre-direction canvas draft buffer. */
+const CANVAS_BUFFER_KEY = "cdv2_canvas_buffer";
 
 // DirectorHandle — slim 36px strip above PromptDock that controls DirectorPanel
 function DirectorHandle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
@@ -184,6 +232,16 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const [selectedFrameId,     setSelectedFrameId]     = useState<string | null>(null);
   const [dockMinimized,       setDockMinimized]       = useState(false);
   const [miniConsoleHovered,  setMiniConsoleHovered]  = useState(false);
+
+  // ── Canvas autosave state + refs ─────────────────────────────────────────
+  // saveStatus drives the top-bar badge: idle → unsaved → saving → saved | failed
+  const [saveStatus,    setSaveStatus]   = useState<"idle" | "saving" | "saved" | "unsaved" | "failed">("idle");
+  const autoSaveTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSaveHash    = useRef("");
+  const isSavingCanvas  = useRef(false);
+  // justRestored: set true when we hydrate from storage so the flush-on-
+  // direction-created effect doesn't immediately re-write unchanged state.
+  const justRestored    = useRef(false);
 
   // Derive AR from selected frame (one-way: canvas selection → dock)
   const selectedFrameAr = selectedFrameId
@@ -514,6 +572,153 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     [ensureDirection, startGenerating, finishGenerating]
   );
 
+  // ── Canvas autosave — write canvas state to DB ───────────────────────────
+  const saveCanvasToDb = useCallback(async (id: string) => {
+    if (isSavingCanvas.current) return;
+    const snapshot = buildCDv2CanvasState();
+    const hash     = getCDv2CanvasHash(snapshot);
+    if (hash === lastSaveHash.current) { setSaveStatus("saved"); return; }
+    isSavingCanvas.current = true;
+    setSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/creative-director/directions/${id}/canvas`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ canvas_state: snapshot }),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      lastSaveHash.current = hash;
+      // Also cache to localStorage for sub-second re-open on next visit
+      try {
+        localStorage.setItem(CANVAS_BUFFER_KEY, JSON.stringify({ directionId: id, canvas_state: snapshot }));
+      } catch { /* storage quota — ignore */ }
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("failed");
+    } finally {
+      isSavingCanvas.current = false;
+    }
+  }, []);
+
+  // ── Debounced autosave — 1 500 ms after last canvas change ───────────────
+  // Before a direction exists: writes to localStorage only (temp buffer).
+  // After direction exists:    writes to localStorage + DB.
+  const scheduleAutoSave = useCallback(() => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    setSaveStatus("unsaved");
+    autoSaveTimer.current = setTimeout(() => {
+      const { directionId: dId } = useDirectionStore.getState();
+      const snapshot = buildCDv2CanvasState();
+      try {
+        localStorage.setItem(CANVAS_BUFFER_KEY, JSON.stringify({ directionId: dId, canvas_state: snapshot }));
+      } catch { /* quota */ }
+      if (dId) {
+        void saveCanvasToDb(dId);
+      } else {
+        setSaveStatus("saved"); // buffered locally
+      }
+    }, 1500);
+  }, [saveCanvasToDb]);
+
+  // ── Manual "Save now" ─────────────────────────────────────────────────────
+  const handleSaveNow = useCallback(() => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    const { directionId: dId } = useDirectionStore.getState();
+    if (dId) {
+      void saveCanvasToDb(dId);
+    } else {
+      const snapshot = buildCDv2CanvasState();
+      try { localStorage.setItem(CANVAS_BUFFER_KEY, JSON.stringify({ directionId: null, canvas_state: snapshot })); } catch { /* quota */ }
+      setSaveStatus("saved");
+    }
+  }, [saveCanvasToDb]);
+
+  // ── Store subscription — trigger autosave on canvas-relevant changes ──────
+  useEffect(() => {
+    const unsub = useDirectionStore.subscribe((state, prev) => {
+      if (
+        state.frames          !== prev.frames          ||
+        state.textNodes       !== prev.textNodes        ||
+        state.connections     !== prev.connections      ||
+        state.selectedModel   !== prev.selectedModel    ||
+        state.sceneIntent     !== prev.sceneIntent      ||
+        state.canvasTransform !== prev.canvasTransform
+      ) {
+        scheduleAutoSave();
+      }
+    });
+    return () => {
+      unsub();
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [scheduleAutoSave]);
+
+  // ── Flush localStorage buffer to DB when direction is first created ───────
+  // Fires when ensureDirection() writes the first DB row.
+  // justRestored guard prevents re-writing state we just fetched from DB.
+  useEffect(() => {
+    if (!directionCreated || !directionId) return;
+    if (justRestored.current) {
+      justRestored.current = false; // clear flag, don't flush
+      return;
+    }
+    void saveCanvasToDb(directionId);
+  }, [directionCreated, directionId, saveCanvasToDb]);
+
+  // ── Restore canvas state on mount ────────────────────────────────────────
+  // Priority: DB (fresh) > localStorage draft > nothing
+  useEffect(() => {
+    async function restore() {
+      try {
+        const raw = localStorage.getItem(CANVAS_BUFFER_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as {
+          directionId:  string | null;
+          canvas_state: CDv2CanvasStateV1 | null;
+        };
+        if (!parsed.canvas_state || parsed.canvas_state.version !== 1) return;
+        const cs      = parsed.canvas_state;
+        const savedId = parsed.directionId;
+
+        // If we have a saved directionId, try to fetch the freshest state from DB
+        if (savedId) {
+          try {
+            const res = await fetch(`/api/creative-director/directions/${savedId}/canvas`);
+            if (res.ok) {
+              const data = await res.json() as { canvas_state: CDv2CanvasStateV1 | null };
+              if (data.canvas_state?.version === 1) {
+                applyCanvasState(data.canvas_state, savedId);
+                return;
+              }
+            }
+          } catch { /* fall through to localStorage draft */ }
+        }
+
+        // Hydrate from localStorage draft (no direction or DB unreachable)
+        applyCanvasState(cs, savedId);
+      } catch { /* corrupt localStorage — ignore */ }
+    }
+
+    function applyCanvasState(cs: CDv2CanvasStateV1, savedId: string | null) {
+      const store = useDirectionStore.getState();
+      if (cs.frames?.length)      store.setFrames(cs.frames);
+      if (cs.textNodes?.length)   store.setTextNodes(cs.textNodes);
+      if (cs.connections?.length) store.setConnections(cs.connections);
+      if (cs.selectedModel)       store.setSelectedModel(cs.selectedModel);
+      if (cs.sceneIntent?.text)   store.setSceneIntentText(cs.sceneIntent.text);
+      if (cs.canvasTransform)     store.setCanvasTransform(cs.canvasTransform);
+      if (savedId) {
+        justRestored.current = true; // prevent flush-on-direction-created
+        store.markDirectionCreated(savedId);
+      }
+      // Seed hash so initial comparison works correctly
+      lastSaveHash.current = getCDv2CanvasHash(buildCDv2CanvasState());
+      setSaveStatus("saved");
+    }
+
+    void restore();
+  }, []); // mount only — intentional empty deps
+
   // ── Layout constants ──────────────────────────────────────────────────────
   // Collapsed widths: left 56px (icon rail), right 78px (thumbnail strip).
   // Expanded widths grow in fullscreen for extra breathing room.
@@ -640,6 +845,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         onExitDirectorMode={onExitDirectorMode}
         isFullscreen={isFullscreen}
         onToggleFullscreen={() => setIsFullscreen((f) => !f)}
+        saveStatus={saveStatus}
+        onSaveNow={handleSaveNow}
       />
 
       {/* ── 3-zone body ──────────────────────────────────────────────── */}
