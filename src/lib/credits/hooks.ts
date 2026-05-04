@@ -38,6 +38,17 @@ import type { CreditEstimate, ZProviderInput, StudioType } from "../providers/co
 // CREDIT STORE INTERFACE (database-agnostic)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Return type for lookupModelCost — three distinct states:
+ *   number    — row found AND active; value is base_credits (always >= 1 per DB constraint)
+ *   "inactive" — row found but active=false; generation must be BLOCKED, never silently billed
+ *   null       — row not found in DB at all; studio-level fallback pricing is permitted
+ *
+ * This three-way distinction prevents inactive locked models from silently falling
+ * back to cheap studio defaults and destroying billing accuracy.
+ */
+export type ModelCostLookup = number | "inactive" | null;
+
 export interface CreditStore {
   /** Atomically deduct `amount` from user balance. Returns false if insufficient. */
   deduct(userId: string, amount: number, description?: string): Promise<boolean>;
@@ -48,11 +59,16 @@ export interface CreditStore {
   /** Append an immutable transaction record. */
   log(entry: CreditLogEntry): Promise<void>;
   /**
-   * Look up the base_credits for a model from credit_model_costs.
-   * Returns 0 if the model is not found or the row is inactive.
-   * Non-throwing — a lookup failure falls back to studio defaults.
+   * Look up model pricing from credit_model_costs.
+   *
+   * Returns:
+   *   number     — row exists, active=true; use this cost (apply scaling/addons as needed)
+   *   "inactive" — row exists, active=false; caller MUST block generation
+   *   null       — row not found; caller MAY use studio-level provisional fallback
+   *
+   * Never throws — any DB error returns null (allows fallback, logs warning).
    */
-  lookupModelCost(modelKey: string): Promise<number>;
+  lookupModelCost(modelKey: string): Promise<ModelCostLookup>;
 }
 
 export interface CreditLogEntry {
@@ -149,22 +165,32 @@ export function buildSupabaseCreditStore(supabase: SupabaseClient): CreditStore 
       // log insert failure is intentionally non-fatal — we swallow the error
     },
 
-    async lookupModelCost(modelKey: string): Promise<number> {
-      // Reads base_credits from credit_model_costs for the given model_key.
-      // Only returns a value for active rows — inactive (Phase 2 hidden) models return 0.
-      // Returns 0 on any DB error so a transient lookup failure never blocks generation.
+    async lookupModelCost(modelKey: string): Promise<ModelCostLookup> {
+      // Three-way lookup — DO NOT filter by active here.
+      // Callers must distinguish "not found" (null) from "found but inactive" ("inactive")
+      // to prevent inactive locked models from falling back to cheap studio defaults.
+      //
+      // Uses maybeSingle() so a missing row returns data=null (no error thrown).
+      // A transient DB error returns null so a lookup failure never blocks generation
+      // on unregistered models — but DOES let "inactive" rows block correctly when reachable.
       try {
         const { data, error } = await supabase
           .from("credit_model_costs")
-          .select("base_credits")
+          .select("base_credits, active")
           .eq("model_key", modelKey)
-          .eq("active", true)
-          .single();
+          .maybeSingle();
 
-        if (error || !data) return 0;
-        return (data as { base_credits: number }).base_credits ?? 0;
+        if (error) {
+          console.warn(`[credits] lookupModelCost DB error for model=${modelKey}:`, error.message);
+          return null; // transient error → allow fallback (not an inactive block)
+        }
+        if (!data) return null; // row not in DB → caller may use studio fallback
+
+        const row = data as { base_credits: number; active: boolean };
+        if (!row.active) return "inactive"; // row exists but blocked → caller must throw
+        return row.base_credits ?? 1;       // active row → use this cost
       } catch {
-        return 0;
+        return null;
       }
     },
   };
@@ -210,8 +236,23 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
       // ── Priority 2: DB lookup from credit_model_costs (locked spec values) ──
       // This is the authoritative source for per-model costs. A successful lookup
       // replaces all hardcoded studio defaults. Failure falls through to defaults.
-      const dbCost = await ctx.store.lookupModelCost(ctx.modelKey);
-      if (dbCost > 0) {
+      const modelLookup = await ctx.store.lookupModelCost(ctx.modelKey);
+
+      // ── BLOCK: model is registered but inactive ────────────────────────────
+      // This is the critical safety gate. An inactive row means the model is known
+      // to the pricing spec but not yet enabled for production. Generating with it
+      // would charge the wrong amount (studio default) or zero credits.
+      // We throw here so the route returns a 402/503 before any credit is reserved.
+      if (modelLookup === "inactive") {
+        throw new Error(
+          `Model "${ctx.modelKey}" is registered in credit_model_costs but is not yet active. ` +
+          `Generation is blocked. Set active=true in credit_model_costs to enable this model.`
+        );
+      }
+
+      // Unpack: null = row not in DB (fallback allowed), number = active cost
+      const dbCost = modelLookup; // number | null
+      if (dbCost !== null && dbCost > 0) {
         const duration = input.durationSeconds;
 
         // ── Per-minute scaling (dubbing, voice-isolation) ─────────────────────
@@ -254,12 +295,22 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
         let addonTotal = 0;
         const addonBreakdown: Record<string, number> = {};
 
+        // Add-on lookup helper — narrows ModelCostLookup for add-on rows.
+        // Inactive add-on rows skip the charge (the feature still works, we just don't
+        // bill the add-on until its row is activated). This is intentionally different
+        // from the base model check: an inactive BASE model blocks generation entirely,
+        // while an inactive ADD-ON row merely waives the add-on cost.
+        const resolveAddon = (lookup: ModelCostLookup): number => {
+          if (typeof lookup === "number") return lookup; // active → charge it
+          return 0;                                       // inactive or null → waive
+        };
+
         // Start + End Frame add-on (+80cr, locked spec):
         //   Charged when BOTH a start frame (imageUrl) AND an end frame (endImageUrl)
         //   are provided for a video generation. Using only a start frame for standard
         //   image-to-video does NOT trigger this add-on.
         if (ctx.studio === "video" && input.imageUrl && input.endImageUrl) {
-          const addonCost = await ctx.store.lookupModelCost("addon-start-end");
+          const addonCost = resolveAddon(await ctx.store.lookupModelCost("addon-start-end"));
           if (addonCost > 0) {
             addonTotal += addonCost;
             addonBreakdown["addon-start-end"] = addonCost;
@@ -271,7 +322,7 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
         //   The video generate route flags this by setting
         //   providerParams.motionControlActive = true before calling dispatch.
         if (ctx.studio === "video" && input.providerParams?.motionControlActive === true) {
-          const addonCost = await ctx.store.lookupModelCost("addon-motion-control");
+          const addonCost = resolveAddon(await ctx.store.lookupModelCost("addon-motion-control"));
           if (addonCost > 0) {
             addonTotal += addonCost;
             addonBreakdown["addon-motion-control"] = addonCost;
