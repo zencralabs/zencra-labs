@@ -268,18 +268,22 @@ export function TextNode({
         onClick={handleNodeClick}
         style={{
           position:        "absolute",
-          top:             0,
-          left:            0,
-          transform:       `translate(${node.x}px, ${node.y}px)`,
+          top:             node.y,
+          left:            node.x,
           width:           TEXT_NODE_DEFAULT_WIDTH,
+          zIndex:          isSelected ? 22 : 18,
+          userSelect:      "none",
+        }}
+      >
+        {/* Inner visual wrapper — animation here so it never conflicts with positioning */}
+        <div style={{
+          width:           "100%",
           background:      "rgba(8,7,14,0.90)",
           border:          `1px solid ${borderColor}`,
           borderRadius:    10,
           boxShadow,
           backdropFilter:  "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
-          zIndex:          isSelected ? 22 : 18,
-          userSelect:      "none",
           transition:      "box-shadow 0.18s ease, border-color 0.18s ease",
           animation:       "cd-spring 0.42s cubic-bezier(0.34,1.56,0.64,1) both",
         }}
@@ -589,6 +593,7 @@ export function TextNode({
             </span>
           </div>
         )}
+        </div> {/* ── /inner visual wrapper ─────────────────────────────── */}
       </div>
     </>
   );
