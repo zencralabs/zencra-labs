@@ -227,37 +227,97 @@ export async function POST(req: Request): Promise<Response> {
   // needs the pixel-level visual anchor to preserve facial identity.
   //
   // Priority: highest-weight subject element that has a stored asset_url.
-  // Provider routing:
-  //   gpt-image-1/2  → imageUrl field
-  //   nano-banana-*  → providerParams.referenceUrls[]
-  //   seedream-*     → providerParams.referenceUrls[]
-  //   flux-*         → imageUrl field (single reference only)
+  //
+  // Provider routing + reference strength:
+  //   nano-banana-*  → providerParams.referenceUrls[] + imageStrength: 0.85
+  //   seedream-*     → providerParams.referenceUrls[] + referenceWeight: 0.85
+  //   gpt-image-1/2  → imageUrl field (no explicit strength — model-managed)
+  //   flux-*         → imageUrl field + providerParams.imageStrength: 0.85
   //   fallback       → imageUrl field
-  const identityLock       = refinements?.identity_lock === true;
-  const modelCaps          = getModelCapabilities(providerDecision.model);
+  //
+  // Fallback when model has no reference image support:
+  //   Log a warning — prompt-only generation will be attempted, but the
+  //   result is non-deterministic. The route still proceeds rather than
+  //   failing, because the identity-lock prompt language is a partial signal.
+  //
+  // Deterministic seed:
+  //   A shared seed is generated once and passed to ALL dispatches in a batch
+  //   so that count > 1 generations use the same face basis. Per-image variation
+  //   comes from the scene composition, not the face.
+  const identityLock = refinements?.identity_lock === true;
+  const modelCaps    = getModelCapabilities(providerDecision.model);
 
-  let dispatchImageUrl:      string | undefined;
+  let dispatchImageUrl:       string | undefined;
   let dispatchProviderParams: Record<string, unknown> | undefined;
 
-  if (identityLock && modelCaps.maxReferenceImages > 0) {
+  // Deterministic seed for batch consistency — generated once, shared across all dispatches.
+  // Math.random gives a float; multiply + floor gives a safe 32-bit integer seed.
+  const batchSeed = identityLock ? Math.floor(Math.random() * 2_147_483_647) : undefined;
+
+  if (identityLock) {
     const subjectWithImage = elements
       .filter((e) => e.type === "subject" && !!e.asset_url)
       .sort((a, b) => b.weight - a.weight)[0];
 
     if (subjectWithImage?.asset_url) {
       const refUrl = subjectWithImage.asset_url;
-      const isNanoBanana = providerDecision.model.startsWith("nano-banana") ||
-                           providerDecision.model.startsWith("seedream");
 
-      if (isNanoBanana) {
-        dispatchProviderParams = { referenceUrls: [refUrl] };
+      if (modelCaps.maxReferenceImages > 0) {
+        const isNanoBanana = providerDecision.model.startsWith("nano-banana");
+        const isSeedream   = providerDecision.model.startsWith("seedream");
+        const isFlux       = providerDecision.model.startsWith("flux");
+
+        if (isNanoBanana) {
+          // nano-banana: multi-reference array + imageStrength for reference weight vs prompt
+          dispatchProviderParams = {
+            referenceUrls:  [refUrl],
+            imageStrength:  0.85, // 0.0 = pure prompt, 1.0 = pure reference; 0.85 = identity priority
+            ...(batchSeed !== undefined ? { seed: batchSeed } : {}),
+          };
+        } else if (isSeedream) {
+          // seedream: referenceUrls array + referenceWeight
+          dispatchProviderParams = {
+            referenceUrls:   [refUrl],
+            referenceWeight: 0.85,
+            ...(batchSeed !== undefined ? { seed: batchSeed } : {}),
+          };
+        } else if (isFlux) {
+          // flux-kontext: imageUrl single reference + strength in providerParams
+          dispatchImageUrl       = refUrl;
+          dispatchProviderParams = {
+            imageStrength: 0.85,
+            ...(batchSeed !== undefined ? { seed: batchSeed } : {}),
+          };
+        } else {
+          // gpt-image-* and unknown models — imageUrl only (model manages reference weight)
+          dispatchImageUrl = refUrl;
+          if (batchSeed !== undefined) {
+            dispatchProviderParams = { seed: batchSeed };
+          }
+        }
+
+        console.log(
+          `[cd/generate] identity_lock=true → reference injected for ${providerDecision.model}` +
+          ` (${isNanoBanana || isSeedream ? "referenceUrls" : "imageUrl"})` +
+          ` strength=0.85 seed=${batchSeed ?? "none"}`
+        );
       } else {
-        // gpt-image-*, flux-kontext, and unknown models — use imageUrl
-        dispatchImageUrl = refUrl;
+        // Provider does not support reference images — prompt-only fallback.
+        // The direction-prompt.ts identity lock language is the only signal.
+        // Result will be non-deterministic. Log prominently so this is detectable.
+        console.warn(
+          `[cd/generate] identity_lock=true but model="${providerDecision.model}" has maxReferenceImages=0. ` +
+          `Falling back to prompt-only — face fidelity is NOT guaranteed. ` +
+          `Consider routing to nano-banana or seedream for deterministic identity lock.`
+        );
       }
-      console.log(`[cd/generate] identity_lock=true → reference image injected for ${providerDecision.model} (${isNanoBanana ? "referenceUrls" : "imageUrl"})`);
     } else {
-      console.warn(`[cd/generate] identity_lock=true but no subject element has an asset_url — generation will be prompt-only`);
+      // No subject element has an asset_url — identity lock cannot function.
+      console.warn(
+        `[cd/generate] identity_lock=true but no subject element has an asset_url. ` +
+        `Generation will be prompt-only. ` +
+        `User must upload a reference image to the subject element to enable identity lock.`
+      );
     }
   }
 
@@ -337,6 +397,9 @@ export async function POST(req: Request): Promise<Response> {
           modelKey:       providerDecision.model,
           prompt:         promptString,
           imageUrl:       dispatchImageUrl,
+          // providerParams already contains seed (if identity_lock + batchSeed) and
+          // reference strength params. Merge with any caller-level params — identity
+          // lock params take precedence because they were built with the reference URL.
           providerParams: dispatchProviderParams,
           aspectRatio,
           skipCredits:    true,

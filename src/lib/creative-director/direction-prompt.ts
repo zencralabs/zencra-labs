@@ -25,13 +25,25 @@
  * in each group, giving them structural priority.
  *
  * ─── COMPOSITION ORDER ───────────────────────────────────────────────────────
- * 1. Identity anchor — LEADS when identity_lock is ON (character fidelity first)
+ * 1. Identity anchor — LEADS when identity_lock is ON (reference image is ground truth)
  * 2. TextNode input — leading creative vision from wired TextNode (if present)
  * 3. Scene intent / direction.name — secondary context (demoted if TextNode present)
  * 4. Elements — subject/world/atmosphere/object sorted by weight
  * 5. Director controls — cinematography, scene energy, tone intensity
+ *    NOTE: tone intensity is suppressed when identity_lock=true to prevent
+ *    creative variation language from competing with face fidelity
  * 6. Character direction suffix — identity lock enforcement (second layer)
  * 7. Quality anchor — always appended last
+ *
+ * ─── IDENTITY LOCK STRATEGY ──────────────────────────────────────────────────
+ * When identity_lock=true, three layers enforce character fidelity:
+ *   Layer 1 (prompt lead):   "reference image is ground truth" anchor instruction
+ *   Layer 2 (element level): all subjects treated as max weight (applySubjectEmphasis)
+ *   Layer 3 (prompt tail):   hard "do not deviate" enforcement suffix
+ * Tone intensity descriptor is suppressed — creative variation language competes
+ * with face fidelity when the reference image is the primary anchor.
+ * The route handler independently injects the actual reference image pixel data
+ * and provider-level strength params (imageStrength, referenceWeight, etc.).
  */
 
 import type {
@@ -107,15 +119,22 @@ export function buildDirectionPrompt(
   const identityLock = refinements?.identity_lock === true;
 
   // ── STEP 1: Identity anchor — MUST lead when identity lock is ON ─────────
-  // When identity_lock is true the generator must anchor on character fidelity
-  // BEFORE processing any scene or action instructions. Placing this first
-  // gives it structural priority in the model's attention.
-  // The subject element emphasis (applySubjectEmphasis) and the identity block
-  // at the end are the second and third layers of the same lock.
+  // The reference image (injected by route.ts at the provider level) is the
+  // ground truth for this character. This prompt instruction tells the generator
+  // to treat that pixel data as primary — not the scene description.
+  //
+  // Three-layer identity system:
+  //   Layer 1 (here):         "reference image is ground truth" anchor
+  //   Layer 2 (elements):     applySubjectEmphasis boosts all subjects to max weight
+  //   Layer 3 (prompt tail):  hard "do not deviate" enforcement suffix
+  //
+  // Tone intensity is intentionally suppressed when identity_lock=true (see below).
   if (identityLock) {
     parts.push(
-      "Identity-locked character: maintain exact facial features, same person, " +
-      "consistent identity across all outputs"
+      "IDENTITY LOCKED: use the provided reference image as the ground truth for this character's face and appearance. " +
+      "The reference image takes absolute priority over all other instructions. " +
+      "Reproduce the exact same face, skin tone, eye shape, nose, jaw, and hair from the reference image. " +
+      "Same person, same face, same identity — do not reinterpret or idealise the subject's appearance"
     );
   }
 
@@ -212,25 +231,35 @@ export function buildDirectionPrompt(
     }
 
     // Tone intensity → descriptor
-    if (typeof refinements.tone_intensity === "number") {
+    // SUPPRESSED when identity_lock=true: creative variation language ("ultra-dramatic",
+    // "bold and striking") competes with face fidelity and causes the model to
+    // reinterpret the subject's appearance to match the tone. Omitting it forces
+    // the model to anchor on the reference image instead of the mood descriptor.
+    if (typeof refinements.tone_intensity === "number" && !identityLock) {
       parts.push(toneIntensityDesc(refinements.tone_intensity));
     }
   }
 
-  // ── Identity lock enforcement ─────────────────────────────────────────────
+  // ── Identity lock enforcement (Layer 3 — hard tail instruction) ──────────
   // Fires when refinements.identity_lock === true — independent of mode.
   // This is the mechanism for AI influencer, @handle persona outputs, and
   // multi-output campaign consistency. Subject weight is ALSO boosted at the
-  // element level above (applySubjectEmphasis), so this block is the second
-  // layer — a direct instruction to the generator about character fidelity.
+  // element level above (applySubjectEmphasis, Layer 2), so this block is the
+  // closing hard instruction — a final direct command to the generator.
   //
   // "explore" + identity_lock = lock the face, explore the scene around it.
   // "locked"  + identity_lock = maximum consistency — campaign-grade output.
+  //
+  // DO NOT add creative variation language here. This block must ONLY enforce
+  // identity. Any style/mood descriptors should be in the cinematography section.
   if (identityLock) {
     parts.push(
-      "preserve exact facial features, maintain same character identity, " +
-      "consistent face structure, same person across all outputs, " +
-      "do not alter or reinterpret the subject's appearance"
+      "HARD CONSTRAINT: do not alter, idealise, reinterpret, or stylise the subject's face. " +
+      "Preserve exact facial features from the reference image — same eye shape, same nose, " +
+      "same jaw structure, same skin tone, same hair. " +
+      "If there is any conflict between the scene description and the reference image face, " +
+      "the reference image face ALWAYS wins. " +
+      "Same person. Same face. Every output."
     );
   }
 
