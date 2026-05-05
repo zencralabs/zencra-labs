@@ -212,7 +212,7 @@ const COMPARE_FEATURES = [
     icon: "💬",
     name: "Support",
     sub: "Get help when you need",
-    values: ["Community", "Email", "Priority", "Dedicated"],
+    values: ["Ticket", "Ticket", "Ticket (Priority)", "Ticket (Priority)"],
   },
 ];
 
