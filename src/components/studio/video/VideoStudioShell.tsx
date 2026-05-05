@@ -616,7 +616,9 @@ function OmniShotStack({
 // ── Omni: Director Board — Center Canvas ──────────────────────────────────────
 
 function OmniDirectorBoard({
-  shots, startSlot, endSlot, motionVideoUrl, generating, onAddReferenceImage, onAddReferenceVideo, onTryStoryboardPrompt,
+  shots, startSlot, endSlot, motionVideoUrl, generating,
+  onAddReferenceImage, onAddReferenceVideo, onTryStoryboardPrompt,
+  onSwapFrames, onRemoveVideo,
 }: {
   shots:                 OmniShotEntry[];
   startSlot:             ImageSlot;
@@ -626,6 +628,8 @@ function OmniDirectorBoard({
   onAddReferenceImage:   () => void;
   onAddReferenceVideo:   () => void;
   onTryStoryboardPrompt: () => void;
+  onSwapFrames:          () => void;
+  onRemoveVideo:         () => void;
 }) {
   const ACCENT = "#0EA5A0";
   const hasStart = !!startSlot.url;
@@ -731,7 +735,7 @@ function OmniDirectorBoard({
       <div style={{
         flex: 1,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: "38px 32px",
+        padding: "26px 22px",
         gap: 22,
         /* Subtle film-grain texture overlay via CSS gradient noise */
         backgroundImage: [
@@ -778,60 +782,167 @@ function OmniDirectorBoard({
           <>
             {/* ── Reference thumbnails — appear when assets are attached ── */}
             {(hasStart || hasEnd || hasVideo) && (
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 2 }}>
+              <div style={{ display: "flex", gap: 0, alignItems: "flex-start", marginBottom: 2 }}>
+                {/* Start Frame */}
                 {hasStart && (
-                  <div style={{
-                    position: "relative", width: 116, height: 72, borderRadius: 8,
-                    overflow: "hidden", border: `1px solid ${ACCENT}55`,
-                    boxShadow: `0 0 24px ${ACCENT}28, 0 0 0 1px ${ACCENT}18`,
-                    flexShrink: 0,
-                  }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: ACCENT, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+                      Start Frame
+                    </div>
                     <div style={{
-                      position: "absolute", bottom: 4, left: 5,
-                      fontSize: 8, fontWeight: 800, color: "#fff",
-                      background: "rgba(0,0,0,0.72)", padding: "2px 6px",
-                      borderRadius: 4, letterSpacing: "0.06em",
-                    }}>START</div>
+                      position: "relative", width: 188, height: 116, borderRadius: 10,
+                      overflow: "hidden",
+                      border: `2px solid ${ACCENT}88`,
+                      boxShadow: `0 0 32px ${ACCENT}44, 0 0 64px ${ACCENT}1a, 0 0 0 1px ${ACCENT}22`,
+                      flexShrink: 0,
+                    }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        background: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%)`,
+                        pointerEvents: "none",
+                      }} />
+                      <div style={{
+                        position: "absolute", bottom: 7, left: 8,
+                        fontSize: 9, fontWeight: 900, color: "#fff",
+                        background: `${ACCENT}cc`, padding: "2px 8px",
+                        borderRadius: 4, letterSpacing: "0.08em",
+                      }}>START FRAME</div>
+                    </div>
                   </div>
                 )}
+
+                {/* Swap button — only when both frames exist */}
+                {hasStart && hasEnd && (
+                  <div style={{ display: "flex", alignItems: "center", padding: "0 10px", marginTop: 34 }}>
+                    <button
+                      onClick={onSwapFrames}
+                      title="Swap start ↔ end"
+                      style={{
+                        width: 32, height: 32, borderRadius: 8,
+                        background: "rgba(14,165,160,0.10)",
+                        border: "1px solid rgba(14,165,160,0.30)",
+                        color: ACCENT, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.18s",
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={e => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = `${ACCENT}28`;
+                        el.style.boxShadow = `0 0 18px ${ACCENT}44`;
+                        el.style.transform = "scale(1.12)";
+                      }}
+                      onMouseLeave={e => {
+                        const el = e.currentTarget as HTMLElement;
+                        el.style.background = "rgba(14,165,160,0.10)";
+                        el.style.boxShadow = "none";
+                        el.style.transform = "none";
+                      }}
+                    >
+                      {/* ⇄ arrows */}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="16 3 21 3 21 8"/>
+                        <line x1="4" y1="20" x2="21" y2="3"/>
+                        <polyline points="21 16 21 21 16 21"/>
+                        <line x1="3" y1="4" x2="21" y2="21"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Gap between start and end when no swap button */}
+                {hasStart && !hasEnd && hasVideo && <div style={{ width: 10 }} />}
+                {!hasStart && hasEnd && <div style={{ width: 0 }} />}
+
+                {/* End Frame */}
                 {hasEnd && (
-                  <div style={{
-                    position: "relative", width: 116, height: 72, borderRadius: 8,
-                    overflow: "hidden", border: "1px solid rgba(34,211,238,0.44)",
-                    boxShadow: "0 0 24px rgba(34,211,238,0.18), 0 0 0 1px rgba(34,211,238,0.12)",
-                    flexShrink: 0,
-                  }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#F59E0B", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+                      End Frame
+                    </div>
                     <div style={{
-                      position: "absolute", bottom: 4, left: 5,
-                      fontSize: 8, fontWeight: 800, color: "#fff",
-                      background: "rgba(0,0,0,0.72)", padding: "2px 6px",
-                      borderRadius: 4, letterSpacing: "0.06em",
-                    }}>END</div>
+                      position: "relative", width: 188, height: 116, borderRadius: 10,
+                      overflow: "hidden",
+                      border: "2px solid rgba(245,158,11,0.70)",
+                      boxShadow: "0 0 32px rgba(245,158,11,0.38), 0 0 64px rgba(245,158,11,0.14), 0 0 0 1px rgba(245,158,11,0.15)",
+                      flexShrink: 0,
+                    }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%)",
+                        pointerEvents: "none",
+                      }} />
+                      <div style={{
+                        position: "absolute", bottom: 7, left: 8,
+                        fontSize: 9, fontWeight: 900, color: "#fff",
+                        background: "rgba(245,158,11,0.80)", padding: "2px 8px",
+                        borderRadius: 4, letterSpacing: "0.08em",
+                      }}>END FRAME</div>
+                    </div>
                   </div>
                 )}
+
+                {/* Video Reference */}
                 {hasVideo && (
-                  <div style={{
-                    width: 116, height: 72, borderRadius: 8,
-                    border: "1px solid rgba(99,102,241,0.40)",
-                    background: "rgba(99,102,241,0.10)",
-                    boxShadow: "0 0 20px rgba(99,102,241,0.14)",
-                    display: "flex", flexDirection: "column", alignItems: "center",
-                    justifyContent: "center", gap: 5, flexShrink: 0,
-                  }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                      stroke="#818CF8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="23 7 16 12 23 17 23 7"/>
-                      <rect x="1" y="5" width="15" height="14" rx="2"/>
-                    </svg>
-                    <span style={{ fontSize: 8, fontWeight: 800, color: "#818CF8", letterSpacing: "0.06em" }}>
-                      VIDEO REF
-                    </span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginLeft: (hasStart || hasEnd) ? 10 : 0 }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#818CF8", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+                      Motion Ref
+                    </div>
+                    <div style={{
+                      position: "relative",
+                      width: 140, height: 116, borderRadius: 10,
+                      border: "1px solid rgba(99,102,241,0.50)",
+                      background: "rgba(99,102,241,0.10)",
+                      boxShadow: "0 0 24px rgba(99,102,241,0.22)",
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      justifyContent: "center", gap: 8, flexShrink: 0,
+                    }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="#818CF8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="23 7 16 12 23 17 23 7"/>
+                        <rect x="1" y="5" width="15" height="14" rx="2"/>
+                      </svg>
+                      <span style={{ fontSize: 9, fontWeight: 800, color: "#818CF8", letterSpacing: "0.06em" }}>
+                        VIDEO REF
+                      </span>
+                      {/* ✕ Remove overlay button */}
+                      <button
+                        onClick={onRemoveVideo}
+                        title="Remove video reference"
+                        style={{
+                          position: "absolute", top: 6, right: 6,
+                          width: 20, height: 20, borderRadius: 6,
+                          background: "rgba(0,0,0,0.70)",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          color: "#94A3B8", cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.background = "rgba(239,68,68,0.80)";
+                          el.style.color = "#fff";
+                        }}
+                        onMouseLeave={e => {
+                          const el = e.currentTarget as HTMLElement;
+                          el.style.background = "rgba(0,0,0,0.70)";
+                          el.style.color = "#94A3B8";
+                        }}
+                      >
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -977,6 +1088,68 @@ function OmniControlsPanel({
     </div>
   );
 
+  // Collapsible section — chevron toggle, 220ms height animation
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    exclude: true,
+    frameRate: true,
+    advanced: true,
+  });
+  const toggleSection = (key: string) =>
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const CollapsibleSection = ({
+    sectionKey, label, color = "#475569", children,
+  }: { sectionKey: string; label: string; color?: string; children: React.ReactNode }) => {
+    const collapsed = collapsedSections[sectionKey] ?? true;
+    return (
+      <div style={{
+        background: GLASS,
+        border: "1px solid rgba(255,255,255,0.06)",
+        borderLeft: `2px solid ${color}55`,
+        borderRadius: 10,
+        boxShadow: "inset 0 0 24px rgba(0,0,0,0.20)",
+        overflow: "hidden",
+      }}>
+        <button
+          onClick={() => toggleSection(sectionKey)}
+          style={{
+            width: "100%", display: "flex", alignItems: "center",
+            justifyContent: "space-between",
+            padding: "13px 14px",
+            background: "none", border: "none", cursor: "pointer",
+            textAlign: "left" as const,
+          }}
+        >
+          <span style={{
+            fontSize: 10, fontWeight: 800, color: color,
+            letterSpacing: "0.08em", textTransform: "uppercase" as const,
+            opacity: 0.85,
+          }}>{label}</span>
+          <svg
+            width="11" height="11" viewBox="0 0 24 24" fill="none"
+            stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{
+              flexShrink: 0, opacity: 0.7,
+              transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
+              transition: "transform 0.22s ease",
+            }}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        <div style={{
+          maxHeight: collapsed ? 0 : 400,
+          overflow: "hidden",
+          transition: "max-height 0.22s ease",
+        }}>
+          <div style={{ padding: "0 14px 14px" }}>
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{
       display: "flex", flexDirection: "column",
@@ -1025,15 +1198,15 @@ function OmniControlsPanel({
           />
         </Section>
 
-        {/* Negative Prompt */}
-        <Section label="Exclude" color="#475569">
+        {/* Negative Prompt — collapsible, default collapsed */}
+        <CollapsibleSection sectionKey="exclude" label="Exclude" color="#475569">
           <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
             placeholder="Elements to exclude from the output…" rows={2}
             style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
             onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
             onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
           />
-        </Section>
+        </CollapsibleSection>
 
         {/* Reference Frames */}
         <Section label="Reference Frames" color="#22D3EE">
@@ -1044,13 +1217,36 @@ function OmniControlsPanel({
               {startSlot.url ? (
                 <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${ACCENT}55`, boxShadow: `0 0 16px ${ACCENT}22` }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <button onClick={() => setStartSlot(EMPTY_SLOT)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                  <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
+                  {/* Action overlay on hover */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(0,0,0,0)", transition: "background 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.48)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0)"; }}
+                  >
+                    {/* Replace */}
+                    <label style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(14,165,160,0.85)", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
+                    >
+                      Replace
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
+                    </label>
+                    {/* Clear */}
+                    <button onClick={() => setStartSlot(EMPTY_SLOT)}
+                      style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(239,68,68,0.80)", border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(14,165,160,0.22)", background: "rgba(14,165,160,0.03)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                <label
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(14,165,160,0.22)", background: "rgba(14,165,160,0.03)", cursor: "pointer", gap: 5, transition: "all 0.18s" }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = `1px dashed ${ACCENT}55`; el.style.background = `rgba(14,165,160,0.08)`; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(14,165,160,0.22)"; el.style.background = "rgba(14,165,160,0.03)"; }}
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
@@ -1061,15 +1257,38 @@ function OmniControlsPanel({
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", marginBottom: 6, letterSpacing: "0.06em" }}>END FRAME</div>
               {endSlot.url ? (
-                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(34,211,238,0.44)", boxShadow: "0 0 16px rgba(34,211,238,0.14)" }}>
+                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(245,158,11,0.60)", boxShadow: "0 0 16px rgba(245,158,11,0.22)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <button onClick={() => setEndSlot(EMPTY_SLOT)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  </button>
+                  <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
+                  {/* Action overlay on hover */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(0,0,0,0)", transition: "background 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.48)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0)"; }}
+                  >
+                    {/* Replace */}
+                    <label style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(245,158,11,0.85)", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
+                    >
+                      Replace
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
+                    </label>
+                    {/* Clear */}
+                    <button onClick={() => setEndSlot(EMPTY_SLOT)}
+                      style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(239,68,68,0.80)", border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.02)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                <label
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(245,158,11,0.20)", background: "rgba(245,158,11,0.02)", cursor: "pointer", gap: 5, transition: "all 0.18s" }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(245,158,11,0.55)"; el.style.background = "rgba(245,158,11,0.07)"; }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(245,158,11,0.20)"; el.style.background = "rgba(245,158,11,0.02)"; }}
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
@@ -1090,7 +1309,11 @@ function OmniControlsPanel({
               </button>
             </div>
           ) : (
-            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}>
+            <label
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.18s" }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(99,102,241,0.50)"; el.style.background = "rgba(99,102,241,0.10)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(99,102,241,0.18)"; el.style.background = "rgba(99,102,241,0.03)"; }}
+            >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
               <span style={{ fontSize: 12, color: "#3D5070" }}>Upload motion reference video</span>
               <input type="file" accept="video/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setMotionVideoUrl(url); setMotionVideoName(f.name); }} />
@@ -1136,6 +1359,47 @@ function OmniControlsPanel({
             Lip sync not available for multi-shot Omni scenes.
           </div>
         </Section>
+
+        {/* Frame Rate — collapsible, default collapsed */}
+        <CollapsibleSection sectionKey="frameRate" label="Frame Rate" color="#818CF8">
+          <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
+            {([{ label: "24 fps", value: "24" }, { label: "30 fps", value: "30" }]).map(({ label, value }) => (
+              <button key={value}
+                style={{
+                  flex: 1, padding: "7px 0", borderRadius: 6, border: "none",
+                  fontSize: 12, fontWeight: 500,
+                  background: "transparent",
+                  color: "#334155",
+                  cursor: "pointer", transition: "all 0.14s",
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "rgba(129,140,248,0.12)";
+                  el.style.color = "#818CF8";
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = "transparent";
+                  el.style.color = "#334155";
+                }}
+              >{label}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: "#1E293B", marginTop: 8, lineHeight: 1.5 }}>
+            Frame rate control coming in a future Omni update.
+          </div>
+        </CollapsibleSection>
+
+        {/* Advanced — collapsible placeholder */}
+        <CollapsibleSection sectionKey="advanced" label="Advanced" color="#334155">
+          <div style={{
+            padding: "10px 0 2px",
+            fontSize: 11, color: "#334155", lineHeight: 1.6,
+            textAlign: "center" as const,
+          }}>
+            Advanced controls coming soon.
+          </div>
+        </CollapsibleSection>
 
       </div>
     </div>
@@ -1238,20 +1502,20 @@ function OmniGenerateBar({
           transition: "all 0.22s",
           letterSpacing: "0.02em", whiteSpace: "nowrap",
           boxShadow: canGenerate
-            ? `0 0 28px rgba(14,165,160,0.40), 0 0 60px rgba(14,165,160,0.14), 0 4px 16px rgba(0,0,0,0.40)`
+            ? `0 0 36px rgba(14,165,160,0.55), 0 0 72px rgba(14,165,160,0.22), 0 0 120px rgba(14,165,160,0.08), 0 4px 18px rgba(0,0,0,0.45)`
             : "none",
           display: "flex", alignItems: "center", gap: 8,
         }}
         onMouseEnter={e => {
           if (!canGenerate) return;
           const el = e.currentTarget as HTMLElement;
-          el.style.boxShadow = `0 0 40px rgba(14,165,160,0.55), 0 0 80px rgba(14,165,160,0.20), 0 4px 20px rgba(0,0,0,0.50)`;
+          el.style.boxShadow = `0 0 52px rgba(14,165,160,0.70), 0 0 100px rgba(14,165,160,0.30), 0 0 160px rgba(14,165,160,0.12), 0 4px 22px rgba(0,0,0,0.55)`;
           el.style.transform = "translateY(-1px)";
         }}
         onMouseLeave={e => {
           if (!canGenerate) return;
           const el = e.currentTarget as HTMLElement;
-          el.style.boxShadow = `0 0 28px rgba(14,165,160,0.40), 0 0 60px rgba(14,165,160,0.14), 0 4px 16px rgba(0,0,0,0.40)`;
+          el.style.boxShadow = `0 0 36px rgba(14,165,160,0.55), 0 0 72px rgba(14,165,160,0.22), 0 0 120px rgba(14,165,160,0.08), 0 4px 18px rgba(0,0,0,0.45)`;
           el.style.transform = "none";
         }}
       >
@@ -2705,6 +2969,8 @@ export default function VideoStudioShell() {
               onAddReferenceImage={() => omniRefImageInputRef.current?.click()}
               onAddReferenceVideo={() => omniRefVideoInputRef.current?.click()}
               onTryStoryboardPrompt={handleOmniStoryboardPrompt}
+              onSwapFrames={() => { const t = startSlot; setStartSlot(endSlot); setEndSlot(t); }}
+              onRemoveVideo={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
             />
             <OmniGenerateBar
               shots={omniShots}
