@@ -782,7 +782,7 @@ function OmniDirectorBoard({
           <>
             {/* ── Reference thumbnails — appear when assets are attached ── */}
             {(hasStart || hasEnd || hasVideo) && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start", justifyContent: "center", marginBottom: 2 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 0, rowGap: 14, alignItems: "flex-start", justifyContent: "center", marginBottom: 2 }}>
                 {/* Start Frame */}
                 {hasStart && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -889,9 +889,9 @@ function OmniDirectorBoard({
                   </div>
                 )}
 
-                {/* Video Reference */}
+                {/* Video Reference — marginLeft only applies on the same row; when wrapped it centers automatically */}
                 {hasVideo && (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginLeft: (hasStart || hasEnd) ? 10 : 0 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginLeft: (hasStart || hasEnd) ? 10 : 0, flexBasis: "auto" }}>
                     <div style={{ fontSize: 9, fontWeight: 800, color: "#818CF8", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
                       Motion Ref
                     </div>
