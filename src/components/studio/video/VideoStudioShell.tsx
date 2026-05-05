@@ -921,80 +921,11 @@ function OmniDirectorBoard({
   );
 }
 
-// ── Omni: Control Dock — Left Panel (compact rows + floating popovers) ────────
+// ── Omni: Controls Panel — Left Panel (visible inputs, no hiding) ─────────────
 
-/* Standalone popover shell — must be defined OUTSIDE OmniControlDock so React
-   does not remount it on every render (avoids textarea focus loss on keystroke). */
-function OmniDockPopover({
-  title, accent, onClose, children,
-}: {
-  title:    string;
-  accent:   string;
-  onClose:  () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 998,
-      display: "flex", alignItems: "center",
-      /* Position the popover to the right of the dock (left ≈ 280px) */
-      paddingLeft: 276,
-      /* Semi-transparent backdrop */
-    }}>
-      {/* Backdrop — click outside to close */}
-      <div
-        onClick={onClose}
-        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.28)", backdropFilter: "blur(2px)", zIndex: 0 }}
-      />
-      {/* Popover card */}
-      <div style={{
-        position: "relative", zIndex: 1,
-        width: 308,
-        background: "linear-gradient(160deg, rgba(8,13,28,0.98) 0%, rgba(4,8,20,0.99) 100%)",
-        border: `1px solid ${accent}30`,
-        borderRadius: 14,
-        boxShadow: [
-          `0 0 48px ${accent}12`,
-          "0 24px 64px rgba(0,0,0,0.65)",
-          "inset 0 0 80px rgba(0,0,0,0.40)",
-        ].join(", "),
-        overflow: "hidden",
-        animation: "omniDockPop 0.16s cubic-bezier(0.34,1.4,0.64,1) both",
-      }}>
-        {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "11px 14px 9px",
-          borderBottom: `1px solid ${accent}18`,
-          background: `${accent}08`,
-        }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: accent, letterSpacing: "0.08em", textTransform: "uppercase" }}>{title}</span>
-          <button onClick={onClose} style={{
-            background: "none", border: "none", cursor: "pointer", color: "#334155",
-            padding: 4, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "color 0.12s",
-          }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#334155"; }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-        {/* Body */}
-        <div style={{ padding: "14px 14px 16px" }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function OmniControlDock({
+function OmniControlsPanel({
   prompt, setPrompt, negPrompt, setNegPrompt,
   quality, setQuality, audioMode, setAudioMode,
-  defaultDuration, setDefaultDuration,
-  aspectRatio, setAspectRatio,
-  resolution, setResolution,
   startSlot, setStartSlot, endSlot, setEndSlot,
   motionVideoUrl, setMotionVideoUrl, setMotionVideoName,
 }: {
@@ -1006,12 +937,6 @@ function OmniControlDock({
   setQuality:         (q: Quality) => void;
   audioMode:          "none" | "scene" | "voiceover";
   setAudioMode:       (m: "none" | "scene" | "voiceover") => void;
-  defaultDuration:    5 | 10;
-  setDefaultDuration: (d: 5 | 10) => void;
-  aspectRatio:        VideoAR;
-  setAspectRatio:     (ar: VideoAR) => void;
-  resolution:         string;
-  setResolution:      (r: string) => void;
   startSlot:          ImageSlot;
   setStartSlot:       (s: ImageSlot) => void;
   endSlot:            ImageSlot;
@@ -1021,24 +946,7 @@ function OmniControlDock({
   setMotionVideoName: (n: string | null) => void;
 }) {
   const ACCENT  = "#0EA5A0";
-  const AMBER   = "#F59E0B";
-  const INDIGO  = "#818CF8";
-  const CYAN    = "#22D3EE";
-  const SLATE   = "#64748B";
-
-  type PanelId = "scene" | "refs" | "motion" | "neg" | "ar" | "resolution" | "framerate";
-  const [activePanel, setActivePanel] = useState<PanelId | null>(null);
-  const dockRef = useRef<HTMLDivElement>(null);
-
-  const togglePanel = useCallback((id: PanelId) => {
-    setActivePanel(prev => prev === id ? null : id);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setActivePanel(null); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
+  const GLASS   = "rgba(4,8,20,0.92)";
 
   const inputBase: React.CSSProperties = {
     width: "100%", boxSizing: "border-box",
@@ -1046,195 +954,95 @@ function OmniControlDock({
     border: "1px solid rgba(255,255,255,0.07)",
     borderRadius: 8, color: "#CBD5F5", fontSize: 13,
     padding: "9px 12px", outline: "none", fontFamily: "inherit",
-    transition: "border-color 0.15s", resize: "none" as const, lineHeight: 1.55,
+    transition: "border-color 0.15s",
   };
 
-  /* ── Shared icon mini-box ── */
-  const IconBox = ({ children, accent }: { children: React.ReactNode; accent: string }) => (
+  const Section = ({
+    label, color = ACCENT, children,
+  }: { label: string; color?: string; children: React.ReactNode }) => (
     <div style={{
-      width: 22, height: 22, borderRadius: 6,
-      background: `${accent}18`, border: `1px solid ${accent}30`,
-      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-    }}>{children}</div>
-  );
-
-  /* ── Divider label ── */
-  const Divider = ({ label }: { label: string }) => (
-    <div style={{
-      padding: "8px 14px 5px",
-      fontSize: 9, fontWeight: 800, color: "#1E293B",
-      letterSpacing: "0.12em", textTransform: "uppercase" as const,
-    }}>{label}</div>
-  );
-
-  /* ── Compact row: popover trigger ── */
-  const DockRow = ({
-    id, icon, label, value, accent,
-  }: { id: PanelId; icon: React.ReactNode; label: string; value: string; accent: string }) => {
-    const isOpen = activePanel === id;
-    return (
-      <button
-        onClick={() => togglePanel(id)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 10,
-          padding: "0 12px", height: 44, border: "none",
-          borderTop: "1px solid rgba(255,255,255,0.03)",
-          background: isOpen ? `${accent}08` : "transparent",
-          cursor: "pointer", transition: "background 0.14s", boxSizing: "border-box",
-        }}
-        onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.025)"; }}
-        onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-      >
-        <IconBox accent={accent}>{icon}</IconBox>
-        <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: "#263040", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{label}</div>
-          <div style={{ fontSize: 12, color: isOpen ? accent : "#4A6080", fontWeight: isOpen ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{value || "—"}</div>
-        </div>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-          stroke={isOpen ? accent : "#263040"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
-    );
-  };
-
-  /* ── Inline toggle row: no popover ── */
-  const InlineRow = ({
-    icon, label, opts, value, onChange, accent,
-  }: { icon: React.ReactNode; label: string; opts: { label: string; value: string }[]; value: string; onChange: (v: string) => void; accent: string }) => (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "0 12px", height: 44, boxSizing: "border-box",
-      borderTop: "1px solid rgba(255,255,255,0.03)",
+      background: GLASS,
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderLeft: `2px solid ${color}66`,
+      borderRadius: 10,
+      padding: "14px 14px 16px",
+      boxShadow: "inset 0 0 24px rgba(0,0,0,0.20)",
     }}>
-      <IconBox accent={accent}>{icon}</IconBox>
-      <div style={{ fontSize: 9, fontWeight: 800, color: "#263040", letterSpacing: "0.08em", textTransform: "uppercase" as const, flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, display: "flex", gap: 4, justifyContent: "flex-end" }}>
-        {opts.map(o => (
-          <button key={o.value} onClick={() => onChange(o.value)} style={{
-            padding: "0 10px", height: 26, borderRadius: 6,
-            border: `1px solid ${value === o.value ? `${accent}55` : "rgba(255,255,255,0.06)"}`,
-            background: value === o.value ? `${accent}18` : "rgba(0,0,0,0.20)",
-            color: value === o.value ? accent : "#334155",
-            fontSize: 11, fontWeight: value === o.value ? 700 : 500,
-            cursor: "pointer", transition: "all 0.12s",
-          }}>{o.label}</button>
-        ))}
-      </div>
+      <div style={{
+        fontSize: 10, fontWeight: 800, color: color,
+        letterSpacing: "0.08em", textTransform: "uppercase" as const,
+        marginBottom: 11, opacity: 0.85,
+      }}>{label}</div>
+      {children}
     </div>
   );
 
   return (
-    <>
-      {/* ── Dock shell ── */}
-      <div ref={dockRef} style={{
-        display: "flex", flexDirection: "column",
-        background: "rgba(4,8,20,0.88)",
-        border: "1px solid rgba(14,165,160,0.16)",
-        borderRadius: 14,
-        boxShadow: "0 0 40px rgba(14,165,160,0.05), inset 0 0 60px rgba(0,0,0,0.28)",
-        overflow: "hidden",
+    <div style={{
+      display: "flex", flexDirection: "column",
+      background: "rgba(4,8,20,0.82)",
+      border: "1px solid rgba(14,165,160,0.16)",
+      borderRadius: 14,
+      boxShadow: "0 0 48px rgba(14,165,160,0.05), inset 0 0 60px rgba(0,0,0,0.28)",
+      overflow: "hidden",
+    }}>
+      {/* ── Panel header ── */}
+      <div style={{
+        padding: "14px 16px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: "rgba(4,8,20,0.72)",
+        backdropFilter: "blur(12px)",
       }}>
-        {/* Header */}
-        <div style={{
-          padding: "11px 14px 9px",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-          background: "rgba(4,8,20,0.72)", backdropFilter: "blur(12px)",
-          display: "flex", alignItems: "center", gap: 8,
-        }}>
-          <IconBox accent={ACCENT}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 7,
+            background: `${ACCENT}18`, border: `1px solid ${ACCENT}44`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
             </svg>
-          </IconBox>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748B", letterSpacing: "0.04em" }}>Control Dock</div>
-          <div style={{ marginLeft: "auto", fontSize: 9, color: `${ACCENT}77`, fontWeight: 800, letterSpacing: "0.10em" }}>OMNI</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", lineHeight: 1 }}>Omni Controls</div>
+            <div style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>Production configuration</div>
+          </div>
         </div>
-
-        {/* ── Content ── */}
-        <Divider label="Content" />
-
-        <DockRow id="scene" accent={ACCENT}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>}
-          label="Scene" value={prompt ? prompt.slice(0, 24) + (prompt.length > 24 ? "…" : "") : "Add scene direction"} />
-
-        <DockRow id="refs" accent={CYAN}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={CYAN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>}
-          label="Ref Frames" value={startSlot.url || endSlot.url ? "Frames attached" : "Start / end frames"} />
-
-        <DockRow id="motion" accent={INDIGO}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={INDIGO} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>}
-          label="Motion Ref" value={motionVideoUrl ? "Video attached" : "Upload motion clip"} />
-
-        <DockRow id="neg" accent={SLATE}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={SLATE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>}
-          label="Exclude" value={negPrompt ? negPrompt.slice(0, 22) + (negPrompt.length > 22 ? "…" : "") : "None set"} />
-
-        {/* ── Output ── */}
-        <Divider label="Output" />
-
-        <InlineRow accent={AMBER}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={AMBER} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-          label="Duration"
-          opts={[{ label: "5s", value: "5" }, { label: "10s", value: "10" }]}
-          value={String(defaultDuration)} onChange={v => setDefaultDuration(Number(v) as 5 | 10)} />
-
-        <DockRow id="ar" accent={ACCENT}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>}
-          label="Aspect" value={aspectRatio} />
-
-        <DockRow id="resolution" accent="#94A3B8"
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>}
-          label="Resolution" value={resolution} />
-
-        {/* ── Style ── */}
-        <Divider label="Style" />
-
-        <InlineRow accent={AMBER}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={AMBER} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
-          label="Quality"
-          opts={[{ label: "Std", value: "std" }, { label: "Pro", value: "pro" }]}
-          value={quality} onChange={v => setQuality(v as Quality)} />
-
-        <InlineRow accent={SLATE}
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={SLATE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>}
-          label="Audio"
-          opts={[{ label: "Off", value: "none" }, { label: "Scene", value: "scene" }]}
-          value={audioMode} onChange={v => setAudioMode(v as "none" | "scene" | "voiceover")} />
-
-        <DockRow id="framerate" accent="#94A3B8"
-          icon={<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>}
-          label="Frame Rate" value="24 fps" />
-
       </div>
 
-      {/* ── Floating popovers (position:fixed, appear over canvas) ── */}
-      {activePanel === "scene" && (
-        <OmniDockPopover title="Scene Direction" accent={ACCENT} onClose={() => setActivePanel(null)}>
-          <textarea
-            value={prompt} onChange={e => setPrompt(e.target.value)}
-            placeholder="Overall scene mood, tone, and cinematic direction for all shots…"
-            rows={5} style={inputBase} autoFocus
+      {/* ── Scrollable sections ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 12px 16px", overflowY: "auto" }}>
+
+        {/* Scene Prompt */}
+        <Section label="Scene Direction" color={ACCENT}>
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+            placeholder="Overall scene mood, tone, and cinematic direction…" rows={4}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
             onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
             onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
           />
-          <button onClick={() => setActivePanel(null)} style={{
-            marginTop: 10, width: "100%", padding: "9px 0", borderRadius: 8,
-            background: `linear-gradient(135deg, ${ACCENT} 0%, #22D3EE 100%)`,
-            border: "none", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer",
-          }}>Apply Direction</button>
-        </OmniDockPopover>
-      )}
+        </Section>
 
-      {activePanel === "refs" && (
-        <OmniDockPopover title="Reference Frames" accent={CYAN} onClose={() => setActivePanel(null)}>
-          <div style={{ display: "flex", gap: 10 }}>
+        {/* Negative Prompt */}
+        <Section label="Exclude" color="#475569">
+          <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
+            placeholder="Elements to exclude from the output…" rows={2}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+          />
+        </Section>
+
+        {/* Reference Frames */}
+        <Section label="Reference Frames" color="#22D3EE">
+          <div style={{ display: "flex", gap: 8 }}>
             {/* Start frame */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: CYAN, marginBottom: 8, letterSpacing: "0.06em" }}>START FRAME</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", marginBottom: 6, letterSpacing: "0.06em" }}>START FRAME</div>
               {startSlot.url ? (
-                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${ACCENT}55` }}>
+                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${ACCENT}55`, boxShadow: `0 0 16px ${ACCENT}22` }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   <button onClick={() => setStartSlot(EMPTY_SLOT)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1242,18 +1050,18 @@ function OmniControlDock({
                   </button>
                 </div>
               ) : (
-                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: `1px dashed ${CYAN}33`, background: `${CYAN}04`, cursor: "pointer", gap: 5 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={CYAN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span style={{ fontSize: 9, color: CYAN, fontWeight: 600 }}>Upload</span>
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(14,165,160,0.22)", background: "rgba(14,165,160,0.03)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
                 </label>
               )}
             </div>
             {/* End frame */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: CYAN, marginBottom: 8, letterSpacing: "0.06em" }}>END FRAME</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", marginBottom: 6, letterSpacing: "0.06em" }}>END FRAME</div>
               {endSlot.url ? (
-                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${CYAN}55` }}>
+                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(34,211,238,0.44)", boxShadow: "0 0 16px rgba(34,211,238,0.14)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   <button onClick={() => setEndSlot(EMPTY_SLOT)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1261,128 +1069,76 @@ function OmniControlDock({
                   </button>
                 </div>
               ) : (
-                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: `1px dashed ${CYAN}22`, background: `${CYAN}02`, cursor: "pointer", gap: 5 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={CYAN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span style={{ fontSize: 9, color: CYAN, fontWeight: 600 }}>Upload</span>
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.02)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
                 </label>
               )}
             </div>
           </div>
-        </OmniDockPopover>
-      )}
+        </Section>
 
-      {activePanel === "motion" && (
-        <OmniDockPopover title="Motion Reference" accent={INDIGO} onClose={() => setActivePanel(null)}>
+        {/* Reference Video */}
+        <Section label="Motion Reference" color="#818CF8">
           {motionVideoUrl ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: `${INDIGO}10`, border: `1px solid ${INDIGO}28`, borderRadius: 8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={INDIGO} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-              <span style={{ fontSize: 12, color: INDIGO, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Motion reference attached</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.28)", borderRadius: 8 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span style={{ fontSize: 11, color: "#818CF8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reference attached</span>
               <button onClick={() => { setMotionVideoUrl(null); setMotionVideoName(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", padding: 2 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
           ) : (
-            <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: `${INDIGO}04`, border: `1px dashed ${INDIGO}22`, borderRadius: 8, cursor: "pointer", gap: 8 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={INDIGO} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-              <span style={{ fontSize: 12, color: "#475569", textAlign: "center" }}>Upload a video clip as motion reference</span>
-              <span style={{ fontSize: 10, color: "#263040" }}>MP4 · MOV · WebM</span>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span style={{ fontSize: 12, color: "#3D5070" }}>Upload motion reference video</span>
               <input type="file" accept="video/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setMotionVideoUrl(url); setMotionVideoName(f.name); }} />
             </label>
           )}
-        </OmniDockPopover>
-      )}
+        </Section>
 
-      {activePanel === "neg" && (
-        <OmniDockPopover title="Exclude from Scene" accent={SLATE} onClose={() => setActivePanel(null)}>
-          <textarea
-            value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
-            placeholder="Elements to exclude (e.g. text, blur, distortion, watermark)…"
-            rows={4} style={inputBase} autoFocus
-            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${SLATE}55`; }}
-            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
-          />
-          <button onClick={() => setActivePanel(null)} style={{
-            marginTop: 10, width: "100%", padding: "9px 0", borderRadius: 8,
-            background: `${SLATE}16`, border: `1px solid ${SLATE}28`,
-            color: SLATE, fontSize: 12, fontWeight: 700, cursor: "pointer",
-          }}>Apply</button>
-        </OmniDockPopover>
-      )}
-
-      {activePanel === "ar" && (
-        <OmniDockPopover title="Aspect Ratio" accent={ACCENT} onClose={() => setActivePanel(null)}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-            {(["16:9", "9:16", "1:1"] as VideoAR[]).map(ar => {
-              const isActive = aspectRatio === ar;
-              const [w, h] = ar.split(":").map(Number);
-              const ratio = w / h;
-              const boxW = ratio > 1 ? 32 : ratio === 1 ? 24 : 17;
-              const boxH = ratio < 1 ? 32 : ratio === 1 ? 24 : 17;
-              return (
-                <button key={ar} onClick={() => { setAspectRatio(ar); setActivePanel(null); }} style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  gap: 8, padding: "14px 8px", borderRadius: 10,
-                  border: `1px solid ${isActive ? `${ACCENT}55` : "rgba(255,255,255,0.06)"}`,
-                  background: isActive ? `${ACCENT}12` : "rgba(0,0,0,0.20)",
+        {/* Quality */}
+        <Section label="Output Quality" color="#F59E0B">
+          <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
+            {([{ label: "Standard", value: "std" as Quality }, { label: "Pro", value: "pro" as Quality }]).map(({ label, value }) => (
+              <button key={value} onClick={() => setQuality(value)}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: 6, border: "none",
+                  fontSize: 12, fontWeight: quality === value ? 700 : 500,
+                  background: quality === value ? "rgba(245,158,11,0.16)" : "transparent",
+                  color: quality === value ? "#F59E0B" : "#334155",
                   cursor: "pointer", transition: "all 0.14s",
-                }}>
-                  <div style={{ width: boxW, height: boxH, border: `2px solid ${isActive ? ACCENT : "#334155"}`, borderRadius: 3, transition: "all 0.14s" }} />
-                  <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? ACCENT : "#475569" }}>{ar}</span>
-                </button>
-              );
-            })}
+                  boxShadow: quality === value ? "0 0 12px rgba(245,158,11,0.18)" : "none",
+                }}
+              >{label}</button>
+            ))}
           </div>
-        </OmniDockPopover>
-      )}
+        </Section>
 
-      {activePanel === "resolution" && (
-        <OmniDockPopover title="Resolution" accent="#94A3B8" onClose={() => setActivePanel(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(["480p", "720p", "1080p"] as const).map(res => {
-              const isActive = resolution === res;
-              return (
-                <button key={res} onClick={() => { setResolution(res); setActivePanel(null); }} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 14px", borderRadius: 8,
-                  border: `1px solid ${isActive ? `${ACCENT}55` : "rgba(255,255,255,0.06)"}`,
-                  background: isActive ? `${ACCENT}12` : "rgba(0,0,0,0.20)",
+        {/* Audio */}
+        <Section label="Audio Mode" color="#64748B">
+          <div style={{ display: "flex", gap: 6 }}>
+            {([{ label: "No Audio", value: "none" as const }, { label: "Scene Audio", value: "scene" as const }]).map(({ label, value }) => (
+              <button key={value} onClick={() => setAudioMode(value)}
+                style={{
+                  flex: 1, padding: "7px 10px", borderRadius: 7,
+                  fontSize: 12, fontWeight: audioMode === value ? 600 : 500,
+                  border: audioMode === value ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.07)",
+                  background: audioMode === value ? `${ACCENT}15` : "rgba(255,255,255,0.02)",
+                  color: audioMode === value ? ACCENT : "#475569",
                   cursor: "pointer", transition: "all 0.14s",
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? ACCENT : "#64748B" }}>{res}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {res === "1080p" && <span style={{ fontSize: 10, color: AMBER, fontWeight: 600, padding: "2px 6px", background: `${AMBER}18`, border: `1px solid ${AMBER}33`, borderRadius: 4 }}>Pro</span>}
-                    {isActive && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                  </div>
-                </button>
-              );
-            })}
+                }}
+              >{label}</button>
+            ))}
           </div>
-        </OmniDockPopover>
-      )}
+          <div style={{ fontSize: 10, color: "#1E293B", marginTop: 8, lineHeight: 1.5 }}>
+            Lip sync not available for multi-shot Omni scenes.
+          </div>
+        </Section>
 
-      {activePanel === "framerate" && (
-        <OmniDockPopover title="Frame Rate" accent="#94A3B8" onClose={() => setActivePanel(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(["16 fps", "24 fps", "30 fps"] as const).map(fps => {
-              const isDefault = fps === "24 fps";
-              return (
-                <button key={fps} onClick={() => setActivePanel(null)} style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 14px", borderRadius: 8,
-                  border: `1px solid ${isDefault ? `${ACCENT}55` : "rgba(255,255,255,0.06)"}`,
-                  background: isDefault ? `${ACCENT}12` : "rgba(0,0,0,0.20)",
-                  cursor: "pointer", transition: "all 0.14s",
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: isDefault ? 700 : 500, color: isDefault ? ACCENT : "#64748B" }}>{fps}</span>
-                  {isDefault && <span style={{ fontSize: 10, color: "#475569", fontWeight: 600 }}>Cinema Standard</span>}
-                </button>
-              );
-            })}
-          </div>
-        </OmniDockPopover>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
@@ -2041,15 +1797,11 @@ export default function VideoStudioShell() {
     duration:    5,
     composition: "Wide",
   }]);
-  const [omniDefaultDuration, setOmniDefaultDuration] = useState<5 | 10>(5);
-  const omniDefaultDurationRef = useRef<5 | 10>(5);
-  omniDefaultDurationRef.current = omniDefaultDuration;
-
   const handleOmniAddShot = useCallback(() => {
     setOmniShots(prev => [...prev, {
       id: Math.random().toString(36).slice(2),
       prompt: "",
-      duration: omniDefaultDurationRef.current,
+      duration: 5,
       composition: "Wide",
     }]);
   }, []);
@@ -2904,23 +2656,26 @@ export default function VideoStudioShell() {
            ═══════════════════════════════════════════════════════════ */
         <div style={{
           display: "grid",
-          gridTemplateColumns: "260px 1fr 280px",
+          gridTemplateColumns: "300px 1fr 280px",
           columnGap: 14,
           alignItems: "start",
           width: "100%",
           paddingBottom: 28,
           boxSizing: "border-box",
         }}>
-          {/* Omni Left — Control Dock (compact rows + floating popovers) */}
+          {/* Omni Left — Controls Panel (visible inputs, creation-first) */}
           <div style={{
             paddingLeft:  SIDE_GUTTER,
             paddingRight: 0,
             position:     "sticky",
             top:          88,
             maxHeight:    "calc(100vh - 100px)",
+            overflowY:    "auto",
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.04) transparent",
             boxSizing:    "border-box",
           }}>
-            <OmniControlDock
+            <OmniControlsPanel
               prompt={prompt}
               setPrompt={setPrompt}
               negPrompt={negPrompt}
@@ -2929,12 +2684,6 @@ export default function VideoStudioShell() {
               setQuality={setQuality}
               audioMode={audioMode}
               setAudioMode={setAudioMode}
-              defaultDuration={omniDefaultDuration}
-              setDefaultDuration={setOmniDefaultDuration}
-              aspectRatio={aspectRatio}
-              setAspectRatio={setAspectRatio}
-              resolution={resolution}
-              setResolution={setResolution}
               startSlot={startSlot}
               setStartSlot={setStartSlot}
               endSlot={endSlot}
