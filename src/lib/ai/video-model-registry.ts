@@ -78,6 +78,14 @@ export type VideoModelCapabilities = {
   // ── Optional capability-driven display fields ──────────────────────────────
   resolutions?:   string[];  // e.g. ["480p","720p"] — if present, shown as pill row in left rail
   frameRate?:     number;    // e.g. 24 — if present, shown as read-only info label (not a control)
+  // ── Kling 3.0 Omni exclusive capabilities ─────────────────────────────────
+  // These four flags are TRUE ONLY on kling-30-omni.
+  // The provider adapter validates and rejects them on all other models.
+  // When building UI panels, always gate on these flags — never hardcode model IDs.
+  multiShot?:       boolean; // multi-shot storyboard — multi_shot + multi_prompt[]
+  multiImage?:      boolean; // image_list[] — multiple reference images (style blend, char + scene stack)
+  elementControl?:  boolean; // element_list[] — character/object persistence by Kling element ID
+  referenceVideo?:  boolean; // video_list[] — style/motion/scene-continuation reference video
 };
 
 // ── Full model definition ─────────────────────────────────────────────────────
@@ -141,11 +149,16 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // Omni-exclusive: not available on Kling 3.0
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
     },
   },
 
   // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
-  // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
+  // Full-capability Kling 3.0 variant — the most powerful model in the registry.
   //
   // STATUS: BETA — available for controlled testing. NOT the default.
   // Array position is intentionally after Kling 3.0 so find(m => m.available)
@@ -156,9 +169,10 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
   // The provider now throws a friendly error when 1201 is received at dispatch.
   //
   // Rules:
-  //   - Lip Sync NOT enabled on Omni (gated to Kling 3.0 only)
-  //   - motionControl is false — Omni does not support motion control mode
+  //   - Lip Sync NOT enabled on Omni (gated to kling-lip-sync dedicated model)
+  //   - motionControl is false — Omni uses video_list[refer_type="feature"] instead
   //   - Sound Generation (nativeAudio) available if resource pack is active
+  //   - multiShot / multiImage / elementControl / referenceVideo: OMNI ONLY
   //
   // To promote to production: move above Kling 3.0, change badge to "HOT" / null.
   {
@@ -166,23 +180,23 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     provider:    "kling",
     apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
     displayName: "Kling 3.0 Omni",
-    description: "Full-capability cinematic model — identity, motion, and frame control unified",
+    description: "Cinematic Director model — multi-shot, element control, reference video, and scene composer",
     badge:            "BETA",
     badgeColor:       "#8B5CF6",
     available:        true,
     comingSoon:       false,
     supportsSequence: true,
-    promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
+    promptChips: ["cinematic storyboard", "multi-shot sequence", "character persistence", "scene continuation", "style reference", "ultra realistic", "film grain"],
     capabilities: {
       textToVideo:    true,
       imageToVideo:   true,
       startFrame:     true,
       endFrame:       true,
       cameraControl:  true,
-      motionControl:  false,  // Omni does not support motion control
+      motionControl:  false,  // Omni uses video_list[refer_type="feature"] for motion reference — not motion_control mode
       multiElement:   false,
       extendVideo:    true,
-      lipSync:        false,  // Lip Sync limited to Kling 3.0 (not Omni)
+      lipSync:        false,  // Lip Sync is on dedicated kling-lip-sync model only
       avatar:         false,
       audioEnabled:   false,
       videoInput:     true,
@@ -195,6 +209,14 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features ─────────────────────────────────────────────
+      // Only kling-30-omni sets these to true.
+      // Provider adapter validates and rejects these on all other models.
+      // UI must gate all panels for these on these flags.
+      multiShot:      true,   // multi_shot + multi_prompt[] — storyboard generation
+      multiImage:     true,   // image_list[] — multiple reference images
+      elementControl: true,   // element_list[] — character/object persistence
+      referenceVideo: true,   // video_list[] — style/motion/scene-continuation reference
     },
   },
 
@@ -231,6 +253,11 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
     },
   },
 
@@ -267,6 +294,11 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
     },
   },
 
@@ -313,6 +345,11 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       maxDuration:    0,
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  [],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
     },
   },
 

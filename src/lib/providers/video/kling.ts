@@ -208,6 +208,65 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         }
       }
 
+      // ── Omni-exclusive features blocked on non-Omni models ──────────────────
+      // multiShot, imageList, elementList, videoList are Kling 3.0 Omni-only.
+      // Any other model that receives these fields gets an immediate rejection.
+      if (modelKey !== "kling-30-omni") {
+        if (input.multiShot) {
+          errors.push("Multi-shot storyboard (multiShot) is only available on Kling 3.0 Omni.");
+        }
+        if (input.imageList && input.imageList.length > 0) {
+          errors.push("Multiple reference images (imageList) are only available on Kling 3.0 Omni.");
+        }
+        if (input.elementList && input.elementList.length > 0) {
+          errors.push("Element control (elementList) is only available on Kling 3.0 Omni.");
+        }
+        if (input.videoList && input.videoList.length > 0) {
+          errors.push("Reference video list (videoList) is only available on Kling 3.0 Omni.");
+        }
+      }
+
+      // ── Kling 3.0 Omni — per-feature API constraints ─────────────────────────
+      if (modelKey === "kling-30-omni") {
+        // multi_shot requires at least one multiPrompt shot
+        if (input.multiShot && (!input.multiPrompt || input.multiPrompt.length === 0)) {
+          errors.push("multiPrompt[] is required when multiShot is true.");
+        }
+        // Each multiPrompt shot duration must be exactly 5 or 10 seconds (Kling API constraint)
+        if (input.multiPrompt) {
+          for (const shot of input.multiPrompt) {
+            if (shot.duration !== 5 && shot.duration !== 10) {
+              errors.push(`Each multiPrompt shot duration must be 5 or 10 seconds. Received: ${shot.duration}.`);
+              break; // one error per call is enough
+            }
+          }
+        }
+        // image_list: max 3 images standard, max 2 when a reference video is also present
+        if (input.imageList && input.imageList.length > 0) {
+          const hasVideoList = input.videoList && input.videoList.length > 0;
+          const maxImages    = hasVideoList ? 2 : 3;
+          if (input.imageList.length > maxImages) {
+            errors.push(
+              `Kling 3.0 Omni supports a maximum of ${maxImages} image${maxImages > 1 ? "s" : ""} in imageList` +
+              (hasVideoList ? " when a reference video is provided" : "") + "."
+            );
+          }
+        }
+        // element_list: max 2 elements per generation (Kling API constraint)
+        if (input.elementList && input.elementList.length > 2) {
+          errors.push("Kling 3.0 Omni supports a maximum of 2 elements in elementList.");
+        }
+        // video_list: max 1 reference video; blocked entirely in 4K mode
+        if (input.videoList) {
+          if (input.videoList.length > 1) {
+            errors.push("Kling 3.0 Omni supports a maximum of 1 reference video in videoList.");
+          }
+          if (input.videoList.length > 0 && mode === "4k") {
+            errors.push("Reference video (videoList) is not supported in 4K mode on Kling 3.0 Omni.");
+          }
+        }
+      }
+
       return { valid: errors.length === 0, errors, warnings: [] };
     },
 
@@ -272,6 +331,44 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
         );
       }
 
+      // ── Kling 3.0 Omni exclusive payload extras ──────────────────────────────
+      // Injected into the payload only when modelKey === "kling-30-omni" and the
+      // respective input field is populated. All non-Omni models get an empty object
+      // — the spread below is a no-op.
+      // validateInput() already enforces per-feature constraints (max elements,
+      // 4K block, image_list count, multiPrompt shape) before createJob is called.
+      const omniExtras: Record<string, unknown> = {};
+      if (modelKey === "kling-30-omni") {
+        if (input.multiShot && input.multiPrompt && input.multiPrompt.length > 0) {
+          omniExtras.multi_shot   = true;
+          // duration values sent as strings per Kling API spec
+          omniExtras.multi_prompt = input.multiPrompt.map(s => ({
+            prompt:   s.prompt,
+            duration: String(s.duration),
+          }));
+        }
+        if (input.imageList && input.imageList.length > 0) {
+          // image_list[] — base64 strings or HTTPS URLs; caller normalizes before dispatch.
+          // Kling determines per-image role from position and count.
+          omniExtras.image_list = input.imageList;
+        }
+        if (input.elementList && input.elementList.length > 0) {
+          // element_list[] — numeric Kling element IDs from the Kling console.
+          // Max 2 per generation (validated in validateInput).
+          omniExtras.element_list = input.elementList;
+        }
+        if (input.videoList && input.videoList.length > 0) {
+          // video_list[] — reference video for motion/style transfer or scene continuation.
+          //   refer_type "feature" → camera motion / style reference
+          //   refer_type "base"    → scene continuation / next-shot generation
+          // Max 1 reference video; blocked in 4K mode (validated in validateInput).
+          omniExtras.video_list = input.videoList.map(v => ({
+            video_url:  v.videoUrl,
+            refer_type: v.referType,
+          }));
+        }
+      }
+
       let endpoint: string;
       let payload: Record<string, unknown>;
 
@@ -308,6 +405,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           ...(normalizedEndImageUrl ? { tail_image: normalizedEndImageUrl } : {}),
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
           ...(enableSoundGeneration ? { sound_generation: true } : {}),
+          ...omniExtras,
         };
       } else {
         // Text-to-video
@@ -320,6 +418,7 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           mode:         (input.providerParams?.videoMode as string) ?? "std",
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
           ...(enableSoundGeneration ? { sound_generation: true } : {}),
+          ...omniExtras,
         };
       }
 
@@ -327,6 +426,9 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       console.log("[kling] Model:", apiModelId, "| key:", modelKey);
       console.log("[kling] Has image:", !!normalizedImageUrl, "| Has end image:", !!normalizedEndImageUrl);
       console.log("[kling] dispatching to", endpoint, "| sound_generation in payload:", "sound_generation" in payload, "| model:", apiModelId);
+      if (modelKey === "kling-30-omni" && Object.keys(omniExtras).length > 0) {
+        console.log("[kling] Omni extras injected:", Object.keys(omniExtras).join(", "));
+      }
       const res = await fetch(`${baseUrl}${endpoint}`, {
         method:  "POST",
         headers: { "Authorization": authHeader, "Content-Type": "application/json" },

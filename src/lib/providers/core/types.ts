@@ -268,6 +268,51 @@ export interface ZProviderInput {
   // Default: "fal" (current active integration).
   // "kling" is reserved for future activation — no routing to Kling lip sync yet.
   lipSyncProvider?: "fal" | "kling";
+
+  // ── Kling 3.0 Omni exclusive fields ─────────────────────────────────────────
+  // These fields are ONLY valid on model "kling-30-omni".
+  // The Kling provider validateInput() will reject them on any other model.
+
+  /**
+   * Multi-shot storyboard mode. When true, multiPrompt[] drives generation.
+   * Sends multi_shot: true + multi_prompt[] to the Kling API.
+   * Replaces the single prompt field for multi-scene storytelling.
+   */
+  multiShot?: boolean;
+
+  /**
+   * Per-shot prompt + duration array for multi-shot generation.
+   * Only used when multiShot === true.
+   * Each entry maps to one scene in the storyboard output.
+   * duration is in seconds (must match Kling's allowed values: 5 or 10).
+   */
+  multiPrompt?: Array<{ prompt: string; duration: number }>;
+
+  /**
+   * Multiple reference image inputs (image_list[]).
+   * Base64-encoded strings or HTTPS URLs — normalized to base64 before dispatch.
+   * Enables: multi-reference I2I, style blending, character + scene stacking.
+   * The Kling API determines per-image role from position and count.
+   * Kling constraint: max varies by usage mode (standard: ≤3, with reference video: ≤2).
+   */
+  imageList?: string[];
+
+  /**
+   * Element IDs for element control (element_list[]).
+   * References Kling's element library — numeric IDs from the Kling console.
+   * Enables: character persistence, object/background injection.
+   * Kling constraint: max 2 elements per generation.
+   */
+  elementList?: number[];
+
+  /**
+   * Reference video inputs for style/motion transfer (video_list[]).
+   * Each entry has a URL and a refer_type:
+   *   "feature" — camera motion / feature reference (style/motion transfer)
+   *   "base"    — scene continuation / next-shot generation
+   * Kling constraint: max 1 reference video. Only on Omni, blocked in 4K.
+   */
+  videoList?: Array<{ videoUrl: string; referType: "feature" | "base" }>;
 }
 
 /** Normalized output — provider → orchestrator. */
