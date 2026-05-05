@@ -737,7 +737,7 @@ function BoostSelector() {
             alignSelf: "stretch",
             display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: 18,
-            background: "linear-gradient(135deg, #0B0F2A, #12143A, #1A1040)",
+            background: "#0b0614",
             border: "1px solid rgba(139,92,246,0.22)",
             boxShadow: "0 0 36px rgba(139,92,246,0.12)",
             position: "relative",
