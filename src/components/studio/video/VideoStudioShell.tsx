@@ -69,7 +69,7 @@ function modelAccentColor(m: VideoModel): string {
 // ── Credit estimate ───────────────────────────────────────────────────────────
 
 const CREDIT_RATES: Record<string, Record<string, Record<number, number>>> = {
-  "kling-30-omni": { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } }, // provisional — matches kling-30
+  "kling-30-omni": { std: { 5: 420, 10: 840 }, pro: { 5: 420, 10: 840 } }, // DB-locked: 420cr base (5s), 840cr (10s)
   "kling-30":      { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } },
   "kling-26":      { std: { 5: 28, 10: 48 }, pro: { 5: 45, 10: 78 } },
   "kling-25":      { std: { 5: 18, 10: 32 }, pro: { 5: 28, 10: 52 } },
@@ -261,17 +261,11 @@ function ChipDivider() {
 function FamilyDropdownBar({
   selectedId,
   onSelect,
-  sequenceControl,
   onScrollToGallery,
   onPreviewHover,
 }: {
   selectedId: string;
   onSelect: (id: string) => void;
-  sequenceControl?: {
-    visible: boolean;
-    active:  boolean;
-    onSet:   (active: boolean) => void;
-  };
   onScrollToGallery?: () => void;
   onPreviewHover?: (key: string | null) => void;
 }) {
@@ -410,7 +404,7 @@ function FamilyDropdownBar({
           );
         })}
 
-        {/* ── Right-side controls: Sequence toggle (conditional) + Gallery (always) ── */}
+        {/* ── Right-side controls: Gallery ── */}
         <div style={{
           marginLeft:  "auto",
           paddingLeft: 12,
@@ -419,54 +413,6 @@ function FamilyDropdownBar({
           gap:         8,
           flexShrink:  0,
         }}>
-          {/* Standard Shot / Sequence Mode — only for supported models */}
-          {sequenceControl?.visible && (
-            <div style={{
-              display:      "flex",
-              alignItems:   "center",
-              background:   "rgba(255,255,255,0.04)",
-              border:       "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 10,
-              padding:      3,
-            }}>
-              <button
-                onClick={() => sequenceControl.onSet(false)}
-                style={{
-                  padding:      "6px 13px",
-                  borderRadius: 7,
-                  border:       "none",
-                  background:   !sequenceControl.active ? "rgba(255,255,255,0.10)" : "transparent",
-                  color:        !sequenceControl.active ? "#F8FAFC" : "#475569",
-                  fontSize:     12,
-                  fontWeight:   !sequenceControl.active ? 600 : 400,
-                  cursor:       "pointer",
-                  transition:   "all 0.15s",
-                  whiteSpace:   "nowrap",
-                }}
-              >
-                Standard Shot
-              </button>
-              <button
-                onClick={() => sequenceControl.onSet(true)}
-                style={{
-                  padding:      "6px 13px",
-                  borderRadius: 7,
-                  border:       "none",
-                  background:   sequenceControl.active ? "rgba(14,165,160,0.18)" : "transparent",
-                  color:        sequenceControl.active ? "#2DD4BF" : "#475569",
-                  fontSize:     12,
-                  fontWeight:   sequenceControl.active ? 600 : 400,
-                  cursor:       "pointer",
-                  transition:   "all 0.15s",
-                  whiteSpace:   "nowrap",
-                  boxShadow:    sequenceControl.active ? "0 0 10px rgba(14,165,160,0.18)" : "none",
-                }}
-              >
-                Sequence Mode
-              </button>
-            </div>
-          )}
-
           {/* Gallery — always visible */}
           <button
             onClick={onScrollToGallery}
@@ -503,6 +449,440 @@ function FamilyDropdownBar({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Omni: Shot entry type ─────────────────────────────────────────────────────
+
+interface OmniShotEntry {
+  id:          string;
+  prompt:      string;
+  duration:    5 | 10;
+  composition: "Wide" | "Close-up" | "OTS" | "Reveal" | "Action";
+}
+
+// ── Omni: Shot Stack — Left Panel ─────────────────────────────────────────────
+
+function OmniShotStack({
+  shots, onAdd, onUpdate, onRemove,
+}: {
+  shots:    OmniShotEntry[];
+  onAdd:    () => void;
+  onUpdate: (id: string, patch: Partial<OmniShotEntry>) => void;
+  onRemove: (id: string) => void;
+}) {
+  const ACCENT = "#0EA5A0";
+  const COMPS  = ["Wide", "Close-up", "OTS", "Reveal", "Action"] as const;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(14,165,160,0.12)", flexShrink: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: ACCENT, textTransform: "uppercase" }}>
+          Shot Stack
+        </div>
+        <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
+          {shots.length} shot{shots.length !== 1 ? "s" : ""} &middot; cinematic sequence
+        </div>
+      </div>
+      {/* Shot cards */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px 6px", display: "flex", flexDirection: "column", gap: 8, scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.04) transparent" }}>
+        {shots.map((shot, idx) => (
+          <div key={shot.id} style={{ background: "rgba(14,165,160,0.05)", border: "1px solid rgba(14,165,160,0.16)", borderRadius: 10, padding: "12px 12px 10px" }}>
+            {/* Shot header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, background: `${ACCENT}18`, border: `1px solid ${ACCENT}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: ACCENT, letterSpacing: "0.04em" }}>
+                  {String(idx + 1).padStart(2, "0")}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#CBD5F5" }}>Shot {String(idx + 1).padStart(2, "0")}</span>
+              </div>
+              {shots.length > 1 && (
+                <button onClick={() => onRemove(shot.id)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#334155", lineHeight: 1 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#334155"; }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+            {/* Prompt */}
+            <textarea value={shot.prompt} onChange={e => onUpdate(shot.id, { prompt: e.target.value })}
+              placeholder="Describe this shot…" rows={2}
+              style={{ width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 7, color: "#CBD5F5", fontSize: 12, padding: "7px 9px", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.5 }}
+              onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+              onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+            />
+            {/* Duration + composition */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 6, padding: 2, gap: 2, flexShrink: 0 }}>
+                {([5, 10] as const).map(d => (
+                  <button key={d} onClick={() => onUpdate(shot.id, { duration: d })}
+                    style={{ padding: "3px 9px", borderRadius: 4, border: "none", fontSize: 11, fontWeight: 600, background: shot.duration === d ? `${ACCENT}22` : "transparent", color: shot.duration === d ? ACCENT : "#475569", cursor: "pointer", transition: "all 0.12s" }}
+                  >{d}s</button>
+                ))}
+              </div>
+              {COMPS.map(c => (
+                <button key={c} onClick={() => onUpdate(shot.id, { composition: c })}
+                  style={{ padding: "3px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600, border: shot.composition === c ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.07)", background: shot.composition === c ? `${ACCENT}15` : "rgba(255,255,255,0.02)", color: shot.composition === c ? ACCENT : "#4B5563", cursor: "pointer", transition: "all 0.12s" }}
+                  onMouseEnter={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}}
+                  onMouseLeave={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#4B5563"; }}}
+                >{c}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {/* Add Shot */}
+        <button onClick={onAdd}
+          style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "1px dashed rgba(14,165,160,0.25)", background: "rgba(14,165,160,0.03)", color: ACCENT, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all 0.15s" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.4)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.25)"; }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add Shot
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Omni: Director Board — Center Canvas ──────────────────────────────────────
+
+function OmniDirectorBoard({
+  shots, startSlot, endSlot, motionVideoUrl, generating, onAddReferenceImage, onAddReferenceVideo, onTryStoryboardPrompt,
+}: {
+  shots:                 OmniShotEntry[];
+  startSlot:             ImageSlot;
+  endSlot:               ImageSlot;
+  motionVideoUrl:        string | null;
+  generating:            boolean;
+  onAddReferenceImage:   () => void;
+  onAddReferenceVideo:   () => void;
+  onTryStoryboardPrompt: () => void;
+}) {
+  const ACCENT = "#0EA5A0";
+  const hasStart = !!startSlot.url;
+  const hasEnd   = !!endSlot.url;
+  const hasVideo = !!motionVideoUrl;
+  return (
+    <div style={{ position: "relative", width: "100%", minHeight: 400, background: ["radial-gradient(ellipse at 28% 18%, rgba(14,165,160,0.11), transparent 52%)", "radial-gradient(ellipse at 74% 80%, rgba(34,211,238,0.07), transparent 50%)", "#0D1117"].join(", "), border: "1px solid rgba(14,165,160,0.18)", display: "flex", flexDirection: "column" }}>
+      <style>{`
+        @keyframes omniGenSpin { to { transform: rotate(360deg); } }
+        @keyframes omniGenPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(14,165,160,0); } 50% { box-shadow: 0 0 32px 8px rgba(14,165,160,0.22); } }
+      `}</style>
+      {/* Top bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px 11px", borderBottom: "1px solid rgba(14,165,160,0.10)", background: "rgba(0,0,0,0.38)", backdropFilter: "blur(8px)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ padding: "3px 10px", borderRadius: 6, background: `${ACCENT}15`, border: `1px solid ${ACCENT}44`, fontSize: 10, fontWeight: 800, color: ACCENT, letterSpacing: "0.08em" }}>
+            KLING 3.0 OMNI
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#64748B" }}>Cinematic Director Mode</span>
+        </div>
+        {/* Flow indicators */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {["Prompt", "Elements", "Motion", "Output"].map((label, i, arr) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: i === 0 ? ACCENT : "#334155", letterSpacing: "0.04em" }}>{label}</span>
+              {i < arr.length - 1 && (
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Main board */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 28px", gap: 18 }}>
+        {generating ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "omniGenPulse 2.2s ease-in-out infinite" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: `${ACCENT}18`, border: `1px solid ${ACCENT}55`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "omniGenSpin 1.2s linear infinite" }}>
+                <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+              </svg>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#F8FAFC" }}>Generating Omni Scene…</div>
+              <div style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>{shots.length} shot{shots.length !== 1 ? "s" : ""} · cinematic sequence</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Reference cards — shown when images / video attached */}
+            {(hasStart || hasEnd || hasVideo) && (
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 4 }}>
+                {hasStart && (
+                  <div style={{ position: "relative", width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: `1px solid ${ACCENT}44`, boxShadow: `0 0 18px ${ACCENT}22`, flexShrink: 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{ position: "absolute", bottom: 3, left: 4, fontSize: 8, fontWeight: 700, color: "#fff", background: "rgba(0,0,0,0.65)", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em" }}>START</div>
+                  </div>
+                )}
+                {hasEnd && (
+                  <div style={{ position: "relative", width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(34,211,238,0.33)", boxShadow: "0 0 18px rgba(34,211,238,0.14)", flexShrink: 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{ position: "absolute", bottom: 3, left: 4, fontSize: 8, fontWeight: 700, color: "#fff", background: "rgba(0,0,0,0.65)", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em" }}>END</div>
+                  </div>
+                )}
+                {hasVideo && (
+                  <div style={{ width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(99,102,241,0.35)", background: "rgba(99,102,241,0.10)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                    </svg>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: "#818CF8", letterSpacing: "0.05em" }}>VIDEO REF</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Headline */}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.01em", marginBottom: 7 }}>
+                Direct cinematic multi-shot scenes
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", maxWidth: 380, lineHeight: 1.65, margin: "0 auto" }}>
+                Build a shot stack, add references, and let Kling 3.0 Omni compose your cinematic vision across multiple camera angles.
+              </div>
+            </div>
+            {/* Shot count dots */}
+            <div style={{ display: "flex", gap: 5 }}>
+              {shots.map((_, i) => (
+                <div key={i} style={{ width: 28, height: 4, borderRadius: 2, background: i === 0 ? ACCENT : "rgba(14,165,160,0.22)" }} />
+              ))}
+            </div>
+            {/* CTAs */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4 }}>
+              {[
+                { label: "Add Reference Image", icon: "image",   action: onAddReferenceImage },
+                { label: "Add Reference Video", icon: "video",   action: onAddReferenceVideo },
+                { label: "Try Storyboard Prompt", icon: "sparkle", action: onTryStoryboardPrompt },
+              ].map(({ label, icon, action }) => (
+                <button key={label} onClick={action}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)", color: "#94A3B8", cursor: "pointer", transition: "all 0.15s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.10)"; (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}44`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#94A3B8"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.09)"; }}
+                >
+                  {icon === "image" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>}
+                  {icon === "video" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>}
+                  {icon === "sparkle" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>}
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Omni: Controls Panel — Right Panel ───────────────────────────────────────
+
+function OmniControlsPanel({
+  prompt, setPrompt, negPrompt, setNegPrompt,
+  quality, setQuality, audioMode, setAudioMode,
+  startSlot, setStartSlot, endSlot, setEndSlot,
+  motionVideoUrl, setMotionVideoUrl, setMotionVideoName,
+}: {
+  prompt:             string;
+  setPrompt:          (v: string) => void;
+  negPrompt:          string;
+  setNegPrompt:       (v: string) => void;
+  quality:            Quality;
+  setQuality:         (q: Quality) => void;
+  audioMode:          "none" | "scene" | "voiceover";
+  setAudioMode:       (m: "none" | "scene" | "voiceover") => void;
+  startSlot:          ImageSlot;
+  setStartSlot:       (s: ImageSlot) => void;
+  endSlot:            ImageSlot;
+  setEndSlot:         (s: ImageSlot) => void;
+  motionVideoUrl:     string | null;
+  setMotionVideoUrl:  (u: string | null) => void;
+  setMotionVideoName: (n: string | null) => void;
+}) {
+  const ACCENT = "#0EA5A0";
+  const inputBase: React.CSSProperties = { width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#CBD5F5", fontSize: 13, padding: "9px 12px", outline: "none", fontFamily: "inherit" };
+  const sLabel: React.CSSProperties   = { fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "#64748B", textTransform: "uppercase", marginBottom: 6, display: "block" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "4px 0" }}>
+      {/* Header */}
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>Omni Controls</div>
+        <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>Scene configuration</div>
+      </div>
+
+      {/* Scene Prompt */}
+      <div>
+        <span style={sLabel}>Scene Prompt</span>
+        <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+          placeholder="Describe the overall scene, mood, and cinematic direction…" rows={4}
+          style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+          onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+          onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+        />
+      </div>
+
+      {/* Negative Prompt */}
+      <div>
+        <span style={sLabel}>Negative Prompt</span>
+        <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
+          placeholder="What to exclude…" rows={2}
+          style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+          onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+          onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+        />
+      </div>
+
+      {/* Reference Frames */}
+      <div>
+        <span style={sLabel}>Reference Frames</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          {/* Start */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#475569", marginBottom: 5 }}>START FRAME</div>
+            {startSlot.url ? (
+              <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", border: `1px solid ${ACCENT}44` }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button onClick={() => setStartSlot(EMPTY_SLOT)}
+                  style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            ) : (
+              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 6, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", cursor: "pointer", gap: 4 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span style={{ fontSize: 9, color: "#334155", fontWeight: 600 }}>Upload</span>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
+              </label>
+            )}
+          </div>
+          {/* End */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#475569", marginBottom: 5 }}>END FRAME</div>
+            {endSlot.url ? (
+              <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(34,211,238,0.33)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button onClick={() => setEndSlot(EMPTY_SLOT)}
+                  style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            ) : (
+              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 6, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", cursor: "pointer", gap: 4 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span style={{ fontSize: 9, color: "#334155", fontWeight: 600 }}>Upload</span>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
+              </label>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Reference Video */}
+      <div>
+        <span style={sLabel}>Reference Video</span>
+        {motionVideoUrl ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 7 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span style={{ fontSize: 11, color: "#818CF8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reference attached</span>
+            <button onClick={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        ) : (
+          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 7, cursor: "pointer" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span style={{ fontSize: 12, color: "#475569" }}>Upload reference video</span>
+            <input type="file" accept="video/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setMotionVideoUrl(url); setMotionVideoName(f.name); }} />
+          </label>
+        )}
+      </div>
+
+      {/* Quality */}
+      <div>
+        <span style={sLabel}>Quality</span>
+        <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 3, gap: 2 }}>
+          {([{ label: "Standard", value: "std" as Quality }, { label: "Pro", value: "pro" as Quality }]).map(({ label, value }) => (
+            <button key={value} onClick={() => setQuality(value)}
+              style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", fontSize: 12, fontWeight: quality === value ? 600 : 500, background: quality === value ? `${ACCENT}22` : "transparent", color: quality === value ? ACCENT : "#475569", cursor: "pointer", transition: "all 0.14s" }}
+            >{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Audio */}
+      <div>
+        <span style={sLabel}>Audio</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {([{ label: "No Audio", value: "none" as const }, { label: "Scene Audio", value: "scene" as const }]).map(({ label, value }) => (
+            <button key={value} onClick={() => setAudioMode(value)}
+              style={{ flex: 1, padding: "7px 10px", borderRadius: 7, fontSize: 12, fontWeight: audioMode === value ? 600 : 500, border: audioMode === value ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.08)", background: audioMode === value ? `${ACCENT}15` : "rgba(255,255,255,0.02)", color: audioMode === value ? ACCENT : "#64748B", cursor: "pointer", transition: "all 0.14s" }}
+            >{label}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: "#2D3748", marginTop: 6 }}>
+          Lip Sync is not available for Omni multi-shot scenes.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Omni: Generate Bar ────────────────────────────────────────────────────────
+
+function OmniGenerateBar({
+  shots, prompt, generating, canGenerate, creditEstimate, onGenerate,
+}: {
+  shots:          OmniShotEntry[];
+  prompt:         string;
+  generating:     boolean;
+  canGenerate:    boolean;
+  creditEstimate: number;
+  onGenerate:     () => void;
+}) {
+  const ACCENT     = "#0EA5A0";
+  const hasPrompt  = prompt.trim().length > 0;
+  const checks = [
+    { label: "Scene prompt",     done: hasPrompt },
+    { label: "Shot stack ready", done: shots.length >= 1 },
+    { label: "Quality selected", done: true },
+  ];
+  return (
+    <div style={{ background: "rgba(0,0,0,0.38)", borderTop: "1px solid rgba(14,165,160,0.18)", padding: "14px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+      {/* Checklist */}
+      <div style={{ display: "flex", gap: 14, flex: 1, flexWrap: "wrap" }}>
+        {checks.map(c => (
+          <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, background: c.done ? `${ACCENT}22` : "rgba(255,255,255,0.04)", border: `1px solid ${c.done ? ACCENT : "rgba(255,255,255,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {c.done && <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+            </div>
+            <span style={{ fontSize: 11, color: c.done ? "#94A3B8" : "#334155", fontWeight: c.done ? 500 : 400 }}>{c.label}</span>
+          </div>
+        ))}
+      </div>
+      {/* Credits */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#F8FAFC", lineHeight: 1 }}>{creditEstimate}</div>
+        <div style={{ fontSize: 10, color: "#475569", fontWeight: 600, letterSpacing: "0.04em" }}>CREDITS</div>
+      </div>
+      {/* Generate button */}
+      <button onClick={onGenerate} disabled={!canGenerate}
+        style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: canGenerate ? `linear-gradient(135deg, ${ACCENT}, #22D3EE)` : "rgba(255,255,255,0.06)", color: canGenerate ? "#041222" : "#334155", fontSize: 13, fontWeight: 800, cursor: canGenerate ? "pointer" : "default", transition: "all 0.2s", letterSpacing: "0.02em", whiteSpace: "nowrap", boxShadow: canGenerate ? `0 0 24px rgba(14,165,160,0.35)` : "none", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        {generating ? "Generating…" : "Generate Omni Scene"}
+      </button>
     </div>
   );
 }
@@ -1014,6 +1394,33 @@ export default function VideoStudioShell() {
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, [authToken, refreshVideoHistory]);
+
+  // ── Omni Cinematic Director Mode ──────────────────────────────────────────
+  const isOmni = selectedModelId === "kling-30-omni";
+
+  const [omniShots, setOmniShots] = useState<OmniShotEntry[]>(() => [{
+    id:          Math.random().toString(36).slice(2),
+    prompt:      "",
+    duration:    5,
+    composition: "Wide",
+  }]);
+
+  const handleOmniAddShot = useCallback(() => {
+    setOmniShots(prev => [...prev, { id: Math.random().toString(36).slice(2), prompt: "", duration: 5, composition: "Wide" }]);
+  }, []);
+  const handleOmniUpdateShot = useCallback((id: string, patch: Partial<OmniShotEntry>) => {
+    setOmniShots(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+  }, []);
+  const handleOmniRemoveShot = useCallback((id: string) => {
+    setOmniShots(prev => prev.filter(s => s.id !== id));
+  }, []);
+  const handleOmniStoryboardPrompt = useCallback(() => {
+    setPrompt("A lone explorer discovers an ancient temple in a misty jungle — wide establishing shot, close-up of discovery, dramatic reveal with golden light streaming through the canopy");
+  }, [setPrompt]);
+
+  // Hidden file input refs for Omni CTA buttons
+  const omniRefImageInputRef = useRef<HTMLInputElement>(null);
+  const omniRefVideoInputRef = useRef<HTMLInputElement>(null);
 
   // ── Sequence mode — cinematic shot stack ──────────────────────────────────
   const [sequenceMode, setSequenceMode] = useState(false);
@@ -1805,83 +2212,189 @@ export default function VideoStudioShell() {
       {/* ── Breadcrumb ─────────────────────────────────────────── */}
       <Breadcrumb modelName={model?.displayName ?? "Video Studio"} />
 
-      {/* ── Tool bar — family dropdowns + sequence mode segmented control ── */}
+      {/* ── Tool bar — family dropdowns ── */}
       <FamilyDropdownBar
         selectedId={selectedModelId}
         onSelect={setSelectedModelId}
-        sequenceControl={{
-          visible: modelSupportsSequence,
-          active:  sequenceMode,
-          onSet:   setSequenceMode,
-        }}
         onScrollToGallery={() => {
           videoResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}
         onPreviewHover={setHoveredModelPreviewKey}
       />
 
-      {/* ── 3-column workspace ─────────────────────────────────── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: sequenceMode ? "280px 1fr 340px" : "260px 1fr 340px",
-        columnGap: 14,
-        alignItems: "start",
-        width: "100%",
-        paddingBottom: 28,
-        boxSizing: "border-box",
-      }}>
+      {/* ── Hidden file inputs for Omni CTA buttons ── */}
+      <input
+        ref={omniRefImageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          setStartSlot({ url, preview: url });
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={omniRefVideoInputRef}
+        type="file"
+        accept="video/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const url = URL.createObjectURL(file);
+          setMotionVideoUrl(url);
+          setMotionVideoName(file.name);
+          e.target.value = "";
+        }}
+      />
 
-        {/* Left panel — VideoLeftRail (standard) or ShotStack (sequence mode) */}
+      {/* ── 3-column workspace ─────────────────────────────────── */}
+      {isOmni ? (
+        /* ═══════════════════════════════════════════════════════════
+           OMNI CINEMATIC DIRECTOR MODE — kling-30-omni only
+           Three-panel layout: Shot Stack | Director Board | Controls
+           ═══════════════════════════════════════════════════════════ */
         <div style={{
-          paddingLeft:    sequenceMode ? 0 : SIDE_GUTTER,
-          paddingRight:   sequenceMode ? 0 : 12,
-          paddingTop:     sequenceMode ? 0 : 14,
-          paddingBottom:  sequenceMode ? 0 : 14,
+          display: "grid",
+          gridTemplateColumns: "280px 1fr 340px",
+          columnGap: 14,
+          alignItems: "start",
+          width: "100%",
+          paddingBottom: 28,
+          boxSizing: "border-box",
+        }}>
+          {/* Omni Left — Shot Stack */}
+          <div style={{
+            paddingLeft:  SIDE_GUTTER,
+            paddingRight: 0,
+            position:     "sticky",
+            top:          88,
+            maxHeight:    "calc(100vh - 100px)",
+            overflowY:    "auto",
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.04) transparent",
+            boxSizing:    "border-box",
+          }}>
+            <OmniShotStack
+              shots={omniShots}
+              onAdd={handleOmniAddShot}
+              onUpdate={handleOmniUpdateShot}
+              onRemove={handleOmniRemoveShot}
+            />
+          </div>
+
+          {/* Omni Center — Director Board + Generate Bar */}
+          <div style={{ minWidth: 0 }}>
+            <OmniDirectorBoard
+              shots={omniShots}
+              startSlot={startSlot}
+              endSlot={endSlot}
+              motionVideoUrl={motionVideoUrl}
+              generating={generating}
+              onAddReferenceImage={() => omniRefImageInputRef.current?.click()}
+              onAddReferenceVideo={() => omniRefVideoInputRef.current?.click()}
+              onTryStoryboardPrompt={handleOmniStoryboardPrompt}
+            />
+            <OmniGenerateBar
+              shots={omniShots}
+              prompt={prompt}
+              generating={generating}
+              canGenerate={canGenerate}
+              creditEstimate={creditEstimate}
+              onGenerate={handleGenerate}
+            />
+          </div>
+
+          {/* Omni Right — Controls */}
+          <div style={{
+            paddingRight: SIDE_GUTTER,
+            paddingLeft:  0,
+            position:     "sticky",
+            top:          88,
+            maxHeight:    "calc(100vh - 100px)",
+            overflowY:    "auto",
+            scrollbarWidth: "thin",
+            scrollbarColor: "rgba(255,255,255,0.04) transparent",
+            boxSizing:    "border-box",
+          }}>
+            <OmniControlsPanel
+              prompt={prompt}
+              setPrompt={setPrompt}
+              negPrompt={negPrompt}
+              setNegPrompt={setNegPrompt}
+              quality={quality}
+              setQuality={setQuality}
+              audioMode={audioMode}
+              setAudioMode={setAudioMode}
+              startSlot={startSlot}
+              setStartSlot={setStartSlot}
+              endSlot={endSlot}
+              setEndSlot={setEndSlot}
+              motionVideoUrl={motionVideoUrl}
+              setMotionVideoUrl={setMotionVideoUrl}
+              setMotionVideoName={setMotionVideoName}
+            />
+          </div>
+        </div>
+      ) : (
+        /* ═══════════════════════════════════════════════════════════
+           STANDARD VIDEO STUDIO — all models except kling-30-omni
+           Three-panel: Left Rail | Canvas | Prompt Panel
+           ═══════════════════════════════════════════════════════════ */
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "260px 1fr 340px",
+          columnGap: 14,
+          alignItems: "start",
+          width: "100%",
+          paddingBottom: 28,
+          boxSizing: "border-box",
+        }}>
+
+        {/* Left panel — VideoLeftRail */}
+        <div style={{
+          paddingLeft:    SIDE_GUTTER,
+          paddingRight:   12,
+          paddingTop:     14,
+          paddingBottom:  14,
           height:         "100%",
           minHeight:      0,
           position:       "sticky",
           top:            88,
           zIndex:         10,
           maxHeight:      "calc(100vh - 100px)",
-          overflowY:      sequenceMode ? "hidden" : "auto",
+          overflowY:      "auto",
           scrollbarWidth: "thin",
           scrollbarColor: "rgba(255,255,255,0.04) transparent",
-          background:     sequenceMode ? "transparent" : "rgba(0,0,0,0.28)",
+          background:     "rgba(0,0,0,0.28)",
           borderRadius:   12,
           borderRight:    "1px solid rgba(255,255,255,0.05)",
           opacity:        cinemaModeActive ? 0.88 : 1,
           transition:     "opacity 0.35s ease",
           boxSizing:      "border-box",
         }}>
-          {sequenceMode ? (
-            <ShotStack
-              state={seqState}
-              actions={seqActions}
-              modelId={selectedModelId}
-              aspectRatio={aspectRatio}
-              durationSeconds={duration}
-            />
-          ) : (
-            <VideoLeftRail
-              frameMode={frameMode}
-              aspectRatio={aspectRatio}
-              quality={quality}
-              duration={duration}
-              resolution={resolution}
-              motionPreset={motionPreset}
-              motionStrength={motionStrength}
-              motionArea={motionArea}
-              onFrameMode={setFrameMode}
-              onAspectRatio={setAspectRatio}
-              onQuality={setQuality}
-              onDuration={setDuration}
-              onResolution={setResolution}
-              onMotionPreset={setMotionPreset}
-              onMotionStrength={setMotionStrength}
-              onMotionArea={setMotionArea}
-              model={model}
-            />
-          )}
+          <VideoLeftRail
+            frameMode={frameMode}
+            aspectRatio={aspectRatio}
+            quality={quality}
+            duration={duration}
+            resolution={resolution}
+            motionPreset={motionPreset}
+            motionStrength={motionStrength}
+            motionArea={motionArea}
+            onFrameMode={setFrameMode}
+            onAspectRatio={setAspectRatio}
+            onQuality={setQuality}
+            onDuration={setDuration}
+            onResolution={setResolution}
+            onMotionPreset={setMotionPreset}
+            onMotionStrength={setMotionStrength}
+            onMotionArea={setMotionArea}
+            model={model}
+          />
         </div>
 
         {/* Canvas — fills 1fr, glow intensifies in cinema mode */}
@@ -2207,7 +2720,8 @@ export default function VideoStudioShell() {
             hideGenerateButton
           />
         </div>
-      </div>
+        </div>
+      )}
 
       {/* ── Gallery — full viewport width ──────────────────────── */}
       {/* Padding/border/header now owned by VideoResultsLibrary */}
