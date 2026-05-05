@@ -803,7 +803,7 @@ function BoostSelector() {
 function ComparisonTable() {
   const planColors = [
     "rgba(34,211,238,0.90)",
-    "rgba(217,70,239,0.90)",
+    "rgba(168,85,247,0.90)",  // Creator — purple
     "rgba(124,58,237,0.90)",
     "rgba(255,255,255,0.90)",
   ];
@@ -831,143 +831,103 @@ function ComparisonTable() {
   };
 
   return (
-    // ── Premium section wrapper — #171717 base + border glow ──
+    // ── Flat premium dark section — no overlays, no gradients ──
     <section style={{
-      position: "relative",
       margin: "0 auto",
       maxWidth: 1100,
-      borderRadius: 16,
+      borderRadius: 12,
       overflow: "hidden",
-      border: "1px solid rgba(255,255,255,0.10)",
+      border: "1px solid rgba(255,255,255,0.08)",
       background: "#171717",
-      boxShadow: `
-        0 0 0 1px rgba(255,255,255,0.06),
-        0 20px 80px rgba(0,0,0,0.6),
-        inset 0 1px rgba(255,255,255,0.04)
-      `,
     }}>
-
-      {/* ── Premium depth layers ── */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+      {/* Label */}
+      <div style={{ textAlign: "center", padding: "36px 32px 28px" }}>
         <div style={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(circle at 50% 0%, rgba(168,85,247,0.12), transparent 60%)",
-        }} />
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0.03), transparent 40%, rgba(0,0,0,0.4))",
-        }} />
+          fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
+          letterSpacing: "0.20em", color: "rgba(100,116,139,0.55)",
+          textTransform: "uppercase",
+        }}>Compare All Features</div>
       </div>
 
-      {/* ── Content — sits above depth layers ── */}
-      <div style={{ position: "relative", zIndex: 1, padding: "40px 32px 40px" }}>
+      {/* ── Table shell — no background, no glass, no blur ── */}
+      <div style={{ padding: "0 32px 36px" }}>
+        <div style={{ overflow: "hidden" }}>
 
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          {/* Column headers — no glow, plain text only */}
           <div style={{
-            fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-            letterSpacing: "0.20em", color: "rgba(100,116,139,0.55)",
-            textTransform: "uppercase",
-          }}>Compare All Features</div>
-        </div>
-
-        {/* ── Table container glass layer ── */}
-        <div style={{
-          position: "relative", zIndex: 10,
-          backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
-        }}>
-          <div style={{
-            borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)",
-            background: "rgba(255,255,255,0.015)",
-            overflow: "hidden",
+            display: "grid",
+            gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
+            padding: "14px 0",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
           }}>
-            {/* Column headers */}
             <div style={{
-              display: "grid",
-              gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
-              padding: "18px 28px",
-              borderBottom: "1px solid rgba(255,255,255,0.07)",
-              background: "rgba(255,255,255,0.02)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-            }}>
-              <div style={{
-                fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-                color: "rgba(71,85,105,0.55)", fontWeight: 600,
-                letterSpacing: "0.06em", textTransform: "uppercase",
-              }}>Feature</div>
-              {PLANS.map((p, i) => (
-                <div key={p.id} style={{
-                  textAlign: "center",
-                  padding: "6px 8px",
-                  // Creator column: gradient highlight
-                  ...(i === 1 ? {
-                    background: "linear-gradient(to bottom, rgba(168,85,247,0.12), rgba(168,85,247,0.05))",
-                    border: "1px solid rgba(217,70,239,0.14)",
-                    borderRadius: 12,
-                  } : { borderRadius: 10 }),
-                }}>
-                  <div style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-                    letterSpacing: "0.12em", color: planColors[i], textTransform: "uppercase",
-                  }}>
-                    {p.icon} {p.name}
-                  </div>
-                </div>
-              ))}
-            </div>
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
+              color: "rgba(71,85,105,0.55)", fontWeight: 600,
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}>Feature</div>
 
-            {/* Rows */}
-            {COMPARE_FEATURES.map((row, rowIdx) => (
-              <div
-                key={rowIdx}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
-                  padding: "0 28px",
-                  minHeight: 64,
-                  borderBottom: rowIdx < COMPARE_FEATURES.length - 1
-                    ? "1px solid rgba(255,255,255,0.04)" : "none",
-                  background: rowIdx % 2 === 0 ? "rgba(255,255,255,0.010)" : "transparent",
-                  alignItems: "center",
-                  transition: "background 0.25s ease",
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = rowIdx % 2 === 0
-                    ? "rgba(255,255,255,0.010)" : "transparent";
-                }}
-              >
-                <div style={{ padding: "16px 0" }}>
-                  <div style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif",
-                    fontSize: 13.5, fontWeight: 600,
-                    color: "rgba(241,245,249,0.86)", marginBottom: 2,
-                  }}>{row.icon} {row.name}</div>
-                  <div style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif",
-                    fontSize: 11.5, color: "rgba(148,163,184,0.55)",
-                  }}>{row.sub}</div>
+            {PLANS.map((p, i) => (
+              <div key={p.id} style={{ textAlign: "center", padding: "4px 8px" }}>
+                <div style={{
+                  fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
+                  // Creator = purple; others = muted white
+                  color: i === 1
+                    ? "#a855f7"
+                    : "rgba(255,255,255,0.55)",
+                  ...(i === 1 ? { fontWeight: 600 } : {}),
+                }}>
+                  {p.icon} {p.name}
                 </div>
-                {row.values.map((val, colIdx) => (
-                  <div key={colIdx} style={{
-                    display: "flex", justifyContent: "center", alignItems: "center",
-                    padding: "4px 8px", height: "100%",
-                    // Creator column: gradient highlight
-                    ...(colIdx === 1 ? {
-                      background: "linear-gradient(to bottom, rgba(168,85,247,0.12), rgba(168,85,247,0.05))",
-                      borderRadius: 12,
-                    } : {}),
-                  }}>
-                    {renderVal(val as string | boolean, colIdx)}
-                  </div>
-                ))}
               </div>
             ))}
           </div>
-        </div>
 
+          {/* Rows — flat, no alternating backgrounds, Creator column = vertical strip */}
+          {COMPARE_FEATURES.map((row, rowIdx) => (
+            <div
+              key={rowIdx}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
+                minHeight: 64,
+                borderBottom: rowIdx < COMPARE_FEATURES.length - 1
+                  ? "1px solid rgba(255,255,255,0.06)" : "none",
+                alignItems: "center",
+                transition: "background 0.20s ease",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+            >
+              {/* Feature label */}
+              <div style={{ padding: "16px 0" }}>
+                <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 13.5, fontWeight: 600,
+                  color: "rgba(241,245,249,0.86)", marginBottom: 2,
+                }}>{row.icon} {row.name}</div>
+                <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 11.5, color: "rgba(148,163,184,0.55)",
+                }}>{row.sub}</div>
+              </div>
+
+              {/* Value cells — Creator column = flat tint, no border-radius */}
+              {row.values.map((val, colIdx) => (
+                <div key={colIdx} style={{
+                  display: "flex", justifyContent: "center", alignItems: "center",
+                  padding: "4px 8px", height: "100%",
+                  // Creator = continuous flat strip, no rounded corners
+                  background: colIdx === 1 ? "rgba(168,85,247,0.08)" : "transparent",
+                  borderRadius: 0,
+                }}>
+                  {renderVal(val as string | boolean, colIdx)}
+                </div>
+              ))}
+            </div>
+          ))}
+
+        </div>
       </div>
     </section>
   );
