@@ -20,7 +20,14 @@
 --     active: true (already in credit_model_costs with base_credits = 420)
 --
 --   Kling Multi-Elements Editing → model_key = 'kling-multi-elements' (THIS ROW)
---     endpoint: 7 stateful endpoints, session-based workflow
+--     endpoints (7 — per Kling API docs):
+--       POST /v1/videos/multi-elements/init-selection
+--       POST /v1/videos/multi-elements/add-selection
+--       POST /v1/videos/multi-elements/delete-selection
+--       POST /v1/videos/multi-elements/clear-selection
+--       GET  /v1/videos/multi-elements/preview-selection
+--       POST /v1/videos/multi-elements          (create task)
+--       GET  /v1/videos/multi-elements/{id}     (poll task)
 --     active: false (placeholder — not chargeable until pricing is locked)
 --
 -- IDEMPOTENT: INSERT ... ON CONFLICT DO NOTHING (safe to re-run).

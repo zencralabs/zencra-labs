@@ -13,7 +13,7 @@
  *
  * Pricing status: NOT LOCKED — no credits are charged by this stub.
  *   Before activating, lock exact per-operation credit costs in:
- *     - supabase/migrations/ (new row in credit_model_costs)
+ *     - supabase/migrations/ (update kling-multi-elements row in credit_model_costs)
  *     - hooks.ts estimate() function
  *   Do not activate without confirmed pricing.
  *
@@ -21,7 +21,7 @@
  * These are two completely different Kling systems:
  *
  *   Kling 3.0 Omni Advanced Generation:
- *     - Endpoint: /v1/videos/omni-video
+ *     - Endpoint: POST /v1/videos/omni-video
  *     - Single stateless API call (like all other providers)
  *     - Handled in kling.ts / buildKlingProvider / ZProvider pipeline
  *     - Features: multi_shot, image_list[], element_list[], video_list[]
@@ -33,26 +33,45 @@
  *     - No model-level capability flag — it is a platform workflow, not a model feature
  *
  * ── Multi-Elements Session Flow ──────────────────────────────────────────────
- *   1. initSession()       → create editing session from video ID or URL
- *   2. addSelection()      → mark region to include (returns RLE masks)
- *   3. deleteSelection()   → mark region to exclude (optional)
- *   4. previewSelection()  → preview composed mask before task (optional)
- *   5. createTask()        → submit the editing task (async)
- *   6. pollTask()          → poll task status until succeed/failed
- *   7. listTasks()         → list all tasks for a session (utility)
+ *   1. initSelection()    → POST /v1/videos/multi-elements/init-selection
+ *                           Initialize session from video_id or video_url.
+ *                           Returns session_id + normalized video metadata.
  *
- * ── Kling API Endpoints ──────────────────────────────────────────────────────
- *   POST   /v1/videos/multi-elements/session/create
- *   POST   /v1/videos/multi-elements/selection/add
- *   POST   /v1/videos/multi-elements/selection/delete
- *   GET    /v1/videos/multi-elements/selection/preview
- *   POST   /v1/videos/multi-elements/task/create
- *   GET    /v1/videos/multi-elements/task/{task_id}
- *   GET    /v1/videos/multi-elements/tasks  (list)
+ *   2. addSelection()     → POST /v1/videos/multi-elements/add-selection
+ *                           Mark foreground points on a frame (include these regions).
+ *                           Returns RLE segmentation masks for selected objects.
+ *
+ *   3. deleteSelection()  → POST /v1/videos/multi-elements/delete-selection
+ *                           Mark background points on a frame (exclude these regions).
+ *                           Returns updated RLE masks.
+ *
+ *   4. clearSelection()   → POST /v1/videos/multi-elements/clear-selection
+ *                           Clear all current selection points for a session frame.
+ *                           Call to reset before re-selecting a different region.
+ *
+ *   5. previewSelection() → GET  /v1/videos/multi-elements/preview-selection
+ *                           Preview the composed mask before task creation (optional).
+ *                           Recommended for UI confirmation step.
+ *
+ *   6. createTask()       → POST /v1/videos/multi-elements
+ *                           Submit the editing task for generation (async).
+ *                           Returns task_id for polling.
+ *
+ *   7. pollTask()         → GET  /v1/videos/multi-elements/{id}
+ *                           Poll task status until task_status = succeed | failed.
+ *                           Successful result shape: task_result.videos[0].url
+ *
+ * ── Kling API Endpoint Summary ───────────────────────────────────────────────
+ *   POST  /v1/videos/multi-elements/init-selection
+ *   POST  /v1/videos/multi-elements/add-selection
+ *   POST  /v1/videos/multi-elements/delete-selection
+ *   POST  /v1/videos/multi-elements/clear-selection
+ *   GET   /v1/videos/multi-elements/preview-selection
+ *   POST  /v1/videos/multi-elements
+ *   GET   /v1/videos/multi-elements/{id}
  *
  * ── Auth ─────────────────────────────────────────────────────────────────────
  *   Same KLING_API_KEY JWT pattern as kling.ts (HS256 from accessKeyId:accessKeySecret).
- *   Imports buildKlingAuthHeader from kling.ts when activated.
  *   Base URL: KLING_BASE_URL (same as standard Kling provider).
  *
  * ── Feature Gate ─────────────────────────────────────────────────────────────
@@ -77,6 +96,20 @@ import type {
 import { getKlingEnv } from "../core/env";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ENDPOINT CONSTANTS — aligned to Kling API docs
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EP = {
+  initSelection:    "/v1/videos/multi-elements/init-selection",
+  addSelection:     "/v1/videos/multi-elements/add-selection",
+  deleteSelection:  "/v1/videos/multi-elements/delete-selection",
+  clearSelection:   "/v1/videos/multi-elements/clear-selection",
+  previewSelection: "/v1/videos/multi-elements/preview-selection",
+  createTask:       "/v1/videos/multi-elements",
+  pollTask:         (id: string) => `/v1/videos/multi-elements/${encodeURIComponent(id)}`,
+} as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // FEATURE GATE
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -92,7 +125,7 @@ function assertMultiElementsEnabled(): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUTH — reuse Kling JWT pattern
+// AUTH — reuse Kling JWT pattern (same as kling.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function buildAuthHeader(): Promise<string> {
@@ -146,8 +179,8 @@ async function klingGet<T>(path: string): Promise<T> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OPERATION 1 — Init Session
-// POST /v1/videos/multi-elements/session/create
+// OPERATION 1 — Init Selection
+// POST /v1/videos/multi-elements/init-selection
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -158,17 +191,17 @@ async function klingGet<T>(path: string): Promise<T> {
  * @returns KlingMultiElementsSession — includes session_id, normalized_video,
  *          fps, width, height, total_frame, original_duration, final_unit_deduction
  */
-export async function initMultiElementsSession(
+export async function initSelection(
   body: KlingMultiElementsInitBody,
 ): Promise<KlingMultiElementsSession> {
   assertMultiElementsEnabled();
-  console.log("[kling-multi-elements] initSession — video_id:", body.video_id ?? "(url)", "video_url:", body.video_url ?? "(none)");
-  return klingPost<KlingMultiElementsSession>("/v1/videos/multi-elements/session/create", body);
+  console.log("[kling-multi-elements] initSelection — video_id:", body.video_id ?? "(url)", "video_url:", body.video_url ?? "(none)");
+  return klingPost<KlingMultiElementsSession>(EP.initSelection, body);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OPERATION 2 — Add Selection
-// POST /v1/videos/multi-elements/selection/add
+// POST /v1/videos/multi-elements/add-selection
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -181,17 +214,17 @@ export async function initMultiElementsSession(
  *
  * @param body - session_id, frame_index (0-based), points[] — [{x,y}] in pixel space
  */
-export async function addMultiElementsSelection(
+export async function addSelection(
   body: KlingSelectionAreaBody,
 ): Promise<KlingSelectionAreaResult> {
   assertMultiElementsEnabled();
   console.log("[kling-multi-elements] addSelection — session:", body.session_id, "frame:", body.frame_index, "points:", body.points.length);
-  return klingPost<KlingSelectionAreaResult>("/v1/videos/multi-elements/selection/add", body);
+  return klingPost<KlingSelectionAreaResult>(EP.addSelection, body);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OPERATION 3 — Delete Selection
-// POST /v1/videos/multi-elements/selection/delete
+// POST /v1/videos/multi-elements/delete-selection
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -201,17 +234,39 @@ export async function addMultiElementsSelection(
  *
  * @param body - same shape as addSelection
  */
-export async function deleteMultiElementsSelection(
+export async function deleteSelection(
   body: KlingSelectionAreaBody,
 ): Promise<KlingSelectionAreaResult> {
   assertMultiElementsEnabled();
   console.log("[kling-multi-elements] deleteSelection — session:", body.session_id, "frame:", body.frame_index);
-  return klingPost<KlingSelectionAreaResult>("/v1/videos/multi-elements/selection/delete", body);
+  return klingPost<KlingSelectionAreaResult>(EP.deleteSelection, body);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OPERATION 4 — Preview Selection
-// GET /v1/videos/multi-elements/selection/preview
+// OPERATION 4 — Clear Selection
+// POST /v1/videos/multi-elements/clear-selection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Clear all current selection points for a session frame.
+ * Call this to reset before re-selecting a different region within the same session.
+ * After clearing, addSelection and deleteSelection can be called again from scratch.
+ *
+ * @param sessionId - the active session_id
+ * @param frameIndex - the frame whose selections should be cleared
+ */
+export async function clearSelection(
+  sessionId: string,
+  frameIndex: number,
+): Promise<void> {
+  assertMultiElementsEnabled();
+  console.log("[kling-multi-elements] clearSelection — session:", sessionId, "frame:", frameIndex);
+  await klingPost<unknown>(EP.clearSelection, { session_id: sessionId, frame_index: frameIndex });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OPERATION 5 — Preview Selection
+// GET /v1/videos/multi-elements/preview-selection
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -221,19 +276,19 @@ export async function deleteMultiElementsSelection(
  * @param sessionId - the active session_id
  * @param frameIndex - the frame to preview
  */
-export async function previewMultiElementsSelection(
+export async function previewSelection(
   sessionId: string,
   frameIndex: number,
 ): Promise<KlingSelectionAreaResult> {
   assertMultiElementsEnabled();
   const qs = `?session_id=${encodeURIComponent(sessionId)}&frame_index=${frameIndex}`;
   console.log("[kling-multi-elements] previewSelection — session:", sessionId, "frame:", frameIndex);
-  return klingGet<KlingSelectionAreaResult>(`/v1/videos/multi-elements/selection/preview${qs}`);
+  return klingGet<KlingSelectionAreaResult>(`${EP.previewSelection}${qs}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OPERATION 5 — Create Task
-// POST /v1/videos/multi-elements/task/create
+// OPERATION 6 — Create Task
+// POST /v1/videos/multi-elements
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -254,12 +309,12 @@ export async function createMultiElementsTask(
 ): Promise<KlingMultiElementsTask> {
   assertMultiElementsEnabled();
   console.log("[kling-multi-elements] createTask — session:", body.session_id, "mode:", body.edit_mode, "model:", body.model_name ?? "(default)");
-  return klingPost<KlingMultiElementsTask>("/v1/videos/multi-elements/task/create", body);
+  return klingPost<KlingMultiElementsTask>(EP.createTask, body);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OPERATION 6 — Poll Task
-// GET /v1/videos/multi-elements/task/{task_id}
+// OPERATION 7 — Poll Task
+// GET /v1/videos/multi-elements/{id}
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -274,26 +329,7 @@ export async function pollMultiElementsTask(
   taskId: string,
 ): Promise<KlingMultiElementsTask> {
   assertMultiElementsEnabled();
-  return klingGet<KlingMultiElementsTask>(`/v1/videos/multi-elements/task/${encodeURIComponent(taskId)}`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// OPERATION 7 — List Tasks
-// GET /v1/videos/multi-elements/tasks
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * List all Multi-Elements tasks, optionally filtered by session.
- * Utility function for dashboard / debug use.
- *
- * @param sessionId - optional filter by session_id
- */
-export async function listMultiElementsTasks(
-  sessionId?: string,
-): Promise<KlingMultiElementsTask[]> {
-  assertMultiElementsEnabled();
-  const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
-  return klingGet<KlingMultiElementsTask[]>(`/v1/videos/multi-elements/tasks${qs}`);
+  return klingGet<KlingMultiElementsTask>(EP.pollTask(taskId));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
