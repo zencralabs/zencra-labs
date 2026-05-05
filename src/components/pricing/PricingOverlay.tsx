@@ -47,6 +47,9 @@ const BODY   = "rgba(241,245,249,0.88)";
 // v8 — Optional panel background image. Set path to activate; leave "" for gradient fallback.
 const PRICING_PANEL_BG = ""; // e.g. "/pricing/pricing-panel-bg.png"
 
+// Shared section max-width token — all section wrappers align to this.
+const PRICING_CONTENT_MAX_WIDTH = 1180;
+
 // v8 — Hero reel placeholder video paths (replace with real assets)
 const REEL_VIDEOS = [
   "/pricing/reel-1.mp4",
@@ -538,7 +541,7 @@ function FCSStrip() {
   const [enabled, setEnabled] = useState(false);
 
   return (
-    <div style={{ margin: "0 auto", maxWidth: 1100, padding: "0 32px" }}>
+    <div style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
       <div style={{
         borderRadius: 20,
         background: `
@@ -562,8 +565,8 @@ function FCSStrip() {
           }}>🎬</div>
           <div>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 700,
-              letterSpacing: "0.12em", color: GOLD, textTransform: "uppercase",
+              fontFamily: "'Syne', sans-serif", fontSize: 30, fontWeight: 800,
+              letterSpacing: "0.08em", color: GOLD, textTransform: "uppercase",
               marginBottom: 6,
               textShadow: "0 0 24px rgba(255,213,106,0.55)",
             }}>Future Cinema Studio</div>
@@ -653,7 +656,7 @@ function BoostSelector() {
   const packIcons  = ["⚡", "🚀", "🎬", "💎"];
 
   return (
-    <div style={{ margin: "0 auto", maxWidth: 1100, padding: "0 32px" }}>
+    <div style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
       <div style={{
         borderRadius: 20,
         background: "linear-gradient(135deg, rgba(14,165,160,0.06) 0%, rgba(14,165,160,0.02) 100%)",
@@ -669,15 +672,15 @@ function BoostSelector() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <span style={{ fontSize: 20 }}>🚀</span>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 700,
-              letterSpacing: "0.12em", color: WHITE, textTransform: "uppercase",
-            }}>Boost Your Output</div>
+              fontFamily: "'Syne', sans-serif", fontSize: 30, fontWeight: 800,
+              letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
+            }}>Boost Credit Packs</div>
           </div>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
             color: "rgba(203,213,225,0.70)", marginBottom: 28,
           }}>
-            Add extra credits instantly. Use anytime.
+            Add extra credits when you need more. Boost credits expire after 90 days.
           </div>
 
           {/* 4 card-buttons */}
@@ -735,30 +738,6 @@ function BoostSelector() {
             })}
           </div>
 
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <button
-              style={{
-                padding: "12px 42px", borderRadius: 12,
-                border: "1px solid rgba(34,211,238,0.38)",
-                background: "rgba(34,211,238,0.09)",
-                color: TEAL,
-                fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 700,
-                letterSpacing: "0.06em", cursor: "pointer", transition: "all 0.22s ease",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "rgba(34,211,238,0.20)";
-                e.currentTarget.style.boxShadow = "0 0 28px rgba(34,211,238,0.40)";
-                e.currentTarget.style.borderColor = "rgba(34,211,238,0.65)";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "rgba(34,211,238,0.09)";
-                e.currentTarget.style.boxShadow = "none";
-                e.currentTarget.style.borderColor = "rgba(34,211,238,0.38)";
-              }}
-            >
-              Add {pack.credits.toLocaleString()} cr for ${pack.price}
-            </button>
-          </div>
         </div>
 
         {/* Right callout — clamped font + sweep animation */}
@@ -834,7 +813,8 @@ function ComparisonTable() {
     // ── Flat premium dark section — no overlays, no gradients ──
     <section style={{
       margin: "0 auto",
-      maxWidth: 1100,
+      maxWidth: PRICING_CONTENT_MAX_WIDTH,
+      width: "100%",
       borderRadius: 12,
       overflow: "hidden",
       border: "1px solid rgba(255,255,255,0.08)",
@@ -1319,7 +1299,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               flexWrap: "wrap", gap: 16,
-              margin: "52px auto 0", maxWidth: 1100, padding: "20px 32px",
+              margin: "52px auto 0", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "20px 32px",
               borderTop: "1px solid rgba(255,255,255,0.04)",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
