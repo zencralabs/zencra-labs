@@ -270,6 +270,52 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     },
   },
 
+  // ── Kling Lip Sync (Coming Soon) ─────────────────────────────────────────
+  // Kling-native lip sync — sync audio to an existing video face using Kling's
+  // own lip sync pipeline (NOT the provider-independent lipsync route at
+  // src/lib/providers/lipsync/ or src/app/api/lipsync/).
+  //
+  // This entry is a UI placeholder only. It is completely separate from:
+  //   - The existing Fal Sync V3 / ElevenLabs lipsync adapters
+  //   - Any other lip sync provider entries in this registry (HeyGen)
+  //
+  // To activate: wire a Kling lip sync adapter, set available: true,
+  // set lipSyncProvider to "kling", and flip comingSoon: false.
+  {
+    id:              "kling-lip-sync",
+    provider:        "kling",
+    apiModelId:      "",   // not callable — placeholder only
+    displayName:     "Kling Lip Sync",
+    description:     "Sync audio to any video face using Kling's native lip sync pipeline",
+    badge:           "SOON",
+    badgeColor:      "#0EA5A0",
+    lipSyncProvider: null,   // null = Coming Soon; set to "kling" when wired
+    available:       false,
+    comingSoon:      true,
+    capabilities: {
+      textToVideo:    false,
+      imageToVideo:   false,
+      startFrame:     false,
+      endFrame:       false,
+      cameraControl:  false,
+      motionControl:  false,
+      multiElement:   false,
+      extendVideo:    false,
+      lipSync:        true,
+      avatar:         false,
+      audioEnabled:   true,
+      videoInput:     true,
+      nativeAudio:    false,
+      negativePrompt: false,
+      proMode:        false,
+      seedControl:    false,
+      durations:      [],
+      maxDuration:    0,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  [],
+    },
+  },
+
   // ── Seedance 2.0 ─────────────────────────────────────────────────────────
   // BytePlus ModelArk API. Supports T2V, I2V, start frame, and start+end frame.
   // Resolutions: 480p, 720p. Frame rate: 24 fps. Duration: 4–15s (safe discrete: 5, 8, 10).
@@ -355,18 +401,27 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
   // ── Seedance 1.5 Pro ─────────────────────────────────────────────────────
   // BytePlus ModelArk API. Supports T2V, first-frame, and first+last-frame.
   // Resolutions: 480p, 720p, 1080p. Frame rate: 24 fps. Durations: 4s, 8s, 12s only.
-  // Model ID env-configurable via SEEDANCE_15_MODEL_ID — NO default (requires explicit config).
-  // If model ID is missing (empty string), the studio shows a "Not Configured" screen.
+  //
+  // Gate: requires NEXT_PUBLIC_SEEDANCE_15_ENABLED=true in Vercel env vars.
+  //   - Set this only when SEEDANCE_15_MODEL_ID is also set server-side.
+  //   - Without the flag, the model is hidden from the UI (available: false, comingSoon: true).
+  //   - The NEXT_PUBLIC_ prefix is required for Next.js client-side availability.
+  //
+  // How to enable:
+  //   1. Obtain the model ID from BytePlus
+  //   2. Set SEEDANCE_15_MODEL_ID=<model_id> in Vercel (server-only env)
+  //   3. Set NEXT_PUBLIC_SEEDANCE_15_ENABLED=true in Vercel (expose to client)
+  //   4. Redeploy
   {
     id:          "seedance-15",
     provider:    "seedance",
     apiModelId:  process.env.SEEDANCE_15_MODEL_ID ?? "",  // Empty = not configured — DO NOT add a default
     displayName: "Seedance 1.5 Pro",
     description: "1080p capable — text/image to video, first+last frame, 4–12s range.",
-    badge:       null,
-    badgeColor:  null,
-    available:   true,
-    comingSoon:  false,
+    badge:       process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true" ? null : "SOON",
+    badgeColor:  process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true" ? null : "#374151",
+    available:   process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true",
+    comingSoon:  process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED !== "true",
     promptChips: ["cinematic style", "character close-up", "storyboard scene", "dramatic lighting"],
     capabilities: {
       textToVideo:    true,

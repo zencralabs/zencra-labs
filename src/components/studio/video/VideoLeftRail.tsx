@@ -355,7 +355,9 @@ export default function VideoLeftRail({
     text_to_video:  caps?.textToVideo    ?? true,
     start_frame:    caps?.startFrame     ?? false,
     extend:         caps?.extendVideo    ?? false,
-    lip_sync:       true,
+    // Lip Sync is only available on the dedicated kling-lip-sync model
+    // (capabilities.lipSync = true). Normal Kling models have lipSync: false.
+    lip_sync:       caps?.lipSync        ?? false,
     motion_control: caps?.motionControl  ?? false,
   };
 

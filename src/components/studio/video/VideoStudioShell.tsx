@@ -1148,10 +1148,19 @@ export default function VideoStudioShell() {
       // when model.capabilities.endFrame is true. No separate start_end mode.
       start_frame:    caps.startFrame,
       extend:         caps.extendVideo,
-      lip_sync:       true,
+      // Lip Sync only allowed on kling-lip-sync model (capabilities.lipSync = true).
+      // All normal Kling models have lipSync: false — this removes Lip Sync from their mode list.
+      lip_sync:       caps.lipSync,
       motion_control: caps.motionControl,
     };
-    if (!allowed[frameMode]) setFrameMode("text_to_video");
+    if (!allowed[frameMode]) {
+      // Auto-select the first mode the new model actually supports.
+      // This ensures kling-lip-sync (lipSync-only) jumps directly to lip_sync
+      // instead of incorrectly defaulting to text_to_video.
+      const modeOrder: FrameMode[] = ["text_to_video", "start_frame", "extend", "lip_sync", "motion_control"];
+      const firstAllowed = modeOrder.find(m => allowed[m]);
+      setFrameMode(firstAllowed ?? "text_to_video");
+    }
     if (!caps.durations.includes(duration))       setDuration(caps.durations[0] ?? 5);
     if (!caps.aspectRatios.includes(aspectRatio)) setAspectRatio((caps.aspectRatios[0] ?? "16:9") as VideoAR);
     // Reset resolution to first supported value when switching models
