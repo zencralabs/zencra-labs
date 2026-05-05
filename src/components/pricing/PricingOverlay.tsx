@@ -1,11 +1,11 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PricingOverlay v7 — Full visual system rebuild
-// Canvas: CSS multi-radial gradient, slow drift, no blobs
-// Panel: glass cinematic frame max-width 1440px, close button inside
-// Cards: height 560px, space-between, hover-only glow, no translateY
-// Typography: Syne display · Familjen Grotesk body/UI
+// PricingOverlay v8 — Visual system upgrades
+// Outer: black blur backdrop (rgba(0,0,0,0.68) + blur(18px)) — page shows through
+// Panel: colorful bg contained inside panel + optional BG image hook
+// Hero: video reel strip behind headline, one-line title
+// Boost: 4 card-buttons (whole card highlights), right preview no-overflow
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useEffect } from "react";
@@ -43,6 +43,18 @@ const TEAL   = "#22d3ee";
 const AMBER  = "#F59E0B";
 const WHITE  = "#ffffff";
 const BODY   = "rgba(241,245,249,0.88)";
+
+// v8 — Optional panel background image. Set path to activate; leave "" for gradient fallback.
+const PRICING_PANEL_BG = ""; // e.g. "/pricing/pricing-panel-bg.png"
+
+// v8 — Hero reel placeholder video paths (replace with real assets)
+const REEL_VIDEOS = [
+  "/pricing/reel-1.mp4",
+  "/pricing/reel-2.mp4",
+  "/pricing/reel-3.mp4",
+  "/pricing/reel-4.mp4",
+  "/pricing/reel-5.mp4",
+];
 
 // ── Plans ─────────────────────────────────────────────────────────────────────
 
@@ -232,6 +244,15 @@ const KEYFRAMES = `
 @keyframes zpo-badge-glow {
   0%,100% { opacity: 0.92; }
   50%      { opacity: 1;    }
+}
+@keyframes zpo-reel {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes zpo-sweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  40%  { opacity: 0.85; }
+  100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
 }
 `;
 
@@ -622,11 +643,14 @@ function FCSStrip() {
   );
 }
 
-// ── BoostSelector ─────────────────────────────────────────────────────────────
+// ── BoostSelector v8 — 4 full card-buttons ────────────────────────────────────
 
 function BoostSelector() {
   const [selected, setSelected] = useState(1);
   const pack = BOOST_PACKS[selected];
+
+  const packLabels = ["Starter Pack", "Creator Pack", "Studio Pack", "Pro Pack"];
+  const packIcons  = ["⚡", "🚀", "🎬", "💎"];
 
   return (
     <div style={{ margin: "0 auto", maxWidth: 1100, padding: "0 32px" }}>
@@ -651,83 +675,64 @@ function BoostSelector() {
           </div>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
-            color: "rgba(203,213,225,0.70)", marginBottom: 32,
+            color: "rgba(203,213,225,0.70)", marginBottom: 28,
           }}>
             Add extra credits instantly. Use anytime.
           </div>
 
-          {/* Track + nodes */}
-          <div style={{ position: "relative", marginBottom: 44 }}>
-            {/* Track */}
-            <div style={{
-              position: "absolute",
-              left: "12.5%", right: "12.5%",
-              top: 11,
-              height: 4, borderRadius: 2,
-              background: "rgba(30,41,59,0.90)",
-              overflow: "hidden",
-            }}>
-              <div style={{
-                height: "100%",
-                width: `${(selected / (BOOST_PACKS.length - 1)) * 100}%`,
-                background: "linear-gradient(90deg, #22d3ee, #d946ef)",
-                borderRadius: 2,
-                transition: "width 0.32s cubic-bezier(0.22,1,0.36,1)",
-              }} />
-            </div>
-
-            {/* Columns — 4 equal */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", position: "relative", zIndex: 1 }}>
-              {BOOST_PACKS.map((b, i) => {
-                const isActive = i === selected;
-                const isPast   = i < selected;
-                const opacity  = isActive ? 1 : isPast ? 1 : 0.5;
-
-                return (
-                  <div
-                    key={i}
-                    onClick={() => setSelected(i)}
-                    style={{
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center", gap: 14,
-                      opacity, transition: "opacity 0.22s ease",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {/* Node */}
-                    <div style={{
-                      width: isActive ? 26 : 18,
-                      height: isActive ? 26 : 18,
-                      borderRadius: "50%",
-                      border: `2px solid ${isActive ? TEAL : isPast ? "rgba(34,211,238,0.45)" : "rgba(30,41,59,0.80)"}`,
-                      background: isActive
-                        ? `radial-gradient(circle, ${TEAL} 0%, #0891b2 100%)`
-                        : isPast ? "rgba(34,211,238,0.38)" : "rgba(15,23,42,0.85)",
-                      transition: "all 0.28s cubic-bezier(0.22,1,0.36,1)",
-                      boxShadow: isActive ? `0 0 18px rgba(34,211,238,0.75), 0 0 36px rgba(34,211,238,0.40)` : "none",
-                    }} />
-
-                    {/* Labels */}
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{
-                        fontFamily: "'Familjen Grotesk', sans-serif",
-                        fontSize: isActive ? 14 : 12.5,
-                        fontWeight: isActive ? 700 : 500,
-                        color: isActive ? TEAL : isPast ? "rgba(34,211,238,0.70)" : "rgba(148,163,184,0.55)",
-                        transition: "all 0.22s", whiteSpace: "nowrap",
-                      }}>
-                        {b.credits.toLocaleString()} cr
-                      </div>
-                      <div style={{
-                        fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
-                        color: isActive ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.45)",
-                        transition: "color 0.22s",
-                      }}>${b.price}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {/* 4 card-buttons */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}>
+            {BOOST_PACKS.map((b, i) => {
+              const isActive = i === selected;
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelected(i)}
+                  style={{
+                    padding: "18px 12px",
+                    borderRadius: 16,
+                    border: `1.5px solid ${isActive ? TEAL : "rgba(30,41,59,0.75)"}`,
+                    background: isActive
+                      ? "linear-gradient(135deg, rgba(34,211,238,0.16) 0%, rgba(34,211,238,0.06) 100%)"
+                      : "rgba(15,23,42,0.65)",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transform: isActive ? "scale(1.02)" : "scale(1)",
+                    transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)",
+                    boxShadow: isActive
+                      ? "0 0 24px rgba(34,211,238,0.38), 0 0 48px rgba(34,211,238,0.15)"
+                      : "none",
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) e.currentTarget.style.borderColor = "rgba(34,211,238,0.40)";
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) e.currentTarget.style.borderColor = "rgba(30,41,59,0.75)";
+                  }}
+                >
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>{packIcons[i]}</div>
+                  <div style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10, fontWeight: 700,
+                    letterSpacing: "0.10em", textTransform: "uppercase",
+                    color: isActive ? TEAL : "rgba(100,116,139,0.60)", marginBottom: 8,
+                  }}>{packLabels[i]}</div>
+                  <div style={{
+                    fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800,
+                    color: isActive ? WHITE : "rgba(226,232,240,0.55)",
+                    letterSpacing: "-0.03em", lineHeight: 1,
+                  }}>+{b.credits.toLocaleString()}</div>
+                  <div style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10,
+                    color: "rgba(148,163,184,0.50)", marginTop: 3,
+                  }}>credits</div>
+                  <div style={{
+                    marginTop: 10,
+                    fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 700,
+                    color: isActive ? TEAL : "rgba(100,116,139,0.55)",
+                  }}>${b.price}</div>
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", justifyContent: "center" }}>
@@ -756,24 +761,37 @@ function BoostSelector() {
           </div>
         </div>
 
-        {/* Right callout */}
+        {/* Right callout — clamped font + sweep animation */}
         <div style={{
           textAlign: "center", padding: "28px 24px",
           borderRadius: 18,
           background: "linear-gradient(160deg, rgba(139,92,246,0.14) 0%, rgba(34,211,238,0.10) 100%)",
           border: "1px solid rgba(139,92,246,0.22)",
           boxShadow: "0 0 36px rgba(139,92,246,0.12)",
+          position: "relative",
+          overflow: "hidden",
         }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
+          {/* Sweep light effect */}
           <div style={{
-            fontFamily: "'Syne', sans-serif", fontSize: 38, fontWeight: 800,
-            color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
-            transition: "all 0.22s ease",
-          }}>+{pack.credits.toLocaleString()}</div>
-          <div style={{
-            fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
-          }}>credits instantly</div>
+            position: "absolute", inset: 0,
+            background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%)",
+            animation: "zpo-sweep 3.5s ease-in-out infinite",
+            pointerEvents: "none",
+          }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: "clamp(22px, 2.5vw, 32px)",
+              fontWeight: 800,
+              color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
+              transition: "all 0.22s ease",
+            }}>+{pack.credits.toLocaleString()}</div>
+            <div style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
+            }}>credits instantly</div>
+          </div>
         </div>
       </div>
     </div>
@@ -909,7 +927,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
   const [closing, setClosing]   = useState(false);
 
   useEffect(() => {
-    const id = "zpo-kf-v7";
+    const id = "zpo-kf-v8";
     if (!document.getElementById(id)) {
       const s = document.createElement("style");
       s.id = id; s.textContent = KEYFRAMES;
@@ -934,44 +952,14 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
       style={{
         position: "fixed", inset: 0, zIndex: 1200,
         overflowY: "auto",
+        background: "rgba(0,0,0,0.68)",
+        backdropFilter: "blur(18px)",
+        WebkitBackdropFilter: "blur(18px)",
         animation: closing
           ? `zpo-fadeout ${CLOSE_MS}ms ease forwards`
           : "zpo-fadein 0.32s ease",
       }}
     >
-      {/* ── Canvas: multi-radial gradient background ── */}
-      <div style={{
-        position: "fixed", inset: "-6%",
-        background: `
-          radial-gradient(circle at 18% 18%, rgba(70,110,255,0.28), transparent 32%),
-          radial-gradient(circle at 82% 18%, rgba(255,55,180,0.34), transparent 34%),
-          radial-gradient(circle at 50% 70%, rgba(120,30,255,0.22), transparent 42%),
-          linear-gradient(180deg, #050716 0%, #07051a 48%, #05020d 100%)
-        `,
-        animation: "zpo-bg-drift 35s ease-in-out infinite",
-        zIndex: 0,
-      }} />
-
-      {/* ── Star / noise layer ── */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 1,
-        backgroundImage: `
-          radial-gradient(circle, rgba(255,255,255,0.85) 1px, transparent 1px),
-          radial-gradient(circle, rgba(255,255,255,0.55) 1px, transparent 1px)
-        `,
-        backgroundSize: "80px 80px, 130px 130px",
-        backgroundPosition: "0 0, 40px 65px",
-        opacity: 0.06,
-        pointerEvents: "none",
-      }} />
-
-      {/* ── Vignette ── */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 2,
-        boxShadow: "inset 0 0 180px rgba(0,0,0,0.75)",
-        pointerEvents: "none",
-      }} />
-
       {/* ── Click-outside-to-close wrapper ── */}
       <div
         onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
@@ -991,8 +979,9 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             minHeight: "calc(100vh - 48px)",
             position: "relative",
             borderRadius: 24,
+            overflow: "hidden",
             border: "1px solid rgba(255,255,255,0.16)",
-            background: "rgba(3,6,18,0.42)",
+            background: PRICING_PANEL_BG ? "transparent" : "rgba(3,6,18,0.42)",
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
             boxShadow: `
@@ -1004,6 +993,50 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               : "zpo-slideup 0.45s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
+          {/* ── Panel background — clipped by border-radius (stays inside panel) ── */}
+          {PRICING_PANEL_BG ? (
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 0,
+              backgroundImage: `url(${PRICING_PANEL_BG})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              pointerEvents: "none",
+            }} />
+          ) : (
+            <>
+              {/* Colorful gradient — inside panel only */}
+              <div style={{
+                position: "absolute", inset: "-6%", zIndex: 0,
+                background: `
+                  radial-gradient(circle at 18% 18%, rgba(70,110,255,0.28), transparent 32%),
+                  radial-gradient(circle at 82% 18%, rgba(255,55,180,0.34), transparent 34%),
+                  radial-gradient(circle at 50% 70%, rgba(120,30,255,0.22), transparent 42%),
+                  linear-gradient(180deg, #050716 0%, #07051a 48%, #05020d 100%)
+                `,
+                animation: "zpo-bg-drift 35s ease-in-out infinite",
+                pointerEvents: "none",
+              }} />
+              {/* Star / noise layer */}
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 1,
+                backgroundImage: `
+                  radial-gradient(circle, rgba(255,255,255,0.85) 1px, transparent 1px),
+                  radial-gradient(circle, rgba(255,255,255,0.55) 1px, transparent 1px)
+                `,
+                backgroundSize: "80px 80px, 130px 130px",
+                backgroundPosition: "0 0, 40px 65px",
+                opacity: 0.06,
+                pointerEvents: "none",
+              }} />
+              {/* Vignette */}
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 2,
+                boxShadow: "inset 0 0 180px rgba(0,0,0,0.75)",
+                pointerEvents: "none",
+              }} />
+            </>
+          )}
+
           {/* ── Close button — inside panel, top right ── */}
           <button
             onClick={handleClose}
@@ -1037,14 +1070,58 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             </svg>
           </button>
 
+          {/* ── Content wrapper — sits above bg layers (zIndex > 2) ── */}
+          <div style={{ position: "relative", zIndex: 3 }}>
+
           {/* ── Hero ── */}
-          <div style={{ textAlign: "center", padding: "88px 24px 52px" }}>
+          <div style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}>
+
+            {/* ── Video reel strip — behind headline ── */}
+            <div style={{
+              position: "absolute", inset: 0,
+              overflow: "hidden",
+              opacity: 0.16,
+              pointerEvents: "none",
+              zIndex: 0,
+            }}>
+              <div style={{
+                display: "flex",
+                animation: "zpo-reel 32s linear infinite",
+                width: "fit-content",
+                height: "100%",
+                alignItems: "center",
+              }}>
+                {[...REEL_VIDEOS, ...REEL_VIDEOS].map((src, i) => (
+                  <div key={i} style={{
+                    width: 240, height: 135,
+                    flexShrink: 0,
+                    margin: "0 10px",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    filter: "blur(2.5px)",
+                  }}>
+                    <video
+                      src={src}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Hero text — above reel ── */}
+            <div style={{ position: "relative", zIndex: 1 }}>
             <h1 style={{
               fontFamily: "'Syne', sans-serif",
-              fontSize: "clamp(48px, 6vw, 88px)",
+              fontSize: "clamp(28px, 4.8vw, 80px)",
               fontWeight: 900, lineHeight: 0.95,
               letterSpacing: "-0.045em",
               margin: "0 0 24px",
+              whiteSpace: "nowrap",
               background: "linear-gradient(90deg, #ffffff 0%, #f7f4ff 42%, #d946ef 72%, #7c8cff 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
@@ -1096,6 +1173,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             </p>
 
             <BillingToggle billing={billing} onChange={setBilling} />
+            </div>{/* /hero text wrapper */}
           </div>
 
           {/* ── Pricing cards ── */}
@@ -1254,6 +1332,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             </div>
           </div>
 
+          </div>{/* /content wrapper */}
         </div>{/* /glass panel */}
       </div>{/* /click-outside wrapper */}
     </div>
