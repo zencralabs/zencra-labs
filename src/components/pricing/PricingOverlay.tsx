@@ -813,14 +813,15 @@ function ComparisonTable() {
       borderRadius: 12,
       overflow: "hidden",
       border: "1px solid rgba(255,255,255,0.08)",
-      background: "#171717",
+      background: "#201836",
     }}>
       {/* Label */}
       <div style={{ textAlign: "center", padding: "36px 32px 28px" }}>
         <div style={{
-          fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-          letterSpacing: "0.20em", color: "rgba(100,116,139,0.55)",
+          fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 600,
+          letterSpacing: "0.12em", color: "rgba(255,255,255,0.85)",
           textTransform: "uppercase",
+          textShadow: "0 0 12px rgba(168,139,255,0.25)",
         }}>Compare All Features</div>
       </div>
 
@@ -837,8 +838,8 @@ function ComparisonTable() {
           }}>
             <div style={{
               fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(71,85,105,0.55)", fontWeight: 600,
-              letterSpacing: "0.06em", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.75)", fontWeight: 600,
+              letterSpacing: "0.08em", textTransform: "uppercase",
             }}>Feature</div>
 
             {PLANS.map((p, i) => (
