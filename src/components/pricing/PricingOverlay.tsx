@@ -565,7 +565,7 @@ function FCSStrip() {
           }}>🎬</div>
           <div>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 30, fontWeight: 800,
+              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
               letterSpacing: "0.08em", color: GOLD, textTransform: "uppercase",
               marginBottom: 6,
               textShadow: "0 0 24px rgba(255,213,106,0.55)",
@@ -663,8 +663,8 @@ function BoostSelector() {
         border: "1px solid rgba(14,165,160,0.18)",
         padding: "32px 40px",
         display: "grid",
-        gridTemplateColumns: "1fr 200px",
-        gap: 36,
+        gridTemplateColumns: "1fr 260px",
+        gap: 32,
         alignItems: "center",
       }}>
         {/* Left */}
@@ -672,7 +672,7 @@ function BoostSelector() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <span style={{ fontSize: 20 }}>🚀</span>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 30, fontWeight: 800,
+              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
               letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
             }}>Boost Credit Packs</div>
           </div>
@@ -684,7 +684,7 @@ function BoostSelector() {
           </div>
 
           {/* 4 card-buttons */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {BOOST_PACKS.map((b, i) => {
               const isActive = i === selected;
               return (
@@ -742,13 +742,15 @@ function BoostSelector() {
 
         {/* Right callout — clamped font + sweep animation */}
         <div style={{
-          textAlign: "center", padding: "28px 24px",
+          height: 180,
+          display: "flex", alignItems: "center", justifyContent: "center",
           borderRadius: 18,
           background: "linear-gradient(160deg, rgba(139,92,246,0.14) 0%, rgba(34,211,238,0.10) 100%)",
           border: "1px solid rgba(139,92,246,0.22)",
           boxShadow: "0 0 36px rgba(139,92,246,0.12)",
           position: "relative",
           overflow: "hidden",
+          textAlign: "center",
         }}>
           {/* Sweep light effect */}
           <div style={{
