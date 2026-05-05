@@ -1273,7 +1273,7 @@ export default function VideoResultsLibrary({
 
           function VideoCardWrapper({ v }: { v: typeof filtered[0] }) {
             return (
-              <div style={{ height: cardHeight, width: cardWidthFromAR(cardHeight, v.aspectRatio), flexShrink: 0 }}>
+              <div style={{ height: cardHeight, width: "100%", minWidth: 0 }}>
                 <VideoCard
                   video={v}
                   selected={selectedIds.has(v.id)}
@@ -1330,10 +1330,14 @@ export default function VideoResultsLibrary({
                 </div>
               )}
 
-              {/* ── Overflow / all-videos AR-aware flex grid ────────────── */}
+              {/* ── Overflow grid — CSS auto-fill for flush alignment ──── */}
               {/* When no featured: show all. When featured: show rest after 4 side slots. */}
               {(featuredVideo ? restVideos.slice(4) : filtered).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 22 }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(cardWidthFromAR(cardHeight, "16:9"))}px, 1fr))`,
+                  gap: 22,
+                }}>
                   {(featuredVideo ? restVideos.slice(4) : filtered).map(v => (
                     <VideoCardWrapper key={v.id} v={v} />
                   ))}

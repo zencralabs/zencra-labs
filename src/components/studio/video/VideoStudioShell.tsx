@@ -475,73 +475,135 @@ function OmniShotStack({
   const ACCENT = "#0EA5A0";
   const COMPS  = ["Wide", "Close-up", "OTS", "Reveal", "Action"] as const;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div style={{
+      display: "flex", flexDirection: "column", height: "100%",
+      background: "rgba(4,8,20,0.94)",
+      border: "1px solid rgba(14,165,160,0.18)",
+      borderRadius: 12,
+      overflow: "hidden",
+      boxShadow: "0 0 40px rgba(14,165,160,0.06), inset 0 0 60px rgba(0,0,0,0.3)",
+    }}>
       {/* Header */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(14,165,160,0.12)", flexShrink: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: ACCENT, textTransform: "uppercase" }}>
-          Shot Stack
+      <div style={{
+        padding: "15px 16px 13px",
+        borderBottom: "1px solid rgba(14,165,160,0.14)",
+        background: "rgba(14,165,160,0.04)",
+        backdropFilter: "blur(8px)",
+        flexShrink: 0,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: ACCENT, boxShadow: `0 0 8px ${ACCENT}`,
+          }} />
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: ACCENT, textTransform: "uppercase" }}>
+            Shot Stack
+          </span>
         </div>
-        <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
-          {shots.length} shot{shots.length !== 1 ? "s" : ""} &middot; cinematic sequence
+        <div style={{ fontSize: 11, color: "#334155", marginTop: 4, paddingLeft: 14 }}>
+          {shots.length} shot{shots.length !== 1 ? "s" : ""} · cinematic sequence
         </div>
       </div>
+
       {/* Shot cards */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px 6px", display: "flex", flexDirection: "column", gap: 8, scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.04) transparent" }}>
-        {shots.map((shot, idx) => (
-          <div key={shot.id} style={{ background: "rgba(14,165,160,0.05)", border: "1px solid rgba(14,165,160,0.16)", borderRadius: 10, padding: "12px 12px 10px" }}>
-            {/* Shot header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, background: `${ACCENT}18`, border: `1px solid ${ACCENT}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: ACCENT, letterSpacing: "0.04em" }}>
-                  {String(idx + 1).padStart(2, "0")}
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#CBD5F5" }}>Shot {String(idx + 1).padStart(2, "0")}</span>
-              </div>
-              {shots.length > 1 && (
-                <button onClick={() => onRemove(shot.id)}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#334155", lineHeight: 1 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#334155"; }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
+      <div style={{
+        flex: 1, overflowY: "auto", padding: "12px 12px 8px",
+        display: "flex", flexDirection: "column", gap: 6,
+        scrollbarWidth: "thin", scrollbarColor: "rgba(14,165,160,0.08) transparent",
+      }}>
+        {shots.map((shot, idx) => {
+          const isLast = idx === shots.length - 1;
+          return (
+            <div key={shot.id} style={{ position: "relative" }}>
+              {/* Timeline vertical connector */}
+              {!isLast && (
+                <div style={{
+                  position: "absolute", left: 21, top: "100%",
+                  width: 1, height: 6,
+                  background: `linear-gradient(to bottom, rgba(14,165,160,0.30), transparent)`,
+                  zIndex: 1,
+                }} />
               )}
-            </div>
-            {/* Prompt */}
-            <textarea value={shot.prompt} onChange={e => onUpdate(shot.id, { prompt: e.target.value })}
-              placeholder="Describe this shot…" rows={2}
-              style={{ width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 7, color: "#CBD5F5", fontSize: 12, padding: "7px 9px", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.5 }}
-              onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
-              onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
-            />
-            {/* Duration + composition */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 6, padding: 2, gap: 2, flexShrink: 0 }}>
-                {([5, 10] as const).map(d => (
-                  <button key={d} onClick={() => onUpdate(shot.id, { duration: d })}
-                    style={{ padding: "3px 9px", borderRadius: 4, border: "none", fontSize: 11, fontWeight: 600, background: shot.duration === d ? `${ACCENT}22` : "transparent", color: shot.duration === d ? ACCENT : "#475569", cursor: "pointer", transition: "all 0.12s" }}
-                  >{d}s</button>
-                ))}
+              <div style={{
+                background: "linear-gradient(135deg, rgba(14,165,160,0.10) 0%, rgba(4,8,20,0.96) 55%)",
+                border: "1px solid rgba(14,165,160,0.22)",
+                borderRadius: 10,
+                padding: "11px 11px 10px",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+              }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.42)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(14,165,160,0.10)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.22)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                }}
+              >
+                {/* Shot header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                      background: `linear-gradient(135deg, ${ACCENT}25, ${ACCENT}08)`,
+                      border: `1px solid ${ACCENT}55`,
+                      boxShadow: `0 0 12px ${ACCENT}20`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 900, color: ACCENT, letterSpacing: "0.06em",
+                    }}>
+                      {String(idx + 1).padStart(2, "0")}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#CBD5F5", letterSpacing: "0.01em" }}>
+                      Shot {String(idx + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+                  {shots.length > 1 && (
+                    <button onClick={() => onRemove(shot.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: "3px 5px", color: "#1E293B", lineHeight: 1, borderRadius: 4, transition: "all 0.12s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#EF4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#1E293B"; (e.currentTarget as HTMLElement).style.background = "none"; }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {/* Prompt */}
+                <textarea value={shot.prompt} onChange={e => onUpdate(shot.id, { prompt: e.target.value })}
+                  placeholder="Describe this shot…" rows={2}
+                  style={{ width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 7, color: "#CBD5F5", fontSize: 12, padding: "7px 9px", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.55, transition: "border-color 0.15s" }}
+                  onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}60`; }}
+                  onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
+                />
+                {/* Duration + composition */}
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 9, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", background: "rgba(0,0,0,0.40)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 2, gap: 2, flexShrink: 0 }}>
+                    {([5, 10] as const).map(d => (
+                      <button key={d} onClick={() => onUpdate(shot.id, { duration: d })}
+                        style={{ padding: "3px 10px", borderRadius: 4, border: "none", fontSize: 11, fontWeight: 700, background: shot.duration === d ? `${ACCENT}28` : "transparent", color: shot.duration === d ? ACCENT : "#334155", cursor: "pointer", transition: "all 0.12s", boxShadow: shot.duration === d ? `0 0 8px ${ACCENT}20` : "none" }}
+                      >{d}s</button>
+                    ))}
+                  </div>
+                  {COMPS.map(c => (
+                    <button key={c} onClick={() => onUpdate(shot.id, { composition: c })}
+                      style={{ padding: "3px 7px", borderRadius: 5, fontSize: 10, fontWeight: 700, border: shot.composition === c ? `1px solid ${ACCENT}60` : "1px solid rgba(255,255,255,0.06)", background: shot.composition === c ? `${ACCENT}18` : "rgba(255,255,255,0.02)", color: shot.composition === c ? ACCENT : "#334155", cursor: "pointer", transition: "all 0.12s", letterSpacing: "0.02em" }}
+                      onMouseEnter={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#64748B"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; }}}
+                      onMouseLeave={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#334155"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}}
+                    >{c}</button>
+                  ))}
+                </div>
               </div>
-              {COMPS.map(c => (
-                <button key={c} onClick={() => onUpdate(shot.id, { composition: c })}
-                  style={{ padding: "3px 7px", borderRadius: 5, fontSize: 10, fontWeight: 600, border: shot.composition === c ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.07)", background: shot.composition === c ? `${ACCENT}15` : "rgba(255,255,255,0.02)", color: shot.composition === c ? ACCENT : "#4B5563", cursor: "pointer", transition: "all 0.12s" }}
-                  onMouseEnter={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}}
-                  onMouseLeave={e => { if (shot.composition !== c) { (e.currentTarget as HTMLElement).style.color = "#4B5563"; }}}
-                >{c}</button>
-              ))}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {/* Add Shot */}
         <button onClick={onAdd}
-          style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "1px dashed rgba(14,165,160,0.25)", background: "rgba(14,165,160,0.03)", color: ACCENT, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all 0.15s" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.4)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.25)"; }}
+          style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "1px dashed rgba(14,165,160,0.28)", background: "rgba(14,165,160,0.03)", color: ACCENT, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 0.18s", marginTop: 2, letterSpacing: "0.02em" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.10)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.50)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(14,165,160,0.10)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(14,165,160,0.28)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           Add Shot
@@ -569,106 +631,283 @@ function OmniDirectorBoard({
   const hasStart = !!startSlot.url;
   const hasEnd   = !!endSlot.url;
   const hasVideo = !!motionVideoUrl;
+
+  const FLOW_STEPS = ["Prompt", "Elements", "Motion", "Output"] as const;
+  const activeStep = hasStart || hasEnd || hasVideo ? 1 : 0;
+
   return (
-    <div style={{ position: "relative", width: "100%", minHeight: 400, background: ["radial-gradient(ellipse at 28% 18%, rgba(14,165,160,0.11), transparent 52%)", "radial-gradient(ellipse at 74% 80%, rgba(34,211,238,0.07), transparent 50%)", "#0D1117"].join(", "), border: "1px solid rgba(14,165,160,0.18)", display: "flex", flexDirection: "column" }}>
+    <div style={{
+      position: "relative",
+      width: "100%",
+      minHeight: 440,
+      background: [
+        "radial-gradient(ellipse at 22% 15%, rgba(14,165,160,0.14), transparent 50%)",
+        "radial-gradient(ellipse at 78% 82%, rgba(34,211,238,0.09), transparent 48%)",
+        "radial-gradient(ellipse at 50% 50%, rgba(8,13,28,0.6), transparent 80%)",
+        "#080D18",
+      ].join(", "),
+      border: "1px solid rgba(14,165,160,0.28)",
+      borderRadius: 14,
+      boxShadow: [
+        "0 0 80px rgba(14,165,160,0.08)",
+        "0 0 160px rgba(14,165,160,0.04)",
+        "inset 0 0 120px rgba(0,0,0,0.50)",
+        "0 24px 64px rgba(0,0,0,0.70)",
+      ].join(", "),
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+    }}>
       <style>{`
-        @keyframes omniGenSpin { to { transform: rotate(360deg); } }
-        @keyframes omniGenPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(14,165,160,0); } 50% { box-shadow: 0 0 32px 8px rgba(14,165,160,0.22); } }
+        @keyframes omniGenSpin  { to { transform: rotate(360deg); } }
+        @keyframes omniGenPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(14,165,160,0); } 50% { box-shadow: 0 0 48px 12px rgba(14,165,160,0.22); } }
+        @keyframes omniBeamPulse { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+        @keyframes omniShotDotPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
-      {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px 11px", borderBottom: "1px solid rgba(14,165,160,0.10)", background: "rgba(0,0,0,0.38)", backdropFilter: "blur(8px)", flexShrink: 0 }}>
+
+      {/* ── Top bar ── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 22px 12px",
+        borderBottom: "1px solid rgba(14,165,160,0.13)",
+        background: "rgba(4,8,20,0.75)",
+        backdropFilter: "blur(20px)",
+        flexShrink: 0,
+      }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ padding: "3px 10px", borderRadius: 6, background: `${ACCENT}15`, border: `1px solid ${ACCENT}44`, fontSize: 10, fontWeight: 800, color: ACCENT, letterSpacing: "0.08em" }}>
+          {/* Kling badge */}
+          <div style={{
+            padding: "4px 12px", borderRadius: 6,
+            background: `linear-gradient(135deg, ${ACCENT}22, rgba(34,211,238,0.12))`,
+            border: `1px solid ${ACCENT}55`,
+            fontSize: 10, fontWeight: 900, color: ACCENT, letterSpacing: "0.09em",
+            boxShadow: `0 0 12px ${ACCENT}22`,
+          }}>
             KLING 3.0 OMNI
           </div>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#64748B" }}>Cinematic Director Mode</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#475569", letterSpacing: "0.02em" }}>
+            Cinematic Director Mode
+          </span>
         </div>
-        {/* Flow indicators */}
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {["Prompt", "Elements", "Motion", "Output"].map((label, i, arr) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: i === 0 ? ACCENT : "#334155", letterSpacing: "0.04em" }}>{label}</span>
-              {i < arr.length - 1 && (
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                </svg>
-              )}
-            </div>
-          ))}
+
+        {/* Flow pipeline indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {FLOW_STEPS.map((label, i, arr) => {
+            const isActive = i === activeStep;
+            const isPast   = i < activeStep;
+            return (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                    background: isActive ? ACCENT : isPast ? `${ACCENT}66` : "rgba(255,255,255,0.10)",
+                    boxShadow: isActive ? `0 0 8px ${ACCENT}` : "none",
+                    animation: isActive ? "omniBeamPulse 2s ease-in-out infinite" : "none",
+                  }} />
+                  <span style={{
+                    fontSize: 10, fontWeight: isActive ? 700 : 500,
+                    color: isActive ? ACCENT : isPast ? "#475569" : "#253045",
+                    letterSpacing: "0.04em",
+                  }}>
+                    {label}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                    stroke={isPast ? `${ACCENT}44` : "rgba(255,255,255,0.10)"}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                  </svg>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
-      {/* Main board */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 28px", gap: 18 }}>
+
+      {/* ── Main board ── */}
+      <div style={{
+        flex: 1,
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        padding: "38px 32px",
+        gap: 22,
+        /* Subtle film-grain texture overlay via CSS gradient noise */
+        backgroundImage: [
+          "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.015) 1px, transparent 0)",
+        ].join(", "),
+        backgroundSize: "32px 32px",
+      }}>
         {generating ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "omniGenPulse 2.2s ease-in-out infinite" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: `${ACCENT}18`, border: `1px solid ${ACCENT}55`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "omniGenSpin 1.2s linear infinite" }}>
-                <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+          /* ── Generating state ── */
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
+            animation: "omniGenPulse 2.2s ease-in-out infinite",
+          }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 20,
+              background: `linear-gradient(135deg, ${ACCENT}24, rgba(34,211,238,0.12))`,
+              border: `1px solid ${ACCENT}66`,
+              boxShadow: `0 0 32px ${ACCENT}33, inset 0 0 24px rgba(0,0,0,0.4)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ animation: "omniGenSpin 1.2s linear infinite" }}>
+                <line x1="12" y1="2" x2="12" y2="6"/>
+                <line x1="12" y1="18" x2="12" y2="22"/>
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                <line x1="2" y1="12" x2="6" y2="12"/>
+                <line x1="18" y1="12" x2="22" y2="12"/>
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
               </svg>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#F8FAFC" }}>Generating Omni Scene…</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>{shots.length} shot{shots.length !== 1 ? "s" : ""} · cinematic sequence</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.01em" }}>
+                Generating Omni Scene…
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", marginTop: 6, letterSpacing: "0.01em" }}>
+                {shots.length} shot{shots.length !== 1 ? "s" : ""} · cinematic sequence rendering
+              </div>
             </div>
           </div>
         ) : (
           <>
-            {/* Reference cards — shown when images / video attached */}
+            {/* ── Reference thumbnails — appear when assets are attached ── */}
             {(hasStart || hasEnd || hasVideo) && (
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 4 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 2 }}>
                 {hasStart && (
-                  <div style={{ position: "relative", width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: `1px solid ${ACCENT}44`, boxShadow: `0 0 18px ${ACCENT}22`, flexShrink: 0 }}>
+                  <div style={{
+                    position: "relative", width: 116, height: 72, borderRadius: 8,
+                    overflow: "hidden", border: `1px solid ${ACCENT}55`,
+                    boxShadow: `0 0 24px ${ACCENT}28, 0 0 0 1px ${ACCENT}18`,
+                    flexShrink: 0,
+                  }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <div style={{ position: "absolute", bottom: 3, left: 4, fontSize: 8, fontWeight: 700, color: "#fff", background: "rgba(0,0,0,0.65)", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em" }}>START</div>
+                    <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{
+                      position: "absolute", bottom: 4, left: 5,
+                      fontSize: 8, fontWeight: 800, color: "#fff",
+                      background: "rgba(0,0,0,0.72)", padding: "2px 6px",
+                      borderRadius: 4, letterSpacing: "0.06em",
+                    }}>START</div>
                   </div>
                 )}
                 {hasEnd && (
-                  <div style={{ position: "relative", width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(34,211,238,0.33)", boxShadow: "0 0 18px rgba(34,211,238,0.14)", flexShrink: 0 }}>
+                  <div style={{
+                    position: "relative", width: 116, height: 72, borderRadius: 8,
+                    overflow: "hidden", border: "1px solid rgba(34,211,238,0.44)",
+                    boxShadow: "0 0 24px rgba(34,211,238,0.18), 0 0 0 1px rgba(34,211,238,0.12)",
+                    flexShrink: 0,
+                  }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <div style={{ position: "absolute", bottom: 3, left: 4, fontSize: 8, fontWeight: 700, color: "#fff", background: "rgba(0,0,0,0.65)", padding: "1px 5px", borderRadius: 3, letterSpacing: "0.05em" }}>END</div>
+                    <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <div style={{
+                      position: "absolute", bottom: 4, left: 5,
+                      fontSize: 8, fontWeight: 800, color: "#fff",
+                      background: "rgba(0,0,0,0.72)", padding: "2px 6px",
+                      borderRadius: 4, letterSpacing: "0.06em",
+                    }}>END</div>
                   </div>
                 )}
                 {hasVideo && (
-                  <div style={{ width: 104, height: 64, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(99,102,241,0.35)", background: "rgba(99,102,241,0.10)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, flexShrink: 0 }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+                  <div style={{
+                    width: 116, height: 72, borderRadius: 8,
+                    border: "1px solid rgba(99,102,241,0.40)",
+                    background: "rgba(99,102,241,0.10)",
+                    boxShadow: "0 0 20px rgba(99,102,241,0.14)",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", gap: 5, flexShrink: 0,
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                      stroke="#818CF8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="23 7 16 12 23 17 23 7"/>
+                      <rect x="1" y="5" width="15" height="14" rx="2"/>
                     </svg>
-                    <span style={{ fontSize: 8, fontWeight: 700, color: "#818CF8", letterSpacing: "0.05em" }}>VIDEO REF</span>
+                    <span style={{ fontSize: 8, fontWeight: 800, color: "#818CF8", letterSpacing: "0.06em" }}>
+                      VIDEO REF
+                    </span>
                   </div>
                 )}
               </div>
             )}
-            {/* Headline */}
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.01em", marginBottom: 7 }}>
-                Direct cinematic multi-shot scenes
+
+            {/* ── Headline ── */}
+            <div style={{ textAlign: "center", maxWidth: 440 }}>
+              <div style={{
+                fontSize: 26, fontWeight: 900, color: "#F8FAFC",
+                letterSpacing: "-0.02em", lineHeight: 1.18, marginBottom: 10,
+                textShadow: `0 0 40px ${ACCENT}33`,
+              }}>
+                Direct cinematic<br />multi-shot scenes
               </div>
-              <div style={{ fontSize: 13, color: "#475569", maxWidth: 380, lineHeight: 1.65, margin: "0 auto" }}>
-                Build a shot stack, add references, and let Kling 3.0 Omni compose your cinematic vision across multiple camera angles.
+              <div style={{
+                fontSize: 13, color: "#3D5070", lineHeight: 1.70, margin: "0 auto",
+              }}>
+                Build a shot stack on the left, add reference frames or motion video,
+                then let Kling 3.0 Omni compose your vision across multiple camera angles.
               </div>
             </div>
-            {/* Shot count dots */}
-            <div style={{ display: "flex", gap: 5 }}>
+
+            {/* ── Shot progress bar ── */}
+            <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
               {shots.map((_, i) => (
-                <div key={i} style={{ width: 28, height: 4, borderRadius: 2, background: i === 0 ? ACCENT : "rgba(14,165,160,0.22)" }} />
+                <div key={i} style={{
+                  width: i === 0 ? 36 : 24, height: 3, borderRadius: 2,
+                  background: i === 0
+                    ? `linear-gradient(to right, ${ACCENT}, #22D3EE)`
+                    : `rgba(14,165,160,0.20)`,
+                  boxShadow: i === 0 ? `0 0 8px ${ACCENT}55` : "none",
+                  transition: "all 0.2s",
+                  animation: `omniShotDotPop 0.25s ease both`,
+                  animationDelay: `${i * 0.04}s`,
+                }} />
               ))}
+              <span style={{ fontSize: 10, fontWeight: 600, color: "#2D4060", marginLeft: 4, letterSpacing: "0.04em" }}>
+                {shots.length} SHOT{shots.length !== 1 ? "S" : ""}
+              </span>
             </div>
-            {/* CTAs */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 4 }}>
+
+            {/* ── CTA buttons ── */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
               {[
-                { label: "Add Reference Image", icon: "image",   action: onAddReferenceImage },
-                { label: "Add Reference Video", icon: "video",   action: onAddReferenceVideo },
-                { label: "Try Storyboard Prompt", icon: "sparkle", action: onTryStoryboardPrompt },
-              ].map(({ label, icon, action }) => (
+                { label: "Add Reference Image",    icon: "image",   action: onAddReferenceImage,   color: ACCENT },
+                { label: "Add Reference Video",    icon: "video",   action: onAddReferenceVideo,   color: "#818CF8" },
+                { label: "Try Storyboard Prompt",  icon: "sparkle", action: onTryStoryboardPrompt, color: "#F59E0B" },
+              ].map(({ label, icon, action, color }) => (
                 <button key={label} onClick={action}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)", color: "#94A3B8", cursor: "pointer", transition: "all 0.15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.10)"; (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}44`; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = "#94A3B8"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.09)"; }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 7, padding: "9px 16px",
+                    borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    border: `1px solid rgba(255,255,255,0.08)`,
+                    background: "rgba(255,255,255,0.03)",
+                    backdropFilter: "blur(8px)",
+                    color: "#64748B", cursor: "pointer", transition: "all 0.18s",
+                    letterSpacing: "0.01em",
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.background = `${color}14`;
+                    el.style.color = color;
+                    el.style.borderColor = `${color}44`;
+                    el.style.boxShadow = `0 0 20px ${color}18`;
+                    el.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.background = "rgba(255,255,255,0.03)";
+                    el.style.color = "#64748B";
+                    el.style.borderColor = "rgba(255,255,255,0.08)";
+                    el.style.boxShadow = "none";
+                    el.style.transform = "none";
+                  }}
                 >
-                  {icon === "image" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>}
-                  {icon === "video" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>}
+                  {icon === "image"   && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>}
+                  {icon === "video"   && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>}
                   {icon === "sparkle" && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>}
                   {label}
                 </button>
@@ -705,133 +944,214 @@ function OmniControlsPanel({
   setMotionVideoUrl:  (u: string | null) => void;
   setMotionVideoName: (n: string | null) => void;
 }) {
-  const ACCENT = "#0EA5A0";
-  const inputBase: React.CSSProperties = { width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.32)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#CBD5F5", fontSize: 13, padding: "9px 12px", outline: "none", fontFamily: "inherit" };
-  const sLabel: React.CSSProperties   = { fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", color: "#64748B", textTransform: "uppercase", marginBottom: 6, display: "block" };
+  const ACCENT  = "#0EA5A0";
+  const GLASS   = "rgba(4,8,20,0.92)";
+
+  const inputBase: React.CSSProperties = {
+    width: "100%", boxSizing: "border-box",
+    background: "rgba(0,0,0,0.38)",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 8, color: "#CBD5F5", fontSize: 13,
+    padding: "9px 12px", outline: "none", fontFamily: "inherit",
+    transition: "border-color 0.15s",
+  };
+
+  /* Section wrapper: glass card with a colored left-border accent */
+  const Section = ({
+    label, color = ACCENT, children,
+  }: { label: string; color?: string; children: React.ReactNode }) => (
+    <div style={{
+      background: GLASS,
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderLeft: `2px solid ${color}66`,
+      borderRadius: 10,
+      padding: "14px 14px 16px",
+      boxShadow: "inset 0 0 24px rgba(0,0,0,0.20)",
+    }}>
+      <div style={{
+        fontSize: 10, fontWeight: 800, color: color,
+        letterSpacing: "0.08em", textTransform: "uppercase" as const,
+        marginBottom: 11, opacity: 0.85,
+      }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "4px 0" }}>
-      {/* Header */}
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#F8FAFC" }}>Omni Controls</div>
-        <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>Scene configuration</div>
+    <div style={{
+      display: "flex", flexDirection: "column",
+      background: "rgba(4,8,20,0.82)",
+      border: "1px solid rgba(14,165,160,0.16)",
+      borderRadius: 14,
+      boxShadow: "0 0 48px rgba(14,165,160,0.05), inset 0 0 60px rgba(0,0,0,0.28)",
+      overflow: "hidden",
+    }}>
+
+      {/* ── Panel header ── */}
+      <div style={{
+        padding: "14px 16px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+        background: "rgba(4,8,20,0.72)",
+        backdropFilter: "blur(12px)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 7,
+            background: `${ACCENT}18`, border: `1px solid ${ACCENT}44`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#E2E8F0", lineHeight: 1 }}>Omni Controls</div>
+            <div style={{ fontSize: 10, color: "#334155", marginTop: 2 }}>Production configuration</div>
+          </div>
+        </div>
       </div>
 
-      {/* Scene Prompt */}
-      <div>
-        <span style={sLabel}>Scene Prompt</span>
-        <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-          placeholder="Describe the overall scene, mood, and cinematic direction…" rows={4}
-          style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
-          onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
-          onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
-        />
-      </div>
+      {/* ── Scrollable sections ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 12px 16px", overflowY: "auto" }}>
 
-      {/* Negative Prompt */}
-      <div>
-        <span style={sLabel}>Negative Prompt</span>
-        <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
-          placeholder="What to exclude…" rows={2}
-          style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
-          onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
-          onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
-        />
-      </div>
+        {/* Scene Prompt */}
+        <Section label="Scene Direction" color={ACCENT}>
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+            placeholder="Overall scene mood, tone, and cinematic direction…" rows={4}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+          />
+        </Section>
 
-      {/* Reference Frames */}
-      <div>
-        <span style={sLabel}>Reference Frames</span>
-        <div style={{ display: "flex", gap: 8 }}>
-          {/* Start */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "#475569", marginBottom: 5 }}>START FRAME</div>
-            {startSlot.url ? (
-              <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", border: `1px solid ${ACCENT}44` }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <button onClick={() => setStartSlot(EMPTY_SLOT)}
-                  style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+        {/* Negative Prompt */}
+        <Section label="Exclude" color="#475569">
+          <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
+            placeholder="Elements to exclude from the output…" rows={2}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+          />
+        </Section>
+
+        {/* Reference Frames */}
+        <Section label="Reference Frames" color="#22D3EE">
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* Start frame */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", marginBottom: 6, letterSpacing: "0.06em" }}>
+                START FRAME
               </div>
-            ) : (
-              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 6, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", cursor: "pointer", gap: 4 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span style={{ fontSize: 9, color: "#334155", fontWeight: 600 }}>Upload</span>
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
-              </label>
-            )}
-          </div>
-          {/* End */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "#475569", marginBottom: 5 }}>END FRAME</div>
-            {endSlot.url ? (
-              <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(34,211,238,0.33)" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <button onClick={() => setEndSlot(EMPTY_SLOT)}
-                  style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+              {startSlot.url ? (
+                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${ACCENT}55`, boxShadow: `0 0 16px ${ACCENT}22` }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={startSlot.preview ?? startSlot.url} alt="start"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <button onClick={() => setStartSlot(EMPTY_SLOT)}
+                    style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              ) : (
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: `1px dashed rgba(14,165,160,0.22)`, background: "rgba(14,165,160,0.03)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
+                  <input type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
+                </label>
+              )}
+            </div>
+            {/* End frame */}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#475569", marginBottom: 6, letterSpacing: "0.06em" }}>
+                END FRAME
               </div>
-            ) : (
-              <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 6, border: "1px dashed rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)", cursor: "pointer", gap: 4 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span style={{ fontSize: 9, color: "#334155", fontWeight: 600 }}>Upload</span>
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
-              </label>
-            )}
+              {endSlot.url ? (
+                <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(34,211,238,0.44)", boxShadow: "0 0 16px rgba(34,211,238,0.14)" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={endSlot.preview ?? endSlot.url} alt="end"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <button onClick={() => setEndSlot(EMPTY_SLOT)}
+                    style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.75)", border: "none", borderRadius: "50%", width: 18, height: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              ) : (
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", aspectRatio: "16/9", borderRadius: 7, border: "1px dashed rgba(34,211,238,0.18)", background: "rgba(34,211,238,0.02)", cursor: "pointer", gap: 5, transition: "all 0.15s" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span style={{ fontSize: 9, color: "#2D4060", fontWeight: 600 }}>Upload</span>
+                  <input type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
+                </label>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        </Section>
 
-      {/* Reference Video */}
-      <div>
-        <span style={sLabel}>Reference Video</span>
-        {motionVideoUrl ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 7 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            <span style={{ fontSize: 11, color: "#818CF8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reference attached</span>
-            <button onClick={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+        {/* Reference Video */}
+        <Section label="Motion Reference" color="#818CF8">
+          {motionVideoUrl ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.28)", borderRadius: 8 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span style={{ fontSize: 11, color: "#818CF8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Reference attached</span>
+              <button onClick={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", padding: 2 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          ) : (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span style={{ fontSize: 12, color: "#3D5070" }}>Upload motion reference video</span>
+              <input type="file" accept="video/*" style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setMotionVideoUrl(url); setMotionVideoName(f.name); }} />
+            </label>
+          )}
+        </Section>
+
+        {/* Quality */}
+        <Section label="Output Quality" color="#F59E0B">
+          <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
+            {([{ label: "Standard", value: "std" as Quality }, { label: "Pro", value: "pro" as Quality }]).map(({ label, value }) => (
+              <button key={value} onClick={() => setQuality(value)}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: 6, border: "none",
+                  fontSize: 12, fontWeight: quality === value ? 700 : 500,
+                  background: quality === value ? "rgba(245,158,11,0.16)" : "transparent",
+                  color: quality === value ? "#F59E0B" : "#334155",
+                  cursor: "pointer", transition: "all 0.14s",
+                  boxShadow: quality === value ? "0 0 12px rgba(245,158,11,0.18)" : "none",
+                }}
+              >{label}</button>
+            ))}
           </div>
-        ) : (
-          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 7, cursor: "pointer" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            <span style={{ fontSize: 12, color: "#475569" }}>Upload reference video</span>
-            <input type="file" accept="video/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setMotionVideoUrl(url); setMotionVideoName(f.name); }} />
-          </label>
-        )}
-      </div>
+        </Section>
 
-      {/* Quality */}
-      <div>
-        <span style={sLabel}>Quality</span>
-        <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 3, gap: 2 }}>
-          {([{ label: "Standard", value: "std" as Quality }, { label: "Pro", value: "pro" as Quality }]).map(({ label, value }) => (
-            <button key={value} onClick={() => setQuality(value)}
-              style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", fontSize: 12, fontWeight: quality === value ? 600 : 500, background: quality === value ? `${ACCENT}22` : "transparent", color: quality === value ? ACCENT : "#475569", cursor: "pointer", transition: "all 0.14s" }}
-            >{label}</button>
-          ))}
-        </div>
-      </div>
+        {/* Audio */}
+        <Section label="Audio Mode" color="#64748B">
+          <div style={{ display: "flex", gap: 6 }}>
+            {([{ label: "No Audio", value: "none" as const }, { label: "Scene Audio", value: "scene" as const }]).map(({ label, value }) => (
+              <button key={value} onClick={() => setAudioMode(value)}
+                style={{
+                  flex: 1, padding: "7px 10px", borderRadius: 7,
+                  fontSize: 12, fontWeight: audioMode === value ? 600 : 500,
+                  border: audioMode === value ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.07)",
+                  background: audioMode === value ? `${ACCENT}15` : "rgba(255,255,255,0.02)",
+                  color: audioMode === value ? ACCENT : "#475569",
+                  cursor: "pointer", transition: "all 0.14s",
+                }}
+              >{label}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: "#1E293B", marginTop: 8, lineHeight: 1.5 }}>
+            Lip sync not available for multi-shot Omni scenes.
+          </div>
+        </Section>
 
-      {/* Audio */}
-      <div>
-        <span style={sLabel}>Audio</span>
-        <div style={{ display: "flex", gap: 6 }}>
-          {([{ label: "No Audio", value: "none" as const }, { label: "Scene Audio", value: "scene" as const }]).map(({ label, value }) => (
-            <button key={value} onClick={() => setAudioMode(value)}
-              style={{ flex: 1, padding: "7px 10px", borderRadius: 7, fontSize: 12, fontWeight: audioMode === value ? 600 : 500, border: audioMode === value ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.08)", background: audioMode === value ? `${ACCENT}15` : "rgba(255,255,255,0.02)", color: audioMode === value ? ACCENT : "#64748B", cursor: "pointer", transition: "all 0.14s" }}
-            >{label}</button>
-          ))}
-        </div>
-        <div style={{ fontSize: 10, color: "#2D3748", marginTop: 6 }}>
-          Lip Sync is not available for Omni multi-shot scenes.
-        </div>
       </div>
     </div>
   );
@@ -849,38 +1169,126 @@ function OmniGenerateBar({
   creditEstimate: number;
   onGenerate:     () => void;
 }) {
-  const ACCENT     = "#0EA5A0";
-  const hasPrompt  = prompt.trim().length > 0;
+  const ACCENT    = "#0EA5A0";
+  const AMBER     = "#F59E0B";
+  const hasPrompt = prompt.trim().length > 0;
+
   const checks = [
     { label: "Scene prompt",     done: hasPrompt },
     { label: "Shot stack ready", done: shots.length >= 1 },
     { label: "Quality selected", done: true },
   ];
+
   return (
-    <div style={{ background: "rgba(0,0,0,0.38)", borderTop: "1px solid rgba(14,165,160,0.18)", padding: "14px 20px", display: "flex", alignItems: "center", gap: 16 }}>
-      {/* Checklist */}
-      <div style={{ display: "flex", gap: 14, flex: 1, flexWrap: "wrap" }}>
+    <div style={{
+      background: [
+        "linear-gradient(180deg, rgba(4,8,20,0.92) 0%, rgba(2,5,14,0.97) 100%)",
+      ].join(", "),
+      borderTop: "1px solid rgba(14,165,160,0.20)",
+      padding: "16px 22px",
+      display: "flex", alignItems: "center", gap: 18,
+      boxShadow: "inset 0 1px 0 rgba(14,165,160,0.06)",
+    }}>
+      {/* ── Readiness checklist ── */}
+      <div style={{ display: "flex", gap: 16, flex: 1, flexWrap: "wrap", alignItems: "center" }}>
         {checks.map(c => (
-          <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, background: c.done ? `${ACCENT}22` : "rgba(255,255,255,0.04)", border: `1px solid ${c.done ? ACCENT : "rgba(255,255,255,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {c.done && <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+          <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{
+              width: 15, height: 15, borderRadius: "50%", flexShrink: 0,
+              background: c.done ? `${ACCENT}22` : "rgba(255,255,255,0.03)",
+              border: `1px solid ${c.done ? `${ACCENT}88` : "rgba(255,255,255,0.08)"}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: c.done ? `0 0 8px ${ACCENT}33` : "none",
+              transition: "all 0.2s",
+            }}>
+              {c.done && (
+                <svg width="7" height="7" viewBox="0 0 24 24" fill="none"
+                  stroke={ACCENT} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
             </div>
-            <span style={{ fontSize: 11, color: c.done ? "#94A3B8" : "#334155", fontWeight: c.done ? 500 : 400 }}>{c.label}</span>
+            <span style={{
+              fontSize: 11, fontWeight: c.done ? 600 : 400,
+              color: c.done ? "#64748B" : "#253045",
+              letterSpacing: "0.01em",
+            }}>
+              {c.label}
+            </span>
           </div>
         ))}
       </div>
-      {/* Credits */}
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#F8FAFC", lineHeight: 1 }}>{creditEstimate}</div>
-        <div style={{ fontSize: 10, color: "#475569", fontWeight: 600, letterSpacing: "0.04em" }}>CREDITS</div>
+
+      {/* ── Credit estimate ── */}
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0,
+        padding: "6px 14px",
+        background: `rgba(245,158,11,0.06)`,
+        border: `1px solid rgba(245,158,11,0.18)`,
+        borderRadius: 8,
+      }}>
+        <div style={{
+          fontSize: 20, fontWeight: 900, color: AMBER, lineHeight: 1,
+          textShadow: `0 0 20px ${AMBER}44`,
+        }}>
+          {creditEstimate}
+        </div>
+        <div style={{ fontSize: 9, color: "#92400E", fontWeight: 700, letterSpacing: "0.07em", marginTop: 1 }}>
+          CREDITS
+        </div>
       </div>
-      {/* Generate button */}
-      <button onClick={onGenerate} disabled={!canGenerate}
-        style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: canGenerate ? `linear-gradient(135deg, ${ACCENT}, #22D3EE)` : "rgba(255,255,255,0.06)", color: canGenerate ? "#041222" : "#334155", fontSize: 13, fontWeight: 800, cursor: canGenerate ? "pointer" : "default", transition: "all 0.2s", letterSpacing: "0.02em", whiteSpace: "nowrap", boxShadow: canGenerate ? `0 0 24px rgba(14,165,160,0.35)` : "none", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}
+
+      {/* ── Generate button ── */}
+      <button
+        onClick={onGenerate}
+        disabled={!canGenerate}
+        style={{
+          padding: "12px 26px", borderRadius: 10, border: "none", flexShrink: 0,
+          background: canGenerate
+            ? `linear-gradient(135deg, ${ACCENT} 0%, #22D3EE 100%)`
+            : "rgba(255,255,255,0.04)",
+          color: canGenerate ? "#020C14" : "#253045",
+          fontSize: 13, fontWeight: 800,
+          cursor: canGenerate ? "pointer" : "default",
+          transition: "all 0.22s",
+          letterSpacing: "0.02em", whiteSpace: "nowrap",
+          boxShadow: canGenerate
+            ? `0 0 28px rgba(14,165,160,0.40), 0 0 60px rgba(14,165,160,0.14), 0 4px 16px rgba(0,0,0,0.40)`
+            : "none",
+          display: "flex", alignItems: "center", gap: 8,
+        }}
+        onMouseEnter={e => {
+          if (!canGenerate) return;
+          const el = e.currentTarget as HTMLElement;
+          el.style.boxShadow = `0 0 40px rgba(14,165,160,0.55), 0 0 80px rgba(14,165,160,0.20), 0 4px 20px rgba(0,0,0,0.50)`;
+          el.style.transform = "translateY(-1px)";
+        }}
+        onMouseLeave={e => {
+          if (!canGenerate) return;
+          const el = e.currentTarget as HTMLElement;
+          el.style.boxShadow = `0 0 28px rgba(14,165,160,0.40), 0 0 60px rgba(14,165,160,0.14), 0 4px 16px rgba(0,0,0,0.40)`;
+          el.style.transform = "none";
+        }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"/>
-        </svg>
+        {generating ? (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ animation: "omniGenSpin 1s linear infinite" }}>
+            <line x1="12" y1="2" x2="12" y2="6"/>
+            <line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+            <line x1="2" y1="12" x2="6" y2="12"/>
+            <line x1="18" y1="12" x2="22" y2="12"/>
+            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+          </svg>
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        )}
         {generating ? "Generating…" : "Generate Omni Scene"}
       </button>
     </div>
