@@ -86,6 +86,13 @@ export type VideoModelCapabilities = {
   multiImage?:      boolean; // image_list[] — multiple reference images (style blend, char + scene stack)
   elementControl?:  boolean; // element_list[] — character/object persistence by Kling element ID
   referenceVideo?:  boolean; // video_list[] — style/motion/scene-continuation reference video
+  // ── Kling Multi-Elements Editing ──────────────────────────────────────────
+  // Always false in the registry. Multi-Elements is a separate stateful editing
+  // workflow (7 endpoints, session-based) — NOT a per-model generation feature.
+  // It must never be mixed into standard studio-dispatch / ZProvider pipeline.
+  // Gate: KLING_MULTI_ELEMENTS_ENABLED=true env var
+  // Route: /api/studio/video/multi-elements (503 stub until Phase 2 activation)
+  multiElements?:   boolean;
 };
 
 // ── Full model definition ─────────────────────────────────────────────────────
@@ -154,6 +161,8 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       multiImage:     false,
       elementControl: false,
       referenceVideo: false,
+      // Multi-Elements Editing: separate workflow — never true on any model entry
+      multiElements:  false,
     },
   },
 
@@ -217,6 +226,8 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       multiImage:     true,   // image_list[] — multiple reference images
       elementControl: true,   // element_list[] — character/object persistence
       referenceVideo: true,   // video_list[] — style/motion/scene-continuation reference
+      // Multi-Elements Editing: separate session-based workflow — always false here
+      multiElements:  false,
     },
   },
 
@@ -258,6 +269,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       multiImage:     false,
       elementControl: false,
       referenceVideo: false,
+      multiElements:  false,
     },
   },
 
@@ -299,6 +311,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       multiImage:     false,
       elementControl: false,
       referenceVideo: false,
+      multiElements:  false,
     },
   },
 
@@ -350,6 +363,7 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       multiImage:     false,
       elementControl: false,
       referenceVideo: false,
+      multiElements:  false,
     },
   },
 

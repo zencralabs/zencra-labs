@@ -271,17 +271,30 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
     },
 
     estimateCost(input: ZProviderInput): CreditEstimate {
-      const duration     = input.durationSeconds ?? 5;
+      const duration = input.durationSeconds ?? 5;
+
+      // Kling 3.0 Omni has fixed pricing — 5s=420cr, 10s=840cr (linear).
+      // DB credit_model_costs.base_credits=420 (kling-30-omni) already reflects this.
+      // TypeScript must match DB exactly — no dynamic calculation for Omni.
+      if (modelKey === "kling-30-omni") {
+        const expected = duration <= 5 ? 420 : 840;
+        return {
+          min:       420,
+          max:       840,
+          expected,
+          breakdown: { base: expected },
+        };
+      }
+
       const base         = 10;
       const durationCost = duration > 5 ? Math.ceil((duration - 5) / 5) * 3 : 0;
       const motionExtra  = isMotionControl ? 5 : 0;
-      const omniExtra    = modelKey === "kling-30-omni" ? 2 : 0;
-      const expected     = base + durationCost + motionExtra + omniExtra;
+      const expected     = base + durationCost + motionExtra;
       return {
         min:       10,
         max:       22,
         expected,
-        breakdown: { base, duration: durationCost, motion_control: motionExtra, omni: omniExtra },
+        breakdown: { base, duration: durationCost, motion_control: motionExtra },
       };
     },
 
@@ -392,6 +405,26 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           aspect_ratio:         aspect,
           mode:                 "std",
         };
+      } else if (modelKey === "kling-30-omni") {
+        // ── Kling 3.0 Omni Advanced Generation ──────────────────────────────────
+        // Dedicated endpoint /v1/videos/omni-video — separate from text2video /
+        // image2video routes used by standard Kling models. The Omni endpoint
+        // accepts both text and image inputs in the same payload (image is optional).
+        // omniExtras carries multi_shot, multi_prompt[], image_list[], element_list[],
+        // video_list[] — all validated in validateInput before we reach here.
+        endpoint = "/v1/videos/omni-video";
+        payload  = {
+          model_name:   apiModelId,
+          prompt:       input.prompt,
+          duration:     String(duration),
+          aspect_ratio: aspect,
+          mode:         (input.providerParams?.videoMode as string) ?? "std",
+          ...(normalizedImageUrl    ? { image: normalizedImageUrl }             : {}),
+          ...(normalizedEndImageUrl ? { tail_image: normalizedEndImageUrl }     : {}),
+          ...(input.negativePrompt  ? { negative_prompt: input.negativePrompt } : {}),
+          ...(enableSoundGeneration ? { sound_generation: true }                : {}),
+          ...omniExtras,
+        };
       } else if (normalizedImageUrl) {
         // Image-to-video (start frame + optional end frame)
         endpoint = "/v1/videos/image2video";
@@ -405,7 +438,6 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           ...(normalizedEndImageUrl ? { tail_image: normalizedEndImageUrl } : {}),
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
           ...(enableSoundGeneration ? { sound_generation: true } : {}),
-          ...omniExtras,
         };
       } else {
         // Text-to-video
@@ -418,11 +450,10 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
           mode:         (input.providerParams?.videoMode as string) ?? "std",
           ...(input.negativePrompt ? { negative_prompt: input.negativePrompt } : {}),
           ...(enableSoundGeneration ? { sound_generation: true } : {}),
-          ...omniExtras,
         };
       }
 
-      console.log("[kling] Dispatch payload mode:", endpoint.includes("image2video") ? "image2video" : "text2video");
+      console.log("[kling] Dispatch payload mode:", modelKey === "kling-30-omni" ? "omni-video" : endpoint.includes("image2video") ? "image2video" : "text2video");
       console.log("[kling] Model:", apiModelId, "| key:", modelKey);
       console.log("[kling] Has image:", !!normalizedImageUrl, "| Has end image:", !!normalizedEndImageUrl);
       console.log("[kling] dispatching to", endpoint, "| sound_generation in payload:", "sound_generation" in payload, "| model:", apiModelId);
@@ -471,9 +502,11 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       // Encode the dispatch endpoint type so getJobStatus uses the matching
       // status URL. Kling Singapore has no generic /tasks/ endpoint — each
       // operation type has its own status path:
-      //   text2video → GET /v1/videos/text2video/{taskId}
+      //   omni-video  → GET /v1/videos/omni-video/{taskId}
       //   image2video → GET /v1/videos/image2video/{taskId}
-      const endpointType = endpoint.includes("image2video") ? "i2v" : "t2v";
+      //   text2video  → GET /v1/videos/text2video/{taskId}
+      const endpointType = modelKey === "kling-30-omni" ? "omni"
+        : endpoint.includes("image2video") ? "i2v" : "t2v";
       const compoundId   = `${endpointType}|${taskId}`;
 
       const now = new Date();
@@ -490,13 +523,15 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       const { baseUrl } = getKlingEnv();
       const authHeader  = await buildKlingAuthHeader();
 
-      // Decode compound ID: "t2v|<taskId>" or "i2v|<taskId>"
+      // Decode compound ID: "omni|<taskId>", "t2v|<taskId>", or "i2v|<taskId>"
       // Legacy IDs (no pipe) are treated as text2video.
       const [endpointType, rawTaskId] = externalJobId.includes("|")
         ? externalJobId.split("|", 2)
         : ["t2v", externalJobId];
 
-      const statusPath = endpointType === "i2v"
+      const statusPath = endpointType === "omni"
+        ? `/v1/videos/omni-video/${rawTaskId}`
+        : endpointType === "i2v"
         ? `/v1/videos/image2video/${rawTaskId}`
         : `/v1/videos/text2video/${rawTaskId}`;
 
