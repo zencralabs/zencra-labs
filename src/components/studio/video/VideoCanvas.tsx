@@ -1426,17 +1426,22 @@ export function MotionFlowStrip({ frameMode, endFrameEnabled, hasStartSlot, hasE
 
 // ── Extend instructions ───────────────────────────────────────────────────────
 
+// NOTE: Extend Video is currently disabled for all active Zencra Kling models.
+// The Kling /v1/videos/video-extend endpoint only supports V1.0 / V1.5 / V1.6 source videos.
+// Kling 2.5, 2.6, 3.0, and 3.0 Omni are NOT compatible source models.
+// This component is kept as a safe fallback; it should not be reachable under normal use
+// since extendVideo: false hides the mode in VideoLeftRail for all current models.
 function ExtendInstructions() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
       justifyContent: "center", gap: 16, padding: "32px 24px", textAlign: "center" }}>
       <div style={{
         width: 60, height: 60, borderRadius: 16,
-        border: "1px solid rgba(34,211,238,0.2)", background: "rgba(14,165,160,0.06)",
+        border: "1px solid rgba(100,116,139,0.25)", background: "rgba(100,116,139,0.06)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-          stroke="#22D3EE" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          stroke="#64748B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="6" width="10" height="12" rx="2"/>
           <path d="M14 12h8"/><path d="M18 9l3 3-3 3"/>
         </svg>
@@ -1444,13 +1449,20 @@ function ExtendInstructions() {
       <div>
         {/* Studio Title: 30px / bold 700 / tracking -0.02em */}
         <div style={{ fontSize: 30, fontWeight: 700, color: T.textPrimary, marginBottom: 8, letterSpacing: "-0.02em" }}>
-          Extend a Video
+          Extend Video
         </div>
         {/* Body: 16px / leading 1.65 — color T.textMuted is semantic */}
-        <div style={{ fontSize: 16, color: T.textMuted, lineHeight: 1.65, maxWidth: 260 }}>
-          Generate a video first, then click{" "}
-          <span style={{ color: "#22D3EE", fontWeight: 600 }}>Extend</span>
-          {" "}on any result card to continue the scene seamlessly.
+        <div style={{ fontSize: 16, color: T.textMuted, lineHeight: 1.65, maxWidth: 280 }}>
+          Video extension is not available for the current model.
+        </div>
+        <div style={{
+          marginTop: 14, display: "inline-block",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+          color: "#475569", background: "rgba(71,85,105,0.10)",
+          border: "1px solid rgba(71,85,105,0.20)",
+          borderRadius: 6, padding: "4px 10px",
+        }}>
+          Coming Soon
         </div>
       </div>
     </div>

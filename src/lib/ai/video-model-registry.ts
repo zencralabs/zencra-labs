@@ -142,7 +142,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       cameraControl:  true,
       motionControl:  true,
       multiElement:   false,
-      extendVideo:    true,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 3.0 is NOT a supported source model — disabled until Kling adds 3.x support.
+      extendVideo:    false,
       lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
@@ -204,7 +206,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       cameraControl:  true,
       motionControl:  false,  // Omni uses video_list[refer_type="feature"] for motion reference — not motion_control mode
       multiElement:   false,
-      extendVideo:    true,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 3.0 Omni is NOT a supported source model — disabled until Kling adds 3.x support.
+      extendVideo:    false,
       lipSync:        false,  // Lip Sync is on dedicated kling-lip-sync model only
       avatar:         false,
       audioEnabled:   false,
@@ -250,7 +254,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       cameraControl:  true,
       motionControl:  false, // Motion Control requires Kling 3.0
       multiElement:   false,
-      extendVideo:    true,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 2.6 is NOT a supported source model — disabled until Kling adds 2.x support.
+      extendVideo:    false,
       lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
