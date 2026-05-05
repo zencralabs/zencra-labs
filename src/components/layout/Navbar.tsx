@@ -162,7 +162,7 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Audio Studio",  href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
   { label: "Character",     href: "/studio/character", hasDropdown: true,  dropdownKey: "Character" },
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
-  { label: "Pricing",       href: "/pricing",      hasDropdown: false },
+  { label: "Pricing",       href: "#",             hasDropdown: false },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
