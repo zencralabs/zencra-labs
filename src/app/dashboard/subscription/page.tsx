@@ -17,10 +17,8 @@ const PLANS = [
     icon: Sparkles,
     color: "#64748B",
     glow: "rgba(100,116,139,0.2)",
-    outputSummary: "25 images + 4 videos",
-    outputNote: "to start exploring",
     features: [
-      "25 standard images or 4 videos to explore",
+      "50 welcome credits",
       "Basic image generation",
       "720p video output",
       "Watermarked exports",
@@ -37,10 +35,8 @@ const PLANS = [
     icon: Zap,
     color: "#2563EB",
     glow: "rgba(37,99,235,0.2)",
-    outputSummary: "250+ images or 45+ videos",
-    outputNote: "per month",
     features: [
-      "250+ images or 45+ videos every month",
+      "500 credits / month",
       "HD image generation",
       "1080p video output",
       "No watermarks",
@@ -58,10 +54,8 @@ const PLANS = [
     icon: Crown,
     color: "#A855F7",
     glow: "rgba(168,85,247,0.2)",
-    outputSummary: "1,000+ images or 180+ videos",
-    outputNote: "per month",
     features: [
-      "1,000+ images or 180+ videos every month",
+      "2,000 credits / month",
       "4K image generation",
       "4K video output",
       "No watermarks",
@@ -80,10 +74,8 @@ const PLANS = [
     icon: Building2,
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.2)",
-    outputSummary: "Unlimited generations",
-    outputNote: "no cap, ever",
     features: [
-      "Unlimited generations — no cap, ever",
+      "Unlimited credits",
       "All generation tools",
       "White-label exports",
       "Custom watermarks",
@@ -114,10 +106,7 @@ export default function SubscriptionPage() {
         <div>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Current Plan</div>
           <div style={{ fontSize: "20px", fontWeight: 800, color: "#60A5FA" }}>{user.plan} Plan</div>
-          <div style={{ fontSize: "12px", color: "#94A3B8", marginTop: "4px" }}>
-            ~{Math.floor(user.credits / 2)} images or ~{Math.floor(user.credits / 11)} videos remaining
-            <span style={{ color: "#475569", marginLeft: 6 }}>({user.credits} cr)</span>
-          </div>
+          <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>{user.credits} credits remaining</div>
         </div>
         {user.plan !== "creator" && (
           <div style={{ textAlign: "right" }}>
@@ -177,15 +166,9 @@ export default function SubscriptionPage() {
               </div>
 
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "4px" }}>{plan.label}</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
                 <span style={{ fontSize: "26px", fontWeight: 800, color: plan.color }}>{price}</span>
                 <span style={{ fontSize: "11px", color: "#475569" }}>{plan.period}</span>
-              </div>
-
-              {/* Output summary — abundance first */}
-              <div style={{ marginBottom: "16px", padding: "8px 10px", borderRadius: "8px", background: `${plan.color}0f`, border: `1px solid ${plan.color}22` }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: plan.color, lineHeight: 1.3 }}>{plan.outputSummary}</div>
-                <div style={{ fontSize: "10px", color: "#64748B", marginTop: "1px" }}>{plan.outputNote}</div>
               </div>
 
               <div style={{ marginBottom: "18px" }}>

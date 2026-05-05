@@ -18,7 +18,7 @@ const plans = [
     name: "Free",
     price: "0",
     period: "forever",
-    description: "Generate your first images and videos today — no card, no commitment.",
+    description: "Explore Zencra Labs and try the platform with no commitment.",
     color: "#64748B",
     glow: "rgba(100,116,139,0.3)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #1a2035 100%)",
@@ -27,8 +27,8 @@ const plans = [
     ctaStyle: "outline",
     badge: null,
     features: [
-      "5 AI images per month",
-      "3 AI videos per month",
+      "5 AI image generations / month",
+      "3 AI video generations / month",
       "Standard quality output",
       "Access to Image & Video tools",
       "Community gallery access",
@@ -42,7 +42,7 @@ const plans = [
     name: "Creator",
     price: "29",
     period: "per month",
-    description: "For independent creators who want to ship professional AI content every single month — consistently.",
+    description: "For independent creators ready to produce professional AI content at scale.",
     color: "#2563EB",
     glow: "rgba(37,99,235,0.4)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #1a1040 40%, #1e3a8a 100%)",
@@ -52,9 +52,9 @@ const plans = [
     badge: "POPULAR",
     badgeBg: "linear-gradient(135deg, #2563EB, #0EA5A0)",
     features: [
-      "100 AI images per month",
-      "30 AI videos per month",
-      "20 AI audio & voiceover tracks",
+      "100 AI image generations / month",
+      "30 AI video generations / month",
+      "20 AI audio / voiceover credits",
       "HD & 4K quality output",
       "All tools: Image, Video, Audio",
       "Priority processing queue",
@@ -69,7 +69,7 @@ const plans = [
     name: "Studio",
     price: "99",
     period: "per month",
-    description: "For agencies, studios and power users who need serious creative volume — month after month, without limits slowing them down.",
+    description: "For agencies, studios and power users who need serious creative volume at a professional level.",
     color: "#0EA5A0",
     glow: "rgba(14,165,160,0.4)",
     gradient: "linear-gradient(135deg, #0F1A32 0%, #0d2626 40%, #0f4038 100%)",
@@ -79,9 +79,9 @@ const plans = [
     badge: "BEST VALUE",
     badgeBg: "linear-gradient(135deg, #0EA5A0, #2563EB)",
     features: [
-      "500 AI images per month",
-      "150 AI videos per month",
-      "100 AI audio & voiceover tracks",
+      "500 AI image generations / month",
+      "150 AI video generations / month",
+      "100 AI audio / voiceover credits",
       "8K quality output",
       "All tools + early access to new features",
       "Fastest processing priority",
@@ -340,11 +340,11 @@ export default function PricingPage() {
 
         {/* Footer note */}
         <p className="mt-12 text-center text-sm" style={{ color: "#475569" }}>
-          All plans include a generous monthly generation allowance. Need more output?{" "}
+          All plans include a monthly generation allowance. Need more?{" "}
           <a href="/dashboard/credits" style={{ color: "#60A5FA", textDecoration: "none" }}>
-            Top up anytime
+            Top up with credit packs
           </a>{" "}
-          — extra generation packs start at $4.99. Prices in USD. Cancel subscriptions anytime.
+          — from $4.99 for 100 credits. Prices in USD. Cancel subscriptions anytime.
         </p>
       </section>
 

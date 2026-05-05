@@ -11,11 +11,11 @@ import type { CreditPack } from "@/lib/billing/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COST_GUIDE = [
-  { action: "1 Standard Image",  desc: "Instant generation, any style",       cost: 2,  icon: ImageIcon, color: "#2563EB" },
-  { action: "1 HD Image",        desc: "High-detail, print-ready quality",    cost: 4,  icon: ImageIcon, color: "#2563EB" },
-  { action: "1 Video Clip (5s)", desc: "Cinematic AI video, any model",       cost: 11, icon: Video,     color: "#0EA5A0" },
-  { action: "1 Video Clip (10s)",desc: "Extended scene, longer motion",       cost: 13, icon: Video,     color: "#0EA5A0" },
-  { action: "1 Audio Track",     desc: "Voiceover or sound generation",       cost: 3,  icon: Video,     color: "#A855F7" },
+  { action: "Generate Image (Standard)",   cost: 2,  icon: ImageIcon, color: "#2563EB" },
+  { action: "Generate Image (HD)",         cost: 4,  icon: ImageIcon, color: "#2563EB" },
+  { action: "Generate Video (5s)",         cost: 11, icon: Video,     color: "#0EA5A0" },
+  { action: "Generate Video (10s)",        cost: 13, icon: Video,     color: "#0EA5A0" },
+  { action: "Generate Audio",              cost: 3,  icon: Video,     color: "#A855F7" },
 ];
 
 // ── Razorpay checkout ─────────────────────────────────────────────────────────
@@ -216,14 +216,10 @@ export default function CreditsPage() {
       {/* ── Balance card ──────────────────────────────────────────────────── */}
       <div style={{ ...card, background: "linear-gradient(135deg, #0A1122 0%, #130d22 100%)", border: "1px solid rgba(168,85,247,0.2)", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "160px", height: "160px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-        <div style={label}>Ready to create</div>
+        <div style={label}>Current Balance</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-          <span style={{ fontSize: "52px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>~{Math.floor(user.credits / 2)}</span>
-          <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>images</span>
-        </div>
-        <div style={{ fontSize: "13px", color: "#64748B", marginTop: "4px" }}>
-          or ~{Math.floor(user.credits / 11)} videos &nbsp;·&nbsp;
-          <span style={{ color: "#475569" }}>{user.credits} cr total</span>
+          <span style={{ fontSize: "52px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</span>
+          <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>credits</span>
         </div>
         <div style={{ marginTop: "20px", height: "6px", background: "rgba(255,255,255,0.08)", borderRadius: "3px", overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #A855F7, #2563EB)", borderRadius: "3px", transition: "width 0.4s ease" }} />
@@ -264,12 +260,10 @@ export default function CreditsPage() {
                       MOST POPULAR
                     </div>
                   )}
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "var(--page-text)" }}>{pack.name}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500, marginTop: 2 }}>
-                    ~{Math.floor(pack.credits / 2)} images or ~{Math.floor(pack.credits / 11)} videos
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color, marginTop: 8 }}>{price}</div>
-                  <div style={{ fontSize: 10, color: "#475569" }}>{pack.credits} cr &nbsp;·&nbsp; ${((pack.price_cents / pack.credits) / 100).toFixed(3)}/cr</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: "var(--page-text)" }}>{pack.credits}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>credits</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color, marginTop: 4 }}>{price}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>${((pack.price_cents / pack.credits) / 100).toFixed(3)} / credit</div>
                   <button
                     onClick={() => handleBuy(pack)}
                     disabled={!!purchasing}
@@ -291,24 +285,15 @@ export default function CreditsPage() {
 
       {/* ── Cost guide ────────────────────────────────────────────────────── */}
       <div style={card}>
-        <h2 style={sectionTitle}>What can I create?</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          {COST_GUIDE.map(({ action, desc, cost, color }) => (
-            <div key={action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)" }}>{action}</div>
-                  <div style={{ fontSize: 11, color: "#475569", marginTop: 1 }}>{desc}</div>
-                </div>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#475569", whiteSpace: "nowrap", marginLeft: 12 }}>{cost} cr</span>
+        <h2 style={sectionTitle}>Credit Cost Guide</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {COST_GUIDE.map(({ action, cost, color }) => (
+            <div key={action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.03)" }}>
+              <span style={{ fontSize: 13, color: "var(--page-text)" }}>{action}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color }}>{cost} credits</span>
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 11, color: "#334155", marginTop: 12 }}>
-          Mix and match — every credit pack goes toward whatever you create next.
-        </p>
       </div>
 
       {/* ── Transaction history ───────────────────────────────────────────── */}
