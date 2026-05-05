@@ -1229,13 +1229,15 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             borderTop: "1px solid rgba(255,255,255,0.06)",
             padding: "64px 24px 0",
             position: "relative", overflow: "hidden",
+            backgroundColor: "#06030F",
+            backgroundImage: `
+              radial-gradient(circle at 50% 55%, rgba(139,92,246,0.25), transparent 55%),
+              radial-gradient(circle at 70% 30%, rgba(56,189,248,0.18), transparent 60%),
+              linear-gradient(135deg, #0B0F2A 0%, #12143A 40%, #1A1040 75%, #0B0614 100%)
+            `,
+            backgroundBlendMode: "screen, screen, normal",
+            boxShadow: "inset 0 0 120px rgba(0,0,0,0.8)",
           }}>
-            <div style={{
-              position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
-              width: 800, height: 280,
-              background: "rgba(139,92,246,0.10)",
-              filter: "blur(100px)", pointerEvents: "none",
-            }} />
 
             <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
               <h2 style={{
