@@ -480,9 +480,11 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
 function MobileMenu({
   onClose,
   onAuthModal,
+  onOpenPricing,
 }: {
   onClose: () => void;
   onAuthModal: (mode: "login" | "signup") => void;
+  onOpenPricing?: () => void;
 }) {
   // Which section is expanded (null = top level)
   const [section, setSection]   = useState<DropdownKey | null>(null);
@@ -557,6 +559,18 @@ function MobileMenu({
                       />
                       <span className="flex-1 text-left">{link.label}</span>
                       <ChevronRight size={14} style={{ color: "#475569" }} />
+                    </button>
+                  ) : link.label === "Pricing" ? (
+                    /* Pricing opens the overlay — no navigation */
+                    <button
+                      onClick={() => { onClose(); onOpenPricing?.(); }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", textAlign: "left" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
+                    >
+                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
+                      {link.label}
                     </button>
                   ) : (
                     <Link
@@ -755,7 +769,7 @@ function NavbarAuthSkeleton() {
  */
 const NAVBAR_HIDDEN_ROUTES = ["/waitlist"];
 
-export function Navbar() {
+export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
   const [scrolled, setScrolled]             = useState(false);
   const [mobileOpen, setMobileOpen]         = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey | null>(null);
@@ -898,6 +912,25 @@ export function Navbar() {
                           className="transition-transform duration-200"
                           style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
                         />
+                      </button>
+                    ) : link.label === "Pricing" ? (
+                      /* Pricing opens the overlay — no route navigation */
+                      <button
+                        onClick={onOpenPricing}
+                        className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
+                        style={{
+                          padding: "10px 15px",
+                          fontSize: "16px",
+                          letterSpacing: "-0.01em",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#94A3B8",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+                      >
+                        {link.label}
                       </button>
                     ) : (
                       <Link
@@ -1069,6 +1102,7 @@ export function Navbar() {
             <MobileMenu
               onClose={() => setMobileOpen(false)}
               onAuthModal={(mode) => { setMobileOpen(false); setAuthModal(mode); }}
+              onOpenPricing={onOpenPricing}
             />
           )}
         </div>
