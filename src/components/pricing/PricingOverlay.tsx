@@ -257,6 +257,22 @@ const KEYFRAMES = `
   40%  { opacity: 0.85; }
   100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
 }
+.zpo-cta-btn {
+  position: relative;
+  overflow: hidden;
+}
+.zpo-cta-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+  transition: transform 0.75s ease;
+  pointer-events: none;
+}
+.zpo-cta-btn:hover::before {
+  transform: translateX(120%);
+}
 `;
 
 const CLOSE_MS = 300;
@@ -1229,13 +1245,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             borderTop: "1px solid rgba(255,255,255,0.06)",
             padding: "64px 24px 0",
             position: "relative", overflow: "hidden",
-            backgroundColor: "#06030F",
-            backgroundImage: `
-              radial-gradient(circle at 50% 55%, rgba(139,92,246,0.25), transparent 55%),
-              radial-gradient(circle at 70% 30%, rgba(56,189,248,0.18), transparent 60%),
-              linear-gradient(135deg, #0B0F2A 0%, #12143A 40%, #1A1040 75%, #0B0614 100%)
-            `,
-            backgroundBlendMode: "screen, screen, normal",
+            background: "linear-gradient(135deg, #0B0F2A 0%, #12143A 40%, #1A1040 75%, #0B0614 100%)",
             boxShadow: "inset 0 0 120px rgba(0,0,0,0.8)",
           }}>
 
@@ -1255,22 +1265,22 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               }}>
                 Join thousands of creators building the future with Zencra.
               </p>
-              <button style={{
+              <button className="zpo-cta-btn" style={{
                 padding: "16px 56px", borderRadius: 14, border: "none",
-                background: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+                background: "linear-gradient(135deg, #2563EB, #4F46E5, #7C3AED)",
                 color: "#fff", fontFamily: "'Syne', sans-serif",
                 fontSize: 16, fontWeight: 700, letterSpacing: "0.04em",
                 cursor: "pointer",
-                boxShadow: "0 0 40px rgba(139,92,246,0.48), 0 0 80px rgba(139,92,246,0.20)",
-                transition: "all 0.25s ease",
+                boxShadow: "none",
+                transition: "transform 0.25s ease, box-shadow 0.25s ease",
               }}
                 onMouseEnter={e => {
                   e.currentTarget.style.transform = "scale(1.04)";
-                  e.currentTarget.style.boxShadow = "0 0 60px rgba(139,92,246,0.68), 0 0 120px rgba(139,92,246,0.30)";
+                  e.currentTarget.style.boxShadow = "0 0 24px rgba(124,58,237,0.55), 0 0 48px rgba(37,99,235,0.35)";
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "0 0 40px rgba(139,92,246,0.48), 0 0 80px rgba(139,92,246,0.20)";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
               >
                 Choose your plan →
