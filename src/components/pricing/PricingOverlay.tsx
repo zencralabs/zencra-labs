@@ -203,7 +203,7 @@ const COMPARE_FEATURES = [
     icon: "🎥",
     name: "Future Cinema Studio",
     sub: "Cinematic Filmmaking Tools",
-    values: ["—", "Add-on", "Add-on", "Add-on"],
+    values: ["—", "—", "Add-on", "Add-on"],
   },
   {
     icon: "💬",
@@ -1080,7 +1080,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             <div style={{
               position: "absolute", inset: 0,
               overflow: "hidden",
-              opacity: 0.16,
+              opacity: 0.28,
               pointerEvents: "none",
               zIndex: 0,
             }}>
@@ -1098,7 +1098,11 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     margin: "0 10px",
                     borderRadius: 12,
                     overflow: "hidden",
-                    filter: "blur(2.5px)",
+                    filter: "blur(1px)",
+                    border: "1px solid rgba(139,92,246,0.45)",
+                    boxShadow: "0 0 18px rgba(104,80,255,0.28), inset 0 0 24px rgba(0,0,0,0.40)",
+                    background: "linear-gradient(135deg, rgba(40,20,80,0.70) 0%, rgba(15,10,40,0.85) 100%)",
+                    position: "relative",
                   }}>
                     <video
                       src={src}
@@ -1106,8 +1110,29 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                       muted
                       loop
                       playsInline
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
                     />
+                    {/* Fallback gradient shown when video file is missing */}
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: `linear-gradient(135deg,
+                        rgba(${[
+                          "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220",
+                          "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220"
+                        ][i % 10]},0.55) 0%,
+                        rgba(10,5,30,0.75) 100%)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: "50%",
+                        border: "1.5px solid rgba(255,255,255,0.18)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="rgba(255,255,255,0.45)">
+                          <polygon points="3,1 11,6 3,11" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
