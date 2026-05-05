@@ -813,7 +813,7 @@ function ComparisonTable() {
       borderRadius: 12,
       overflow: "hidden",
       border: "1px solid rgba(255,255,255,0.08)",
-      background: "#201836",
+      background: "#0b0614",
     }}>
       {/* Label */}
       <div style={{ textAlign: "center", padding: "36px 32px 28px" }}>
