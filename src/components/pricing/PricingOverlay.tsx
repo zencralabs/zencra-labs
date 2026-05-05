@@ -1,10 +1,10 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PricingOverlay v5 — Precision pass
-// Fixes: Log in removed, ✕ fixed below navbar, backdrop z:1050 (navbar visible),
-// panel z:1200, CTA buttons solid colored, image count ~22px, boost opacity,
-// FCS gold/toggle/text, blob blur 180px, heading/body text brightness, card spacing.
+// PricingOverlay v6 — Figma-level alignment pass
+// Fixes: Creator card no translateY (equal baseline), Business gradient-text CTA,
+// yearly output ×12 with /year label, price 36px dominant, minHeight 520px cards,
+// unified card padding, hover-only glow for all cards, FCS gold boost, polish.
 // Typography: Syne (display/headings) · Familjen Grotesk (body/UI)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,7 @@ interface Plan {
   ctaColor: string;
   ctaBorder: string;
   ctaHoverShadow: string;
+  ctaGradientText?: string;   // gradient applied to CTA label text (background-clip: text)
   highlight?: boolean;
   features: string[];
 }
@@ -151,11 +152,12 @@ const PLANS: Plan[] = [
     border: "rgba(248,250,252,0.18)",
     borderHover: "rgba(248,250,252,0.90)",
     ctaLabel: "Get Started",
-    // Fix #4 — Business: solid blue gradient, white text
-    ctaBg: "linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)",
-    ctaColor: "#fff",
+    // Fix — Business: white button, midnight-blue gradient TEXT (Apple-style)
+    ctaBg: "#ffffff",
+    ctaColor: "transparent",      // text color transparent so gradient shows
     ctaBorder: "none",
-    ctaHoverShadow: `0 0 32px rgba(59,130,246,0.55), 0 0 64px rgba(29,78,216,0.28)`,
+    ctaGradientText: "linear-gradient(90deg, #2563EB, #1E3A8A)",
+    ctaHoverShadow: `0 0 20px rgba(255,255,255,0.30), 0 0 40px rgba(255,255,255,0.12)`,
     features: [
       "All Image Models",
       "All Video Models",
@@ -395,6 +397,10 @@ function PricingCard({
   const [hovered, setHovered] = useState(false);
   const price  = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
   const period = billing === "yearly" ? "yr" : "mo";
+  // Fix — yearly outputs: ×12 when yearly selected
+  const displayImages = billing === "yearly" ? plan.images * 12 : plan.images;
+  const displayClips  = billing === "yearly" ? plan.clips  * 12 : plan.clips;
+  const outputLabel   = billing === "yearly" ? "/ year"         : "/ month";
   const active = hovered || selected;
 
   const borderColor = active ? plan.borderHover : plan.border;
@@ -403,11 +409,8 @@ function PricingCard({
     ? `0 0 48px ${plan.glowColor}, 0 0 100px ${plan.glowColor.replace("0.55", "0.22").replace("0.65", "0.28").replace("0.45", "0.18")}, inset 0 1px 0 rgba(255,255,255,0.06)`
     : "0 4px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.03)";
 
-  const transform = plan.highlight
-    ? `translateY(-20px)${hovered ? " scale(1.02)" : ""}`
-    : hovered
-      ? "translateY(-6px) scale(1.025)"
-      : "translateY(0) scale(1)";
+  // Fix — ALL cards same baseline: NO translateY. Hover lifts uniformly.
+  const transform = hovered ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)";
 
   const cardBg = plan.highlight
     ? "linear-gradient(160deg, rgba(192,38,211,0.07) 0%, rgba(14,165,160,0.05) 100%)"
@@ -419,11 +422,15 @@ function PricingCard({
         position: "relative",
         flex: "1 1 220px",
         minWidth: 215, maxWidth: 275,
+        // Fix — equal height + uniform padding for all cards (incl. Creator)
+        minHeight: 520,
         display: "flex", flexDirection: "column",
         borderRadius: 22,
-        padding: plan.highlight ? "36px 24px 28px" : "28px 22px 24px",
+        padding: "32px 24px 28px",   // unified — Creator badge is absolute, no offset needed
         background: cardBg,
         border: `1.5px solid ${borderColor}`,
+        // Fix — Creator gets slightly stronger resting border to signal premium
+        ...(plan.highlight ? { border: `1.5px solid ${borderColor}` } : {}),
         boxShadow,
         transform,
         transition: "box-shadow 0.35s ease, transform 0.30s cubic-bezier(0.22,1,0.36,1), border-color 0.25s ease",
@@ -461,21 +468,21 @@ function PricingCard({
         </span>
       </div>
 
-      {/* ── PRICE — primary ── */}
+      {/* ── PRICE — dominant at 36px ── */}
       <div style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, lineHeight: 1 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, lineHeight: 1 }}>
           <span style={{
             fontFamily: "'Syne', sans-serif",
-            fontSize: 48, fontWeight: 800,
-            letterSpacing: "-0.04em",
+            fontSize: 36, fontWeight: 800,
+            letterSpacing: "-0.035em",
             color: WHITE,
           }}>
             ${price}
           </span>
           <span style={{
             fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 13, color: "rgba(148,163,184,0.55)",
-            marginBottom: 10,
+            fontSize: 13, color: "rgba(148,163,184,0.50)",
+            marginBottom: 7,
           }}>
             /{period}
           </span>
@@ -508,7 +515,7 @@ function PricingCard({
         {plan.credits.toLocaleString()} credits / month
       </div>
 
-      {/* ── OUTPUT — secondary (Fix #5: image count ~22px, price stays dominant) ── */}
+      {/* ── OUTPUT — secondary, 22px, shows yearly multiplied values ── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
@@ -518,7 +525,7 @@ function PricingCard({
         </div>
         <div style={{
           fontFamily: "'Syne', sans-serif",
-          fontSize: 22, fontWeight: 700,       // Fix #5 — was 40, now 22
+          fontSize: 22, fontWeight: 700,
           lineHeight: 1.2, letterSpacing: "-0.02em",
           ...(plan.highlight
             ? {
@@ -529,7 +536,7 @@ function PricingCard({
               }
             : { color: WHITE }),
         }}>
-          {plan.images.toLocaleString()}
+          {displayImages.toLocaleString()}
         </div>
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
@@ -537,7 +544,7 @@ function PricingCard({
           color: "rgba(203,213,225,0.80)",
           marginTop: 2,
         }}>
-          images or {plan.clips} video clips
+          images or {displayClips} video clips {outputLabel}
         </div>
       </div>
 
@@ -548,7 +555,7 @@ function PricingCard({
         marginBottom: 18,
       }} />
 
-      {/* CTA button */}
+      {/* CTA button — Business uses gradient text technique */}
       <button
         style={{
           width: "100%", padding: "13px 0",
@@ -560,10 +567,11 @@ function PricingCard({
           letterSpacing: "0.06em", cursor: "pointer",
           transition: "all 0.22s ease",
           marginBottom: 22,
+          overflow: "hidden",
         }}
         onMouseEnter={e => {
           e.currentTarget.style.boxShadow = plan.ctaHoverShadow;
-          e.currentTarget.style.filter = "brightness(1.10)";
+          e.currentTarget.style.filter = "brightness(1.08)";
           e.currentTarget.style.transform = "scale(1.02)";
         }}
         onMouseLeave={e => {
@@ -573,7 +581,19 @@ function PricingCard({
         }}
         onClick={e => e.stopPropagation()}
       >
-        {plan.ctaLabel}
+        {plan.ctaGradientText ? (
+          // Gradient text for Business — white button bg, gradient label
+          <span style={{
+            backgroundImage: plan.ctaGradientText,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            fontFamily: "'Syne', sans-serif", fontWeight: 700,
+            letterSpacing: "0.06em",
+          }}>
+            {plan.ctaLabel}
+          </span>
+        ) : plan.ctaLabel}
       </button>
 
       {/* Features */}
@@ -1239,12 +1259,13 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               <BillingToggle billing={billing} onChange={setBilling} />
             </div>
 
-            {/* ── Pricing Cards — Fix #10: vertical padding around section ── */}
+            {/* ── Pricing Cards — equal height, badge breathing room ── */}
             <div style={{
-              display: "flex", gap: 18, padding: "20px 24px",   // Fix #10 — was 0 24px
+              display: "flex", gap: 18,
+              padding: "28px 24px 20px",   // extra top for absolute badge
               maxWidth: 1180, margin: "0 auto",
               justifyContent: "center",
-              alignItems: "stretch",
+              alignItems: "flex-start",    // equal baseline; cards grow via minHeight
               flexWrap: "wrap",
             }}>
               {PLANS.map(plan => (
