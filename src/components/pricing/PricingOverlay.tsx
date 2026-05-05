@@ -1096,30 +1096,32 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             <div style={{
               position: "absolute", inset: 0,
               overflow: "hidden",
-              opacity: 0.28,
+              opacity: 0.35,
               pointerEvents: "none",
               zIndex: 0,
             }}>
               <div style={{
                 display: "flex",
-                animation: "zpo-reel 32s linear infinite",
+                animation: "zpo-reel 36s linear infinite",
                 width: "fit-content",
-                height: "100%",
-                alignItems: "center",
+                // Anchor to the top so cards sit behind the headline, not mid-hero
+                alignItems: "flex-start",
+                paddingTop: "20px",
               }}>
                 {[...REEL_VIDEOS, ...REEL_VIDEOS].map((src, i) => (
                   <div key={i} style={{
-                    width: 240, height: 135,
+                    // 360×202 keeps 16:9 and fills ~3 full + 2 partial cards at panel width
+                    width: 360, height: 202,
                     flexShrink: 0,
-                    margin: "0 10px",
-                    borderRadius: 12,
+                    margin: "0 12px",
+                    borderRadius: 14,
                     overflow: "hidden",
-                    filter: "blur(1px)",
-                    border: "1px solid rgba(139,92,246,0.45)",
-                    boxShadow: "0 0 18px rgba(104,80,255,0.28), inset 0 0 24px rgba(0,0,0,0.40)",
+                    border: "1px solid rgba(139,92,246,0.50)",
+                    boxShadow: "0 0 22px rgba(104,80,255,0.32), inset 0 0 28px rgba(0,0,0,0.45)",
                     background: "linear-gradient(135deg, rgba(40,20,80,0.70) 0%, rgba(15,10,40,0.85) 100%)",
                     position: "relative",
                   }}>
+                    {/* Video layer */}
                     <video
                       src={src}
                       autoPlay
@@ -1128,23 +1130,33 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                       playsInline
                       style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
                     />
-                    {/* Fallback gradient shown when video file is missing */}
+                    {/* Fallback gradient — visible when mp4 is not yet present */}
                     <div style={{
                       position: "absolute", inset: 0,
                       background: `linear-gradient(135deg,
                         rgba(${[
                           "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220",
                           "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220"
-                        ][i % 10]},0.55) 0%,
-                        rgba(10,5,30,0.75) 100%)`,
+                        ][i % 10]},0.60) 0%,
+                        rgba(10,5,30,0.80) 100%)`,
+                    }} />
+                    {/* Dark overlay — keeps headline legible, sits above video + fallback */}
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      background: "rgba(0,0,0,0.50)",
+                    }} />
+                    {/* Play icon — topmost layer */}
+                    <div style={{
+                      position: "absolute", inset: 0,
                       display: "flex", alignItems: "center", justifyContent: "center",
+                      zIndex: 1,
                     }}>
                       <div style={{
-                        width: 32, height: 32, borderRadius: "50%",
-                        border: "1.5px solid rgba(255,255,255,0.18)",
+                        width: 36, height: 36, borderRadius: "50%",
+                        border: "1.5px solid rgba(255,255,255,0.20)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="rgba(255,255,255,0.45)">
+                        <svg width="13" height="13" viewBox="0 0 12 12" fill="rgba(255,255,255,0.50)">
                           <polygon points="3,1 11,6 3,11" />
                         </svg>
                       </div>
