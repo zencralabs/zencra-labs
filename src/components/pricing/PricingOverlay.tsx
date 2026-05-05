@@ -1,8 +1,10 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PricingOverlay v3 — Full cinematic visual rebuild
-// Matches mockup: cosmic nebula bg · vibrant glows · conversion-focused layout
+// PricingOverlay v4 — Cinematic polish pass
+// Fixes: z-index > navbar (9999), blur-blob bg (no hard edges), hover-only
+// glow, price-first hierarchy, text brightness, glass CTAs, FCS gold,
+// boost segmented, credit reset line, slower animations.
 // Typography: Syne (display/headings) · Familjen Grotesk (body/UI)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -26,14 +28,14 @@ interface Plan {
   images: number;
   clips: number;
   accentColor: string;
-  glow: string;
-  glowStrong: string;
+  glowColor: string;           // used on hover only
   border: string;
   borderHover: string;
   ctaLabel: string;
   ctaBg: string;
   ctaColor: string;
-  ctaShadow: string;
+  ctaBorder: string;
+  ctaHoverShadow: string;
   highlight?: boolean;
   features: string[];
 }
@@ -61,14 +63,14 @@ const PLANS: Plan[] = [
     images: 75,
     clips: 5,
     accentColor: CYAN,
-    glow: "rgba(6,182,212,0.22)",
-    glowStrong: "rgba(6,182,212,0.45)",
-    border: "rgba(6,182,212,0.35)",
-    borderHover: "rgba(6,182,212,0.80)",
+    glowColor: "rgba(6,182,212,0.55)",
+    border: "rgba(6,182,212,0.18)",
+    borderHover: "rgba(6,182,212,0.72)",
     ctaLabel: "Start Free (Upgrade later)",
-    ctaBg: "rgba(6,182,212,0.10)",
+    ctaBg: "transparent",
     ctaColor: CYAN,
-    ctaShadow: "none",
+    ctaBorder: `1.5px solid rgba(6,182,212,0.35)`,
+    ctaHoverShadow: `0 0 24px rgba(6,182,212,0.35)`,
     features: [
       "Basic & Pro Image Models",
       "Fast Video Generation",
@@ -87,14 +89,14 @@ const PLANS: Plan[] = [
     images: 200,
     clips: 13,
     accentColor: TEAL,
-    glow: "rgba(14,165,160,0.35)",
-    glowStrong: "rgba(192,38,211,0.55)",
-    border: "rgba(14,165,160,0.60)",
-    borderHover: "rgba(192,38,211,0.90)",
+    glowColor: "rgba(192,38,211,0.65)",
+    border: "rgba(14,165,160,0.40)",
+    borderHover: "rgba(192,38,211,0.85)",
     ctaLabel: "Get Started",
     ctaBg: "linear-gradient(135deg, #C026D3 0%, #8B5CF6 50%, #0EA5A0 100%)",
     ctaColor: "#fff",
-    ctaShadow: "0 0 36px rgba(192,38,211,0.55), 0 0 72px rgba(139,92,246,0.28)",
+    ctaBorder: "none",
+    ctaHoverShadow: "0 0 40px rgba(192,38,211,0.55), 0 0 80px rgba(139,92,246,0.28)",
     highlight: true,
     features: [
       "All Image Models",
@@ -115,14 +117,14 @@ const PLANS: Plan[] = [
     images: 437,
     clips: 29,
     accentColor: PURPLE,
-    glow: "rgba(139,92,246,0.25)",
-    glowStrong: "rgba(139,92,246,0.55)",
-    border: "rgba(139,92,246,0.42)",
-    borderHover: "rgba(139,92,246,0.92)",
+    glowColor: "rgba(139,92,246,0.55)",
+    border: "rgba(139,92,246,0.18)",
+    borderHover: "rgba(139,92,246,0.80)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)",
-    ctaColor: "#fff",
-    ctaShadow: "0 0 28px rgba(139,92,246,0.50)",
+    ctaBg: "rgba(139,92,246,0.12)",
+    ctaColor: PURPLE,
+    ctaBorder: `1.5px solid rgba(139,92,246,0.35)`,
+    ctaHoverShadow: `0 0 28px rgba(139,92,246,0.45)`,
     features: [
       "All Image Models",
       "All Video Models",
@@ -142,14 +144,14 @@ const PLANS: Plan[] = [
     images: 1000,
     clips: 66,
     accentColor: "#60A5FA",
-    glow: "rgba(96,165,250,0.20)",
-    glowStrong: "rgba(248,250,252,0.32)",
-    border: "rgba(248,250,252,0.50)",
-    borderHover: "rgba(248,250,252,1.0)",
+    glowColor: "rgba(248,250,252,0.45)",
+    border: "rgba(248,250,252,0.18)",
+    borderHover: "rgba(248,250,252,0.90)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)",
-    ctaColor: "#fff",
-    ctaShadow: "0 0 24px rgba(59,130,246,0.48)",
+    ctaBg: "rgba(59,130,246,0.12)",
+    ctaColor: "#60A5FA",
+    ctaBorder: `1.5px solid rgba(59,130,246,0.35)`,
+    ctaHoverShadow: `0 0 28px rgba(59,130,246,0.40)`,
     features: [
       "All Image Models",
       "All Video Models",
@@ -171,7 +173,7 @@ const BOOST_PACKS = [
   { credits: 5000, price: 99 },
 ];
 
-// ── Comparison features (matches mockup) ─────────────────────────────────────
+// ── Comparison features ───────────────────────────────────────────────────────
 
 const COMPARE_FEATURES = [
   {
@@ -212,7 +214,7 @@ const COMPARE_FEATURES = [
   },
 ];
 
-// ── Keyframes ─────────────────────────────────────────────────────────────────
+// ── Keyframes — slow cinematic drift, no pulse ────────────────────────────────
 
 const KEYFRAMES = `
 @keyframes zpo-fadein {
@@ -231,121 +233,115 @@ const KEYFRAMES = `
   from { opacity: 1; transform: translateY(0) scale(1); }
   to   { opacity: 0; transform: translateY(24px) scale(0.97); }
 }
-@keyframes zpo-glow-pulse {
-  0%, 100% { opacity: 0.55; }
-  50%       { opacity: 1.0; }
+@keyframes zpo-blob-1 {
+  0%   { transform: translate(0, 0) scale(1.00); }
+  30%  { transform: translate(60px, -40px) scale(1.08); }
+  60%  { transform: translate(-30px, 50px) scale(1.05); }
+  100% { transform: translate(0, 0) scale(1.00); }
 }
-@keyframes zpo-badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(192,38,211,0.60); }
-  50%       { box-shadow: 0 0 0 8px rgba(192,38,211,0); }
+@keyframes zpo-blob-2 {
+  0%   { transform: translate(0, 0) scale(1.00); }
+  35%  { transform: translate(-50px, 30px) scale(1.06); }
+  65%  { transform: translate(40px, -20px) scale(1.04); }
+  100% { transform: translate(0, 0) scale(1.00); }
+}
+@keyframes zpo-blob-3 {
+  0%   { transform: translate(0, 0) scale(1.00); }
+  40%  { transform: translate(30px, 50px) scale(1.07); }
+  70%  { transform: translate(-40px, -30px) scale(1.03); }
+  100% { transform: translate(0, 0) scale(1.00); }
 }
 @keyframes zpo-node-pulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(14,165,160,0.70), 0 0 24px rgba(14,165,160,0.38); }
-  50%       { box-shadow: 0 0 24px rgba(14,165,160,1.0), 0 0 48px rgba(14,165,160,0.60); }
+  0%, 100% { box-shadow: 0 0 14px rgba(14,165,160,0.75), 0 0 28px rgba(14,165,160,0.40); }
+  50%       { box-shadow: 0 0 28px rgba(14,165,160,1.0), 0 0 56px rgba(14,165,160,0.65); }
 }
-@keyframes zpo-nebula-drift {
-  0%   { transform: translate(0, 0) scale(1.0) rotate(0deg); opacity: 0.80; }
-  25%  { transform: translate(25px, -18px) scale(1.06) rotate(1deg); opacity: 0.95; }
-  50%  { transform: translate(-15px, 30px) scale(1.10) rotate(-1.5deg); opacity: 0.85; }
-  75%  { transform: translate(35px, 12px) scale(1.04) rotate(0.5deg); opacity: 1.0; }
-  100% { transform: translate(0, 0) scale(1.0) rotate(0deg); opacity: 0.80; }
+@keyframes zpo-badge-glow {
+  0%, 100% { box-shadow: 0 0 16px rgba(192,38,211,0.55); }
+  50%       { box-shadow: 0 0 28px rgba(192,38,211,0.85), 0 0 56px rgba(192,38,211,0.30); }
 }
 @keyframes zpo-star-twinkle {
-  0%, 100% { opacity: 0.15; transform: scale(1); }
-  50%       { opacity: 0.85; transform: scale(1.4); }
+  0%, 100% { opacity: 0.12; transform: scale(1); }
+  50%       { opacity: 0.75; transform: scale(1.5); }
 }
-@keyframes zpo-launch-pulse {
-  0%, 100% { opacity: 0.90; }
-  50%       { opacity: 1.0; }
-}
-@keyframes zpo-card-glow {
-  0%, 100% { opacity: 0.55; }
-  50%       { opacity: 1.0; }
+@keyframes zpo-launch-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
 }
 `;
 
 const CLOSE_MS = 330;
 
-// ── Star particles ────────────────────────────────────────────────────────────
+// ── Star field ────────────────────────────────────────────────────────────────
 
 const STARS = [
-  { top:  8, left: 12, size: 2, delay: 0.0  },
-  { top: 15, left: 78, size: 1.5, delay: 0.8 },
-  { top: 22, left: 45, size: 1, delay: 1.6  },
-  { top:  5, left: 60, size: 2.5, delay: 2.2 },
-  { top: 35, left: 88, size: 1, delay: 0.4  },
-  { top: 45, left:  5, size: 1.5, delay: 1.2 },
-  { top: 55, left: 33, size: 1, delay: 3.0  },
-  { top: 70, left: 92, size: 2, delay: 0.6  },
-  { top: 80, left: 18, size: 1.5, delay: 2.8 },
-  { top: 90, left: 55, size: 1, delay: 1.4  },
-  { top: 12, left: 30, size: 1, delay: 3.5  },
-  { top: 65, left: 70, size: 2, delay: 0.9  },
-  { top: 40, left: 52, size: 1.5, delay: 2.0 },
-  { top: 28, left: 95, size: 1, delay: 1.7  },
-  { top: 75, left: 40, size: 1, delay: 4.0  },
-  { top: 18, left: 65, size: 2, delay: 3.2  },
-  { top: 85, left: 82, size: 1.5, delay: 0.3 },
-  { top: 50, left: 15, size: 1, delay: 2.5  },
-  { top: 95, left: 28, size: 2, delay: 1.1  },
-  { top:  3, left: 85, size: 1, delay: 4.2  },
+  { top:  7, left: 13, size: 1.5, delay: 0.0  },
+  { top: 15, left: 79, size: 2.0, delay: 0.9  },
+  { top: 23, left: 44, size: 1.0, delay: 1.8  },
+  { top:  4, left: 61, size: 2.5, delay: 2.3  },
+  { top: 35, left: 89, size: 1.0, delay: 0.5  },
+  { top: 46, left:  4, size: 1.5, delay: 1.3  },
+  { top: 57, left: 34, size: 1.0, delay: 3.1  },
+  { top: 71, left: 93, size: 2.0, delay: 0.7  },
+  { top: 81, left: 17, size: 1.5, delay: 2.9  },
+  { top: 91, left: 56, size: 1.0, delay: 1.5  },
+  { top: 13, left: 31, size: 1.0, delay: 3.6  },
+  { top: 66, left: 71, size: 2.0, delay: 1.0  },
+  { top: 41, left: 53, size: 1.5, delay: 2.1  },
+  { top: 29, left: 96, size: 1.0, delay: 1.8  },
+  { top: 76, left: 41, size: 1.0, delay: 4.1  },
+  { top: 19, left: 66, size: 2.0, delay: 3.3  },
+  { top: 86, left: 83, size: 1.5, delay: 0.4  },
+  { top: 51, left: 14, size: 1.0, delay: 2.6  },
+  { top: 96, left: 29, size: 2.0, delay: 1.2  },
+  { top:  2, left: 86, size: 1.0, delay: 4.3  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CheckIcon({ color = TEAL, size = 16 }: { color?: string; size?: number }) {
+function CheckIcon({ color = TEAL, size = 15 }: { color?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
-      <circle cx="8" cy="8" r="7.5" stroke={color} strokeOpacity="0.30" />
-      <polyline
-        points="4.5 8 7 10.5 11.5 5.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <circle cx="8" cy="8" r="7.5" stroke={color} strokeOpacity="0.28" />
+      <polyline points="4.5 8 7 10.5 11.5 5.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-// ── BillingToggle ─────────────────────────────────────────────────────────────
+// ── BillingToggle — pill switch ───────────────────────────────────────────────
 
 function BillingToggle({ billing, onChange }: { billing: BillingCycle; onChange: (c: BillingCycle) => void }) {
   const yearly = billing === "yearly";
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 14 }}>
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 16 }}>
       <button
         onClick={() => onChange("monthly")}
         style={{
           background: "none", border: "none", cursor: "pointer", padding: 0,
           fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 700,
-          color: !yearly ? WHITE : "rgba(148,163,184,0.50)",
-          transition: "color 0.22s",
-          letterSpacing: "0.02em",
+          color: !yearly ? WHITE : "rgba(148,163,184,0.45)",
+          transition: "color 0.22s", letterSpacing: "0.02em",
         }}
       >
         Monthly
       </button>
 
-      {/* Toggle track */}
       <button
         onClick={() => onChange(yearly ? "monthly" : "yearly")}
         style={{
-          width: 48, height: 26, borderRadius: 13, border: "none",
+          width: 50, height: 28, borderRadius: 14, border: "none",
           background: yearly
             ? `linear-gradient(135deg, ${PURPLE} 0%, ${TEAL} 100%)`
-            : "rgba(255,255,255,0.12)",
+            : "rgba(255,255,255,0.10)",
           position: "relative", cursor: "pointer", flexShrink: 0,
           transition: "background 0.30s ease",
-          boxShadow: yearly ? `0 0 18px rgba(139,92,246,0.50)` : "none",
+          boxShadow: yearly ? `0 0 20px rgba(139,92,246,0.50)` : "none",
         }}
       >
         <div style={{
-          position: "absolute",
-          top: 3,
-          left: yearly ? 25 : 3,
+          position: "absolute", top: 4,
+          left: yearly ? 26 : 4,
           width: 20, height: 20, borderRadius: 10,
           background: "#fff",
           transition: "left 0.25s cubic-bezier(0.22,1,0.36,1)",
@@ -358,22 +354,20 @@ function BillingToggle({ billing, onChange }: { billing: BillingCycle; onChange:
         style={{
           background: "none", border: "none", cursor: "pointer", padding: 0,
           fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 700,
-          color: yearly ? WHITE : "rgba(148,163,184,0.50)",
-          transition: "color 0.22s",
-          letterSpacing: "0.02em",
+          color: yearly ? WHITE : "rgba(148,163,184,0.45)",
+          transition: "color 0.22s", letterSpacing: "0.02em",
         }}
       >
         Yearly
       </button>
 
-      {/* Save badge */}
       <div style={{
-        padding: "3px 12px", borderRadius: 20,
-        background: "rgba(245,158,11,0.15)",
-        border: "1px solid rgba(245,158,11,0.35)",
+        padding: "3px 14px", borderRadius: 20,
+        background: "rgba(245,158,11,0.14)",
+        border: "1px solid rgba(245,158,11,0.38)",
         fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
         color: AMBER, letterSpacing: "0.08em",
-        animation: "zpo-launch-pulse 3s ease-in-out infinite",
+        animation: "zpo-launch-float 4s ease-in-out infinite",
       }}>
         Save 20%
       </div>
@@ -381,7 +375,7 @@ function BillingToggle({ billing, onChange }: { billing: BillingCycle; onChange:
   );
 }
 
-// ── PricingCard ───────────────────────────────────────────────────────────────
+// ── PricingCard — hover-only glow, price-first hierarchy ─────────────────────
 
 function PricingCard({
   plan,
@@ -395,53 +389,51 @@ function PricingCard({
   onSelect: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const monthly = plan.monthlyPrice;
-  const yearly  = plan.yearlyPrice;
-
+  const price  = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+  const period = billing === "yearly" ? "yr" : "mo";
   const active = hovered || selected;
+
+  // BORDER: subtle at rest, bright on hover
   const borderColor = active ? plan.borderHover : plan.border;
 
+  // GLOW: NONE at rest — only on hover (fixes "glow before hover" issue)
+  const boxShadow = active
+    ? `0 0 48px ${plan.glowColor}, 0 0 100px ${plan.glowColor.replace("0.55", "0.22").replace("0.65", "0.28").replace("0.45", "0.18")}, inset 0 1px 0 rgba(255,255,255,0.06)`
+    : "0 4px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.03)";
+
+  // Creator lifts; others scale on hover
   const transform = plan.highlight
-    ? `translateY(-18px)${hovered ? " scale(1.025)" : ""}`
+    ? `translateY(-20px)${hovered ? " scale(1.02)" : ""}`
     : hovered
-      ? "translateY(-6px) scale(1.03)"
+      ? "translateY(-6px) scale(1.025)"
       : "translateY(0) scale(1)";
 
-  const boxShadow = active
-    ? `0 0 60px ${plan.glow}, 0 0 120px ${plan.glowStrong}, inset 0 1px 0 rgba(255,255,255,0.08)`
-    : plan.highlight
-      ? `0 0 42px ${plan.glow}, 0 0 80px ${plan.glowStrong}, inset 0 1px 0 rgba(255,255,255,0.05)`
-      : `0 0 24px ${plan.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`;
-
-  const cardBg = plan.id === "creator"
-    ? "linear-gradient(160deg, rgba(192,38,211,0.08) 0%, rgba(14,165,160,0.06) 100%)"
-    : plan.id === "business"
-      ? "linear-gradient(160deg, rgba(248,250,252,0.06) 0%, rgba(59,130,246,0.04) 100%)"
-      : "linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)";
+  const cardBg = plan.highlight
+    ? "linear-gradient(160deg, rgba(192,38,211,0.07) 0%, rgba(14,165,160,0.05) 100%)"
+    : "linear-gradient(160deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%)";
 
   return (
     <div
       style={{
         position: "relative",
         flex: "1 1 220px",
-        minWidth: 215,
-        maxWidth: 278,
+        minWidth: 215, maxWidth: 275,
+        // Equal height: flex column + full stretch
+        display: "flex", flexDirection: "column",
         borderRadius: 22,
         padding: plan.highlight ? "36px 24px 28px" : "28px 22px 24px",
         background: cardBg,
         border: `1.5px solid ${borderColor}`,
         boxShadow,
         transform,
-        transition: "box-shadow 0.32s ease, transform 0.30s cubic-bezier(0.22,1,0.36,1), border-color 0.22s ease",
+        transition: "box-shadow 0.35s ease, transform 0.30s cubic-bezier(0.22,1,0.36,1), border-color 0.25s ease",
         cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onSelect(plan.id)}
     >
-      {/* Most Popular badge */}
+      {/* Most Popular badge — Creator only */}
       {plan.highlight && (
         <div style={{
           position: "absolute", top: -15, left: "50%",
@@ -452,48 +444,83 @@ function PricingCard({
           fontSize: 10, fontFamily: "'Syne', sans-serif", fontWeight: 700,
           letterSpacing: "0.14em", padding: "4px 18px",
           borderRadius: 20, whiteSpace: "nowrap",
-          boxShadow: `0 0 24px rgba(192,38,211,0.65)`,
-          animation: "zpo-badge-pulse 2.5s ease-in-out infinite",
+          animation: "zpo-badge-glow 3s ease-in-out infinite",
         }}>
-          <span style={{ fontSize: 11 }}>★</span> MOST POPULAR
+          ★ MOST POPULAR
         </div>
       )}
 
-      {/* Icon + Name */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <span style={{ fontSize: 20 }}>{plan.icon}</span>
+      {/* Icon + Plan name */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 18 }}>{plan.icon}</span>
         <span style={{
-          fontFamily: "'Syne', sans-serif", fontSize: 12, fontWeight: 700,
+          fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
           letterSpacing: "0.18em", color: plan.accentColor, textTransform: "uppercase",
         }}>
           {plan.name}
         </span>
       </div>
 
+      {/* ── PRICE — PRIMARY (Fix #4: price is now king) ── */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, lineHeight: 1 }}>
+          <span style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: 48, fontWeight: 800,
+            letterSpacing: "-0.04em",
+            color: WHITE,
+          }}>
+            ${price}
+          </span>
+          <span style={{
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 13, color: "rgba(148,163,184,0.55)",
+            marginBottom: 10,
+          }}>
+            /{period}
+          </span>
+        </div>
+        {/* Yearly savings line */}
+        {billing === "monthly" && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 7, marginTop: 4,
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 11.5, color: "rgba(100,116,139,0.60)",
+          }}>
+            <span>${plan.yearlyPrice} / yr</span>
+            <span style={{
+              color: AMBER,
+              background: "rgba(245,158,11,0.10)",
+              border: "1px solid rgba(245,158,11,0.22)",
+              fontSize: 10, fontWeight: 600,
+              padding: "1px 7px", borderRadius: 8,
+            }}>Save 20%</span>
+          </div>
+        )}
+      </div>
+
       {/* Credits */}
       <div style={{
         fontFamily: "'Familjen Grotesk', sans-serif",
-        fontSize: 13, fontWeight: 600,
-        color: "rgba(203,213,225,0.75)",
+        fontSize: 12.5, fontWeight: 600,
+        color: "rgba(203,213,225,0.72)",
         marginBottom: 14, letterSpacing: "0.01em",
       }}>
         {plan.credits.toLocaleString()} credits / month
       </div>
 
-      {/* Output line — large number format */}
+      {/* ── OUTPUT VALUE — secondary (Fix #4: below price) ── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 12, color: "rgba(148,163,184,0.55)",
-          marginBottom: 2,
+          fontSize: 11.5, color: "rgba(148,163,184,0.55)", marginBottom: 2,
         }}>
           Create up to
         </div>
         <div style={{
           fontFamily: "'Syne', sans-serif",
-          fontSize: 56, fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: "-0.04em",
+          fontSize: 40, fontWeight: 800,
+          lineHeight: 1, letterSpacing: "-0.035em",
           ...(plan.highlight
             ? {
                 background: `linear-gradient(135deg, ${WHITE} 0%, ${TEAL} 100%)`,
@@ -502,14 +529,13 @@ function PricingCard({
                 backgroundClip: "text",
               }
             : { color: WHITE }),
-          transition: "all 0.22s",
         }}>
           {plan.images.toLocaleString()}
         </div>
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
           fontSize: 13, fontWeight: 600,
-          color: "rgba(203,213,225,0.72)",
+          color: "rgba(203,213,225,0.80)",
           marginTop: 2,
         }}>
           images or {plan.clips} video clips
@@ -523,56 +549,26 @@ function PricingCard({
         marginBottom: 18,
       }} />
 
-      {/* Price */}
-      <div style={{ marginBottom: 6 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 4 }}>
-          <span style={{
-            fontFamily: "'Syne', sans-serif", fontSize: 38, fontWeight: 800,
-            lineHeight: 1, color: WHITE, letterSpacing: "-0.03em",
-          }}>
-            ${monthly}
-          </span>
-          <span style={{
-            fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 13, color: "rgba(148,163,184,0.55)",
-            marginBottom: 6,
-          }}>
-            / month
-          </span>
-        </div>
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 12, color: "rgba(100,116,139,0.60)",
-        }}>
-          <span>${yearly} / year</span>
-          <span style={{
-            fontSize: 10, fontWeight: 600, color: AMBER,
-            background: "rgba(245,158,11,0.12)",
-            border: "1px solid rgba(245,158,11,0.25)",
-            padding: "1px 7px", borderRadius: 8,
-          }}>Save 20%</span>
-        </div>
-      </div>
-
-      {/* CTA */}
+      {/* CTA button */}
       <button
         style={{
-          width: "100%", padding: "13px 0", marginTop: 18, marginBottom: 20,
+          width: "100%", padding: "13px 0",
           borderRadius: 12,
-          border: plan.id === "starter" ? `1.5px solid ${plan.accentColor}44` : "none",
+          border: plan.ctaBorder,
           background: plan.ctaBg,
           color: plan.ctaColor,
           fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 700,
           letterSpacing: "0.06em", cursor: "pointer",
-          boxShadow: plan.ctaShadow,
           transition: "all 0.22s ease",
+          marginBottom: 22,
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.filter = "brightness(1.12)";
+          e.currentTarget.style.boxShadow = plan.ctaHoverShadow;
+          e.currentTarget.style.filter = "brightness(1.10)";
           e.currentTarget.style.transform = "scale(1.02)";
         }}
         onMouseLeave={e => {
+          e.currentTarget.style.boxShadow = "none";
           e.currentTarget.style.filter = "brightness(1)";
           e.currentTarget.style.transform = "scale(1)";
         }}
@@ -581,14 +577,17 @@ function PricingCard({
         {plan.ctaLabel}
       </button>
 
-      {/* Features */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: "auto" }}>
+      {/* Features — flex-grow fills remaining card space */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         {plan.features.map((f, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <CheckIcon color={plan.accentColor} />
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+            <div style={{ marginTop: 1 }}>
+              <CheckIcon color={plan.accentColor} />
+            </div>
             <span style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 12.5, color: "rgba(203,213,225,0.72)",
+              fontSize: 13, lineHeight: 1.45,
+              color: "rgba(226,232,240,0.85)",
             }}>
               {f}
             </span>
@@ -599,7 +598,7 @@ function PricingCard({
   );
 }
 
-// ── FCSStrip — Future Cinema Studio (single strip, single toggle) ─────────────
+// ── FCSStrip — Future Cinema Studio, gold upgrade ─────────────────────────────
 
 function FCSStrip() {
   const [enabled, setEnabled] = useState(false);
@@ -608,32 +607,37 @@ function FCSStrip() {
     <div style={{ margin: "0 auto", maxWidth: 1100, padding: "0 24px" }}>
       <div style={{
         borderRadius: 20,
-        background: "linear-gradient(135deg, rgba(245,158,11,0.07) 0%, rgba(139,92,246,0.09) 50%, rgba(245,158,11,0.05) 100%)",
-        border: "1px solid rgba(245,158,11,0.22)",
+        background: "linear-gradient(135deg, rgba(245,158,11,0.10) 0%, rgba(139,92,246,0.12) 50%, rgba(245,158,11,0.07) 100%)",
+        // Gold border — premium treatment
+        border: "2px solid rgba(245,158,11,0.40)",
         padding: "28px 36px",
         display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap",
+        boxShadow: "0 0 48px rgba(245,158,11,0.12), 0 0 96px rgba(245,158,11,0.06), inset 0 1px 0 rgba(245,158,11,0.15)",
       }}>
-        {/* Left: icon + title + desc */}
-        <div style={{ flex: "1 1 260px", display: "flex", alignItems: "flex-start", gap: 16 }}>
+        {/* Left: icon + label + desc */}
+        <div style={{ flex: "1 1 260px", display: "flex", alignItems: "flex-start", gap: 18 }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-            background: "linear-gradient(135deg, rgba(245,158,11,0.20) 0%, rgba(139,92,246,0.18) 100%)",
-            border: "1px solid rgba(245,158,11,0.25)",
+            width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+            background: "linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(139,92,246,0.22) 100%)",
+            border: "1.5px solid rgba(245,158,11,0.40)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 24,
+            fontSize: 26,
+            boxShadow: "0 0 24px rgba(245,158,11,0.20)",
           }}>
             🎬
           </div>
           <div>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 700,
-              letterSpacing: "0.14em", color: AMBER, textTransform: "uppercase", marginBottom: 5,
+              fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 700,
+              letterSpacing: "0.12em", color: AMBER, textTransform: "uppercase",
+              marginBottom: 6,
+              textShadow: `0 0 20px rgba(245,158,11,0.40)`,
             }}>
               Future Cinema Studio
             </div>
             <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13,
-              color: "rgba(203,213,225,0.65)", lineHeight: 1.60, maxWidth: 380,
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
+              color: "rgba(226,232,240,0.78)", lineHeight: 1.65, maxWidth: 380,
             }}>
               Unlock cinematic filmmaking tools. Advanced directors mode, shot control, timeline editor, professional export and more.
             </div>
@@ -644,68 +648,67 @@ function FCSStrip() {
         <div style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(148,163,184,0.55)", marginBottom: 4, letterSpacing: "0.04em",
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
+              color: "rgba(203,213,225,0.55)", marginBottom: 5, letterSpacing: "0.04em",
             }}>For Pro</div>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800,
-              color: WHITE, letterSpacing: "-0.02em",
+              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+              color: WHITE, letterSpacing: "-0.025em",
             }}>
               +$29<span style={{ fontSize: 12, fontWeight: 400, color: "rgba(148,163,184,0.45)" }}>/mo</span>
             </div>
             <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(100,116,139,0.55)", marginTop: 2,
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
+              color: "rgba(148,163,184,0.50)", marginTop: 3,
             }}>+800 credits / month</div>
           </div>
 
-          <div style={{
-            width: 1, height: 48,
-            background: "rgba(255,255,255,0.06)",
-          }} />
+          <div style={{ width: 1, height: 52, background: "rgba(245,158,11,0.15)" }} />
 
           <div style={{ textAlign: "center" }}>
             <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(148,163,184,0.55)", marginBottom: 4, letterSpacing: "0.04em",
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
+              color: "rgba(203,213,225,0.55)", marginBottom: 5, letterSpacing: "0.04em",
             }}>For Business</div>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800,
-              color: WHITE, letterSpacing: "-0.02em",
+              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+              color: WHITE, letterSpacing: "-0.025em",
             }}>
               +$49<span style={{ fontSize: 12, fontWeight: 400, color: "rgba(148,163,184,0.45)" }}>/mo</span>
             </div>
             <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(100,116,139,0.55)", marginTop: 2,
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
+              color: "rgba(148,163,184,0.50)", marginTop: 3,
             }}>+1,800 credits / month</div>
           </div>
         </div>
 
-        {/* Enable toggle */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        {/* Enable FCS toggle */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 9 }}>
           <button
             onClick={() => setEnabled(v => !v)}
             style={{
-              width: 56, height: 30, borderRadius: 15, border: "none",
+              width: 58, height: 32, borderRadius: 16, border: "none",
               background: enabled
-                ? `linear-gradient(135deg, ${PURPLE} 0%, ${TEAL} 100%)`
+                ? `linear-gradient(135deg, ${AMBER} 0%, ${PURPLE} 100%)`
                 : "rgba(30,41,59,0.80)",
               position: "relative", cursor: "pointer",
-              transition: "background 0.28s ease",
-              boxShadow: enabled ? `0 0 20px rgba(139,92,246,0.55)` : "none",
+              transition: "background 0.30s ease",
+              boxShadow: enabled
+                ? `0 0 24px rgba(245,158,11,0.55), 0 0 48px rgba(245,158,11,0.22)`
+                : "none",
             }}
           >
             <div style={{
               position: "absolute", top: 4, left: enabled ? 30 : 4,
-              width: 22, height: 22, borderRadius: 11, background: "#fff",
+              width: 24, height: 24, borderRadius: 12, background: "#fff",
               transition: "left 0.25s cubic-bezier(0.22,1,0.36,1)",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.38)",
             }} />
           </button>
           <span style={{
-            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11, fontWeight: 600,
-            color: enabled ? PURPLE : "rgba(100,116,139,0.55)",
+            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12, fontWeight: 600,
+            color: enabled ? AMBER : "rgba(100,116,139,0.60)",
             transition: "color 0.22s",
           }}>
             {enabled ? "Enabled" : "Enable FCS"}
@@ -716,7 +719,7 @@ function FCSStrip() {
   );
 }
 
-// ── BoostSlider ───────────────────────────────────────────────────────────────
+// ── BoostSlider — segmented selector, clear active state ─────────────────────
 
 function BoostSlider() {
   const [selected, setSelected] = useState(1);
@@ -728,119 +731,115 @@ function BoostSlider() {
       <div style={{
         borderRadius: 20,
         background: "linear-gradient(135deg, rgba(14,165,160,0.06) 0%, rgba(14,165,160,0.02) 100%)",
-        border: "1px solid rgba(14,165,160,0.18)",
+        border: "1px solid rgba(14,165,160,0.16)",
         padding: "32px 40px",
         display: "grid",
-        gridTemplateColumns: "1fr auto",
-        gap: 32,
+        gridTemplateColumns: "1fr 200px",
+        gap: 36,
         alignItems: "center",
       }}>
-        {/* Left: header + slider */}
+        {/* Left */}
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <span style={{ fontSize: 20 }}>🚀</span>
             <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 700,
+              fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 700,
               letterSpacing: "0.12em", color: WHITE, textTransform: "uppercase",
-            }}>
-              Boost Your Output
-            </div>
+            }}>Boost Your Output</div>
           </div>
           <div style={{
-            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13,
-            color: "rgba(148,163,184,0.55)", marginBottom: 36,
+            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
+            color: "rgba(203,213,225,0.62)", marginBottom: 32,
           }}>
             Add extra credits instantly. Use anytime.
           </div>
 
-          {/* Track */}
-          <div style={{ position: "relative", paddingBottom: 48 }}>
+          {/* ── Segmented track ── */}
+          <div style={{ position: "relative", marginBottom: 48 }}>
             {/* Track bar */}
             <div style={{
-              position: "absolute", top: 13,
-              left: 13, right: 13, height: 4, borderRadius: 2,
-              background: "rgba(30,41,59,0.90)", overflow: "hidden",
+              position: "absolute",
+              left: 12, right: 12, top: 12,
+              height: 4, borderRadius: 2,
+              background: "rgba(30,41,59,0.90)",
+              overflow: "hidden",
             }}>
               <div style={{
                 height: "100%", width: `${trackFill}%`,
-                background: `linear-gradient(90deg, ${TEAL}, rgba(14,165,160,0.50))`,
+                background: `linear-gradient(90deg, ${TEAL}, rgba(14,165,160,0.55))`,
                 borderRadius: 2,
-                transition: "width 0.30s cubic-bezier(0.22,1,0.36,1)",
+                transition: "width 0.32s cubic-bezier(0.22,1,0.36,1)",
                 boxShadow: `0 0 12px ${TEAL}99`,
               }} />
             </div>
 
-            {/* Snap nodes */}
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              position: "relative", zIndex: 1,
-            }}>
-              {BOOST_PACKS.map((b, i) => (
-                <div key={i} style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
-                }}>
-                  <button
-                    onClick={() => setSelected(i)}
-                    style={{
-                      width: i === selected ? 30 : 18,
-                      height: i === selected ? 30 : 18,
-                      borderRadius: "50%",
-                      border: `2px solid ${
-                        i === selected ? TEAL : i < selected ? "rgba(14,165,160,0.55)" : "rgba(30,41,59,0.80)"
-                      }`,
-                      background: i === selected
-                        ? `radial-gradient(circle, ${TEAL} 0%, #0C8E8A 100%)`
-                        : i < selected
-                          ? "rgba(14,165,160,0.45)"
-                          : "rgba(15,23,42,0.85)",
-                      cursor: "pointer",
-                      animation: i === selected ? "zpo-node-pulse 2.2s ease-in-out infinite" : "none",
-                      transition: "all 0.28s cubic-bezier(0.22,1,0.36,1)",
-                      padding: 0,
-                    }}
-                  />
-                  <div style={{ textAlign: "center", minWidth: 56 }}>
-                    <div style={{
-                      fontFamily: "'Familjen Grotesk', sans-serif",
-                      fontSize: i === selected ? 14 : 12,
-                      fontWeight: i === selected ? 700 : 500,
-                      color: i === selected ? TEAL : "rgba(100,116,139,0.50)",
-                      transition: "all 0.22s", whiteSpace: "nowrap",
-                    }}>
-                      {b.credits.toLocaleString()} cr
-                    </div>
-                    <div style={{
-                      fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-                      color: i === selected ? "rgba(203,213,225,0.70)" : "rgba(71,85,105,0.45)",
-                      transition: "color 0.22s",
-                    }}>
-                      ${b.price}
+            {/* Nodes */}
+            <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
+              {BOOST_PACKS.map((b, i) => {
+                const isActive = i === selected;
+                const isPast   = i < selected;
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                    <button
+                      onClick={() => setSelected(i)}
+                      style={{
+                        width: isActive ? 28 : 18,
+                        height: isActive ? 28 : 18,
+                        borderRadius: "50%",
+                        border: `2px solid ${isActive ? TEAL : isPast ? "rgba(14,165,160,0.45)" : "rgba(30,41,59,0.80)"}`,
+                        background: isActive
+                          ? `radial-gradient(circle, ${TEAL} 0%, #0C8E8A 100%)`
+                          : isPast
+                            ? "rgba(14,165,160,0.40)"
+                            : "rgba(15,23,42,0.85)",
+                        cursor: "pointer",
+                        animation: isActive ? "zpo-node-pulse 2.5s ease-in-out infinite" : "none",
+                        transition: "all 0.28s cubic-bezier(0.22,1,0.36,1)",
+                        padding: 0,
+                      }}
+                    />
+                    <div style={{ textAlign: "center", minWidth: 58 }}>
+                      <div style={{
+                        fontFamily: "'Familjen Grotesk', sans-serif",
+                        fontSize: isActive ? 14 : 12.5, fontWeight: isActive ? 700 : 500,
+                        color: isActive ? TEAL : "rgba(148,163,184,0.55)",
+                        transition: "all 0.22s", whiteSpace: "nowrap",
+                      }}>
+                        {b.credits.toLocaleString()} cr
+                      </div>
+                      <div style={{
+                        fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11.5,
+                        color: isActive ? "rgba(226,232,240,0.72)" : "rgba(71,85,105,0.45)",
+                        transition: "color 0.22s",
+                      }}>
+                        ${b.price}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "center" }}>
             <button
               style={{
-                padding: "12px 40px", borderRadius: 12,
-                border: `1px solid rgba(14,165,160,0.40)`,
-                background: "rgba(14,165,160,0.10)",
+                padding: "12px 42px", borderRadius: 12,
+                border: `1px solid rgba(14,165,160,0.38)`,
+                background: "rgba(14,165,160,0.09)",
                 color: TEAL, fontFamily: "'Syne', sans-serif",
                 fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
                 cursor: "pointer", transition: "all 0.22s ease",
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = "rgba(14,165,160,0.22)";
-                e.currentTarget.style.boxShadow = `0 0 24px rgba(14,165,160,0.40)`;
-                e.currentTarget.style.borderColor = "rgba(14,165,160,0.70)";
+                e.currentTarget.style.background = "rgba(14,165,160,0.20)";
+                e.currentTarget.style.boxShadow = `0 0 28px rgba(14,165,160,0.40)`;
+                e.currentTarget.style.borderColor = "rgba(14,165,160,0.65)";
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = "rgba(14,165,160,0.10)";
+                e.currentTarget.style.background = "rgba(14,165,160,0.09)";
                 e.currentTarget.style.boxShadow = "none";
-                e.currentTarget.style.borderColor = "rgba(14,165,160,0.40)";
+                e.currentTarget.style.borderColor = "rgba(14,165,160,0.38)";
               }}
             >
               Add {pack.credits.toLocaleString()} cr for ${pack.price}
@@ -848,19 +847,17 @@ function BoostSlider() {
           </div>
         </div>
 
-        {/* Right: callout */}
+        {/* Right callout */}
         <div style={{
-          textAlign: "center", padding: "28px 32px",
+          textAlign: "center", padding: "28px 24px",
           borderRadius: 18,
           background: "linear-gradient(160deg, rgba(139,92,246,0.14) 0%, rgba(14,165,160,0.10) 100%)",
-          border: "1px solid rgba(139,92,246,0.25)",
-          boxShadow: `0 0 40px rgba(139,92,246,0.15)`,
-          minWidth: 160,
-          transition: "all 0.25s ease",
+          border: "1px solid rgba(139,92,246,0.22)",
+          boxShadow: "0 0 36px rgba(139,92,246,0.12)",
         }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
           <div style={{
-            fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800,
+            fontFamily: "'Syne', sans-serif", fontSize: 38, fontWeight: 800,
             color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
             transition: "all 0.22s ease",
           }}>
@@ -868,17 +865,9 @@ function BoostSlider() {
           </div>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 13, color: "rgba(203,213,225,0.60)",
-            marginTop: 6,
+            fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
           }}>
             credits instantly
-          </div>
-          <div style={{
-            fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 11, color: "rgba(100,116,139,0.50)",
-            marginTop: 4,
-          }}>
-            You get
           </div>
         </div>
       </div>
@@ -889,18 +878,13 @@ function BoostSlider() {
 // ── ComparisonTable ───────────────────────────────────────────────────────────
 
 function ComparisonTable() {
-  const planColors = [
-    "rgba(148,163,184,0.75)",
-    TEAL,
-    PURPLE,
-    "#60A5FA",
-  ];
-  const planIcons = ["⚡", "👑", "⚡", "💎"];
+  const planColors = ["rgba(148,163,184,0.75)", TEAL, PURPLE, "#60A5FA"];
+  const planIcons  = ["⚡", "👑", "⚡", "💎"];
 
   const renderVal = (val: string | boolean, colIdx: number) => {
     if (val === true) return <CheckIcon color={planColors[colIdx]} size={15} />;
-    if (val === "—") return (
-      <span style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 14, color: "rgba(71,85,105,0.45)" }}>—</span>
+    if (val === "—")  return (
+      <span style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 14, color: "rgba(71,85,105,0.40)" }}>—</span>
     );
     if (val === "Add-on") return (
       <span style={{
@@ -913,7 +897,7 @@ function ComparisonTable() {
     return (
       <span style={{
         fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12.5,
-        color: "rgba(203,213,225,0.75)",
+        color: "rgba(226,232,240,0.82)",
         ...(colIdx === 1 ? { fontWeight: 600 } : {}),
       }}>{val as string}</span>
     );
@@ -921,7 +905,6 @@ function ComparisonTable() {
 
   return (
     <div style={{ margin: "0 auto", maxWidth: 1100, padding: "0 24px" }}>
-      {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 32 }}>
         <div style={{
           fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
@@ -932,7 +915,7 @@ function ComparisonTable() {
 
       <div style={{
         borderRadius: 20, border: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(255,255,255,0.015)", overflow: "hidden",
+        background: "rgba(255,255,255,0.012)", overflow: "hidden",
       }}>
         {/* Column headers */}
         <div style={{
@@ -950,17 +933,15 @@ function ComparisonTable() {
           {PLANS.map((p, i) => (
             <div key={p.id} style={{
               textAlign: "center",
-              padding: "6px 8px",
-              borderRadius: 10,
+              padding: "6px 8px", borderRadius: 10,
               ...(i === 1 ? {
-                background: "rgba(14,165,160,0.09)",
-                border: "1px solid rgba(14,165,160,0.18)",
+                background: "rgba(14,165,160,0.08)",
+                border: "1px solid rgba(14,165,160,0.16)",
               } : {}),
             }}>
               <div style={{
                 fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
-                letterSpacing: "0.12em", color: planColors[i],
-                textTransform: "uppercase",
+                letterSpacing: "0.12em", color: planColors[i], textTransform: "uppercase",
               }}>
                 {planIcons[i]} {p.name}
               </div>
@@ -968,32 +949,29 @@ function ComparisonTable() {
           ))}
         </div>
 
-        {/* Feature rows */}
+        {/* Rows */}
         {COMPARE_FEATURES.map((row, rowIdx) => (
-          <div
-            key={rowIdx}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
-              padding: "16px 28px",
-              borderBottom: rowIdx < COMPARE_FEATURES.length - 1
-                ? "1px solid rgba(255,255,255,0.04)"
-                : "none",
-              background: rowIdx % 2 === 0 ? "rgba(255,255,255,0.010)" : "transparent",
-              alignItems: "center",
-            }}
-          >
+          <div key={rowIdx} style={{
+            display: "grid",
+            gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
+            padding: "16px 28px",
+            borderBottom: rowIdx < COMPARE_FEATURES.length - 1
+              ? "1px solid rgba(255,255,255,0.04)"
+              : "none",
+            background: rowIdx % 2 === 0 ? "rgba(255,255,255,0.010)" : "transparent",
+            alignItems: "center",
+          }}>
             <div>
               <div style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 13.5, fontWeight: 600, color: "rgba(203,213,225,0.82)",
-                marginBottom: 2,
+                fontSize: 13.5, fontWeight: 600,
+                color: "rgba(226,232,240,0.88)", marginBottom: 2,
               }}>
                 {row.icon} {row.name}
               </div>
               <div style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 11, color: "rgba(100,116,139,0.50)",
+                fontSize: 11.5, color: "rgba(148,163,184,0.50)",
               }}>
                 {row.sub}
               </div>
@@ -1002,10 +980,7 @@ function ComparisonTable() {
               <div key={colIdx} style={{
                 display: "flex", justifyContent: "center", alignItems: "center",
                 padding: "4px 8px",
-                ...(colIdx === 1 ? {
-                  background: "rgba(14,165,160,0.045)",
-                  borderRadius: 8,
-                } : {}),
+                ...(colIdx === 1 ? { background: "rgba(14,165,160,0.040)", borderRadius: 8 } : {}),
               }}>
                 {renderVal(val as string | boolean, colIdx)}
               </div>
@@ -1027,9 +1002,8 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
   const [closing, setClosing]   = useState(false);
   const scrollRef               = useRef<HTMLDivElement>(null);
 
-  // Inject keyframes once
   useEffect(() => {
-    const id = "zpo-kf-v3";
+    const id = "zpo-kf-v4";
     if (!document.getElementById(id)) {
       const s = document.createElement("style");
       s.id = id; s.textContent = KEYFRAMES;
@@ -1055,126 +1029,129 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* ── Backdrop — z-index 9998 beats Navbar z-[1100] ── */}
       <div
         onClick={handleBackdrop}
         style={{
-          position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(4,0,20,0.90)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(3,0,14,0.92)",
+          backdropFilter: "blur(18px)",
+          WebkitBackdropFilter: "blur(18px)",
           animation: closing
             ? `zpo-fadeout ${CLOSE_MS}ms ease forwards`
             : "zpo-fadein 0.28s ease",
         }}
       />
 
-      {/* Panel */}
+      {/* ── Panel — z-index 9999 ── */}
       <div
         ref={scrollRef}
         style={{
-          position: "fixed", inset: 0, zIndex: 1001,
+          position: "fixed", inset: 0, zIndex: 9999,
           overflowY: "auto", overflowX: "hidden",
           animation: closing
             ? `zpo-slidedown ${CLOSE_MS}ms cubic-bezier(0.22,1,0.36,1) forwards`
             : "zpo-slideup 0.45s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
-        {/* ── Cosmic background ── */}
-        <div style={{
-          minHeight: "100%", position: "relative",
-          background: "#06011A",
-        }}>
+        {/* ── Cosmic background — blur-blob system (no hard edges) ── */}
+        <div style={{ minHeight: "100%", position: "relative", background: "#06011A" }}>
 
-          {/* Nebula glow layers */}
-          <div style={{
-            position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-          }}>
-            {/* Top-center: bright cosmic explosion */}
+          {/* Fixed blob layer — CSS filter blur produces smooth diffusion */}
+          <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+
+            {/* Blob 1 — magenta/purple top-center */}
             <div style={{
-              position: "absolute", top: "-10%", left: "50%",
-              transform: "translateX(-50%)",
-              width: "120%", height: "70%",
-              background: "radial-gradient(ellipse 80% 70% at 50% 20%, rgba(192,38,211,0.28) 0%, rgba(139,92,246,0.18) 30%, transparent 70%)",
-              animation: "zpo-nebula-drift 20s ease-in-out infinite",
+              position: "absolute",
+              top: "-15%", left: "25%",
+              width: 900, height: 700,
+              borderRadius: "50%",
+              background: "rgba(192,38,211,0.28)",
+              filter: "blur(150px)",
+              animation: "zpo-blob-1 32s ease-in-out infinite",
             }} />
-            {/* Secondary teal-left glow */}
+
+            {/* Blob 2 — teal left */}
             <div style={{
-              position: "absolute", top: "20%", left: "-10%",
-              width: "55%", height: "60%",
-              background: "radial-gradient(ellipse at 30% 40%, rgba(14,165,160,0.18) 0%, transparent 65%)",
-              animation: "zpo-nebula-drift 26s ease-in-out infinite reverse",
+              position: "absolute",
+              top: "15%", left: "-10%",
+              width: 700, height: 600,
+              borderRadius: "50%",
+              background: "rgba(14,165,160,0.20)",
+              filter: "blur(140px)",
+              animation: "zpo-blob-2 38s ease-in-out infinite",
             }} />
-            {/* Secondary pink-right glow */}
+
+            {/* Blob 3 — purple/pink right */}
             <div style={{
-              position: "absolute", top: "10%", right: "-10%",
-              width: "55%", height: "55%",
-              background: "radial-gradient(ellipse at 70% 30%, rgba(236,72,153,0.16) 0%, transparent 60%)",
-              animation: "zpo-nebula-drift 22s ease-in-out infinite",
-              animationDelay: "-8s",
+              position: "absolute",
+              top: "5%", right: "-10%",
+              width: 650, height: 600,
+              borderRadius: "50%",
+              background: "rgba(139,92,246,0.22)",
+              filter: "blur(140px)",
+              animation: "zpo-blob-3 28s ease-in-out infinite",
+              animationDelay: "-12s",
             }} />
-            {/* Deep purple base wash */}
+
+            {/* Blob 4 — deep bottom purple wash */}
             <div style={{
-              position: "absolute", bottom: 0, left: 0, right: 0, height: "60%",
-              background: "linear-gradient(180deg, transparent 0%, rgba(139,92,246,0.05) 100%)",
+              position: "absolute",
+              bottom: "-20%", left: "30%",
+              width: 800, height: 600,
+              borderRadius: "50%",
+              background: "rgba(88,28,135,0.20)",
+              filter: "blur(160px)",
+              animation: "zpo-blob-1 44s ease-in-out infinite reverse",
+              animationDelay: "-20s",
             }} />
-            {/* Edge vignette */}
+
+            {/* Edge vignette — keeps text readable */}
             <div style={{
               position: "absolute", inset: 0,
-              background: "radial-gradient(ellipse 110% 110% at 50% 50%, transparent 55%, rgba(4,0,20,0.80) 100%)",
+              background: "radial-gradient(ellipse 110% 110% at 50% 50%, transparent 50%, rgba(3,0,14,0.82) 100%)",
             }} />
           </div>
 
-          {/* Star particles */}
+          {/* Star field */}
           <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
             {STARS.map((star, i) => (
-              <div
-                key={i}
-                style={{
-                  position: "absolute",
-                  top: `${star.top}%`,
-                  left: `${star.left}%`,
-                  width: star.size, height: star.size,
-                  borderRadius: "50%",
-                  background: "#fff",
-                  animation: `zpo-star-twinkle ${2.5 + (i % 3)}s ease-in-out infinite`,
-                  animationDelay: `${star.delay}s`,
-                }}
-              />
+              <div key={i} style={{
+                position: "absolute",
+                top: `${star.top}%`, left: `${star.left}%`,
+                width: star.size, height: star.size, borderRadius: "50%",
+                background: "#fff",
+                animation: `zpo-star-twinkle ${2.2 + (i % 4) * 0.7}s ease-in-out infinite`,
+                animationDelay: `${star.delay}s`,
+              }} />
             ))}
           </div>
 
           {/* ── Content ── */}
           <div style={{ position: "relative", zIndex: 1 }}>
 
-            {/* ── TopBar — Log in + Close only (no logo) ── */}
+            {/* ── TopBar — Log in + Close only, no logo ── */}
             <div style={{
               position: "sticky", top: 0, zIndex: 10,
               display: "flex", alignItems: "center", justifyContent: "flex-end",
               padding: "14px 32px",
-              background: "rgba(6,1,26,0.75)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
+              background: "rgba(3,0,14,0.72)",
+              backdropFilter: "blur(28px)",
+              WebkitBackdropFilter: "blur(28px)",
               borderBottom: "1px solid rgba(255,255,255,0.05)",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button style={{
-                  padding: "7px 20px", borderRadius: 8,
+                  padding: "8px 22px", borderRadius: 8,
                   border: "1px solid rgba(255,255,255,0.10)",
                   background: "rgba(255,255,255,0.04)",
-                  color: "rgba(203,213,225,0.75)",
+                  color: "rgba(226,232,240,0.78)",
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 13, fontWeight: 500,
-                  cursor: "pointer", transition: "all 0.18s",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  transition: "all 0.18s",
                 }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                    e.currentTarget.style.color = WHITE;
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                    e.currentTarget.style.color = "rgba(203,213,225,0.75)";
-                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = WHITE; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(226,232,240,0.78)"; }}
                 >
                   Log in
                 </button>
@@ -1183,7 +1160,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   onClick={handleClose}
                   title="Close (Esc)"
                   style={{
-                    width: 34, height: 34, borderRadius: 8,
+                    width: 36, height: 36, borderRadius: 9,
                     border: "1px solid rgba(255,255,255,0.09)",
                     background: "rgba(255,255,255,0.04)",
                     color: "rgba(148,163,184,0.65)",
@@ -1212,23 +1189,10 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
 
             {/* ── Hero ── */}
             <div style={{ textAlign: "center", padding: "72px 24px 48px", position: "relative" }}>
-
-              {/* Hero radial glow */}
-              <div style={{
-                position: "absolute", top: 0, left: "50%",
-                transform: "translateX(-50%)",
-                width: 800, height: 340,
-                background: "radial-gradient(ellipse, rgba(192,38,211,0.14) 0%, rgba(139,92,246,0.08) 40%, transparent 70%)",
-                animation: "zpo-glow-pulse 4.5s ease-in-out infinite",
-                pointerEvents: "none",
-              }} />
-
-              {/* Headline */}
               <h1 style={{
                 fontFamily: "'Syne', sans-serif",
                 fontSize: "clamp(44px, 7vw, 76px)",
-                fontWeight: 800, lineHeight: 1.0,
-                letterSpacing: "-0.035em",
+                fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.035em",
                 margin: "0 0 20px",
                 background: `linear-gradient(135deg, ${WHITE} 0%, ${WHITE} 40%, rgba(192,38,211,0.95) 70%, ${TEAL} 100%)`,
                 WebkitBackgroundClip: "text",
@@ -1238,98 +1202,86 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                 ⚡ Create Without Limits
               </h1>
 
-              {/* Model names */}
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 10, flexWrap: "wrap", marginBottom: 20,
+                gap: 10, flexWrap: "wrap", marginBottom: 22,
               }}>
-                {["Nano Banana Pro", "FLUX Pro", "Seedream", "Kling 3.0"].map((model, i) => (
-                  <span key={model} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {["Nano Banana Pro", "FLUX Pro", "Seedream", "Kling 3.0"].map((m, i) => (
+                  <span key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{
                       fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
-                      color: "rgba(148,163,184,0.60)", letterSpacing: "0.03em",
-                    }}>{model}</span>
-                    {i < 3 && (
-                      <span style={{ color: "rgba(100,116,139,0.35)", fontSize: 10 }}>•</span>
-                    )}
+                      color: "rgba(203,213,225,0.60)", letterSpacing: "0.03em",
+                    }}>{m}</span>
+                    {i < 3 && <span style={{ color: "rgba(100,116,139,0.35)", fontSize: 10 }}>•</span>}
                   </span>
                 ))}
               </div>
 
               {/* Launch offer */}
               <div style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                marginBottom: 36,
-                animation: "zpo-launch-pulse 3s ease-in-out infinite",
+                display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 36,
+                animation: "zpo-launch-float 4s ease-in-out infinite",
               }}>
                 <span style={{
                   fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800,
-                  letterSpacing: "0.01em",
-                  color: "rgba(203,213,225,0.80)",
-                }}>
-                  Launch Offer —
-                </span>
+                  color: "rgba(226,232,240,0.80)",
+                }}>Launch Offer —</span>
                 <span style={{
                   fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800,
                   background: `linear-gradient(135deg, ${AMBER} 0%, #FCD34D 100%)`,
                   WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
-                }}>
-                  Up to 40% OFF
-                </span>
+                }}>Up to 40% OFF</span>
               </div>
 
-              {/* Subtitle */}
               <p style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
                 fontSize: "clamp(14px, 1.8vw, 16px)",
-                color: "rgba(148,163,184,0.65)",
+                color: "rgba(203,213,225,0.72)",
                 margin: "0 auto 40px", maxWidth: 460, lineHeight: 1.65,
               }}>
                 Generate images, videos, and audio with cutting-edge AI models and tools.
               </p>
 
-              {/* Billing toggle */}
               <BillingToggle billing={billing} onChange={setBilling} />
             </div>
 
-            {/* ── Plan Cards ── */}
-            <div style={{ position: "relative" }}>
-              {/* Ambient glow behind cards */}
-              <div style={{
-                position: "absolute", top: "50%", left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: "100%", maxWidth: 1000, height: 500,
-                background: "radial-gradient(ellipse, rgba(192,38,211,0.06) 0%, rgba(14,165,160,0.04) 50%, transparent 75%)",
-                animation: "zpo-card-glow 7s ease-in-out infinite",
-                pointerEvents: "none",
-              }} />
-
-              <div style={{
-                display: "flex", gap: 18, padding: "0 24px",
-                maxWidth: 1180, margin: "0 auto",
-                justifyContent: "center", alignItems: "flex-start",
-                flexWrap: "wrap", position: "relative", zIndex: 1,
-              }}>
-                {PLANS.map(plan => (
-                  <PricingCard
-                    key={plan.id}
-                    plan={plan}
-                    billing={billing}
-                    selected={selected === plan.id}
-                    onSelect={setSelected}
-                  />
-                ))}
-              </div>
+            {/* ── Pricing Cards — alignItems:stretch for equal height ── */}
+            <div style={{
+              display: "flex", gap: 18, padding: "0 24px",
+              maxWidth: 1180, margin: "0 auto",
+              justifyContent: "center",
+              alignItems: "stretch",        // equal card height
+              flexWrap: "wrap",
+            }}>
+              {PLANS.map(plan => (
+                <PricingCard
+                  key={plan.id}
+                  plan={plan}
+                  billing={billing}
+                  selected={selected === plan.id}
+                  onSelect={setSelected}
+                />
+              ))}
             </div>
 
             {/* Micro copy */}
-            <div style={{ textAlign: "center", padding: "18px 24px 52px" }}>
+            <div style={{ textAlign: "center", padding: "18px 24px 8px" }}>
               <span style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
                 fontSize: 11.5, color: "rgba(71,85,105,0.55)", fontStyle: "italic",
               }}>
                 ⓘ Output may vary based on model selection and quality settings.
+              </span>
+            </div>
+
+            {/* ── Credit reset notice (Fix #13) ── */}
+            <div style={{ textAlign: "center", padding: "4px 24px 52px" }}>
+              <span style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 12, color: "rgba(100,116,139,0.55)",
+              }}>
+                Credits reset monthly. Unused credits do not roll over.
               </span>
             </div>
 
@@ -1354,12 +1306,11 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               padding: "64px 24px 0",
               position: "relative", overflow: "hidden",
             }}>
-              {/* Bottom glow */}
               <div style={{
-                position: "absolute", top: 0, left: "50%",
-                transform: "translateX(-50%)",
+                position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
                 width: 800, height: 300,
-                background: "radial-gradient(ellipse, rgba(139,92,246,0.12) 0%, transparent 70%)",
+                background: "rgba(139,92,246,0.10)",
+                filter: "blur(100px)",
                 pointerEvents: "none",
               }} />
 
@@ -1374,7 +1325,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                 </h2>
                 <p style={{
                   fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 15,
-                  color: "rgba(148,163,184,0.62)",
+                  color: "rgba(203,213,225,0.68)",
                   margin: "0 auto 40px", maxWidth: 380, lineHeight: 1.6,
                 }}>
                   Join thousands of creators building the future with Zencra.
@@ -1386,24 +1337,24 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   color: "#fff", fontFamily: "'Syne', sans-serif",
                   fontSize: 16, fontWeight: 700, letterSpacing: "0.04em",
                   cursor: "pointer",
-                  boxShadow: `0 0 40px rgba(139,92,246,0.50), 0 0 80px rgba(139,92,246,0.22)`,
+                  boxShadow: `0 0 40px rgba(139,92,246,0.48), 0 0 80px rgba(139,92,246,0.20)`,
                   transition: "all 0.25s ease",
                   display: "inline-flex", alignItems: "center", gap: 10,
                 }}
                   onMouseEnter={e => {
                     e.currentTarget.style.transform = "scale(1.04)";
-                    e.currentTarget.style.boxShadow = `0 0 60px rgba(139,92,246,0.70), 0 0 120px rgba(139,92,246,0.32)`;
+                    e.currentTarget.style.boxShadow = `0 0 60px rgba(139,92,246,0.68), 0 0 120px rgba(139,92,246,0.30)`;
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.transform = "scale(1)";
-                    e.currentTarget.style.boxShadow = `0 0 40px rgba(139,92,246,0.50), 0 0 80px rgba(139,92,246,0.22)`;
+                    e.currentTarget.style.boxShadow = `0 0 40px rgba(139,92,246,0.48), 0 0 80px rgba(139,92,246,0.20)`;
                   }}
                 >
                   Choose your plan →
                 </button>
               </div>
 
-              {/* Trust footer bar */}
+              {/* Trust footer */}
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 flexWrap: "wrap", gap: 16,
@@ -1411,53 +1362,45 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                 borderTop: "1px solid rgba(255,255,255,0.04)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="11" width="18" height="11" rx="2" stroke={TEAL} strokeWidth="1.8" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={TEAL} strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                    <span style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12, color: "rgba(100,116,139,0.65)" }}>
-                      Secure payments
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <polyline points="3.5 8 6.5 11 12.5 5" stroke={TEAL} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12, color: "rgba(100,116,139,0.65)" }}>
-                      Cancel anytime
-                    </span>
-                  </div>
+                  {[
+                    { icon: "🔒", text: "Secure payments" },
+                    { icon: "✓", text: "Cancel anytime" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ color: TEAL, fontSize: 13 }}>{item.icon}</span>
+                      <span style={{ fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12.5, color: "rgba(148,163,184,0.65)" }}>
+                        {item.text}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  {/* Avatar circles */}
                   <div style={{ display: "flex", alignItems: "center" }}>
                     {["#8B5CF6", "#0EA5A0", "#EC4899", "#F59E0B", "#3B82F6"].map((color, i) => (
                       <div key={i} style={{
                         width: 28, height: 28, borderRadius: 14,
                         background: `radial-gradient(circle at 35% 35%, ${color}BB, ${color}55)`,
-                        border: "2px solid rgba(6,1,26,0.90)",
+                        border: "2px solid rgba(3,0,14,0.90)",
                         marginLeft: i === 0 ? 0 : -8,
-                        zIndex: 5 - i,
-                        position: "relative",
+                        zIndex: 5 - i, position: "relative",
                       }} />
                     ))}
                   </div>
                   <span style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12,
-                    color: "rgba(100,116,139,0.65)",
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 12.5,
+                    color: "rgba(148,163,184,0.65)",
                   }}>
                     Trusted by 50,000+ creators worldwide
                   </span>
                 </div>
               </div>
 
-              {/* Legal footer */}
+              {/* Legal */}
               <div style={{
                 textAlign: "center", padding: "24px 24px 48px",
                 fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-                color: "rgba(71,85,105,0.45)", lineHeight: 1.7,
+                color: "rgba(71,85,105,0.42)", lineHeight: 1.7,
               }}>
                 Prices shown in USD. Credit costs vary by model and resolution.<br />
                 All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.
