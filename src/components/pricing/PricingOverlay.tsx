@@ -1121,22 +1121,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                       position: "absolute", inset: 0,
                       background: "rgba(0,0,0,0.50)",
                     }} />
-                    {/* Play icon — topmost layer */}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      zIndex: 1,
-                    }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: "50%",
-                        border: "1.5px solid rgba(255,255,255,0.20)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        <svg width="13" height="13" viewBox="0 0 12 12" fill="rgba(255,255,255,0.50)">
-                          <polygon points="3,1 11,6 3,11" />
-                        </svg>
-                      </div>
-                    </div>
                   </div>
                 ))}
               </div>
