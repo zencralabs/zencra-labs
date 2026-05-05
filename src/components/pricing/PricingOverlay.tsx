@@ -1237,24 +1237,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
             ))}
           </div>
 
-          {/* Disclaimer copy */}
-          <div style={{ textAlign: "center", padding: "16px 24px 6px" }}>
-            <span style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 11.5, color: "rgba(71,85,105,0.55)", fontStyle: "italic",
-            }}>
-              ⓘ Output may vary based on model selection and quality settings.
-            </span>
-          </div>
-          <div style={{ textAlign: "center", padding: "4px 24px 56px" }}>
-            <span style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 12, color: "rgba(100,116,139,0.55)",
-            }}>
-              Credits reset monthly. Unused credits do not roll over.
-            </span>
-          </div>
-
           {/* ── FCS Strip ── */}
           <div style={{ marginBottom: 40 }}>
             <FCSStrip />
@@ -1369,7 +1351,9 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               color: "rgba(71,85,105,0.42)", lineHeight: 1.7,
             }}>
               Prices shown in USD. Credit costs vary by model and resolution.<br />
-              All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.
+              All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.<br />
+              <span style={{ fontStyle: "italic" }}>ⓘ Output may vary based on model selection and quality settings.</span>
+              {"  ·  "}Credits reset monthly. Unused credits do not roll over.
             </div>
           </div>
 
