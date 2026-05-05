@@ -662,116 +662,109 @@ function BoostSelector() {
         background: "linear-gradient(135deg, rgba(14,165,160,0.06) 0%, rgba(14,165,160,0.02) 100%)",
         border: "1px solid rgba(14,165,160,0.18)",
         padding: "32px 40px",
-        display: "grid",
-        gridTemplateColumns: "1fr 260px",
-        gap: 32,
-        alignItems: "center",
       }}>
-        {/* Left */}
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 20 }}>🚀</span>
-            <div style={{
-              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
-              letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
-            }}>Boost Credit Packs</div>
-          </div>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <span style={{ fontSize: 20 }}>🚀</span>
           <div style={{
-            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
-            color: "rgba(203,213,225,0.70)", marginBottom: 28,
-          }}>
-            Add extra credits when you need more. Boost credits expire after 90 days.
-          </div>
-
-          {/* 4 card-buttons */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            {BOOST_PACKS.map((b, i) => {
-              const isActive = i === selected;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setSelected(i)}
-                  style={{
-                    padding: "18px 12px",
-                    borderRadius: 16,
-                    border: `1.5px solid ${isActive ? TEAL : "rgba(30,41,59,0.75)"}`,
-                    background: isActive
-                      ? "linear-gradient(135deg, rgba(34,211,238,0.16) 0%, rgba(34,211,238,0.06) 100%)"
-                      : "rgba(15,23,42,0.65)",
-                    cursor: "pointer",
-                    textAlign: "center",
-                    transform: isActive ? "scale(1.02)" : "scale(1)",
-                    transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)",
-                    boxShadow: isActive
-                      ? "0 0 24px rgba(34,211,238,0.38), 0 0 48px rgba(34,211,238,0.15)"
-                      : "none",
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) e.currentTarget.style.borderColor = "rgba(34,211,238,0.40)";
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) e.currentTarget.style.borderColor = "rgba(30,41,59,0.75)";
-                  }}
-                >
-                  <div style={{ fontSize: 20, marginBottom: 8 }}>{packIcons[i]}</div>
-                  <div style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10, fontWeight: 700,
-                    letterSpacing: "0.10em", textTransform: "uppercase",
-                    color: isActive ? TEAL : "rgba(100,116,139,0.60)", marginBottom: 8,
-                  }}>{packLabels[i]}</div>
-                  <div style={{
-                    fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800,
-                    color: isActive ? WHITE : "rgba(226,232,240,0.55)",
-                    letterSpacing: "-0.03em", lineHeight: 1,
-                  }}>+{b.credits.toLocaleString()}</div>
-                  <div style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10,
-                    color: "rgba(148,163,184,0.50)", marginTop: 3,
-                  }}>credits</div>
-                  <div style={{
-                    marginTop: 10,
-                    fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 700,
-                    color: isActive ? TEAL : "rgba(100,116,139,0.55)",
-                  }}>${b.price}</div>
-                </button>
-              );
-            })}
-          </div>
-
+            fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+            letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
+          }}>Boost Credit Packs</div>
+        </div>
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
+          color: "rgba(203,213,225,0.70)", marginBottom: 24,
+        }}>
+          Add extra credits when you need more. Boost credits expire after 90 days.
         </div>
 
-        {/* Right callout — clamped font + sweep animation */}
-        <div style={{
-          height: 180,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          borderRadius: 18,
-          background: "linear-gradient(160deg, rgba(139,92,246,0.14) 0%, rgba(34,211,238,0.10) 100%)",
-          border: "1px solid rgba(139,92,246,0.22)",
-          boxShadow: "0 0 36px rgba(139,92,246,0.12)",
-          position: "relative",
-          overflow: "hidden",
-          textAlign: "center",
-        }}>
-          {/* Sweep light effect */}
+        {/* Single-row grid: 4 pack cards + preview card */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 260px", alignItems: "stretch", gap: 16 }}>
+          {BOOST_PACKS.map((b, i) => {
+            const isActive = i === selected;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelected(i)}
+                style={{
+                  padding: "18px 12px",
+                  borderRadius: 16,
+                  border: `1.5px solid ${isActive ? TEAL : "rgba(30,41,59,0.75)"}`,
+                  background: isActive
+                    ? "linear-gradient(135deg, rgba(34,211,238,0.16) 0%, rgba(34,211,238,0.06) 100%)"
+                    : "rgba(15,23,42,0.65)",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  transform: isActive ? "scale(1.02)" : "scale(1)",
+                  transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)",
+                  boxShadow: isActive
+                    ? "0 0 24px rgba(34,211,238,0.38), 0 0 48px rgba(34,211,238,0.15)"
+                    : "none",
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) e.currentTarget.style.borderColor = "rgba(34,211,238,0.40)";
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) e.currentTarget.style.borderColor = "rgba(30,41,59,0.75)";
+                }}
+              >
+                <div style={{ fontSize: 20, marginBottom: 8 }}>{packIcons[i]}</div>
+                <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10, fontWeight: 700,
+                  letterSpacing: "0.10em", textTransform: "uppercase",
+                  color: isActive ? TEAL : "rgba(100,116,139,0.60)", marginBottom: 8,
+                }}>{packLabels[i]}</div>
+                <div style={{
+                  fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 800,
+                  color: isActive ? WHITE : "rgba(226,232,240,0.55)",
+                  letterSpacing: "-0.03em", lineHeight: 1,
+                }}>+{b.credits.toLocaleString()}</div>
+                <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10,
+                  color: "rgba(148,163,184,0.50)", marginTop: 3,
+                }}>credits</div>
+                <div style={{
+                  marginTop: 10,
+                  fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 700,
+                  color: isActive ? TEAL : "rgba(100,116,139,0.55)",
+                }}>${b.price}</div>
+              </button>
+            );
+          })}
+
+          {/* Preview card — 5th column, same row as pack cards */}
           <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%)",
-            animation: "zpo-sweep 3.5s ease-in-out infinite",
-            pointerEvents: "none",
-          }} />
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
+            alignSelf: "stretch",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 18,
+            background: "linear-gradient(160deg, rgba(139,92,246,0.14) 0%, rgba(34,211,238,0.10) 100%)",
+            border: "1px solid rgba(139,92,246,0.22)",
+            boxShadow: "0 0 36px rgba(139,92,246,0.12)",
+            position: "relative",
+            overflow: "hidden",
+            textAlign: "center",
+          }}>
+            {/* Sweep light effect */}
             <div style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: "clamp(22px, 2.5vw, 32px)",
-              fontWeight: 800,
-              color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
-              transition: "all 0.22s ease",
-            }}>+{pack.credits.toLocaleString()}</div>
-            <div style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
-            }}>credits instantly</div>
+              position: "absolute", inset: 0,
+              background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%)",
+              animation: "zpo-sweep 3.5s ease-in-out infinite",
+              pointerEvents: "none",
+            }} />
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
+              <div style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: "clamp(22px, 2.5vw, 32px)",
+                fontWeight: 800,
+                color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
+                transition: "all 0.22s ease",
+              }}>+{pack.credits.toLocaleString()}</div>
+              <div style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
+              }}>credits instantly</div>
+            </div>
           </div>
         </div>
       </div>
