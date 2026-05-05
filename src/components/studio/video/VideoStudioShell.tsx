@@ -782,7 +782,7 @@ function OmniDirectorBoard({
           <>
             {/* ── Reference thumbnails — appear when assets are attached ── */}
             {(hasStart || hasEnd || hasVideo) && (
-              <div style={{ display: "flex", gap: 0, alignItems: "flex-start", marginBottom: 2 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-start", justifyContent: "center", marginBottom: 2 }}>
                 {/* Start Frame */}
                 {hasStart && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
