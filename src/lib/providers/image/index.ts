@@ -7,8 +7,9 @@
  *   nano-banana-standard   → Nano Banana         (api.nanobananaapi.ai /generate)
  *   nano-banana-pro        → Nano Banana Pro      (api.nanobananaapi.ai /generate-pro)
  *   nano-banana-2          → Nano Banana 2        (api.nanobananaapi.ai /generate-v2)
- *   seedream-v5            → Seedream v5          (fal-ai/seedream-3 via fal.ai)
- *   seedream-4-5           → Seedream 4.5         (fal-ai/seedream-v4-5 via fal.ai)
+ *   seedream-v5            → Seedream v5          (fal-ai/seedream via fal.ai — primary t2i)
+ *   seedream-v5-lite       → Seedream Lite        (fal-ai/seedream/edit via fal.ai — fast+edit)
+ *   seedream-4-5           → Seedream 4.5         (fal-ai/seedream/v4.5 — legacy, DB inactive)
  *   flux-kontext           → FLUX.1 Kontext       (fal-ai/flux-pro/kontext via fal.ai)
  *
  * Phase 2 Registered (coming-soon — NOT callable):
@@ -28,7 +29,7 @@
 import { registerProvider } from "../core/orchestrator";
 import { gptImageProvider, gptImage2Provider } from "./gpt-image";
 import { nanoBananaStandardProvider, nanoBananaProProvider, nanoBanana2Provider } from "./nano-banana";
-import { seedreamV5Provider, seedream45Provider } from "./seedream";
+import { seedreamV5Provider, seedreamV5LiteProvider, seedream45Provider } from "./seedream";
 import { fluxKontextProvider }      from "./flux-kontext";
 import { flux2Provider }            from "./flux2";
 
@@ -40,7 +41,8 @@ export function registerImageProviders(): void {
   registerProvider(nanoBananaProProvider);
   registerProvider(nanoBanana2Provider);
   registerProvider(seedreamV5Provider);
-  registerProvider(seedream45Provider);
+  registerProvider(seedreamV5LiteProvider);
+  registerProvider(seedream45Provider);   // legacy — DB inactive; registered so orchestrator returns MODEL_INACTIVE
   registerProvider(fluxKontextProvider);
 
   // Phase 2 — registered but NOT callable (status: "coming-soon", validateInput always fails)
@@ -57,6 +59,7 @@ export {
   nanoBananaProProvider,
   nanoBanana2Provider,
   seedreamV5Provider,
+  seedreamV5LiteProvider,
   seedream45Provider,
   fluxKontextProvider,
   flux2Provider,

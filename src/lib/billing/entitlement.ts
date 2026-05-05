@@ -36,7 +36,8 @@ export type StudioType =
   | "audio"
   | "character"
   | "ugc"
-  | "fcs";
+  | "fcs"
+  | "lipsync";
 
 export type EntitlementPath = "trial" | "paid" | "admin" | "free";
 
@@ -98,6 +99,7 @@ const STUDIO_FLAGS: Record<StudioType, string> = {
   character: "ZENCRA_FLAG_CHARACTER_ENABLED",
   ugc:       "ZENCRA_FLAG_UGC_ENABLED",
   fcs:       "ZENCRA_FLAG_FCS_ENABLED",
+  lipsync:   "ZENCRA_FLAG_LIPSYNC_STUDIO",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,7 +176,7 @@ export async function checkEntitlement(
     // Locked free allowance: ONLY image and video.
     // audio, character, ugc, fcs are all paid-only — block with FREE_LIMIT_REACHED
     // so the UI redirects to /pricing (same UX as exhausted allowance).
-    const FREE_TIER_PAID_ONLY: StudioType[] = ["fcs", "audio", "character", "ugc"];
+    const FREE_TIER_PAID_ONLY: StudioType[] = ["fcs", "audio", "character", "ugc", "lipsync"];
     if (FREE_TIER_PAID_ONLY.includes(studioType)) {
       throw new StudioDispatchError(
         `${studioType === "fcs" ? "Future Cinema Studio" : studioType.charAt(0).toUpperCase() + studioType.slice(1)} generation requires a paid subscription. Upgrade to continue.`,

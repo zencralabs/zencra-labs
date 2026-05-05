@@ -20,7 +20,8 @@ export type StudioType =
   | "audio"
   | "character"
   | "ugc"
-  | "fcs";           // Future Cinema Studio — isolated from video
+  | "fcs"            // Future Cinema Studio — isolated from video
+  | "lipsync";       // Studio Lip Sync — Sync Labs v3 via fal.ai
 
 /** Phase designation. FCS is always its own lane regardless of launch date. */
 export type Phase = 1 | 2 | "fcs";
@@ -54,6 +55,7 @@ export type ProviderFamily =
   | "heygen-video"     // HeyGen Video Studio (avatar video — separate product)
   | "ltx"              // FCS — legacy LTX direct API (deprecated)
   | "fal-fcs"          // FCS — LTX-2.3 via fal.ai (Phase 1 current)
+  | "fal-lipsync"      // Studio Lip Sync — Sync Labs v3 via fal.ai queue
   | "motion-abstract"  // Character motion abstraction (no concrete provider yet)
   | "unknown";         // Phase 2 providers where API vendor is TBD
 

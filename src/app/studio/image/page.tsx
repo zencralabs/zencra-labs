@@ -255,9 +255,12 @@ interface StudioModel {
 // ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
 const MODEL_TO_KEY: Record<string, string> = {
   "dalle3":               "gpt-image-1",
+  "gpt-image-2":          "gpt-image-2",
   "nano-banana-standard": "nano-banana-standard",
   "nano-banana-pro":      "nano-banana-pro",
   "nano-banana-2":        "nano-banana-2",
+  "seedream-v5":          "seedream-v5",
+  "seedream-v5-lite":     "seedream-v5-lite",
 };
 
 // ── Reverse map — model key → UI model ID (used by flow variation handler) ───
@@ -333,6 +336,12 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   return mapArForGpt(ar);
 }
 
+/**
+ * Seedream v5 supports 4 aspect ratios (same as GPT Image).
+ * Seedream Lite (v5-lite/edit) uses the same set.
+ */
+const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
+
 // ── Model definitions ─────────────────────────────────────────────────────────
 const MODELS: StudioModel[] = [
   {
@@ -383,38 +392,38 @@ const MODELS: StudioModel[] = [
     nbVariant: "nb2",
     allowedQualities: ["1K", "2K", "4K"],
   },
-  // ── Coming-soon models — UI-visible, no backend route yet ────────────────
   {
     id: "gpt-image-2",
     name: "GPT Image 2",
     provider: "OpenAI",
-    description: "OpenAI's next-generation image model · coming soon",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
+    description: "OpenAI's next-generation model · richer detail · precise control",
+    badge: "NEW",
+    badgeColor: "#10A37F",
+    available: true,
     icon: "openai",
     allowedQualities: ["1K"],
   },
   {
-    id: "seedream-45",
-    name: "Seedream 4.5",
+    id: "seedream-v5",
+    name: "Seedream v5",
     provider: "ByteDance",
-    description: "High-fidelity text-to-image · coming soon",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
+    description: "ByteDance flagship · cinematic quality · richly detailed",
+    badge: "HOT",
+    badgeColor: "#EF4444",
+    available: true,
     icon: "seedream",
     allowedQualities: ["1K"],
   },
   {
-    id: "seedream-50-lite",
-    name: "Seedream 5.0 Lite",
+    id: "seedream-v5-lite",
+    name: "Seedream Lite",
     provider: "ByteDance",
-    description: "Fast, affordable high-quality generation · coming soon",
-    badge: "SOON",
-    badgeColor: "#374151",
-    available: false,
+    description: "Fast generation + image editing · v5 quality, lower cost",
+    badge: "EDIT",
+    badgeColor: "#06B6D4",
+    available: true,
     icon: "seedream",
+    requiresImg: false,   // edit mode is optional — also works text-only
     allowedQualities: ["1K"],
   },
   {
@@ -1789,6 +1798,10 @@ function ImageStudioInner() {
       }
       if (model.startsWith("nano-banana")) {
         return (NB_STANDARD_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
+      // Seedream — collapses to 4-option set
+      if (model.startsWith("seedream")) {
+        return (SEEDREAM_AR as readonly string[]).includes(cur) ? cur : "1:1";
       }
       // GPT Image — always pass through (mapArForGpt collapses internally)
       return cur;
@@ -3973,9 +3986,10 @@ function ImageStudioInner() {
             {(() => {
               // Hard-locked AR list per model — only supported ratios are shown.
               const activeArList: AspectRatio[] =
-                model === "nano-banana-2"   ? NB2_AR :
-                model === "nano-banana-pro" ? NB_PRO_AR :
-                model.startsWith("nano-banana") ? NB_STANDARD_AR :
+                model === "nano-banana-2"          ? NB2_AR :
+                model === "nano-banana-pro"        ? NB_PRO_AR :
+                model.startsWith("nano-banana")    ? NB_STANDARD_AR :
+                model.startsWith("seedream")       ? SEEDREAM_AR :
                 DALLE_AR;
 
               return (

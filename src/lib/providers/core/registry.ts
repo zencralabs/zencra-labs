@@ -223,17 +223,20 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   },
 
   // ── Seedream (via fal.ai) ──────────────────────────────────────────────────
-  // fal.ai endpoints: fal-ai/seedream-3 (v5), fal-ai/seedream-v4-5 (4.5)
+  // fal.ai endpoints:
+  //   fal-ai/seedream       → Seedream v5 text-to-image (primary quality model)
+  //   fal-ai/seedream/edit  → Seedream v5 edit / image-to-image (Lite fast+edit tier)
+  //   fal-ai/seedream/v4.5  → Seedream 4.5 legacy (DB inactive, provider registered for error routing)
   // ByteDance / Dreamina brand — served through fal.ai queue
 
   {
     key:            "seedream-v5",
     providerBrand:  "ByteDance / Dreamina",
     displayName:    "Seedream v5",
-    apiModelId:     "fal-ai/seedream-3",
+    apiModelId:     "fal-ai/seedream",
     studio:         "image",
     providerFamily: "fal",
-    description:    "ByteDance's flagship image model — cinematic, richly detailed",
+    description:    "ByteDance's flagship image model — cinematic, richly detailed text-to-image",
     phase:          1,
     status:         "active",
     badge:          "HOT",
@@ -244,28 +247,51 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     asyncMode:       "polling",
     supportsWebhook: false,
     supportsPolling: true,
-    estimatedCostRange: "3–5 credits",
+    estimatedCostRange: "13–17 credits",
     creditMultiplier:   1.5,
   },
 
   {
+    key:            "seedream-v5-lite",
+    providerBrand:  "ByteDance / Dreamina",
+    displayName:    "Seedream Lite",
+    apiModelId:     "fal-ai/seedream/edit",
+    studio:         "image",
+    providerFamily: "fal",
+    description:    "Seedream v5 edit tier — fast generation and image-to-image editing",
+    phase:          1,
+    status:         "active",
+    badge:          "EDIT",
+    badgeColor:     "#06B6D4",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "fast_mode"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "6–10 credits",
+    creditMultiplier:   1,
+  },
+
+  {
+    // Legacy Seedream 4.5 — DB row inactive. Provider registered so orchestrator returns
+    // MODEL_INACTIVE instead of PROVIDER_NOT_REGISTERED for any stale requests.
     key:            "seedream-4-5",
     providerBrand:  "ByteDance / Dreamina",
     displayName:    "Seedream 4.5",
-    apiModelId:     "fal-ai/seedream-v4-5",
+    apiModelId:     "fal-ai/seedream/v4.5",
     studio:         "image",
     providerFamily: "fal",
-    description:    "Optimized Seedream variant — faster with strong quality",
+    description:    "Legacy Seedream variant — superseded by v5 and v5-lite",
     phase:          1,
-    status:         "active",
+    status:         "deprecated",
+    uiHidden:       true,
     capabilities:   ["text_to_image", "photoreal"],
     supportedInputModes:   ["text"],
     supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
     asyncMode:       "polling",
     supportsWebhook: false,
     supportsPolling: true,
-    estimatedCostRange: "2–4 credits",
-    creditMultiplier:   1,
   },
 
   // ── FLUX.1 Kontext (via fal.ai) ────────────────────────────────────────────
@@ -1094,6 +1120,38 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: false,
     estimatedCostRange: "TBD",
     creditMultiplier:   4,
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LIP SYNC STUDIO — Phase 1 Active
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Sync Labs v3 (via fal.ai queue) ────────────────────────────────────────
+  // Completely separate from the existing /api/lipsync/* (legacy) system.
+  // Uses the LipSyncProviderAdapter in src/lib/providers/lipsync/pro.ts directly.
+  // No studioDispatch, no ZProvider — its own dedicated generate + status routes.
+  {
+    key:            "sync-lipsync-v3",
+    providerBrand:  "Sync Labs",
+    displayName:    "Sync v3",
+    apiModelId:     "fal-ai/sync-lipsync/v3",
+    studio:         "lipsync",
+    providerFamily: "fal-lipsync",
+    description:    "Sync Labs v3 lip sync — sync audio to any video face via fal.ai queue",
+    phase:          1,
+    status:         "active",
+    badge:          "SYNC",
+    badgeColor:     "#6366F1",
+    capabilities:   ["lip_sync"],
+    supportedInputModes:   ["video", "audio"],
+    supportedAspectRatios: ["16:9", "9:16", "1:1"],
+    supportedDurations: [5, 10, 15, 20, 25, 30, 60, 90, 120, 180, 240, 300],
+    maxDuration:     300,   // 5 minutes hard cap
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "90–540 credits",
+    creditMultiplier:   1,
   },
 ];
 

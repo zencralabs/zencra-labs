@@ -107,8 +107,12 @@ export function getFalEnv(): FalEnv {
 // Default values are the exact upstream fal.ai endpoint strings — never Zencra aliases.
 export const FAL_MODEL_IDS = {
   // Seedream (ByteDance / Dreamina, via fal.ai queue)
-  seedreamV5:    optional("FAL_MODEL_SEEDREAM_V5",     "fal-ai/seedream-3") as string,
-  seedream45:    optional("FAL_MODEL_SEEDREAM_45",     "fal-ai/seedream-v4-5") as string,
+  // fal-ai/seedream     → Seedream v5 text-to-image (primary quality model)
+  // fal-ai/seedream/edit → Seedream v5 edit / image-to-image (Lite fast+edit tier)
+  // fal-ai/seedream/v4.5 → Seedream 4.5 legacy (disabled — kept for reference)
+  seedreamV5:      optional("FAL_MODEL_SEEDREAM_V5",      "fal-ai/seedream") as string,
+  seedreamV5Lite:  optional("FAL_MODEL_SEEDREAM_V5_LITE", "fal-ai/seedream/edit") as string,
+  seedream45:      optional("FAL_MODEL_SEEDREAM_45",      "fal-ai/seedream/v4.5") as string,
   // Black Forest Labs FLUX via fal.ai queue
   // FLUX.1 Kontext [pro] — production model (Image Studio + context editing)
   fluxKontext:   optional("FAL_MODEL_FLUX_KONTEXT",    "fal-ai/flux-pro/kontext") as string,
