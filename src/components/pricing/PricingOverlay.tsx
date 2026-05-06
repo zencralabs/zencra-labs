@@ -387,6 +387,7 @@ function BillingToggle({ billing, onChange }: {
 
 function PricingCard({
   plan, billing, selected, onSelect, fcsEnabled, onFCSUpsell,
+  businessSeats = 2, onBusinessSeatsChange,
 }: {
   plan: Plan;
   billing: BillingCycle;
@@ -394,14 +395,24 @@ function PricingCard({
   onSelect: (id: string) => void;
   fcsEnabled: boolean;
   onFCSUpsell: (plan: Plan) => void;
+  businessSeats?: number;
+  onBusinessSeatsChange?: (n: number) => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const price         = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
-  const period        = billing === "yearly" ? "yr" : "mo";
+  const basePeriod    = billing === "yearly" ? "yr" : "mo";
   const displayImages = billing === "yearly" ? plan.images * 12 : plan.images;
   const displayClips  = billing === "yearly" ? plan.clips  * 12 : plan.clips;
   const outputLabel   = billing === "yearly" ? "/ year"         : "/ month";
+
+  // Business workspace dynamic pricing
+  const isBusiness     = plan.id === "business";
+  const bSeats         = isBusiness ? businessSeats : 2;
+  const bMonthlyPrice  = isBusiness ? 89 + (bSeats - 2) * 29    : plan.monthlyPrice;
+  const bYearlyPrice   = isBusiness ? bMonthlyPrice * 10         : plan.yearlyPrice;
+  const bCredits       = isBusiness ? 8000 + (bSeats - 2) * 4000 : plan.credits;
+  const price          = billing === "yearly" ? bYearlyPrice : bMonthlyPrice;
+  const displayCredits = bCredits;
 
   // FCS CTA logic
   const isFCSDisabled = fcsEnabled && (plan.id === "starter" || plan.id === "creator");
@@ -420,7 +431,7 @@ function PricingCard({
         position: "relative",
         flex: "1 1 220px",
         minWidth: 215, maxWidth: 275,
-        height: 560,
+        ...(isBusiness ? { minHeight: 560 } : { height: 560 }),
         display: "flex", flexDirection: "column",
         justifyContent: "space-between",
         borderRadius: 22,
@@ -456,7 +467,7 @@ function PricingCard({
       {/* ── TOP GROUP ── */}
       <div>
         {/* Plan name */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isBusiness ? 8 : 16 }}>
           <span style={{ fontSize: 18 }}>{plan.icon}</span>
           <span style={{
             fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
@@ -464,6 +475,115 @@ function PricingCard({
             textTransform: "uppercase",
           }}>{plan.name}</span>
         </div>
+
+        {/* ── Business Workspace identity badge ── */}
+        {isBusiness && (
+          <div style={{ marginBottom: 14 }}>
+            {/* Workspace label */}
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "3px 10px 3px 8px",
+              borderRadius: 20,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.20)",
+              marginBottom: 10,
+            }}>
+              <span style={{ fontSize: 11 }}>🏢</span>
+              <span style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 11, fontWeight: 600,
+                color: "rgba(241,245,249,0.80)",
+                letterSpacing: "0.04em",
+              }}>Team Workspace — {bSeats} Seats Included</span>
+            </div>
+
+            {/* TEAM SIZE stepper */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 0,
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 10,
+              overflow: "hidden",
+              width: "100%",
+            }}>
+              {/* Label */}
+              <span style={{
+                flex: 1,
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 11.5, fontWeight: 600,
+                color: "rgba(148,163,184,0.70)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                padding: "7px 10px",
+              }}>Team Size</span>
+
+              {/* Minus */}
+              <button
+                disabled={bSeats <= 2}
+                onClick={e => { e.stopPropagation(); onBusinessSeatsChange?.(Math.max(2, bSeats - 1)); }}
+                style={{
+                  width: 32, height: 32,
+                  border: "none",
+                  borderLeft: "1px solid rgba(255,255,255,0.10)",
+                  background: bSeats <= 2 ? "transparent" : "rgba(255,255,255,0.06)",
+                  color: bSeats <= 2 ? "rgba(100,116,139,0.35)" : "rgba(226,232,240,0.80)",
+                  cursor: bSeats <= 2 ? "not-allowed" : "pointer",
+                  fontSize: 16, fontWeight: 300,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "background 0.18s, color 0.18s",
+                }}
+              >−</button>
+
+              {/* Count */}
+              <span style={{
+                width: 32, textAlign: "center",
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 14, fontWeight: 700,
+                color: "#ffffff",
+                borderLeft: "1px solid rgba(255,255,255,0.10)",
+                borderRight: "1px solid rgba(255,255,255,0.10)",
+                lineHeight: "32px",
+                flexShrink: 0,
+              }}>{bSeats}</span>
+
+              {/* Plus */}
+              <button
+                disabled={bSeats >= 3}
+                onClick={e => { e.stopPropagation(); onBusinessSeatsChange?.(Math.min(3, bSeats + 1)); }}
+                style={{
+                  width: 32, height: 32,
+                  border: "none",
+                  background: bSeats >= 3 ? "transparent" : "rgba(255,255,255,0.06)",
+                  color: bSeats >= 3 ? "rgba(100,116,139,0.35)" : "rgba(226,232,240,0.80)",
+                  cursor: bSeats >= 3 ? "not-allowed" : "pointer",
+                  fontSize: 16, fontWeight: 300,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "background 0.18s, color 0.18s",
+                }}
+              >+</button>
+            </div>
+
+            {/* Enterprise upsell — shown only at max (3 seats) */}
+            {bSeats >= 3 && (
+              <div style={{
+                marginTop: 7,
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 11, lineHeight: 1.5,
+                color: "rgba(148,163,184,0.60)",
+                textAlign: "center",
+              }}>
+                Need larger teams?{" "}
+                <span style={{
+                  color: "rgba(255,255,255,0.75)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                }}>Contact Enterprise Sales</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Price */}
         <div style={{ marginBottom: 12 }}>
@@ -478,7 +598,7 @@ function PricingCard({
               fontFamily: "'Familjen Grotesk', sans-serif",
               fontSize: 13, color: "rgba(148,163,184,0.50)",
               marginBottom: 8,
-            }}>/{period}</span>
+            }}>/{basePeriod}</span>
           </div>
           {billing === "monthly" && (
             <div style={{
@@ -486,7 +606,7 @@ function PricingCard({
               fontFamily: "'Familjen Grotesk', sans-serif",
               fontSize: 11.5, color: "rgba(100,116,139,0.60)",
             }}>
-              <span>${plan.yearlyPrice} / yr</span>
+              <span>${bYearlyPrice} / yr</span>
               <span style={{
                 color: GOLD, background: `rgba(255,213,106,0.10)`,
                 border: `1px solid rgba(255,213,106,0.22)`,
@@ -503,7 +623,7 @@ function PricingCard({
           color: "rgba(226,232,240,0.78)",
           marginBottom: 14,
         }}>
-          {plan.credits.toLocaleString()} credits / month
+          {displayCredits.toLocaleString()} credits / month
         </div>
 
         {/* Output */}
@@ -591,7 +711,15 @@ function PricingCard({
 
         {/* Features */}
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-          {plan.features.map((f, i) => (
+          {(isBusiness ? [
+            `${bSeats} Team Seats, Shared Credit Pool`,
+            "All Image & Video Models",
+            "AI Audio & Voiceover",
+            "Highest Priority Generation",
+            "Workspace Asset Library",
+            "Member Invite & Roles",
+            "Dedicated Support",
+          ] : plan.features).map((f, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
               <CheckIcon color={plan.border.replace(/[\d.]+\)$/, "0.90)")} />
               <span style={{
@@ -1236,6 +1364,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
   const [fcsEnabled, setFcsEnabled]     = useState(false);
   const [showFCSModal, setShowFCSModal] = useState(false);
   const [pendingPlan, setPendingPlan]   = useState<Plan | null>(null);
+  const [businessSeats, setBusinessSeats] = useState<number>(2);
 
   // Inject keyframes once
   useEffect(() => {
@@ -1626,6 +1755,8 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     onSelect={setSelected}
                     fcsEnabled={fcsEnabled}
                     onFCSUpsell={handleFCSUpsell}
+                    businessSeats={plan.id === "business" ? businessSeats : undefined}
+                    onBusinessSeatsChange={plan.id === "business" ? setBusinessSeats : undefined}
                   />
                 ))}
               </div>
