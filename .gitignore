@@ -67,3 +67,5 @@ loader.mjs
 
 # Hero videos are served from CDN/storage, not Git
 public/hero/videos/
+
+.claude/
