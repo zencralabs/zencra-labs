@@ -139,17 +139,49 @@ function WaveformBars({ color = "#C6FF00" }: { color?: string }) {
   );
 }
 
+// ── Audio Badge SVG icons ─────────────────────────────────────────────────────
+
+function SpeakerOff() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+      <line x1="23" y1="9" x2="17" y2="15"/>
+      <line x1="17" y1="9" x2="23" y2="15"/>
+    </svg>
+  );
+}
+
+function SpeakerOn() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+  );
+}
+
 // ── Audio Badge — gallery-card indicator for audio state ─────────────────────
 //
-// 5 states per the waveform UI spec:
+// States:
+//  1. scene + audioDetected=true   → speaker icon + waveform bars + glow pulse  (lime)
+//  2. voiceover + status=ready     → speaker + mic icons + glow                 (lime)
+//  3. voiceover + status=gen       → Generating Voiceover                       (purple pulsing)
+//  4. scene + audioDetected=false  → "No Audio" + speaker-off icon              (gray)
+//  5. null/undefined/fallback      → "No Audio" + speaker-off icon              (gray)
 //
-//  1. scene + audioDetected=true   → "♪ Scene Audio"       lime   + 5 animated bars
-//  2. voiceover + status=ready     → "♬ Voiceover Ready"   lime   + bars + play btn
-//  3. voiceover + status=gen       → "Generating Voiceover" purple + pulsing skeleton
-//  4. scene + audioDetected=false  → "⚠ No Scene Audio"    amber  (pack required)
-//  5. scene + audioDetected=null   → "? Audio Unknown"      gray   (inconclusive)
-//
-// Voiceover error and sceneAudioFallback edge cases also handled.
+// "Silent Audio" label removed. Unknown/missing → "No Audio".
 
 const badgeBase: React.CSSProperties = {
   display:       "inline-flex",
@@ -163,6 +195,14 @@ const badgeBase: React.CSSProperties = {
   whiteSpace:    "nowrap" as const,
 };
 
+const noAudioBadge: React.CSSProperties = {
+  ...badgeBase,
+  gap:        4,
+  background: "rgba(100,116,139,0.10)",
+  border:     "1px solid rgba(100,116,139,0.22)",
+  color:      "rgba(148,163,184,0.70)",
+};
+
 function AudioBadge({ video }: { video: GeneratedVideo }) {
   if (video.status !== "done") return null;
 
@@ -171,46 +211,38 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
     return (
       <div style={{
         ...badgeBase,
-        background: "rgba(198,255,0,0.10)",
-        border:     "1px solid rgba(198,255,0,0.28)",
+        background: "rgba(198,255,0,0.09)",
+        border:     "1px solid rgba(198,255,0,0.25)",
         color:      "#C6FF00",
+        animation:  "audioPulse 3.2s ease-in-out infinite",
       }}>
+        <SpeakerOn />
         <WaveformBars color="#C6FF00" />
-        ♪ Scene Audio
+        Scene Audio
       </div>
     );
   }
 
-  // ── State 4: Scene Audio — confirmed absent (false) ───────────────────────
+  // ── State 4: Scene Audio — confirmed absent ───────────────────────────────
   if (video.audioMode === "scene" && video.audioDetected === false) {
     return (
-      <div style={{
-        ...badgeBase,
-        gap:        4,
-        background: "rgba(255,160,0,0.12)",
-        border:     "1px solid rgba(255,160,0,0.32)",
-        color:      "#FFA000",
-      }}>
-        Silent Audio
+      <div style={noAudioBadge}>
+        <SpeakerOff />
+        No Audio
       </div>
     );
   }
 
-  // ── State 5: Scene Audio — detection inconclusive (null / fallback) ───────
+  // ── State 5: Scene Audio — detection inconclusive / fallback / no audioMode ─
   if (
     video.audioMode === "scene" &&
     (video.audioDetected === null || video.audioDetected === undefined ||
      video.sceneAudioFallback)
   ) {
     return (
-      <div style={{
-        ...badgeBase,
-        gap:        4,
-        background: "rgba(100,116,139,0.12)",
-        border:     "1px solid rgba(100,116,139,0.28)",
-        color:      "rgba(148,163,184,0.80)",
-      }}>
-        ? Audio Unknown
+      <div style={noAudioBadge}>
+        <SpeakerOff />
+        No Audio
       </div>
     );
   }
@@ -228,17 +260,17 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
           border:     "1px solid rgba(139,92,246,0.22)",
           color:      "#8B5CF6",
         }}>
-          {/* Pulsing skeleton bars — same shape as WaveformBars but paused/fading */}
+          {/* Pulsing skeleton bars */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14 }}>
             {WAVE_DELAYS.map((_, i) => (
               <div key={i} style={{
-                width:    3,
-                height:   "100%",
-                borderRadius: 1,
-                background: "#8B5CF6",
-                opacity:  0.50,
-                animation: "vlPulse 1s ease-in-out infinite",
-                animationDelay: `${i * 0.12}s`,
+                width:         3,
+                height:        "100%",
+                borderRadius:  1,
+                background:    "#8B5CF6",
+                opacity:       0.50,
+                animation:     "vlPulse 1s ease-in-out infinite",
+                animationDelay:`${i * 0.12}s`,
               }} />
             ))}
           </div>
@@ -247,21 +279,20 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
       );
     }
 
-    // State 2: Voiceover Ready — bars + play button
+    // State 2: Voiceover Ready — speaker + mic + waveform + glow
     if (video.voiceoverStatus === "ready") {
       return (
         <div style={{
           ...badgeBase,
-          background: "rgba(198,255,0,0.10)",
-          border:     "1px solid rgba(198,255,0,0.28)",
+          background: "rgba(198,255,0,0.09)",
+          border:     "1px solid rgba(198,255,0,0.25)",
           color:      "#C6FF00",
+          animation:  "audioPulse 3.2s ease-in-out infinite",
         }}>
+          <SpeakerOn />
+          <MicIcon />
           <WaveformBars color="#C6FF00" />
-          ♬ Voiceover Ready
-          {/* Mini inline play indicator */}
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="#C6FF00">
-            <polygon points="5 3 19 12 5 21 5 3"/>
-          </svg>
+          Voiceover Ready
         </div>
       );
     }
@@ -282,7 +313,13 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
     }
   }
 
-  return null;
+  // ── No audioMode set or unrecognised — show "No Audio" ───────────────────
+  return (
+    <div style={noAudioBadge}>
+      <SpeakerOff />
+      No Audio
+    </div>
+  );
 }
 
 // ── Featured Reel Tile ────────────────────────────────────────────────────────
@@ -1370,6 +1407,7 @@ export default function VideoResultsLibrary({
         @keyframes waveBar3    { 0%,100%{transform:scaleY(0.6)} 50%{transform:scaleY(0.9)} }
         @keyframes waveBar4    { 0%,100%{transform:scaleY(0.8)} 50%{transform:scaleY(0.3)} }
         @keyframes waveBar5    { 0%,100%{transform:scaleY(0.5)} 50%{transform:scaleY(1.0)} }
+        @keyframes audioPulse  { 0%,100%{box-shadow:0 0 0 0 rgba(198,255,0,0)} 50%{box-shadow:0 0 8px 1px rgba(198,255,0,0.18)} }
         @media (prefers-reduced-motion: reduce) { .zen-wave-bar { animation: none !important; } }
       `}</style>
     </section>

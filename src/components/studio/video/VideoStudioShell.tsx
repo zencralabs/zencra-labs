@@ -1851,11 +1851,14 @@ export default function VideoStudioShell() {
 
   const defaultModelId = VIDEO_MODEL_REGISTRY.find(m => m.available)?.id ?? VIDEO_MODEL_REGISTRY[0].id;
   // "model" param: catalog ID from VIDEO_MODEL_REGISTRY (e.g. "kling-30").
-  // Falls back to defaultModelId if param is missing or doesn't match any registry entry.
-  const modelParam = searchParams.get("model") ?? "";
-  const resolvedModelId = VIDEO_MODEL_REGISTRY.some(m => m.id === modelParam)
-    ? modelParam
-    : defaultModelId;
+  // Priority: URL ?model= > localStorage last-used > registry default (Kling 3.0)
+  const LS_VIDEO_MODEL_KEY = "zencra_video_model_v1";
+  const modelParam  = searchParams.get("model") ?? "";
+  const lsModelId   = typeof window !== "undefined" ? (localStorage.getItem(LS_VIDEO_MODEL_KEY) ?? "") : "";
+  const resolvedModelId =
+    VIDEO_MODEL_REGISTRY.some(m => m.id === modelParam)  ? modelParam  :
+    VIDEO_MODEL_REGISTRY.some(m => m.id === lsModelId)   ? lsModelId   :
+    defaultModelId;
   const [selectedModelId, setSelectedModelId] = useState(resolvedModelId);
   const model = VIDEO_MODEL_REGISTRY.find(m => m.id === selectedModelId) ?? null;
 
@@ -3034,11 +3037,22 @@ export default function VideoStudioShell() {
     setNegPrompt(video.negPrompt ?? "");
   }, []);
 
+  // Persist selected model to URL (?model=) and localStorage so refresh retains it
+  const handleModelSelect = useCallback((id: string) => {
+    setSelectedModelId(id);
+    try {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("model", id);
+      router.replace(`?${params.toString()}`, { scroll: false });
+      localStorage.setItem(LS_VIDEO_MODEL_KEY, id);
+    } catch { /* ignore SSR / storage errors */ }
+  }, [router, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Retry a failed video — restores prompt + model + AR then fires generation
   const handleRetry = useCallback((video: GeneratedVideo) => {
     setPrompt(video.prompt ?? "");
     setNegPrompt(video.negPrompt ?? "");
-    if (video.modelId) setSelectedModelId(video.modelId);
+    if (video.modelId) handleModelSelect(video.modelId);
     if (video.aspectRatio) setAspectRatio(video.aspectRatio as VideoAR);
     // Scroll to top of page so the user sees the canvas start generating
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3203,7 +3217,7 @@ export default function VideoStudioShell() {
       {/* ── Tool bar — family dropdowns ── */}
       <FamilyDropdownBar
         selectedId={selectedModelId}
-        onSelect={setSelectedModelId}
+        onSelect={handleModelSelect}
         onScrollToGallery={() => {
           videoResultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
         }}

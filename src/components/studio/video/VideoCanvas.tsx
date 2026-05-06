@@ -715,6 +715,17 @@ function GeneratingOverlay() {
         background: "linear-gradient(90deg, transparent 0%, rgba(34,211,238,0.35) 40%, rgba(34,211,238,0.6) 50%, rgba(34,211,238,0.35) 60%, transparent 100%)",
         animation: "cvSweep 2.4s ease-in-out infinite" }} />
 
+      {/* Cinematic rendering light sweep — diagonal flash across canvas */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 5 }}>
+        <div style={{
+          position: "absolute",
+          top: "-10%", bottom: "-10%", width: "42%", left: 0,
+          background: "linear-gradient(105deg, transparent 0%, rgba(200,220,255,0) 25%, rgba(200,220,255,0.04) 48%, rgba(200,220,255,0.08) 50%, rgba(200,220,255,0.04) 52%, rgba(200,220,255,0) 75%, transparent 100%)",
+          animation: "cvLightSweep 4.5s ease-in-out infinite",
+          willChange: "transform",
+        }} />
+      </div>
+
       {/* Timeline motion bars */}
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
         {TIMELINE_BARS.map((h, i) => (
@@ -760,9 +771,10 @@ function GeneratingOverlay() {
         animation: "cvSweep 2.4s ease-in-out infinite", animationDirection: "reverse" }} />
 
       <style>{`
-        @keyframes cvSweep   { 0%{backgroundPosition:-200% 0} 100%{backgroundPosition:200% 0} }
-        @keyframes cvBar     { from{transform:scaleY(0.55)} to{transform:scaleY(1)} }
-        @keyframes cvShimmer { 0%{transform:translateX(-200%)} 100%{transform:translateX(400%)} }
+        @keyframes cvSweep      { 0%{backgroundPosition:-200% 0} 100%{backgroundPosition:200% 0} }
+        @keyframes cvBar        { from{transform:scaleY(0.55)} to{transform:scaleY(1)} }
+        @keyframes cvShimmer    { 0%{transform:translateX(-200%)} 100%{transform:translateX(400%)} }
+        @keyframes cvLightSweep { 0%{transform:translateX(-100%)} 100%{transform:translateX(340%)} }
       `}</style>
     </div>
   );
@@ -995,6 +1007,17 @@ export function CanvasVideoPreview({
         {/* ── Generating / polling state ──────────────────────────────────── */}
         {isGenerating && (
           <>
+            {/* Cinematic rendering light sweep — diagonal flash across full preview */}
+            <div style={{ position: "absolute", inset: 0, zIndex: 32, pointerEvents: "none", overflow: "hidden" }}>
+              <div style={{
+                position: "absolute",
+                top: "-10%", bottom: "-10%", width: "42%", left: 0,
+                background: "linear-gradient(105deg, transparent 0%, rgba(200,220,255,0) 25%, rgba(200,220,255,0.035) 48%, rgba(200,220,255,0.07) 50%, rgba(200,220,255,0.035) 52%, rgba(200,220,255,0) 75%, transparent 100%)",
+                animation: "cpLightSweep 4.5s ease-in-out infinite",
+                willChange: "transform",
+              }} />
+            </div>
+
             <div style={{
               position: "absolute", top: 0, left: 0, right: 0, height: 3,
               background: "linear-gradient(90deg,transparent 0%,rgba(34,211,238,0.35) 40%,rgba(34,211,238,0.6) 50%,rgba(34,211,238,0.35) 60%,transparent 100%)",
@@ -1074,7 +1097,7 @@ export function CanvasVideoPreview({
               background: "linear-gradient(90deg,transparent 0%,rgba(14,165,160,0.25) 40%,rgba(14,165,160,0.45) 50%,rgba(14,165,160,0.25) 60%,transparent 100%)",
               animation: "cpSweep 2.4s ease-in-out infinite", animationDirection: "reverse",
             }} />
-            <style>{`@keyframes cpSweep{0%{backgroundPosition:-200% 0}100%{backgroundPosition:200% 0}}`}</style>
+            <style>{`@keyframes cpSweep{0%{backgroundPosition:-200% 0}100%{backgroundPosition:200% 0}} @keyframes cpLightSweep{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}`}</style>
           </>
         )}
 
