@@ -52,7 +52,7 @@
 
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { PendingJob }          from "./pending-job-store";
 import { getPendingJobStoreState }  from "./pending-job-store";
 import { startPolling }             from "./job-polling";
@@ -100,12 +100,16 @@ export function useRetryJob(
   authToken: string | null
 ): (job: PendingJob) => Promise<void> {
   // Per-jobId guard — prevents double-clicks from firing concurrent retries.
-  const inFlight = useRef<Set<string>>(new Set());
+  const inFlight  = useRef<Set<string>>(new Set());
+  // Ref mirrors authToken so the polling closure always reads the live token
+  // without needing to re-create the callback on every JWT rotation.
+  const tokenRef  = useRef(authToken);
+  useEffect(() => { tokenRef.current = authToken; }, [authToken]);
 
   return useCallback(
     async (job: PendingJob) => {
       // ── Guard: no auth ────────────────────────────────────────────────────
-      if (!authToken) {
+      if (!tokenRef.current) {
         globalToast.error("Please sign in to retry this generation.");
         return;
       }
@@ -137,7 +141,7 @@ export function useRetryJob(
           method:  "POST",
           headers: {
             "Content-Type":  "application/json",
-            "Authorization": `Bearer ${authToken}`,
+            "Authorization": `Bearer ${tokenRef.current ?? ""}`,
           },
           body: JSON.stringify({
             modelKey: job.modelKey,
@@ -190,7 +194,7 @@ export function useRetryJob(
         startPolling({
           jobId:     newJobId,
           studio:    job.studio,
-          authToken,
+          getToken:  () => tokenRef.current,
           createdAt: new Date().toISOString(),
 
           onUpdate: (update) => {

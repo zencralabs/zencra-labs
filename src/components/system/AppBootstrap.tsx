@@ -82,6 +82,14 @@ import type { GenerationStatus }       from "@/lib/jobs/job-status-normalizer";
 export function AppBootstrap() {
   const { session }      = useAuth();
   const recoveredRef     = useRef<string | null>(null);
+  // Live session ref — keeps a mutable pointer to the current session so the
+  // polling engine's getToken callback always reads the freshest JWT.
+  const sessionRef       = useRef(session);
+
+  // ── 0. Keep sessionRef in sync with React session state ───────────────────
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   // ── 1. Stale detector ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -99,7 +107,9 @@ export function AppBootstrap() {
     if (recoveredRef.current === token) return; // already recovered this token
 
     recoveredRef.current = token;
-    void recoverPendingJobs(token);
+    // Pass a live token getter — the polling engine calls this on every request
+    // so Supabase JWT rotations are transparent and never cause 401 loops.
+    void recoverPendingJobs(() => sessionRef.current?.access_token ?? null);
   }, [session?.access_token]);
 
   // ── 3. Stop polling on logout ──────────────────────────────────────────────
