@@ -118,7 +118,16 @@ function dispatchJobCompleteEvent(
  *
  * @param authToken   JWT access token for Authorization header.
  */
-export async function recoverPendingJobs(authToken: string): Promise<void> {
+export async function recoverPendingJobs(getToken: () => string | null): Promise<void> {
+  // Snapshot the token once for the initial HTTP fetch.
+  // Subsequent per-job polling loops receive `getToken` so they always
+  // read the live token on every request.
+  const authToken = getToken();
+  if (!authToken) {
+    console.warn("[job-recovery] No auth token — skipping recovery");
+    return;
+  }
+
   let jobs: PendingJobDescriptor[];
 
   try {
@@ -205,7 +214,7 @@ export async function recoverPendingJobs(authToken: string): Promise<void> {
     startPolling({
       jobId:     descriptor.jobId,
       studio:    descriptor.studio,
-      authToken,
+      getToken,
       createdAt: descriptor.createdAt,
 
       onUpdate: (update) => {

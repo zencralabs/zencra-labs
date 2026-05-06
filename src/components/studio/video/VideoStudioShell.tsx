@@ -1881,8 +1881,11 @@ export default function VideoStudioShell() {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, []);
 
-  // ── Auth token for Lip Sync ────────────────────────────────────────────────
+  // ── Auth token for Lip Sync + polling ─────────────────────────────────────
   const [authToken, setAuthToken] = useState<string | null>(null);
+  // Ref mirrors authToken — passed as a `getToken` callback to startPolling()
+  // so every poll reads the live JWT instead of a stale closure capture.
+  const authTokenRef = useRef<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthToken(data.session?.access_token ?? null);
@@ -1892,6 +1895,10 @@ export default function VideoStudioShell() {
     });
     return () => subscription.unsubscribe();
   }, []);
+  // Keep ref in sync so getToken callbacks always read the freshest token
+  useEffect(() => {
+    authTokenRef.current = authToken;
+  }, [authToken]);
 
   // ── Gallery history — load all user's video assets from DB on mount ──────────
   // Fires once when authToken becomes available. Maps DB assets to GeneratedVideo[]
@@ -2523,7 +2530,7 @@ export default function VideoStudioShell() {
       startUniversalPolling({
         jobId,
         studio:    "video",
-        authToken: user.accessToken ?? "",
+        getToken:  () => authTokenRef.current,
         createdAt: jobCreatedAt,
 
         onUpdate: (update) => {
@@ -2672,7 +2679,7 @@ export default function VideoStudioShell() {
                 startUniversalPolling({
                   jobId:     fbJobId,
                   studio:    "video",
-                  authToken: user.accessToken ?? "",
+                  getToken:  () => authTokenRef.current,
                   createdAt: fbCreatedAt,
 
                   onUpdate: (fbUpdate) => {

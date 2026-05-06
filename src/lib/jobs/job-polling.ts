@@ -31,7 +31,7 @@
  *   startPolling({
  *     jobId:     "zc_abc123",
  *     studio:    "video",
- *     authToken: session.access_token,
+ *     getToken:  () => session?.access_token ?? null,
  *     onUpdate:  (update) => store.updateJob(update),
  *     onComplete:(update) => handleVideoReady(update.url),
  *     onError:   (update) => handleVideoFailed(update.error),
@@ -128,8 +128,13 @@ export interface StartPollingOptions {
   jobId: string;
   /** Studio type — drives threshold selection + endpoint routing. */
   studio: StudioType;
-  /** JWT access token for Authorization header. */
-  authToken: string;
+  /**
+   * Callback that returns the current JWT access token.
+   * Called on every individual poll request so JWT rotation is handled
+   * automatically — the closure never captures a stale token.
+   * Return null to temporarily skip the poll and retry after ERROR_RETRY_MS.
+   */
+  getToken: () => string | null;
   /** ISO timestamp of job creation (from assets.created_at). Used for age-based disambiguation. */
   createdAt?: string;
   /** Called on every non-terminal status response. */
@@ -208,7 +213,7 @@ function parseStatusResponse(
  * calling `stopPolling(jobId)`).
  */
 export function startPolling(opts: StartPollingOptions): () => void {
-  const { jobId, studio, authToken, createdAt, onUpdate, onComplete, onError } = opts;
+  const { jobId, studio, getToken, createdAt, onUpdate, onComplete, onError } = opts;
 
   // Dedup guard
   if (activePolls.has(jobId)) {
@@ -290,8 +295,16 @@ export function startPolling(opts: StartPollingOptions): () => void {
     let json: Record<string, unknown>;
 
     try {
+      const token = getToken();
+      if (!token) {
+        // Auth token not yet available (e.g. mid-rotation) — back off and retry.
+        console.warn(`[job-polling] No auth token for jobId=${jobId} — retrying in ${ERROR_RETRY_MS}ms`);
+        schedulePoll(ERROR_RETRY_MS);
+        return;
+      }
+
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: { Authorization: `Bearer ${token}` },
         cache:   "no-store",
       });
 

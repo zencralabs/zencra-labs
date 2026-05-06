@@ -380,6 +380,10 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
 export default function CreativeDirectorShell() {
   const { session } = useAuth();
   const router       = useRouter();
+  // Live session ref — polling engine reads this on every request so JWT
+  // rotation is handled transparently without capturing a stale token.
+  const sessionRef   = useRef(session);
+  useEffect(() => { sessionRef.current = session; }, [session]);
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [brief, setBrief] = useState<BriefState>(DEFAULT_BRIEF);
@@ -842,7 +846,7 @@ export default function CreativeDirectorShell() {
       startUniversalPolling({
         jobId:     assetId,
         studio:    "image",
-        authToken: session.access_token,
+        getToken:  () => sessionRef.current?.access_token ?? null,
         createdAt: jobCreatedAt,
 
         onUpdate: (update) => {
