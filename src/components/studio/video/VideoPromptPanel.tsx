@@ -682,7 +682,7 @@ export default function VideoPromptPanel({
   voiceoverScript, setVoiceoverScript,
   hideGenerateButton = false,
 }: Props) {
-  const [showNeg, setShowNeg]         = useState(true); // open by default
+  const [showNeg, setShowNeg]         = useState(false); // collapsed by default
   const [showPresets, setShowPresets] = useState(false);
 
   // ── Prompt enhancement ────────────────────────────────────────────────────
@@ -1362,47 +1362,115 @@ export default function VideoPromptPanel({
               </span>
             </div>
 
-            {/* Mode pills */}
-            <div style={{ display: "flex", gap: 6 }}>
-              {/* No Audio — always shown */}
-              {(["none", ...(model.capabilities.nativeAudio ? ["scene"] : []), "voiceover"] as ("none" | "scene" | "voiceover")[]).map(mode => {
-                const active = audioMode === mode;
-                const label  = mode === "none" ? "No Audio" : mode === "scene" ? "Scene Audio" : "Add Voiceover";
-                const accent = mode === "scene" ? "#0EA5A0" : mode === "voiceover" ? "#C6FF00" : "#475569";
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setAudioMode(mode)}
-                    style={{
-                      flex: 1, padding: "7px 4px", borderRadius: 8, /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */ fontSize: 13, letterSpacing: "-0.005em",
-                      fontWeight: active ? 600 : 500,
-                      border: active
-                        ? `1px solid ${accent}55`
-                        : "1px solid rgba(255,255,255,0.08)",
-                      background: active
-                        ? `${accent}18`
-                        : "rgba(255,255,255,0.03)",
-                      color: active ? accent : "#475569",
-                      cursor: "pointer", transition: "all 0.15s",
-                      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                    }}
-                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#475569"; }}
-                  >
-                    <span style={{ whiteSpace: "nowrap" }}>{label}</span>
-                    {mode === "voiceover" && (
-                      <span style={{
-                        /* Micro: 11px (was 9px — below system minimum) / semibold 600 / tracking 0.12em — color semantic amber */
-                        fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
-                        color: active ? "#D97706" : "#92500A",
-                        background: active ? "rgba(217,119,6,0.18)" : "rgba(217,119,6,0.10)",
-                        borderRadius: 3, padding: "1px 5px",
-                      }}>+ Voice</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {/* ── Scene Audio cinematic toggle — only when model supports nativeAudio ── */}
+            {model.capabilities.nativeAudio && (
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "9px 12px", borderRadius: 10,
+                border: audioMode === "scene"
+                  ? "1px solid rgba(14,165,160,0.32)"
+                  : "1px solid rgba(255,255,255,0.07)",
+                background: audioMode === "scene"
+                  ? "rgba(14,165,160,0.07)"
+                  : "rgba(255,255,255,0.02)",
+                transition: "all 0.2s",
+                marginBottom: 6,
+              }}>
+                {/* Label + icon */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                    stroke={audioMode === "scene" ? "#0EA5A0" : "#475569"}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transition: "stroke 0.2s" }}>
+                    <path d="M9 18V5l12-2v13"/>
+                    <circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                  <span style={{
+                    /* Chip: 13px / medium 500 / tracking -0.005em */
+                    fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em",
+                    color: audioMode === "scene" ? "#0EA5A0" : "#64748B",
+                    transition: "color 0.2s",
+                  }}>
+                    Scene Audio
+                  </span>
+                </div>
+
+                {/* Cinematic toggle switch */}
+                <button
+                  onClick={() => setAudioMode(audioMode === "scene" ? "none" : "scene")}
+                  style={{
+                    position: "relative", width: 40, height: 22, borderRadius: 11,
+                    border: audioMode === "scene"
+                      ? "1px solid rgba(14,165,160,0.55)"
+                      : "1px solid rgba(255,255,255,0.12)",
+                    background: audioMode === "scene"
+                      ? "rgba(14,165,160,0.30)"
+                      : "rgba(255,255,255,0.06)",
+                    cursor: "pointer", padding: 0, flexShrink: 0,
+                    boxShadow: audioMode === "scene"
+                      ? "0 0 10px rgba(14,165,160,0.30), inset 0 0 6px rgba(14,165,160,0.12)"
+                      : "none",
+                    transition: "all 0.22s ease",
+                  }}
+                  aria-label={audioMode === "scene" ? "Disable Scene Audio" : "Enable Scene Audio"}
+                >
+                  {/* Thumb */}
+                  <span style={{
+                    position: "absolute",
+                    top: 3,
+                    left: audioMode === "scene" ? 20 : 3,
+                    width: 14, height: 14, borderRadius: "50%",
+                    background: audioMode === "scene" ? "#0EA5A0" : "#334155",
+                    boxShadow: audioMode === "scene"
+                      ? "0 0 6px rgba(14,165,160,0.70)"
+                      : "none",
+                    transition: "left 0.22s ease, background 0.22s ease, box-shadow 0.22s ease",
+                    display: "block",
+                  }} />
+                </button>
+              </div>
+            )}
+
+            {/* ── Add Voiceover button ── */}
+            <button
+              onClick={() => setAudioMode(audioMode === "voiceover" ? "none" : "voiceover")}
+              style={{
+                width: "100%", padding: "8px 12px", borderRadius: 9,
+                /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */
+                fontSize: 13, fontWeight: audioMode === "voiceover" ? 600 : 500,
+                letterSpacing: "-0.005em",
+                border: audioMode === "voiceover"
+                  ? "1px solid rgba(198,255,0,0.30)"
+                  : "1px solid rgba(255,255,255,0.07)",
+                background: audioMode === "voiceover"
+                  ? "rgba(198,255,0,0.08)"
+                  : "rgba(255,255,255,0.02)",
+                color: audioMode === "voiceover" ? "#C6FF00" : "#475569",
+                cursor: "pointer", transition: "all 0.15s",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 6,
+              }}
+              onMouseEnter={e => { if (audioMode !== "voiceover") (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+              onMouseLeave={e => { if (audioMode !== "voiceover") (e.currentTarget as HTMLElement).style.color = "#475569"; }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke={audioMode === "voiceover" ? "#C6FF00" : "currentColor"}
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                </svg>
+                Add Voiceover
+              </div>
+              <span style={{
+                /* Micro: 11px / semibold 600 / tracking 0.12em — color semantic amber */
+                fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
+                color: audioMode === "voiceover" ? "#D97706" : "#92500A",
+                background: audioMode === "voiceover" ? "rgba(217,119,6,0.18)" : "rgba(217,119,6,0.10)",
+                borderRadius: 3, padding: "1px 5px",
+              }}>+ Voice</span>
+            </button>
 
             {/* Prompt-aware speech suggestion — shown when keywords imply dialogue/narration */}
             {(() => {
