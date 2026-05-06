@@ -136,5 +136,5 @@ export async function GET(req: NextRequest): Promise<Response> {
     console.error("[jobs/pending] generations (lipsync) query failed:", err);
   }
 
-  return ok({ data: descriptors });
+  return ok(descriptors);
 }
