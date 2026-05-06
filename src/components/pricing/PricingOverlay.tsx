@@ -9,7 +9,7 @@
 //       Star dots with slow pulse. FCS CTA guards. Boost deselect. FCS modal.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,12 +52,12 @@ const PRICING_PANEL_BG = ""; // e.g. "/pricing/pricing-panel-bg.png"
 const PRICING_CONTENT_MAX_WIDTH = 1180;
 
 // v8 — Hero reel placeholder video paths (replace with real assets)
-const REEL_VIDEOS = [
-  "/pricing/reel-1.mp4",
-  "/pricing/reel-2.mp4",
-  "/pricing/reel-3.mp4",
-  "/pricing/reel-4.mp4",
-  "/pricing/reel-5.mp4",
+const REEL_IMAGES = [
+  "/pricing/reel-1.jpg",
+  "/pricing/reel-2.jpg",
+  "/pricing/reel-3.jpg",
+  "/pricing/reel-4.jpg",
+  "/pricing/reel-5.jpg",
 ];
 
 // ── Plans (LOCKED — do not change prices, credits, or names) ─────────────────
@@ -217,27 +217,36 @@ const COMPARE_FEATURES = [
   },
 ];
 
-// ── Star dots — cinematic atmosphere, pre-computed positions ──────────────────
+// ── Cinematic 3-layer star system ─────────────────────────────────────────────
+// Layer A: pure CSS background — zero DOM elements, zero animation
+// Layer B: 2px soft glow divs — only 5 get slow opacity-only pulse (no scale)
+// Layer C: 3px bloom divs — radial-gradient, static, no animation
 
-const STAR_DOTS = [
-  { x:  7, y:  5, s: 1.5, d: 0.0, o: 0.18 },
-  { x: 15, y: 28, s: 1.0, d: 1.4, o: 0.13 },
-  { x: 24, y: 12, s: 2.0, d: 2.7, o: 0.20 },
-  { x: 33, y: 42, s: 1.0, d: 0.6, o: 0.12 },
-  { x: 41, y:  8, s: 1.5, d: 3.2, o: 0.16 },
-  { x: 52, y: 35, s: 1.0, d: 1.8, o: 0.11 },
-  { x: 60, y: 18, s: 2.0, d: 4.1, o: 0.21 },
-  { x: 68, y: 50, s: 1.0, d: 2.3, o: 0.13 },
-  { x: 75, y:  7, s: 1.5, d: 0.9, o: 0.17 },
-  { x: 83, y: 30, s: 1.0, d: 3.7, o: 0.12 },
-  { x: 90, y: 15, s: 2.0, d: 1.2, o: 0.19 },
-  { x: 92, y: 60, s: 1.0, d: 5.0, o: 0.11 },
-  { x:  3, y: 70, s: 1.5, d: 2.1, o: 0.14 },
-  { x: 46, y: 65, s: 1.0, d: 4.5, o: 0.12 },
-  { x: 78, y: 80, s: 1.5, d: 1.6, o: 0.15 },
-  { x: 20, y: 85, s: 1.0, d: 3.9, o: 0.11 },
-  { x: 57, y: 90, s: 2.0, d: 0.4, o: 0.16 },
-  { x: 88, y: 88, s: 1.0, d: 2.8, o: 0.13 },
+// Layer A background is embedded directly in the star container's backgroundImage
+// (see render — no constant needed)
+
+// Layer B — 10 soft glow stars; pulse:true = slow bloom-pulse (opacity only)
+const STAR_B = [
+  { x: 12, y: 18, pulse: true,  d: 0.0, o: 0.28 },
+  { x: 28, y:  8, pulse: true,  d: 2.1, o: 0.30 },
+  { x: 45, y: 32, pulse: false, d: 0.0, o: 0.22 },
+  { x: 62, y: 14, pulse: true,  d: 3.8, o: 0.27 },
+  { x: 78, y: 42, pulse: false, d: 0.0, o: 0.20 },
+  { x: 88, y: 12, pulse: true,  d: 1.6, o: 0.25 },
+  { x: 34, y: 58, pulse: false, d: 0.0, o: 0.18 },
+  { x: 55, y: 75, pulse: true,  d: 4.5, o: 0.28 },
+  { x: 72, y: 68, pulse: false, d: 0.0, o: 0.20 },
+  { x: 20, y: 82, pulse: false, d: 0.0, o: 0.18 },
+];
+
+// Layer C — 6 rare premium bloom stars, fully static
+const STAR_C = [
+  { x: 22, y: 15 },
+  { x: 48, y:  6 },
+  { x: 70, y: 28 },
+  { x: 85, y: 55 },
+  { x: 38, y: 70 },
+  { x: 15, y: 48 },
 ];
 
 // ── Keyframes ─────────────────────────────────────────────────────────────────
@@ -267,18 +276,14 @@ const KEYFRAMES = `
   0%,100% { opacity: 0.92; }
   50%     { opacity: 1; }
 }
-@keyframes zpo-reel {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
 @keyframes zpo-sweep {
   0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
   40%  { opacity: 0.85; }
   100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
 }
-@keyframes zpo-star-pulse {
-  0%,100% { opacity: var(--so); transform: scale(1); }
-  50%     { opacity: calc(var(--so) * 2.2); transform: scale(1.6); }
+@keyframes zpo-bloom-pulse {
+  0%,100% { opacity: var(--bo); }
+  50%     { opacity: calc(var(--bo) * 1.9); }
 }
 .zpo-cta-btn {
   position: relative;
@@ -1232,10 +1237,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
   const [showFCSModal, setShowFCSModal] = useState(false);
   const [pendingPlan, setPendingPlan]   = useState<Plan | null>(null);
 
-  // Refs for reel IntersectionObserver
-  const heroRef      = useRef<HTMLDivElement>(null);
-  const reelStripRef = useRef<HTMLDivElement>(null);
-
   // Inject keyframes once
   useEffect(() => {
     const id = "zpo-kf-v9";
@@ -1244,21 +1245,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
       s.id = id; s.textContent = KEYFRAMES;
       document.head.appendChild(s);
     }
-  }, []);
-
-  // Pause reel animation when hero scrolls out of view → saves GPU
-  useEffect(() => {
-    const hero  = heroRef.current;
-    const strip = reelStripRef.current;
-    if (!hero || !strip) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        strip.style.animationPlayState = entry.isIntersecting ? "running" : "paused";
-      },
-      { threshold: 0 }
-    );
-    io.observe(hero);
-    return () => io.disconnect();
   }, []);
 
   const handleClose = useCallback(() => {
@@ -1378,27 +1364,65 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   pointerEvents: "none",
                 }} />
 
-                {/* ── Star dots layer — slow opacity pulse, cinematic not noisy ── */}
+                {/* ── 3-layer cinematic star system ── */}
+                {/* Layer A: pure CSS tiny distant stars — zero DOM elements, zero animation */}
                 <div style={{
                   position: "absolute", inset: 0, zIndex: 1,
                   pointerEvents: "none", overflow: "hidden",
-                }}>
-                  {STAR_DOTS.map((dot, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: "absolute",
-                        left: `${dot.x}%`,
-                        top: `${dot.y}%`,
-                        width: dot.s,
-                        height: dot.s,
-                        borderRadius: "50%",
-                        background: "rgba(255,255,255,0.92)",
-                        animation: `zpo-star-pulse ${3.8 + (dot.d % 2.6)}s ${dot.d}s ease-in-out infinite`,
-                        willChange: "opacity, transform",
-                        "--so": dot.o,
-                      } as React.CSSProperties}
-                    />
+                  backgroundImage: `
+                    radial-gradient(circle 1px at  7%  5%, rgba(255,255,255,0.20) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 15% 28%, rgba(255,255,255,0.16) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 24% 12%, rgba(255,255,255,0.18) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 33% 42%, rgba(255,255,255,0.14) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 41%  8%, rgba(255,255,255,0.17) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 52% 35%, rgba(255,255,255,0.13) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 60% 18%, rgba(255,255,255,0.19) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 68% 50%, rgba(255,255,255,0.14) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 75%  7%, rgba(255,255,255,0.16) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 83% 30%, rgba(255,255,255,0.13) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 90% 15%, rgba(255,255,255,0.18) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 92% 60%, rgba(255,255,255,0.12) 0%, transparent 100%),
+                    radial-gradient(circle 1px at  3% 70%, rgba(255,255,255,0.15) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 46% 65%, rgba(255,255,255,0.13) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 57% 90%, rgba(255,255,255,0.16) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 88% 88%, rgba(255,255,255,0.14) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 20% 85%, rgba(255,255,255,0.12) 0%, transparent 100%),
+                    radial-gradient(circle 1px at 78% 80%, rgba(255,255,255,0.15) 0%, transparent 100%)
+                  `,
+                }} />
+
+                {/* Layer B: 2px soft glow stars — opacity pulse on 5, static on rest */}
+                <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
+                  {STAR_B.map((star, i) => (
+                    <div key={i} style={{
+                      position: "absolute",
+                      left: `${star.x}%`, top: `${star.y}%`,
+                      width: 2, height: 2,
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.92)",
+                      boxShadow: "0 0 8px rgba(255,255,255,0.35)",
+                      opacity: star.o,
+                      animation: star.pulse
+                        ? `zpo-bloom-pulse ${7 + i * 0.8}s ${star.d}s ease-in-out infinite`
+                        : undefined,
+                      willChange: star.pulse ? "opacity" : undefined,
+                      "--bo": star.o,
+                    } as React.CSSProperties} />
+                  ))}
+                </div>
+
+                {/* Layer C: 3px rare premium bloom — radial-gradient, fully static */}
+                <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
+                  {STAR_C.map((star, i) => (
+                    <div key={i} style={{
+                      position: "absolute",
+                      left: `${star.x}%`, top: `${star.y}%`,
+                      width: 3, height: 3,
+                      borderRadius: "50%",
+                      background: "radial-gradient(circle, rgba(255,255,255,0.90), rgba(165,180,252,0.25), transparent 70%)",
+                      filter: "blur(0.2px)",
+                      opacity: 0.25,
+                    }} />
                   ))}
                 </div>
 
@@ -1449,69 +1473,65 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
 
               {/* ── Hero ── */}
               <div
-                ref={heroRef}
                 style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}
               >
-                {/* ── Video reel strip — behind headline ── */}
+                {/* ── Static preview cards — behind headline, no animation ── */}
                 <div style={{
                   position: "absolute", inset: 0,
                   overflow: "hidden",
-                  opacity: 0.35,
                   pointerEvents: "none",
                   zIndex: 0,
+                  filter: "blur(2px)",
+                  opacity: 0.16,
                 }}>
-                  <div
-                    ref={reelStripRef}
-                    style={{
-                      display: "flex",
-                      animation: "zpo-reel 36s linear infinite",
-                      width: "fit-content",
-                      alignItems: "flex-start",
-                      paddingTop: "20px",
-                      willChange: "transform",
-                    }}
-                  >
-                    {[...REEL_VIDEOS, ...REEL_VIDEOS].map((src, i) => (
-                      <div key={i} style={{
-                        width: 360, height: 202,
-                        flexShrink: 0,
-                        margin: "0 12px",
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        border: "1px solid rgba(139,92,246,0.50)",
-                        boxShadow: "0 0 18px rgba(104,80,255,0.24), inset 0 0 20px rgba(0,0,0,0.40)",
-                        background: "linear-gradient(135deg, rgba(40,20,80,0.70) 0%, rgba(15,10,40,0.85) 100%)",
-                        position: "relative",
-                      }}>
-                        <video
-                          src={src}
-                          autoPlay
-                          muted
-                          loop
-                          playsInline
-                          style={{
-                            width: "100%", height: "100%", objectFit: "cover",
+                  {/* Edge fade gradient — left + right softening */}
+                  <div style={{
+                    position: "absolute", inset: 0, zIndex: 2,
+                    background: "linear-gradient(90deg, rgba(5,7,22,0.95) 0%, transparent 18%, transparent 82%, rgba(5,7,22,0.95) 100%)",
+                  }} />
+                  {/* 5 cards in a centered row */}
+                  <div style={{
+                    position: "absolute",
+                    top: "50%", left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                    width: "max-content",
+                  }}>
+                    {REEL_IMAGES.map((src, i) => {
+                      const FALLBACK_COLORS = [
+                        "rgba(70,40,180,0.80)","rgba(120,30,200,0.80)",
+                        "rgba(30,80,200,0.80)","rgba(180,30,120,0.80)","rgba(60,140,220,0.80)",
+                      ];
+                      return (
+                        <div key={i} style={{
+                          width: 260, height: 146,
+                          flexShrink: 0,
+                          borderRadius: 14,
+                          overflow: "hidden",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          position: "relative",
+                          background: FALLBACK_COLORS[i],
+                        }}>
+                          {/* Actual image */}
+                          <img
+                            src={src}
+                            alt=""
+                            style={{
+                              width: "100%", height: "100%", objectFit: "cover",
+                              position: "absolute", inset: 0,
+                              display: "block",
+                            }}
+                          />
+                          {/* 50% black overlay */}
+                          <div style={{
                             position: "absolute", inset: 0,
-                            pointerEvents: "none",
-                          }}
-                        />
-                        {/* Fallback gradient */}
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          background: `linear-gradient(135deg,
-                            rgba(${[
-                              "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220",
-                              "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220"
-                            ][i % 10]},0.60) 0%,
-                            rgba(10,5,30,0.80) 100%)`,
-                        }} />
-                        {/* Dark overlay */}
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          background: "rgba(0,0,0,0.50)",
-                        }} />
-                      </div>
-                    ))}
+                            background: "rgba(0,0,0,0.50)",
+                          }} />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
