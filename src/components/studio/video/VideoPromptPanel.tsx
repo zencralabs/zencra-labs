@@ -241,7 +241,7 @@ function LipSyncStatusRow({ label, status }: {
   const isError    = status === "error";
   const isUploading = status === "uploading";
 
-  const iconColor = isReady ? "#22C55E" : isError ? "#EF4444" : isUploading ? "#A78BFA" : "#334155";
+  const iconColor = isReady ? "#22C55E" : isError ? "#EF4444" : isUploading ? "#C6FF00" : "#334155";
   const textColor = isReady ? "#CBD5E1" : "#64748B";
 
   return (
@@ -249,7 +249,7 @@ function LipSyncStatusRow({ label, status }: {
       <div style={{
         width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
         border: `1.5px solid ${iconColor}`,
-        background: isReady ? "rgba(34,197,94,0.1)" : isError ? "rgba(239,68,68,0.1)" : isUploading ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.04)",
+        background: isReady ? "rgba(34,197,94,0.1)" : isError ? "rgba(239,68,68,0.1)" : isUploading ? "rgba(198,255,0,0.10)" : "rgba(255,255,255,0.04)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         {isReady ? (
@@ -261,7 +261,7 @@ function LipSyncStatusRow({ label, status }: {
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         ) : isUploading ? (
-          <div style={{ width: 6, height: 6, borderRadius: "50%", border: "1.5px solid #A78BFA", borderTopColor: "transparent", animation: "lsSpinRow 0.7s linear infinite" }} />
+          <div style={{ width: 6, height: 6, borderRadius: "50%", border: "1.5px solid #C6FF00", borderTopColor: "transparent", animation: "lsSpinRow 0.7s linear infinite" }} />
         ) : null}
       </div>
       <span style={{ color: textColor }}>
@@ -341,33 +341,33 @@ function LipSyncCard({
   return (
     <div style={{
       borderRadius: 14,
-      border: "1px solid rgba(139,92,246,0.28)",
-      background: "rgba(139,92,246,0.06)",
+      border: "1px solid rgba(198,255,0,0.22)",
+      background: "rgba(198,255,0,0.04)",
       overflow: "hidden",
     }}>
       {/* ── Header ── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 14px",
-        borderBottom: "1px solid rgba(139,92,246,0.12)",
+        borderBottom: "1px solid rgba(198,255,0,0.10)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C6FF00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
             <line x1="12" y1="19" x2="12" y2="22"/>
           </svg>
-          <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color #C4B5FD is semantic purple */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#C4B5FD" }}>Lip Sync</span>
+          <span style={{ /* Chip: 13px / semibold 600 / tracking -0.005em — color #D9FF4D is semantic lime */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: "#D9FF4D" }}>Lip Sync</span>
           <span style={{
             /* Micro: 11px (was 9px — below system minimum) / semibold 600 / tracking 0.12em */
             fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
-            color: "#A78BFA", background: "rgba(139,92,246,0.18)",
+            color: "#C6FF00", background: "rgba(198,255,0,0.14)",
             borderRadius: 4, padding: "2px 6px",
           }}>BETA</span>
         </div>
         {/* Credit estimate (only when provider ready + not terminal) */}
         {providerReady && !isCompleted && !isFailed && (
-          <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color is semantic */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: lowCredits ? "#EF4444" : "#A78BFA" }}>
+          <span style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color is semantic */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: lowCredits ? "#EF4444" : "#C6FF00" }}>
             ~{estimatedCredits} credits
           </span>
         )}
@@ -376,7 +376,7 @@ function LipSyncCard({
           <button
             onClick={onReset}
             style={{ background: "none", border: "none", cursor: "pointer", /* Micro: 11px / semibold 600 / tracking 0.12em */ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#6B7280", padding: 0 }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#A78BFA"; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#C6FF00"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
           >
             New Lip Sync
@@ -388,16 +388,16 @@ function LipSyncCard({
       {!providerReady && (
         <>
           <div style={{ padding: "10px 14px" }}>
-            <p style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color #7C6FAE is semantic purple */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#7C6FAE", lineHeight: 1.6, margin: 0 }}>
+            <p style={{ /* Chip: 13px / medium 500 / tracking -0.005em — color is semantic lime muted */ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "rgba(163,230,53,0.65)", lineHeight: 1.6, margin: 0 }}>
               Upload a portrait image and an audio clip — the engine will animate the lips to match the audio.
             </p>
           </div>
           <div style={{ padding: "0 14px 10px" }}>
             <div style={{
-              borderRadius: 8, border: "1px solid rgba(139,92,246,0.15)",
-              background: "rgba(139,92,246,0.06)", padding: "7px 10px",
-              /* Micro: 11px / semibold 600 / tracking 0.12em — color #6D4FC9 is semantic purple */
-              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#6D4FC9",
+              borderRadius: 8, border: "1px solid rgba(198,255,0,0.12)",
+              background: "rgba(198,255,0,0.04)", padding: "7px 10px",
+              /* Micro: 11px / semibold 600 / tracking 0.12em — color is semantic lime */
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#84CC16",
               display: "flex", alignItems: "center", gap: 5,
             }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -423,12 +423,12 @@ function LipSyncCard({
                     onClick={() => onQualityMode(m)}
                     style={{
                       flex: 1, padding: "5px 0", borderRadius: 8, /* Chip: 13px / active 600 inactive 500 / tracking -0.005em */ fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.005em",
-                      border: active ? "1px solid rgba(139,92,246,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                      background: active ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.03)",
-                      color: active ? "#C4B5FD" : "#64748B",
+                      border: active ? "1px solid rgba(198,255,0,0.40)" : "1px solid rgba(255,255,255,0.07)",
+                      background: active ? "rgba(198,255,0,0.14)" : "rgba(255,255,255,0.03)",
+                      color: active ? "#D9FF4D" : "#64748B",
                       cursor: "pointer", transition: "all 0.15s",
                     }}
-                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#A78BFA"; }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#C6FF00"; }}
                     onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "#64748B"; }}
                   >
                     {m === "standard" ? "Standard" : "Pro"}
@@ -500,7 +500,7 @@ function LipSyncCard({
               <div style={{
                 height: "100%",
                 width: `${Math.round(generationProgress)}%`,
-                background: "linear-gradient(90deg, #7C3AED, #A78BFA)",
+                background: "linear-gradient(90deg, #84CC16, #C6FF00)",
                 borderRadius: 2, transition: "width 0.3s ease",
               }} />
             </div>
@@ -512,18 +512,18 @@ function LipSyncCard({
               <video
                 src={outputUrl}
                 controls
-                style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(139,92,246,0.2)" }}
+                style={{ width: "100%", borderRadius: 8, border: "1px solid rgba(198,255,0,0.16)" }}
               />
               <button
                 onClick={() => downloadAsset(outputUrl, "lip-sync.mp4")}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   marginTop: 8, padding: "7px 14px", borderRadius: 8, /* Chip: 13px / semibold 600 / tracking -0.005em */ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
-                  border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)",
-                  color: "#C4B5FD", cursor: "pointer", transition: "all 0.15s", width: "100%",
+                  border: "1px solid rgba(198,255,0,0.28)", background: "rgba(198,255,0,0.08)",
+                  color: "#D9FF4D", cursor: "pointer", transition: "all 0.15s", width: "100%",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.2)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.1)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(198,255,0,0.16)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(198,255,0,0.08)"; }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -551,38 +551,38 @@ function LipSyncCard({
           style={{
             width: "100%", height: 50, borderRadius: 10,
             border: ctaEnabled
-              ? "1px solid rgba(139,92,246,0.5)"
-              : "1px solid rgba(139,92,246,0.15)",
+              ? "1px solid rgba(198,255,0,0.40)"
+              : "1px solid rgba(198,255,0,0.12)",
             background: ctaEnabled
-              ? "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)"
+              ? "linear-gradient(135deg, #84CC16 0%, #C6FF00 100%)"
               : isCompleted
               ? "rgba(34,197,94,0.12)"
-              : "rgba(139,92,246,0.06)",
-            color: ctaEnabled ? "#fff" : isCompleted ? "#22C55E" : "#6B4FA8",
+              : "rgba(198,255,0,0.04)",
+            color: ctaEnabled ? "#0a1a00" : isCompleted ? "#22C55E" : "rgba(163,230,53,0.40)",
             /* Button: 15px / semibold 600 / tracking -0.01em (already present) */
             fontSize: 15, fontWeight: 600,
             cursor: ctaEnabled ? "pointer" : "not-allowed",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
             transition: "all 0.2s", letterSpacing: "-0.01em",
-            boxShadow: ctaEnabled ? "0 0 20px rgba(139,92,246,0.3), 0 4px 16px rgba(0,0,0,0.4)" : "none",
+            boxShadow: ctaEnabled ? "0 0 20px rgba(198,255,0,0.25), 0 4px 16px rgba(0,0,0,0.4)" : "none",
             animation: isGenerating ? "lsPulse 1.5s ease-in-out infinite" : "none",
           }}
           onMouseEnter={e => {
             if (ctaEnabled) {
-              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #6D28D9 0%, #8B5CF6 100%)";
+              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #65A30D 0%, #A3E635 100%)";
               (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
             }
           }}
           onMouseLeave={e => {
             if (ctaEnabled) {
-              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)";
+              (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, #84CC16 0%, #C6FF00 100%)";
               (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
             }
           }}
         >
           {isGenerating ? (
             <>
-              <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "#C4B5FD", animation: "lsSpinBtn 0.7s linear infinite" }} />
+              <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(0,0,0,0.20)", borderTopColor: "#0a1a00", animation: "lsSpinBtn 0.7s linear infinite" }} />
               Generating…
             </>
           ) : isCompleted ? (
@@ -620,7 +620,7 @@ function LipSyncCard({
       </div>
 
       <style>{`
-        @keyframes lsPulse   { 0%,100%{box-shadow:0 0 12px rgba(139,92,246,0.2)} 50%{box-shadow:0 0 28px rgba(139,92,246,0.5)} }
+        @keyframes lsPulse   { 0%,100%{box-shadow:0 0 12px rgba(198,255,0,0.15)} 50%{box-shadow:0 0 28px rgba(198,255,0,0.40)} }
         @keyframes lsSpinBtn { to { transform: rotate(360deg); } }
         @keyframes lsSpinRow { to { transform: rotate(360deg); } }
       `}</style>

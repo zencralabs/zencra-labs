@@ -24,8 +24,8 @@ function LoadingScreen() {
           width:          48,
           height:         48,
           borderRadius:   "50%",
-          border:         "2px solid rgba(99,102,241,0.15)",
-          borderTopColor: "#6366F1",
+          border:         "2px solid rgba(198,255,0,0.12)",
+          borderTopColor: "#C6FF00",
           animation:      "spin 0.7s linear infinite",
         }}
       />
@@ -57,8 +57,8 @@ function LipSyncShell() {
           gap:          6,
           padding:      "4px 10px",
           borderRadius: 999,
-          background:   "rgba(99,102,241,0.12)",
-          border:       "1px solid rgba(99,102,241,0.25)",
+          background:   "rgba(198,255,0,0.10)",
+          border:       "1px solid rgba(198,255,0,0.22)",
           marginBottom: 8,
         }}
       >
@@ -67,7 +67,7 @@ function LipSyncShell() {
             fontSize:    10,
             fontWeight:  700,
             letterSpacing: "0.08em",
-            color:       "#818CF8",
+            color:       "#C6FF00",
             textTransform: "uppercase",
           }}
         >
