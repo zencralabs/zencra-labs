@@ -41,8 +41,9 @@
 
 "use client";
 
-import { create }    from "zustand";
-import { persist }   from "zustand/middleware";
+import { create }      from "zustand";
+import { persist }     from "zustand/middleware";
+import { useShallow }  from "zustand/react/shallow";
 import type { StudioType } from "@/lib/providers/core/types";
 import type { GenerationStatus } from "./job-status-normalizer";
 import { isTerminal } from "./job-status-normalizer";
@@ -366,20 +367,35 @@ export function useActiveJobCount(): number {
   return usePendingJobStore((s) => s.activeJobCount());
 }
 
-/** Returns all non-terminal jobs sorted newest-first — used by PendingJobsDrawer. */
+/**
+ * Returns all non-terminal jobs sorted newest-first — used by PendingJobsDrawer.
+ *
+ * Uses useShallow so React 18's useSyncExternalStore receives a stable reference
+ * when the jobs map hasn't changed — prevents the "Maximum update depth exceeded"
+ * infinite re-render cycle (React Error #185) that occurs when a new array is
+ * returned on every selector call regardless of state changes.
+ */
 export function useActiveJobs(): PendingJob[] {
-  return usePendingJobStore((s) =>
-    Object.values(s.jobs)
-      .filter((j) => !isTerminal(j.status))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return usePendingJobStore(
+    useShallow((s) =>
+      Object.values(s.jobs)
+        .filter((j) => !isTerminal(j.status))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    )
   );
 }
 
-/** Returns all jobs sorted newest-first — used by the full job history. */
+/**
+ * Returns all jobs sorted newest-first — used by the full job history.
+ *
+ * Uses useShallow for stable reference equality — same fix as useActiveJobs above.
+ */
 export function useAllJobs(): PendingJob[] {
-  return usePendingJobStore((s) =>
-    Object.values(s.jobs).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return usePendingJobStore(
+    useShallow((s) =>
+      Object.values(s.jobs).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
     )
   );
 }
