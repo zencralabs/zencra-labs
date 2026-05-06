@@ -34,7 +34,7 @@
  *   • Follows Syne/Familjen typography system
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { X, ChevronUp, ChevronDown, RotateCcw, ExternalLink, Clock } from "lucide-react";
 import {
   usePendingJobStore,
@@ -233,7 +233,7 @@ function JobRow({
 
       {/* Actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-        {/* Open link (completed only) */}
+        {/* View result — completed only: prominent chip with label */}
         {job.status === "completed" && job.url && (
           <a
             href={job.url}
@@ -241,14 +241,20 @@ function JobRow({
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 22, height: 22, borderRadius: 5,
-              color: "#94A3B8", background: "transparent",
-              border: "none", cursor: "pointer", textDecoration: "none",
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "3px 8px", borderRadius: 5,
+              fontSize: 10, fontWeight: 600,
+              color: "#34D399",
+              background: "rgba(52,211,153,0.08)",
+              border: "1px solid rgba(52,211,153,0.20)",
+              cursor: "pointer", textDecoration: "none",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              flexShrink: 0,
             }}
-            title="Open result"
+            title="Open result in new tab"
           >
-            <ExternalLink size={11} />
+            <ExternalLink size={9} />
+            View
           </a>
         )}
 
@@ -294,11 +300,56 @@ function JobRow({
 
 const MAX_DISPLAYED_JOBS = 8;
 
+// AUTO-DISMISS_DELAY_MS — how long the drawer stays open after a job completes
+// before closing automatically (8 s gives the user time to read + click "View").
+const AUTO_DISMISS_DELAY_MS = 8_000;
+
 export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
   const [open, setOpen]   = useState(false);
   const allJobs           = useAllJobs();
   const activeCount       = useActiveJobCount();
   const { removeJob, clearTerminal } = usePendingJobStore();
+
+  // ── Auto-open + auto-dismiss on job completion ───────────────────────────────
+  // When a new terminal job appears (a polled job just completed/failed), open
+  // the drawer so the user sees the result, then auto-close after a delay unless
+  // they manually interacted with the drawer.
+  const terminalCount      = allJobs.filter(j => isTerminal(j.status)).length;
+  const prevTerminalRef    = useRef(terminalCount);
+  const autoCloseTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userInteractedRef  = useRef(false); // set true when user clicks pill/drawer
+
+  useEffect(() => {
+    if (terminalCount > prevTerminalRef.current) {
+      // A new job just became terminal — pop open the drawer
+      userInteractedRef.current = false;
+      setOpen(true);
+      // Clear any existing timer and schedule auto-close
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = setTimeout(() => {
+        if (!userInteractedRef.current) {
+          setOpen(false);
+        }
+        autoCloseTimerRef.current = null;
+      }, AUTO_DISMISS_DELAY_MS);
+    }
+    prevTerminalRef.current = terminalCount;
+  }, [terminalCount]);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => {
+    if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+  }, []);
+
+  // Mark as user-interacted when they explicitly toggle open/closed
+  const handleToggle = useCallback(() => {
+    userInteractedRef.current = true;
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    setOpen(v => !v);
+  }, []);
 
   const displayedJobs = allJobs.slice(0, MAX_DISPLAYED_JOBS);
   const hasTerminal   = allJobs.some((j) => isTerminal(j.status));
@@ -383,7 +434,7 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
                   </button>
                 )}
                 <button
-                  onClick={() => setOpen(false)}
+                  onClick={() => { userInteractedRef.current = true; setOpen(false); }}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center",
                     width: 22, height: 22, borderRadius: 5,
@@ -438,7 +489,7 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
 
         {/* ── Pill toggle button ── */}
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={handleToggle}
           style={{
             position:       "relative",
             display:        "flex",

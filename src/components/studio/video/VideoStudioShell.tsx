@@ -2050,6 +2050,43 @@ export default function VideoStudioShell() {
     };
   }, [authToken, refreshVideoHistory]);
 
+  // ── Recovered job completion bridge ──────────────────────────────────────────
+  // When the global job-recovery engine completes a video job (after a page refresh,
+  // tab reopen, etc.), it dispatches a DOM CustomEvent so this studio shell can:
+  //   1. Update the video in the gallery from "generating" → "done" with the URL
+  //   2. Set the canvas preview to the just-completed video
+  //   3. Trigger a full history refresh to sync gallery metadata (favs, etc.)
+  useEffect(() => {
+    const handleJobComplete = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        jobId:         string;
+        assetId:       string;
+        studio:        string;
+        url:           string;
+        audioDetected: boolean | null;
+      }>).detail;
+
+      if (detail.studio !== "video") return;
+      console.log("[VideoStudio] recovered job complete — assetId=%s url=%s", detail.assetId, detail.url);
+
+      // Instantly update the gallery entry from "generating" → "done"
+      setVideos(prev => prev.map(v =>
+        v.id === detail.assetId
+          ? { ...v, status: "done" as const, url: detail.url, audioDetected: detail.audioDetected }
+          : v
+      ));
+
+      // Show the completed video in the canvas preview
+      setCanvasPreviewId(detail.assetId);
+
+      // Full refresh to pick up authoritative server state (aspect ratio, is_favorite, etc.)
+      void refreshVideoHistory();
+    };
+
+    window.addEventListener("zencra:job:complete", handleJobComplete);
+    return () => window.removeEventListener("zencra:job:complete", handleJobComplete);
+  }, [refreshVideoHistory]);
+
   // ── Omni Cinematic Director Mode ──────────────────────────────────────────
   const isOmni = selectedModelId === "kling-30-omni";
 

@@ -92,6 +92,54 @@ export async function GET(req: NextRequest): Promise<Response> {
     console.error("[jobs/pending] assets query failed:", err);
   }
 
+  // ── Source 1b: assets table — recently-completed, not yet reconciled ─────────
+  // Covers Bug #3: jobs that completed server-side while the client wasn't polling.
+  // Returned with status "completed" + URL so the recovery engine can reconcile
+  // them immediately without starting a polling loop.
+  //
+  // Criteria: status="ready", recovered=false, created in last 24 hours.
+  // The recovery engine will call store.completeJob() + fire zencra:job:complete.
+  try {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: completedAssets, error: completedError } = await supabaseAdmin
+      .from("assets")
+      .select("id, job_id, studio, model_key, prompt, credits_cost, created_at, url")
+      .eq("user_id", userId)
+      .eq("status", "ready")
+      .eq("recovered", false)
+      .gte("created_at", cutoff)
+      .not("url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (!completedError && completedAssets) {
+      for (const asset of completedAssets) {
+        const createdAt = String(asset.created_at ?? "");
+        const studio    = (asset.studio ?? "image") as StudioType;
+        const modelKey  = String(asset.model_key ?? "");
+        const url       = String(asset.url ?? "");
+
+        // Only include if URL is a valid non-empty string
+        if (!url) continue;
+
+        descriptors.push({
+          jobId:      String(asset.job_id),
+          assetId:    String(asset.id),
+          studio,
+          modelKey,
+          modelLabel: resolveModelLabel(modelKey),
+          prompt:     truncatePrompt(asset.prompt as string | null),
+          status:     "completed",  // already done server-side
+          creditCost: typeof asset.credits_cost === "number" ? asset.credits_cost : undefined,
+          createdAt,
+          url,                      // URL is provided so client skips polling
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[jobs/pending] completed-assets reconciliation query failed:", err);
+  }
+
   // ── Source 2: generations table (lipsync only) ─────────────────────────────
   // LipSync uses its own table ("generations") and a separate status endpoint.
   // We recover these alongside asset-based jobs so the drawer shows everything.
