@@ -1840,6 +1840,10 @@ export default function VideoStudioShell() {
   const canvasPreviewVideo = canvasPreviewId
     ? (videos.find(v => v.id === canvasPreviewId) ?? null)
     : null;
+  // Ref: tracks whether we have already auto-selected an initial canvas preview this mount.
+  // Ensures the hydration effect fires exactly once per session — never clobbers a user
+  // selection, a new generation, or a recovery event that already claimed the canvas.
+  const initialCanvasHydratedRef = useRef(false);
 
   // ── Creative Flow store ──────────────────────────────────────────────────────
   const flowStore = useFlowStore();
@@ -2093,6 +2097,35 @@ export default function VideoStudioShell() {
     window.addEventListener("zencra:job:complete", handleJobComplete);
     return () => window.removeEventListener("zencra:job:complete", handleJobComplete);
   }, [refreshVideoHistory]);
+
+  // ── Initial canvas hydration — auto-select latest completed video ─────────────
+  // Fires whenever `videos` changes, but selects at most ONCE per mount (ref guard).
+  // Picks the newest done+URL video so the user always lands on their latest output.
+  //
+  // Guard rules (in priority order):
+  //   1. initialCanvasHydratedRef — already auto-selected; never fires again
+  //   2. canvasPreviewId !== null — recovery event or user click already claimed canvas
+  //   3. generating — active generation in flight; don't clobber the live progress view
+  //   4. No done+URL videos yet — history still loading; wait for next `videos` update
+  //
+  // Recovery events (rule 2) always take precedence:  when `zencra:job:complete` fires
+  // first (before history loads), it sets canvasPreviewId and this effect returns early,
+  // preserving the recovered job as the canvas preview.
+  useEffect(() => {
+    if (initialCanvasHydratedRef.current) return;   // already hydrated this session
+    if (canvasPreviewId !== null) return;            // recovery or user beat us to it
+    if (generating) return;                          // active generation running
+
+    const latest = [...videos]
+      .filter(v => v.status === "done" && !!v.url)
+      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+
+    if (!latest) return;                             // no history yet — wait for next update
+
+    initialCanvasHydratedRef.current = true;
+    setCanvasPreviewId(latest.id);
+    console.log("[VideoStudio] initial canvas hydration → assetId=%s createdAt=%s", latest.id, new Date(latest.createdAt).toISOString());
+  }, [videos, canvasPreviewId, generating]);
 
   // ── Omni Cinematic Director Mode ──────────────────────────────────────────
   const isOmni = selectedModelId === "kling-30-omni";
