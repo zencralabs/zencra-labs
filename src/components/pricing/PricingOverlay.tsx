@@ -1,14 +1,15 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PricingOverlay v8 — Visual system upgrades
-// Outer: black blur backdrop (rgba(0,0,0,0.68) + blur(18px)) — page shows through
-// Panel: colorful bg contained inside panel + optional BG image hook
-// Hero: video reel strip behind headline, one-line title
-// Boost: 4 card-buttons (whole card highlights), right preview no-overflow
+// PricingOverlay v9 — Performance, polish, FCS logic, upsell modal
+// Perf: static bg (no drift animation), reduced backdrop blur, will-change only
+//       on animated elements, reel paused via IntersectionObserver, video
+//       pointer-events:none, heavy box-shadows reduced.
+// UX:   panel slides DOWN from translateY(-24px), 420ms spring easing.
+//       Star dots with slow pulse. FCS CTA guards. Boost deselect. FCS modal.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,11 +39,11 @@ interface Plan {
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
-const GOLD   = "#FFD56A";
-const TEAL   = "#22d3ee";
-const AMBER  = "#F59E0B";
-const WHITE  = "#ffffff";
-const BODY   = "rgba(241,245,249,0.88)";
+const GOLD  = "#FFD56A";
+const TEAL  = "#22d3ee";
+const AMBER = "#F59E0B";
+const WHITE = "#ffffff";
+const BODY  = "rgba(241,245,249,0.88)";
 
 // v8 — Optional panel background image. Set path to activate; leave "" for gradient fallback.
 const PRICING_PANEL_BG = ""; // e.g. "/pricing/pricing-panel-bg.png"
@@ -59,7 +60,7 @@ const REEL_VIDEOS = [
   "/pricing/reel-5.mp4",
 ];
 
-// ── Plans ─────────────────────────────────────────────────────────────────────
+// ── Plans (LOCKED — do not change prices, credits, or names) ─────────────────
 
 const PLANS: Plan[] = [
   {
@@ -166,7 +167,7 @@ const PLANS: Plan[] = [
   },
 ];
 
-// ── Boost packs ───────────────────────────────────────────────────────────────
+// ── Boost packs (LOCKED — do not change prices) ───────────────────────────────
 
 const BOOST_PACKS = [
   { credits: 500,  price: 15 },
@@ -216,6 +217,29 @@ const COMPARE_FEATURES = [
   },
 ];
 
+// ── Star dots — cinematic atmosphere, pre-computed positions ──────────────────
+
+const STAR_DOTS = [
+  { x:  7, y:  5, s: 1.5, d: 0.0, o: 0.18 },
+  { x: 15, y: 28, s: 1.0, d: 1.4, o: 0.13 },
+  { x: 24, y: 12, s: 2.0, d: 2.7, o: 0.20 },
+  { x: 33, y: 42, s: 1.0, d: 0.6, o: 0.12 },
+  { x: 41, y:  8, s: 1.5, d: 3.2, o: 0.16 },
+  { x: 52, y: 35, s: 1.0, d: 1.8, o: 0.11 },
+  { x: 60, y: 18, s: 2.0, d: 4.1, o: 0.21 },
+  { x: 68, y: 50, s: 1.0, d: 2.3, o: 0.13 },
+  { x: 75, y:  7, s: 1.5, d: 0.9, o: 0.17 },
+  { x: 83, y: 30, s: 1.0, d: 3.7, o: 0.12 },
+  { x: 90, y: 15, s: 2.0, d: 1.2, o: 0.19 },
+  { x: 92, y: 60, s: 1.0, d: 5.0, o: 0.11 },
+  { x:  3, y: 70, s: 1.5, d: 2.1, o: 0.14 },
+  { x: 46, y: 65, s: 1.0, d: 4.5, o: 0.12 },
+  { x: 78, y: 80, s: 1.5, d: 1.6, o: 0.15 },
+  { x: 20, y: 85, s: 1.0, d: 3.9, o: 0.11 },
+  { x: 57, y: 90, s: 2.0, d: 0.4, o: 0.16 },
+  { x: 88, y: 88, s: 1.0, d: 2.8, o: 0.13 },
+];
+
 // ── Keyframes ─────────────────────────────────────────────────────────────────
 
 const KEYFRAMES = `
@@ -227,26 +251,21 @@ const KEYFRAMES = `
   from { opacity: 1; }
   to   { opacity: 0; }
 }
-@keyframes zpo-slideup {
-  from { opacity: 0; transform: translateY(24px) scale(0.99); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+@keyframes zpo-panel-open {
+  from { opacity: 0; transform: translateY(-24px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes zpo-slidedown {
-  from { opacity: 1; transform: translateY(0)    scale(1);    }
-  to   { opacity: 0; transform: translateY(18px) scale(0.99); }
-}
-@keyframes zpo-bg-drift {
-  0%,100% { transform: scale(1.06) translate(0%,    0%);   }
-  33%      { transform: scale(1.08) translate(0.9%,  0.6%); }
-  66%      { transform: scale(1.07) translate(-0.5%, 1.1%); }
+@keyframes zpo-panel-close {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-24px); }
 }
 @keyframes zpo-launch-float {
   0%,100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
+  50%     { transform: translateY(-3px); }
 }
 @keyframes zpo-badge-glow {
   0%,100% { opacity: 0.92; }
-  50%      { opacity: 1;    }
+  50%     { opacity: 1; }
 }
 @keyframes zpo-reel {
   0%   { transform: translateX(0); }
@@ -256,6 +275,10 @@ const KEYFRAMES = `
   0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
   40%  { opacity: 0.85; }
   100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
+}
+@keyframes zpo-star-pulse {
+  0%,100% { opacity: var(--so); transform: scale(1); }
+  50%     { opacity: calc(var(--so) * 2.2); transform: scale(1.6); }
 }
 .zpo-cta-btn {
   position: relative;
@@ -275,7 +298,7 @@ const KEYFRAMES = `
 }
 `;
 
-const CLOSE_MS = 300;
+const CLOSE_MS = 320;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -328,6 +351,7 @@ function BillingToggle({ billing, onChange }: {
           width: 20, height: 20, borderRadius: 10, background: "#fff",
           transition: "left 0.25s cubic-bezier(0.22,1,0.36,1)",
           boxShadow: "0 1px 4px rgba(0,0,0,0.40)",
+          willChange: "left",
         }} />
       </button>
 
@@ -348,6 +372,7 @@ function BillingToggle({ billing, onChange }: {
         fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
         color: GOLD, letterSpacing: "0.08em",
         animation: "zpo-launch-float 4s ease-in-out infinite",
+        willChange: "transform",
       }}>Save 20%</div>
     </div>
   );
@@ -356,17 +381,26 @@ function BillingToggle({ billing, onChange }: {
 // ── PricingCard ───────────────────────────────────────────────────────────────
 
 function PricingCard({
-  plan, billing, selected, onSelect,
+  plan, billing, selected, onSelect, fcsEnabled, onFCSUpsell,
 }: {
-  plan: Plan; billing: BillingCycle; selected: boolean; onSelect: (id: string) => void;
+  plan: Plan;
+  billing: BillingCycle;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  fcsEnabled: boolean;
+  onFCSUpsell: (plan: Plan) => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const price        = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
-  const period       = billing === "yearly" ? "yr" : "mo";
+  const price         = billing === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+  const period        = billing === "yearly" ? "yr" : "mo";
   const displayImages = billing === "yearly" ? plan.images * 12 : plan.images;
   const displayClips  = billing === "yearly" ? plan.clips  * 12 : plan.clips;
   const outputLabel   = billing === "yearly" ? "/ year"         : "/ month";
+
+  // FCS CTA logic
+  const isFCSDisabled = fcsEnabled && (plan.id === "starter" || plan.id === "creator");
+  const hasFCSUpsell  = !fcsEnabled && (plan.id === "pro" || plan.id === "business");
 
   const active      = hovered || selected;
   const borderColor = active ? plan.border : plan.border.replace(/[\d.]+\)$/, "0.22)");
@@ -387,13 +421,14 @@ function PricingCard({
         borderRadius: 22,
         padding: "28px 26px",
         background: "linear-gradient(180deg, rgba(18,24,48,0.72) 0%, rgba(8,10,24,0.86) 100%)",
-        backdropFilter: "blur(18px)",
-        WebkitBackdropFilter: "blur(18px)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         border: `1.5px solid ${borderColor}`,
         boxShadow,
         transform,
         transition: "transform .28s cubic-bezier(.22,1,.36,1), box-shadow .28s, border-color .28s",
         cursor: "pointer",
+        willChange: "transform",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -499,29 +534,45 @@ function PricingCard({
 
         {/* CTA button */}
         <button
+          disabled={isFCSDisabled}
           style={{
             width: "100%", padding: "13px 0",
             borderRadius: 12,
-            border: plan.ctaBorder,
-            background: plan.ctaBg,
-            color: plan.ctaColor,
-            fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 700,
-            letterSpacing: "0.06em", cursor: "pointer",
+            border: isFCSDisabled ? "1px solid rgba(71,85,105,0.28)" : plan.ctaBorder,
+            background: isFCSDisabled ? "rgba(20,28,48,0.50)" : plan.ctaBg,
+            color: isFCSDisabled ? "rgba(100,116,139,0.50)" : plan.ctaColor,
+            fontFamily: isFCSDisabled ? "'Familjen Grotesk', sans-serif" : "'Syne', sans-serif",
+            fontSize: isFCSDisabled ? 10.5 : 13,
+            fontWeight: 600,
+            letterSpacing: isFCSDisabled ? "0.03em" : "0.06em",
+            cursor: isFCSDisabled ? "not-allowed" : "pointer",
             transition: "all 0.22s ease",
             marginBottom: 16,
             overflow: "hidden",
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.boxShadow = plan.ctaHoverShadow;
-            e.currentTarget.style.filter = "brightness(1.08)";
+            if (!isFCSDisabled) {
+              e.currentTarget.style.boxShadow = plan.ctaHoverShadow;
+              e.currentTarget.style.filter = "brightness(1.08)";
+            }
           }}
           onMouseLeave={e => {
             e.currentTarget.style.boxShadow = "none";
             e.currentTarget.style.filter = "brightness(1)";
           }}
-          onClick={e => e.stopPropagation()}
+          onClick={e => {
+            e.stopPropagation();
+            if (isFCSDisabled) return;
+            if (hasFCSUpsell) {
+              onFCSUpsell(plan);
+            } else {
+              onSelect(plan.id);
+            }
+          }}
         >
-          {plan.ctaGradientText ? (
+          {isFCSDisabled ? (
+            "FCS requires Pro or Business"
+          ) : plan.ctaGradientText ? (
             <span style={{
               backgroundImage: plan.ctaGradientText,
               WebkitBackgroundClip: "text",
@@ -551,11 +602,12 @@ function PricingCard({
   );
 }
 
-// ── FCSStrip ──────────────────────────────────────────────────────────────────
+// ── FCSStrip — controlled ─────────────────────────────────────────────────────
 
-function FCSStrip() {
-  const [enabled, setEnabled] = useState(false);
-
+function FCSStrip({ enabled, onToggle }: {
+  enabled: boolean;
+  onToggle: (v: boolean) => void;
+}) {
   return (
     <div style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
       <div style={{
@@ -567,7 +619,7 @@ function FCSStrip() {
         border: "1px solid rgba(255,213,106,0.75)",
         padding: "28px 36px",
         display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap",
-        boxShadow: "0 0 35px rgba(255,180,60,.22), inset 0 1px 0 rgba(255,255,255,.08)",
+        boxShadow: "0 0 28px rgba(255,180,60,.16), inset 0 1px 0 rgba(255,255,255,.08)",
       }}>
         {/* Left */}
         <div style={{ flex: "1 1 260px", display: "flex", alignItems: "flex-start", gap: 18 }}>
@@ -577,7 +629,7 @@ function FCSStrip() {
             border: "1.5px solid rgba(255,213,106,0.50)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 26,
-            boxShadow: "0 0 28px rgba(255,180,60,0.28)",
+            boxShadow: "0 0 22px rgba(255,180,60,0.22)",
           }}>🎬</div>
           <div>
             <div style={{
@@ -630,7 +682,7 @@ function FCSStrip() {
         {/* Toggle */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 9 }}>
           <button
-            onClick={() => setEnabled(v => !v)}
+            onClick={() => onToggle(!enabled)}
             style={{
               width: 58, height: 32, borderRadius: 16, border: "none",
               background: enabled
@@ -640,7 +692,7 @@ function FCSStrip() {
               transition: "background 0.30s ease",
               outline: enabled ? "none" : "1px solid rgba(148,163,184,0.22)",
               boxShadow: enabled
-                ? "0 0 32px rgba(255,213,106,0.65), 0 0 64px rgba(255,213,106,0.28)"
+                ? "0 0 28px rgba(255,213,106,0.55), 0 0 56px rgba(255,213,106,0.22)"
                 : "none",
             }}
           >
@@ -649,6 +701,7 @@ function FCSStrip() {
               width: 24, height: 24, borderRadius: 12, background: "#fff",
               transition: "left 0.25s cubic-bezier(0.22,1,0.36,1)",
               boxShadow: "0 1px 4px rgba(0,0,0,0.38)",
+              willChange: "left",
             }} />
           </button>
           <span style={{
@@ -662,12 +715,12 @@ function FCSStrip() {
   );
 }
 
-// ── BoostSelector v8 — 4 full card-buttons ────────────────────────────────────
+// ── BoostSelector — null default, deselect support ────────────────────────────
 
 function BoostSelector() {
-  const [selected, setSelected] = useState(1);
-  const pack = BOOST_PACKS[selected];
+  const [selected, setSelected] = useState<number | null>(null);
 
+  const pack       = selected !== null ? BOOST_PACKS[selected] : null;
   const packLabels = ["Starter Pack", "Creator Pack", "Studio Pack", "Pro Pack"];
   const packIcons  = ["⚡", "🚀", "🎬", "💎"];
 
@@ -679,14 +732,46 @@ function BoostSelector() {
         border: "1px solid rgba(14,165,160,0.18)",
         padding: "32px 40px",
       }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <span style={{ fontSize: 20 }}>🚀</span>
-          <div style={{
-            fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
-            letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
-          }}>Boost Credit Packs</div>
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🚀</span>
+            <div style={{
+              fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+              letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
+            }}>Boost Credit Packs</div>
+          </div>
+          {/* Deselect / status indicator */}
+          {selected !== null ? (
+            <button
+              onClick={() => setSelected(null)}
+              style={{
+                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)",
+                borderRadius: 8, padding: "5px 12px", cursor: "pointer",
+                fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11, fontWeight: 600,
+                color: "rgba(239,68,68,0.70)", letterSpacing: "0.04em",
+                transition: "all 0.18s ease",
+                flexShrink: 0, marginTop: 6,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(239,68,68,0.16)";
+                e.currentTarget.style.color = "rgba(239,68,68,0.90)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+                e.currentTarget.style.color = "rgba(239,68,68,0.70)";
+              }}
+            >✕ Remove boost</button>
+          ) : (
+            <div style={{
+              padding: "5px 12px", borderRadius: 8, marginTop: 6, flexShrink: 0,
+              background: "rgba(20,184,166,0.06)", border: "1px solid rgba(20,184,166,0.18)",
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11, fontWeight: 600,
+              color: "rgba(94,234,212,0.50)", letterSpacing: "0.04em",
+            }}>Optional</div>
+          )}
         </div>
+
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
           color: "rgba(203,213,225,0.70)", marginBottom: 24,
@@ -714,8 +799,9 @@ function BoostSelector() {
                   transform: isActive ? "scale(1.02)" : "scale(1)",
                   transition: "all 0.25s cubic-bezier(0.22,1,0.36,1)",
                   boxShadow: isActive
-                    ? "0 0 24px rgba(34,211,238,0.38), 0 0 48px rgba(34,211,238,0.15)"
+                    ? "0 0 20px rgba(34,211,238,0.30), 0 0 40px rgba(34,211,238,0.12)"
                     : "none",
+                  willChange: "transform",
                 }}
                 onMouseEnter={e => {
                   if (!isActive) e.currentTarget.style.borderColor = "rgba(34,211,238,0.40)";
@@ -748,38 +834,58 @@ function BoostSelector() {
             );
           })}
 
-          {/* Preview card — 5th column, same row as pack cards */}
+          {/* Preview card — 5th column */}
           <div style={{
             alignSelf: "stretch",
             display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: 18,
             background: "#0b0614",
-            border: "1px solid rgba(139,92,246,0.22)",
-            boxShadow: "0 0 36px rgba(139,92,246,0.12)",
+            border: `1px solid ${pack ? "rgba(139,92,246,0.28)" : "rgba(139,92,246,0.12)"}`,
+            boxShadow: pack ? "0 0 28px rgba(139,92,246,0.10)" : "none",
             position: "relative",
             overflow: "hidden",
             textAlign: "center",
+            transition: "border-color 0.30s ease, box-shadow 0.30s ease",
           }}>
-            {/* Sweep light effect */}
-            <div style={{
-              position: "absolute", inset: 0,
-              background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.10) 50%, transparent 70%)",
-              animation: "zpo-sweep 3.5s ease-in-out infinite",
-              pointerEvents: "none",
-            }} />
+            {/* Sweep light — only when pack selected */}
+            {pack && (
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%)",
+                animation: "zpo-sweep 3.5s ease-in-out infinite",
+                pointerEvents: "none",
+                willChange: "transform",
+              }} />
+            )}
             <div style={{ position: "relative", zIndex: 1 }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
-              <div style={{
-                fontFamily: "'Syne', sans-serif",
-                fontSize: "clamp(22px, 2.5vw, 32px)",
-                fontWeight: 800,
-                color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
-                transition: "all 0.22s ease",
-              }}>+{pack.credits.toLocaleString()}</div>
-              <div style={{
-                fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
-              }}>credits instantly</div>
+              {pack ? (
+                <>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
+                  <div style={{
+                    fontFamily: "'Syne', sans-serif",
+                    fontSize: "clamp(22px, 2.5vw, 32px)",
+                    fontWeight: 800,
+                    color: WHITE, letterSpacing: "-0.04em", lineHeight: 1,
+                    transition: "all 0.22s ease",
+                  }}>+{pack.credits.toLocaleString()}</div>
+                  <div style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif",
+                    fontSize: 13, color: "rgba(203,213,225,0.65)", marginTop: 6,
+                  }}>credits instantly</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 26, marginBottom: 10, opacity: 0.28 }}>⚡</div>
+                  <div style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
+                    color: "rgba(148,163,184,0.35)", lineHeight: 1.5,
+                  }}>No boost<br />selected</div>
+                  <div style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10.5,
+                    color: "rgba(100,116,139,0.30)", marginTop: 8,
+                  }}>Select a pack to add credits</div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -793,7 +899,7 @@ function BoostSelector() {
 function ComparisonTable() {
   const planColors = [
     "rgba(34,211,238,0.90)",
-    "rgba(168,85,247,0.90)",  // Creator — purple
+    "rgba(168,85,247,0.90)",
     "rgba(124,58,237,0.90)",
     "rgba(255,255,255,0.90)",
   ];
@@ -821,7 +927,6 @@ function ComparisonTable() {
   };
 
   return (
-    // ── Flat premium dark section — no overlays, no gradients ──
     <section style={{
       margin: "0 auto",
       maxWidth: PRICING_CONTENT_MAX_WIDTH,
@@ -841,11 +946,11 @@ function ComparisonTable() {
         }}>Compare All Features</div>
       </div>
 
-      {/* ── Table shell — no background, no glass, no blur ── */}
+      {/* Table shell */}
       <div style={{ padding: "0 32px 36px" }}>
         <div style={{ overflow: "hidden" }}>
 
-          {/* Column headers — no glow, plain text only */}
+          {/* Column headers */}
           <div style={{
             display: "grid",
             gridTemplateColumns: "1.2fr repeat(4, minmax(120px, 1fr))",
@@ -863,10 +968,7 @@ function ComparisonTable() {
                 <div style={{
                   fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
                   letterSpacing: "0.12em", textTransform: "uppercase",
-                  // Creator = purple; others = muted white
-                  color: i === 1
-                    ? "#a855f7"
-                    : "rgba(255,255,255,0.55)",
+                  color: i === 1 ? "#a855f7" : "rgba(255,255,255,0.55)",
                   ...(i === 1 ? { fontWeight: 600 } : {}),
                 }}>
                   {p.icon} {p.name}
@@ -875,7 +977,7 @@ function ComparisonTable() {
             ))}
           </div>
 
-          {/* Rows — flat, no alternating backgrounds, Creator column = vertical strip */}
+          {/* Rows */}
           {COMPARE_FEATURES.map((row, rowIdx) => (
             <div
               key={rowIdx}
@@ -904,12 +1006,11 @@ function ComparisonTable() {
                 }}>{row.sub}</div>
               </div>
 
-              {/* Value cells — Creator column = flat tint, no border-radius */}
+              {/* Value cells */}
               {row.values.map((val, colIdx) => (
                 <div key={colIdx} style={{
                   display: "flex", justifyContent: "center", alignItems: "center",
                   padding: "4px 8px", height: "100%",
-                  // Creator = continuous flat strip, no rounded corners
                   background: colIdx === 1 ? "rgba(168,85,247,0.08)" : "transparent",
                   borderRadius: 0,
                 }}>
@@ -925,22 +1026,239 @@ function ComparisonTable() {
   );
 }
 
+// ── FCSUpsellModal ────────────────────────────────────────────────────────────
+
+function FCSUpsellModal({
+  plan,
+  onAddFCS,
+  onContinue,
+  onDismiss,
+}: {
+  plan: Plan;
+  onAddFCS: () => void;
+  onContinue: () => void;
+  onDismiss: () => void;
+}) {
+  const fcsPrice = plan.id === "pro" ? "+$29" : "+$49";
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 1400,
+        background: "rgba(0,0,0,0.72)",
+        backdropFilter: "blur(6px)",
+        WebkitBackdropFilter: "blur(6px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24,
+        animation: "zpo-fadein 0.22s ease",
+      }}
+      onClick={onDismiss}
+    >
+      <div
+        style={{
+          maxWidth: 520, width: "100%",
+          background: "linear-gradient(160deg, #0B0F2A 0%, #12143A 50%, #1A1040 100%)",
+          border: "1px solid rgba(255,213,106,0.35)",
+          borderRadius: 20,
+          padding: "36px 32px 32px",
+          boxShadow: "0 0 60px rgba(139,92,246,0.25), 0 0 120px rgba(255,213,106,0.06)",
+          position: "relative",
+          animation: "zpo-panel-open 0.35s cubic-bezier(0.22,1,0.36,1)",
+          willChange: "opacity, transform",
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Dismiss X */}
+        <button
+          onClick={onDismiss}
+          style={{
+            position: "absolute", top: 16, right: 16,
+            width: 32, height: 32, borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(3,6,18,0.60)",
+            color: "rgba(148,163,184,0.65)",
+            cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.18s",
+            padding: 0,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "rgba(239,68,68,0.16)";
+            e.currentTarget.style.color = "#EF4444";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "rgba(3,6,18,0.60)";
+            e.currentTarget.style.color = "rgba(148,163,184,0.65)";
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
+        {/* Badge */}
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 18,
+          padding: "4px 12px", borderRadius: 20,
+          background: "rgba(255,213,106,0.10)",
+          border: "1px solid rgba(255,213,106,0.30)",
+        }}>
+          <span style={{ fontSize: 12 }}>🎬</span>
+          <span style={{
+            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 10, fontWeight: 600,
+            color: GOLD, letterSpacing: "0.10em", textTransform: "uppercase",
+          }}>Future Cinema Studio</span>
+        </div>
+
+        {/* Title */}
+        <h3 style={{
+          fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800,
+          color: WHITE, letterSpacing: "-0.02em", margin: "0 0 10px",
+        }}>Add Future Cinema Studio?</h3>
+
+        {/* Subtitle */}
+        <p style={{
+          fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
+          color: BODY, lineHeight: 1.65, margin: "0 0 20px",
+        }}>
+          Unlock cinematic workflows, advanced director tools, and professional sequence control.
+        </p>
+
+        {/* 16:9 video */}
+        <div style={{
+          position: "relative", paddingBottom: "56.25%",
+          borderRadius: 12, overflow: "hidden", marginBottom: 20,
+          border: "1px solid rgba(255,255,255,0.08)",
+          background: "rgba(5,2,15,0.80)",
+        }}>
+          <video
+            src="/pricing/fcs-preview.mp4"
+            autoPlay muted loop playsInline
+            style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              pointerEvents: "none",
+            }}
+          />
+          {/* Fallback */}
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(135deg, rgba(30,10,80,0.55), rgba(5,2,15,0.75))",
+          }} />
+        </div>
+
+        {/* Price info */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 24,
+          padding: "12px 16px", borderRadius: 10,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}>
+          <span style={{ fontSize: 16 }}>{plan.icon}</span>
+          <span style={{
+            fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13,
+            color: "rgba(203,213,225,0.65)",
+          }}>Add-on for {plan.name}</span>
+          <span style={{
+            marginLeft: "auto",
+            fontFamily: "'Syne', sans-serif", fontSize: 20, fontWeight: 800,
+            color: WHITE,
+          }}>
+            {fcsPrice}
+            <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(148,163,184,0.45)" }}>/mo</span>
+          </span>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={onAddFCS}
+            style={{
+              width: "100%", padding: "14px 0", borderRadius: 12, border: "none",
+              background: `linear-gradient(135deg, ${GOLD} 0%, #F59E0B 100%)`,
+              color: "#07050F",
+              fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 800,
+              letterSpacing: "0.04em", cursor: "pointer",
+              transition: "filter 0.18s ease, transform 0.18s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.filter = "brightness(1.08)";
+              e.currentTarget.style.transform = "scale(1.02)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.filter = "brightness(1)";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >Add FCS</button>
+
+          <button
+            onClick={onContinue}
+            style={{
+              width: "100%", padding: "13px 0", borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "transparent",
+              color: "rgba(203,213,225,0.55)",
+              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
+              letterSpacing: "0.02em", cursor: "pointer",
+              transition: "color 0.18s ease, border-color 0.18s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = "rgba(203,213,225,0.88)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.22)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = "rgba(203,213,225,0.55)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+            }}
+          >Continue without FCS</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main PricingOverlay
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PricingOverlay({ onClose }: PricingOverlayProps) {
-  const [billing, setBilling]   = useState<BillingCycle>("monthly");
-  const [selected, setSelected] = useState<string>("creator");
-  const [closing, setClosing]   = useState(false);
+  const [billing, setBilling]           = useState<BillingCycle>("monthly");
+  const [selected, setSelected]         = useState<string>("creator");
+  const [closing, setClosing]           = useState(false);
+  const [fcsEnabled, setFcsEnabled]     = useState(false);
+  const [showFCSModal, setShowFCSModal] = useState(false);
+  const [pendingPlan, setPendingPlan]   = useState<Plan | null>(null);
 
+  // Refs for reel IntersectionObserver
+  const heroRef      = useRef<HTMLDivElement>(null);
+  const reelStripRef = useRef<HTMLDivElement>(null);
+
+  // Inject keyframes once
   useEffect(() => {
-    const id = "zpo-kf-v8";
+    const id = "zpo-kf-v9";
     if (!document.getElementById(id)) {
       const s = document.createElement("style");
       s.id = id; s.textContent = KEYFRAMES;
       document.head.appendChild(s);
     }
+  }, []);
+
+  // Pause reel animation when hero scrolls out of view → saves GPU
+  useEffect(() => {
+    const hero  = heroRef.current;
+    const strip = reelStripRef.current;
+    if (!hero || !strip) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        strip.style.animationPlayState = entry.isIntersecting ? "running" : "paused";
+      },
+      { threshold: 0 }
+    );
+    io.observe(hero);
+    return () => io.disconnect();
   }, []);
 
   const handleClose = useCallback(() => {
@@ -955,396 +1273,458 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
     return () => window.removeEventListener("keydown", h);
   }, [handleClose]);
 
+  // FCS upsell modal handlers
+  const handleFCSUpsell = useCallback((plan: Plan) => {
+    setPendingPlan(plan);
+    setShowFCSModal(true);
+  }, []);
+
+  const handleModalAddFCS = useCallback(() => {
+    setFcsEnabled(true);
+    if (pendingPlan) setSelected(pendingPlan.id);
+    setShowFCSModal(false);
+    setPendingPlan(null);
+  }, [pendingPlan]);
+
+  const handleModalContinue = useCallback(() => {
+    if (pendingPlan) setSelected(pendingPlan.id);
+    setShowFCSModal(false);
+    setPendingPlan(null);
+  }, [pendingPlan]);
+
+  const handleModalDismiss = useCallback(() => {
+    setShowFCSModal(false);
+    setPendingPlan(null);
+  }, []);
+
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 1200,
-        overflowY: "auto",
-        background: "rgba(0,0,0,0.68)",
-        backdropFilter: "blur(18px)",
-        WebkitBackdropFilter: "blur(18px)",
-        animation: closing
-          ? `zpo-fadeout ${CLOSE_MS}ms ease forwards`
-          : "zpo-fadein 0.32s ease",
-      }}
-    >
-      {/* ── Click-outside-to-close wrapper ── */}
+    <>
+      {/* FCS Upsell Modal — above the overlay */}
+      {showFCSModal && pendingPlan && (
+        <FCSUpsellModal
+          plan={pendingPlan}
+          onAddFCS={handleModalAddFCS}
+          onContinue={handleModalContinue}
+          onDismiss={handleModalDismiss}
+        />
+      )}
+
+      {/* ── Backdrop ── */}
       <div
-        onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
         style={{
-          position: "relative", zIndex: 3,
-          minHeight: "100%",
-          display: "flex", alignItems: "flex-start", justifyContent: "center",
-          padding: "24px",
-          boxSizing: "border-box",
+          position: "fixed", inset: 0, zIndex: 1200,
+          overflowY: "auto",
+          background: "rgba(0,0,0,0.72)",
+          // Reduced from 18px — main perf win during scroll
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          animation: closing
+            ? `zpo-fadeout ${CLOSE_MS}ms ease forwards`
+            : "zpo-fadein 420ms cubic-bezier(0.22,1,0.36,1)",
+          willChange: "opacity",
         }}
       >
-        {/* ── Glass panel ── */}
+        {/* ── Click-outside-to-close wrapper ── */}
         <div
-          onClick={e => e.stopPropagation()}
+          onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
           style={{
-            width: "100%", maxWidth: 1440,
-            minHeight: "calc(100vh - 48px)",
-            position: "relative",
-            borderRadius: 24,
-            overflow: "hidden",
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: PRICING_PANEL_BG ? "transparent" : "rgba(3,6,18,0.42)",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            boxShadow: `
-              0 0 80px rgba(104,80,255,0.18),
-              inset 0 0 80px rgba(255,255,255,0.03)
-            `,
-            animation: closing
-              ? `zpo-slidedown ${CLOSE_MS}ms cubic-bezier(0.22,1,0.36,1) forwards`
-              : "zpo-slideup 0.45s cubic-bezier(0.22,1,0.36,1)",
+            position: "relative", zIndex: 3,
+            minHeight: "100%",
+            display: "flex", alignItems: "flex-start", justifyContent: "center",
+            padding: "24px",
+            boxSizing: "border-box",
           }}
         >
-          {/* ── Panel background — clipped by border-radius (stays inside panel) ── */}
-          {PRICING_PANEL_BG ? (
-            <div style={{
-              position: "absolute", inset: 0, zIndex: 0,
-              backgroundImage: `url(${PRICING_PANEL_BG})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center top",
-              pointerEvents: "none",
-            }} />
-          ) : (
-            <>
-              {/* Colorful gradient — inside panel only */}
-              <div style={{
-                position: "absolute", inset: "-6%", zIndex: 0,
-                background: `
-                  radial-gradient(circle at 18% 18%, rgba(70,110,255,0.28), transparent 32%),
-                  radial-gradient(circle at 82% 18%, rgba(255,55,180,0.34), transparent 34%),
-                  radial-gradient(circle at 50% 70%, rgba(120,30,255,0.22), transparent 42%),
-                  linear-gradient(180deg, #050716 0%, #07051a 48%, #05020d 100%)
-                `,
-                animation: "zpo-bg-drift 35s ease-in-out infinite",
-                pointerEvents: "none",
-              }} />
-              {/* Star / noise layer */}
-              <div style={{
-                position: "absolute", inset: 0, zIndex: 1,
-                backgroundImage: `
-                  radial-gradient(circle, rgba(255,255,255,0.85) 1px, transparent 1px),
-                  radial-gradient(circle, rgba(255,255,255,0.55) 1px, transparent 1px)
-                `,
-                backgroundSize: "80px 80px, 130px 130px",
-                backgroundPosition: "0 0, 40px 65px",
-                opacity: 0.06,
-                pointerEvents: "none",
-              }} />
-              {/* Vignette */}
-              <div style={{
-                position: "absolute", inset: 0, zIndex: 2,
-                boxShadow: "inset 0 0 180px rgba(0,0,0,0.75)",
-                pointerEvents: "none",
-              }} />
-            </>
-          )}
-
-          {/* ── Close button — inside panel, top right ── */}
-          <button
-            onClick={handleClose}
-            title="Close (Esc)"
+          {/* ── Glass panel ── */}
+          <div
+            onClick={e => e.stopPropagation()}
             style={{
-              position: "absolute", top: 24, right: 24, zIndex: 10,
-              width: 40, height: 40, borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "rgba(3,6,18,0.72)",
-              backdropFilter: "blur(16px)",
-              color: "rgba(148,163,184,0.72)",
-              cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.18s", padding: 0,
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = "rgba(239,68,68,0.16)";
-              e.currentTarget.style.borderColor = "rgba(239,68,68,0.40)";
-              e.currentTarget.style.color = "#EF4444";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = "rgba(3,6,18,0.72)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-              e.currentTarget.style.color = "rgba(148,163,184,0.72)";
+              width: "100%", maxWidth: 1440,
+              minHeight: "calc(100vh - 48px)",
+              position: "relative",
+              borderRadius: 24,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.14)",
+              // No backdropFilter on panel — redundant & expensive on top of backdrop
+              background: PRICING_PANEL_BG ? "transparent" : "rgba(3,6,18,0.60)",
+              boxShadow: "0 0 48px rgba(104,80,255,0.12), inset 0 0 48px rgba(255,255,255,0.02)",
+              // Panel slides DOWN from above — cubic-bezier spring
+              animation: closing
+                ? `zpo-panel-close ${CLOSE_MS}ms cubic-bezier(0.22,1,0.36,1) forwards`
+                : "zpo-panel-open 420ms cubic-bezier(0.22,1,0.36,1)",
+              willChange: "opacity, transform",
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-
-          {/* ── Content wrapper — sits above bg layers (zIndex > 2) ── */}
-          <div style={{ position: "relative", zIndex: 3 }}>
-
-          {/* ── Hero ── */}
-          <div style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}>
-
-            {/* ── Video reel strip — behind headline ── */}
-            <div style={{
-              position: "absolute", inset: 0,
-              overflow: "hidden",
-              opacity: 0.35,
-              pointerEvents: "none",
-              zIndex: 0,
-            }}>
+            {/* ── Panel background layers ── */}
+            {PRICING_PANEL_BG ? (
               <div style={{
-                display: "flex",
-                animation: "zpo-reel 36s linear infinite",
-                width: "fit-content",
-                // Anchor to the top so cards sit behind the headline, not mid-hero
-                alignItems: "flex-start",
-                paddingTop: "20px",
-              }}>
-                {[...REEL_VIDEOS, ...REEL_VIDEOS].map((src, i) => (
-                  <div key={i} style={{
-                    // 360×202 keeps 16:9 and fills ~3 full + 2 partial cards at panel width
-                    width: 360, height: 202,
-                    flexShrink: 0,
-                    margin: "0 12px",
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid rgba(139,92,246,0.50)",
-                    boxShadow: "0 0 22px rgba(104,80,255,0.32), inset 0 0 28px rgba(0,0,0,0.45)",
-                    background: "linear-gradient(135deg, rgba(40,20,80,0.70) 0%, rgba(15,10,40,0.85) 100%)",
-                    position: "relative",
-                  }}>
-                    {/* Video layer */}
-                    <video
-                      src={src}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
+                position: "absolute", inset: 0, zIndex: 0,
+                backgroundImage: `url(${PRICING_PANEL_BG})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center top",
+                pointerEvents: "none",
+              }} />
+            ) : (
+              <>
+                {/* Static gradient — NO drift animation (expensive on large element) */}
+                <div style={{
+                  position: "absolute", inset: 0, zIndex: 0,
+                  background: `
+                    radial-gradient(circle at 18% 18%, rgba(70,110,255,0.28), transparent 32%),
+                    radial-gradient(circle at 82% 18%, rgba(255,55,180,0.34), transparent 34%),
+                    radial-gradient(circle at 50% 70%, rgba(120,30,255,0.22), transparent 42%),
+                    linear-gradient(180deg, #050716 0%, #07051a 48%, #05020d 100%)
+                  `,
+                  pointerEvents: "none",
+                }} />
+
+                {/* ── Star dots layer — slow opacity pulse, cinematic not noisy ── */}
+                <div style={{
+                  position: "absolute", inset: 0, zIndex: 1,
+                  pointerEvents: "none", overflow: "hidden",
+                }}>
+                  {STAR_DOTS.map((dot, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        position: "absolute",
+                        left: `${dot.x}%`,
+                        top: `${dot.y}%`,
+                        width: dot.s,
+                        height: dot.s,
+                        borderRadius: "50%",
+                        background: "rgba(255,255,255,0.92)",
+                        animation: `zpo-star-pulse ${3.8 + (dot.d % 2.6)}s ${dot.d}s ease-in-out infinite`,
+                        willChange: "opacity, transform",
+                        "--so": dot.o,
+                      } as React.CSSProperties}
                     />
-                    {/* Fallback gradient — visible when mp4 is not yet present */}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: `linear-gradient(135deg,
-                        rgba(${[
-                          "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220",
-                          "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220"
-                        ][i % 10]},0.60) 0%,
-                        rgba(10,5,30,0.80) 100%)`,
-                    }} />
-                    {/* Dark overlay — keeps headline legible, sits above video + fallback */}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      background: "rgba(0,0,0,0.50)",
-                    }} />
+                  ))}
+                </div>
+
+                {/* Vignette */}
+                <div style={{
+                  position: "absolute", inset: 0, zIndex: 2,
+                  boxShadow: "inset 0 0 180px rgba(0,0,0,0.75)",
+                  pointerEvents: "none",
+                }} />
+              </>
+            )}
+
+            {/* ── Close button ── */}
+            <button
+              onClick={handleClose}
+              title="Close (Esc)"
+              style={{
+                position: "absolute", top: 24, right: 24, zIndex: 10,
+                width: 40, height: 40, borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(3,6,18,0.72)",
+                backdropFilter: "blur(12px)",
+                color: "rgba(148,163,184,0.72)",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.18s", padding: 0,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(239,68,68,0.16)";
+                e.currentTarget.style.borderColor = "rgba(239,68,68,0.40)";
+                e.currentTarget.style.color = "#EF4444";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "rgba(3,6,18,0.72)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                e.currentTarget.style.color = "rgba(148,163,184,0.72)";
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* ── Content wrapper ── */}
+            <div style={{ position: "relative", zIndex: 3 }}>
+
+              {/* ── Hero ── */}
+              <div
+                ref={heroRef}
+                style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}
+              >
+                {/* ── Video reel strip — behind headline ── */}
+                <div style={{
+                  position: "absolute", inset: 0,
+                  overflow: "hidden",
+                  opacity: 0.35,
+                  pointerEvents: "none",
+                  zIndex: 0,
+                }}>
+                  <div
+                    ref={reelStripRef}
+                    style={{
+                      display: "flex",
+                      animation: "zpo-reel 36s linear infinite",
+                      width: "fit-content",
+                      alignItems: "flex-start",
+                      paddingTop: "20px",
+                      willChange: "transform",
+                    }}
+                  >
+                    {[...REEL_VIDEOS, ...REEL_VIDEOS].map((src, i) => (
+                      <div key={i} style={{
+                        width: 360, height: 202,
+                        flexShrink: 0,
+                        margin: "0 12px",
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        border: "1px solid rgba(139,92,246,0.50)",
+                        boxShadow: "0 0 18px rgba(104,80,255,0.24), inset 0 0 20px rgba(0,0,0,0.40)",
+                        background: "linear-gradient(135deg, rgba(40,20,80,0.70) 0%, rgba(15,10,40,0.85) 100%)",
+                        position: "relative",
+                      }}>
+                        <video
+                          src={src}
+                          autoPlay
+                          muted
+                          loop
+                          playsInline
+                          style={{
+                            width: "100%", height: "100%", objectFit: "cover",
+                            position: "absolute", inset: 0,
+                            pointerEvents: "none",
+                          }}
+                        />
+                        {/* Fallback gradient */}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: `linear-gradient(135deg,
+                            rgba(${[
+                              "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220",
+                              "70,40,180","120,30,200","30,80,200","180,30,120","60,140,220"
+                            ][i % 10]},0.60) 0%,
+                            rgba(10,5,30,0.80) 100%)`,
+                        }} />
+                        {/* Dark overlay */}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: "rgba(0,0,0,0.50)",
+                        }} />
+                      </div>
+                    ))}
                   </div>
+                </div>
+
+                {/* ── Hero text ── */}
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <h1 style={{
+                    fontFamily: "'Syne', sans-serif",
+                    fontSize: "clamp(28px, 4.8vw, 80px)",
+                    fontWeight: 900, lineHeight: 0.95,
+                    letterSpacing: "-0.045em",
+                    margin: "0 0 24px",
+                    whiteSpace: "nowrap",
+                    background: "linear-gradient(90deg, #ffffff 0%, #f7f4ff 42%, #d946ef 72%, #7c8cff 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}>
+                    Create Without Limits
+                  </h1>
+
+                  {/* Model chips */}
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: 10, flexWrap: "wrap", marginBottom: 24,
+                  }}>
+                    {["Nano Banana Pro", "FLUX Pro", "Seedream", "Kling 3.0"].map((m, i) => (
+                      <span key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{
+                          fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
+                          color: "rgba(203,213,225,0.65)", letterSpacing: "0.03em",
+                        }}>{m}</span>
+                        {i < 3 && <span style={{ color: "rgba(100,116,139,0.35)", fontSize: 10 }}>•</span>}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Launch offer */}
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28,
+                    animation: "zpo-launch-float 4s ease-in-out infinite",
+                    willChange: "transform",
+                  }}>
+                    <span style={{
+                      fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+                      color: "rgba(255,255,255,0.92)",
+                    }}>Launch Offer —</span>
+                    <span style={{
+                      fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
+                      background: `linear-gradient(135deg, ${GOLD} 0%, #fcd34d 100%)`,
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }}>Up to 40% OFF</span>
+                  </div>
+
+                  <p style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif",
+                    fontSize: "clamp(14px, 1.8vw, 16px)",
+                    color: "rgba(230,237,243,0.75)",
+                    margin: "0 auto 44px", maxWidth: 460, lineHeight: 1.65,
+                  }}>
+                    Generate images, videos, and audio with cutting-edge AI models and tools.
+                  </p>
+
+                  <BillingToggle billing={billing} onChange={setBilling} />
+                </div>
+              </div>
+
+              {/* ── Pricing cards ── */}
+              <div style={{
+                display: "flex", gap: 18,
+                padding: "28px 32px 20px",
+                maxWidth: 1200, margin: "0 auto",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+              }}>
+                {PLANS.map(plan => (
+                  <PricingCard
+                    key={plan.id}
+                    plan={plan}
+                    billing={billing}
+                    selected={selected === plan.id}
+                    onSelect={setSelected}
+                    fcsEnabled={fcsEnabled}
+                    onFCSUpsell={handleFCSUpsell}
+                  />
                 ))}
               </div>
-            </div>
 
-            {/* ── Hero text — above reel ── */}
-            <div style={{ position: "relative", zIndex: 1 }}>
-            <h1 style={{
-              fontFamily: "'Syne', sans-serif",
-              fontSize: "clamp(28px, 4.8vw, 80px)",
-              fontWeight: 900, lineHeight: 0.95,
-              letterSpacing: "-0.045em",
-              margin: "0 0 24px",
-              whiteSpace: "nowrap",
-              background: "linear-gradient(90deg, #ffffff 0%, #f7f4ff 42%, #d946ef 72%, #7c8cff 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}>
-              Create Without Limits
-            </h1>
+              {/* ── FCS Strip — controlled ── */}
+              <div style={{ marginBottom: 40 }}>
+                <FCSStrip
+                  enabled={fcsEnabled}
+                  onToggle={(v) => setFcsEnabled(v)}
+                />
+              </div>
 
-            {/* Model chips */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 10, flexWrap: "wrap", marginBottom: 24,
-            }}>
-              {["Nano Banana Pro", "FLUX Pro", "Seedream", "Kling 3.0"].map((m, i) => (
-                <span key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{
-                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
-                    color: "rgba(203,213,225,0.65)", letterSpacing: "0.03em",
-                  }}>{m}</span>
-                  {i < 3 && <span style={{ color: "rgba(100,116,139,0.35)", fontSize: 10 }}>•</span>}
-                </span>
-              ))}
-            </div>
+              {/* ── Boost Selector ── */}
+              <div style={{ marginBottom: 60 }}>
+                <BoostSelector />
+              </div>
 
-            {/* Launch offer */}
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28,
-              animation: "zpo-launch-float 4s ease-in-out infinite",
-            }}>
-              <span style={{
-                fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
-                color: "rgba(255,255,255,0.92)",
-              }}>Launch Offer —</span>
-              <span style={{
-                fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
-                background: `linear-gradient(135deg, ${GOLD} 0%, #fcd34d 100%)`,
-                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}>Up to 40% OFF</span>
-            </div>
+              {/* ── Comparison Table ── */}
+              <div style={{ marginBottom: 64 }}>
+                <ComparisonTable />
+              </div>
 
-            <p style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: "clamp(14px, 1.8vw, 16px)",
-              color: "rgba(230,237,243,0.75)",
-              margin: "0 auto 44px", maxWidth: 460, lineHeight: 1.65,
-            }}>
-              Generate images, videos, and audio with cutting-edge AI models and tools.
-            </p>
-
-            <BillingToggle billing={billing} onChange={setBilling} />
-            </div>{/* /hero text wrapper */}
-          </div>
-
-          {/* ── Pricing cards ── */}
-          <div style={{
-            display: "flex", gap: 18,
-            padding: "28px 32px 20px",
-            maxWidth: 1200, margin: "0 auto",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-          }}>
-            {PLANS.map(plan => (
-              <PricingCard
-                key={plan.id}
-                plan={plan}
-                billing={billing}
-                selected={selected === plan.id}
-                onSelect={setSelected}
-              />
-            ))}
-          </div>
-
-          {/* ── FCS Strip ── */}
-          <div style={{ marginBottom: 40 }}>
-            <FCSStrip />
-          </div>
-
-          {/* ── Boost Selector ── */}
-          <div style={{ marginBottom: 60 }}>
-            <BoostSelector />
-          </div>
-
-          {/* ── Comparison Table ── */}
-          <div style={{ marginBottom: 64 }}>
-            <ComparisonTable />
-          </div>
-
-          {/* ── Bottom CTA ── */}
-          <div style={{
-            borderTop: "1px solid rgba(255,255,255,0.06)",
-            padding: "64px 24px 0",
-            position: "relative", overflow: "hidden",
-            background: "linear-gradient(135deg, #0B0F2A 0%, #12143A 40%, #1A1040 75%, #0B0614 100%)",
-            boxShadow: "inset 0 0 120px rgba(0,0,0,0.8)",
-          }}>
-
-            <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-              <h2 style={{
-                fontFamily: "'Syne', sans-serif",
-                fontSize: "clamp(24px, 4vw, 40px)",
-                fontWeight: 800, color: WHITE,
-                letterSpacing: "-0.025em", margin: "0 0 12px",
+              {/* ── Bottom CTA ── */}
+              <div style={{
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                padding: "64px 24px 0",
+                position: "relative", overflow: "hidden",
+                background: "linear-gradient(135deg, #0B0F2A 0%, #12143A 40%, #1A1040 75%, #0B0614 100%)",
+                boxShadow: "inset 0 0 120px rgba(0,0,0,0.8)",
               }}>
-                Ready to bring your ideas to life?
-              </h2>
-              <p style={{
-                fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 15,
-                color: "rgba(230,237,243,0.75)",
-                margin: "0 auto 40px", maxWidth: 380, lineHeight: 1.6,
-              }}>
-                Join thousands of creators building the future with Zencra.
-              </p>
-              <button className="zpo-cta-btn" style={{
-                padding: "16px 56px", borderRadius: 14, border: "none",
-                background: "linear-gradient(135deg, #2563EB, #4F46E5, #7C3AED)",
-                color: "#fff", fontFamily: "'Syne', sans-serif",
-                fontSize: 16, fontWeight: 700, letterSpacing: "0.04em",
-                cursor: "pointer",
-                boxShadow: "none",
-                transition: "transform 0.25s ease, box-shadow 0.25s ease",
-              }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = "scale(1.04)";
-                  e.currentTarget.style.boxShadow = "0 0 24px rgba(124,58,237,0.55), 0 0 48px rgba(37,99,235,0.35)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                Choose your plan →
-              </button>
-            </div>
 
-            {/* Trust bar */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              flexWrap: "wrap", gap: 16,
-              margin: "52px auto 0", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "20px 32px",
-              borderTop: "1px solid rgba(255,255,255,0.04)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                {[
-                  { icon: "🔒", text: "Secure payments" },
-                  { icon: "✓",  text: "Cancel anytime" },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ color: TEAL, fontSize: 13 }}>{item.icon}</span>
+                <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
+                  <h2 style={{
+                    fontFamily: "'Syne', sans-serif",
+                    fontSize: "clamp(24px, 4vw, 40px)",
+                    fontWeight: 800, color: WHITE,
+                    letterSpacing: "-0.025em", margin: "0 0 12px",
+                  }}>
+                    Ready to bring your ideas to life?
+                  </h2>
+                  <p style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 15,
+                    color: "rgba(230,237,243,0.75)",
+                    margin: "0 auto 40px", maxWidth: 380, lineHeight: 1.6,
+                  }}>
+                    Join thousands of creators building the future with Zencra.
+                  </p>
+                  <button className="zpo-cta-btn" style={{
+                    padding: "16px 56px", borderRadius: 14, border: "none",
+                    background: "linear-gradient(135deg, #2563EB, #4F46E5, #7C3AED)",
+                    color: "#fff", fontFamily: "'Syne', sans-serif",
+                    fontSize: 16, fontWeight: 700, letterSpacing: "0.04em",
+                    cursor: "pointer",
+                    boxShadow: "none",
+                    transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                  }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = "scale(1.04)";
+                      e.currentTarget.style.boxShadow = "0 0 24px rgba(124,58,237,0.55), 0 0 48px rgba(37,99,235,0.35)";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = "scale(1)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  >
+                    Choose your plan →
+                  </button>
+                </div>
+
+                {/* Trust bar */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  flexWrap: "wrap", gap: 16,
+                  margin: "52px auto 0", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "20px 32px",
+                  borderTop: "1px solid rgba(255,255,255,0.04)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                    {[
+                      { icon: "🔒", text: "Secure payments" },
+                      { icon: "✓",  text: "Cancel anytime" },
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ color: TEAL, fontSize: 13 }}>{item.icon}</span>
+                        <span style={{
+                          fontFamily: "'Familjen Grotesk', sans-serif",
+                          fontSize: 12.5, color: "rgba(148,163,184,0.70)",
+                        }}>{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      {["#8B5CF6", "#22d3ee", "#EC4899", "#FFD56A", "#3B82F6"].map((color, i) => (
+                        <div key={i} style={{
+                          width: 28, height: 28, borderRadius: 14,
+                          background: `radial-gradient(circle at 35% 35%, ${color}BB, ${color}55)`,
+                          border: "2px solid rgba(3,6,18,0.90)",
+                          marginLeft: i === 0 ? 0 : -8,
+                          zIndex: 5 - i, position: "relative",
+                        }} />
+                      ))}
+                    </div>
                     <span style={{
                       fontFamily: "'Familjen Grotesk', sans-serif",
                       fontSize: 12.5, color: "rgba(148,163,184,0.70)",
-                    }}>{item.text}</span>
+                    }}>Trusted by 50,000+ creators worldwide</span>
                   </div>
-                ))}
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  {["#8B5CF6", "#22d3ee", "#EC4899", "#FFD56A", "#3B82F6"].map((color, i) => (
-                    <div key={i} style={{
-                      width: 28, height: 28, borderRadius: 14,
-                      background: `radial-gradient(circle at 35% 35%, ${color}BB, ${color}55)`,
-                      border: "2px solid rgba(3,6,18,0.90)",
-                      marginLeft: i === 0 ? 0 : -8,
-                      zIndex: 5 - i, position: "relative",
-                    }} />
-                  ))}
                 </div>
-                <span style={{
-                  fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 12.5, color: "rgba(148,163,184,0.70)",
-                }}>Trusted by 50,000+ creators worldwide</span>
+
+                {/* Legal — slightly brighter for readability */}
+                <div style={{
+                  textAlign: "center", padding: "24px 24px 48px",
+                  fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
+                  color: "rgba(148,163,184,0.55)", lineHeight: 1.7,
+                }}>
+                  Prices shown in USD. Credit costs vary by model and resolution.<br />
+                  All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.<br />
+                  <span style={{ fontStyle: "italic" }}>ⓘ Output may vary based on model selection and quality settings.</span>
+                  {"  ·  "}Credits reset monthly. Unused credits do not roll over.
+                </div>
               </div>
-            </div>
 
-            {/* Legal */}
-            <div style={{
-              textAlign: "center", padding: "24px 24px 48px",
-              fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 11,
-              color: "rgba(71,85,105,0.42)", lineHeight: 1.7,
-            }}>
-              Prices shown in USD. Credit costs vary by model and resolution.<br />
-              All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.<br />
-              <span style={{ fontStyle: "italic" }}>ⓘ Output may vary based on model selection and quality settings.</span>
-              {"  ·  "}Credits reset monthly. Unused credits do not roll over.
-            </div>
-          </div>
-
-          </div>{/* /content wrapper */}
-        </div>{/* /glass panel */}
-      </div>{/* /click-outside wrapper */}
-    </div>
+            </div>{/* /content wrapper */}
+          </div>{/* /glass panel */}
+        </div>{/* /click-outside wrapper */}
+      </div>
+    </>
   );
 }
 
