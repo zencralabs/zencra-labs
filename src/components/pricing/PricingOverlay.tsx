@@ -74,13 +74,13 @@ const PLANS: Plan[] = [
     credits: 600,
     images: 75,
     clips: 5,
-    border: "rgba(96,165,250,0.70)",
-    hoverGlow: "0 0 45px rgba(96,165,250,.32)",
+    border: "rgba(255,255,255,0.75)",
+    hoverGlow: "0 0 45px rgba(255,255,255,.20)",
     ctaLabel: "Start Free (Upgrade later)",
-    ctaBg: "linear-gradient(90deg, #2563eb, #3b82f6)",
+    ctaBg: "linear-gradient(135deg, #60a5fa 0%, #1d4ed8 100%)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 24px rgba(59,130,246,0.45)",
+    ctaHoverShadow: "0 0 24px rgba(29,78,216,0.55)",
     features: [
       "Basic & Pro Image Models",
       "Fast Video Generation",
@@ -102,10 +102,10 @@ const PLANS: Plan[] = [
     border: "rgba(236,72,153,0.78)",
     hoverGlow: "0 0 50px rgba(236,72,153,.34)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(90deg, #ec4899, #db2777)",
+    ctaBg: "linear-gradient(135deg, #f472b6 0%, #c026d3 100%)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 40px rgba(236,72,153,0.55), 0 0 80px rgba(219,39,119,0.25)",
+    ctaHoverShadow: "0 0 40px rgba(192,38,211,0.55), 0 0 80px rgba(244,114,182,0.25)",
     highlight: true,
     features: [
       "All Image Models",
@@ -129,10 +129,10 @@ const PLANS: Plan[] = [
     border: "rgba(52,211,153,0.78)",
     hoverGlow: "0 0 45px rgba(52,211,153,.32)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(90deg, #059669, #10b981)",
+    ctaBg: "linear-gradient(135deg, #34d399 0%, #059669 100%)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 32px rgba(16,185,129,0.55), 0 0 64px rgba(5,150,105,0.28)",
+    ctaHoverShadow: "0 0 32px rgba(5,150,105,0.55), 0 0 64px rgba(52,211,153,0.28)",
     features: [
       "All Image Models",
       "All Video Models",
@@ -155,10 +155,10 @@ const PLANS: Plan[] = [
     border: "rgba(59,130,246,0.92)",
     hoverGlow: "0 0 55px rgba(59,130,246,.40), 0 0 90px rgba(37,99,235,.22)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(90deg, #2563eb, #1d4ed8)",
+    ctaBg: "linear-gradient(135deg, #60a5fa 0%, #1e40af 100%)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 28px rgba(59,130,246,0.55), 0 0 56px rgba(37,99,235,0.28)",
+    ctaHoverShadow: "0 0 28px rgba(30,64,175,0.55), 0 0 56px rgba(96,165,250,0.28)",
     features: [
       "All Image Models",
       "All Video Models",
@@ -604,8 +604,8 @@ function PricingCard({
           {displayOriginalPrice && (
             <div style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 13, fontWeight: 500,
-              color: "rgba(148,163,184,0.45)",
+              fontSize: 15, fontWeight: 500,
+              color: "rgba(203,213,225,0.82)",
               textDecoration: "line-through",
               marginBottom: 2,
             }}>${displayOriginalPrice}/mo</div>
@@ -619,7 +619,7 @@ function PricingCard({
             }}>${price}</span>
             <span style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 13, color: "rgba(148,163,184,0.50)",
+              fontSize: 15, color: "rgba(203,213,225,0.82)",
               marginBottom: 8,
             }}>/{basePeriod}</span>
           </div>
@@ -627,7 +627,7 @@ function PricingCard({
             <div style={{
               display: "flex", alignItems: "center", gap: 6, marginTop: 5,
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 11.5, color: "rgba(100,116,139,0.60)",
+              fontSize: 13, color: "rgba(203,213,225,0.75)",
             }}>
               <span>${bYearlyPrice} / yr</span>
               <span style={{
@@ -653,7 +653,7 @@ function PricingCard({
         <div>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 12, color: "rgba(148,163,184,0.55)", marginBottom: 3,
+            fontSize: 14, color: "rgba(203,213,225,0.85)", marginBottom: 3,
           }}>Create up to</div>
           <div style={{
             fontFamily: "'Syne', sans-serif",
@@ -664,11 +664,59 @@ function PricingCard({
           </div>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 13, color: "rgba(203,213,225,0.75)", marginTop: 3,
+            fontSize: 15, color: "rgba(226,232,240,0.92)", marginTop: 3,
           }}>
             images or {displayClips} clips {outputLabel}
           </div>
         </div>
+
+        {/* ── Included active models pills ── */}
+        {!isBusiness && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 9.5, fontWeight: 700,
+              letterSpacing: "0.10em", textTransform: "uppercase",
+              color: "rgba(148,163,184,0.50)",
+              marginBottom: 8,
+            }}>Included Active Models</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {[
+                { name: "GPT Image 2",       isNew: true  },
+                { name: "Nano Banana 2",     isNew: true  },
+                { name: "Seedream v5 Lite",  isNew: false },
+                { name: "FLUX.2",            isNew: false },
+                { name: "Kling 3.0",         isNew: false },
+                { name: "Seedance 2.0",      isNew: true  },
+                { name: "Hailuo 2.3",        isNew: true  },
+                { name: "ElevenLabs v3",     isNew: false },
+              ].map(m => (
+                <span key={m.name} style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 10, fontWeight: 500,
+                  color: "rgba(203,213,225,0.70)",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 6,
+                  padding: "3px 7px",
+                }}>
+                  {m.name}
+                  {m.isNew && (
+                    <span style={{
+                      fontSize: 8, fontWeight: 700,
+                      color: TEAL,
+                      background: "rgba(34,211,238,0.10)",
+                      border: "1px solid rgba(34,211,238,0.20)",
+                      borderRadius: 4, padding: "1px 4px",
+                      letterSpacing: "0.04em",
+                    }}>NEW</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── BOTTOM GROUP ── */}
@@ -1625,7 +1673,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   overflow: "hidden",
                   pointerEvents: "none",
                   zIndex: 0,
-                  opacity: 0.34,
+                  opacity: 0.62,
                 }}>
                   {/* Edge fade — outer cards partially clipped */}
                   <div style={{
@@ -1637,10 +1685,10 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", zIndex: 2,
                     background: "linear-gradient(to bottom, transparent, rgba(5,7,22,0.85))",
                   }} />
-                  {/* Card row — positioned 70px from top so they sit behind the headline */}
+                  {/* Card row — positioned near top so they sit behind the headline */}
                   <div style={{
                     position: "absolute",
-                    top: 70,
+                    top: 8,
                     left: "50%",
                     transform: "translateX(-50%)",
                     display: "flex",
@@ -1676,10 +1724,10 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                               display: "block",
                             }}
                           />
-                          {/* Dark overlay — 38% */}
+                          {/* Dark overlay — 30% (70% image visible) */}
                           <div style={{
                             position: "absolute", inset: 0,
-                            background: "rgba(0,0,0,0.38)",
+                            background: "rgba(0,0,0,0.30)",
                           }} />
                         </div>
                       );
