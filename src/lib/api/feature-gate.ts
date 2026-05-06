@@ -93,6 +93,7 @@ function studioLabel(studio: StudioType): string {
     character: "Character Studio",
     ugc:       "UGC Studio",
     fcs:       "Future Cinema Studio",
+    lipsync:   "Lip Sync Studio",
   };
   return labels[studio] ?? studio;
 }

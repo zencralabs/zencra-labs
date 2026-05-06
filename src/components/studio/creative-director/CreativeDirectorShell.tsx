@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import Tooltip from "@/components/ui/Tooltip";
 import BriefBuilder, { type BriefState } from "./BriefBuilder";
 import { CharacterPanel } from "./CharacterPanel";
@@ -1095,10 +1096,7 @@ export default function CreativeDirectorShell() {
         case "download": {
           const gen = generations.find((g) => g.id === generationId);
           if (gen?.url) {
-            const a = document.createElement("a");
-            a.href = gen.url;
-            a.download = `zencra-output-${generationId}.png`;
-            a.click();
+            void downloadAsset(gen.url, `zencra-output-${generationId}.png`);
           }
           break;
         }

@@ -13,6 +13,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { GeneratedVideo } from "./types";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,6 +108,181 @@ function ErrorBadge() {
       Failed
     </div>
   );
+}
+
+// ── Waveform Bars — 5-bar CSS animated equalizer ─────────────────────────────
+// Bars animate with staggered delays. Respects prefers-reduced-motion via CSS.
+// Uses className="zen-wave-bar" so the global style block can stop the animation.
+
+const WAVE_DELAYS = ["0s", "0.10s", "0.20s", "0.14s", "0.06s"] as const;
+
+function WaveformBars({ color = "#C6FF00" }: { color?: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14 }}>
+      {WAVE_DELAYS.map((delay, i) => (
+        <div
+          key={i}
+          className="zen-wave-bar"
+          style={{
+            width:           3,
+            height:          "100%",
+            borderRadius:    1,
+            background:      color,
+            opacity:         0.65,
+            transformOrigin: "bottom",
+            animation:       `waveBar${i + 1} 0.72s ease-in-out infinite`,
+            animationDelay:  delay,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Audio Badge — gallery-card indicator for audio state ─────────────────────
+//
+// 5 states per the waveform UI spec:
+//
+//  1. scene + audioDetected=true   → "♪ Scene Audio"       lime   + 5 animated bars
+//  2. voiceover + status=ready     → "♬ Voiceover Ready"   lime   + bars + play btn
+//  3. voiceover + status=gen       → "Generating Voiceover" purple + pulsing skeleton
+//  4. scene + audioDetected=false  → "⚠ No Scene Audio"    amber  (pack required)
+//  5. scene + audioDetected=null   → "? Audio Unknown"      gray   (inconclusive)
+//
+// Voiceover error and sceneAudioFallback edge cases also handled.
+
+const badgeBase: React.CSSProperties = {
+  display:       "inline-flex",
+  alignItems:    "center",
+  gap:           5,
+  padding:       "2px 7px",
+  fontSize:      10,
+  fontWeight:    700,
+  letterSpacing: "0.04em",
+  borderRadius:  4,
+  whiteSpace:    "nowrap" as const,
+};
+
+function AudioBadge({ video }: { video: GeneratedVideo }) {
+  if (video.status !== "done") return null;
+
+  // ── State 1: Scene Audio — confirmed present ──────────────────────────────
+  if (video.audioMode === "scene" && video.audioDetected === true) {
+    return (
+      <div style={{
+        ...badgeBase,
+        background: "rgba(198,255,0,0.10)",
+        border:     "1px solid rgba(198,255,0,0.28)",
+        color:      "#C6FF00",
+      }}>
+        <WaveformBars color="#C6FF00" />
+        ♪ Scene Audio
+      </div>
+    );
+  }
+
+  // ── State 4: Scene Audio — confirmed absent (false) ───────────────────────
+  if (video.audioMode === "scene" && video.audioDetected === false) {
+    return (
+      <div style={{
+        ...badgeBase,
+        gap:        4,
+        background: "rgba(255,160,0,0.12)",
+        border:     "1px solid rgba(255,160,0,0.32)",
+        color:      "#FFA000",
+      }}>
+        ⚠ No Scene Audio
+      </div>
+    );
+  }
+
+  // ── State 5: Scene Audio — detection inconclusive (null / fallback) ───────
+  if (
+    video.audioMode === "scene" &&
+    (video.audioDetected === null || video.audioDetected === undefined ||
+     video.sceneAudioFallback)
+  ) {
+    return (
+      <div style={{
+        ...badgeBase,
+        gap:        4,
+        background: "rgba(100,116,139,0.12)",
+        border:     "1px solid rgba(100,116,139,0.28)",
+        color:      "rgba(148,163,184,0.80)",
+      }}>
+        ? Audio Unknown
+      </div>
+    );
+  }
+
+  // ── Voiceover states ──────────────────────────────────────────────────────
+
+  if (video.audioMode === "voiceover") {
+
+    // State 3: Generating Voiceover — pulsing skeleton waveform
+    if (video.voiceoverStatus === "generating") {
+      return (
+        <div style={{
+          ...badgeBase,
+          background: "rgba(139,92,246,0.10)",
+          border:     "1px solid rgba(139,92,246,0.22)",
+          color:      "#8B5CF6",
+        }}>
+          {/* Pulsing skeleton bars — same shape as WaveformBars but paused/fading */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 14 }}>
+            {WAVE_DELAYS.map((_, i) => (
+              <div key={i} style={{
+                width:    3,
+                height:   "100%",
+                borderRadius: 1,
+                background: "#8B5CF6",
+                opacity:  0.50,
+                animation: "vlPulse 1s ease-in-out infinite",
+                animationDelay: `${i * 0.12}s`,
+              }} />
+            ))}
+          </div>
+          Generating Voiceover
+        </div>
+      );
+    }
+
+    // State 2: Voiceover Ready — bars + play button
+    if (video.voiceoverStatus === "ready") {
+      return (
+        <div style={{
+          ...badgeBase,
+          background: "rgba(198,255,0,0.10)",
+          border:     "1px solid rgba(198,255,0,0.28)",
+          color:      "#C6FF00",
+        }}>
+          <WaveformBars color="#C6FF00" />
+          ♬ Voiceover Ready
+          {/* Mini inline play indicator */}
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="#C6FF00">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </div>
+      );
+    }
+
+    // Voiceover error
+    if (video.voiceoverStatus === "error") {
+      return (
+        <div style={{
+          ...badgeBase,
+          gap:        4,
+          background: "rgba(255,160,0,0.12)",
+          border:     "1px solid rgba(255,160,0,0.32)",
+          color:      "#FFA000",
+        }}>
+          ⚠ Voiceover Failed
+        </div>
+      );
+    }
+  }
+
+  return null;
 }
 
 // ── Featured Reel Tile ────────────────────────────────────────────────────────
@@ -329,10 +505,7 @@ function VideoCard({
     e.stopPropagation();
     if (!video.url) return;
     if (!user) { onAuthRequired?.(); return; }
-    const a = document.createElement("a");
-    a.href     = video.url;
-    a.download = `zencra-video-${video.id}.mp4`;
-    a.click();
+    downloadAsset(video.url, `zencra-video-${video.id}.mp4`);
   }
 
   // ── Dynamic card border + shadow ─────────────────────────────────────────────
@@ -541,9 +714,10 @@ function VideoCard({
         )}
 
         {/* Status badges — top left */}
-        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center" }}>
+        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center", zIndex: 4 }}>
           <InProgressBadge status={video.status} />
           {isError && <ErrorBadge />}
+          <AudioBadge video={video} />
         </div>
 
         {/* Duration + credits — top right, shifted left to make room for heart */}
@@ -656,6 +830,26 @@ function VideoCard({
           }}>
             {video.modelName}
           </div>
+
+          {/* Voiceover audio preview — shown when voiceover is ready */}
+          {isDone && video.voiceoverStatus === "ready" && video.voiceoverUrl && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                const a = new Audio(video.voiceoverUrl!);
+                a.play().catch(() => {});
+              }}
+              title="Play voiceover"
+              style={{ ...actionBtnStyle, color: "#C6FF00" }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            </button>
+          )}
 
           {/* Download */}
           {isDone && (
@@ -1079,7 +1273,7 @@ export default function VideoResultsLibrary({
 
           function VideoCardWrapper({ v }: { v: typeof filtered[0] }) {
             return (
-              <div style={{ height: cardHeight, width: cardWidthFromAR(cardHeight, v.aspectRatio), flexShrink: 0 }}>
+              <div style={{ height: cardHeight, width: "100%", minWidth: 0 }}>
                 <VideoCard
                   video={v}
                   selected={selectedIds.has(v.id)}
@@ -1136,10 +1330,14 @@ export default function VideoResultsLibrary({
                 </div>
               )}
 
-              {/* ── Overflow / all-videos AR-aware flex grid ────────────── */}
+              {/* ── Overflow grid — CSS auto-fill for flush alignment ──── */}
               {/* When no featured: show all. When featured: show rest after 4 side slots. */}
               {(featuredVideo ? restVideos.slice(4) : filtered).length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 22 }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(cardWidthFromAR(cardHeight, "16:9"))}px, 1fr))`,
+                  gap: 22,
+                }}>
                   {(featuredVideo ? restVideos.slice(4) : filtered).map(v => (
                     <VideoCardWrapper key={v.id} v={v} />
                   ))}
@@ -1163,6 +1361,12 @@ export default function VideoResultsLibrary({
       <style>{`
         @keyframes vlPulse     { 0%,100%{opacity:1} 50%{opacity:.35} }
         @keyframes vlPlayPulse { 0%,100%{box-shadow:0 0 24px rgba(45,212,191,0.30)} 50%{box-shadow:0 0 40px rgba(45,212,191,0.55)} }
+        @keyframes waveBar1    { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1.0)} }
+        @keyframes waveBar2    { 0%,100%{transform:scaleY(1.0)} 50%{transform:scaleY(0.3)} }
+        @keyframes waveBar3    { 0%,100%{transform:scaleY(0.6)} 50%{transform:scaleY(0.9)} }
+        @keyframes waveBar4    { 0%,100%{transform:scaleY(0.8)} 50%{transform:scaleY(0.3)} }
+        @keyframes waveBar5    { 0%,100%{transform:scaleY(0.5)} 50%{transform:scaleY(1.0)} }
+        @media (prefers-reduced-motion: reduce) { .zen-wave-bar { animation: none !important; } }
       `}</style>
     </section>
   );

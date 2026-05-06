@@ -236,7 +236,8 @@ export interface CreativeConceptRow {
 
 export interface CreativeGenerationRow {
   id: string;
-  project_id: string;
+  /** Nullable — CDv2 "free" directions have no project. */
+  project_id: string | null;
   concept_id?: string;
   user_id: string;
   generation_type: string;
@@ -256,6 +257,130 @@ export interface CreativeGenerationRow {
   completed_at?: string;
   /** Links this generation to a project_sessions row (project system) */
   session_id?: string;
+  /** Phase A — links this generation to a creative_directions row */
+  direction_id?: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATIVE DIRECTOR v2 — DIRECTION LAYER TYPES
+// Scope: Image Studio only. Still images only. No video/motion logic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SceneEnergy =
+  | "static"
+  | "walking-pose"
+  | "action-pose"
+  | "dramatic-still";
+
+export type ColorPalette =
+  | "warm"
+  | "cool"
+  | "cinematic"
+  | "neon"
+  | "desaturated"
+  | "vivid"
+  | "monochrome";
+
+export type LightingStyle =
+  | "dramatic"
+  | "soft"
+  | "golden-hour"
+  | "neon"
+  | "overcast"
+  | "studio"
+  | "practical";
+
+export type ShotType =
+  | "close"
+  | "medium"
+  | "wide"
+  | "extreme-wide"
+  | "macro"
+  | "aerial";
+
+export type CameraLens = "24mm" | "35mm" | "50mm" | "85mm" | "135mm";
+
+export type CameraAngle =
+  | "eye-level"
+  | "low"
+  | "high"
+  | "dutch"
+  | "top-down"
+  | "worms-eye";
+
+export type DirectionElementType = "subject" | "world" | "object" | "atmosphere";
+
+/**
+ * DirectionMode — generation behaviour at dispatch time.
+ *
+ * "explore"  direction not locked — loose prompt, free creative exploration,
+ *            no identity enforcement, outputs not campaign-consistent.
+ *
+ * "locked"   direction committed — strict prompt, identity lock enforced,
+ *            campaign-ready outputs. Enables Generate button fully in UI.
+ *
+ * Derived at the generate route from direction.is_locked; never stored
+ * separately. The mode is snapshotted into scene_snapshot for fast reload.
+ */
+export type DirectionMode = "explore" | "locked";
+
+export interface CreativeDirectionRow {
+  id: string;
+  user_id: string;
+  project_id?: string;
+  session_id?: string;
+  concept_id?: string;
+  name?: string;
+  is_locked: boolean;
+  model_key?: string;
+  /**
+   * scene_snapshot — denormalized JSON of full direction state.
+   * Written (awaited) by the generate route before dispatch.
+   * Shape: { mode, elements, refinements, snapshot_at, direction_version }
+   * Used for fast UI reload, undo/redo foundation, FCS compatibility.
+   */
+  scene_snapshot?: Record<string, unknown> | null;
+  /**
+   * direction_version — monotonically increasing integer, starts at 1.
+   * Incremented on significant direction edits (re-lock after changes).
+   * Foundation for rollback, A/B scene comparison, FCS versioning.
+   */
+  direction_version: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectionRefinementsRow {
+  id: string;
+  direction_id: string;
+  tone_intensity?: number;       // 0–100
+  color_palette?: ColorPalette | string;
+  lighting_style?: LightingStyle | string;
+  shot_type?: ShotType | string;
+  lens?: CameraLens | string;
+  camera_angle?: CameraAngle | string;
+  scene_energy?: SceneEnergy | string;
+  identity_lock: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectionElementRow {
+  id: string;
+  direction_id: string;
+  type: DirectionElementType;
+  label: string;
+  asset_url?: string;
+  weight: number;                // 0–1
+  position: number;
+  created_at: string;
+}
+
+/** Full direction with its refinements and elements — used for prompt building */
+export interface DirectionWithContext {
+  direction: CreativeDirectionRow;
+  refinements: DirectionRefinementsRow | null;
+  elements: DirectionElementRow[];
 }
 
 export interface CreativeActivityRow {

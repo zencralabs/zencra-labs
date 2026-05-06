@@ -25,6 +25,7 @@ import {
   Repeat2,
   Sparkles,
   Play,
+  Clapperboard,
   Globe,
   Lock,
   FolderOpen,
@@ -66,20 +67,27 @@ export interface MediaCardProps {
   onReusePrompt?: (prompt: string) => void;
   /** Called when the user clicks Enhance */
   onEnhance?: (asset: PublicAsset) => void;
-  /** Called when the user clicks Animate (images only) */
-  onAnimate?: (asset: PublicAsset) => void;
+  /** Called when the user selects Start Frame or End Frame in the Animate submenu (images only) */
+  onAnimate?: (asset: PublicAsset, frame: "start" | "end") => void;
   /** Called after visibility is changed successfully */
   onVisibilityChange?: (id: string, visibility: AssetVisibility) => void;
   /** Called after delete */
   onDelete?: (id: string) => void;
   /**
-   * Gallery wall mode — fills the parent grid cell edge-to-edge.
+   * Gallery wall mode — fills the parent justified-row cell edge-to-edge.
    * Card chrome (border, background, box-shadow, border-radius) is removed.
-   * Media container fills height: 100% and image uses objectFit: cover so it
-   * occupies the full grid frame without black dead-space.
-   * Hover overlays still render; overflow is clipped to the grid cell.
+   * The outer wrapper sets explicit pixel width + height; the card and its
+   * <img> fill that frame with objectFit: cover. No height: auto anywhere.
+   * Hover overlays still render; overflow is clipped to the cell.
    */
   galleryMode?: boolean;
+  /**
+   * Called when the underlying <img> fires its native onLoad event.
+   * Receives the SyntheticEvent so the caller can read
+   * e.currentTarget.naturalWidth / naturalHeight for justified layout.
+   * Only fires for image assets (not video).
+   */
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
   /**
    * Sequence number displayed below the right action strip on hover.
    * Passed in from the gallery; rendered inside the card so it scales
@@ -364,12 +372,17 @@ export default function MediaCard({
   onVisibilityChange,
   onDelete,
   galleryMode = false,
+  onImageLoad,
   seqNumber,
 }: MediaCardProps) {
-  const [hovered,  setHovered]  = useState(false);
-  const [liked,    setLiked]    = useState(false);
-  const [copied,   setCopied]   = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [hovered,   setHovered]   = useState(false);
+  const [liked,     setLiked]     = useState(false);
+  const [copied,    setCopied]    = useState(false);
+  const [moreOpen,  setMoreOpen]  = useState(false);
+  // Tracks whether the underlying <img> has fired its native load event.
+  // In galleryMode the image starts at opacity 0 and fades in once loaded
+  // so the gallery never flashes a half-decoded image at full opacity.
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [menuPos,  setMenuPos]  = useState<{ top: number; left: number } | null>(null);
 
   const cardRef        = useRef<HTMLDivElement>(null);
@@ -411,13 +424,13 @@ export default function MediaCard({
   // ── Actions ────────────────────────────────────────────────────────────────
 
   const handleCopy = useCallback(async () => {
-    if (!mediaUrl) return;
+    if (!asset.prompt) return;
     try {
-      await navigator.clipboard.writeText(mediaUrl);
+      await navigator.clipboard.writeText(asset.prompt);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* ignore */ }
-  }, [mediaUrl]);
+  }, [asset.prompt]);
 
   const handleDownload = useCallback(async () => {
     if (!mediaUrl) return;
@@ -449,11 +462,12 @@ export default function MediaCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
       style={galleryMode ? {
-        // Gallery masonry mode: edge-to-edge fill, no card chrome.
-        // height:auto — the img element drives tile height in CSS columns masonry.
+        // Gallery justified-row mode: fills the explicit width+height of the
+        // parent wrapper. height: 100% propagates the wrapper's pixel height
+        // down through the component tree so the <img> can use objectFit:cover.
         position:   "relative",
         width:      "100%",
-        height:     "auto",
+        height:     "100%",
         overflow:   "hidden",
         cursor:     "pointer",
         userSelect: "none",
@@ -485,10 +499,12 @@ export default function MediaCard({
       {/* ── Media ─────────────────────────────────────────────────────────── */}
       <div
         style={galleryMode ? {
-          // Gallery masonry: height auto — image drives height, no forced frame.
+          // Gallery justified row: height 100% — fills the wrapper's explicit
+          // pixel height set by the justified layout engine. objectFit cover
+          // on the <img> below clips any fractional pixel overshoot.
           position:   "relative",
           width:      "100%",
-          height:     "auto",
+          height:     "100%",
           background: "transparent",
           overflow:   "hidden",
           borderRadius: 0,
@@ -526,13 +542,25 @@ export default function MediaCard({
             <img
               src={mediaUrl}
               alt={asset.prompt.slice(0, 80)}
+              loading="lazy"
+              decoding="async"
+              onLoad={(e) => {
+                // 1. Trigger fade-in (galleryMode perceived-performance polish).
+                setImgLoaded(true);
+                // 2. Forward to caller so imageRatios can capture naturalWidth/Height.
+                onImageLoad?.(e);
+              }}
               style={galleryMode ? {
-                // Gallery masonry: width 100%, height auto — natural AR render.
-                // No cropping, no black bars. Image itself sets the tile height.
+                // Gallery justified row: fill the wrapper's pixel-height box.
+                // objectFit cover preserves aspect ratio and clips fractional px.
+                // Starts at opacity 0; fades to 1 when the image fires onLoad so
+                // the gallery never flashes a half-decoded frame at full opacity.
                 width:      "100%",
-                height:     "auto",
+                height:     "100%",
+                objectFit:  "cover",
                 display:    "block",
-                transition: "transform 0.35s",
+                opacity:    imgLoaded ? 1 : 0,
+                transition: "opacity 300ms ease, transform 0.35s",
                 transform:  hovered ? "scale(1.04)" : "scale(1)",
               } : {
                 // Standard mode: natural masonry — image renders at true height.
@@ -608,104 +636,52 @@ export default function MediaCard({
           </div>
         )}
 
-        {/* ── Prompt overlay — hover only, sits above the action bar ──── */}
-        {!hideHoverActions && asset.prompt && (
-          <div
-            style={{
-              position:      "absolute",
-              bottom:        !compact && isOwner ? 46 : 0,
-              left:          0,
-              right:         0,
-              padding:       "20px 10px 8px",
-              background:    "linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 100%)",
-              opacity:       hovered ? 1 : 0,
-              transition:    "opacity 0.2s",
-              pointerEvents: "none",
-            }}
-          >
-            <p
-              style={{
-                fontSize:        11,
-                fontWeight:      500,
-                color:           "rgba(255,255,255,0.88)",
-                margin:          0,
-                overflow:        "hidden",
-                display:         "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                lineHeight:      1.45,
-              }}
-            >
-              {asset.prompt}
-            </p>
-            <span style={{
-              fontSize:   9,
-              color:      "rgba(255,255,255,0.45)",
-              fontWeight: 500,
-              display:    "block",
-              marginTop:  3,
-            }}>
-              {asset.tool}
-            </span>
-          </div>
-        )}
 
-        {/* ── Bottom hover bar (quick actions) — hidden in compact mode or low zoom ──
-             Two-layer structure:
-               outer → absolute full-width container + gradient background
-               inner → padded flex row of chips
-             This guarantees the background stretches edge-to-edge at every zoom
-             level and aspect ratio. Never use a single-div pattern here.        ── */}
+        {/* ── Bottom-right action chips — icon-only, anchored bottom-right ──────
+             Positioned as a compact horizontal cluster at bottom:18 right:18.
+             No full-width gradient — each chip has its own glass backdrop.
+             Size scales with --gallery-zoom CSS variable from gallery wrapper.  ── */}
         {!hideHoverActions && !compact && isOwner && (
           <div
             style={{
               position:      "absolute",
-              bottom:        0,
-              left:          0,
-              right:         0,
-              width:         "100%",
-              background:    "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 100%)",
+              bottom:        18,
+              right:         18,
+              display:       "flex",
+              alignItems:    "center",
+              gap:           5,
               opacity:       hovered ? 1 : 0,
-              transform:     hovered ? "translateY(0)" : "translateY(6px)",
+              transform:     hovered ? "translateY(0)" : "translateY(4px)",
               transition:    "opacity 0.2s, transform 0.2s",
               pointerEvents: hovered ? "auto" : "none",
             }}
           >
-            <div
-              style={{
-                width:      "100%",
-                padding:    "10px 12px",
-                display:    "flex",
-                alignItems: "center",
-                gap:        6,
-              }}
-            >
-              <ActionChip
-                icon={<RefreshCw size={11} />}
-                label="Regenerate"
-                onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
+            {/* 1 — Regenerate */}
+            <ActionChip
+              icon={<RefreshCw style={{ width: CHIP_ICON, height: CHIP_ICON }} />}
+              label="Regenerate"
+              onClick={e => { e.stopPropagation(); onRegenerate?.(asset); }}
+            />
+            {/* 2 — Reuse prompt */}
+            <ActionChip
+              icon={<Repeat2 style={{ width: CHIP_ICON, height: CHIP_ICON }} />}
+              label="Reuse prompt"
+              onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
+            />
+            {/* 3 — Upscale (coming soon — disabled) */}
+            <ActionChip
+              icon={<Sparkles style={{ width: CHIP_ICON, height: CHIP_ICON }} />}
+              label="Upscale coming soon"
+              onClick={e => e.stopPropagation()}
+              color="#a78bfa"
+              disabled
+            />
+            {/* 4 — Animate (images only) — shows Start/End Frame submenu */}
+            {isImage && (
+              <AnimateChip
+                onAnimate={(frame) => { onAnimate?.(asset, frame); }}
               />
-              <ActionChip
-                icon={<Repeat2 size={11} />}
-                label="Reuse"
-                onClick={e => { e.stopPropagation(); onReusePrompt?.(asset.prompt); }}
-              />
-              <ActionChip
-                icon={<Sparkles size={11} />}
-                label="Enhance"
-                onClick={e => { e.stopPropagation(); onEnhance?.(asset); }}
-                color="#a78bfa"
-              />
-              {/* Animate only for images */}
-              {isImage && (
-                <ActionChip
-                  icon={<Play size={11} />}
-                  label="Animate"
-                  onClick={e => { e.stopPropagation(); onAnimate?.(asset); }}
-                  color="#fb923c"
-                />
-              )}
-            </div>
+            )}
           </div>
         )}
 
@@ -739,18 +715,18 @@ export default function MediaCard({
                 active={liked}
                 activeColor="#f43f5e"
               >
-                <Heart size={13} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
+                <Heart style={{ width: CHIP_ICON, height: CHIP_ICON }} fill={liked ? "#f43f5e" : "none"} color={liked ? "#f43f5e" : "currentColor"} />
               </IconBtn>
             )}
 
             {/* Download */}
             <IconBtn onClick={e => { e.stopPropagation(); handleDownload(); }} title="Download">
-              <Download size={13} />
+              <Download style={{ width: CHIP_ICON, height: CHIP_ICON }} />
             </IconBtn>
 
-            {/* Copy URL */}
-            <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy URL" active={copied} activeColor="#60a5fa">
-              {copied ? <Check size={13} /> : <Copy size={13} />}
+            {/* Copy prompt */}
+            <IconBtn onClick={e => { e.stopPropagation(); handleCopy(); }} title="Copy prompt" active={copied} activeColor="#60a5fa">
+              {copied ? <Check style={{ width: CHIP_ICON, height: CHIP_ICON }} /> : <Copy style={{ width: CHIP_ICON, height: CHIP_ICON }} />}
             </IconBtn>
 
             {/* More menu trigger — ref captures position for portal placement.
@@ -777,7 +753,7 @@ export default function MediaCard({
                   title="More options"
                   active={moreOpen}
                 >
-                  <MoreVertical size={13} />
+                  <MoreVertical style={{ width: CHIP_ICON, height: CHIP_ICON }} />
                 </IconBtn>
               </div>
             )}
@@ -838,6 +814,8 @@ export default function MediaCard({
 
 // ── Reusable mini-components ───────────────────────────────────────────────────
 
+/** Right-strip icon button — same glass/border/hover design as ActionChip,
+ *  same CHIP_BTN/CHIP_ICON sizing so both strips scale together with zoom. */
 function IconBtn({
   children,
   onClick,
@@ -856,22 +834,27 @@ function IconBtn({
       onClick={onClick}
       title={title}
       style={{
-        width:          30,
-        height:         30,
-        borderRadius:   8,
-        border:         active
+        ...chipBase,
+        border:     active
           ? `1px solid ${activeColor ?? "rgba(255,255,255,0.3)"}`
           : "1px solid rgba(255,255,255,0.12)",
-        background:     active
+        background: active
           ? `${activeColor ?? "rgba(255,255,255,0.15)"}22`
-          : "rgba(12,12,18,0.85)",
-        color:          active ? (activeColor ?? "#fff") : "rgba(255,255,255,0.7)",
-        display:        "flex",
-        alignItems:     "center",
-        justifyContent: "center",
-        cursor:         "pointer",
-        backdropFilter: "blur(8px)",
-        transition:     "background 0.15s, border-color 0.15s, color 0.15s",
+          : "rgba(12,12,18,0.82)",
+        color:      active ? (activeColor ?? "#fff") : "rgba(255,255,255,0.7)",
+        cursor:     "pointer",
+      }}
+      onMouseEnter={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background  = "rgba(255,255,255,0.09)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.22)";
+        }
+      }}
+      onMouseLeave={e => {
+        if (!active) {
+          (e.currentTarget as HTMLElement).style.background  = "rgba(12,12,18,0.82)";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+        }
       }}
     >
       {children}
@@ -879,47 +862,164 @@ function IconBtn({
   );
 }
 
+// ── Clamp sizing constants — scale with --gallery-zoom CSS variable (0–1) ──────
+// Parent wraps the gallery with  style={{ "--gallery-zoom": zoomLevel/5 }}
+// so these expressions react to the gallery zoom slider automatically.
+// clamp(min, preferred, max) — preferred is 0.8 default if var() is unset.
+const CHIP_BTN  = "clamp(22px, calc(40px * var(--gallery-zoom, 0.8)), 44px)";
+const CHIP_ICON = "clamp(12px, calc(21px * var(--gallery-zoom, 0.8)), 24px)";
+
+const chipBase: React.CSSProperties = {
+  display:        "inline-flex",
+  alignItems:     "center",
+  justifyContent: "center",
+  width:          CHIP_BTN,
+  height:         CHIP_BTN,
+  borderRadius:   8,
+  border:         "1px solid rgba(255,255,255,0.12)",
+  background:     "rgba(12,12,18,0.82)",
+  backdropFilter: "blur(8px)",
+  transition:     "background 0.15s, border-color 0.15s",
+  flexShrink:     0,
+  cursor:         "pointer",
+};
+
 function ActionChip({
   icon,
   label,
   onClick,
   color,
+  disabled,
 }: {
   icon: React.ReactNode;
+  /** Visible only as native tooltip — no text rendered inside the button */
   label: string;
   onClick: (e: React.MouseEvent) => void;
   color?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      title={label}
+      disabled={disabled}
       style={{
-        display:        "inline-flex",
-        alignItems:     "center",
-        gap:            4,
-        padding:        "4px 9px",
-        borderRadius:   20,
-        border:         "1px solid rgba(255,255,255,0.12)",
-        background:     "rgba(12,12,18,0.8)",
-        color:          color ?? "rgba(255,255,255,0.75)",
-        fontSize:       10,
-        fontWeight:     600,
-        cursor:         "pointer",
-        backdropFilter: "blur(8px)",
-        transition:     "background 0.15s, border-color 0.15s",
-        whiteSpace:     "nowrap",
+        ...chipBase,
+        color:   disabled ? "rgba(255,255,255,0.28)" : (color ?? "rgba(255,255,255,0.75)"),
+        cursor:  disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.2)";
+        if (!disabled) {
+          (e.currentTarget as HTMLElement).style.background    = "rgba(255,255,255,0.09)";
+          (e.currentTarget as HTMLElement).style.borderColor   = "rgba(255,255,255,0.22)";
+        }
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(12,12,18,0.8)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+        (e.currentTarget as HTMLElement).style.background    = "rgba(12,12,18,0.82)";
+        (e.currentTarget as HTMLElement).style.borderColor   = "rgba(255,255,255,0.12)";
       }}
     >
       {icon}
-      {label}
     </button>
+  );
+}
+
+/** Animate chip — icon only, opens Start / End Frame submenu on click */
+function AnimateChip({ onAnimate }: { onAnimate: (frame: "start" | "end") => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        title="Animate"
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        style={{
+          ...chipBase,
+          color: open ? "#fb923c" : "rgba(255,255,255,0.75)",
+          borderColor: open ? "rgba(251,146,60,0.4)" : "rgba(255,255,255,0.12)",
+          background:  open ? "rgba(251,146,60,0.12)" : "rgba(12,12,18,0.82)",
+        }}
+        onMouseEnter={e => {
+          if (!open) {
+            (e.currentTarget as HTMLElement).style.background  = "rgba(255,255,255,0.09)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.22)";
+          }
+        }}
+        onMouseLeave={e => {
+          if (!open) {
+            (e.currentTarget as HTMLElement).style.background  = "rgba(12,12,18,0.82)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)";
+          }
+        }}
+      >
+        <Clapperboard style={{ width: CHIP_ICON, height: CHIP_ICON }} />
+      </button>
+
+      {open && (
+        <>
+          {/* Invisible backdrop — closes on outside click */}
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 9200 }}
+            onClick={e => { e.stopPropagation(); setOpen(false); }}
+          />
+          {/* Submenu — appears above the chip, right-aligned so it stays inside card */}
+          <div
+            style={{
+              position:       "absolute",
+              bottom:         "calc(100% + 10px)",
+              right:          0,
+              minWidth:       158,
+              background:     "rgba(10,10,20,0.97)",
+              border:         "1px solid rgba(255,255,255,0.10)",
+              borderRadius:   10,
+              overflow:       "hidden",
+              zIndex:         9201,
+              boxShadow:      "0 8px 32px rgba(0,0,0,0.72)",
+              backdropFilter: "blur(16px)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {([
+              { label: "Use as Start Frame", frame: "start" as const },
+              { label: "Use as End Frame",   frame: "end"   as const },
+            ]).map(({ label, frame }, idx) => (
+              <button
+                key={frame}
+                onClick={e => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  onAnimate(frame);
+                }}
+                style={{
+                  width:        "100%",
+                  display:      "flex",
+                  alignItems:   "center",
+                  padding:      "9px 13px",
+                  border:       "none",
+                  borderBottom: idx === 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                  background:   "transparent",
+                  color:        "rgba(255,255,255,0.85)",
+                  fontSize:     11,
+                  fontWeight:   600,
+                  cursor:       "pointer",
+                  textAlign:    "left",
+                  whiteSpace:   "nowrap",
+                  transition:   "background 0.12s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = "rgba(251,146,60,0.10)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

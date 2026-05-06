@@ -65,7 +65,13 @@ export async function resolveInfluencerHandles({
 }): Promise<ResolvedPrompt> {
   // Extract all unique @handles from the prompt
   const matches = [...prompt.matchAll(HANDLE_PATTERN)];
-  const rawHandles = [...new Set(matches.map(m => m[1].toLowerCase()))];
+  const rawHandles = [
+    ...new Set(
+      matches
+        .map(m => m[1].toLowerCase())
+        .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
+    ),
+  ];
 
   if (rawHandles.length === 0) {
     return {

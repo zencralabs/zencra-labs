@@ -78,6 +78,21 @@ export type VideoModelCapabilities = {
   // ── Optional capability-driven display fields ──────────────────────────────
   resolutions?:   string[];  // e.g. ["480p","720p"] — if present, shown as pill row in left rail
   frameRate?:     number;    // e.g. 24 — if present, shown as read-only info label (not a control)
+  // ── Kling 3.0 Omni exclusive capabilities ─────────────────────────────────
+  // These four flags are TRUE ONLY on kling-30-omni.
+  // The provider adapter validates and rejects them on all other models.
+  // When building UI panels, always gate on these flags — never hardcode model IDs.
+  multiShot?:       boolean; // multi-shot storyboard — multi_shot + multi_prompt[]
+  multiImage?:      boolean; // image_list[] — multiple reference images (style blend, char + scene stack)
+  elementControl?:  boolean; // element_list[] — character/object persistence by Kling element ID
+  referenceVideo?:  boolean; // video_list[] — style/motion/scene-continuation reference video
+  // ── Kling Multi-Elements Editing ──────────────────────────────────────────
+  // Always false in the registry. Multi-Elements is a separate stateful editing
+  // workflow (7 endpoints, session-based) — NOT a per-model generation feature.
+  // It must never be mixed into standard studio-dispatch / ZProvider pipeline.
+  // Gate: KLING_MULTI_ELEMENTS_ENABLED=true env var
+  // Route: /api/studio/video/multi-elements (503 stub until Phase 2 activation)
+  multiElements?:   boolean;
 };
 
 // ── Full model definition ─────────────────────────────────────────────────────
@@ -93,6 +108,7 @@ export type VideoModel = {
   lipSyncProvider?: string | null; // null = Coming Soon; set to "heygen" | "elevenlabs" when wired
   available:      boolean;
   comingSoon:     boolean;
+  deprecated?:    boolean;         // true = backend marks as deprecated; UI shows LEGACY badge, blocks dispatch
   capabilities:   VideoModelCapabilities;
   creditMultiplier?:  number;
   supportsSequence?:  boolean;   // Sequence Mode (shot stack) — only Kling 3.0 and 3.0 Omni
@@ -103,49 +119,9 @@ export type VideoModel = {
 
 export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
 
-  // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
-  // Full-capability Kling 3.0 variant — unified identity, motion, and frame control.
-  // DISABLED: Kling API returns "model is not supported" (1201) for kling-v3-omni
-  // until the resource pack / model access is enabled in the Kling console.
-  // Re-enable by setting available: true + comingSoon: false once access confirmed.
-  {
-    id:          "kling-30-omni",
-    provider:    "kling",
-    apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
-    displayName: "Kling 3.0 Omni",
-    description: "Full-capability cinematic model — identity, motion, and frame control unified",
-    badge:            "SOON",
-    badgeColor:       "#6B7280",
-    available:        false,
-    comingSoon:       true,
-    supportsSequence: true,
-    promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
-    capabilities: {
-      textToVideo:    true,
-      imageToVideo:   true,
-      startFrame:     true,
-      endFrame:       true,
-      cameraControl:  true,
-      motionControl:  true,
-      multiElement:   false,
-      extendVideo:    true,
-      lipSync:        false,
-      avatar:         false,
-      audioEnabled:   false,
-      videoInput:     true,
-      nativeAudio:    true,   // Kling 3.0 Omni supports native scene audio generation
-      negativePrompt: true,
-      proMode:        true,
-      seedControl:    false,
-      durations:      [5, 10],
-      maxDuration:    10,
-      aspectRatios:   ["16:9", "9:16", "1:1"],
-      cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
-      resolutions:    ["720p", "1080p"],
-    },
-  },
-
   // ── Kling 3.0 ────────────────────────────────────────────────────────────
+  // DEFAULT production model. Must remain first in the array — VideoStudioShell
+  // uses find(m => m.available) to select the default, so array order matters.
   {
     id:          "kling-30",
     provider:    "kling",
@@ -166,7 +142,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       cameraControl:  true,
       motionControl:  true,
       multiElement:   false,
-      extendVideo:    true,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 3.0 is NOT a supported source model — disabled until Kling adds 3.x support.
+      extendVideo:    false,
       lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
@@ -180,6 +158,80 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // Omni-exclusive: not available on Kling 3.0
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
+      // Multi-Elements Editing: separate workflow — never true on any model entry
+      multiElements:  false,
+    },
+  },
+
+  // ── Kling 3.0 Omni ───────────────────────────────────────────────────────
+  // Full-capability Kling 3.0 variant — the most powerful model in the registry.
+  //
+  // STATUS: BETA — available for controlled testing. NOT the default.
+  // Array position is intentionally after Kling 3.0 so find(m => m.available)
+  // selects Kling 3.0 as the default session model.
+  //
+  // Previous issue: Kling API returned code 1201 "model is not supported" —
+  // this is an account/resource-pack gate, not a code bug.
+  // The provider now throws a friendly error when 1201 is received at dispatch.
+  //
+  // Rules:
+  //   - Lip Sync NOT enabled on Omni (gated to kling-lip-sync dedicated model)
+  //   - motionControl is false — Omni uses video_list[refer_type="feature"] instead
+  //   - Sound Generation (nativeAudio) available if resource pack is active
+  //   - multiShot / multiImage / elementControl / referenceVideo: OMNI ONLY
+  //
+  // To promote to production: move above Kling 3.0, change badge to "HOT" / null.
+  {
+    id:          "kling-30-omni",
+    provider:    "kling",
+    apiModelId:  process.env.KLING_MODEL_OMNI ?? "kling-v3-omni",
+    displayName: "Kling 3.0 Omni",
+    description: "Cinematic Director model — multi-shot, element control, reference video, and scene composer",
+    badge:            "BETA",
+    badgeColor:       "#8B5CF6",
+    available:        true,
+    comingSoon:       false,
+    supportsSequence: true,
+    promptChips: ["cinematic storyboard", "multi-shot sequence", "character persistence", "scene continuation", "style reference", "ultra realistic", "film grain"],
+    capabilities: {
+      textToVideo:    true,
+      imageToVideo:   true,
+      startFrame:     true,
+      endFrame:       true,
+      cameraControl:  true,
+      motionControl:  false,  // Omni uses video_list[refer_type="feature"] for motion reference — not motion_control mode
+      multiElement:   false,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 3.0 Omni is NOT a supported source model — disabled until Kling adds 3.x support.
+      extendVideo:    false,
+      lipSync:        false,  // Lip Sync is on dedicated kling-lip-sync model only
+      avatar:         false,
+      audioEnabled:   false,
+      videoInput:     true,
+      nativeAudio:    true,   // Scene Audio supported — requires Sound Generation resource pack
+      negativePrompt: true,
+      proMode:        true,
+      seedControl:    false,
+      durations:      [5, 10],
+      maxDuration:    10,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
+      resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features ─────────────────────────────────────────────
+      // Only kling-30-omni sets these to true.
+      // Provider adapter validates and rejects these on all other models.
+      // UI must gate all panels for these on these flags.
+      multiShot:      true,   // multi_shot + multi_prompt[] — storyboard generation
+      multiImage:     true,   // image_list[] — multiple reference images
+      elementControl: true,   // element_list[] — character/object persistence
+      referenceVideo: true,   // video_list[] — style/motion/scene-continuation reference
+      // Multi-Elements Editing: separate session-based workflow — always false here
+      multiElements:  false,
     },
   },
 
@@ -190,10 +242,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
     apiModelId:  "kling-v2-6",
     displayName: "Kling 2.6",
     description: "Enhanced scene coherence and character fidelity",
-    badge:       null,
-    badgeColor:  null,
     available:   true,
     comingSoon:  false,
+    deprecated:  false,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -203,7 +254,9 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       cameraControl:  true,
       motionControl:  false, // Motion Control requires Kling 3.0
       multiElement:   false,
-      extendVideo:    true,
+      // Extend Video uses /v1/videos/video-extend which only supports V1.0 / V1.5 / V1.6 models.
+      // Kling 2.6 is NOT a supported source model — disabled until Kling adds 2.x support.
+      extendVideo:    false,
       lipSync:        false, // Lip Sync is provider-independent — controlled via LIP_SYNC_PROVIDER
       avatar:         false,
       audioEnabled:   false,
@@ -217,20 +270,25 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
+      multiElements:  false,
     },
   },
 
-  // ── Kling 2.5 ────────────────────────────────────────────────────────────
+  // ── Kling 2.5 Turbo ──────────────────────────────────────────────────────
   {
     id:          "kling-25",
     provider:    "kling",
     apiModelId:  "kling-v2-5",
     displayName: "Kling 2.5 Turbo",
     description: "Fast and reliable — ideal for quick iterations",
-    badge:       null,
-    badgeColor:  null,
     available:   true,
     comingSoon:  false,
+    deprecated:  false,
     promptChips: ["cinematic lighting", "slow motion", "aerial shot", "dramatic scene", "ultra realistic", "film grain", "smooth camera motion"],
     capabilities: {
       textToVideo:    true,
@@ -254,6 +312,64 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
       aspectRatios:   ["16:9", "9:16", "1:1"],
       cameraPresets:  ["simple", "down_back", "forward_up", "right_turn_forward", "left_turn_forward"],
       resolutions:    ["720p", "1080p"],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
+      multiElements:  false,
+    },
+  },
+
+  // ── Kling Lip Sync (Coming Soon) ─────────────────────────────────────────
+  // Kling-native lip sync — sync audio to an existing video face using Kling's
+  // own lip sync pipeline (NOT the provider-independent lipsync route at
+  // src/lib/providers/lipsync/ or src/app/api/lipsync/).
+  //
+  // This entry is a UI placeholder only. It is completely separate from:
+  //   - The existing Fal Sync V3 / ElevenLabs lipsync adapters
+  //   - Any other lip sync provider entries in this registry (HeyGen)
+  //
+  // To activate: wire a Kling lip sync adapter, set available: true,
+  // set lipSyncProvider to "kling", and flip comingSoon: false.
+  {
+    id:              "kling-lip-sync",
+    provider:        "kling",
+    apiModelId:      "",   // not callable — placeholder only
+    displayName:     "Kling Lip Sync",
+    description:     "Sync audio to any video face using Kling's native lip sync pipeline",
+    badge:           "SOON",
+    badgeColor:      "#0EA5A0",
+    lipSyncProvider: null,   // null = Coming Soon; set to "kling" when wired
+    available:       false,
+    comingSoon:      true,
+    capabilities: {
+      textToVideo:    false,
+      imageToVideo:   false,
+      startFrame:     false,
+      endFrame:       false,
+      cameraControl:  false,
+      motionControl:  false,
+      multiElement:   false,
+      extendVideo:    false,
+      lipSync:        true,
+      avatar:         false,
+      audioEnabled:   true,
+      videoInput:     true,
+      nativeAudio:    false,
+      negativePrompt: false,
+      proMode:        false,
+      seedControl:    false,
+      durations:      [],
+      maxDuration:    0,
+      aspectRatios:   ["16:9", "9:16", "1:1"],
+      cameraPresets:  [],
+      // ── Omni-exclusive features (disabled on this model) ───────────────────
+      multiShot:      false,
+      multiImage:     false,
+      elementControl: false,
+      referenceVideo: false,
+      multiElements:  false,
     },
   },
 
@@ -342,18 +458,27 @@ export const VIDEO_MODEL_REGISTRY: VideoModel[] = [
   // ── Seedance 1.5 Pro ─────────────────────────────────────────────────────
   // BytePlus ModelArk API. Supports T2V, first-frame, and first+last-frame.
   // Resolutions: 480p, 720p, 1080p. Frame rate: 24 fps. Durations: 4s, 8s, 12s only.
-  // Model ID env-configurable via SEEDANCE_15_MODEL_ID — NO default (requires explicit config).
-  // If model ID is missing (empty string), the studio shows a "Not Configured" screen.
+  //
+  // Gate: requires NEXT_PUBLIC_SEEDANCE_15_ENABLED=true in Vercel env vars.
+  //   - Set this only when SEEDANCE_15_MODEL_ID is also set server-side.
+  //   - Without the flag, the model is hidden from the UI (available: false, comingSoon: true).
+  //   - The NEXT_PUBLIC_ prefix is required for Next.js client-side availability.
+  //
+  // How to enable:
+  //   1. Obtain the model ID from BytePlus
+  //   2. Set SEEDANCE_15_MODEL_ID=<model_id> in Vercel (server-only env)
+  //   3. Set NEXT_PUBLIC_SEEDANCE_15_ENABLED=true in Vercel (expose to client)
+  //   4. Redeploy
   {
     id:          "seedance-15",
     provider:    "seedance",
     apiModelId:  process.env.SEEDANCE_15_MODEL_ID ?? "",  // Empty = not configured — DO NOT add a default
     displayName: "Seedance 1.5 Pro",
     description: "1080p capable — text/image to video, first+last frame, 4–12s range.",
-    badge:       null,
-    badgeColor:  null,
-    available:   true,
-    comingSoon:  false,
+    badge:       process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true" ? null : "SOON",
+    badgeColor:  process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true" ? null : "#374151",
+    available:   process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED === "true",
+    comingSoon:  process.env.NEXT_PUBLIC_SEEDANCE_15_ENABLED !== "true",
     promptChips: ["cinematic style", "character close-up", "storyboard scene", "dramatic lighting"],
     capabilities: {
       textToVideo:    true,

@@ -18,7 +18,7 @@
  * The gate never appears on /studio/*, /dashboard/*, /auth/*, /admin/*.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 
 // ── ENV flag check — evaluated once at module load ────────────────────────────
 const GATE_ENABLED = process.env.NEXT_PUBLIC_ZENCRA_PREVIEW_GATE === "true";
@@ -58,6 +58,7 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
   const [email,      setEmail]      = useState("");
   const [loading,    setLoading]    = useState(false);
   const [errorMsg,   setErrorMsg]   = useState<string | null>(null);
+  const [showCode,   setShowCode]   = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,7 +92,13 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
   return (
     <div
       className="min-h-screen w-full overflow-hidden relative flex items-center justify-center px-6"
-      style={{ backgroundColor: "#050509", color: "#fff" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        backgroundColor: "#050509",
+        color: "#fff",
+      }}
     >
       {/* ── Background glow layers ────────────────────────────────────────── */}
       <div
@@ -208,41 +215,86 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ marginTop: "36px" }}>
-          {/* Access code */}
-          <input
-            type="text"
-            placeholder="Access code"
-            value={code}
-            onChange={e => setCode(e.target.value)}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-            disabled={loading}
-            style={{
-              display:          "block",
-              width:            "100%",
-              height:           "56px",
-              border:           "1px solid rgba(255,255,255,0.14)",
-              background:       "rgba(0,0,0,0.35)",
-              padding:          "0 20px",
-              fontSize:         "17px",
-              color:            "#fff",
-              outline:          "none",
-              boxSizing:        "border-box",
-              marginBottom:     "12px",
-              letterSpacing:    "0.05em",
-              transition:       "border-color 0.2s, box-shadow 0.2s",
-            }}
-            onFocus={e => {
-              e.currentTarget.style.borderColor = "rgba(216,180,254,0.70)";
-              e.currentTarget.style.boxShadow   = "0 0 0 2px rgba(168,85,247,0.20)";
-            }}
-            onBlur={e => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
-              e.currentTarget.style.boxShadow   = "none";
-            }}
-          />
+          {/* Access code — password field with show/hide toggle */}
+          <div style={{ position: "relative", marginBottom: "12px" }}>
+            <input
+              type={showCode ? "text" : "password"}
+              placeholder="Access code"
+              value={code}
+              onChange={e => setCode(e.target.value)}
+              autoComplete="current-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              disabled={loading}
+              style={{
+                display:       "block",
+                width:         "100%",
+                height:        "56px",
+                border:        "1px solid rgba(255,255,255,0.14)",
+                background:    "rgba(0,0,0,0.35)",
+                padding:       "0 52px 0 20px",
+                fontSize:      "17px",
+                color:         "#fff",
+                outline:       "none",
+                boxSizing:     "border-box",
+                letterSpacing: showCode ? "0.05em" : "0.12em",
+                transition:    "border-color 0.2s, box-shadow 0.2s",
+              }}
+              onFocus={e => {
+                e.currentTarget.style.borderColor = "rgba(216,180,254,0.70)";
+                e.currentTarget.style.boxShadow   = "0 0 0 2px rgba(168,85,247,0.20)";
+              }}
+              onBlur={e => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)";
+                e.currentTarget.style.boxShadow   = "none";
+              }}
+            />
+            {/* Show / Hide toggle */}
+            <button
+              type="button"
+              aria-label={showCode ? "Hide access code" : "Show access code"}
+              onClick={() => setShowCode(v => !v)}
+              tabIndex={-1}
+              style={{
+                position:        "absolute",
+                right:           0,
+                top:             0,
+                height:          "56px",
+                width:           "48px",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
+                background:      "transparent",
+                border:          "none",
+                cursor:          "pointer",
+                color:           "rgba(255,255,255,0.40)",
+                padding:         0,
+                transition:      "color 0.15s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.80)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.40)";
+              }}
+            >
+              {showCode ? (
+                /* Eye-off: slash across eye */
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                /* Eye: open */
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
 
           {/* Optional email */}
           <input
@@ -346,6 +398,29 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
         >
           Access is currently limited to invited creators, partners, and early testers.
         </p>
+
+        {/* Waitlist link */}
+        <p style={{ marginTop: "12px", fontSize: "15px", lineHeight: 1.5, margin: "12px 0 0" }}>
+          <a
+            href="/waitlist"
+            style={{
+              color:              "rgba(255,255,255,0.45)",
+              textDecoration:     "none",
+              textUnderlineOffset:"4px",
+              transition:         "color 0.15s",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.70)";
+              (e.currentTarget as HTMLElement).style.textDecoration = "underline";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.45)";
+              (e.currentTarget as HTMLElement).style.textDecoration = "none";
+            }}
+          >
+            Don&apos;t have a code? Join the waitlist.
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -368,11 +443,34 @@ export function PrivatePreviewGate({ children }: { children: ReactNode }) {
 
 /** Inner component — only mounted when GATE_ENABLED is true */
 function GateInner({ children }: { children: ReactNode }) {
-  // Lazy initializer runs synchronously on the client before first paint.
-  // On the server window is undefined → false → gate HTML is SSR'd.
-  // On the client if localStorage says granted → true → children render
-  // immediately during hydration with no visible flash.
-  const [granted, setGranted] = useState<boolean>(() => isAlreadyGranted());
+  /**
+   * null  = not yet checked (server render + client pre-hydration)
+   * true  = localStorage confirms access granted → show children
+   * false = no stored grant → show gate screen
+   *
+   * We use null instead of a lazy initializer so that the server render
+   * and the client's first paint agree on the same output (null → nothing
+   * rendered). After hydration, useEffect checks localStorage and flips
+   * the state. This eliminates the hydration mismatch that occurred when
+   * the lazy initializer returned true on the client but false on the server.
+   */
+  const [granted, setGranted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setGranted(isAlreadyGranted());
+  }, []);
+
+  // While checking localStorage, render a solid background that matches the
+  // page background. This prevents a white flash on first paint and avoids
+  // any layout shift — looks intentional, not broken.
+  if (granted === null) {
+    return (
+      <div
+        aria-hidden="true"
+        style={{ height: "100vh", background: "var(--page-bg, #050509)" }}
+      />
+    );
+  }
 
   if (granted) {
     return <>{children}</>;

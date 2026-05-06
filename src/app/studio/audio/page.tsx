@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { Zap } from "lucide-react";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 import { useFlowStore } from "@/lib/flow/store";
 
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
@@ -739,15 +741,14 @@ function AudioCard({
         </span>
 
         {item.url && (
-          <a
-            href={item.url}
-            download={`zencra-audio-${item.id}.mp3`}
+          <button
+            onClick={() => downloadAsset(item.url!, `zencra-audio-${item.id}.mp3`)}
             style={{
               width: 28, height: 28, borderRadius: 8,
               border: "1px solid rgba(255,255,255,0.08)",
               background: "rgba(255,255,255,0.03)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", textDecoration: "none", flexShrink: 0,
+              cursor: "pointer", flexShrink: 0,
               transition: "background 0.15s, border-color 0.15s",
             }}
             title="Download MP3"
@@ -765,7 +766,7 @@ function AudioCard({
                 stroke="rgba(255,255,255,0.45)" strokeWidth="1.4"
                 strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </a>
+          </button>
         )}
       </div>
 
@@ -1071,7 +1072,31 @@ function AudioStudioInner() {
 
       // Use the session token from context — always current after SDK refresh events.
       // Avoids the stale user.accessToken race between INITIAL_SESSION and TOKEN_REFRESHED.
-      const accessToken = session?.access_token ?? "";
+      const accessToken  = session?.access_token ?? "";
+      const audioMdlKey  = quality === "studio" ? "elevenlabs-premium" : "elevenlabs";
+
+      // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
+      {
+        const displayedCost = getGenerationCreditCost(audioMdlKey);
+        try {
+          const costsRes = await fetch("/api/credits/model-costs", {
+            headers: { "Authorization": `Bearer ${accessToken}` },
+          });
+          if (costsRes.ok) {
+            const costsData = await costsRes.json();
+            const liveCost: number | undefined = costsData?.data?.[audioMdlKey];
+            if (liveCost !== undefined && displayedCost !== null && liveCost !== displayedCost) {
+              setOutputs(prev => prev.filter(o => o.id !== id));
+              setGenerating(false);
+              // Surface as a toast if available, otherwise console.error
+              console.error("[AudioStudio] Credit estimate changed. Please refresh.");
+              return;
+            }
+          }
+        } catch {
+          // Non-fatal: if the safety check fails, allow generation to proceed
+        }
+      }
 
       const res = await fetch("/api/studio/audio/generate", {
         method:  "POST",
@@ -1080,7 +1105,7 @@ function AudioStudioInner() {
           "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          modelKey:       "elevenlabs",
+          modelKey:       audioMdlKey,
           prompt:         prompt.trim(),
           voiceId,
           providerParams: { quality },
@@ -1113,9 +1138,10 @@ function AudioStudioInner() {
     return () => window.removeEventListener("keydown", onKey);
   }, [handleGenerate]);
 
-  const canGenerate   = tool.available && !generating && (tool.requiresAudio ? !!audioDataUrl : prompt.trim().length > 0);
-  const selectedVoice = VOICE_ROSTER.find(v => v.id === voiceId) ?? VOICE_ROSTER[0];
-  const creditCost    = quality === "studio" ? 5 : 3;
+  const canGenerate     = tool.available && !generating && (tool.requiresAudio ? !!audioDataUrl : prompt.trim().length > 0);
+  const selectedVoice   = VOICE_ROSTER.find(v => v.id === voiceId) ?? VOICE_ROSTER[0];
+  const audioModelKey   = quality === "studio" ? "elevenlabs-premium" : "elevenlabs";
+  const creditCost      = getGenerationCreditCost(audioModelKey) ?? (quality === "studio" ? 12 : 8);
 
   // Generate button glow state
   const btnShadow = generating
@@ -1334,8 +1360,8 @@ function AudioStudioInner() {
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M6 1l1.4 2.8L11 4.5l-2.5 2.4.59 3.38L6 8.8 2.91 10.28 3.5 6.9 1 4.5l3.6-.7L6 1z" fill={ACCENT} />
                 </svg>
-                <span style={{ fontSize: 22, fontWeight: 800, color: ACCENT, letterSpacing: "-0.02em" }}>{creditCost}</span>
-                <span style={{ fontSize: 12, color: "rgba(198,255,0,0.55)", fontWeight: 500 }}>credits</span>
+                <span style={{ fontFamily: "var(--font-syne, sans-serif)", fontSize: 18, fontWeight: 700, color: ACCENT, letterSpacing: "-0.02em" }}>{creditCost}</span>
+                <span style={{ fontSize: 12, color: "rgba(198,255,0,0.55)", fontWeight: 500 }}>cr</span>
               </div>
               <p style={{ fontSize: 10, color: "#374151", margin: "4px 0 0" }}>
                 {tool.label} · {quality === "studio" ? "Studio" : "Standard"}

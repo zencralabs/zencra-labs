@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Zap } from "lucide-react";
+import { Zap, RotateCcw, Download, Play, ChevronUp, ChevronDown } from "lucide-react";
+import { downloadAsset } from "@/lib/client/downloadAsset";
+import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
+import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { supabase } from "@/lib/supabase";
@@ -12,9 +16,10 @@ import { useFlowStore } from "@/lib/flow/store";
 import type { FlowStep } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import FlowBar from "@/components/studio/flow/FlowBar";
-import NextStepPanel from "@/components/studio/flow/NextStepPanel";
+// NextStepPanel removed from Image Studio — premium action panel replaces it
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
 import CreativeDirectorShell from "@/components/studio/creative-director/CreativeDirectorShell";
+import { CDv2Shell } from "@/components/studio/creative-director-v2/CDv2Shell";
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
@@ -251,9 +256,12 @@ interface StudioModel {
 // ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
 const MODEL_TO_KEY: Record<string, string> = {
   "dalle3":               "gpt-image-1",
+  "gpt-image-2":          "gpt-image-2",
   "nano-banana-standard": "nano-banana-standard",
   "nano-banana-pro":      "nano-banana-pro",
   "nano-banana-2":        "nano-banana-2",
+  "seedream-v5":          "seedream-v5",
+  "seedream-v5-lite":     "seedream-v5-lite",
 };
 
 // ── Reverse map — model key → UI model ID (used by flow variation handler) ───
@@ -261,15 +269,6 @@ const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
   Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
 );
 
-// ── Credit display helper ─────────────────────────────────────────────────────
-function computeCredits(modelId: string, quality: Quality, count: number): number {
-  if (modelId.startsWith("nano-banana")) {
-    if (quality === "4K") return count * 8;
-    if (quality === "2K") return count * 4;
-    return count * 2;
-  }
-  return quality === "2K" ? count * 4 : count * 2;
-}
 
 // ── Aspect ratio → API string ─────────────────────────────────────────────────
 // GPT Image only supports 4 ratios — collapse everything else.
@@ -329,6 +328,12 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   return mapArForGpt(ar);
 }
 
+/**
+ * Seedream v5 supports 4 aspect ratios (same as GPT Image).
+ * Seedream Lite (v5-lite/edit) uses the same set.
+ */
+const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
+
 // ── Model definitions ─────────────────────────────────────────────────────────
 const MODELS: StudioModel[] = [
   {
@@ -379,7 +384,141 @@ const MODELS: StudioModel[] = [
     nbVariant: "nb2",
     allowedQualities: ["1K", "2K", "4K"],
   },
+  {
+    id: "gpt-image-2",
+    name: "GPT Image 2",
+    provider: "OpenAI",
+    description: "OpenAI's next-generation model · richer detail · precise control",
+    badge: "NEW",
+    badgeColor: "#10A37F",
+    available: true,
+    icon: "openai",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "seedream-v5",
+    name: "Seedream v5",
+    provider: "ByteDance",
+    description: "ByteDance flagship · cinematic quality · richly detailed",
+    badge: "HOT",
+    badgeColor: "#EF4444",
+    available: true,
+    icon: "seedream",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "seedream-v5-lite",
+    name: "Seedream Lite",
+    provider: "ByteDance",
+    description: "Fast generation + image editing · v5 quality, lower cost",
+    badge: "EDIT",
+    badgeColor: "#06B6D4",
+    available: true,
+    icon: "seedream",
+    requiresImg: false,   // edit mode is optional — also works text-only
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-pro",
+    name: "Flux.2 Pro",
+    provider: "Black Forest Labs",
+    description: "Professional-grade photorealistic output · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "flux",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-flex",
+    name: "Flux.2 Flex",
+    provider: "Black Forest Labs",
+    description: "Flexible creative control · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "flux",
+    allowedQualities: ["1K"],
+  },
+  {
+    id: "flux2-max",
+    name: "Flux.2 Max",
+    provider: "Black Forest Labs",
+    description: "Maximum quality · 8K capability · coming soon",
+    badge: "SOON",
+    badgeColor: "#374151",
+    available: false,
+    icon: "flux",
+    allowedQualities: ["1K"],
+  },
 ];
+
+// ── Creative Director v1 — Role system ───────────────────────────────────────
+
+type ImageRole = "character" | "environment" | "style" | "lighting" | "object";
+
+const ROLES: ImageRole[] = ["character", "environment", "style", "lighting", "object"];
+
+const ROLE_CONFIG: Record<ImageRole, {
+  label:  string;
+  short:  string;   // fits inside 52px chip
+  color:  string;   // full opacity — use with alpha for borders/glows
+  bg:     string;   // chip background
+}> = {
+  character:   { label: "Character",   short: "Char",  color: "rgba(59,130,246,1)",  bg: "rgba(59,130,246,0.13)"  },
+  environment: { label: "Environment", short: "Env",   color: "rgba(34,197,94,1)",   bg: "rgba(34,197,94,0.13)"   },
+  style:       { label: "Style",       short: "Style", color: "rgba(139,92,246,1)",  bg: "rgba(139,92,246,0.13)"  },
+  lighting:    { label: "Lighting",    short: "Light", color: "rgba(245,158,11,1)",  bg: "rgba(245,158,11,0.13)"  },
+  object:      { label: "Object",      short: "Obj",   color: "rgba(148,163,184,1)", bg: "rgba(148,163,184,0.10)" },
+};
+
+/** Inject alpha into an rgba() color string: replaces the last numeric component. */
+function roleColor(color: string, alpha: number): string {
+  return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
+}
+
+const ROLE_LABEL: Record<ImageRole, string> = {
+  character:   "Character Reference",
+  environment: "Environment Reference",
+  style:       "Style Reference",
+  lighting:    "Lighting Reference",
+  object:      "Object Reference",
+};
+
+// ── Reference image mention enrichment ───────────────────────────────────────
+// Builds an enriched prompt string that maps @imgN references for backend clarity.
+// Only used internally before sending to the API — never shown in the UI textarea.
+//
+// Role injection: [Character Reference: url] / [Environment Reference: url] / …
+// Natural language detection (safe):
+//   "image 1" / "image attached 1" / "uploaded image 1" / "analyse image 1"
+//   → normalized to @imgN tag only when refs exist AND index is in range.
+//   Textarea text is NEVER mutated — this runs only in the API send path.
+function buildEnrichedPrompt(
+  userPrompt: string,
+  refs: Array<{ cdnUrl: string; role: ImageRole }>,
+): string {
+  const uploaded = refs.filter(r => r.cdnUrl);
+  if (uploaded.length === 0) return userPrompt;
+
+  // Normalize natural-language image references → @imgN tags.
+  // Pattern matches (in priority order, most specific first):
+  //   "uploaded image N"  /  "image attached N"  /  "image N"
+  // "analyse image N" is handled because "image N" matches the tail after "analyse ".
+  const nlPattern = /\b(?:uploaded\s+image|image\s+attached|image)\s*(\d+)\b/gi;
+  const processedPrompt = userPrompt.replace(nlPattern, (match, numStr) => {
+    const n = parseInt(numStr, 10);
+    return (n >= 1 && n <= uploaded.length) ? `@img${n}` : match;
+  });
+
+  // Role-based reference header — each image gets its semantic label + CDN URL.
+  // Fallback to "Image Reference" if role is somehow absent.
+  const roleHeader = uploaded
+    .map(r => `[${ROLE_LABEL[r.role] ?? "Image Reference"}: ${r.cdnUrl}]`)
+    .join("\n");
+
+  return `${roleHeader}\n\nUser prompt: ${processedPrompt}`;
+}
 
 // ASPECT_RATIOS is now model-specific — see NB_STANDARD_PRO_AR / NB2_AR / DALLE_AR above.
 // This alias is kept only for GeneratingPlaceholder's ratioMap (all possible values).
@@ -417,30 +556,81 @@ function ARIcon({ ar, size = 16, selected = false }: { ar: AspectRatio; size?: n
 }
 
 // ── Model icon ────────────────────────────────────────────────────────────────
-function ModelIcon({ type, size = 22 }: { type: string; size?: number }) {
+// ── Model logo — branded SVG marks per provider family ───────────────────────
+// Visual approximations of provider identities; not official brand assets.
+function ModelLogo({ type, size = 22 }: { type: string; size?: number }) {
+  const s = Math.round(size * 0.6);
+  const wrap = (bg: string, node: React.ReactNode) => (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, overflow: "hidden",
+    }}>{node}</div>
+  );
+
   if (type === "nanobana") {
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: "50%",
-        background: "linear-gradient(135deg, #F59E0B, #10B981)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size * 0.6, flexShrink: 0,
-      }}>
-        🍌
-      </div>
+    return wrap(
+      "linear-gradient(135deg, #F59E0B 0%, #10B981 100%)",
+      <span style={{ fontSize: Math.round(s * 0.95), lineHeight: 1 }}>🍌</span>,
     );
   }
-  const bg = type === "openai" ? "#10a37f" : type === "playground" ? "#7c3aed" : "#374151";
-  const letter = type === "openai" ? "O" : type === "playground" ? "P" : "I";
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: bg, display: "flex", alignItems: "center",
-      justifyContent: "center", fontSize: size * 0.55, fontWeight: 700, color: "#fff", flexShrink: 0,
-    }}>
-      {letter}
-    </div>
-  );
+
+  if (type === "openai") {
+    // Geometric approximation of the OpenAI knot — 3 interlocked ellipses
+    return wrap(
+      "linear-gradient(135deg, #0d9e73 0%, #0a7a56 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none"/>
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none" transform="rotate(60 12 12)"/>
+        <ellipse cx="12" cy="12" rx="4" ry="9" stroke="white" strokeWidth="1.7" fill="none" transform="rotate(120 12 12)"/>
+      </svg>,
+    );
+  }
+
+  if (type === "seedream") {
+    // Swirl-inspired mark suggesting flow and generation
+    return wrap(
+      "linear-gradient(135deg, #0c3b5e 0%, #0e5f8a 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 3.5C16.7 3.5 20.5 7.3 20.5 12C20.5 16.7 16.7 20.5 12 20.5C8.6 20.5 6.5 18 6.5 15.5C6.5 13 8.6 11 11 11C12.9 11 14.5 12.5 14.5 14.5C14.5 15.8 13.6 16.8 12.5 17"
+          stroke="white" strokeWidth="1.7" strokeLinecap="round" fill="none"
+        />
+        <circle cx="12" cy="3.5" r="1.2" fill="white"/>
+      </svg>,
+    );
+  }
+
+  if (type === "flux") {
+    // Crystalline triangle mark — geometric precision
+    return wrap(
+      "linear-gradient(135deg, #1a1a30 0%, #2a2a4a 100%)",
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path d="M12 4L21 19H3L12 4Z" stroke="white" strokeWidth="1.7" strokeLinejoin="round" fill="rgba(255,255,255,0.08)"/>
+        <line x1="12" y1="4" x2="12" y2="19" stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeLinecap="round"/>
+        <line x1="3" y1="19" x2="15.5" y2="11.5" stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeLinecap="round"/>
+        <line x1="21" y1="19" x2="8.5" y2="11.5" stroke="rgba(255,255,255,0.28)" strokeWidth="1" strokeLinecap="round"/>
+      </svg>,
+    );
+  }
+
+  return wrap("#374151", <span style={{ fontSize: Math.round(size * 0.42), fontWeight: 700, color: "#fff" }}>AI</span>);
+}
+
+// ── Badge color helpers ───────────────────────────────────────────────────────
+function modelBadgeBg(badge: string | null): string {
+  if (badge === "Fast") return "rgba(6,78,59,0.85)";
+  if (badge === "Pro")  return "rgba(30,58,95,0.85)";
+  if (badge === "NEW")  return "rgba(12,74,110,0.85)";
+  if (badge === "SOON") return "rgba(255,255,255,0.07)";
+  return "rgba(55,65,81,0.85)";
+}
+function modelBadgeFg(badge: string | null): string {
+  if (badge === "Fast") return "#34d399";
+  if (badge === "Pro")  return "#60a5fa";
+  if (badge === "NEW")  return "#38bdf8";
+  if (badge === "SOON") return "rgba(255,255,255,0.32)";
+  return "#fff";
 }
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
@@ -575,6 +765,7 @@ function ImageCard({
   onOpenWorkflow,
   hideHoverActions = false,
   seqNumber,
+  onImageLoad,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
@@ -586,8 +777,9 @@ function ImageCard({
   onOpenWorkflow?: (flow: WorkflowFlow) => void;
   hideHoverActions?: boolean;
   seqNumber?: number;
+  /** Fired when the underlying <img> loads — caller reads naturalWidth/naturalHeight for justified layout. */
+  onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }) {
-  const [cardAnimateOpen, setCardAnimateOpen] = useState(false);
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} onCancel={onCancel} />;
   }
@@ -656,7 +848,6 @@ function ImageCard({
       style={{ animation: "fadeIn 0.3s ease", position: "relative" }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) return;
-        setCardAnimateOpen(false);
         onOpen?.();
       }}
     >
@@ -671,53 +862,61 @@ function ImageCard({
         onRegenerate={() => onRegenerate?.(img.prompt, img.model, img.aspectRatio)}
         onReusePrompt={onReusePrompt}
         onEnhance={onEnhance ? () => onEnhance() : undefined}
-        onAnimate={() => setCardAnimateOpen(v => !v)}
+        onAnimate={(_asset, frame) => onOpenWorkflow?.(frame === "start" ? "start-frame" : "end-frame")}
+        onImageLoad={onImageLoad}
       />
-
-      {/* ── Animate Start/End Frame dropdown — identical routing to right panel ── */}
-      {cardAnimateOpen && img.url && (
-        <>
-          {/* Invisible backdrop — closes dropdown on outside click */}
-          <div
-            style={{ position: "fixed", inset: 0, zIndex: 200 }}
-            onClick={(e) => { e.stopPropagation(); setCardAnimateOpen(false); }}
-          />
-          <div style={{
-            position: "absolute", bottom: 48, left: 8, right: 8,
-            background: "#141420",
-            border: "1px solid rgba(96,165,250,0.22)",
-            borderRadius: 10, overflow: "hidden", zIndex: 201,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.75)",
-          }}>
-            {([
-              { label: "Use as Start Frame", param: "startFrame", desc: "Image becomes the first frame" },
-              { label: "Use as End Frame",   param: "endFrame",   desc: "Image becomes the last frame"  },
-            ] as const).map(({ label, param, desc }, idx) => (
-              <button
-                key={param}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCardAnimateOpen(false);
-                  onOpenWorkflow?.(param === "startFrame" ? "start-frame" : "end-frame");
-                }}
-                style={{
-                  width: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start",
-                  padding: "10px 12px", border: "none", background: "transparent",
-                  color: "#fff", cursor: "pointer", transition: "background 0.12s",
-                  borderBottom: idx === 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(96,165,250,0.1)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{desc}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASPECT RATIO HELPER — resolves the best AspectRatio for a variation
+// Priority: measured pixels → stored AR string → canvas fallback (never "Auto")
+// ─────────────────────────────────────────────────────────────────────────────
+const VARIATION_SNAP_TARGETS: [number, AspectRatio][] = [
+  [16 / 9,  "16:9"],
+  [9 / 16,  "9:16"],
+  [1,       "1:1"],
+  [4 / 3,   "4:3"],
+  [3 / 4,   "3:4"],
+  [3 / 2,   "3:2"],
+  [2 / 3,   "2:3"],
+  [4 / 5,   "4:5"],
+  [5 / 4,   "5:4"],
+  [21 / 9,  "21:9"],
+];
+
+function snapToNearestAR(ratio: number): AspectRatio {
+  let best: AspectRatio = "16:9";
+  let bestDelta = Infinity;
+  for (const [target, label] of VARIATION_SNAP_TARGETS) {
+    const d = Math.abs(ratio - target);
+    if (d < bestDelta) { bestDelta = d; best = label; }
+  }
+  return best;
+}
+
+function resolveVariationAR(
+  img: GeneratedImage,
+  imageRatios: Record<string, number>,
+  canvasFallback: AspectRatio,
+): AspectRatio {
+  // 1. Real measured dimensions (highest fidelity)
+  const measured = imageRatios[img.id];
+  if (measured && measured > 0) return snapToNearestAR(measured);
+
+  // 2. Stored AR string if valid and not "Auto"
+  if (img.aspectRatio && img.aspectRatio !== "Auto") {
+    const parts = img.aspectRatio.split(":");
+    if (parts.length === 2) {
+      const w = Number(parts[0]);
+      const h = Number(parts[1]);
+      if (w > 0 && h > 0) return snapToNearestAR(w / h);
+    }
+  }
+
+  // 3. Canvas AR as last resort — never return "Auto"
+  return canvasFallback === "Auto" ? "16:9" : canvasFallback;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -816,8 +1015,13 @@ function ImageStudioInner() {
   const [quality, setQuality] = useState<Quality>("1K");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("JPG");
   const [batchSize, setBatchSize] = useState(1);
-  const [zoomLevel, setZoomLevel] = useState(3); // 1-5
+  const [zoomLevel, setZoomLevel] = useState(4); // 1-5
   const [activeTab, setActiveTab] = useState<Tab>("history");
+  // Measured aspect ratios from real loaded images — keyed by image ID.
+  // Populated via onImageLoad on the actual rendered <img>. Used to override
+  // the stored "Auto" aspectRatio string with the true naturalWidth/naturalHeight
+  // so the justified layout engine allocates the correct column width per image.
+  const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   // ── Studio mode — Standard Generate or Creative Director ────────────────────
   // Lazy initializer reads ?mode=creative-director from URL on first render.
   // This lets navbar / dashboard links deep-link directly into CD mode.
@@ -837,6 +1041,9 @@ function ImageStudioInner() {
   // Panel state — never auto-replaces prompt
   const [enhancerOpen, setEnhancerOpen]         = useState(false);
   const [enhancedResult, setEnhancedResult]     = useState<string | null>(null);
+  // ── @ mention menu ────────────────────────────────────────────────────────────
+  const [atMenuOpen, setAtMenuOpen]             = useState(false);
+  const [atMenuFilter, setAtMenuFilter]         = useState("");
 
   // ── Fullscreen viewer ────────────────────────────────────────────────────────
   const [viewingImage, setViewingImage] = useState<GeneratedImage | null>(null);
@@ -846,7 +1053,8 @@ function ImageStudioInner() {
   const [panelDetails, setPanelDetails]     = useState<AssetDetailsResponse | null>(null);
   const [panelLoading, setPanelLoading]     = useState(false);
   const [panelAnimateOpen, setPanelAnimateOpen] = useState(false);   // animate dropdown
-  const [panelMetaExpanded, setPanelMetaExpanded] = useState(false); // metadata accordion
+  const [panelMetaExpanded, setPanelMetaExpanded] = useState(true); // metadata accordion — open by default
+  const [panelCollapsed, setPanelCollapsed]     = useState(false);  // collapse/expand handle
 
   // ── Workflow transition modal ──────────────────────────────────────────────────
   const [workflowModal, setWorkflowModal] = useState<{
@@ -861,16 +1069,30 @@ function ImageStudioInner() {
       open: true,
       defaultFlow: flow,
       asset: {
-        url: img.url,
-        prompt:    img.prompt    || undefined,
-        assetId:   img.assetId   || undefined,
-        projectId: img.project_id || undefined,
+        url:         img.url,
+        prompt:      img.prompt       || undefined,
+        assetId:     img.assetId      || undefined,
+        projectId:   img.project_id   || undefined,
+        // Transfer the image's own AR so Video Studio opens with the same ratio.
+        // Exclude "Auto" — VideoStudioShell will fall back to its own default.
+        aspectRatio: (img.aspectRatio && img.aspectRatio !== "Auto")
+          ? img.aspectRatio
+          : undefined,
       },
     });
   }, []);
 
   // ── History error ─────────────────────────────────────────────────────────────
   const [historyError, setHistoryError] = useState(false);
+
+  // ── Infinite scroll — cursor pagination state ─────────────────────────────────
+  // galleryNextCursor: ISO timestamp returned by /api/assets as `nextCursor`.
+  //   Passed as `?cursor=` on the next page request (created_at < cursor).
+  // galleryHasMore: false once the API confirms no further pages exist.
+  // galleryFetchingMore: guards against concurrent page requests.
+  const [galleryNextCursor, setGalleryNextCursor] = useState<string | null>(null);
+  const [galleryHasMore,    setGalleryHasMore]    = useState(false);
+  const [galleryFetchingMore, setGalleryFetchingMore] = useState(false);
 
   // ── Toast — lightweight, variant-aware ───────────────────────────────────────
   const [toastState, setToastState] = useState<{ msg: string; variant: "success" | "error" | "info" } | null>(null);
@@ -916,6 +1138,7 @@ function ImageStudioInner() {
     previewUrl: string;   // blob URL for display
     cdnUrl: string;       // real CDN URL — empty while uploading
     uploading: boolean;
+    role: ImageRole;      // Creative Director v1 — semantic role
   }>>([]);
 
   // Derived values from referenceImages array
@@ -924,6 +1147,25 @@ function ImageStudioInner() {
   // Backward compat for character lock logic (uses first image):
   const referenceImageUrl = referenceImageUrls[0] ?? "";
   const referencePreviewUrl = referenceImages[0]?.previewUrl ?? "";
+
+  // ── @imgN intelligence — derived from prompt ──────────────────────────────────
+  // Set of 0-based indices of reference images currently mentioned in the prompt.
+  // Used to drive thumbnail glow without any extra state atom.
+  const activeRefIndices = useMemo(() => {
+    const indices = new Set<number>();
+    for (const m of prompt.matchAll(/@img(\d+)\b/gi)) {
+      const n = parseInt(m[1], 10);
+      if (n >= 1 && n <= referenceImages.length) indices.add(n - 1);
+    }
+    return indices;
+  }, [prompt, referenceImages.length]);
+
+  // Thumbnail hover state — drives floating preview above the hovered chip.
+  const [hoverRefIdx, setHoverRefIdx] = useState<number | null>(null);
+  // Role dropdown — which thumbnail has its role menu open (null = none).
+  const [roleMenuIdx, setRoleMenuIdx] = useState<number | null>(null);
+  // Add-button tooltip — managed manually so it reliably hides when file dialog opens.
+  const [addBtnHovered, setAddBtnHovered] = useState(false);
 
   // ── Dock collapse state ───────────────────────────────────────────────────────
   const [isDockCollapsed, setIsDockCollapsed] = useState(false);
@@ -1011,6 +1253,16 @@ function ImageStudioInner() {
 
   // ── Auto-scroll to top of gallery on generate ────────────────────────────────
   const galleryScrollRef = useRef<HTMLDivElement>(null);
+  // Sentinel div observed by IntersectionObserver to trigger infinite scroll fetches.
+  // Placed at the bottom of the justified gallery; observer fires when it enters the
+  // expanded viewport (rootMargin: "800px" prefetches well before the user hits bottom).
+  const infiniteScrollSentinelRef = useRef<HTMLDivElement>(null);
+  // Ref-based guard against stale-closure double-fires from IntersectionObserver.
+  // Using a ref (not state) avoids re-creating the observer on every fetch cycle.
+  const isFetchingMoreRef = useRef(false);
+  // Stable ref to fetchMoreImages — updated each render so the IntersectionObserver
+  // effect never goes stale without needing to list fetchMoreImages in its dep array.
+  const fetchMoreRef = useRef<() => void>(() => {});
   // Card-level scroll targeting — keyed by image id
   const imageCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [generateGlow, setGenerateGlow] = useState(false);
@@ -1031,7 +1283,13 @@ function ImageStudioInner() {
   // show "Using @[handle] identity" badges before the user hits Generate.
   // The server-side resolveInfluencerHandles() is the authority for actual resolution.
   const detectedHandles = useMemo(
-    () => [...new Set([...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1]))],
+    () => [
+      ...new Set(
+        [...prompt.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)]
+          .map(m => m[1])
+          .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
+      ),
+    ],
     [prompt],
   );
 
@@ -1063,17 +1321,20 @@ function ImageStudioInner() {
       .catch(() => {});
   }, [detectedHandles, user?.accessToken]);
 
-  // Masonry column class — driven by zoom slider (zoomLevel 1–5 = 20%–100%).
-  // Higher zoom → fewer columns → larger images.
-  // Lower zoom  → more columns  → smaller images.
-  // Default zoomLevel=3 (60%) shows a premium-sized, balanced gallery.
-  const galleryColumnClass = useMemo(() => {
-    if (zoomLevel >= 5) return "columns-1 sm:columns-2 lg:columns-3";
-    if (zoomLevel >= 4) return "columns-2 sm:columns-3 lg:columns-4";
-    if (zoomLevel >= 3) return "columns-2 sm:columns-3 lg:columns-4 xl:columns-5";
-    if (zoomLevel >= 2) return "columns-3 sm:columns-4 lg:columns-5 xl:columns-6";
-    return "columns-4 sm:columns-5 lg:columns-6 xl:columns-7";
+  // ── Justified gallery layout ──────────────────────────────────────────────
+  // targetRowHeight is driven by the zoom slider.
+  // Higher zoom → taller rows → fewer images per row → larger images.
+  const targetRowHeight = useMemo(() => {
+    if (zoomLevel >= 5) return 440;
+    if (zoomLevel >= 4) return 340;
+    if (zoomLevel >= 3) return 260;
+    if (zoomLevel >= 2) return 200;
+    return 160;
   }, [zoomLevel]);
+
+  // Container pixel width — measured by ResizeObserver watching galleryScrollRef.
+  // contentBoxSize.inlineSize excludes padding so this is the true available width.
+  const [containerWidth, setContainerWidth] = useState(0);
 
   function closeDropdowns() {
     setShowModelPicker(false);
@@ -1088,6 +1349,38 @@ function ImageStudioInner() {
     window.addEventListener("mousedown", handle);
     return () => window.removeEventListener("mousedown", handle);
   }, []);
+
+  // ── ResizeObserver — track gallery content width for justified layout ────────
+  // Observes galleryScrollRef (the scroll container with padding: 24px).
+  // contentBoxSize.inlineSize reports the content-box width, i.e. after padding
+  // is subtracted — exactly the space available to gallery rows.
+  //
+  // BUG FIX: This effect depends on studioMode so it re-runs whenever the user
+  // switches back to "standard" mode. Without this, the gallery div is conditionally
+  // unmounted in Creative Director mode — some browsers fire the ResizeObserver
+  // callback one final time with width=0 on unmount, zeroing containerWidth. When
+  // the gallery div remounts, the old [] effect never re-runs, leaving containerWidth=0
+  // and justifiedRows empty → blank gallery. Re-running on studioMode change re-seeds
+  // from the freshly mounted div and re-attaches the observer.
+  useEffect(() => {
+    if (studioMode !== "standard") return; // gallery div is not mounted in CD mode
+    const el = galleryScrollRef.current;
+    if (!el) return;
+    // Seed immediately so the first layout pass runs synchronously
+    setContainerWidth(el.clientWidth - 48); // subtract left+right 24px padding
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const w =
+        entry.contentBoxSize?.[0]?.inlineSize ??
+        entry.contentRect.width;
+      setContainerWidth(Math.floor(w));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  // studioMode included — re-seed & re-attach when switching back to standard
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studioMode]);
 
   // ── Character Consistency: detect face when CDN URL becomes available ────────
   const firstRefCdnUrl = referenceImages[0]?.cdnUrl ?? "";
@@ -1108,11 +1401,105 @@ function ImageStudioInner() {
     })();
   }, [firstRefCdnUrl]);
 
+  // ── Justified layout rows — recomputes only when images or containerWidth change ──
+  // Type alias so images can carry the `src` field required by JustifiedInput.
+  type ImageJustifiedItem = GeneratedImage & JustifiedInput;
+  // Map GeneratedImage → JustifiedInput (adds `src` = url).
+  // When a real naturalWidth/naturalHeight has been measured via onImageLoad,
+  // encode it as integer pixel dimensions so parseAspectRatio() in the layout
+  // engine picks them up in priority over the stored "Auto" string.
+  const justifiedImages = useMemo<ImageJustifiedItem[]>(
+    () => images.map((img) => {
+      const measuredRatio = imageRatios[img.id];
+      return {
+        ...img,
+        src: img.url,
+        // Pass measured ratio as synthetic pixel dimensions (10000 is an
+        // arbitrary large integer; only the ratio w/h matters to the engine).
+        naturalWidth:  measuredRatio != null ? Math.round(measuredRatio * 10000) : undefined,
+        naturalHeight: measuredRatio != null ? 10000 : undefined,
+      };
+    }),
+    [images, imageRatios],
+  );
+  const justifiedRows = useMemo(
+    () => buildJustifiedRows(justifiedImages, containerWidth, targetRowHeight, 12),
+    [justifiedImages, containerWidth, targetRowHeight],
+  );
+
+  // Skeleton rows — same algorithm, fake items from SKELETON_RATIOS
+  const skeletonRows = useMemo(() => {
+    if (containerWidth <= 0) return [];
+    const fakeItems = SKELETON_RATIOS.map((ratio, i) => ({
+      id: `sk-${i}`,
+      src: null,
+      aspectRatio: "Auto",
+      naturalWidth: Math.round(ratio * 1000),
+      naturalHeight: 1000,
+    }));
+    return buildJustifiedRows(fakeItems, containerWidth, targetRowHeight, 12);
+  }, [containerWidth, targetRowHeight]);
+
+  // ── Hydrate gallery instantly from localStorage cache on mount ───────────────
+  // Runs once user.id is known. Populates images before the API fetch completes
+  // so returning users never see a blank gallery on load.
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return;
+    const cacheKey = `zencra_gallery_cache_image_${user.id}`;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const cached: GeneratedImage[] = JSON.parse(raw) as GeneratedImage[];
+        if (cached.length > 0) {
+          setImages((prev) => {
+            // Session-generated images take priority — don't overwrite them
+            if (prev.length > 0) return prev;
+            return cached;
+          });
+        }
+      }
+    } catch { /* ignore — corrupted cache is safe to skip */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // ── Hydrate imageRatios from localStorage on mount ───────────────────────────
+  // Pre-populates the real measured ratios so the justified layout renders at
+  // correct widths immediately — before any <img> onLoad fires.
+  // This eliminates the micro-shift where images first render at the stored AR
+  // fallback then jump to their true dimensions as they decode.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("zencra_image_ratios");
+      if (raw) {
+        const cached = JSON.parse(raw) as Record<string, number>;
+        if (cached && typeof cached === "object") {
+          setImageRatios(cached);
+        }
+      }
+    } catch { /* corrupted cache — safe to ignore */ }
+  // Run once on mount — no deps needed
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist imageRatios to localStorage whenever new ratios are measured ─────
+  // Written on every change so the cache stays in sync as images load.
+  // Uses the image ID as key so ratios survive across sessions and page refreshes.
+  // Not scoped per-user: ratios are derived from public CDN image dimensions and
+  // carry no personal data, so sharing a key across users on the same browser is safe.
+  useEffect(() => {
+    if (typeof window === "undefined" || Object.keys(imageRatios).length === 0) return;
+    try {
+      localStorage.setItem("zencra_image_ratios", JSON.stringify(imageRatios));
+    } catch { /* quota exceeded — non-fatal */ }
+  }, [imageRatios]);
+
   // ── Load user's image history on mount (once auth is ready) ─────────────────
   useEffect(() => {
     if (!user || historyLoaded) return;
 
     (async () => {
+      console.time("[Gallery] fetch image");
       // ── Token strategy ─────────────────────────────────────────────────────
       // getSession() reads from localStorage and can return a stale expired token
       // before the SDK's background refresh cycle has run (race: user state
@@ -1131,11 +1518,18 @@ function ImageStudioInner() {
         return;
       }
 
-      // ── Shared fetch helper ─────────────────────────────────────────────────
-      const doFetch = (token: string) =>
-        fetch("/api/generations/mine?category=image&pageSize=50", {
+      // ── Shared fetch helper — /api/assets cursor-paginated endpoint ─────────
+      const doFetch = (token: string, cursor?: string) => {
+        const params = new URLSearchParams({
+          studio:          "image",
+          limit:           "50",
+          include_failed:  "true",
+        });
+        if (cursor) params.set("cursor", cursor);
+        return fetch(`/api/assets?${params.toString()}`, {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         });
+      };
 
       try {
         let res = await doFetch(accessToken);
@@ -1176,46 +1570,61 @@ function ImageStudioInner() {
           return;
         }
 
-        // Map DB rows → GeneratedImage.
-        // Include failed rows (no URL) alongside completed ones.
-        // aspectRatio: use stored value when present; fall back to "Auto" so
-        // images with no stored AR render at their natural dimensions in the
-        // masonry grid (ImageCard converts "Auto" → undefined → natural height).
+        // Map /api/assets rows → GeneratedImage.
+        // /api/assets uses: id, model_key, url, aspect_ratio, status("ready"|"failed"|"pending")
+        // Pending rows are in-flight and have no URL — skip them on initial load.
         const loaded: GeneratedImage[] = (json.data as Array<{
           id: string;
-          tool: string;
+          model_key: string;
           prompt: string;
           status: string;
-          result_url: string | null;
+          url: string | null;
+          aspect_ratio: string | null;
           error_message?: string | null;
-          parameters?: { aspectRatio?: string } | null;
           project_id?: string | null;
           created_at?: string | null;
         }>)
-          .filter((row) => row.status === "completed" || row.status === "failed")
-          .map((row) => {
-            const isFailed = row.status === "failed";
-            return {
-              id:          row.id,
-              assetId:     row.id,   // history rows use the DB asset ID directly
-              url:         row.result_url ?? null,
-              prompt:      row.prompt ?? "",
-              model:       row.tool ?? "nano-banana",
-              // "Auto" sentinel → ImageCard passes undefined → MediaCard renders at
-              // natural image height → true masonry proportions preserved.
-              aspectRatio: (row.parameters?.aspectRatio ?? "Auto") as AspectRatio,
-              status:      (isFailed ? "error" : "done") as GeneratedImage["status"],
-              error:       isFailed ? (row.error_message ?? undefined) : undefined,
-              createdAt:   row.created_at ?? undefined,
-              project_id:  row.project_id ?? null,
-            };
-          });
+          .filter((row) => row.status === "ready" || row.status === "failed")
+          .map((row) => ({
+            id:          row.id,
+            assetId:     row.id,
+            url:         row.url ?? null,
+            prompt:      row.prompt ?? "",
+            model:       KEY_TO_MODEL[row.model_key] ?? row.model_key ?? "dalle3",
+            aspectRatio: (row.aspect_ratio ?? "Auto") as AspectRatio,
+            status:      (row.status === "failed" ? "error" : "done") as GeneratedImage["status"],
+            error:       row.status === "failed" ? (row.error_message ?? undefined) : undefined,
+            createdAt:   row.created_at ?? undefined,
+            project_id:  row.project_id ?? null,
+          }));
 
-        // Prepend loaded history behind any images already generated this session
+        console.timeEnd("[Gallery] fetch image");
+        console.log("[Gallery] loaded count:", loaded.length);
+
+        // Store pagination cursor for infinite scroll.
+        setGalleryNextCursor(json.nextCursor ?? null);
+        setGalleryHasMore(json.hasMore ?? false);
+
+        // Additive Map merge → write newest 50 to localStorage cache.
+        // Cache write lives inside the functional updater so it always reflects
+        // the post-merge state (safe: idempotent, no rendering dependency).
         setImages((prev) => {
-          const existingIds = new Set(prev.map((img) => img.id));
-          const fresh = loaded.filter((img) => !existingIds.has(img.id));
-          return [...prev, ...fresh];
+          if (!loaded || loaded.length === 0) return prev; // never wipe
+          const map = new Map(prev.map((a) => [a.id, a]));
+          loaded.forEach((a) => map.set(a.id, a));
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta;
+          });
+          // Persist newest 50 so investor-demo cache stays fresh on reload.
+          try {
+            localStorage.setItem(
+              `zencra_gallery_cache_image_${user.id}`,
+              JSON.stringify(merged.slice(0, 200)),
+            );
+          } catch { /* quota exceeded or SSR — safe to skip */ }
+          return merged;
         });
       } catch (err) {
         console.error("[ImageStudio] history fetch threw:", err);
@@ -1230,6 +1639,134 @@ function ImageStudioInner() {
   // refreshSession() call re-issues a valid token and the fetch is retried once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, historyLoaded]);
+
+  // ── Infinite scroll — load next page when sentinel enters expanded viewport ──
+
+  /** Shape of a single row returned by GET /api/assets */
+  type AssetRow = {
+    id: string;
+    model_key: string;
+    prompt: string;
+    status: string;           // "ready" | "failed" | "pending"
+    url: string | null;
+    aspect_ratio: string | null;
+    error_message?: string | null;
+    project_id?: string | null;
+    created_at?: string | null;
+  };
+
+  /**
+   * Map /api/assets rows to GeneratedImage[].
+   * Skips pending rows (in-flight, no URL yet).
+   * Maps "ready" → "done", "failed" → "error".
+   */
+  function mapAssetRows(rows: AssetRow[]): GeneratedImage[] {
+    return rows
+      .filter((row) => row.status === "ready" || row.status === "failed")
+      .map((row) => ({
+        id:          row.id,
+        assetId:     row.id,
+        url:         row.url ?? null,
+        prompt:      row.prompt ?? "",
+        model:       KEY_TO_MODEL[row.model_key] ?? row.model_key ?? "dalle3",
+        aspectRatio: (row.aspect_ratio ?? "Auto") as AspectRatio,
+        status:      (row.status === "failed" ? "error" : "done") as GeneratedImage["status"],
+        error:       row.status === "failed" ? (row.error_message ?? undefined) : undefined,
+        createdAt:   row.created_at ?? undefined,
+        project_id:  row.project_id ?? null,
+      }));
+  }
+
+  /**
+   * Fetch the next page of assets using the stored cursor.
+   * Guards against concurrent calls via isFetchingMoreRef.
+   * Writes merged-newest-50 to localStorage after every successful page.
+   */
+  const fetchMoreImages = useCallback(async () => {
+    if (!user || !galleryHasMore || !galleryNextCursor || isFetchingMoreRef.current) return;
+
+    isFetchingMoreRef.current = true;
+    setGalleryFetchingMore(true);
+
+    try {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      const token = freshSession?.access_token;
+      if (!token) return;
+
+      const params = new URLSearchParams({
+        studio:         "image",
+        limit:          "50",
+        include_failed: "true",
+        cursor:         galleryNextCursor,
+      });
+      const res = await fetch(`/api/assets?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.error("[Gallery] fetchMore failed:", res.status);
+        return;
+      }
+      const json = await res.json();
+      if (!json.success || !Array.isArray(json.data)) return;
+
+      const loaded = mapAssetRows(json.data as AssetRow[]);
+
+      setGalleryNextCursor(json.nextCursor ?? null);
+      setGalleryHasMore(json.hasMore ?? false);
+
+      setImages((prev) => {
+        if (!loaded || loaded.length === 0) return prev;
+        const map = new Map(prev.map((a) => [a.id, a]));
+        loaded.forEach((a) => map.set(a.id, a));
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+        try {
+          localStorage.setItem(
+            `zencra_gallery_cache_image_${user.id}`,
+            JSON.stringify(merged.slice(0, 200)),
+          );
+        } catch { /* quota exceeded or SSR */ }
+        return merged;
+      });
+    } catch (err) {
+      console.error("[Gallery] fetchMore threw:", err);
+    } finally {
+      isFetchingMoreRef.current = false;
+      setGalleryFetchingMore(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, galleryHasMore, galleryNextCursor]);
+
+  // Keep fetchMoreRef in sync with the latest fetchMoreImages identity so the
+  // IntersectionObserver effect never captures a stale closure.
+  useEffect(() => {
+    fetchMoreRef.current = fetchMoreImages;
+  }, [fetchMoreImages]);
+
+  // IntersectionObserver — watches the sentinel div at the bottom of the gallery.
+  // root: galleryScrollRef (the scroll container, not the viewport) so rootMargin
+  // applies to the container's visible area. "800px" prefetches one screen ahead.
+  useEffect(() => {
+    const sentinel = infiniteScrollSentinelRef.current;
+    const root     = galleryScrollRef.current;
+    if (!sentinel || !root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          fetchMoreRef.current();
+        }
+      },
+      { root, rootMargin: "800px", threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  // galleryScrollRef and infiniteScrollSentinelRef are stable refs — no deps needed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // When model changes: reset quality if not allowed, clear edit image if not needed,
   // and hard-reset aspect ratio if the current AR is not in the new model's supported list.
@@ -1254,6 +1791,10 @@ function ImageStudioInner() {
       if (model.startsWith("nano-banana")) {
         return (NB_STANDARD_AR as readonly string[]).includes(cur) ? cur : "1:1";
       }
+      // Seedream — collapses to 4-option set
+      if (model.startsWith("seedream")) {
+        return (SEEDREAM_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
       // GPT Image — always pass through (mapArForGpt collapses internally)
       return cur;
     });
@@ -1274,6 +1815,27 @@ function ImageStudioInner() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
+  // FIX 3 — Hide navbar + lock scroll while fullscreen is open
+  useEffect(() => {
+    if (viewingImage) {
+      document.body.classList.add("fullscreen-active");
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.classList.remove("fullscreen-active");
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.classList.remove("fullscreen-active");
+      document.body.style.overflow = "";
+    };
+  }, [viewingImage]);
+
+  // FIX 5 — Close handler: reset BOTH fullscreen + panel cleanly
+  function handleCloseFullscreen() {
+    setViewingImage(null);
+    setSelectedImage(null);
+  }
 
   // ── Fetch asset details when a card is selected ───────────────────────────────
   useEffect(() => {
@@ -1312,12 +1874,14 @@ function ImageStudioInner() {
 
   // ── Generate ───────────────────────────────────────────────────────────────
   const generate = useCallback(async (overrides?: { prompt?: string; model?: string; aspectRatio?: string }) => {
-    const activePrompt = overrides?.prompt     ?? prompt;
+    const rawPrompt   = overrides?.prompt ?? prompt;
+    // Enrich with reference-image mapping for backend clarity (UI prompt unchanged)
+    const activePrompt = buildEnrichedPrompt(rawPrompt, referenceImages);
     const activeModel  = overrides?.model      ?? model;
     const activeAr     = (overrides?.aspectRatio ?? aspectRatio) as AspectRatio;
     const activeCurrentModel = MODELS.find((m) => m.id === activeModel) ?? MODELS[0];
 
-    if (!activePrompt.trim()) return;
+    if (!rawPrompt.trim()) return;
     if (!user) { setAuthModal(true); return; }
     if (!activeCurrentModel.available) return;
 
@@ -1341,10 +1905,11 @@ function ImageStudioInner() {
     console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr });
 
     // Add placeholder(s) immediately so the grid shows shimmer
+    // Store rawPrompt (not enriched) so the card displays the user's original text
     const placeholders: GeneratedImage[] = Array.from({ length: count }, (_, i) => ({
       id: `gen-${Date.now()}-${i}`,
       url: null,
-      prompt: activePrompt,
+      prompt: rawPrompt,
       model:  activeModel,
       aspectRatio: activeAr,
       status: "generating" as const,
@@ -1403,6 +1968,28 @@ function ImageStudioInner() {
           body.consistencyStrength = consistencyStrength;
         }
 
+        // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
+        {
+          const modelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
+          const displayedCost = getGenerationCreditCost(modelKey);
+          try {
+            const costsRes = await fetch("/api/credits/model-costs", {
+              headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+            });
+            if (costsRes.ok) {
+              const costsData = await costsRes.json();
+              const liveCost: number | undefined = costsData?.data?.[modelKey];
+              if (liveCost !== undefined && displayedCost !== null && liveCost !== displayedCost) {
+                showToast("Credit estimate changed. Please refresh and try again.", "error");
+                setImages((prev) => prev.filter((img) => !placeholders.some((p) => p.id === img.id)));
+                return;
+              }
+            }
+          } catch {
+            // Non-fatal: if the safety check fails, allow generation to proceed
+          }
+        }
+
         const res = await fetch("/api/studio/image/generate", {
           method: "POST",
           headers: {
@@ -1423,6 +2010,12 @@ function ImageStudioInner() {
         if (res.status === 402) {
           // Insufficient credits / trial exhausted — server returns { error: "...", code: "..." }
           throw new Error(data.error ?? "Insufficient credits — add credits to continue");
+        }
+
+        if (res.status === 403 && data.code === "FREE_LIMIT_REACHED") {
+          // Free-tier limit hit — redirect to pricing, do not show error toast
+          router.push("/pricing");
+          return;
         }
 
         // All other non-ok statuses: surface the server error message directly
@@ -1613,15 +2206,7 @@ function ImageStudioInner() {
     );
   }, []);
 
-  // ── Variation handler — triggered by NextStepPanel "Create Variation" card ──
-  const handleVariation = useCallback((step: FlowStep) => {
-    // Restore the step's original settings then re-generate
-    setPrompt(step.prompt);
-    const uiModelId = KEY_TO_MODEL[step.modelKey];
-    if (uiModelId) setModel(uiModelId);
-    // generate() reads from state — call after micro-task so state has settled
-    setTimeout(() => generate(), 0);
-  }, [generate]);
+  // handleVariation removed — NextStepPanel no longer mounts in Image Studio
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) generate();
@@ -1697,6 +2282,26 @@ function ImageStudioInner() {
     }
   }, []);
 
+  // ── @ mention insertion ────────────────────────────────────────────────────────
+  const insertAtMention = useCallback((tag: string) => {
+    const textarea = promptRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart ?? prompt.length;
+    const end   = textarea.selectionEnd   ?? start;
+    const before = prompt.slice(0, start);
+    const atStart = before.lastIndexOf("@");
+    const newPrompt = (atStart >= 0 ? prompt.slice(0, atStart) : prompt) + tag + " " + prompt.slice(end);
+    setPrompt(newPrompt);
+    setAtMenuOpen(false);
+    setAtMenuFilter("");
+    setTimeout(() => {
+      if (!textarea) return;
+      const newPos = (atStart >= 0 ? atStart : start) + tag.length + 1;
+      textarea.focus();
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [prompt]);
+
   // ── Styles ──────────────────────────────────────────────────────────────────
   const ctrlBtn = (active?: boolean): React.CSSProperties => ({
     display: "flex", alignItems: "center", gap: 6,
@@ -1749,6 +2354,38 @@ function ImageStudioInner() {
           50%  { box-shadow: inset 0 0 0 2px rgba(59,130,246,0.6), inset 0 0 40px rgba(59,130,246,0.22); }
           100% { box-shadow: inset 0 0 0 2px rgba(59,130,246,0), inset 0 0 0 rgba(59,130,246,0); }
         }
+        @keyframes refSlideIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes modelSelectPulse {
+          0%   { background: rgba(99,102,241,0.18); }
+          50%  { background: rgba(99,102,241,0.32); }
+          100% { background: rgba(99,102,241,0.18); }
+        }
+        @keyframes dockBreathGlow {
+          0%, 100% {
+            box-shadow:
+              0 0 0 1px rgba(255,255,255,0.28),
+              0 0 22px rgba(255,255,255,0.14),
+              0 0 54px rgba(120,180,255,0.08),
+              inset 0 1px 0 rgba(255,255,255,0.12);
+          }
+          50% {
+            box-shadow:
+              0 0 0 1px rgba(255,255,255,0.42),
+              0 0 30px rgba(255,255,255,0.22),
+              0 0 72px rgba(120,180,255,0.14),
+              inset 0 1px 0 rgba(255,255,255,0.18);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .dock-breath { animation: none !important; }
+        }
+        .model-dd-scroll::-webkit-scrollbar { width: 4px; }
+        .model-dd-scroll::-webkit-scrollbar-track { background: transparent; }
+        .model-dd-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .model-dd-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
       `}</style>
       {/* ── TOP BAR WRAPPER — FlowBar hangs below via position:absolute ──── */}
       {/* position:relative here (no zIndex) so FlowBar's zIndex participates  */}
@@ -1961,7 +2598,7 @@ function ImageStudioInner() {
       {/* ── Creative Director mode — full-width shell, replaces gallery ── */}
       {studioMode === "creative-director" && (
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <CreativeDirectorShell />
+          <CDv2Shell onExitDirectorMode={() => setStudioMode("standard")} />
         </div>
       )}
 
@@ -1976,29 +2613,40 @@ function ImageStudioInner() {
         ref={galleryScrollRef}
         style={{
           flex: 1, overflowY: "auto",
-          padding: `24px 24px ${isDockCollapsed ? "48px" : "160px"}`,
+          padding: `0 24px ${isDockCollapsed ? "48px" : "160px"}`,
           animation: generateGlow ? "generateGlowPulse 0.7s ease-out forwards" : "none",
-        }}
+          "--gallery-zoom": zoomLevel / 5,
+        } as React.CSSProperties}
       >
 
-        {/* ── STATE 1: History loading — skeleton masonry ──────────────────── */}
-        {user && !historyLoaded && images.length === 0 && (
-          <div className={galleryColumnClass} style={{ columnGap: 0 }}>
-            {SKELETON_RATIOS.map((ratio, i) => (
-              <div key={i} style={{
-                breakInside: "avoid",
-                width:       "100%",
-                display:     "block",
-                aspectRatio: String(ratio),
-                position:    "relative",
-                overflow:    "hidden",
-                marginBottom: 0,
-              }}>
-                <SkeletonCard index={i} />
+        {/* ── STATE 1: History loading — justified skeleton rows ───────────── */}
+        {/* Only show when no cache data is available yet (images.length === 0) */}
+        {user && !historyLoaded && images.length === 0 && skeletonRows.map((row, ri) => (
+          <div
+            key={ri}
+            style={{
+              display: "flex",
+              gap: "12px",
+              marginBottom: "12px",
+              height: row.height,
+            }}
+          >
+            {row.items.map((item, ii) => (
+              <div
+                key={item.data.id}
+                style={{
+                  width:    item.width,
+                  height:   row.height,
+                  flexShrink: 0,
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <SkeletonCard index={ri * 8 + ii} />
               </div>
             ))}
           </div>
-        )}
+        ))}
 
         {/* ── HISTORY ERROR: fetch failed — show retry prompt ──────────────── */}
         {historyError && historyLoaded && images.length === 0 && (
@@ -2249,8 +2897,127 @@ function ImageStudioInner() {
             doneImages.map((img, i) => [img.id, totalDone - i])
           );
 
+          // Hoist recentImages so both sticky section + rest of IIFE can reference it
+          const recentImages = images
+            .filter((img) => img.status === "done" && img.url)
+            .slice(0, 14);
+
           return (
             <>
+            {/* ── Recently Generated — sticky horizontal filmstrip ──────── */}
+            {recentImages.length >= 2 && (
+              <div style={{
+                position: "sticky", top: 0, zIndex: 20,
+                marginLeft: -24, marginRight: -24,
+                paddingLeft: 24, paddingRight: 24,
+                paddingTop: 12, paddingBottom: 14,
+                marginBottom: 10,
+                backdropFilter: "blur(18px)",
+                WebkitBackdropFilter: "blur(18px)",
+                background: "linear-gradient(180deg, rgba(6,10,20,0.95) 0%, rgba(6,10,20,0.82) 100%)",
+              }}>
+                <span style={{
+                  display: "block", fontSize: 13, fontWeight: 700,
+                  letterSpacing: "0.14em", color: "rgba(255,255,255,0.72)",
+                  textTransform: "uppercase",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
+                  marginBottom: 10,
+                }}>
+                  Recently Generated
+                </span>
+                {/* Wrapper: relative so left/right fade overlays are positioned inside */}
+                <div style={{ position: "relative" }}>
+                  {/* Left fade — masks scroll start edge */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0, left: 0,
+                    width: 40, zIndex: 2, pointerEvents: "none",
+                    background: "linear-gradient(to right, #0b0f1a, transparent)",
+                  }} />
+                  {/* Right fade — masks scroll end edge */}
+                  <div style={{
+                    position: "absolute", top: 0, bottom: 0, right: 0,
+                    width: 40, zIndex: 2, pointerEvents: "none",
+                    background: "linear-gradient(to left, #0b0f1a, transparent)",
+                  }} />
+                  <div
+                    style={{
+                      display: "flex", gap: 6, overflowX: "auto",
+                      scrollbarWidth: "none",
+                      scrollBehavior: "smooth",
+                      // momentum scrolling on iOS / Safari
+                      WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
+                    } as React.CSSProperties}
+                  >
+                    {recentImages.map((img, index) => {
+                      // Prefer real measured ratio (imageRatios), fall back to stored
+                      // string, fall back to cinematic default — same priority as justifiedLayout.
+                      const ar = imageRatios[img.id] ?? (() => {
+                        if (img.aspectRatio && img.aspectRatio !== "Auto") {
+                          const parts = img.aspectRatio.split(":");
+                          if (parts.length === 2) {
+                            const w = Number(parts[0]);
+                            const h = Number(parts[1]);
+                            if (w > 0 && h > 0) return w / h;
+                          }
+                        }
+                        return 16 / 9;
+                      })();
+                      const thumbW = Math.round(100 * ar);
+                      return (
+                        <div
+                          key={img.id}
+                          style={{
+                            position: "relative",
+                            width: thumbW, height: 100, flexShrink: 0,
+                            cursor: "pointer", overflow: "hidden",
+                            borderRadius: 0,
+                            transition: "transform 0.15s ease",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = ""; }}
+                          onClick={() => {
+                            // Clear any stale selectedImage so no ghost premium panel
+                            // appears behind the fullscreen viewer when browsing filmstrip
+                            setSelectedImage(null);
+                            setPanelDetails(null);
+                            setViewingImage(img);
+                          }}
+                        >
+                          <img
+                            src={img.url!}
+                            alt={img.prompt.slice(0, 60)}
+                            loading="lazy"
+                            style={{
+                              width: "100%", height: "100%",
+                              objectFit: "cover", display: "block",
+                            }}
+                          />
+                          {/* NEW badge — first item only */}
+                          {index === 0 && (
+                            <div style={{
+                              position: "absolute", top: 6, left: 6,
+                              fontSize: 9, fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              padding: "2px 6px",
+                              background: "rgba(255,255,255,0.12)",
+                              backdropFilter: "blur(6px)",
+                              color: "rgba(255,255,255,0.85)",
+                              textTransform: "uppercase",
+                              lineHeight: 1.4,
+                              pointerEvents: "none",
+                            }}>
+                              NEW
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Working Canvas label */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -2258,44 +3025,65 @@ function ImageStudioInner() {
             }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-                  color: "rgba(255,255,255,0.28)", textTransform: "uppercase",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
+                  color: "rgba(255,255,255,0.72)", textTransform: "uppercase",
+                  fontFamily: "var(--font-body, system-ui, sans-serif)",
                 }}>
                   Working Canvas
                 </span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
+                <span style={{ fontSize: 13, color: "rgba(255,255,255,0.58)", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
                   Recent creations
                 </span>
               </div>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", letterSpacing: "0.02em" }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.14)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.68)", letterSpacing: "0.02em", fontFamily: "var(--font-body, system-ui, sans-serif)" }}>
                 {images.filter(i => i.status === "done").length} image{images.filter(i => i.status === "done").length !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* ── CSS columns masonry — natural AR, fills available width ── */}
-            <div className={galleryColumnClass} style={{ columnGap: 0 }}>
-              {images.map((img, index) => {
+
+            {/* ── Justified rows — Higgsfield / Google Photos layout ─────── */}
+            {justifiedRows.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  marginBottom: "12px",
+                  height: row.height,
+                }}
+              >
+              {row.items.map(({ data: img, width }, index) => {
+                const globalIndex = justifiedRows
+                  .slice(0, rowIndex)
+                  .reduce((sum, r) => sum + r.items.length, 0) + index;
                 return (
                 <div
                   key={img.id}
                   ref={el => { imageCardRefs.current[img.id] = el; }}
                   className="img-card-wrapper"
                   style={{
-                    breakInside:  "avoid",
-                    width:        "100%",
-                    display:      "block",
-                    position:     "relative",
-                    overflow:     "hidden",
-                    marginBottom: 0,
-                    // Generating/error: set aspect-ratio so absolute-positioned
-                    // overlays (spinner, error) have a defined frame to fill.
-                    ...(img.status !== "done"
-                      ? { aspectRatio: getAspectRatioCss(img.aspectRatio) ?? "1 / 1" }
-                      : {}),
-                    opacity:       0,
-                    animation:     `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(index, 20) * 40}ms forwards`,
+                    width,
+                    height:     row.height,
+                    flexShrink: 0,
+                    position:   "relative",
+                    // overflow intentionally omitted — MediaCard's inner containers
+                    // already clip the image. Removing it here lets box-shadow and
+                    // hover elevation (translateY) escape the tile boundary.
+                    opacity:    0,
+                    animation:  `fadeIn 0.4s ease ${img.status === "generating" ? 0 : Math.min(globalIndex, 20) * 40}ms forwards`,
                     outline:       selectedImageIds.has(img.id) ? "2px solid rgba(37,99,235,0.7)" : "none",
                     outlineOffset: "-2px",
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform  = "translateY(-2px)";
+                    e.currentTarget.style.boxShadow  = "0 10px 30px rgba(0,0,0,0.28)";
+                    e.currentTarget.style.zIndex     = "1";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform  = "";
+                    e.currentTarget.style.boxShadow  = "";
+                    e.currentTarget.style.zIndex     = "";
                   }}
                 >
                   {/* ── Checkbox — top-left, clear of badge ── */}
@@ -2351,7 +3139,7 @@ function ImageStudioInner() {
                   <ImageCard
                     img={img}
                     hideHoverActions={zoomLevel < ACTIONS_ZOOM_THRESHOLD}
-                    seqNumber={seqMap.get(img.id) ?? (index + 1)}
+                    seqNumber={seqMap.get(img.id) ?? (globalIndex + 1)}
                     onRegenerate={(p, m, ar) => generate({ prompt: p, model: m, aspectRatio: ar })}
                     onReusePrompt={(p) => {
                       setPrompt(p);
@@ -2370,12 +3158,55 @@ function ImageStudioInner() {
                     onEnhance={() => showToast("✨ Topaz enhancement is coming soon")}
                     onCancel={img.status === "generating" ? () => setCancelConfirmId(img.id) : undefined}
                     onOpenWorkflow={(flow) => openVideoWorkflow(img, flow)}
+                    onImageLoad={(e) => {
+                      const el = e.currentTarget;
+                      if (el.naturalWidth && el.naturalHeight) {
+                        setImageRatios(prev => ({
+                          ...prev,
+                          [img.id]: el.naturalWidth / el.naturalHeight,
+                        }));
+                      }
+                    }}
                   />
                   {/* Sequence number now rendered inside MediaCard below the action strip */}
                 </div>
               );
-            })}
-            </div>
+              })}
+              </div>
+            ))}
+
+            {/* ── Infinite scroll sentinel + end-state ──────────────────── */}
+            {/* Sentinel: observed by IntersectionObserver with root=galleryScrollRef,
+                rootMargin="800px" — fires when within 800px of becoming visible     */}
+            <div ref={infiniteScrollSentinelRef} style={{ height: 1 }} />
+
+            {/* Loading spinner — visible while the next page is being fetched */}
+            {galleryFetchingMore && (
+              <div style={{
+                display: "flex", justifyContent: "center", alignItems: "center",
+                gap: 8, padding: "24px 0", color: "rgba(255,255,255,0.3)",
+                fontSize: 12, letterSpacing: "0.05em",
+              }}>
+                <div style={{
+                  width: 14, height: 14, borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.12)",
+                  borderTopColor: "rgba(255,255,255,0.5)",
+                  animation: "spin 0.7s linear infinite",
+                }} />
+                Loading more…
+              </div>
+            )}
+
+            {/* End-of-list indicator — shown once all pages are exhausted */}
+            {!galleryHasMore && !galleryFetchingMore && images.filter(i => i.status === "done").length > 0 && (
+              <div style={{
+                textAlign: "center", padding: "28px 0 16px",
+                fontSize: 11, color: "rgba(255,255,255,0.16)",
+                letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>
+                All images loaded
+              </div>
+            )}
             </>
           );
         })()}
@@ -2425,160 +3256,311 @@ function ImageStudioInner() {
             transition: "max-height 0.35s ease, opacity 0.22s ease",
             pointerEvents: isDockCollapsed ? "none" : "auto",
           }}>
-        <div style={{
+        <div
+          className="dock-breath"
+          style={{
           background: "rgba(4,8,20,0.98)", backdropFilter: "blur(24px)",
-          // Deep navy with blue-silver gradient border:
-          border: "1px solid rgba(96,165,250,0.28)",
+          border: "1px solid rgba(255,255,255,0.75)",
           borderRadius: 20,
           boxShadow: [
-            "0 8px 80px rgba(0,0,0,0.85)",
-            "0 0 0 1px rgba(147,197,253,0.12)",          // outer silver highlight ring
-            "inset 0 1px 0 rgba(255,255,255,0.07)",       // top inner highlight
-            "0 0 60px rgba(37,99,235,0.18)",              // blue ambient glow
-            "0 0 120px rgba(37,99,235,0.06)",             // wider soft halo
+            "0 0 0 1px rgba(255,255,255,0.35)",
+            "0 0 25px rgba(255,255,255,0.18)",
+            "0 0 60px rgba(120,180,255,0.10)",
+            "inset 0 1px 0 rgba(255,255,255,0.15)",
           ].join(", "),
+          animation: "dockBreathGlow 8s ease-in-out infinite",
           overflow: "visible",
           pointerEvents: "all",
         }}>
-          {/* Prompt row */}
-          <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0" }}>
-            {/* Hidden file input for reference image */}
-            <input
-              ref={referenceInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file || !user) return;
-                e.target.value = "";
+          {/* ── Hidden file input for reference upload ─────────────────────── */}
+          <input
+            ref={referenceInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !user) return;
+              e.target.value = "";
 
-                if (referenceImages.length >= maxRefs) {
-                  showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
-                  return;
-                }
+              if (referenceImages.length >= maxRefs) {
+                showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
+                return;
+              }
 
-                const id = `ref-${Date.now()}-${Math.random()}`;
-                const blobPreview = URL.createObjectURL(file);
-                setReferenceImages(prev => [...prev, { id, previewUrl: blobPreview, cdnUrl: "", uploading: true }]);
+              const id = `ref-${Date.now()}-${Math.random()}`;
+              const blobPreview = URL.createObjectURL(file);
+              // Default role: first image → character, subsequent → environment.
+              setReferenceImages(prev => [
+                ...prev,
+                { id, previewUrl: blobPreview, cdnUrl: "", uploading: true, role: prev.length === 0 ? "character" : "environment" },
+              ]);
 
-                try {
-                  const form = new FormData();
-                  form.append("file", file);
-                  const res = await fetch("/api/studio/upload-reference", {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
-                    body: form,
-                  });
-                  const json = await res.json();
-                  if (res.ok && json.url) {
-                    setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
-                  } else {
-                    URL.revokeObjectURL(blobPreview);
-                    setReferenceImages(prev => prev.filter(r => r.id !== id));
-                    showToast("Upload failed — please try again", "error");
-                  }
-                } catch {
+              try {
+                const form = new FormData();
+                form.append("file", file);
+                const res = await fetch("/api/studio/upload-reference", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+                  body: form,
+                });
+                const json = await res.json();
+                if (res.ok && json.url) {
+                  setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
+                } else {
                   URL.revokeObjectURL(blobPreview);
                   setReferenceImages(prev => prev.filter(r => r.id !== id));
-                  showToast("Upload failed — network error", "error");
+                  showToast("Upload failed — please try again", "error");
                 }
-              }}
-            />
-            {/* Reference images: thumbnails row + add button */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 2, flexShrink: 0 }}>
-              {referenceImages.map((ref, idx) => (
-                <div key={ref.id} style={{ position: "relative", flexShrink: 0 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ref.previewUrl || ref.cdnUrl}
-                    alt={`Reference ${idx + 1}`}
-                    style={{
-                      width: 52, height: 52, borderRadius: 10, objectFit: "cover",
-                      border: ref.cdnUrl ? "1.5px solid rgba(37,99,235,0.6)" : "1px solid rgba(255,255,255,0.2)",
-                      opacity: ref.uploading ? 0.45 : 1,
-                      transition: "opacity 0.2s",
-                    }}
-                  />
-                  {/* Upload spinner */}
-                  {ref.uploading && (
+              } catch {
+                URL.revokeObjectURL(blobPreview);
+                setReferenceImages(prev => prev.filter(r => r.id !== id));
+                showToast("Upload failed — network error", "error");
+              }
+            }}
+          />
+
+          {/* ── Thumbnail strip — slides in above prompt row when images uploaded ── */}
+          {referenceImages.length > 0 && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "12px 16px 0",
+              animation: "refSlideIn 0.18s ease",
+            }}>
+              {referenceImages.map((ref, idx) => {
+                const isActive = activeRefIndices.has(idx);
+                const rc = ROLE_CONFIG[ref.role];
+                return (
+                <div
+                  key={ref.id}
+                  style={{ position: "relative", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}
+                  onMouseEnter={() => setHoverRefIdx(idx)}
+                  onMouseLeave={() => setHoverRefIdx(null)}
+                >
+                  {/* ── Premium hover preview — glass card floats above thumbnail ── */}
+                  {hoverRefIdx === idx && (ref.cdnUrl || ref.previewUrl) && !ref.uploading && (
                     <div style={{
-                      position: "absolute", inset: 0, borderRadius: 10,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "rgba(0,0,0,0.4)",
+                      position: "absolute",
+                      bottom: "calc(100% + 12px)",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 200,
+                      pointerEvents: "none",
+                      animation: "refSlideIn 0.12s ease",
+                      width: 132,
+                      background: "rgba(8,10,20,0.92)",
+                      backdropFilter: "blur(18px)",
+                      WebkitBackdropFilter: "blur(18px)",
+                      border: `1px solid ${roleColor(rc.color, 0.55)}`,
+                      borderRadius: 10,
+                      boxShadow: `0 16px 40px rgba(0,0,0,0.45), 0 0 24px ${roleColor(rc.color, 0.28)}`,
+                      padding: "8px 8px 6px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 5,
                     }}>
+                      {/* Header label — IMG N · Role */}
                       <div style={{
-                        width: 16, height: 16, borderRadius: "50%",
-                        border: "2px solid rgba(96,165,250,0.25)",
-                        borderTopColor: "#60A5FA",
-                        animation: "spin 0.7s linear infinite",
+                        fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
+                        color: roleColor(rc.color, 0.9),
+                        textTransform: "uppercase" as const,
+                        alignSelf: "flex-start",
+                        paddingLeft: 1,
+                      }}>
+                        IMG {idx + 1} · {rc.label}
+                      </div>
+                      {/* Square image */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ref.cdnUrl || ref.previewUrl}
+                        alt={`Preview ${idx + 1}`}
+                        style={{
+                          width: 112, height: 112, objectFit: "cover",
+                          borderRadius: 6,
+                          display: "block",
+                          flexShrink: 0,
+                        }}
+                      />
+                      {/* Caret pointer */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: -6, left: "50%", transform: "translateX(-50%)",
+                        width: 0, height: 0,
+                        borderLeft: "7px solid transparent",
+                        borderRight: "7px solid transparent",
+                        borderTop: `7px solid ${roleColor(rc.color, 0.55)}`,
                       }} />
                     </div>
                   )}
-                  {/* Green check — uploaded */}
-                  {ref.cdnUrl && !ref.uploading && (
+
+                  {/* ── Image chip wrapper (52 × 52) ─────────────────────── */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ref.previewUrl || ref.cdnUrl}
+                      alt={`Reference ${idx + 1}`}
+                      style={{
+                        width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block",
+                        border: ref.cdnUrl
+                          ? `1.5px solid ${roleColor(rc.color, isActive ? 0.9 : 0.45)}`
+                          : "1px solid rgba(255,255,255,0.2)",
+                        opacity: ref.uploading ? 0.45 : 1,
+                        // Role-colored glow intensifies when @-mentioned in prompt
+                        boxShadow: isActive
+                          ? `0 0 0 1.5px ${roleColor(rc.color, 0.65)}, 0 0 12px ${roleColor(rc.color, 0.4)}`
+                          : "none",
+                        transform: isActive ? "scale(1.04)" : "scale(1)",
+                        transition: "box-shadow 0.22s ease, transform 0.22s ease, opacity 0.2s, border-color 0.22s ease",
+                      }}
+                    />
+                    {/* IMG N label — bottom gradient overlay */}
                     <div style={{
-                      position: "absolute", bottom: -4, right: -4,
-                      width: 14, height: 14, borderRadius: "50%",
-                      background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none",
-                    }}>✓</div>
-                  )}
-                  {/* Remove button */}
-                  <button
-                    onClick={() => {
-                      URL.revokeObjectURL(ref.previewUrl);
-                      setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
-                    }}
-                    style={{
-                      position: "absolute", top: -6, right: -6,
-                      width: 16, height: 16, borderRadius: "50%",
-                      background: "rgba(239,68,68,0.9)", border: "none",
-                      color: "#fff", fontSize: 9, cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
-                    }}
-                  >×</button>
+                      position: "absolute", bottom: 0, left: 0, right: 0,
+                      background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
+                      borderRadius: "0 0 10px 10px",
+                      padding: "6px 4px 3px",
+                      textAlign: "center",
+                      fontSize: 8, fontWeight: 800, letterSpacing: "0.07em",
+                      color: isActive ? roleColor(rc.color, 1) : "rgba(255,255,255,0.97)",
+                      pointerEvents: "none",
+                      transition: "color 0.22s ease",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+                    }}>
+                      IMG {idx + 1}
+                    </div>
+                    {/* Upload spinner */}
+                    {ref.uploading && (
+                      <div style={{ position: "absolute", inset: 0, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)" }}>
+                        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(96,165,250,0.25)", borderTopColor: "#60A5FA", animation: "spin 0.7s linear infinite" }} />
+                      </div>
+                    )}
+                    {/* Green check */}
+                    {ref.cdnUrl && !ref.uploading && (
+                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "rgba(34,197,94,0.9)", border: "1.5px solid rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", lineHeight: 1, pointerEvents: "none" }}>✓</div>
+                    )}
+                    {/* Remove — strips @imgN from prompt + renumbers subsequent tags */}
+                    <button
+                      onClick={() => {
+                        const removedN = idx + 1;
+                        const tagRe = new RegExp(`@img${removedN}\\b`, "gi");
+                        const tagInPrompt = tagRe.test(prompt);
+                        let updated = prompt.replace(new RegExp(`@img${removedN}\\b`, "gi"), "");
+                        for (let k = removedN + 1; k <= referenceImages.length; k++) {
+                          updated = updated.replace(new RegExp(`@img${k}\\b`, "gi"), `@img${k - 1}`);
+                        }
+                        updated = updated.replace(/\s{2,}/g, " ").trim();
+                        setPrompt(updated);
+                        if (tagInPrompt) showToast(`@img${removedN} removed from prompt`, "info");
+                        URL.revokeObjectURL(ref.previewUrl);
+                        setReferenceImages(prev => prev.filter(r => r.id !== ref.id));
+                        setRoleMenuIdx(null);
+                      }}
+                      style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: "rgba(239,68,68,0.9)", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                    >×</button>
+                  </div>
+
+                  {/* ── Role chip — compact 52px-wide selector below the image ── */}
+                  <div style={{ position: "relative", width: 52 }}>
+                    <button
+                      onClick={() => setRoleMenuIdx(roleMenuIdx === idx ? null : idx)}
+                      onBlur={() => setTimeout(() => setRoleMenuIdx(prev => prev === idx ? null : prev), 160)}
+                      style={{
+                        width: "100%", height: 17,
+                        borderRadius: 5,
+                        border: `1px solid ${roleColor(rc.color, 0.32)}`,
+                        background: rc.bg,
+                        color: roleColor(rc.color, 0.9),
+                        fontSize: 8, fontWeight: 700, letterSpacing: "0.04em",
+                        cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 2,
+                        transition: "border-color 0.15s, background 0.15s",
+                      }}
+                    >
+                      {rc.short}
+                      <svg width="6" height="4" viewBox="0 0 6 4" style={{ opacity: 0.7 }}>
+                        <path d="M0 0l3 4 3-4z" fill="currentColor" />
+                      </svg>
+                    </button>
+
+                    {/* Role dropdown — opens upward, 5 options */}
+                    {roleMenuIdx === idx && (
+                      <div style={{
+                        position: "absolute",
+                        bottom: "calc(100% + 5px)",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 150,
+                        background: "rgba(8,10,20,0.97)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        zIndex: 300,
+                        backdropFilter: "blur(24px)",
+                        WebkitBackdropFilter: "blur(24px)",
+                        animation: "refSlideIn 0.12s ease",
+                        boxShadow: "0 12px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",
+                      }}>
+                        {ROLES.map(role => {
+                          const r = ROLE_CONFIG[role];
+                          const isSelected = ref.role === role;
+                          return (
+                            <button
+                              key={role}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setReferenceImages(prev => prev.map((ri, i) => i === idx ? { ...ri, role } : ri));
+                                setRoleMenuIdx(null);
+                              }}
+                              style={{
+                                width: "100%", padding: "10px 12px",
+                                border: "none",
+                                borderLeft: isSelected ? `2px solid ${roleColor(r.color, 0.8)}` : "2px solid transparent",
+                                background: isSelected ? r.bg : "transparent",
+                                color: isSelected ? roleColor(r.color, 1) : "rgba(255,255,255,0.85)",
+                                fontSize: 13, fontWeight: isSelected ? 700 : 600,
+                                cursor: "pointer",
+                                display: "flex", alignItems: "center", gap: 9,
+                                textAlign: "left" as const,
+                                transition: "background 0.1s, color 0.1s",
+                                lineHeight: 1,
+                              }}
+                              onMouseEnter={e => {
+                                if (!isSelected) {
+                                  (e.currentTarget as HTMLElement).style.background = roleColor(r.color, 0.1);
+                                  (e.currentTarget as HTMLElement).style.color = roleColor(r.color, 0.95);
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                if (!isSelected) {
+                                  (e.currentTarget as HTMLElement).style.background = "transparent";
+                                  (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.85)";
+                                }
+                              }}
+                            >
+                              <span style={{ width: 8, height: 8, borderRadius: "50%", background: roleColor(r.color, isSelected ? 1 : 0.8), flexShrink: 0 }} />
+                              {r.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
 
-              {/* Add button — hidden when at cap */}
-              {referenceImages.length < maxRefs && (
-                <Tooltip content={`Add reference image (${referenceImages.length}/${maxRefs})`}>
-                  <button
-                    onClick={() => referenceInputRef.current?.click()}
-                    style={{
-                      width: 52, height: 52, borderRadius: 10, flexShrink: 0,
-                      background: "rgba(255,255,255,0.05)", border: "1.5px dashed rgba(60,100,255,0.35)",
-                      color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 22,
-                      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; }}
-                  >+</button>
-                </Tooltip>
-              )}
-
-              {/* Character lock toggle — shown when first image has a face detected */}
-              {referenceImages.length > 0 && referenceImages[0]?.cdnUrl && refFaceDetected && (
+              {/* Character lock — lives in thumbnail strip */}
+              {referenceImages[0]?.cdnUrl && refFaceDetected && (
                 <Tooltip content="Lock character face identity across generations">
                   <button
                     onClick={() => setCharacterLock((prev) => !prev)}
                     style={{
-                      alignSelf: "flex-end", marginBottom: 2,
-                      height: 18, padding: "0 6px",
-                      borderRadius: 10,
-                      border: characterLock
-                        ? "1px solid rgba(245,158,11,0.6)"
-                        : "1px solid rgba(255,255,255,0.12)",
-                      background: characterLock
-                        ? "rgba(245,158,11,0.14)"
-                        : "rgba(255,255,255,0.05)",
-                      color: characterLock
-                        ? "rgba(252,211,77,0.95)"
-                        : "rgba(160,175,205,0.7)",
-                      fontSize: 9, fontWeight: 700,
-                      cursor: "pointer", whiteSpace: "nowrap",
+                      height: 20, padding: "0 7px", borderRadius: 10,
+                      border: characterLock ? "1px solid rgba(245,158,11,0.6)" : "1px solid rgba(255,255,255,0.12)",
+                      background: characterLock ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.05)",
+                      color: characterLock ? "rgba(252,211,77,0.95)" : "rgba(160,175,205,0.7)",
+                      fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const,
                       display: "flex", alignItems: "center", gap: 3,
                       transition: "all 0.15s ease",
                     }}
@@ -2588,81 +3570,145 @@ function ImageStudioInner() {
                   </button>
                 </Tooltip>
               )}
+
+              {/* @ hint when images exist */}
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", marginLeft: 2, letterSpacing: "0.02em" }}>
+                type @ to reference
+              </span>
+            </div>
+          )}
+
+          {/* ── Prompt row — add button always fixed, textarea never shifts ──── */}
+          <div style={{ display: "flex", alignItems: "flex-start", padding: "14px 16px 0", gap: 0 }}>
+            {/* Add button — manual hover tooltip so it reliably hides when file dialog opens */}
+            <div
+              style={{ position: "relative", flexShrink: 0, marginRight: 10, marginTop: 2 }}
+              onMouseEnter={() => setAddBtnHovered(true)}
+              onMouseLeave={() => setAddBtnHovered(false)}
+            >
+              <button
+                onClick={() => {
+                  setAddBtnHovered(false); // immediately kill tooltip before dialog steals focus
+                  if (referenceImages.length < maxRefs) referenceInputRef.current?.click();
+                }}
+                style={{
+                  width: 44, height: 44, borderRadius: 10,
+                  background: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.05)",
+                  border: referenceImages.length >= maxRefs ? "1.5px dashed rgba(255,255,255,0.1)" : "1.5px dashed rgba(60,100,255,0.35)",
+                  color: referenceImages.length >= maxRefs ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.4)",
+                  cursor: referenceImages.length >= maxRefs ? "not-allowed" : "pointer",
+                  fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.6)"; (e.currentTarget as HTMLElement).style.color = "#60A5FA"; } }}
+                onMouseLeave={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; } }}
+              >+</button>
+              {/* Inline tooltip — only visible while hovering, reliably dismissed on click */}
+              {addBtnHovered && (
+                <div style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  whiteSpace: "nowrap" as const,
+                  background: "rgba(10,12,22,0.96)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 7,
+                  padding: "5px 10px",
+                  fontSize: 11, fontWeight: 500,
+                  color: "rgba(255,255,255,0.85)",
+                  pointerEvents: "none",
+                  zIndex: 400,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                }}>
+                  {referenceImages.length >= maxRefs
+                    ? `Max ${maxRefs} reference image${maxRefs === 1 ? "" : "s"} reached`
+                    : `Add reference image (${referenceImages.length}/${maxRefs})`}
+                </div>
+              )}
             </div>
 
-            {/* Prompt textarea */}
-            <textarea
-              ref={promptRef}
-              value={prompt}
-              onChange={(e) => {
-                setPrompt(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
-                // Manual edit clears undo and error state
-                if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
-                if (enhanceError !== null) setEnhanceError(null);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe the scene you imagine…"
-              rows={1}
-              style={{
-                flex: 1, background: "transparent", border: "none", outline: "none",
-                color: enhancing ? "rgba(255,255,255,0.45)" : "#fff",
-                fontSize: 15, lineHeight: 1.6, resize: "none",
-                padding: "6px 14px", fontFamily: "var(--font-body, system-ui)",
-                minHeight: 36, maxHeight: 140, boxSizing: "border-box",
-                transition: "color 0.2s",
-              }}
-            />
+            {/* Textarea wrapper — contains @ mention menu */}
+            <div style={{ flex: 1, position: "relative" }}>
+              {/* @ mention suggestion menu */}
+              {atMenuOpen && referenceImages.length > 0 && (() => {
+                const allTags = referenceImages.map((ref, i) => ({
+                  tag:   `@img${i + 1}`,
+                  label: `Image ${i + 1} · ${ROLE_CONFIG[ref.role].label}`,
+                  color: ROLE_CONFIG[ref.role].color,
+                }));
+                const filtered = atMenuFilter ? allTags.filter(({ tag }) => tag.includes(atMenuFilter)) : allTags;
+                if (filtered.length === 0) return null;
+                return (
+                  <div style={{
+                    position: "absolute", bottom: "calc(100% + 6px)", left: 0,
+                    background: "#141420", border: "1px solid rgba(96,165,250,0.25)",
+                    borderRadius: 10, overflow: "hidden", zIndex: 300,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.7)",
+                    minWidth: 180,
+                  }}>
+                    <div style={{ padding: "6px 10px 4px", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", textTransform: "uppercase" as const }}>
+                      Reference images
+                    </div>
+                    {filtered.map(({ tag, label, color }) => (
+                      <button
+                        key={tag}
+                        onMouseDown={(e) => { e.preventDefault(); insertAtMention(tag); }}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "7px 12px", border: "none", background: "transparent", color: "#fff", cursor: "pointer", transition: "background 0.12s", textAlign: "left" as const }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        {/* Role-colored dot + @tag */}
+                        <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 62 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: roleColor(color, 0.9), flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: roleColor(color, 0.95), fontWeight: 700 }}>{tag}</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
-            {/* ✦ Enhance button — always rendered, fades in when prompt has content */}
-            <div style={{
-              flexShrink: 0, alignSelf: "center", marginRight: 4,
-              opacity: prompt.trim() ? 1 : 0.35,
-              pointerEvents: prompt.trim() ? "auto" : "none",
-              transition: "opacity 0.15s ease-out",
-            }}>
-              <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt with AI (Claude)"}>
-              <button
-                onClick={handleEnhance}
-                disabled={enhancing || !prompt.trim()}
+              <textarea
+                ref={promptRef}
+                value={prompt}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPrompt(val);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+                  if (preEnhancePrompt !== null) setPreEnhancePrompt(null);
+                  if (enhanceError !== null) setEnhanceError(null);
+                  // @ mention detection
+                  const cursorPos = e.target.selectionStart ?? val.length;
+                  const textBeforeCursor = val.slice(0, cursorPos);
+                  const atMatch = textBeforeCursor.match(/@(\w*)$/);
+                  if (atMatch && referenceImages.length > 0) {
+                    setAtMenuOpen(true);
+                    setAtMenuFilter((atMatch[1] ?? "").toLowerCase());
+                  } else {
+                    setAtMenuOpen(false);
+                    setAtMenuFilter("");
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (atMenuOpen && e.key === "Escape") { setAtMenuOpen(false); return; }
+                  handleKeyDown(e);
+                }}
+                onBlur={() => { setTimeout(() => setAtMenuOpen(false), 150); }}
+                placeholder="Describe the scene you imagine…"
+                rows={1}
                 style={{
-                  display: "flex", alignItems: "center", gap: 5,
-                  padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  border: "1px solid rgba(139,92,246,0.35)",
-                  background: enhancing ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.12)",
-                  color: enhancing ? "rgba(167,139,250,0.5)" : "rgba(167,139,250,0.9)",
-                  cursor: enhancing ? "not-allowed" : "pointer",
-                  transition: "all 0.15s", letterSpacing: "0.01em",
+                  width: "100%", background: "transparent", border: "none", outline: "none",
+                  color: enhancing ? "rgba(255,255,255,0.45)" : "#fff",
+                  fontSize: 15, lineHeight: 1.6, resize: "none",
+                  padding: "6px 14px 6px 0", fontFamily: "var(--font-body, system-ui)",
+                  minHeight: 44, maxHeight: 140, boxSizing: "border-box",
+                  transition: "color 0.2s",
                 }}
-                onMouseEnter={e => {
-                  if (!enhancing) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)";
-                    (e.currentTarget as HTMLElement).style.color = "#C4B5FD";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!enhancing) {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)";
-                    (e.currentTarget as HTMLElement).style.color = "rgba(167,139,250,0.9)";
-                  }
-                }}
-              >
-                {enhancing ? (
-                  <>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      border: "1.5px solid rgba(167,139,250,0.25)",
-                      borderTopColor: "rgba(167,139,250,0.7)",
-                      animation: "spin 0.7s linear infinite", flexShrink: 0,
-                    }} />
-                    Enhancing…
-                  </>
-                ) : <>✦ Enhance</>}
-              </button>
-              </Tooltip>
+              />
             </div>
           </div>
 
@@ -2764,88 +3810,200 @@ function ImageStudioInner() {
           }}>
             {/* Model selector */}
             <div data-dd style={{ position: "relative" }}>
+              {/* ── Dock chip ── */}
               <button
                 onClick={() => { closeDropdowns(); setShowModelPicker((v) => !v); setModelSearch(""); }}
-                style={{ ...ctrlBtn(showModelPicker), gap: 7 }}
+                style={{ ...ctrlBtn(showModelPicker), gap: 7, padding: "5px 10px 5px 6px" }}
+                title="Change model"
               >
-                <ModelIcon type={currentModel.icon} size={16} />
-                {currentModel.name}
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>›</span>
+                <ModelLogo type={currentModel.icon} size={22} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{currentModel.name}</span>
+                {currentModel.badge && currentModel.available && (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: "2px 5px", borderRadius: 4,
+                    background: modelBadgeBg(currentModel.badge),
+                    color: modelBadgeFg(currentModel.badge),
+                    letterSpacing: "0.06em",
+                  }}>{currentModel.badge}</span>
+                )}
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{
+                  marginLeft: 1, opacity: 0.45,
+                  transform: showModelPicker ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s",
+                }}>
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
 
-              {showModelPicker && (
-                <div style={{
-                  position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-                  background: "#141414", border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 14, padding: 8, zIndex: 200, width: 320,
-                  boxShadow: "0 24px 60px rgba(0,0,0,0.7)",
-                }}>
-                  {/* Search */}
-                  <div style={{ padding: "4px 6px 8px" }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      background: "rgba(255,255,255,0.07)", borderRadius: 9, padding: "7px 10px",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}>
-                      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>🔍</span>
-                      <input
-                        autoFocus
-                        value={modelSearch}
-                        onChange={(e) => setModelSearch(e.target.value)}
-                        placeholder="Search..."
-                        style={{
-                          background: "transparent", border: "none", outline: "none",
-                          color: "#fff", fontSize: 13, flex: 1,
-                          fontFamily: "var(--font-body, system-ui)",
-                        }}
-                      />
-                    </div>
-                  </div>
+              {/* ── Premium dropdown panel ── */}
+              {showModelPicker && (() => {
+                const liveModels   = filteredModels.filter(m =>  m.available);
+                const soonModels   = filteredModels.filter(m => !m.available);
+                const noResults    = liveModels.length === 0 && soonModels.length === 0;
 
-                  <p style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", padding: "4px 8px 6px" }}>
-                    ✦ Featured models
-                  </p>
-
-                  {filteredModels.map((m) => (
+                const renderRow = (m: StudioModel) => {
+                  const isSelected = model === m.id;
+                  const isDisabled = !m.available;
+                  return (
                     <button
                       key={m.id}
-                      disabled={!m.available}
-                      onClick={() => { if (m.available) { setModel(m.id); closeDropdowns(); } }}
-                      style={{ ...ddItem(model === m.id, !m.available) }}
-                      onMouseEnter={(e) => { if (m.available) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = model === m.id ? "rgba(255,255,255,0.1)" : "transparent"; }}
+                      disabled={isDisabled}
+                      aria-disabled={isDisabled}
+                      onClick={() => {
+                        if (!isDisabled) {
+                          setModel(m.id);
+                          closeDropdowns();
+                        }
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        width: "100%", padding: "10px 12px", borderRadius: 10,
+                        border: "none", textAlign: "left", cursor: isDisabled ? "not-allowed" : "pointer",
+                        background: isSelected ? "rgba(99,102,241,0.14)" : "transparent",
+                        boxShadow: isSelected ? "inset 3px 0 0 rgba(99,102,241,0.7)" : "none",
+                        opacity: isDisabled ? 0.52 : 1,
+                        transition: "background 0.12s, box-shadow 0.12s",
+                      }}
+                      onMouseEnter={e => {
+                        if (!isDisabled && !isSelected)
+                          (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected)
+                          (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }}
                     >
-                      <ModelIcon type={m.icon} size={32} />
+                      <ModelLogo type={m.icon} size={38} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{m.name}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 2 }}>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: "rgba(255,255,255,0.92)", letterSpacing: "-0.01em" }}>
+                            {m.name}
+                          </span>
                           {m.badge && (
                             <span style={{
                               fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
-                              background: m.badgeColor ?? "#374151", color: "#fff", letterSpacing: "0.05em",
-                            }}>
-                              {m.badge}
-                            </span>
+                              background: modelBadgeBg(m.badge), color: modelBadgeFg(m.badge),
+                              letterSpacing: "0.07em", textTransform: "uppercase",
+                            }}>{m.badge}</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {m.description}
-                        </div>
+                        <div style={{
+                          fontSize: 13, color: "rgba(255,255,255,0.45)",
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>{m.description}</div>
                       </div>
-                      {model === m.id && <span style={{ color: "#60A5FA", fontSize: 14 }}>✓</span>}
+                      {isSelected && (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                          <path d="M3 8L6.5 11.5L13 5" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
                     </button>
-                  ))}
-                </div>
-              )}
+                  );
+                };
+
+                return (
+                  <div style={{
+                    position: "absolute", bottom: "calc(100% + 8px)", left: 0,
+                    background: "rgba(9,11,20,0.97)",
+                    backdropFilter: "blur(24px)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 14, zIndex: 200, width: 460,
+                    display: "flex", flexDirection: "column",
+                    boxShadow: [
+                      "0 0 0 1px rgba(59,130,246,0.08)",
+                      "0 32px 80px rgba(0,0,0,0.88)",
+                      "0 8px 24px rgba(0,0,0,0.6)",
+                      "inset 0 1px 0 rgba(255,255,255,0.06)",
+                    ].join(", "),
+                    overflow: "hidden",
+                  }}>
+                    {/* Search bar */}
+                    <div style={{ padding: "12px 12px 8px", flexShrink: 0 }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        background: "rgba(255,255,255,0.06)",
+                        borderRadius: 10, padding: "9px 12px",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                      }}>
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+                          <circle cx="8.5" cy="8.5" r="5.5" stroke="rgba(255,255,255,0.38)" strokeWidth="1.6"/>
+                          <path d="m13 13 3.5 3.5" stroke="rgba(255,255,255,0.38)" strokeWidth="1.6" strokeLinecap="round"/>
+                        </svg>
+                        <input
+                          autoFocus
+                          value={modelSearch}
+                          onChange={e => setModelSearch(e.target.value)}
+                          placeholder="Search models…"
+                          style={{
+                            background: "transparent", border: "none", outline: "none",
+                            color: "#fff", fontSize: 15, flex: 1, letterSpacing: "0.01em",
+                            fontFamily: "var(--font-body, system-ui)",
+                          }}
+                        />
+                        {modelSearch && (
+                          <button
+                            onClick={() => setModelSearch("")}
+                            style={{
+                              background: "none", border: "none", cursor: "pointer",
+                              color: "rgba(255,255,255,0.3)", fontSize: 14, padding: 0, lineHeight: 1,
+                              transition: "color 0.12s",
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)"; }}
+                          >✕</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Scrollable model list */}
+                    <div className="model-dd-scroll" style={{ overflowY: "auto", maxHeight: 430, padding: "0 8px 10px" }}>
+                      {noResults ? (
+                        <div style={{ padding: "20px 16px", textAlign: "center", color: "rgba(255,255,255,0.28)", fontSize: 13 }}>
+                          No models match &ldquo;{modelSearch}&rdquo;
+                        </div>
+                      ) : (
+                        <>
+                          {liveModels.length > 0 && (
+                            <>
+                              <p style={{
+                                fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.38)",
+                                letterSpacing: "0.14em", textTransform: "uppercase",
+                                padding: "8px 10px 4px", margin: 0,
+                              }}>Live Models</p>
+                              {liveModels.map(renderRow)}
+                            </>
+                          )}
+                          {soonModels.length > 0 && (
+                            <>
+                              <div style={{
+                                margin: liveModels.length > 0 ? "10px 10px 4px" : "8px 10px 4px",
+                                paddingTop: liveModels.length > 0 ? 10 : 0,
+                                borderTop: liveModels.length > 0 ? "1px solid rgba(255,255,255,0.07)" : "none",
+                              }}>
+                                <p style={{
+                                  fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.28)",
+                                  letterSpacing: "0.14em", textTransform: "uppercase", margin: 0,
+                                }}>Coming Soon</p>
+                              </div>
+                              {soonModels.map(renderRow)}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Aspect Ratio */}
             {(() => {
               // Hard-locked AR list per model — only supported ratios are shown.
               const activeArList: AspectRatio[] =
-                model === "nano-banana-2"   ? NB2_AR :
-                model === "nano-banana-pro" ? NB_PRO_AR :
-                model.startsWith("nano-banana") ? NB_STANDARD_AR :
+                model === "nano-banana-2"          ? NB2_AR :
+                model === "nano-banana-pro"        ? NB_PRO_AR :
+                model.startsWith("nano-banana")    ? NB_STANDARD_AR :
+                model.startsWith("seedream")       ? SEEDREAM_AR :
                 DALLE_AR;
 
               return (
@@ -3010,11 +4168,35 @@ function ImageStudioInner() {
             {/* Spacer */}
             <div style={{ flex: 1 }} />
 
-            {/* Cmd+Enter hint */}
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", gap: 4 }}>
-              <kbd style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.25)", background: "transparent" }}>⌘</kbd>
-              <kbd style={{ fontSize: 10, padding: "2px 5px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.25)", background: "transparent" }}>↵</kbd>
-            </span>
+            {/* ✦ Enhance chip — icon only, directly left of Generate */}
+            {(() => {
+              const enhanceDisabled = !prompt.trim() || enhancing;
+              return (
+                <Tooltip content={enhancing ? "Enhancing…" : "Enhance prompt"}>
+                  <button
+                    onClick={handleEnhance}
+                    disabled={enhanceDisabled}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                      border: "1px solid rgba(139,92,246,0.35)",
+                      background: "rgba(139,92,246,0.12)",
+                      color: enhanceDisabled ? "rgba(167,139,250,0.35)" : "rgba(167,139,250,0.9)",
+                      cursor: enhanceDisabled ? "not-allowed" : "pointer",
+                      opacity: !prompt.trim() ? 0.45 : 1,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { if (!enhanceDisabled) { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.22)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.6)"; } }}
+                    onMouseLeave={e => { if (!enhanceDisabled) { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(139,92,246,0.35)"; } }}
+                  >
+                    {enhancing
+                      ? <div style={{ width: 12, height: 12, borderRadius: "50%", border: "1.5px solid rgba(167,139,250,0.25)", borderTopColor: "rgba(167,139,250,0.7)", animation: "spin 0.7s linear infinite" }} />
+                      : <span style={{ fontSize: 14, lineHeight: 1 }}>✦</span>
+                    }
+                  </button>
+                </Tooltip>
+              );
+            })()}
 
             {/* Generate button — disabled while reference image is uploading */}
             {(() => {
@@ -3032,16 +4214,17 @@ function ImageStudioInner() {
                     padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
                     border: "none",
                     cursor: isDisabled ? "not-allowed" : "pointer",
-                    background: isDisabled
-                      ? "rgba(255,255,255,0.07)"
-                      : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-                    color: isDisabled ? "rgba(255,255,255,0.2)" : "#fff",
+                    background: "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                    color: "#fff",
+                    opacity: isDisabled ? 0.52 : 1,
                     transition: "all 0.2s", letterSpacing: "0.02em",
-                    boxShadow: isDisabled ? "none" : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
+                    boxShadow: isDisabled
+                      ? "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"
+                      : "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)",
                     minWidth: 140,
                   }}
                   onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "none"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                 >
                   {isUploadWait ? (
                     <>
@@ -3054,11 +4237,12 @@ function ImageStudioInner() {
                       <Zap size={14} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                       {currentModel.available && (
                         <span style={{
-                          fontSize: 14, fontWeight: 700,
+                          fontFamily: "var(--font-syne, sans-serif)",
+                          fontSize: 18, fontWeight: 700,
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>
-                          {computeCredits(model, quality, MODEL_TO_KEY[model]?.startsWith("nano-banana") ? 1 : Math.min(batchSize, 4))} cr
+                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1") ?? "—"} cr
                         </span>
                       )}
                     </>
@@ -3351,15 +4535,13 @@ function ImageStudioInner() {
         <FullscreenPreview
           type="image"
           url={viewingImage.url}
-          metadata={{
-            prompt:      viewingImage.prompt,
-            modelName:   viewingImage.model,
-            aspectRatio: viewingImage.aspectRatio,
-            createdAt:   viewingImage.createdAt ? new Date(viewingImage.createdAt).getTime() : undefined,
-            visibility:  viewingImage.visibility,
-          }}
-          onClose={() => setViewingImage(null)}
-          zIndex={9000}
+          onClose={handleCloseFullscreen}
+          zIndex={12000}
+          rightPanelWidth={
+            selectedImage && selectedImage.status === "done" && !panelCollapsed
+              ? 360
+              : 0
+          }
         />
       )}
 
@@ -3496,7 +4678,7 @@ function ImageStudioInner() {
     </div> {/* end MAIN FIXED CONTAINER */}
 
     {/* FlowBar now lives inside the TOP BAR WRAPPER above — layout-aware, not viewport-fixed */}
-    {studioMode === "standard" && <NextStepPanel onVariation={handleVariation} />}
+    {/* NextStepPanel removed — premium action panel (selectedImage) is the sole right panel */}
 
     {/* ── RIGHT ACTION PANEL ───────────────────────────────────────────── */}
     {/* position:fixed slide-in from right; rendered OUTSIDE gallery div   */}
@@ -3516,10 +4698,12 @@ function ImageStudioInner() {
         )}
 
         {/* Panel — sits at z:9020, above the fullscreen backdrop (z:9000) but
-            below the close button (z:9030), so it remains accessible in both modes */}
+            below the close button (z:9030), so it remains accessible in both modes.
+            Slide-off to the right when panelCollapsed; content (overflowY) is on
+            the inner body div so the collapse handle can overflow the left edge. */}
         <div
           style={{
-            position: "fixed", top: 64, right: 0, bottom: 0,
+            position: "fixed", top: 0, right: 0, bottom: 0,
             width: 360, zIndex: 9020,
             background: "linear-gradient(170deg, rgba(9,9,18,0.99) 0%, rgba(12,10,22,0.99) 50%, rgba(8,9,16,0.99) 100%)",
             backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)",
@@ -3528,11 +4712,49 @@ function ImageStudioInner() {
             display: "flex", flexDirection: "column",
             fontFamily: "var(--font-body, system-ui, sans-serif)",
             color: "#fff",
-            animation: "slideInRight 0.25s cubic-bezier(0.16,1,0.3,1)",
-            overflowY: "auto",
+            // Collapse: slide right off-screen; always transition after initial mount
+            transform: panelCollapsed ? "translateX(100%)" : "translateX(0)",
+            transition: "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+            // overflow:visible on outer div so the absolute handle can bleed left
+            overflow: "visible",
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* ── Collapse / expand handle — dark glass tab on the left edge ── */}
+          <button
+            onClick={() => setPanelCollapsed(v => !v)}
+            title={panelCollapsed ? "Open panel" : "Collapse panel"}
+            style={{
+              position: "absolute",
+              top: "50%", left: -22,
+              transform: "translateY(-50%)",
+              width: 22, height: 52,
+              borderRadius: "8px 0 0 8px",
+              background: "rgba(9,9,18,0.96)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              borderRight: "none",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "rgba(255,255,255,0.35)",
+              fontSize: 14, lineHeight: 1,
+              zIndex: 1,
+              transition: "background 0.15s, color 0.15s",
+              padding: 0,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.18)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = "rgba(9,9,18,0.96)";
+              (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)";
+            }}
+          >
+            {/* Chevron: › when open (collapse), ‹ when collapsed (expand) */}
+            {panelCollapsed ? "‹" : "›"}
+          </button>
           <style>{`
             @keyframes slideInRight {
               from { transform: translateX(20px); opacity: 0; }
@@ -3637,7 +4859,7 @@ function ImageStudioInner() {
                 onClick={() => {
                   // Restore the selected image's exact settings then generate
                   const srcPrompt = selectedImage.prompt;
-                  const srcAr     = (selectedImage.aspectRatio || "1:1") as AspectRatio;
+                  const srcAr     = resolveVariationAR(selectedImage, imageRatios, aspectRatio);
                   // selectedImage.model may be a UI ID ("dalle3") or a model key ("gpt-image-1")
                   // KEY_TO_MODEL handles model keys → UI IDs; fall back to as-is for UI IDs
                   const srcModel  = KEY_TO_MODEL[selectedImage.model] ?? selectedImage.model;
@@ -3646,6 +4868,7 @@ function ImageStudioInner() {
                   setAspectRatio(srcAr);
                   setSelectedImage(null);
                   setPanelDetails(null);
+                  setViewingImage(null);  // Issue 5: close fullscreen before generating
                   // generate() reads overrides — pass values directly so we don't
                   // depend on state having already updated before the call
                   setTimeout(() => generate({
@@ -3711,8 +4934,9 @@ function ImageStudioInner() {
                     el.style.transform = "translateY(0)";
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>▶</span>
-                  Animate {panelAnimateOpen ? "▲" : "▾"}
+                  <Play size={16} style={{ flexShrink: 0 }} />
+                  Animate
+                  {panelAnimateOpen ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
                 </button>
 
                 {/* Inline dropdown */}
@@ -3772,46 +4996,29 @@ function ImageStudioInner() {
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ↩ Reuse Prompt
+                  <RotateCcw size={11} style={{ flexShrink: 0 }} /> Reuse Prompt
                 </button>
               )}
 
               {/* Download */}
               {selectedImage.url && (
-                <a
-                  href={selectedImage.url}
-                  download
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                    padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
-                    textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
-                  }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
-                >
-                  ↓ Download
-                </a>
-              )}
-
-              {/* Fullscreen */}
-              {selectedImage.url && (
                 <button
-                  onClick={() => setViewingImage(selectedImage)}
+                  onClick={() => downloadAsset(selectedImage.url!, `zencra-image-${selectedImage.id ?? "output"}.png`)}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                     padding: "8px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600,
                     border: "1px solid rgba(255,255,255,0.1)",
                     background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.65)",
-                    cursor: "pointer", transition: "all 0.15s",
+                    cursor: "pointer", transition: "all 0.15s", width: "100%",
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)"; }}
                 >
-                  ⛶ Fullscreen
+                  <Download size={11} style={{ flexShrink: 0 }} /> Download
                 </button>
               )}
+
+              {/* Fullscreen button removed — panel already visible during fullscreen; redundant */}
             </div>
 
             {/* ══ METADATA — collapsed by default ══════════════════════════════ */}
@@ -3823,15 +5030,15 @@ function ImageStudioInner() {
                 style={{
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                   background: "none", border: "none", cursor: "pointer", padding: "2px 0 4px",
-                  color: "rgba(255,255,255,0.32)", transition: "color 0.15s",
+                  color: "rgba(255,255,255,0.55)", transition: "color 0.15s",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.32)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.80)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.55)"; }}
               >
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase" }}>
                   Details
                 </span>
-                <span style={{ fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.3)" }}>
+                <span style={{ fontSize: 12, transition: "transform 0.2s", display: "inline-block", transform: panelMetaExpanded ? "rotate(180deg)" : "rotate(0deg)", color: "rgba(255,255,255,0.45)" }}>
                   ▾
                 </span>
               </button>
@@ -3842,14 +5049,14 @@ function ImageStudioInner() {
 
                   {/* Generation Details */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 6px" }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", margin: "4px 0 6px" }}>
                       Generation
                     </p>
 
                     {/* Prompt */}
                     <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "8px 10px" }}>
-                      <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>PROMPT</span>
-                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, margin: 0 }}>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 4, letterSpacing: "0.05em" }}>PROMPT</span>
+                      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", lineHeight: 1.6, margin: 0 }}>
                         {selectedImage.prompt || "—"}
                       </p>
                     </div>
@@ -3863,8 +5070,8 @@ function ImageStudioInner() {
                         { label: "QUALITY",  val: panelDetails?.generation_metadata?.quality as string | undefined },
                       ].filter(({ val }) => !!val).map(({ label, val }) => (
                         <div key={label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>{label}</span>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>{val}</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>{label}</span>
+                          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.92)", fontWeight: 500 }}>{val}</span>
                         </div>
                       ))}
                     </div>
@@ -3872,8 +5079,8 @@ function ImageStudioInner() {
                     {/* Credits */}
                     {(panelDetails?.asset.credits_cost != null || panelDetails?.generation_metadata?.credits_used != null) && (
                       <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
-                        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", display: "block", marginBottom: 2, letterSpacing: "0.05em" }}>CREDITS</span>
-                        <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 600 }}>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>CREDITS</span>
+                        <span style={{ fontSize: 14, color: "rgba(120,180,255,0.95)", fontWeight: 600 }}>
                           {panelDetails?.generation_metadata?.credits_used ?? panelDetails?.asset.credits_cost} cr
                         </span>
                       </div>
@@ -3884,18 +5091,18 @@ function ImageStudioInner() {
                   {panelLoading ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.08)", borderTopColor: "#60A5FA", animation: "panelSpin 0.8s linear infinite" }} />
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Analyzing…</span>
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>Analyzing…</span>
                     </div>
                   ) : panelDetails?.enriched_metadata && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", margin: "4px 0 2px" }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", margin: "4px 0 2px" }}>
                         Cinematic
                       </p>
 
                       {/* Visual summary */}
                       {panelDetails.enriched_metadata.visual_summary && (
                         <div style={{ background: "rgba(37,99,235,0.07)", borderRadius: 7, padding: "8px 10px", border: "1px solid rgba(37,99,235,0.15)" }}>
-                          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
+                          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>
                             {String(panelDetails.enriched_metadata.visual_summary)}
                           </p>
                         </div>
@@ -3907,8 +5114,8 @@ function ImageStudioInner() {
                         if (!val) return null;
                         return (
                           <div key={field} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", minWidth: 52, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{field}</span>
-                            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", minWidth: 52, letterSpacing: "0.04em", textTransform: "uppercase" as const }}>{field}</span>
+                            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", background: "rgba(255,255,255,0.05)", padding: "2px 7px", borderRadius: 4 }}>
                               {String(val)}
                             </span>
                           </div>
@@ -3923,11 +5130,11 @@ function ImageStudioInner() {
                         if (!Array.isArray(val) || val.length === 0) return null;
                         return (
                           <div key={field}>
-                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.28)", display: "block", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>{labels[field]}</span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.04em" }}>{labels[field]}</span>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                               {(val as string[]).map((tag: string) => (
                                 <span key={tag} style={{
-                                  fontSize: 10, padding: "2px 7px", borderRadius: 20,
+                                  fontSize: 12, padding: "2px 7px", borderRadius: 20,
                                   background: `${colors[field]}15`,
                                   border: `1px solid ${colors[field]}28`,
                                   color: colors[field], fontWeight: 500,
@@ -3943,11 +5150,11 @@ function ImageStudioInner() {
                       {/* Confidence bar */}
                       {typeof panelDetails.enriched_metadata.confidence === "number" && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 2 }}>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>CONFIDENCE</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>CONFIDENCE</span>
                           <div style={{ flex: 1, height: 2, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${(panelDetails.enriched_metadata.confidence as number) * 100}%`, background: "linear-gradient(90deg, #2563EB, #7C3AED)", borderRadius: 2 }} />
                           </div>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", minWidth: 24, textAlign: "right" as const }}>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", minWidth: 24, textAlign: "right" as const }}>
                             {Math.round((panelDetails.enriched_metadata.confidence as number) * 100)}%
                           </span>
                         </div>
@@ -3961,6 +5168,45 @@ function ImageStudioInner() {
         </div>
       </>
     )}
+
+    {/* ── Panel reopen tab — visible only when premium panel is collapsed ──── */}
+    {selectedImage && selectedImage.status === "done" && panelCollapsed && !viewingImage && (
+      <button
+        onClick={() => setPanelCollapsed(false)}
+        title="Open panel"
+        style={{
+          position:       "fixed",
+          top:            "50%",
+          right:          0,
+          transform:      "translateY(-50%)",
+          zIndex:         9021, /* above panel at 9020 */
+          background:     "rgba(9,9,18,0.96)",
+          border:         "1px solid rgba(255,255,255,0.09)",
+          borderRight:    "none",
+          borderRadius:   "8px 0 0 8px",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          width:          22, height: 52,
+          cursor:         "pointer",
+          color:          "rgba(255,255,255,0.35)",
+          fontSize:       14, lineHeight: 1,
+          display:        "flex", alignItems: "center", justifyContent: "center",
+          padding:        0,
+          transition:     "background 0.15s, color 0.15s",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.18)";
+          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.background = "rgba(9,9,18,0.96)";
+          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)";
+        }}
+      >
+        ‹
+      </button>
+    )}
+
       {/* ── Workflow Transition Modal ─────────────────────────────────────────── */}
       <WorkflowTransitionModal
         open={workflowModal.open}

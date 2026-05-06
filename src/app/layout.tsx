@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Familjen_Grotesk, Syne } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/auth/AuthContext";
-import { Navbar } from "@/components/layout/Navbar";
+import { ClientLayout } from "@/components/layout/ClientLayout";
 import { FooterConditional } from "@/components/layout/FooterConditional";
 import "./globals.css";
 
@@ -108,11 +108,12 @@ export default function RootLayout({
           <AuthProvider>
             {/* Main site wrapper */}
             <div className="relative flex min-h-screen flex-col" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
-              <Navbar />
-              <main className="flex-1">
-                {children}
-              </main>
-              <FooterConditional />
+              <ClientLayout>
+                <main className="flex-1">
+                  {children}
+                </main>
+                <FooterConditional />
+              </ClientLayout>
             </div>
           </AuthProvider>
         </ThemeProvider>

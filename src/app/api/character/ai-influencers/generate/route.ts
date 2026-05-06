@@ -33,8 +33,25 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_CANDIDATE_COUNT = 4;
 const MAX_CANDIDATE_COUNT     = 6;
-const DEFAULT_MODEL_KEY       = "nb-standard";  // Nano Banana Standard
+// TODO: swap to the real character model key once the provider is live.
+// "flux-character" is the registered character studio provider.
+// "nb-standard" was a placeholder that is NOT registered in the character registry.
+const DEFAULT_MODEL_KEY       = "flux-character";
 const DEFAULT_ASPECT_RATIO    = "2:3";
+
+// ── Mock candidate URLs ───────────────────────────────────────────────────────
+// Used as a fallback when all provider dispatch attempts fail (e.g. provider
+// not yet live in this environment). Lets the full candidate UI be tested
+// end-to-end without a working AI provider.
+// Remove this block once the character image provider is operational.
+// Dedicated influencer placeholder images (360×480 portrait, dark gradient).
+// These live in public/mock/influencers/ — NOT homepage hero assets.
+const MOCK_CANDIDATE_URLS = [
+  "/mock/influencers/candidate-01.jpg",
+  "/mock/influencers/candidate-02.jpg",
+  "/mock/influencers/candidate-03.jpg",
+  "/mock/influencers/candidate-04.jpg",
+];
 
 export async function POST(req: Request): Promise<Response> {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -142,7 +159,21 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
-  if (jobs.length === 0) return serverErr("All candidate jobs failed to dispatch");
+  if (jobs.length === 0) {
+    // ── Mock fallback — provider not live yet ─────────────────────────────────
+    // All real dispatch attempts failed (most likely: model not registered in
+    // character studio or provider API key not configured). Return mock image
+    // URLs so the full candidate selection UI can be tested end-to-end.
+    // The canvas will surface these as real candidates — selection + lock flow
+    // works identically. Remove this block once the provider is operational.
+    console.warn("[generate] All real dispatch attempts failed — returning mock candidates for UI testing.");
+    return accepted({
+      jobs:            [],
+      influencer_id,
+      candidate_count: 0,
+      mock_candidates: MOCK_CANDIDATE_URLS.slice(0, candidateCount),
+    });
+  }
 
   // ── Trial usage (fire-and-forget) ────────────────────────────────────────────
   if (entitlement.path === "trial" && entitlement.trialEndsAt) {

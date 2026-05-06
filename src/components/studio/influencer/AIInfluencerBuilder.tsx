@@ -15,6 +15,8 @@ import { useState, useCallback } from "react";
 import InfluencerLibrary   from "./InfluencerLibrary";
 import InfluencerCanvas    from "./InfluencerCanvas";
 import InfluencerControls  from "./InfluencerControls";
+import { useAuth }         from "@/components/auth/AuthContext";
+import { supabase }        from "@/lib/supabase";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -49,6 +51,8 @@ export type CanvasState =
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AIInfluencerBuilder() {
+  const { session } = useAuth();
+
   const [canvasState, setCanvasState] = useState<CanvasState>({ phase: "empty" });
   const [libraryKey,  setLibraryKey]  = useState(0);
 
@@ -84,11 +88,26 @@ export default function AIInfluencerBuilder() {
     setIsCreating(true);
 
     try {
+      // Resolve a fresh access token — getSession() reads from localStorage
+      // and is always valid for the current session. Falls back to the context
+      // session if getSession() is unavailable (e.g. SSR edge case).
+      let token: string | null = session?.access_token ?? null;
+      try {
+        const { data: { session: fresh } } = await supabase.auth.getSession();
+        if (fresh?.access_token) token = fresh.access_token;
+      } catch { /* ignore — fall back to context token */ }
+
+      if (!token) {
+        setCreateError("Session expired. Please refresh and try again.");
+        return;
+      }
+
+      const authHeader = { Authorization: `Bearer ${token}` };
+
       // Step 1: Create influencer record — backend auto-generates the handle
       const createRes = await fetch("/api/character/ai-influencers", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({
           style_category:    styleCategory,
           gender,
@@ -104,6 +123,8 @@ export default function AIInfluencerBuilder() {
       });
 
       if (!createRes.ok) {
+        const errBody = await createRes.json().catch(() => ({}));
+        console.error("[AIInfluencerBuilder] create failed:", createRes.status, errBody);
         setCreateError("Could not create influencer. Try again.");
         return;
       }
@@ -115,17 +136,34 @@ export default function AIInfluencerBuilder() {
       // Step 2: Trigger generation — capture job IDs for polling
       const generateRes = await fetch("/api/character/ai-influencers/generate", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ influencer_id: influencer.id }),
       });
 
       let jobIds: string[] = [];
       if (generateRes.ok) {
         const generateData = await generateRes.json();
+        const mockCandidates: string[] = generateData.data?.mock_candidates ?? [];
+
+        if (mockCandidates.length > 0) {
+          // Provider not live — skip generating state, jump straight to candidates
+          console.info("[AIInfluencerBuilder] mock candidates received — jumping to candidates state");
+          setCanvasState({
+            phase:          "candidates",
+            influencer_id:  influencer.id,
+            candidates:     mockCandidates,
+            style_category: (influencer.style_category ?? "hyper-real") as StyleCategory,
+          });
+          return;
+        }
+
         jobIds = (generateData.data?.jobs ?? []).map(
           (j: { jobId: string }) => j.jobId,
         );
+      } else {
+        const errBody = await generateRes.json().catch(() => ({}));
+        console.warn("[AIInfluencerBuilder] generate returned non-ok:", generateRes.status, errBody);
+        // Non-fatal — canvas will enter generating state with empty jobs array
       }
 
       handleCreated(influencer, jobIds);
@@ -136,7 +174,7 @@ export default function AIInfluencerBuilder() {
       setIsCreating(false);
     }
   }, [
-    styleCategory, gender, ageRange, skinTone, faceStruct,
+    session, styleCategory, gender, ageRange, skinTone, faceStruct,
     fashion, realism, mood, platforms, notes, handleCreated,
   ]);
 

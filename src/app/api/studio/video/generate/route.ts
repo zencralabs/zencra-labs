@@ -35,7 +35,7 @@ import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
 import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
                                      from "@/lib/security/rate-limit";
-import { checkEntitlement, consumeTrialUsage }
+import { checkEntitlement, consumeTrialUsage, consumeFreeUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
                                      from "@/lib/providers/core/model-integrity";
@@ -108,9 +108,11 @@ export async function POST(req: Request): Promise<Response> {
   const aspectRatio       = typeof body!.aspectRatio       === "string" ? body!.aspectRatio       : undefined;
   const negativePrompt = typeof body!.negativePrompt === "string" ? body!.negativePrompt : undefined;
   const seed           = typeof body!.seed           === "number" ? body!.seed           : undefined;
-  const providerParams = typeof body!.providerParams === "object" && body!.providerParams !== null
-    ? body!.providerParams as Record<string, unknown>
-    : undefined;
+  // providerParams is mutable so we can merge in credit-calculation signals below.
+  let providerParams: Record<string, unknown> | undefined =
+    typeof body!.providerParams === "object" && body!.providerParams !== null
+      ? body!.providerParams as Record<string, unknown>
+      : undefined;
 
   // Character Studio context — optional pass-through fields
   const character_id = typeof body!.character_id === "string" ? body!.character_id : undefined;
@@ -151,7 +153,9 @@ export async function POST(req: Request): Promise<Response> {
   // identity phrase to maintain face/identity across all video frames.
   const rawHandles = [
     ...new Set(
-      [...prompt!.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)].map(m => m[1].toLowerCase())
+      [...prompt!.matchAll(/@([a-zA-Z][a-zA-Z0-9_]{0,30})/g)]
+        .map(m => m[1].toLowerCase())
+        .filter(h => !/^img\d+$/i.test(h) && !/^image\d+$/i.test(h)),
     ),
   ];
 
@@ -279,6 +283,11 @@ export async function POST(req: Request): Promise<Response> {
       if (motionControl.customNote) {
         resolvedPrompt += ` ${motionControl.customNote}`;
       }
+
+      // ── Credit signal: flag motion control active so estimate() can add +120cr ──
+      // The credit hooks read providerParams.motionControlActive to detect this add-on.
+      // This key is credit-calculation-only — providers ignore unknown providerParams keys.
+      providerParams = { ...providerParams, motionControlActive: true };
     }
   }
 
@@ -308,6 +317,11 @@ export async function POST(req: Request): Promise<Response> {
     // ── Trial usage consumption (fire-and-forget) ─────────────────────────────
     if (entitlement.path === "trial" && entitlement.trialEndsAt) {
       void consumeTrialUsage(userId, "video", entitlement.trialEndsAt);
+    }
+
+    // ── Free-tier usage consumption (fire-and-forget) ─────────────────────────
+    if (entitlement.path === "free") {
+      void consumeFreeUsage(userId, "video");
     }
 
     return accepted({

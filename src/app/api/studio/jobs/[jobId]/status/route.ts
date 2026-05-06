@@ -160,14 +160,34 @@ export async function GET(
       });
     }
 
+    // ── Credit refund on provider failure ───────────────────────────────────
+    // buildCreditHooks()._reserved is in-memory and does not survive across
+    // HTTP requests — rollback() cannot be used here. Read credits_cost from
+    // the persisted asset record and issue a direct refund, same as the timeout
+    // auto-resolve path above.
+    if (polled.status === "error") {
+      const creditCost = asset.credits_cost ?? 0;
+      if (creditCost > 0) {
+        const { error: refundErr } = await supabaseAdmin.rpc("refund_credits", {
+          p_user_id:     userId,
+          p_amount:      creditCost,
+          p_description: `Failure refund [${asset.studio}/${asset.model_key}] job=${asset.job_id}`,
+        });
+        if (refundErr) {
+          console.error("[jobs/status] refund_credits RPC error on job failure:", refundErr.message);
+        }
+      }
+    }
+
     return ok({
-      jobId:    asset.job_id,
-      assetId:  asset.id,
-      status:   polled.status,
-      url:      polled.url,
-      error:    polled.error,
-      modelKey: asset.model_key,
-      studio:   asset.studio,
+      jobId:         asset.job_id,
+      assetId:       asset.id,
+      status:        polled.status,
+      url:           polled.url,
+      error:         polled.error,
+      audioDetected: polled.audioDetected ?? null,
+      modelKey:      asset.model_key,
+      studio:        asset.studio,
     });
   } catch (err) {
     console.error("[/api/studio/jobs/[jobId]/status]", err);

@@ -48,10 +48,24 @@ public/voice-previews/**/*.mp3
 public/voice-previews/**/*.wav
 public/voice-previews/**/*.ogg
 
-# ─── Filesystem duplicate artefacts (files with " 2" suffix/dir) ─────────────
+# ─── Filesystem duplicate artefacts (macOS Finder " 2" copies) ──────────────
+# When Finder copies a folder/file that already exists it appends " 2".
+# Inside src/app/ these corrupt Next.js route types → random 404s.
+# scripts/check-route-dirs.mjs runs automatically via predev/prebuild hooks
+# to catch these before they cause damage. These rules prevent accidental tracking.
 *\ 2/
 *\ 2.tsx
 *\ 2.ts
+*\ 2.jsx
+*\ 2.js
+*\ 2.css
+*\ 2.json
+*\ 2.md
 
 # ─── Local build utilities ────────────────────────────────────────────────────
 loader.mjs
+
+# Hero videos are served from CDN/storage, not Git
+public/hero/videos/
+
+.claude/

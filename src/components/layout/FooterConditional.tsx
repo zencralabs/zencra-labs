@@ -9,8 +9,12 @@
 import { usePathname } from "next/navigation";
 import { Footer } from "@/components/layout/Footer";
 
-/** Routes that behave as full-height app workspaces — no footer. */
-const WORKSPACE_PREFIXES = ["/studio"];
+/**
+ * Routes that suppress the footer.
+ * /studio/* — app workspaces that own their own viewport.
+ * /waitlist  — isolated full-screen entry screen; no chrome.
+ */
+const WORKSPACE_PREFIXES = ["/studio", "/waitlist"];
 
 export function FooterConditional() {
   const pathname = usePathname();

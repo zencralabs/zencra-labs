@@ -27,6 +27,7 @@ export interface FeatureFlags {
   characterStudioEnabled:  boolean;   // backend ready; UI not yet built
   ugcStudioEnabled:        boolean;   // backend ready; UI not yet built
   fcsEnabled:              boolean;   // Future Cinema Studio — default false
+  lipSyncStudioEnabled:    boolean;   // Studio Lip Sync — Sync Labs v3 via fal.ai
 
   // ── Phase 1 image providers ────────────────────────────────────────────────
   gptImageEnabled:         boolean;   // replaces dalle
@@ -81,6 +82,7 @@ const PHASE1_DEFAULTS: FeatureFlags = {
   characterStudioEnabled:   false,   // backend ready; UI to be built
   ugcStudioEnabled:         false,   // backend ready; UI to be built
   fcsEnabled:               false,   // controlled separately via profiles.fcs_enabled
+  lipSyncStudioEnabled:     true,    // Studio Lip Sync — active Phase 1
 
   // Image Phase 1
   gptImageEnabled:          true,
@@ -137,6 +139,7 @@ export function resolveFlags(): FeatureFlags {
     characterStudioEnabled:    envBool("ZENCRA_FLAG_CHARACTER_STUDIO",       PHASE1_DEFAULTS.characterStudioEnabled),
     ugcStudioEnabled:          envBool("ZENCRA_FLAG_UGC_STUDIO",             PHASE1_DEFAULTS.ugcStudioEnabled),
     fcsEnabled:                envBool("ZENCRA_FLAG_FCS_ENABLED",            PHASE1_DEFAULTS.fcsEnabled),
+    lipSyncStudioEnabled:      envBool("ZENCRA_FLAG_LIPSYNC_STUDIO",         PHASE1_DEFAULTS.lipSyncStudioEnabled),
 
     gptImageEnabled:           envBool("ZENCRA_FLAG_GPT_IMAGE",              PHASE1_DEFAULTS.gptImageEnabled),
     nanoBananaEnabled:         envBool("ZENCRA_FLAG_NANO_BANANA",            PHASE1_DEFAULTS.nanoBananaEnabled),
@@ -182,6 +185,7 @@ export function isStudioEnabled(studio: StudioType): boolean {
     case "character": return flags.characterStudioEnabled;
     case "ugc":       return flags.ugcStudioEnabled;
     case "fcs":       return flags.fcsEnabled;
+    case "lipsync":   return flags.lipSyncStudioEnabled;
     default:          return false;
   }
 }
@@ -205,6 +209,7 @@ export function isProviderEnabled(provider: ProviderFamily): boolean {
     case "heygen-ugc":      return flags.heygenUgcEnabled;
     case "heygen-video":    return false;  // Phase 2
     case "ltx":             return flags.fcsEnabled;
+    case "fal-lipsync":     return flags.lipSyncStudioEnabled;
     case "motion-abstract": return flags.motionAbstractionEnabled;
     default:                return false;
   }

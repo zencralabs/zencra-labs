@@ -13,13 +13,19 @@ import type { CreativeEventType } from "./types";
  *
  * Fire-and-forget: catches and console.errors, never throws.
  * Safe to call without awaiting in route handlers.
+ *
+ * @param projectId — nullable; CDv2 "free" directions have no project.
+ *   When null, the log entry is silently skipped (nothing to associate it with).
  */
 export async function logActivity(
-  projectId: string,
+  projectId: string | null,
   userId: string,
   eventType: CreativeEventType,
   payload?: Record<string, unknown>
 ): Promise<void> {
+  // CDv2 "free" directions have no project — skip silently.
+  if (!projectId) return;
+
   try {
     const { error } = await supabaseAdmin
       .from("creative_activity_log")

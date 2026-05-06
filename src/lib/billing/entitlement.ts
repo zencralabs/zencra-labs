@@ -36,9 +36,10 @@ export type StudioType =
   | "audio"
   | "character"
   | "ugc"
-  | "fcs";
+  | "fcs"
+  | "lipsync";
 
-export type EntitlementPath = "trial" | "paid" | "admin";
+export type EntitlementPath = "trial" | "paid" | "admin" | "free";
 
 export interface EntitlementResult {
   /** Which enforcement path was taken */
@@ -54,6 +55,12 @@ export interface EntitlementResult {
    * Pass to consumeTrialUsage() after a successful generation.
    */
   trialEndsAt?:    string;
+  /**
+   * Remaining free-tier generations — present only when path === "free".
+   * Only image and video have free allowances; audio/character/ugc/fcs are paid-only.
+   * Informational; actual enforcement is handled by checkEntitlement.
+   */
+  freeRemaining?: { images: number; videos: number };
 }
 
 // Raw shape returned by get_user_entitlement RPC
@@ -92,6 +99,7 @@ const STUDIO_FLAGS: Record<StudioType, string> = {
   character: "ZENCRA_FLAG_CHARACTER_ENABLED",
   ugc:       "ZENCRA_FLAG_UGC_ENABLED",
   fcs:       "ZENCRA_FLAG_FCS_ENABLED",
+  lipsync:   "ZENCRA_FLAG_LIPSYNC_STUDIO",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,12 +165,64 @@ export async function checkEntitlement(
 
   const ent = raw as EntitlementRPCResult;
 
-  // ── No active subscription ──────────────────────────────────────────────────
+  // ── No active subscription — free-tier path ────────────────────────────────
+  // Users with no subscription get a permanent free tier:
+  //   10 image generations, 3 video generations.
+  // All other studios (audio, character, ugc, fcs) require a paid subscription.
+  // After limits are reached, users are redirected to /pricing.
+  // Paid users who reach credits=0 NEVER hit this path — they remain "active"
+  // and are shown a boost/purchase flow instead. These paths are strictly separate.
   if (ent.status === "inactive" || !ent.subscription) {
-    throw new StudioDispatchError(
-      "No active subscription. Please upgrade to continue generating.",
-      "SUBSCRIPTION_INACTIVE"
-    );
+    // Locked free allowance: ONLY image and video.
+    // audio, character, ugc, fcs are all paid-only — block with FREE_LIMIT_REACHED
+    // so the UI redirects to /pricing (same UX as exhausted allowance).
+    const FREE_TIER_PAID_ONLY: StudioType[] = ["fcs", "audio", "character", "ugc", "lipsync"];
+    if (FREE_TIER_PAID_ONLY.includes(studioType)) {
+      throw new StudioDispatchError(
+        `${studioType === "fcs" ? "Future Cinema Studio" : studioType.charAt(0).toUpperCase() + studioType.slice(1)} generation requires a paid subscription. Upgrade to continue.`,
+        "FREE_LIMIT_REACHED"
+      );
+    }
+
+    // Only image and video reach here — read just those columns
+    const { data: freeRow } = await supabaseAdmin
+      .from("free_usage")
+      .select("images_used, images_max, videos_used, videos_max")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // Defaults: no row = 0 used (first generation creates the row via the RPC)
+    const fu = freeRow as {
+      images_used: number; images_max: number;
+      videos_used: number; videos_max: number;
+    } | null;
+    const imagesUsed = fu?.images_used ?? 0;
+    const imagesMax  = fu?.images_max  ?? 10;
+    const videosUsed = fu?.videos_used ?? 0;
+    const videosMax  = fu?.videos_max  ?? 3;
+
+    const isImage = studioType === "image";
+    const used    = isImage ? imagesUsed : videosUsed;
+    const max     = isImage ? imagesMax  : videosMax;
+    const label   = isImage ? "images"   : "videos";
+
+    if (used >= max) {
+      throw new StudioDispatchError(
+        `You've used all ${max} free ${label}. Upgrade to a paid plan to continue generating.`,
+        "FREE_LIMIT_REACHED"
+      );
+    }
+
+    return {
+      path:           "free",
+      billingUserId:  userId,
+      isTeamMember:   false,
+      subscriptionId: "free-tier",
+      freeRemaining: {
+        images: Math.max(0, imagesMax - imagesUsed),
+        videos: Math.max(0, videosMax - videosUsed),
+      },
+    };
   }
 
   const sub = ent.subscription;
@@ -319,6 +379,35 @@ export async function consumeTrialUsage(
   if (!result.allowed) {
     // This shouldn't happen (we checked before dispatch), but log it
     console.warn("[entitlement] consume_trial_usage returned not allowed after generation:", result.reason);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// consumeFreeUsage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Called AFTER a successful free-tier generation to atomically increment usage.
+ * Creates the free_usage row if it doesn't exist yet (first-generation case).
+ *
+ * Fire-and-forget — non-fatal. If the RPC fails, generation already succeeded;
+ * log and continue. The pre-dispatch check in checkEntitlement was the gate.
+ *
+ * @param userId      The generating user's ID.
+ * @param studioType  The studio that was used.
+ */
+export async function consumeFreeUsage(
+  userId:       string,
+  studioType:   StudioType,
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc("consume_free_usage", {
+    p_user_id:     userId,
+    p_studio_type: studioType,
+  });
+
+  if (error) {
+    console.error("[entitlement] consume_free_usage RPC error:", error.message);
+    // Non-fatal — generation already succeeded; log and continue
   }
 }
 

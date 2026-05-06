@@ -96,6 +96,7 @@ export type StudioDispatchErrorCode =
   | "SUBSCRIPTION_INACTIVE"
   | "TRIAL_EXHAUSTED"
   | "TRIAL_EXPIRED"
+  | "FREE_LIMIT_REACHED"
   | "FCS_NOT_ALLOWED"
   | "SINGLE_USER_VIOLATION"
   | "PROVIDER_ERROR"
@@ -487,7 +488,7 @@ export async function pollAndUpdateJob(
   modelKey:      string,
   externalJobId: string,
   assetId:       string
-): Promise<{ status: string; url?: string; error?: string }> {
+): Promise<{ status: string; url?: string; error?: string; audioDetected?: boolean | null }> {
   ensureProvidersRegistered();
 
   try {
@@ -497,19 +498,27 @@ export async function pollAndUpdateJob(
       // ── Kling video: mirror to Supabase Storage (permanent URL) ──────────────
       // Kling CDN URLs are signed and expire. Download + re-upload every
       // completed Kling job so the gallery URL never breaks.
-      let persistentUrl = jobStatus.url;
+      let persistentUrl  = jobStatus.url;
+      let audioDetected: boolean | null = null;
 
       if (modelKey.startsWith("kling")) {
-        persistentUrl = await mirrorVideoToStorage(jobStatus.url, assetId);
+        // mirrorVideoToStorage now returns { url, audioDetected } — destructure both
+        const mirrored = await mirrorVideoToStorage(jobStatus.url, assetId);
+        persistentUrl  = mirrored.url;
+        audioDetected  = mirrored.audioDetected;
       } else {
         // Mirror temp provider images (e.g. NB's tempfile.aiquickdraw.com)
         persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
       }
 
-      await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl);
+      // audioDetected is persisted alongside status so the gallery
+      // can show the correct AudioBadge state after a page refresh.
+      await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl, undefined, audioDetected);
+      console.log(`[pollAndUpdateJob] asset=${assetId} status=ready audioDetected=${audioDetected}`);
       return {
         status: "success",
         url:    persistentUrl,
+        audioDetected,
       };
     } else if (jobStatus.status === "error") {
       // Persist the error reason so it survives page refreshes.
@@ -645,6 +654,7 @@ export function dispatchErrorStatus(code: StudioDispatchErrorCode): number {
     SUBSCRIPTION_INACTIVE:  403,
     TRIAL_EXHAUSTED:        402,
     TRIAL_EXPIRED:          402,
+    FREE_LIMIT_REACHED:     403,
     FCS_NOT_ALLOWED:        403,
     SINGLE_USER_VIOLATION:  403,
     PROVIDER_ERROR:         502,

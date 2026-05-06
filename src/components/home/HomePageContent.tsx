@@ -4,69 +4,77 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
-  ChevronLeft, ChevronRight, Volume2, VolumeX,
+  Volume2, VolumeX,
 } from "lucide-react";
 import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
 import { useAuth }     from "@/components/auth/AuthContext";
 import type { PublicAsset } from "@/lib/types/generation";
+import { HeroSection } from "@/components/home/hero/HeroSection";
+import { VerticalStoriesSection } from "@/components/home/sections/VerticalStoriesSection";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ZENCRA LABS — Cinematic AI Creation Studio
+// ZENCRA LABS — Homepage V2 Correction Pass
+//
+// Layout DNA (matches mockup):
+//   Every section below the hero uses a SPLIT layout on desktop:
+//     [LEFT text block ~260-300px] | [RIGHT visual content flex-1]
+//   Mobile stacks these vertically.
+//
+// Color system: #3B82F6 → #8B5CF6 only. No teal, amber, or red.
+// Media: border-radius: 0 on all <video> and <img> elements.
+// Section spacing: py-10 md:py-16 (tightened from py-14 md:py-24).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Hero tool chip badge data ─────────────────────────────────────────────────
-const heroTools = ["Kling 3.0", "Runway ML", "Veo", "FLUX Pro", "Suno AI", "ElevenLabs", "HeyGen"];
-
-// ── How Zencra Works — 3-step cards ─────────────────────────────────────────
+// ── How Zencra Works ─────────────────────────────────────────────────────────
 const workflowSteps = [
   {
     icon: ImageIcon,
     num: "01",
-    color: "#2563EB",
+    color: "#3B82F6",
     title: "Generate Visuals",
-    desc: "Create high-quality AI images for any concept — characters, scenes, products, or worlds — in seconds.",
-    gradient: "linear-gradient(135deg, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 100%)",
-    border: "rgba(37,99,235,0.20)",
+    desc: "Describe your idea and let AI create stunning images or clips.",
+    gradient: "linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(59,130,246,0.04) 100%)",
+    border: "rgba(59,130,246,0.22)",
     sample: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)",
-    imageSrc: "/how-it-works/step-1.jpg",  // image — drop step-1.jpg into public/how-it-works/
+    imageSrc: "/how-it-works/step-1.jpg",
   },
   {
     icon: Film,
     num: "02",
-    color: "#0EA5A0",
+    color: "#8B5CF6",
     title: "Animate to Video",
-    desc: "Turn images into cinematic motion with consistent characters. Direct movement, camera angles, and pacing.",
-    gradient: "linear-gradient(135deg, rgba(14,165,160,0.10) 0%, rgba(14,165,160,0.04) 100%)",
-    border: "rgba(14,165,160,0.20)",
-    sample: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #0ea5a0 100%)",
+    desc: "Turn your visuals into cinematic videos with AI motion.",
+    gradient: "linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(139,92,246,0.04) 100%)",
+    border: "rgba(139,92,246,0.22)",
+    sample: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 60%, #8b5cf6 100%)",
   },
   {
     icon: Mic,
     num: "03",
     color: "#A855F7",
-    title: "Add Voice & Lip Sync",
-    desc: "Bring content to life with realistic AI voices. Perfect lip-sync. Natural emotion. Any language.",
+    title: "Add Voice & Lip-Sync",
+    desc: "Add realistic voice, auto lip-sync and sound to complete your story.",
     gradient: "linear-gradient(135deg, rgba(168,85,247,0.10) 0%, rgba(168,85,247,0.04) 100%)",
-    border: "rgba(168,85,247,0.20)",
+    border: "rgba(168,85,247,0.22)",
     sample: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 60%, #a855f7 100%)",
   },
 ];
 
-// ── Showcase carousel — tool colour + display name helpers ───────────────────
+// ── Showcase tool helpers ─────────────────────────────────────────────────────
 const TOOL_COLOR: Record<string, string> = {
-  "kling-30":       "#2563EB",
-  "kling-26":       "#0EA5A0",
-  "kling-25":       "#0EA5A0",
-  "runway-gen4":    "#EF4444",
-  "runway-gen3":    "#EF4444",
-  "seedance":       "#F59E0B",
-  "veo2":           "#A855F7",
-  "veo3":           "#A855F7",
-  "ltx-video":      "#6366F1",
-  "heygen":         "#EC4899",
+  "kling-30":    "#3B82F6",
+  "kling-26":    "#3B82F6",
+  "kling-25":    "#3B82F6",
+  "runway-gen4": "#8B5CF6",
+  "runway-gen3": "#8B5CF6",
+  "seedance":    "#A855F7",
+  "veo2":        "#A855F7",
+  "veo3":        "#A855F7",
+  "ltx-video":   "#6366F1",
+  "heygen":      "#EC4899",
 };
-const DEFAULT_TOOL_COLOR = "#0EA5A0";
+const DEFAULT_TOOL_COLOR = "#3B82F6";
 
 const TOOL_NAME: Record<string, string> = {
   "kling-30":    "Kling 3.0",
@@ -85,19 +93,30 @@ function toolDisplayName(id: string | undefined): string {
   return TOOL_NAME[id] ?? id.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// ── Showcase — curated static videos ─────────────────────────────────────────
-// Videos are served from Supabase Storage CDN (not Vercel static assets).
-// To update: run scripts/upload-showcase.ts, then update URLs here.
+// ── Showcase static videos ────────────────────────────────────────────────────
 const SUPABASE_SHOWCASE = "https://qlhfmhawhdpagkxaldae.supabase.co/storage/v1/object/public/showcase";
 const SHOWCASE_STATIC: PublicAsset[] = [
-  { id: "sc1", tool: "kling-30",    tool_category: "video", prompt: "Cinematic chase through neon city streets at night",         result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc2", tool: "kling-26",    tool_category: "video", prompt: "Character walks through misty forest, depth of field",       result_url: `${SUPABASE_SHOWCASE}/showcase-kling-26.mp4`,  result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
-  { id: "sc3", tool: "runway-gen4", tool_category: "video", prompt: "Aerial drone shot over mountains at golden hour",             result_url: `${SUPABASE_SHOWCASE}/showcase-runway.mp4`,    result_urls: null, credits_used: 12, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc4", tool: "veo2",        tool_category: "video", prompt: "Ocean waves crash in slow motion, cinematic grade",          result_url: `${SUPABASE_SHOWCASE}/showcase-veo.mp4`,       result_urls: null, credits_used: 15, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc5", tool: "seedance",    tool_category: "video", prompt: "Epic warrior portrait, dramatic rim lighting",               result_url: `${SUPABASE_SHOWCASE}/showcase-seedance.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc6", tool: "heygen",      tool_category: "video", prompt: "AI presenter delivers pitch with perfect lip sync",          result_url: `${SUPABASE_SHOWCASE}/showcase-heygen.mp4`,    result_urls: null, credits_used: 20, visibility: "public", project_id: null, created_at: "" },
-  { id: "sc7", tool: "ltx-video",   tool_category: "video", prompt: "Luxury product reveal, studio lighting, slow rotate",       result_url: `${SUPABASE_SHOWCASE}/showcase-ltx.mp4`,       result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
-  { id: "sc8", tool: "kling-30",    tool_category: "video", prompt: "Sci-fi battle sequence, laser effects, epic scale",         result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30b.mp4`, result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc1", tool: "kling-30",    tool_category: "video", prompt: "Cinematic chase through neon city streets at night",   result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc2", tool: "kling-26",    tool_category: "video", prompt: "Character walks through misty forest, depth of field", result_url: `${SUPABASE_SHOWCASE}/showcase-kling-26.mp4`,  result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc3", tool: "runway-gen4", tool_category: "video", prompt: "Aerial drone shot over mountains at golden hour",       result_url: `${SUPABASE_SHOWCASE}/showcase-runway.mp4`,    result_urls: null, credits_used: 12, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc4", tool: "veo2",        tool_category: "video", prompt: "Ocean waves crash in slow motion, cinematic grade",    result_url: `${SUPABASE_SHOWCASE}/showcase-veo.mp4`,       result_urls: null, credits_used: 15, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc5", tool: "seedance",    tool_category: "video", prompt: "Epic warrior portrait, dramatic rim lighting",          result_url: `${SUPABASE_SHOWCASE}/showcase-seedance.mp4`,  result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc6", tool: "heygen",      tool_category: "video", prompt: "AI presenter delivers pitch with perfect lip sync",    result_url: `${SUPABASE_SHOWCASE}/showcase-heygen.mp4`,    result_urls: null, credits_used: 20, visibility: "public", project_id: null, created_at: "" },
+  { id: "sc7", tool: "ltx-video",   tool_category: "video", prompt: "Luxury product reveal, studio lighting, slow rotate",  result_url: `${SUPABASE_SHOWCASE}/showcase-ltx.mp4`,       result_urls: null, credits_used: 8,  visibility: "public", project_id: null, created_at: "" },
+  { id: "sc8", tool: "kling-30",    tool_category: "video", prompt: "Sci-fi battle sequence, laser effects, epic scale",   result_url: `${SUPABASE_SHOWCASE}/showcase-kling-30b.mp4`, result_urls: null, credits_used: 10, visibility: "public", project_id: null, created_at: "" },
+];
+
+// ── What You Can Create card definitions (mockup labels) ─────────────────────
+// These map to SHOWCASE_STATIC slots; labels override the dynamic prompt caption
+const WYCC_LABELS = [
+  "Cinematic Scenes",
+  "AI Influencers",
+  "Short Films",
+  "Music Videos",
+  "Product Ads",
+  "Cinematic Video",
+  "Talking Avatar",
+  "Cinematic Video",
 ];
 
 // ── Audience cards ────────────────────────────────────────────────────────────
@@ -105,29 +124,32 @@ const audienceCards = [
   {
     icon: Film,
     title: "Filmmakers",
-    desc: "Turn story ideas into full visual sequences — without a production crew, camera equipment, or post-production budget.",
-    color: "#2563EB",
-    gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 55%, #2563EB 100%)",
-    stat: "10× faster than traditional production",
+    desc: "Plan, visualize and produce films faster than ever.",
+    color: "#3B82F6",
+    gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 55%, #3B82F6 100%)",
+    stat: "10× faster production",
     videoSrc: "/audience/filmmakers.mp4",
+    isMostPopular: false,
   },
   {
     icon: Users,
     title: "Content Creators",
-    desc: "Build a consistent, cinematic presence on Instagram, TikTok, and YouTube using AI that matches your creative vision.",
-    color: "#0EA5A0",
-    gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 55%, #0EA5A0 100%)",
-    stat: "For Instagram, TikTok & YouTube",
+    desc: "Create engaging content that grows your audience.",
+    color: "#8B5CF6",
+    gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 55%, #8B5CF6 100%)",
+    stat: "Instagram, TikTok & YouTube",
     videoSrc: "/audience/creators.mp4",
+    isMostPopular: true,
   },
   {
     icon: Layers,
     title: "Agencies",
-    desc: "Deliver premium AI-generated media at scale. Faster briefs, faster delivery, higher creative output for every client.",
+    desc: "Deliver high-quality content at scale for your clients.",
     color: "#A855F7",
     gradient: "linear-gradient(160deg, #0f0a1a 0%, #2d1b69 55%, #A855F7 100%)",
-    stat: "Agency-grade volume & API access",
+    stat: "Agency-grade API access",
     videoSrc: "/audience/agencies.mp4",
+    isMostPopular: false,
   },
 ];
 
@@ -136,56 +158,37 @@ const pricingTiers = [
   {
     name: "Free",
     price: "$0",
-    period: "forever",
-    description: "Start creating with AI — no credit card needed.",
+    period: "/ month",
+    description: "Get started with basic features.",
     color: "#64748B",
-    features: ["Basic image generation", "10 credits / month", "Standard quality", "Community gallery access"],
-    cta: "Get Started Free",
+    features: ["720p Exports", "Limited Generations", "Watermark", "Community Support"],
+    cta: "Get Started",
     highlight: false,
   },
   {
     name: "Pro",
     price: "$19",
     period: "/ month",
-    description: "Faster generation, higher quality, priority processing.",
-    color: "#2563EB",
-    features: ["500 credits / month", "4K image quality", "HD video generation", "Lip-sync & voice tools", "Priority queue"],
-    cta: "Try Free",
+    description: "Everything you need to create more.",
+    color: "#3B82F6",
+    features: ["1080p Exports", "Unlimited Generations", "No Watermark", "Priority Support"],
+    cta: "Try Pro",
     highlight: true,
   },
   {
     name: "Studio",
     price: "$49",
     period: "/ month",
-    description: "Full cinematic workflows for professionals and agencies.",
+    description: "Advanced tools for professionals.",
     color: "#A855F7",
-    features: ["High-volume credit pool", "Cinema Studio access", "Scene-based editing", "Character consistency", "API access", "Dedicated support"],
-    cta: "Go Studio",
+    features: ["4K Exports", "Advanced AI Models", "Team Collaboration", "Commercial License"],
+    cta: "Upgrade",
     highlight: false,
   },
 ];
 
-// ── Auto-scroll slider (hero area) — your 8 uploaded showcase videos ─────────
-const sliderRow1 = [
-  { gradient: "linear-gradient(160deg, #0F1A32 0%, #1e3a8a 60%, #3b82f6 100%)", label: "Cinematic Video", tool: "Kling 3.0",    color: "#2563EB", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-30.mp4` },
-  { gradient: "linear-gradient(160deg, #0d1a1a 0%, #0f3030 60%, #14b8a6 100%)", label: "Cinematic Video", tool: "Runway ML",    color: "#0EA5A0", videoSrc: `${SUPABASE_SHOWCASE}/showcase-runway.mp4` },
-  { gradient: "linear-gradient(160deg, #0a0f1a 0%, #1a2744 60%, #60a5fa 100%)", label: "AI Scene",        tool: "Google Veo",  color: "#60A5FA", videoSrc: `${SUPABASE_SHOWCASE}/showcase-veo.mp4` },
-  { gradient: "linear-gradient(160deg, #1a0a0a 0%, #3b1010 60%, #ef4444 100%)", label: "Cinematic Video", tool: "Seedance 2.0", color: "#EF4444", videoSrc: `${SUPABASE_SHOWCASE}/showcase-seedance.mp4` },
-];
-const sliderRow1Doubled = [...sliderRow1, ...sliderRow1, ...sliderRow1];
-
-const sliderRow2 = [
-  { gradient: "linear-gradient(160deg, #0d1a14 0%, #064e3b 60%, #10b981 100%)", label: "Cinematic Video", tool: "Kling 2.6",   color: "#10B981", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-26.mp4` },
-  { gradient: "linear-gradient(160deg, #1a0f1a 0%, #4c0d8a 60%, #c084fc 100%)", label: "Talking Avatar",  tool: "HeyGen",      color: "#C084FC", videoSrc: `${SUPABASE_SHOWCASE}/showcase-heygen.mp4` },
-  { gradient: "linear-gradient(160deg, #0f0a1a 0%, #1e1035 60%, #818cf8 100%)", label: "Cinematic Video", tool: "LTX Video",   color: "#818CF8", videoSrc: `${SUPABASE_SHOWCASE}/showcase-ltx.mp4` },
-  { gradient: "linear-gradient(160deg, #0a1020 0%, #162040 60%, #2563eb 100%)", label: "Cinematic Video", tool: "Kling 3.0",   color: "#2563EB", videoSrc: `${SUPABASE_SHOWCASE}/showcase-kling-30b.mp4` },
-];
-const sliderRow2Doubled = [...sliderRow2, ...sliderRow2, ...sliderRow2];
-
-// ── VideoMuted — drop-in video replacement with premium mute toggle ──────────
-// Renders <video autoPlay muted loop> + an absolute-positioned mute button.
-// Parent container MUST have position:relative (or be absolute-stretched).
-// preload="metadata" loads only first frame + duration — not the full file.
+// ── VideoMuted — video with purple mute toggle ────────────────────────────────
+// V2: active state is purple (not teal).
 function VideoMuted({
   src,
   style,
@@ -221,7 +224,7 @@ function VideoMuted({
         playsInline
         preload={preload}
         poster={poster}
-        style={style}
+        style={{ borderRadius: 0, ...style }}
         className={className}
         controlsList="nodownload"
         onContextMenu={(e) => e.preventDefault()}
@@ -230,7 +233,6 @@ function VideoMuted({
         <source src={src} type="video/mp4" />
       </video>
 
-      {/* Premium mute toggle — frosted glass circle, cinema-grade */}
       <button
         onClick={toggle}
         aria-label={muted ? "Unmute video" : "Mute video"}
@@ -241,23 +243,21 @@ function VideoMuted({
           left:   btnPos.left,
           right:  btnPos.right,
           zIndex: 25,
-          width: "30px",
-          height: "30px",
+          width: "28px",
+          height: "28px",
           borderRadius: "50%",
-          background: muted
-            ? "rgba(0,0,0,0.55)"
-            : "rgba(14,165,160,0.30)",
-          border: `1px solid ${muted ? "rgba(255,255,255,0.18)" : "rgba(14,165,160,0.65)"}`,
+          background: muted ? "rgba(0,0,0,0.55)" : "rgba(139,92,246,0.30)",
+          border: `1px solid ${muted ? "rgba(255,255,255,0.18)" : "rgba(139,92,246,0.65)"}`,
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
           boxShadow: muted
-            ? "0 2px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)"
-            : "0 0 18px rgba(14,165,160,0.50), inset 0 1px 0 rgba(255,255,255,0.12)",
+            ? "0 2px 14px rgba(0,0,0,0.45)"
+            : "0 0 18px rgba(139,92,246,0.50)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          color: muted ? "rgba(255,255,255,0.75)" : "#5EEAD4",
+          color: muted ? "rgba(255,255,255,0.75)" : "#C084FC",
           transition: "all 0.2s ease",
           flexShrink: 0,
           pointerEvents: "auto",
@@ -265,54 +265,89 @@ function VideoMuted({
         onMouseEnter={e => {
           const el = e.currentTarget as HTMLElement;
           el.style.transform = "scale(1.12)";
-          el.style.background = muted ? "rgba(255,255,255,0.14)" : "rgba(14,165,160,0.45)";
-          el.style.borderColor = muted ? "rgba(255,255,255,0.35)" : "rgba(14,165,160,0.9)";
+          el.style.background = muted ? "rgba(255,255,255,0.14)" : "rgba(139,92,246,0.45)";
         }}
         onMouseLeave={e => {
           const el = e.currentTarget as HTMLElement;
           el.style.transform = "scale(1)";
-          el.style.background = muted ? "rgba(0,0,0,0.55)" : "rgba(14,165,160,0.30)";
-          el.style.borderColor = muted ? "rgba(255,255,255,0.18)" : "rgba(14,165,160,0.65)";
+          el.style.background = muted ? "rgba(0,0,0,0.55)" : "rgba(139,92,246,0.30)";
         }}
       >
-        {muted
-          ? <VolumeX size={12} />
-          : <Volume2 size={12} />
-        }
+        {muted ? <VolumeX size={11} /> : <Volume2 size={11} />}
       </button>
     </>
   );
 }
 
-// ── Main Page Content ─────────────────────────────────────────────────────────
+// ── Reusable left text block ──────────────────────────────────────────────────
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{
+      fontSize: "10px",
+      fontWeight: 700,
+      letterSpacing: "0.25em",
+      textTransform: "uppercase" as const,
+      color: "#3B82F6",
+      marginBottom: "12px",
+    }}>
+      {children}
+    </p>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="font-display tracking-tight"
+      style={{
+        fontFamily: "var(--font-display, 'Syne', sans-serif)",
+        fontSize: "clamp(1.7rem, 3vw, 2.4rem)",
+        fontWeight: 800,
+        lineHeight: 1.0,
+        letterSpacing: "-0.04em",
+        color: "var(--page-text)",
+        margin: "0 0 12px",
+      }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function SectionSub({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ fontSize: "13px", lineHeight: 1.65, color: "rgba(255,255,255,0.42)", marginBottom: "0" }}>
+      {children}
+    </p>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export function HomePageContent() {
   const router = useRouter();
   const { user } = useAuth();
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
-  // Open auth modal if middleware redirected here with ?auth=login|signup
+  // Open auth modal from query param
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const authParam = params.get("auth");
-    if (authParam === "login" || authParam === "signup") {
-      setAuthModal(authParam);
-    }
+    if (authParam === "login" || authParam === "signup") setAuthModal(authParam);
   }, []);
 
-  // After successful login, redirect to the ?next URL
+  // Redirect after login
   useEffect(() => {
     if (!user) return;
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
-    if (next) {
-      router.push(decodeURIComponent(next));
-    }
+    if (next) router.push(decodeURIComponent(next));
   }, [user, router]);
 
-  // Defer heavy video sections until after initial paint — keeps UI immediately interactive
+  // Defer heavy video sections
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    // Use requestIdleCallback when available, otherwise a short timeout
     if (typeof requestIdleCallback !== "undefined") {
       const id = requestIdleCallback(() => setMounted(true));
       return () => cancelIdleCallback(id);
@@ -321,28 +356,9 @@ export function HomePageContent() {
     return () => clearTimeout(t);
   }, []);
 
-  // Carousel state — visible count is responsive (1 mobile / 2 tablet / 3 desktop)
-  const [carouselIdx,     setCarouselIdx]     = useState(0);
-  const [carouselVisible, setCarouselVisible] = useState(3);
-  const carouselRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function updateVisible() {
-      const w = window.innerWidth;
-      const next = w < 640 ? 1 : w < 1024 ? 2 : 3;
-      setCarouselVisible(v => {
-        if (v !== next) setCarouselIdx(0); // reset position on breakpoint change
-        return next;
-      });
-    }
-    updateVisible();
-    window.addEventListener("resize", updateVisible);
-    return () => window.removeEventListener("resize", updateVisible);
-  }, []);
-
-  // Showcase — member public gallery (falls back to SHOWCASE_STATIC when empty)
-  const [showcaseAssets,  setShowcaseAssets]  = useState<PublicAsset[]>([]);
-  const [showcaseLoaded,  setShowcaseLoaded]  = useState(false);
+  // Showcase API + static fallback
+  const [showcaseAssets, setShowcaseAssets] = useState<PublicAsset[]>([]);
+  const [showcaseLoaded, setShowcaseLoaded] = useState(false);
   useEffect(() => {
     fetch("/api/generations/showcase")
       .then(r => r.json())
@@ -354,457 +370,339 @@ export function HomePageContent() {
     ? (showcaseAssets.length > 0 ? showcaseAssets : SHOWCASE_STATIC)
     : SHOWCASE_STATIC;
 
-  const maxIdx = Math.max(0, showcaseSlides.length - carouselVisible);
+  function handleStartCreating() { router.push("/studio/image"); }
 
-  // Card width formula keyed to visible count — matches the CSS `width` on each card
-  const cardWidthCss =
-    carouselVisible === 1
-      ? "calc(100vw - 48px)"
-      : carouselVisible === 2
-      ? "min(calc((100vw - 48px) / 2 - 10px), 520px)"
-      : "min(calc((100vw - clamp(48px, 10vw, 160px)) / 3), 560px)";
-
-  function carouselPrev() {
-    setCarouselIdx((i) => Math.max(0, i - 1));
-  }
-  function carouselNext() {
-    setCarouselIdx((i) => Math.min(maxIdx, i + 1));
-  }
-
-  function handleStartCreating() {
-    router.push("/studio/image");
-  }
+  // ── Split layout helper widths
+  const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0";
 
   return (
     <>
     <div style={{ backgroundColor: "var(--page-bg)", color: "var(--page-text)", minHeight: "100vh" }}>
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────────── */}
-      <section
-        className="relative flex flex-col items-center justify-center overflow-hidden"
-        style={{ minHeight: "calc(100vh - 64px)" }}
-      >
-        {/* Hero video — deferred until after first paint so UI is immediately interactive */}
-        {mounted && (
-          <VideoMuted
-            src="/hero-video.mp4"
-            preload="metadata"
-            poster="/hero-poster.jpg"
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75 md:opacity-100"
-            btnPos={{ bottom: "52px", right: "20px" }}
-          />
-        )}
+      <HeroSection />
 
-        {/* Animated orbs — desktop only (blur+animation is GPU-heavy on mobile) */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden hidden md:block" aria-hidden="true">
-          <div className="animate-orb-1 absolute" style={{ width: "600px", height: "600px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)", top: "-10%", left: "20%", filter: "blur(40px)" }} />
-          <div className="animate-orb-2 absolute" style={{ width: "500px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(14,165,160,0.25) 0%, transparent 70%)", bottom: "0%", right: "15%", filter: "blur(50px)" }} />
-          <div className="animate-orb-3 absolute" style={{ width: "400px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%)", top: "40%", left: "-5%", filter: "blur(60px)" }} />
-          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(248,250,252,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(248,250,252,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-        </div>
+      {/* ── 2. VERTICAL STORIES ─────────────────────────────────────────────── */}
+      <VerticalStoriesSection />
 
-        {/* Hero content */}
-        <div className="container-site relative z-10 flex flex-col items-center gap-6 pt-20 pb-12 md:gap-8 md:pt-32 md:pb-16 text-center">
-          {/* Eyebrow */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em]"
-            style={{ background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.3)", color: "#60A5FA", boxShadow: "0 0 20px rgba(37,99,235,0.15)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#2563EB", boxShadow: "0 0 6px #2563EB", animation: "pulse 2s infinite" }} />
-            AI-Powered Creative Studio
-          </div>
-
-          {/* Headline */}
-          <h1
-            className="font-display font-semibold text-display-md md:text-display-lg xl:text-display-xl tracking-[-0.065em] leading-[0.95] text-balance w-full"
-          >
-            <span style={{ display: "block", textShadow: "0 2px 24px rgba(0,0,0,0.95), 0 1px 8px rgba(0,0,0,0.9)" }}>Create Cinematic AI Videos</span>
-            <span
-              style={{
-                display: "block",
-                background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 50%, #A855F7 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              From Idea to Film in Minutes
-            </span>
-          </h1>
-
-          {/* Subheadline */}
-          <p
-            className="max-w-2xl font-sans text-body-lg md:text-body-xl leading-[1.6] tracking-[-0.015em] text-pretty"
-            style={{ color: "#94A3B8", textShadow: "0 1px 12px rgba(0,0,0,0.95)" }}
-          >
-            Generate images, animate them into videos, and add voice with perfect lip-sync — all in one unified AI workflow.
-          </p>
-
-          {/* Tool badges */}
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            {heroTools.map((tool) => (
-              <span
-                key={tool}
-                className="rounded-full px-3 py-1 text-xs font-medium"
-                style={{ background: "var(--page-bg-2)", border: "1px solid var(--border-subtle)", color: "var(--page-text-2)" }}
-              >
-                {tool}
-              </span>
-            ))}
-            <span className="rounded-full px-3 py-1 text-xs font-medium" style={{ color: "#2563EB" }}>+ more</span>
-          </div>
-        </div>
-
-        {/* Fades */}
-        <div className="pointer-events-none absolute top-0 left-0 right-0 h-24" style={{ background: "linear-gradient(to bottom, var(--page-bg), transparent)" }} aria-hidden="true" />
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-32" style={{ background: "linear-gradient(to bottom, transparent, var(--page-bg))" }} aria-hidden="true" />
-      </section>
-
-      {/* ── AUTO-SCROLL SHOWCASE STRIP — deferred + desktop only ── */}
-      {mounted && <section className="hidden md:block strip-section" style={{ overflow: "hidden", position: "relative", backgroundColor: "var(--page-bg)", paddingBottom: "0" }}>
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} aria-hidden="true" />
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10" style={{ width: "120px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} aria-hidden="true" />
-
-        {/* Row 1 — slides left */}
-        <div style={{ overflow: "hidden", marginBottom: "12px" }}>
-          <div className="flex strip-slide-left" style={{ gap: "16px", animation: "slide-left 38s linear infinite", width: "max-content", paddingLeft: "16px" }}>
-            {sliderRow1Doubled.map((card, i) => (
-              <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "230px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
-                {card.videoSrc && (
-                  <video autoPlay muted loop playsInline preload="none"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
-                    <source src={card.videoSrc} type="video/mp4" />
-                  </video>
-                )}
-                <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
-                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
-                </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
-                  {card.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Row 2 — slides right */}
-        <div style={{ overflow: "hidden", paddingBottom: "0" }}>
-          <div className="flex strip-slide-right" style={{ gap: "16px", animation: "slide-right 42s linear infinite", width: "max-content", paddingLeft: "16px" }}>
-            {sliderRow2Doubled.map((card, i) => (
-              <div key={i} className="relative flex-shrink-0 rounded-2xl" style={{ width: "380px", height: "210px", background: card.gradient, border: `1px solid ${card.color}30`, boxShadow: `0 6px 30px rgba(0,0,0,0.45), inset 0 1px 0 ${card.color}15`, overflow: "hidden" }}>
-                {card.videoSrc && (
-                  <video autoPlay muted loop playsInline preload="none"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                    onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}>
-                    <source src={card.videoSrc} type="video/mp4" />
-                  </video>
-                )}
-                <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: card.color, boxShadow: `0 0 10px ${card.color}` }} />
-                  <span className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.9)" }}>{card.tool}</span>
-                </div>
-                <div className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase" style={{ background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(6px)" }}>
-                  {card.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>}
-
-      {/* ── 2. HOW ZENCRA WORKS — full-width 3-step ─────────────────────────── */}
-      <section className="py-14 md:py-24">
+      {/* ── 3. HOW ZENCRA WORKS ─────────────────────────────────────────────── */}
+      {/* Split: left text + right 3-card grid */}
+      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
         <div className="container-site">
-          <div className="text-center mb-10 md:mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>The Workflow</p>
-            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
-              How Zencra Works
-            </h2>
-            <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Three steps. One platform. Infinite creative possibilities.
-            </p>
-          </div>
+          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
 
-          {/* Steps — 16:9 visual preview per card */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {workflowSteps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <div
-                  key={step.num}
-                  className="relative rounded-2xl overflow-hidden"
-                  style={{ background: step.gradient, border: `1px solid ${step.border}` }}
-                >
-                  {/* 16:9 sample visual at top */}
+            {/* Left text */}
+            <div className={LEFT_W} style={{ paddingTop: "8px" }}>
+              <SectionLabel>Simple, Powerful, Fast</SectionLabel>
+              <SectionHeading>How Zencra Works</SectionHeading>
+              <SectionSub>Three simple steps to bring your ideas to life with AI.</SectionSub>
+            </div>
+
+            {/* Right: 3 step cards */}
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {workflowSteps.map((step) => {
+                const Icon = step.icon;
+                return (
                   <div
-                    className="w-full relative aspect-video"
-                    style={{ background: step.sample, overflow: "hidden" }}
+                    key={step.num}
+                    style={{
+                      background: step.gradient,
+                      border: `1px solid ${step.border}`,
+                      borderRadius: 0,
+                      overflow: "hidden",
+                    }}
                   >
-                    {/* Image or video depending on step */}
-                    {"imageSrc" in step && step.imageSrc ? (
-                      <Image
-                        src={step.imageSrc}
-                        alt={step.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        style={{ objectFit: "cover", opacity: 1 }}
-                        priority
-                      />
-                    ) : (
-                      <VideoMuted
-                        src={`/how-it-works/step-${parseInt(step.num)}.mp4`}
-                        preload="none"
-                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                        btnPos={{ bottom: "8px", right: "8px" }}
-                      />
-                    )}
-                    {/* Step number watermark */}
+                    {/* Landscape thumbnail */}
                     <div
-                      className="absolute bottom-3 right-4 text-6xl font-black"
-                      style={{ color: `${step.color}20`, lineHeight: 1 }}
+                      className="relative w-full aspect-video"
+                      style={{ background: step.sample, overflow: "hidden" }}
                     >
-                      {step.num}
-                    </div>
-                    {/* Icon badge */}
-                    <div
-                      className="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-xl"
-                      style={{ background: `${step.color}25`, border: `1px solid ${step.color}40`, backdropFilter: "blur(8px)" }}
-                    >
-                      <Icon size={20} style={{ color: step.color }} />
-                    </div>
-                  </div>
+                      {"imageSrc" in step && step.imageSrc ? (
+                        <Image
+                          src={step.imageSrc}
+                          alt={step.title}
+                          fill
+                          sizes="(max-width: 640px) 100vw, 33vw"
+                          style={{ objectFit: "cover", borderRadius: 0 }}
+                          priority
+                        />
+                      ) : (
+                        <VideoMuted
+                          src={`/how-it-works/step-${parseInt(step.num)}.mp4`}
+                          preload="none"
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", borderRadius: 0 }}
+                          btnPos={{ bottom: "6px", right: "6px" }}
+                        />
+                      )}
 
-                  {/* Text content */}
-                  <div className="p-7">
-                    <h3 className="mb-3 text-xl font-bold" style={{ color: "var(--page-text)" }}>{step.title}</h3>
-                    <p style={{ color: "#64748B", lineHeight: 1.7, fontSize: "0.95rem" }}>{step.desc}</p>
+                      {/* Step number badge */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          left: "10px",
+                          width: "26px",
+                          height: "26px",
+                          background: `${step.color}22`,
+                          border: `1px solid ${step.color}55`,
+                          backdropFilter: "blur(8px)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 0,
+                        }}
+                      >
+                        <Icon size={13} style={{ color: step.color }} />
+                      </div>
+
+                      {/* Large step watermark number */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "6px",
+                          right: "10px",
+                          fontSize: "42px",
+                          fontWeight: 900,
+                          lineHeight: 1,
+                          color: `${step.color}18`,
+                          fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                        }}
+                      >
+                        {step.num}
+                      </div>
+                    </div>
+
+                    {/* Text */}
+                    <div style={{ padding: "14px 16px" }}>
+                      <h3 style={{ fontSize: "13px", fontWeight: 700, color: "var(--page-text)", margin: "0 0 6px" }}>
+                        {step.title}
+                      </h3>
+                      <p style={{ fontSize: "12px", color: "#64748B", lineHeight: 1.6, margin: 0 }}>
+                        {step.desc}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── 3. WHAT YOU CAN CREATE — single-row video carousel ──────────────── */}
-      <section className="py-14 md:py-20">
-        {/* Section header inside container */}
+      {/* ── 4. WHAT YOU CAN CREATE ──────────────────────────────────────────── */}
+      {/* Split: left text+CTA + right native-scroll video row */}
+      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
         <div className="container-site">
-          <div className="text-center mb-8 md:mb-12">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Video Showcase</p>
-            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
-              What You Can Create
-            </h2>
-            <p className="mt-4 max-w-xl mx-auto" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Every output below represents real AI video you can generate inside Zencra Labs.
-            </p>
-          </div>
-        </div>
+          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
 
-        {/* Carousel — full-width with controlled scroll */}
-        <div className="relative" style={{ overflow: "hidden" }}>
-          {/* Fade edges — hidden on mobile, visible on desktop */}
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 hidden md:block" style={{ width: "80px", background: "linear-gradient(to right, var(--page-bg), transparent)" }} />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 hidden md:block" style={{ width: "80px", background: "linear-gradient(to left, var(--page-bg), transparent)" }} />
+            {/* Left text */}
+            <div className={LEFT_W} style={{ paddingTop: "8px" }}>
+              <SectionLabel>Endless Possibilities</SectionLabel>
+              <SectionHeading>What You Can Create</SectionHeading>
+              <SectionSub>
+                From cinematic scenes to AI influencers, the possibilities are limitless.
+              </SectionSub>
 
-          {/* Track */}
-          <div
-            ref={carouselRef}
-            className="flex transition-transform duration-500 ease-in-out"
-            style={{
-              gap: "20px",
-              paddingLeft:  carouselVisible === 1 ? "24px" : "clamp(24px, 5vw, 80px)",
-              paddingRight: carouselVisible === 1 ? "24px" : "clamp(24px, 5vw, 80px)",
-              transform: `translateX(calc(-${carouselIdx} * (${cardWidthCss} + 20px)))`,
-            }}
-          >
-            {showcaseSlides.map((asset, i) => {
-              const color      = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
-              const toolLabel  = toolDisplayName(asset.tool);
-              const caption    = asset.prompt
-                ? asset.prompt.length > 60 ? asset.prompt.slice(0, 57) + "…" : asset.prompt
-                : "";
-              const categoryLabel = asset.tool === "heygen" ? "Talking Avatar"
-                : asset.tool_category === "video" ? "Cinematic Video" : "AI Scene";
-
-              return (
-              <div
-                key={asset.id ?? i}
-                className="relative flex-shrink-0 overflow-hidden rounded-2xl cursor-pointer group"
+              {/* Explore Studio CTA */}
+              <button
+                onClick={handleStartCreating}
+                className="inline-flex items-center gap-2 mt-6"
                 style={{
-                  width: cardWidthCss,
-                  aspectRatio: "16/9",
-                  background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
-                  border: `1px solid ${color}30`,
-                  boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`,
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                  padding: "10px 20px",
+                  background: "rgba(59,130,246,0.10)",
+                  border: "1px solid rgba(59,130,246,0.30)",
+                  color: "#93C5FD",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  borderRadius: 0,
+                  transition: "background 0.15s ease",
                 }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(-6px) scale(1.01)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.6), 0 0 50px ${color}30`;
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.transform = "translateY(0) scale(1)";
-                  (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 ${color}15`;
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.18)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.10)"; }}
+              >
+                Explore Studio
+                <ArrowRight size={13} />
+              </button>
+            </div>
+
+            {/* Right: native scroll showcase cards */}
+            <div className="flex-1 min-w-0" style={{ overflow: "hidden" }}>
+              <div
+                className="flex gap-4 overflow-x-auto pb-3"
+                style={{
+                  scrollSnapType: "x mandatory",
+                  WebkitOverflowScrolling: "touch",
+                  scrollBehavior: "smooth",
+                  msOverflowStyle: "none",
+                  scrollbarWidth: "none",
                 }}
               >
-                {/* Video + mute toggle */}
-                {asset.result_url && (
-                  <VideoMuted
-                    src={asset.result_url}
-                    preload="none"
-                    className="absolute inset-0 h-full w-full object-cover"
-                    style={{ opacity: 1 }}
-                    btnPos={{ bottom: "52px", right: "10px" }}
-                  />
-                )}
+                {showcaseSlides.map((asset, i) => {
+                  const color = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
+                  const toolLabel = toolDisplayName(asset.tool);
+                  const cardLabel = WYCC_LABELS[i] ?? (
+                    asset.tool === "heygen" ? "Talking Avatar" : "Cinematic Video"
+                  );
 
-                {/* Label badge top-right */}
-                <div className="absolute top-4 right-4">
-                  <span
-                    className="rounded-full px-3 py-1 text-[10px] font-bold uppercase"
-                    style={{ background: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}
-                  >
-                    {categoryLabel}
-                  </span>
-                </div>
+                  return (
+                    <div
+                      key={asset.id ?? i}
+                      className="relative group"
+                      style={{
+                        scrollSnapAlign: "start",
+                        flex: "0 0 auto",
+                        width: "clamp(180px, 22vw, 250px)",
+                        aspectRatio: "16/9",
+                        background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
+                        border: `1px solid ${color}22`,
+                        overflow: "hidden",
+                        borderRadius: 0,
+                        transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.transform = "translateY(-4px) scale(1.01)";
+                        (e.currentTarget as HTMLElement).style.boxShadow = `0 16px 50px rgba(0,0,0,0.6), 0 0 40px ${color}22`;
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.transform = "";
+                        (e.currentTarget as HTMLElement).style.boxShadow = "";
+                      }}
+                    >
+                      {asset.result_url && (
+                        <VideoMuted
+                          src={asset.result_url}
+                          preload="none"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={{ opacity: 1, borderRadius: 0 }}
+                          btnPos={{ bottom: "40px", right: "8px" }}
+                        />
+                      )}
 
-                {/* Play icon on hover */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div
-                    className="flex h-14 w-14 items-center justify-center rounded-full"
-                    style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.25)" }}
-                  >
-                    <div style={{ width: 0, height: 0, borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid rgba(255,255,255,0.9)", marginLeft: "3px" }} />
-                  </div>
-                </div>
+                      {/* Category badge */}
+                      <div style={{ position: "absolute", top: "10px", right: "10px" }}>
+                        <span style={{
+                          padding: "2px 8px",
+                          background: "rgba(0,0,0,0.55)",
+                          border: "1px solid rgba(255,255,255,0.14)",
+                          backdropFilter: "blur(8px)",
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          textTransform: "uppercase" as const,
+                          color: "rgba(255,255,255,0.85)",
+                          letterSpacing: "0.06em",
+                          borderRadius: 0,
+                        }}>
+                          {cardLabel}
+                        </span>
+                      </div>
 
-                {/* Bottom gradient + tool name + caption */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 p-5"
-                  style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 8px ${color}` }} />
-                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{toolLabel}</p>
+                      {/* Bottom: tool + duration */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          padding: "10px 10px 8px",
+                          background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <div style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0 }} />
+                          <span style={{ fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.88)" }}>{toolLabel}</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.55)", maxWidth: "55%", textAlign: "right" }}>{caption}</p>
-                  </div>
-                </div>
+                  );
+                })}
+                <div aria-hidden="true" style={{ flex: "0 0 4px" }} />
               </div>
-            );
-          })}
+
+              {/* Dot indicators */}
+              <div className="flex items-center gap-1.5 mt-4">
+                {showcaseSlides.slice(0, 8).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: i === 0 ? "16px" : "6px",
+                      height: "6px",
+                      borderRadius: "3px",
+                      background: i === 0 ? "#3B82F6" : "rgba(255,255,255,0.18)",
+                      transition: "width 0.2s ease",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-
-          {/* Prev / Next controls */}
-          <button
-            onClick={carouselPrev}
-            disabled={carouselIdx === 0}
-            className="absolute left-4 top-1/2 z-20 flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200"
-            style={{
-              transform: "translateY(-50%)",
-              background: carouselIdx === 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backdropFilter: "blur(12px)",
-              color: carouselIdx === 0 ? "rgba(255,255,255,0.2)" : "#fff",
-              cursor: carouselIdx === 0 ? "not-allowed" : "pointer",
-            }}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={carouselNext}
-            disabled={carouselIdx >= maxIdx}
-            className="absolute right-4 top-1/2 z-20 flex h-11 w-11 items-center justify-center rounded-full transition-all duration-200"
-            style={{
-              transform: "translateY(-50%)",
-              background: carouselIdx >= maxIdx ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              backdropFilter: "blur(12px)",
-              color: carouselIdx >= maxIdx ? "rgba(255,255,255,0.2)" : "#fff",
-              cursor: carouselIdx >= maxIdx ? "not-allowed" : "pointer",
-            }}
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-
-        {/* Dot indicators — count matches maxIdx so dots == number of scrollable positions */}
-        <div className="flex items-center justify-center gap-2 mt-8">
-          {Array.from({ length: maxIdx + 1 }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCarouselIdx(i)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: i === carouselIdx ? "24px" : "8px",
-                height: "8px",
-                background: i === carouselIdx ? "#0EA5A0" : "rgba(255,255,255,0.2)",
-                border: "none",
-                cursor: "pointer",
-                flexShrink: 0,
-              }}
-            />
-          ))}
         </div>
       </section>
 
-      {/* ── 4. FUTURE CINEMA STUDIO ─────────────────────────────────────────── */}
-      {/* Mobile: full-bleed 9:16 card with content-first layout             */}
-      {/* Desktop: contained 16:9 card                                       */}
-      <section className="py-10 md:py-16">
-        {/* Full-bleed on mobile, contained on desktop */}
-        <div className="px-0 md:px-12 lg:px-20 xl:px-28">
+      {/* ── 5. FUTURE CINEMA STUDIO ─────────────────────────────────────────── */}
+      {/* Full-bleed card, content left-aligned within left half */}
+      <section className="py-8 md:py-14" style={{ backgroundColor: "var(--page-bg)" }}>
+        <div className="px-0 md:px-10 lg:px-16 xl:px-24">
           <div
-            className="cinema-card relative w-full overflow-hidden md:rounded-3xl"
+            className="cinema-card relative w-full overflow-hidden"
             style={{
               background: "linear-gradient(135deg, #050a14 0%, #0a0f1e 30%, #120a26 60%, #1a0d3a 100%)",
-              border: "1px solid rgba(168,85,247,0.25)",
-              boxShadow: "0 0 100px rgba(168,85,247,0.10), 0 30px 80px rgba(0,0,0,0.5)",
+              border: "1px solid rgba(168,85,247,0.22)",
+              boxShadow: "0 0 80px rgba(168,85,247,0.08), 0 24px 70px rgba(0,0,0,0.5)",
+              borderRadius: 0,
             }}
           >
-
-            {/* Background video */}
+            {/* BG video */}
             <VideoMuted
               src="/cinema/bg.mp4"
               preload="none"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }}
-              btnPos={{ top: "16px", right: "16px" }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65, borderRadius: 0 }}
+              btnPos={{ top: "14px", right: "14px" }}
             />
 
             {/* Glows */}
             <div className="pointer-events-none absolute inset-0" aria-hidden="true">
               <div style={{ position: "absolute", width: "60%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
-              <div style={{ position: "absolute", width: "40%", height: "60%", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%)", bottom: "-15%", left: "5%", filter: "blur(60px)" }} />
+              <div style={{ position: "absolute", width: "40%", height: "60%", borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)", bottom: "-15%", left: "5%", filter: "blur(60px)" }} />
             </div>
 
             {/* Grid lines */}
-            <div className="pointer-events-none absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(168,85,247,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} aria-hidden="true" />
+            <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(168,85,247,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} aria-hidden="true" />
 
-            {/* Bottom text gradient for readability */}
-            <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.45) 45%, transparent 100%)" }} />
+            {/* Readability gradient */}
+            <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(to right, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.65) 40%, transparent 100%)" }} />
 
-            {/* Content — bottom-anchored on mobile so text is always visible */}
-            <div className="relative z-10 flex h-full flex-col justify-end gap-4 px-6 pb-10 text-center items-center md:justify-center md:gap-6 md:px-8 md:pb-0">
-              {/* Badge */}
+            {/* LEFT-aligned content (mockup: text in left ~50% of card) */}
+            <div
+              className="relative z-10 flex flex-col items-start gap-4 px-8 py-10 md:py-14 md:max-w-[56%]"
+            >
+              {/* Eyebrow */}
               <div
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.2em]"
-                style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)", color: "#C084FC", backdropFilter: "blur(8px)" }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", color: "#C084FC", backdropFilter: "blur(8px)", borderRadius: 0 }}
               >
-                <Clapperboard size={13} />
-                Future Cinema Studio · Coming Soon
+                <Clapperboard size={11} />
+                AI Filmmaking Redefined
               </div>
 
               {/* Headline */}
               <h2
-                className="leading-tight tracking-tight"
-                style={{ fontSize: "clamp(1.75rem, 6vw, 4rem)", fontWeight: 800, color: "#F8FAFC", textShadow: "0 2px 20px rgba(0,0,0,0.9)" }}
+                className="font-display tracking-tight"
+                style={{
+                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                  fontSize: "clamp(1.6rem, 4.5vw, 3.2rem)",
+                  fontWeight: 800,
+                  lineHeight: 0.95,
+                  letterSpacing: "-0.04em",
+                  color: "#F8FAFC",
+                  textShadow: "0 2px 20px rgba(0,0,0,0.9)",
+                  margin: 0,
+                }}
               >
                 Direct AI Films.{" "}
                 <span style={{
+                  display: "block",
                   background: "linear-gradient(135deg, #A855F7 0%, #60A5FA 100%)",
                   WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
                 }}>
@@ -813,50 +711,64 @@ export function HomePageContent() {
               </h2>
 
               {/* Subline */}
-              <p className="max-w-sm md:max-w-xl text-sm md:text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.75)", textShadow: "0 1px 12px rgba(0,0,0,0.9)" }}>
-                Move beyond clips. Direct full AI films with scene control, character continuity, and cinematic storytelling tools — your complete filmmaking environment.
+              <p style={{ fontSize: "13px", lineHeight: 1.65, color: "rgba(255,255,255,0.72)", textShadow: "0 1px 10px rgba(0,0,0,0.9)", maxWidth: "380px" }}>
+                From concept to final cut — generate, edit, voice, and export your film in one seamless studio.
               </p>
 
-              {/* Feature pills — 2-col grid on mobile */}
-              <div className="grid grid-cols-2 gap-2 w-full max-w-xs md:flex md:flex-wrap md:justify-center md:gap-3 md:max-w-none">
-                {["Scene-based editing", "Storyboard workflow", "Character consistency", "Shot sequencing"].map((feat) => (
+              {/* Feature chips */}
+              <div className="flex flex-wrap gap-2">
+                {["AI Scene Generation", "Smart Continuity", "Voice & Lip-Sync", "Cinematic Export"].map((feat) => (
                   <div
                     key={feat}
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-2 md:px-4"
-                    style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.22)", backdropFilter: "blur(8px)" }}
+                    className="flex items-center gap-1.5 px-3 py-1.5"
+                    style={{ background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.20)", backdropFilter: "blur(8px)", borderRadius: 0 }}
                   >
-                    <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: "#A855F7", boxShadow: "0 0 6px #A855F7" }} />
-                    <span className="text-xs font-medium" style={{ color: "#C084FC" }}>{feat}</span>
+                    <div style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#A855F7", boxShadow: "0 0 5px #A855F7" }} />
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#C084FC" }}>{feat}</span>
                   </div>
                 ))}
               </div>
 
-              {/* CTA */}
-              <div className="flex flex-col items-center gap-2 md:flex-row md:gap-4 mt-1">
+              {/* CTAs */}
+              <div className="flex flex-wrap items-center gap-3 mt-1">
                 <button
                   onClick={() => router.push("/studio/cinema")}
-                  className="inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-semibold w-full justify-center md:w-auto"
-                  style={{ background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 0 30px rgba(168,85,247,0.35)" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 50px rgba(168,85,247,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 30px rgba(168,85,247,0.35)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                  className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold"
+                  style={{ background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 0 28px rgba(168,85,247,0.32)", borderRadius: 0, transition: "box-shadow 0.2s ease" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 48px rgba(168,85,247,0.55)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 28px rgba(168,85,247,0.32)"; }}
                 >
-                  Join the Waitlist
-                  <ArrowRight size={15} />
+                  Start Creating
+                  <ArrowRight size={14} />
                 </button>
-                <span className="text-xs" style={{ color: "#94A3B8" }}>No credit card required</span>
+                <button
+                  type="button"
+                  onClick={handleStartCreating}
+                  className="inline-flex items-center gap-2 px-5 py-3 text-sm"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)", cursor: "pointer", borderRadius: 0, transition: "background 0.15s ease, color 0.15s ease" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)"; }}
+                >
+                  {/* Circle-play icon */}
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.2" />
+                    <path d="M6 5l4 2.5L6 10V5z" fill="currentColor" />
+                  </svg>
+                  Watch Demo
+                </button>
               </div>
             </div>
 
             {/* Bottom timeline strip — desktop only */}
             <div
-              className="absolute bottom-0 left-0 right-0 hidden md:flex items-center gap-1 px-6 py-3"
-              style={{ background: "linear-gradient(to top, rgba(5,10,20,0.9), transparent)" }}
+              className="absolute bottom-0 left-0 right-0 hidden md:flex items-center gap-px px-6 py-2.5"
+              style={{ background: "linear-gradient(to top, rgba(5,10,20,0.88), transparent)" }}
             >
-              {Array.from({ length: 24 }).map((_, i) => (
-                <div key={i} className="flex-1 rounded-sm" style={{
-                  height: "14px",
-                  background: i % 4 === 0 ? "rgba(168,85,247,0.5)" : i % 7 === 0 ? "rgba(99,102,241,0.4)" : "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(168,85,247,0.08)",
+              {Array.from({ length: 28 }).map((_, i) => (
+                <div key={i} className="flex-1" style={{
+                  height: "12px",
+                  background: i % 4 === 0 ? "rgba(168,85,247,0.45)" : i % 7 === 0 ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.04)",
+                  borderRadius: 0,
                 }} />
               ))}
             </div>
@@ -864,207 +776,239 @@ export function HomePageContent() {
         </div>
       </section>
 
-      {/* ── 5. TARGET AUDIENCE — full-width 16:9 cards ──────────────────────── */}
-      <section className="py-12 md:py-20">
+      {/* ── 6. BUILT FOR CREATORS, FILMMAKERS, AND AGENCIES ─────────────────── */}
+      {/* Split: left text + right 3 compact audience cards */}
+      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
         <div className="container-site">
-          <div className="text-center mb-10 md:mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#0EA5A0" }}>Who It&apos;s For</p>
-            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
-              Built for Creators, Filmmakers,<br className="hidden md:block" /> and Agencies
-            </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-lg" style={{ color: "#64748B", lineHeight: 1.7 }}>
-              Zencra Labs is designed for modern content creators who want cinematic quality without complex tools.
-            </p>
-          </div>
+          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
 
-          {/* Audience cards — 16:9 visual style */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {audienceCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.title}
-                  className="relative overflow-hidden rounded-2xl group cursor-pointer"
-                  style={{
-                    aspectRatio: "4/3",
-                    background: card.gradient,
-                    border: `1px solid ${card.color}25`,
-                    boxShadow: `0 8px 40px rgba(0,0,0,0.4)`,
-                    transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 24px 70px rgba(0,0,0,0.55), 0 0 50px ${card.color}25`;
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                    (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 40px rgba(0,0,0,0.4)`;
-                  }}
-                >
-                  {/* Background video — full opacity, no overlay */}
-                  {card.videoSrc && (
-                    <VideoMuted
-                      src={card.videoSrc}
-                      preload="none"
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 }}
-                      btnPos={{ bottom: "8px", right: "8px" }}
-                    />
-                  )}
+            {/* Left text */}
+            <div className={LEFT_W} style={{ paddingTop: "8px" }}>
+              <SectionLabel>Made for You</SectionLabel>
+              <SectionHeading>
+                Built for Creators,<br />Filmmakers,<br />and Agencies
+              </SectionHeading>
+              <SectionSub>Powerful tools for every type of storyteller.</SectionSub>
+            </div>
 
-                  {/* Icon top-left */}
-                  <div className="absolute top-6 left-6">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-2xl"
-                      style={{ background: `${card.color}20`, border: `1px solid ${card.color}35`, backdropFilter: "blur(8px)" }}
-                    >
-                      <Icon size={24} style={{ color: card.color }} />
-                    </div>
-                  </div>
-
-                  {/* Stat badge top-right */}
-                  <div className="absolute top-6 right-6">
-                    <span
-                      className="rounded-full px-3 py-1 text-[10px] font-semibold"
-                      style={{ background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)" }}
-                    >
-                      {card.stat}
-                    </span>
-                  </div>
-
-                  {/* Bottom content — subtle gradient + text shadows for readability */}
+            {/* Right: 3 audience cards */}
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {audienceCards.map((card) => {
+                const Icon = card.icon;
+                return (
                   <div
-                    className="absolute bottom-0 left-0 right-0 p-6"
-                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)" }}
-                  >
-                    <h3 className="mb-2 text-xl font-bold" style={{ color: "#F8FAFC", textShadow: "0 2px 12px rgba(0,0,0,0.9)" }}>{card.title}</h3>
-                    <p style={{ color: "rgba(255,255,255,0.85)", lineHeight: 1.65, fontSize: "0.875rem", textShadow: "0 1px 8px rgba(0,0,0,0.85)" }}>{card.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── 6. PRICING PREVIEW ──────────────────────────────────────────────── */}
-      <section className="py-12 md:py-24">
-        <div className="container-site">
-          <div className="text-center mb-10 md:mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] mb-4" style={{ color: "#2563EB" }}>Simple Pricing</p>
-            <h2 className="tracking-tight" style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, color: "var(--page-text)" }}>
-              Start Free. Scale as You Create.
-            </h2>
-            <p className="mt-4" style={{ color: "#64748B" }}>
-              No hidden fees. No complicated plans. Pick what fits your workflow.
-            </p>
-          </div>
-
-          {/* Pricing cards */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 max-w-5xl mx-auto">
-            {pricingTiers.map((tier) => (
-              <div
-                key={tier.name}
-                className="relative flex flex-col rounded-2xl p-6 md:p-8"
-                style={{
-                  background: tier.highlight
-                    ? `linear-gradient(135deg, ${tier.color}12 0%, ${tier.color}06 100%)`
-                    : "var(--page-bg-2)",
-                  border: tier.highlight ? `1px solid ${tier.color}40` : "1px solid rgba(255,255,255,0.06)",
-                  boxShadow: tier.highlight ? `0 0 60px ${tier.color}15` : "none",
-                }}
-              >
-                {tier.highlight && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full px-4 py-1 text-xs font-bold uppercase tracking-wide" style={{ background: `linear-gradient(135deg, ${tier.color}, #0EA5A0)`, color: "#fff" }}>
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <p className="mb-2 text-sm font-bold uppercase tracking-[0.15em]" style={{ color: tier.color }}>{tier.name}</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-4xl font-black" style={{ color: "var(--page-text)" }}>{tier.price}</span>
-                    <span className="mb-1.5 text-sm" style={{ color: "#64748B" }}>{tier.period}</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: "#64748B" }}>{tier.description}</p>
-                </div>
-
-                <ul className="mb-8 flex flex-col gap-2.5">
-                  {tier.features.map((feat) => (
-                    <li key={feat} className="flex items-center gap-3 text-sm" style={{ color: "#94A3B8" }}>
-                      <Check size={14} style={{ color: tier.color, flexShrink: 0 }} />
-                      {feat}
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-auto">
-                  <button
-                    onClick={handleStartCreating}
-                    className="w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200"
+                    key={card.title}
+                    className="relative overflow-hidden group cursor-pointer"
                     style={{
-                      background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #0EA5A0)` : "var(--page-bg-3)",
-                      border: tier.highlight ? "none" : "1px solid var(--border-medium)",
-                      color: tier.highlight ? "#fff" : "var(--page-text-2)",
-                      cursor: "pointer",
+                      aspectRatio: "3/4",
+                      background: card.gradient,
+                      border: `1px solid ${card.color}22`,
+                      borderRadius: 0,
+                      transition: "transform 0.25s ease, box-shadow 0.25s ease",
                     }}
                     onMouseEnter={e => {
-                      if (!tier.highlight) {
-                        (e.currentTarget as HTMLElement).style.background = "var(--page-bg-2)";
-                        (e.currentTarget as HTMLElement).style.color = "var(--page-text)";
-                      } else {
-                        (e.currentTarget as HTMLElement).style.opacity = "0.9";
-                      }
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-5px)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.5), 0 0 40px ${card.color}20`;
                     }}
                     onMouseLeave={e => {
-                      if (!tier.highlight) {
-                        (e.currentTarget as HTMLElement).style.background = "var(--page-bg-3)";
-                        (e.currentTarget as HTMLElement).style.color = "var(--page-text-2)";
-                      } else {
-                        (e.currentTarget as HTMLElement).style.opacity = "1";
-                      }
+                      (e.currentTarget as HTMLElement).style.transform = "";
+                      (e.currentTarget as HTMLElement).style.boxShadow = "";
                     }}
                   >
-                    {tier.cta}
-                  </button>
-                </div>
-              </div>
-            ))}
+                    {/* Most Popular badge */}
+                    {card.isMostPopular && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "12px",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          zIndex: 20,
+                          padding: "3px 10px",
+                          background: `linear-gradient(135deg, ${card.color}, #A855F7)`,
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          letterSpacing: "0.12em",
+                          color: "#fff",
+                          textTransform: "uppercase" as const,
+                          borderRadius: 0,
+                          whiteSpace: "nowrap" as const,
+                        }}
+                      >
+                        Most Popular
+                      </div>
+                    )}
+
+                    {/* Background video — deferred */}
+                    {card.videoSrc && mounted && (
+                      <VideoMuted
+                        src={card.videoSrc}
+                        preload="none"
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85, borderRadius: 0 }}
+                        btnPos={{ bottom: "6px", right: "6px" }}
+                      />
+                    )}
+
+                    {/* Icon badge */}
+                    <div style={{ position: "absolute", top: card.isMostPopular ? "46px" : "14px", left: "14px" }}>
+                      <div style={{ width: "36px", height: "36px", background: `${card.color}22`, border: `1px solid ${card.color}40`, backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 0 }}>
+                        <Icon size={18} style={{ color: card.color }} />
+                      </div>
+                    </div>
+
+                    {/* Bottom content */}
+                    <div
+                      style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px", background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.10) 70%, transparent 100%)" }}
+                    >
+                      <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#F8FAFC", textShadow: "0 2px 10px rgba(0,0,0,0.9)", margin: "0 0 5px" }}>{card.title}</h3>
+                      <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.78)", lineHeight: 1.55, textShadow: "0 1px 6px rgba(0,0,0,0.9)", margin: 0 }}>{card.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── FOOTER CTA BAND ─────────────────────────────────────────────────── */}
+      {/* ── 7. PRICING ──────────────────────────────────────────────────────── */}
+      {/* Split: left text + right 3 pricing cards */}
+      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
+        <div className="container-site">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+
+            {/* Left text */}
+            <div className={LEFT_W} style={{ paddingTop: "8px" }}>
+              <SectionLabel>Flexible Pricing</SectionLabel>
+              <SectionHeading>Start Free.<br />Scale as You Create.</SectionHeading>
+              <SectionSub>Choose the plan that fits your needs.</SectionSub>
+            </div>
+
+            {/* Right: 3 pricing cards */}
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {pricingTiers.map((tier) => (
+                <div
+                  key={tier.name}
+                  className="relative flex flex-col p-5 md:p-6"
+                  style={{
+                    background: tier.highlight
+                      ? `linear-gradient(135deg, ${tier.color}14 0%, rgba(139,92,246,0.07) 100%)`
+                      : "var(--page-bg-2)",
+                    border: tier.highlight ? `1px solid ${tier.color}45` : "1px solid rgba(255,255,255,0.07)",
+                    boxShadow: tier.highlight ? `0 0 50px ${tier.color}12` : "none",
+                    borderRadius: 0,
+                  }}
+                >
+                  {/* Most Popular badge */}
+                  {tier.highlight && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span
+                        style={{ padding: "3px 12px", background: `linear-gradient(135deg, ${tier.color}, #8B5CF6)`, color: "#fff", fontSize: "9px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" as const, borderRadius: 0, whiteSpace: "nowrap" as const }}
+                      >
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Price header */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <p style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: tier.color, marginBottom: "6px" }}>{tier.name}</p>
+                    <div className="flex items-end gap-1">
+                      <span style={{ fontSize: "28px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{tier.price}</span>
+                      <span style={{ fontSize: "12px", color: "#64748B", marginBottom: "2px" }}>{tier.period}</span>
+                    </div>
+                    <p style={{ fontSize: "11px", color: "#64748B", marginTop: "5px", lineHeight: 1.5 }}>{tier.description}</p>
+                  </div>
+
+                  {/* Features */}
+                  <ul className="flex flex-col gap-2 mb-6">
+                    {tier.features.map((feat) => (
+                      <li key={feat} className="flex items-center gap-2" style={{ fontSize: "11px", color: "#94A3B8" }}>
+                        <Check size={12} style={{ color: tier.color, flexShrink: 0 }} />
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA */}
+                  <div className="mt-auto">
+                    <button
+                      onClick={handleStartCreating}
+                      className="w-full py-2.5 text-xs font-semibold transition-all duration-200"
+                      style={{
+                        background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #8B5CF6)` : "var(--page-bg-3)",
+                        border: tier.highlight ? "none" : "1px solid var(--border-medium)",
+                        color: tier.highlight ? "#fff" : "var(--page-text-2)",
+                        cursor: "pointer",
+                        borderRadius: 0,
+                      }}
+                      onMouseEnter={e => {
+                        if (!tier.highlight) { (e.currentTarget as HTMLElement).style.background = "var(--page-bg-2)"; }
+                        else { (e.currentTarget as HTMLElement).style.opacity = "0.9"; }
+                      }}
+                      onMouseLeave={e => {
+                        if (!tier.highlight) { (e.currentTarget as HTMLElement).style.background = "var(--page-bg-3)"; }
+                        else { (e.currentTarget as HTMLElement).style.opacity = "1"; }
+                      }}
+                    >
+                      {tier.cta}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 8. FOOTER CTA BAND ──────────────────────────────────────────────── */}
       <section
-        className="py-14 md:py-20"
+        className="py-12 md:py-20"
         style={{
-          background: "linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(14,165,160,0.04) 50%, rgba(168,85,247,0.06) 100%)",
+          background: "linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(139,92,246,0.04) 50%, rgba(168,85,247,0.05) 100%)",
           borderTop: "1px solid var(--border-subtle)",
         }}
       >
-        <div className="container-site flex flex-col items-center gap-6 text-center px-6 md:px-0">
-          <h2 className="tracking-tight" style={{ fontSize: "clamp(1.8rem, 4vw, 2.8rem)", fontWeight: 800, color: "var(--page-text)" }}>
+        <div className="container-site flex flex-col items-center gap-5 text-center px-6 md:px-0">
+          <h2
+            className="font-display tracking-tight"
+            style={{
+              fontFamily: "var(--font-display, 'Syne', sans-serif)",
+              fontSize: "clamp(1.6rem, 3.5vw, 2.6rem)",
+              fontWeight: 800,
+              lineHeight: 0.95,
+              letterSpacing: "-0.04em",
+              color: "var(--page-text)",
+              margin: 0,
+            }}
+          >
             Ready to Create Something Cinematic?
           </h2>
-          <p className="max-w-md" style={{ color: "#64748B", lineHeight: 1.7 }}>
-            Join creators and filmmakers already building with Zencra Labs. Start free — no credit card required.
+          <p style={{ color: "#64748B", lineHeight: 1.65, maxWidth: "380px", fontSize: "14px" }}>
+            Start for free. No credit card required.
           </p>
           <button
             onClick={handleStartCreating}
-            className="inline-flex items-center gap-2 rounded-xl px-8 py-4 text-sm font-semibold text-white transition-all duration-300"
-            style={{ background: "linear-gradient(135deg, #2563EB 0%, #0EA5A0 100%)", boxShadow: "0 0 40px rgba(37,99,235,0.35)", border: "none", cursor: "pointer" }}
+            className="inline-flex items-center gap-2 px-7 py-3.5 text-sm font-semibold text-white"
+            style={{
+              background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
+              boxShadow: "0 0 36px rgba(59,130,246,0.32)",
+              border: "none",
+              cursor: "pointer",
+              borderRadius: 0,
+              transition: "box-shadow 0.2s ease, transform 0.15s ease",
+            }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 60px rgba(37,99,235,0.6), 0 0 100px rgba(14,165,160,0.3)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 56px rgba(59,130,246,0.55)";
               (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.35)";
-              (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 36px rgba(59,130,246,0.32)";
+              (e.currentTarget as HTMLElement).style.transform = "";
             }}
           >
-            Try Free
-            <ArrowRight size={16} />
+            Try Free Now
+            <ArrowRight size={15} />
           </button>
         </div>
       </section>
@@ -1072,25 +1016,14 @@ export function HomePageContent() {
     </div>
 
     <style>{`
-      @keyframes shimmer {
-        0%   { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-      }
       /* Cinema Studio card: 9:16 on mobile → 16:9 on desktop */
       .cinema-card { aspect-ratio: 9/16; }
       @media (min-width: 768px) { .cinema-card { aspect-ratio: 16/9; } }
 
-      /* ── Scroll performance ─────────────────────────────────────────── */
-      /* Carousel card hover lift uses transform — promote to GPU layer    */
-      .carousel-card { will-change: transform; }
+      /* Hide scrollbars on all native-scroll tracks */
+      .overflow-x-auto::-webkit-scrollbar { display: none; }
 
-      /* Mobile: strip is hidden, so no cost. On desktop, isolate the strip
-         section to avoid triggering full-page repaints during animation.   */
-      @media (min-width: 768px) {
-        .strip-section { contain: layout style; }
-      }
-
-      /* Mute button hover fix — keep hover state in sync with React state */
+      /* Mute button hover sync */
       button[aria-label="Unmute video"]:hover { opacity: 1 !important; }
       button[aria-label="Mute video"]:hover   { opacity: 1 !important; }
     `}</style>

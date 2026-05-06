@@ -11,6 +11,24 @@ import { useRouter } from "next/navigation";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
 import { formatHandle } from "@/lib/ai-influencer/format-handle";
+import { supabase }        from "@/lib/supabase";
+import CandidateCarousel      from "./candidate/CandidateCarousel";
+import CandidatePreviewModal  from "./candidate/CandidatePreviewModal";
+import CandidateCompareTray   from "./candidate/CandidateCompareTray";
+import CandidateControls      from "./candidate/CandidateControls";
+
+// ── Auth header helper ────────────────────────────────────────────────────────
+// All character API routes use requireAuthUser which reads ONLY the
+// Authorization: Bearer header (not cookies). Resolve a fresh token every call.
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch { /* ignore */ }
+  return {};
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -154,12 +172,12 @@ export default function InfluencerCanvas({
 
       // Dispatch pack generation
       try {
+        const authHeader = await getAuthHeader();
         const res = await fetch(
           `/api/character/ai-influencers/${active.influencer.id}/packs`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
+            headers: { "Content-Type": "application/json", ...authHeader },
             body: JSON.stringify({
               pack_type:          packType,
               identity_lock_id:   active.identity_lock_id,
@@ -309,6 +327,8 @@ export default function InfluencerCanvas({
             onTriggerPack={handleTriggerPack}
             onSetActivePack={setActivePack}
             packSectionRef={packSectionRef}
+            onImageFlow={goImageFlow}
+            onVideoFlow={goVideoFlow}
           />
         )}
       </div>
@@ -487,7 +507,7 @@ function EmptyState({ accent }: { accent: string }) {
           letterSpacing: "-0.02em", marginBottom: 10,
           pointerEvents: "auto",
         }}>
-          Your AI Influencer lives here
+          Create Your Digital Human
         </h2>
         <p style={{
           fontSize: 15, color: T.muted, lineHeight: 1.65,
@@ -502,7 +522,15 @@ function EmptyState({ accent }: { accent: string }) {
   );
 }
 
-// ── STATE 2: Generating ───────────────────────────────────────────────────────
+// ── STATE 2: Generating — Cinematic shimmer (NO spinner) ─────────────────────
+
+const GENERATING_LINES = [
+  "Rendering identity candidates…",
+  "Building facial geometry…",
+  "Applying style signatures…",
+  "Compositing lighting pass…",
+  "Finalising candidates…",
+];
 
 function GeneratingState({
   influencer_id,
@@ -517,19 +545,28 @@ function GeneratingState({
 }) {
   const [progress,   setProgress]   = useState(0);
   const [completed,  setCompleted]  = useState(0);
-  const total = jobIds.length || 4;  // default display count before jobs known
+  const [lineIdx,    setLineIdx]    = useState(0);
+  const total = jobIds.length || 4;
 
+  // Ambient progress creep
   useEffect(() => {
-    // Ambient progress animation (creeps to ~80% while real jobs run)
     const interval = setInterval(() => {
-      setProgress(p => Math.min(p + Math.random() * 5, 80));
-    }, 700);
+      setProgress(p => Math.min(p + Math.random() * 4, 78));
+    }, 800);
     return () => clearInterval(interval);
   }, []);
 
+  // Rotate status text every 2.8s
   useEffect(() => {
-    if (jobIds.length === 0) return;  // wait for jobs to arrive
+    const interval = setInterval(() => {
+      setLineIdx(i => (i + 1) % GENERATING_LINES.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
 
+  // Poll all jobs
+  useEffect(() => {
+    if (jobIds.length === 0) return;
     let cancelled = false;
 
     async function pollAll() {
@@ -541,13 +578,9 @@ function GeneratingState({
         }),
       );
       if (cancelled) return;
-
       const urls = results.filter((u): u is string => !!u);
-      // Snap progress bar to 100% then transition
       setProgress(100);
-      setTimeout(() => {
-        if (!cancelled) onReady(influencer_id, urls);
-      }, 400);
+      setTimeout(() => { if (!cancelled) onReady(influencer_id, urls); }, 400);
     }
 
     pollAll().catch(console.error);
@@ -555,7 +588,6 @@ function GeneratingState({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobIds.join(",")]);
 
-  // Show actual completion ratio once we have job info
   const displayProgress = jobIds.length > 0
     ? Math.round((completed / total) * 100)
     : progress;
@@ -563,65 +595,184 @@ function GeneratingState({
   return (
     <div style={{
       flex: 1, display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      padding: "40px 32px", textAlign: "center", gap: 24,
+      padding: "32px 32px 24px", gap: 0,
+      position: "relative", overflow: "hidden",
     }}>
-      {/* Animated ring — accent color per category */}
+      <style>{`
+        @keyframes genShimmerSweep {
+          0%   { transform: translateX(-120%); }
+          100% { transform: translateX(300%); }
+        }
+        @keyframes genShimmerPulse {
+          0%, 100% { opacity: 0.28; }
+          50%       { opacity: 0.50; }
+        }
+        @keyframes genGlowBreath {
+          0%, 100% { opacity: 0.20; }
+          50%       { opacity: 0.40; }
+        }
+        @keyframes genTextFade {
+          0%   { opacity: 0; transform: translateY(4px); }
+          15%  { opacity: 1; transform: translateY(0);  }
+          85%  { opacity: 1; transform: translateY(0);  }
+          100% { opacity: 0; transform: translateY(-4px); }
+        }
+      `}</style>
+
+      {/* ── Ambient glow behind cards ─────────────────────────────────── */}
       <div style={{
-        width: 80, height: 80, position: "relative",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <svg width="80" height="80" viewBox="0 0 80 80" style={{
-          position: "absolute", inset: 0,
-          animation: "spin 1.4s linear infinite",
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `radial-gradient(ellipse at 50% 50%, ${accent}14, transparent 55%)`,
+        animation: "genGlowBreath 4s ease-in-out infinite",
+      }} aria-hidden="true" />
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ position: "relative", zIndex: 2, marginBottom: 24, flexShrink: 0 }}>
+        {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
+        <div style={{
+          fontSize: 13, fontWeight: 600, letterSpacing: "0.14em",
+          color: `${accent}cc`,
+          textTransform: "uppercase" as const,
+          marginBottom: 8,
         }}>
-          <circle
-            cx="40" cy="40" r="34"
-            fill="none" stroke={accent} strokeWidth="2"
-            strokeDasharray="60 160" strokeLinecap="round"
-          />
-        </svg>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-          stroke={accent} strokeWidth="1.5" strokeLinecap="round">
-          <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
-          <path d="M20 21a8 8 0 1 0-16 0" />
-        </svg>
-        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+          AI Casting Studio
+        </div>
+        {/* Studio Title: 30px / 700 / -0.02em */}
+        <div style={{
+          fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
+          color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
+        }}>
+          Building your AI influencer
+        </div>
+        {/* Animated status line */}
+        <div
+          key={lineIdx}
+          style={{
+            /* Body: 16px / 400 / leading 1.65 */
+            fontSize: 16, fontWeight: 400, lineHeight: 1.65,
+            color: "rgba(255,255,255,0.50)",
+            animation: "genTextFade 2.8s ease forwards",
+          }}
+        >
+          {GENERATING_LINES[lineIdx]}
+          {jobIds.length > 0 && (
+            <span style={{
+              marginLeft: 12,
+              /* Chip: 13px / semibold 600 / -0.005em */
+              fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
+              color: `${accent}bb`,
+            }}>
+              {completed}/{total}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-          Building your AI influencer…
-        </div>
-        <div style={{ fontSize: 13, color: T.ghost }}>
-          {jobIds.length > 0
-            ? `${completed} of ${total} candidates ready`
-            : "Generating candidates. This takes about 30–60 seconds."}
-        </div>
-      </div>
-
-      {/* Progress bar — accent color per category */}
+      {/* ── Shimmer skeleton cards ───────────────────────────────────────── */}
       <div style={{
-        width: 240, height: 2, borderRadius: 2,
-        background: "rgba(255,255,255,0.06)",
+        position: "relative", zIndex: 2,
+        display: "flex", gap: 16,
+        flex: 1, minHeight: 0,
         overflow: "hidden",
       }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={{
+            flex: "1 1 0",
+            minWidth: 0,
+            borderRadius: 0,               // sharp — cinematic
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(255,255,255,0.025)",
+            position: "relative",
+            overflow: "hidden",
+            animation: `genShimmerPulse 2.2s ease-in-out ${i * 0.3}s infinite`,
+          }}>
+            {/* Shimmer sweep */}
+            <div style={{
+              position: "absolute", top: 0, bottom: 0, width: "55%",
+              background: `linear-gradient(
+                105deg,
+                transparent 0%,
+                ${accent}0d 50%,
+                transparent 100%
+              )`,
+              animation: `genShimmerSweep 2.6s ease-in-out ${i * 0.3}s infinite`,
+            }} aria-hidden="true" />
+
+            {/* Bottom info area */}
+            <div style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              height: 72,
+              background: "rgba(0,0,0,0.32)",
+              borderTop: "1px solid rgba(255,255,255,0.04)",
+              padding: "14px 14px",
+            }}>
+              {/* Candidate number stub */}
+              <div style={{
+                width: 24, height: 7,
+                background: "rgba(255,255,255,0.08)",
+                marginBottom: 10,
+              }} />
+              {/* Label stub */}
+              <div style={{
+                width: "72%", height: 6,
+                background: "rgba(255,255,255,0.045)",
+              }} />
+            </div>
+
+            {/* Top badge stub */}
+            <div style={{
+              position: "absolute", top: 10, left: 10,
+              width: 28, height: 18,
+              background: "rgba(255,255,255,0.055)",
+            }} />
+          </div>
+        ))}
+      </div>
+
+      {/* ── Progress bar ─────────────────────────────────────────────────── */}
+      <div style={{
+        position: "relative", zIndex: 2,
+        marginTop: 20, flexShrink: 0,
+      }}>
         <div style={{
-          height: "100%", borderRadius: 2,
-          background: accent,
-          width: `${displayProgress}%`,
-          transition: "width 0.8s ease",
-        }} />
+          height: 2,
+          background: "rgba(255,255,255,0.06)",
+          overflow: "hidden",
+        }}>
+          <div style={{
+            height: "100%",
+            background: `linear-gradient(to right, ${accent}, ${accent}88)`,
+            width: `${displayProgress}%`,
+            transition: "width 0.9s ease",
+          }} />
+        </div>
+        {/* Micro: 11px / semibold 600 / tracking 0.12em */}
+        <div style={{
+          marginTop: 8,
+          fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
+          color: "rgba(255,255,255,0.30)",
+          textTransform: "uppercase" as const,
+        }}>
+          {displayProgress < 100 ? "Generating" : "Almost ready"}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── STATE 2b: Cinematic Candidate Selection ───────────────────────────────────
+// ── STATE 2b: Cinematic Candidate Selection (carousel architecture) ───────────
 //
-// Focus model: thumbnail click → change focus only. Confirm Identity → lock.
+// New layout (flex column):
+//   1. Header row (label + title + subtitle)
+//   2. CandidateCarousel (horizontal snap-scroll)
+//   3. CandidateCompareTray (slides up when ≥2 compare)
+//   4. CandidateControls (confirm row, always visible)
+//
+// CandidatePreviewModal is portal-style (position: fixed)
 // Identity lock API: POST /api/character/ai-influencers/:id/select
-// Candidates are URL strings — we use the URL as the stable key.
+// Max compare = 3; auto-select candidates[0] on arrival.
+
+const MAX_COMPARE = 3;
 
 function CandidatesState({
   influencer_id,
@@ -634,36 +785,50 @@ function CandidatesState({
   accent:        string;
   onSelected:    (active: ActiveInfluencer) => void;
 }) {
-  const [focusedUrl, setFocusedUrl] = useState<string | null>(null);
-  const [locking,    setLocking]    = useState(false);
-  const [lockError,  setLockError]  = useState<string | null>(null);
-  const [mounted,    setMounted]    = useState(false);
+  const [activeUrl,   setActiveUrl]   = useState<string | null>(null);
+  const [compareUrls, setCompareUrls] = useState<string[]>([]);
+  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null);
+  const [locking,     setLocking]     = useState(false);
+  const [lockError,   setLockError]   = useState<string | null>(null);
+  const [mounted,     setMounted]     = useState(false);
 
-  // Auto-focus first candidate; stagger entry animation
+  // Entry animation
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 40);
     return () => clearTimeout(t);
   }, []);
 
+  // Auto-select first candidate when candidates arrive
   useEffect(() => {
-    if (!focusedUrl && candidates.length > 0) {
-      setFocusedUrl(candidates[0]);
+    if (!activeUrl && candidates.length > 0) {
+      setActiveUrl(candidates[0]);
     }
-  }, [candidates, focusedUrl]);
+  }, [candidates, activeUrl]);
 
-  // Identity lock — calls existing backend route, no new API surface
-  async function handleConfirm() {
-    if (!focusedUrl || locking) return;
+  // ── Toggle compare (max 3) ──────────────────────────────────────────────────
+  function toggleCompare(url: string) {
+    setCompareUrls(prev => {
+      if (prev.includes(url)) return prev.filter(u => u !== url);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, url];
+    });
+  }
+
+  // ── Identity lock ───────────────────────────────────────────────────────────
+  async function handleConfirm(targetUrl?: string) {
+    const urlToLock = targetUrl ?? activeUrl;
+    if (!urlToLock || locking) return;
     setLocking(true);
     setLockError(null);
+    setPreviewUrl(null); // close modal if open
     try {
+      const authHeader = await getAuthHeader();
       const res = await fetch(
         `/api/character/ai-influencers/${influencer_id}/select`,
         {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ candidate_url: focusedUrl }),
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ candidate_url: urlToLock }),
         },
       );
       if (!res.ok) {
@@ -686,360 +851,155 @@ function CandidatesState({
     }
   }
 
-  const focusedIndex = focusedUrl ? candidates.indexOf(focusedUrl) + 1 : 0;
+  const maxCompareReached   = compareUrls.length >= MAX_COMPARE;
+  const activeIndex         = activeUrl ? candidates.indexOf(activeUrl) + 1 : null;
+
+  // Derive style category for the modal from the parent accent (we don't have it
+  // directly here — but InfluencerCanvas passes the influencer's style_category
+  // through canvasState; we thread it via a prop in the upgrade below)
+  // For the modal we pass a synthetic styleCategory via closure.
 
   return (
-    <div style={{
-      position: "relative",
-      height:   "100%",
-      width:    "100%",
-      overflow: "hidden",
-      borderRadius: 32,
-      border:   "1px solid rgba(255,255,255,0.10)",
-      background: "#05070D",
-      // Entry animation — fade + slide
-      opacity:   mounted ? 1 : 0,
-      transform: mounted ? "translateY(0)" : "translateY(18px)",
-      transition: "opacity 0.45s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1)",
-    }}>
+    <>
+      {/* ── Preview modal (fixed viewport) ───────────────────────────────── */}
+      {previewUrl && (() => {
+        const previewIndex = candidates.indexOf(previewUrl) + 1;
+        const isInCompare  = compareUrls.includes(previewUrl);
+        const maxReached   = maxCompareReached && !isInCompare;
+        return (
+          <CandidatePreviewModal
+            url={previewUrl}
+            index={previewIndex}
+            accent={accent}
+            styleCategory="hyper-real"   /* best-effort; real category comes from parent */
+            isInCompare={isInCompare}
+            maxCompare={maxReached}
+            isLocking={locking}
+            onClose={() => setPreviewUrl(null)}
+            onSelect={() => handleConfirm(previewUrl)}
+            onCompare={() => toggleCompare(previewUrl)}
+          />
+        );
+      })()}
 
-      {/* ── Keyframes ───────────────────────────────────────────────── */}
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes candidateFadeIn {
-          from { opacity: 0; transform: scale(1.015); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-        @keyframes railGlow {
-          0%, 100% { opacity: 0.55; }
-          50%       { opacity: 1; }
-        }
-        @keyframes scanLine {
-          0%   { top: -2px; opacity: 0; }
-          8%   { opacity: 1; }
-          92%  { opacity: 0.65; }
-          100% { top: 100%; opacity: 0; }
-        }
-        @keyframes candidatePulse {
-          0%, 100% { opacity: 0.35; }
-          50%       { opacity: 0.65; }
-        }
-      `}</style>
-
-      {/* ── Cinematic background layers ─────────────────────────────── */}
-      {/* Radial ambient glow */}
+      {/* ── Canvas panel ─────────────────────────────────────────────────── */}
       <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        background: [
-          "radial-gradient(circle at 50% 10%, rgba(59,130,246,0.18), transparent 38%)",
-          "radial-gradient(circle at 80% 80%, rgba(168,85,247,0.14), transparent 34%)",
-          "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 24%)",
-        ].join(", "),
-      }} />
-      {/* Subtle grid */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        backgroundImage: [
-          "linear-gradient(to right,  rgba(255,255,255,0.035) 1px, transparent 1px)",
-          "linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)",
-        ].join(", "),
-        backgroundSize: "72px 72px",
-        opacity: 0.18,
-      }} />
-      {/* Bottom vignette */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: 160,
-        background: "linear-gradient(to top, rgba(0,0,0,0.72), transparent)",
-        pointerEvents: "none",
-      }} />
-
-      {/* ── Content ─────────────────────────────────────────────────── */}
-      <div style={{
-        position: "relative", zIndex: 10,
         display: "flex", flexDirection: "column",
-        height: "100%",
-        padding: "28px 32px 24px",
-        boxSizing: "border-box",
+        height: "100%", width: "100%",
+        background: "#05070D",
+        opacity:   mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(18px)",
+        transition: "opacity 0.45s ease, transform 0.45s cubic-bezier(0.22,1,0.36,1)",
+        position: "relative", overflow: "hidden",
       }}>
 
-        {/* ── Header ────────────────────────────────────────────────── */}
-        <div style={{ flexShrink: 0, marginBottom: 18 }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.28em",
-            textTransform: "uppercase", color: "rgba(255,255,255,0.42)",
-          }}>
-            Identity Selection
-          </div>
-          <div style={{
-            marginTop: 10, fontSize: 26, fontWeight: 700,
-            letterSpacing: "-0.04em", color: "#ffffff", lineHeight: 1.1,
-          }}>
-            Choose the face of your influencer
-          </div>
-          <div style={{
-            marginTop: 7, fontSize: 14, lineHeight: 1.55,
-            color: "rgba(255,255,255,0.55)", maxWidth: 580,
-          }}>
-            Pick one candidate to lock the identity. Future images, videos, and packs will follow this face.
-          </div>
-        </div>
-
-        {/* ── Main area: focused preview + thumbnail rail ────────────── */}
+        {/* Ambient radial glow */}
         <div style={{
-          flex: 1, minHeight: 0,
-          display: "grid",
-          gridTemplateColumns: "1fr 164px",
-          gap: 14,
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: [
+            "radial-gradient(circle at 50% 10%, rgba(59,130,246,0.15), transparent 36%)",
+            "radial-gradient(circle at 80% 80%, rgba(168,85,247,0.12), transparent 34%)",
+          ].join(", "),
+        }} aria-hidden="true" />
+
+        {/* Content — above glow */}
+        <div style={{
+          position: "relative", zIndex: 2,
+          display: "flex", flexDirection: "column",
+          height: "100%",
         }}>
 
-          {/* ── Large focused preview ──────────────────────────────── */}
-          <div style={{
-            position: "relative", minHeight: 0,
-            overflow: "hidden",
-            borderRadius: 22,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(0,0,0,0.35)",
-            boxShadow: "0 28px 80px rgba(0,0,0,0.55)",
-          }}>
-            {/* Ambient glow bloom — adapts to accent */}
+          {/* ── Header ──────────────────────────────────────────────── */}
+          <div style={{ padding: "24px 32px 16px", flexShrink: 0 }}>
+            {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
             <div style={{
-              position: "absolute", inset: 32, borderRadius: "50%",
-              background: `${accent}2a`,
-              filter: "blur(80px)",
-              pointerEvents: "none",
-            }} />
-
-            {/* Focused image — key triggers CSS re-animation on URL change */}
-            {focusedUrl && (
-              <img
-                key={focusedUrl}
-                src={focusedUrl}
-                alt={`AI influencer candidate ${focusedIndex}`}
-                onDoubleClick={!locking ? handleConfirm : undefined}
-                style={{
-                  width: "100%", height: "100%",
-                  objectFit: "contain",
-                  display: "block",
-                  cursor: locking ? "not-allowed" : "default",
-                  animation: "candidateFadeIn 0.38s ease-out forwards",
-                }}
-              />
-            )}
-
-            {/* Locking overlay — scan line + blur */}
-            {locking && (
-              <>
-                <div style={{
-                  position: "absolute", inset: 0,
-                  background: "rgba(0,0,0,0.22)",
-                  backdropFilter: "blur(1px)",
-                  pointerEvents: "none",
-                  zIndex: 2,
-                }} />
-                <div style={{
-                  position: "absolute", left: 0, right: 0, height: 2,
-                  background: "linear-gradient(to right, transparent, rgba(255,255,255,0.72), transparent)",
-                  animation: "scanLine 1.8s ease-in-out infinite",
-                  pointerEvents: "none",
-                  zIndex: 3,
-                }} />
-              </>
-            )}
-
-            {/* Info overlay — bottom, only when not locking */}
-            {focusedUrl && !locking && (
-              <div style={{
-                position: "absolute", bottom: 18, left: 18, right: 18,
-                display: "flex", alignItems: "flex-end",
-                justifyContent: "space-between", gap: 10,
-                zIndex: 2,
-              }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.01em" }}>
-                    Candidate {String(focusedIndex).padStart(2, "0")}
-                  </div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.52)", marginTop: 2 }}>
-                    Potential identity match
-                  </div>
-                </div>
-                <div style={{
-                  padding: "6px 13px", borderRadius: 999,
-                  border: "1px solid rgba(52,211,153,0.25)",
-                  background: "rgba(52,211,153,0.10)",
-                  fontSize: 11, fontWeight: 700,
-                  color: "#6ee7b7",
-                  whiteSpace: "nowrap",
-                }}>
-                  Ready to lock
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Thumbnail rail ─────────────────────────────────────── */}
-          <div style={{
-            display: "flex", flexDirection: "column",
-            gap: 10, overflowY: "auto",
-            paddingRight: 2, minHeight: 0,
-          }}>
-            {candidates.map((url, i) => {
-              const isActive = url === focusedUrl;
-              return (
-                <button
-                  key={url}
-                  onClick={() => !locking && setFocusedUrl(url)}
-                  aria-pressed={isActive}
-                  disabled={locking}
-                  style={{
-                    position: "relative",
-                    height: 134,
-                    overflow: "hidden",
-                    borderRadius: 16,
-                    border: isActive
-                      ? "1px solid rgba(147,197,253,0.60)"
-                      : "1px solid rgba(255,255,255,0.10)",
-                    background: "rgba(255,255,255,0.03)",
-                    cursor: locking ? "not-allowed" : "pointer",
-                    opacity: locking ? 0.55 : isActive ? 1 : 0.72,
-                    boxShadow: isActive ? "0 0 32px rgba(59,130,246,0.24)" : "none",
-                    transition: "all 0.25s ease",
-                    flexShrink: 0,
-                    padding: 0,
-                  }}
-                >
-                  <img
-                    src={url}
-                    alt={`AI influencer candidate ${i + 1}`}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-
-                  {/* Number badge */}
-                  <div style={{
-                    position: "absolute", top: 7, left: 7,
-                    padding: "2px 7px", borderRadius: 999,
-                    background: "rgba(0,0,0,0.55)",
-                    backdropFilter: "blur(8px)",
-                    fontSize: 9, fontWeight: 700,
-                    color: "rgba(255,255,255,0.80)",
-                  }}>
-                    {String(i + 1).padStart(2, "0")}
-                  </div>
-
-                  {/* Active indicator dot */}
-                  {isActive && (
-                    <div style={{
-                      position: "absolute", bottom: 7, right: 7,
-                      width: 9, height: 9, borderRadius: "50%",
-                      background: "#93c5fd",
-                      boxShadow: "0 0 14px rgba(147,197,253,0.90)",
-                      animation: "railGlow 1.4s ease-in-out infinite",
-                    }} />
-                  )}
-                </button>
-              );
-            })}
-
-            {/* Skeleton placeholders while waiting for remaining candidates */}
-            {candidates.length < 4 && Array.from({ length: 4 - candidates.length }).map((_, i) => (
-              <div key={`ph-${i}`} style={{
-                height: 134, borderRadius: 16, flexShrink: 0,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
-                animation: "candidatePulse 1.8s ease-in-out infinite",
-              }} />
-            ))}
-          </div>
-        </div>
-
-        {/* ── Confirmation row ─────────────────────────────────────── */}
-        <div style={{
-          flexShrink: 0,
-          marginTop: 14,
-          display: "flex", alignItems: "center",
-          justifyContent: "space-between", gap: 14,
-          borderRadius: 20,
-          border: "1px solid rgba(255,255,255,0.10)",
-          background: "rgba(255,255,255,0.045)",
-          backdropFilter: "blur(16px)",
-          padding: "13px 18px",
-          boxSizing: "border-box",
-        }}>
-
-          {/* Left — copy */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 15, fontWeight: 700,
-              letterSpacing: "-0.02em", color: "#ffffff",
+              fontSize: 13, fontWeight: 600, letterSpacing: "0.14em",
+              color: `${accent}cc`,
+              textTransform: "uppercase" as const,
+              marginBottom: 8,
             }}>
-              Lock this identity
+              AI Casting Studio
             </div>
+            {/* Studio Title: 30px / 700 / -0.02em */}
             <div style={{
-              marginTop: 3, fontSize: 13, lineHeight: 1.5,
-              color: "rgba(255,255,255,0.52)",
+              fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
+              color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
             }}>
-              Once selected, Zencra will use this face as the canonical reference for this influencer.
+              Choose your digital human
+            </div>
+            {/* Body: 16px / 400 / leading 1.65 */}
+            <div style={{
+              fontSize: 16, fontWeight: 400, lineHeight: 1.65,
+              color: "rgba(255,255,255,0.50)", maxWidth: 560,
+            }}>
+              Pick one candidate to lock the identity. Every future image, video, and pack will follow this face.
             </div>
             {lockError && (
+              /* Micro: 11px / semibold 600 / 0.12em */
               <div style={{
-                marginTop: 6, fontSize: 12, fontWeight: 600,
+                marginTop: 8,
+                fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
                 color: "#fca5a5",
+                textTransform: "uppercase" as const,
               }}>
                 {lockError}
               </div>
             )}
           </div>
 
-          {/* Right — Confirm Identity button */}
-          <div style={{ flexShrink: 0 }}>
-            <button
-              onClick={handleConfirm}
-              disabled={!focusedUrl || locking}
-              onMouseEnter={e => {
-                if (focusedUrl && !locking)
-                  (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.03)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
-              }}
-              style={{
-                height: 44, padding: "0 22px",
-                borderRadius: 999, border: "none",
-                background: "#ffffff",
-                color: "#000000",
-                fontSize: 14, fontWeight: 700,
-                letterSpacing: "-0.01em",
-                cursor: (!focusedUrl || locking) ? "not-allowed" : "pointer",
-                opacity: !focusedUrl ? 0.42 : 1,
-                display: "flex", alignItems: "center", gap: 8,
-                boxShadow: (!focusedUrl || locking)
-                  ? "none"
-                  : "0 0 36px rgba(255,255,255,0.20)",
-                transition: "transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease",
-              }}
-            >
-              {locking && (
-                <span style={{
-                  width: 13, height: 13, flexShrink: 0,
-                  border: "2px solid rgba(0,0,0,0.18)",
-                  borderTopColor: "#000000",
-                  borderRadius: "50%",
-                  display: "inline-block",
-                  animation: "spin 0.75s linear infinite",
-                }} />
-              )}
-              {locking ? "Locking Identity…" : "Confirm Identity"}
-            </button>
+          {/* ── Carousel ─────────────────────────────────────────────── */}
+          <div style={{ flexShrink: 0, paddingBottom: 4 }}>
+            <CandidateCarousel
+              candidates={candidates}
+              activeUrl={activeUrl}
+              compareUrls={compareUrls}
+              accent={accent}
+              isLocking={locking}
+              onSetActive={setActiveUrl}
+              onPreview={url => { setActiveUrl(url); setPreviewUrl(url); }}
+              onToggleCompare={toggleCompare}
+              onSelect={url => handleConfirm(url)}
+            />
           </div>
-        </div>
 
+          {/* Flex spacer so tray+controls stay at bottom */}
+          <div style={{ flex: 1 }} />
+
+          {/* ── Compare Tray (slides up when ≥ 2) ────────────────────── */}
+          <CandidateCompareTray
+            compareUrls={compareUrls}
+            accent={accent}
+            isLocking={locking}
+            onRemove={url => setCompareUrls(prev => prev.filter(u => u !== url))}
+            onSelectOne={url => handleConfirm(url)}
+            onClearAll={() => setCompareUrls([])}
+          />
+
+          {/* ── Controls (confirm row) ────────────────────────────────── */}
+          <CandidateControls
+            activeUrl={activeUrl}
+            accent={accent}
+            isLocking={locking}
+            candidateIndex={activeIndex}
+            onConfirm={() => handleConfirm()}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-// ── STATE 3: Selected — the main experience ───────────────────────────────────
+// ── STATE 3: Selected — Identity Reveal ──────────────────────────────────────
+//
+// This is the dopamine moment. After candidate lock, the canvas transforms into
+// a premium reveal screen: "Your Digital Human is Ready."
+//
+// Layout (top → bottom):
+//   1. RevealHeader        — success headline + shimmer badge
+//   2. IdentityRevealCard  — portrait + handle + style category + lock badge
+//   3. AssetPackGrid       — 5 pack type cards (foundation first)
+//   4. ActionRow           — 4 CTA buttons
+//   5. PackOutputPanel     — appears below once a pack is triggered
 
 function SelectedState({
   active,
@@ -1049,242 +1009,424 @@ function SelectedState({
   onTriggerPack,
   onSetActivePack,
   packSectionRef,
+  onImageFlow,
+  onVideoFlow,
 }: {
-  active: ActiveInfluencer;
-  accent: string;
-  packOutputs: PackOutput[];
-  activePack: PackType | null;
-  onTriggerPack: (type: PackType) => void;
-  onSetActivePack: (type: PackType) => void;
-  packSectionRef: React.RefObject<HTMLDivElement | null>;
+  active:            ActiveInfluencer;
+  accent:            string;
+  packOutputs:       PackOutput[];
+  activePack:        PackType | null;
+  onTriggerPack:     (type: PackType) => void;
+  onSetActivePack:   (type: PackType) => void;
+  packSectionRef:    React.RefObject<HTMLDivElement | null>;
+  onImageFlow:       () => void;
+  onVideoFlow:       () => void;
 }) {
+  const [mounted,       setMounted]       = useState(false);
+  const [savingId,      setSavingId]      = useState(false);
+  const [savedId,       setSavedId]       = useState(false);
+
   const activeOutput = packOutputs.find(p => p.type === activePack) ?? null;
   const activeDef    = activePack ? PACK_ACTIONS.find(p => p.type === activePack) ?? null : null;
 
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function handleSaveIdentity() {
+    if (savingId || savedId) return;
+    setSavingId(true);
+    try {
+      const authHeader = await getAuthHeader();
+      await fetch(
+        `/api/character/ai-influencers/${active.influencer.id}/save-identity`,
+        { method: "POST", headers: { "Content-Type": "application/json", ...authHeader } },
+      );
+      setSavedId(true);
+    } catch { /* silent */ }
+    finally { setSavingId(false); }
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
+    <div style={{
+      display: "flex", flexDirection: "column",
+      opacity:   mounted ? 1 : 0,
+      transform: mounted ? "translateY(0)" : "translateY(20px)",
+      transition: "opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1)",
+    }}>
 
-      {/* ── Hero image — dominant ────────────────────────────────────── */}
-      <HeroSection active={active} accent={accent} />
+      {/* ── 1. Reveal header ─────────────────────────────────────────────── */}
+      <RevealHeader accent={accent} />
 
-      {/* ── Cinematic pack dock ──────────────────────────────────────── */}
-      <PackDock
+      {/* ── 2. Identity card ─────────────────────────────────────────────── */}
+      <IdentityRevealCard active={active} accent={accent} />
+
+      {/* ── 3. Asset pack grid ───────────────────────────────────────────── */}
+      <AssetPackGrid
         packOutputs={packOutputs}
         activePack={activePack}
         onTrigger={onTriggerPack}
         onSelect={onSetActivePack}
       />
 
-      {/* ── Single output panel — one pack at a time ─────────────────── */}
+      {/* ── 4. Action row ─────────────────────────────────────────────────── */}
+      <IdentityActionRow
+        accent={accent}
+        savingId={savingId}
+        savedId={savedId}
+        onImageFlow={onImageFlow}
+        onVideoFlow={onVideoFlow}
+        onCreatePack={() => onTriggerPack("identity-sheet")}
+        onSaveIdentity={handleSaveIdentity}
+      />
+
+      {/* ── 5. Pack output (renders below once a pack triggers) ───────────── */}
       <div ref={packSectionRef}>
         {activePack && activeDef && (
           <div key={activePack}>
-            <PackOutputPanel
-              output={activeOutput}
-              packDef={activeDef}
-            />
+            <PackOutputPanel output={activeOutput} packDef={activeDef} />
           </div>
         )}
       </div>
-
-      {/* ── Save Identity CTA ─────────────────────────────────────────── */}
-      {packOutputs.some(p => p.status === "complete") && (
-        <SaveIdentityBar influencer_id={active.influencer.id} />
-      )}
     </div>
   );
 }
 
-// ── Hero section ───────────────────────────────────────────────────────────────
+// ── Reveal Header ─────────────────────────────────────────────────────────────
+// "Your Digital Human is Ready" — the dopamine headline.
 
-function HeroSection({ active, accent }: { active: ActiveInfluencer; accent: string }) {
+function RevealHeader({ accent }: { accent: string }) {
+  return (
+    <div style={{
+      padding: "40px 32px 0",
+      textAlign: "center",
+      position: "relative",
+    }}>
+      <style>{`
+        @keyframes revealShimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position:  200% center; }
+        }
+        @keyframes revealGlow {
+          0%, 100% { opacity: 0.5; transform: scale(0.98); }
+          50%       { opacity: 1;   transform: scale(1.01); }
+        }
+        @keyframes packGenerating {
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 1;   }
+        }
+      `}</style>
+
+      {/* Ambient radial glow behind text */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `radial-gradient(ellipse at 50% 0%, ${accent}18 0%, transparent 55%)`,
+        animation: "revealGlow 4s ease-in-out infinite",
+      }} aria-hidden="true" />
+
+      {/* Badge chip */}
+      <div style={{
+        display: "inline-flex", alignItems: "center", gap: 7,
+        padding: "6px 14px",
+        background: "rgba(16,185,129,0.08)",
+        border: "1px solid rgba(16,185,129,0.24)",
+        marginBottom: 16,
+        position: "relative",
+      }}>
+        <div style={{
+          width: 6, height: 6, borderRadius: "50%",
+          background: "#10b981",
+          boxShadow: "0 0 8px #10b981, 0 0 16px rgba(16,185,129,0.4)",
+          flexShrink: 0,
+        }} />
+        {/* UI Label: 11px / 700 / 0.14em */}
+        <span style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+          color: "#10b981", textTransform: "uppercase" as const,
+        }}>
+          Identity Locked
+        </span>
+      </div>
+
+      {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
+      <h2
+        className="font-display tracking-tight"
+        style={{
+          margin: "0 0 10px",
+          fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
+          fontSize: "clamp(2rem, 4vw, 3rem)",
+          fontWeight: 800,
+          lineHeight: 0.95,
+          letterSpacing: "-0.04em",
+          textShadow: "0 0 14px rgba(255,255,255,0.08)",
+          /* Shimmer gradient text — must stay inline (dynamic accent color) */
+          background: `linear-gradient(110deg,
+            rgba(255,255,255,0.70) 0%,
+            rgba(255,255,255,1.00) 40%,
+            ${accent} 55%,
+            rgba(255,255,255,0.80) 70%,
+            rgba(255,255,255,0.60) 100%
+          )`,
+          backgroundSize: "200% auto",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+          animation: "revealShimmer 3.5s linear infinite",
+          position: "relative",
+        }}
+      >
+        Your Digital Human is Ready
+      </h2>
+
+      {/* Sub-line */}
+      <p style={{
+        margin: 0,
+        fontSize: 14, fontWeight: 400, lineHeight: 1.6,
+        color: "rgba(255,255,255,0.44)",
+        maxWidth: 420, marginInline: "auto",
+      }}>
+        Your identity is locked across every studio. Generate packs, animate, or go live.
+      </p>
+    </div>
+  );
+}
+
+// ── Identity Reveal Card ──────────────────────────────────────────────────────
+// Portrait + @handle + style category chip + lock badge.
+
+function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; accent: string }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  const categoryLabel = active.influencer.style_category
+    ? active.influencer.style_category.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+    : "Hyper-Real";
 
   return (
     <div style={{
-      width: "100%",
-      background: `radial-gradient(ellipse at 50% 0%, ${accent}0f 0%, transparent 60%), #07090f`,
       display: "flex", justifyContent: "center",
-      padding: "28px 24px 0",
-      transition: "background 0.4s ease",
+      padding: "32px 24px 24px",
     }}>
+      {/* Card container */}
+      <div style={{
+        position: "relative",
+        maxWidth: 220, width: "100%",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", gap: 14,
+      }}>
 
-      {/* Influencer name above */}
-      <div style={{ textAlign: "center", width: "100%" }}>
+        {/* Portrait */}
         <div style={{
-          fontSize: 11, fontWeight: 900, color: T.ghost,
-          letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 14,
+          width: "100%",
+          aspectRatio: "2/3",
+          overflow: "hidden",
+          background: "rgba(255,255,255,0.03)",
+          border: `1px solid ${accent}30`,
+          boxShadow: `0 0 0 1px rgba(255,255,255,0.05), 0 0 60px ${accent}20, 0 32px 80px rgba(0,0,0,0.60)`,
+          position: "relative",
+          transition: "box-shadow 0.4s ease",
         }}>
-          Identity
+          {active.hero_url ? (
+            <>
+              {!imgLoaded && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: `radial-gradient(ellipse at 50% 30%, ${accent}18, transparent 60%)`,
+                  animation: "pulse 1.8s ease-in-out infinite",
+                }} />
+              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={active.hero_url}
+                alt={active.influencer.name ?? active.influencer.handle ?? ""}
+                onLoad={() => setImgLoaded(true)}
+                style={{
+                  width: "100%", height: "100%", objectFit: "cover",
+                  display: imgLoaded ? "block" : "none",
+                }}
+              />
+            </>
+          ) : (
+            <div style={{
+              width: "100%", height: "100%",
+              background: `radial-gradient(ellipse at 50% 30%, ${accent}1e, transparent 65%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                stroke="#3d4560" strokeWidth="1.2" strokeLinecap="round">
+                <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
+                <path d="M20 21a8 8 0 1 0-16 0" />
+              </svg>
+            </div>
+          )}
+
+          {/* Subtle bottom vignette over portrait */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            height: "35%",
+            background: "linear-gradient(to top, rgba(7,9,15,0.80) 0%, transparent 100%)",
+            pointerEvents: "none",
+          }} aria-hidden="true" />
         </div>
+
+        {/* Handle — below portrait */}
         <div style={{
-          fontSize: 28, fontWeight: 800, color: T.text,
-          letterSpacing: "-0.02em", marginBottom: 20,
+          fontSize: 20, fontWeight: 800,
+          color: "#ffffff", letterSpacing: "-0.02em",
+          textAlign: "center",
+          textShadow: `0 0 20px ${accent}40`,
         }}>
           {formatHandle(active.influencer.handle)}
         </div>
 
-        {/* Hero image container */}
+        {/* Style category chip */}
         <div style={{
-          display: "inline-block", position: "relative",
-          maxWidth: 260, width: "100%",
+          display: "inline-flex", alignItems: "center", gap: 6,
+          padding: "5px 12px",
+          background: `${accent}12`,
+          border: `1px solid ${accent}35`,
         }}>
           <div style={{
-            aspectRatio: "2/3", borderRadius: 16, overflow: "hidden",
-            background: "rgba(255,255,255,0.03)",
-            border: `1px solid ${accent}20`,
-            boxShadow: `0 0 60px ${accent}14, 0 20px 60px rgba(0,0,0,0.5)`,
-            transition: "border-color 0.4s ease, box-shadow 0.4s ease",
+            width: 5, height: 5, borderRadius: "50%",
+            background: accent, flexShrink: 0,
+          }} />
+          {/* Chip: 11px / 700 / 0.10em */}
+          <span style={{
+            fontSize: 11, fontWeight: 700,
+            letterSpacing: "0.10em",
+            color: accent,
+            textTransform: "uppercase" as const,
           }}>
-            {active.hero_url ? (
-              <>
-                {!imgLoaded && (
-                  <div style={{
-                    width: "100%", height: "100%",
-                    background: `radial-gradient(ellipse at 50% 30%, ${accent}18, transparent 60%)`,
-                    animation: "pulse 1.8s ease-in-out infinite",
-                  }} />
-                )}
-                <img
-                  src={active.hero_url}
-                  alt={active.influencer.name}
-                  onLoad={() => setImgLoaded(true)}
-                  style={{
-                    width: "100%", height: "100%", objectFit: "cover",
-                    display: imgLoaded ? "block" : "none",
-                    transition: "opacity 0.3s ease",
-                  }}
-                />
-              </>
-            ) : (
-              <div style={{
-                width: "100%", height: "100%",
-                background: `radial-gradient(ellipse at 50% 30%, ${accent}1e, transparent 65%)`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-                  stroke="#3d4560" strokeWidth="1.2" strokeLinecap="round">
-                  <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
-                  <path d="M20 21a8 8 0 1 0-16 0" />
-                </svg>
-              </div>
-            )}
-          </div>
+            {categoryLabel}
+          </span>
+        </div>
 
-          {/* Identity locked indicator */}
-          <div style={{
-            position: "absolute", bottom: -12, left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 12px", borderRadius: 20,
-            background: "rgba(16,185,129,0.10)",
-            border: "1px solid rgba(16,185,129,0.22)",
+        {/* Identity lock badge */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "4px 12px",
+          background: "rgba(16,185,129,0.08)",
+          border: "1px solid rgba(16,185,129,0.20)",
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="#10b981" strokeWidth="2.5" strokeLinecap="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+            color: "#10b981", textTransform: "uppercase" as const,
           }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: "#10b981", boxShadow: "0 0 7px #10b981",
-            }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: "#10b981", letterSpacing: "0.08em" }}>
-              Identity Locked
-            </span>
-          </div>
+            Identity Locked
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Cinematic Pack Dock ────────────────────────────────────────────────────────
+// ── Asset Pack Grid ───────────────────────────────────────────────────────────
+// 5 pack type cards in a 2+3 visual grid. Foundation pack is visually dominant.
+// Clicking a ready/completed card triggers or surfaces that pack.
 
-function PackDock({
+function AssetPackGrid({
   packOutputs,
   activePack,
   onTrigger,
   onSelect,
 }: {
   packOutputs: PackOutput[];
-  activePack: PackType | null;
-  onTrigger: (type: PackType) => void;
-  onSelect: (type: PackType) => void;
+  activePack:  PackType | null;
+  onTrigger:   (type: PackType) => void;
+  onSelect:    (type: PackType) => void;
 }) {
+  // Separate foundation (identity-sheet) from the rest
+  const [foundation, ...extras] = PACK_ACTIONS;
+
   return (
-    <div className="pack-dock" style={{
-      padding: "28px 24px 20px",
-      display: "flex", gap: 10,
-      overflowX: "auto",
-    }}>
-      <style>{`
-        .pack-dock::-webkit-scrollbar { display: none; }
-        .pack-dock { scrollbar-width: none; }
-        @keyframes packGenerating {
-          0%, 100% { opacity: 0.55; }
-          50%       { opacity: 1; }
-        }
-      `}</style>
-      {PACK_ACTIONS.map((pack, idx) => {
-        const uiState = getPackUiState(pack.type, packOutputs);
-        const isActive = activePack === pack.type;
-        return (
-          <PackCard
+    <div style={{ padding: "8px 24px 24px" }}>
+      {/* Section label */}
+      <div style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+        color: T.muted, textTransform: "uppercase" as const,
+        marginBottom: 14,
+      }}>
+        Asset Packs
+      </div>
+
+      {/* Foundation card — full width */}
+      <AssetPackCard
+        pack={foundation}
+        idx={0}
+        uiState={getPackUiState(foundation.type, packOutputs)}
+        isActive={activePack === foundation.type}
+        isFoundation
+        onTrigger={onTrigger}
+        onSelect={onSelect}
+      />
+
+      {/* Remaining 4 packs — 2-column grid */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr 1fr",
+        gap: 8, marginTop: 8,
+      }}>
+        {extras.map((pack, i) => (
+          <AssetPackCard
             key={pack.type}
             pack={pack}
-            idx={idx}
-            uiState={uiState}
-            isActive={isActive}
+            idx={i + 1}
+            uiState={getPackUiState(pack.type, packOutputs)}
+            isActive={activePack === pack.type}
+            isFoundation={false}
             onTrigger={onTrigger}
             onSelect={onSelect}
           />
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
 
-function PackCard({
-  pack, idx, uiState, isActive, onTrigger, onSelect,
+function AssetPackCard({
+  pack, idx, uiState, isActive, isFoundation, onTrigger, onSelect,
 }: {
-  pack: typeof PACK_ACTIONS[0];
-  idx: number;
-  uiState: PackUiState;
-  isActive: boolean;
-  onTrigger: (type: PackType) => void;
-  onSelect: (type: PackType) => void;
+  pack:        typeof PACK_ACTIONS[0];
+  idx:         number;
+  uiState:     PackUiState;
+  isActive:    boolean;
+  isFoundation: boolean;
+  onTrigger:   (type: PackType) => void;
+  onSelect:    (type: PackType) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-
-  const isFoundation = idx === 0;
-  const isLocked     = uiState === "locked";
+  const isLocked = uiState === "locked";
 
   function handleClick() {
     if (isLocked) return;
-    if (uiState === "completed") {
-      onSelect(pack.type);
-    } else {
-      onTrigger(pack.type);
-    }
+    if (uiState === "completed") onSelect(pack.type);
+    else onTrigger(pack.type);
   }
 
-  const borderColor = (() => {
-    if (uiState === "completed")                         return `${pack.accent}50`;
-    if (uiState === "generating")                        return `${pack.accent}55`;
-    if (uiState === "ready" && isFoundation)             return "rgba(255,255,255,0.22)";
-    if (uiState === "ready")                             return "rgba(255,255,255,0.14)";
-    return "rgba(255,255,255,0.05)";
+  const stateColor = (() => {
+    if (uiState === "completed")  return pack.accent;
+    if (uiState === "generating") return pack.accent;
+    if (uiState === "ready")      return "rgba(255,255,255,0.55)";
+    return "rgba(255,255,255,0.18)";
   })();
 
-  const bg = (() => {
-    if (uiState === "completed")                         return `${pack.accent}10`;
-    if (uiState === "generating")                        return `${pack.accent}0c`;
-    if (uiState === "ready" && isFoundation)             return "rgba(255,255,255,0.04)";
-    if (uiState === "ready")                             return "rgba(255,255,255,0.025)";
-    return "rgba(255,255,255,0.01)";
+  const cardBg = (() => {
+    if (uiState === "completed")          return `${pack.accent}0e`;
+    if (uiState === "generating")         return `${pack.accent}0a`;
+    if (uiState === "ready" && hovered)   return "rgba(255,255,255,0.04)";
+    return "rgba(255,255,255,0.018)";
   })();
 
-  const activeShadow = (() => {
-    if (isActive && uiState === "completed")             return `0 0 20px ${pack.accent}28`;
-    if (isActive && uiState === "generating")            return `0 0 16px ${pack.accent}22`;
-    if (isActive && uiState === "ready" && isFoundation) return "0 0 24px rgba(255,255,255,0.06)";
-    return "none";
+  const cardBorder = (() => {
+    if (uiState === "completed")          return `1px solid ${pack.accent}45`;
+    if (uiState === "generating")         return `1px solid ${pack.accent}50`;
+    if (uiState === "ready" && hovered)   return "1px solid rgba(255,255,255,0.14)";
+    if (uiState === "ready")              return "1px solid rgba(255,255,255,0.08)";
+    return "1px solid rgba(255,255,255,0.04)";
   })();
 
   return (
@@ -1294,144 +1436,247 @@ function PackCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        flexShrink: 0,
-        width: 160,
-        padding: "14px 14px 12px",
-        borderRadius: 14,
-        border: `1px solid ${isLocked ? "rgba(255,255,255,0.04)" : (hovered || isActive ? borderColor : borderColor)}`,
-        background: isLocked ? "rgba(255,255,255,0.005)" : (hovered && !isActive ? bg : bg),
-        boxShadow: isActive ? activeShadow : "none",
+        display: "flex",
+        flexDirection: isFoundation ? "row" : "column",
+        alignItems: isFoundation ? "center" : "flex-start",
+        gap: isFoundation ? 14 : 6,
+        padding: isFoundation ? "16px 18px" : "14px 14px",
+        background: cardBg,
+        border: cardBorder,
         cursor: isLocked ? "not-allowed" : "pointer",
-        opacity: isLocked ? 0.35 : 1,
+        opacity: isLocked ? 0.38 : 1,
         textAlign: "left",
-        transition: "all 0.2s ease",
-        display: "flex", flexDirection: "column", gap: 8,
-        animation: uiState === "generating" ? "packGenerating 1.6s ease-in-out infinite" : "none",
         outline: "none",
+        width: "100%",
+        transition: "all 0.18s ease",
+        animation: uiState === "generating"
+          ? "packGenerating 1.6s ease-in-out infinite"
+          : "none",
+        boxShadow: isActive && uiState !== "locked"
+          ? `0 0 18px ${pack.accent}22`
+          : "none",
+        marginBottom: isFoundation ? 0 : undefined,
       }}
     >
-      {/* Top row: label + state indicator */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+      {/* Accent dot */}
+      <div style={{
+        width: isFoundation ? 10 : 8, height: isFoundation ? 10 : 8,
+        borderRadius: "50%",
+        background: isLocked ? T.ghost : pack.accent,
+        flexShrink: 0,
+        boxShadow: !isLocked
+          ? `0 0 8px ${pack.accent}60`
+          : "none",
+      }} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Pack name */}
         <div style={{
-          fontSize: 12, fontWeight: 700,
-          color: isLocked
-            ? T.ghost
-            : (uiState === "completed" || uiState === "generating") ? pack.accent : T.text,
-          lineHeight: 1.25,
+          fontSize: isFoundation ? 14 : 12,
+          fontWeight: 700,
           letterSpacing: "-0.01em",
+          color: isLocked ? T.ghost : stateColor,
+          lineHeight: 1.2,
+          display: "flex", alignItems: "center", gap: 6,
         }}>
           {pack.label}
           {isFoundation && (
-            <div style={{
-              fontSize: 9, fontWeight: 700, color: T.ghost,
-              letterSpacing: "0.1em", textTransform: "uppercase",
-              marginTop: 2,
+            <span style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.10em",
+              color: T.ghost, textTransform: "uppercase" as const,
+              padding: "2px 6px",
+              border: "1px solid rgba(255,255,255,0.10)",
             }}>
               Foundation
-            </div>
+            </span>
           )}
         </div>
-        <PackStateIndicator uiState={uiState} accent={pack.accent} />
+
+        {/* Descriptor */}
+        <div style={{
+          fontSize: 11, lineHeight: 1.45,
+          color: isLocked ? "rgba(255,255,255,0.18)" : T.ghost,
+          marginTop: 3,
+          whiteSpace: isFoundation ? undefined : "nowrap",
+          overflow: isFoundation ? undefined : "hidden",
+          textOverflow: isFoundation ? undefined : "ellipsis",
+        }}>
+          {pack.descriptor}
+        </div>
       </div>
 
-      {/* Descriptor */}
+      {/* State indicator — right side */}
       <div style={{
-        fontSize: 10,
-        color: isLocked ? "rgba(255,255,255,0.18)" : T.ghost,
-        lineHeight: 1.5,
-      }}>
-        {pack.descriptor}
-      </div>
-
-      {/* CTA / status line */}
-      <div style={{
+        flexShrink: 0,
         fontSize: 10, fontWeight: 700,
-        color: isLocked
-          ? "rgba(255,255,255,0.14)"
-          : uiState === "completed"
-            ? pack.accent
-            : uiState === "generating"
-              ? `${pack.accent}99`
-              : uiState === "ready"
-                ? "rgba(255,255,255,0.45)"
-                : T.ghost,
-        letterSpacing: "0.04em",
-        marginTop: 2,
+        letterSpacing: "0.06em",
+        color: stateColor,
+        textTransform: "uppercase" as const,
+        textAlign: "right",
+        whiteSpace: "nowrap",
       }}>
-        {uiState === "locked"     && "Unlock previous first"}
-        {uiState === "ready"      && pack.cta}
-        {uiState === "generating" && "Generating…"}
-        {uiState === "completed"  && "✓ View output"}
+        {uiState === "locked"     && "Locked"}
+        {uiState === "ready"      && (isFoundation ? "Start here →" : "Build")}
+        {uiState === "generating" && "…"}
+        {uiState === "completed"  && "✓ Done"}
       </div>
     </button>
   );
 }
 
-function PackStateIndicator({ uiState, accent }: { uiState: PackUiState; accent: string }) {
-  if (uiState === "locked") {
-    return (
-      <div style={{
-        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "transparent",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-          stroke="rgba(255,255,255,0.20)" strokeWidth="2.5" strokeLinecap="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-      </div>
-    );
-  }
-  if (uiState === "ready") {
-    return (
-      <div style={{
-        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
-        border: `1px solid ${accent}40`,
-        background: `${accent}10`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-          stroke={accent} strokeWidth="2.5" strokeLinecap="round">
-          <polyline points="5 12 12 5 19 12" />
-          <line x1="12" y1="5" x2="12" y2="19" />
-        </svg>
-      </div>
-    );
-  }
-  if (uiState === "generating") {
-    return (
-      <div style={{
-        width: 18, height: 18, flexShrink: 0, borderRadius: 5,
-        border: `1px solid ${accent}55`,
-        background: `${accent}12`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <span style={{
-          width: 8, height: 8,
-          border: `1.5px solid ${accent}44`,
-          borderTopColor: accent,
-          borderRadius: "50%",
-          display: "inline-block",
-          animation: "spin 0.8s linear infinite",
-        }} />
-      </div>
-    );
-  }
-  // completed
+// ── Identity Action Row ───────────────────────────────────────────────────────
+// 4 CTA buttons: Use in Image Studio, Use in Video Studio, Create Content Pack, Save Identity.
+
+function IdentityActionRow({
+  accent,
+  savingId,
+  savedId,
+  onImageFlow,
+  onVideoFlow,
+  onCreatePack,
+  onSaveIdentity,
+}: {
+  accent:         string;
+  savingId:       boolean;
+  savedId:        boolean;
+  onImageFlow:    () => void;
+  onVideoFlow:    () => void;
+  onCreatePack:   () => void;
+  onSaveIdentity: () => void;
+}) {
   return (
-    <div style={{
-      width: 18, height: 18, flexShrink: 0, borderRadius: 5,
-      border: `1px solid ${accent}50`,
-      background: `${accent}18`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
-        stroke={accent} strokeWidth="3" strokeLinecap="round">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
+    <div style={{ padding: "0 24px 32px" }}>
+      {/* Section label */}
+      <div style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+        color: T.muted, textTransform: "uppercase" as const,
+        marginBottom: 12,
+      }}>
+        Launch
+      </div>
+
+      {/* Primary — Create Content Pack */}
+      <button
+        onClick={onCreatePack}
+        style={{
+          width: "100%", padding: "14px 20px",
+          background: `linear-gradient(135deg, ${accent}cc, ${accent})`,
+          border: "none", cursor: "pointer", marginBottom: 8,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          boxShadow: `0 4px 24px ${accent}44`,
+          transition: "all 0.2s ease",
+          outline: "none",
+        }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="rgba(0,0,0,0.7)" strokeWidth="2" strokeLinecap="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+          <path d="M9 8l3 3 3-3" />
+        </svg>
+        <span style={{
+          fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em",
+          color: "rgba(0,0,0,0.80)",
+        }}>
+          Create Content Pack
+        </span>
+      </button>
+
+      {/* Secondary row — 2 equal buttons */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <ActionBtn
+          label="Image Studio"
+          icon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          }
+          onClick={onImageFlow}
+        />
+        <ActionBtn
+          label="Video Studio"
+          icon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <polygon points="23 7 16 12 23 17 23 7" />
+              <rect x="1" y="5" width="15" height="14" rx="2" />
+            </svg>
+          }
+          onClick={onVideoFlow}
+        />
+      </div>
+
+      {/* Tertiary — Save Identity */}
+      <button
+        onClick={onSaveIdentity}
+        disabled={savingId || savedId}
+        style={{
+          width: "100%", padding: "11px 20px",
+          background: savedId
+            ? "rgba(16,185,129,0.10)"
+            : "rgba(255,255,255,0.04)",
+          border: savedId
+            ? "1px solid rgba(16,185,129,0.28)"
+            : "1px solid rgba(255,255,255,0.10)",
+          cursor: (savingId || savedId) ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          opacity: savingId ? 0.6 : 1,
+          transition: "all 0.2s ease",
+          outline: "none",
+        }}
+      >
+        {savedId ? (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="#10b981" strokeWidth="2.5" strokeLinecap="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(255,255,255,0.45)" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+        )}
+        <span style={{
+          fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+          color: savedId ? "#10b981" : "rgba(255,255,255,0.40)",
+        }}>
+          {savedId ? "Identity Saved" : savingId ? "Saving…" : "Save Identity"}
+        </span>
+      </button>
     </div>
+  );
+}
+
+function ActionBtn({
+  label, icon, onClick,
+}: { label: string; icon: React.ReactNode; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: "11px 12px",
+        background: hovered ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        color: hovered ? T.text : "rgba(255,255,255,0.55)",
+        transition: "all 0.18s ease",
+        outline: "none",
+      }}
+    >
+      {icon}
+      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.01em" }}>
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -1598,8 +1843,10 @@ function SaveIdentityBar({ influencer_id }: { influencer_id: string }) {
   async function handleSave() {
     setSaving(true);
     try {
+      const authHeader = await getAuthHeader();
       await fetch(`/api/character/ai-influencers/${influencer_id}/save-identity`, {
-        method: "POST", credentials: "include",
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
       });
       setSaved(true);
     } catch { /* silent */ }
@@ -1894,7 +2141,10 @@ async function pollJobForUrl(jobId: string, maxMs = 300_000): Promise<string | n
   const start = Date.now();
   while (Date.now() - start < maxMs) {
     try {
-      const res = await fetch(`/api/studio/jobs/${jobId}/status`, { credentials: "include" });
+      const authHeader = await getAuthHeader();
+      const res = await fetch(`/api/studio/jobs/${jobId}/status`, {
+        headers: { ...authHeader },
+      });
       if (!res.ok) return null;
       const data = await res.json();
       const job = data.data?.job ?? data.job;

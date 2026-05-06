@@ -18,6 +18,7 @@ import { useState, useRef, useCallback, useEffect, useId, useMemo } from "react"
 import type { FrameMode, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
+import { downloadAsset } from "@/lib/client/downloadAsset";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -158,9 +159,12 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
   const processFile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const preview = e.target?.result as string;
-      onUpload({ url: URL.createObjectURL(file), preview, name: file.name });
-      onFileRaw?.(file, preview);
+      // Use the data URL for both url and preview — blob: URLs are browser-memory-only
+      // and cannot be resolved server-side. The data URL (data:image/...;base64,...) is
+      // transport-safe and gets normalized to raw base64 by normalizeKlingImageInput().
+      const dataUrl = e.target?.result as string;
+      onUpload({ url: dataUrl, preview: dataUrl, name: file.name });
+      onFileRaw?.(file, dataUrl);
     };
     reader.readAsDataURL(file);
   }, [onUpload, onFileRaw]);
@@ -191,9 +195,10 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: fillParent ? 1 : undefined, height: fillParent ? "100%" : undefined }}>
+      {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
       <div style={{
-        fontSize: 13, fontWeight: 700, color: T.textMuted,
-        letterSpacing: "0.07em", textTransform: "uppercase", textAlign: "center",
+        fontSize: 13, fontWeight: 600, color: T.textMuted,
+        letterSpacing: "0.14em", textTransform: "uppercase", textAlign: "center",
       }}>
         {label}
       </div>
@@ -262,7 +267,8 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <div style={{ fontSize: 14, color: T.textMuted, textAlign: "center", lineHeight: 1.5, padding: "0 12px" }}>
+            {/* Chip: 13px / medium 500 / tracking -0.005em */}
+            <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: T.textMuted, textAlign: "center", lineHeight: 1.5, padding: "0 12px" }}>
               {hint || "Drop image or click to upload"}
             </div>
           </div>
@@ -273,7 +279,8 @@ function UploadZone({ slot, label, aspectRatio, onUpload, hint, onFileRaw, fillP
             background: "rgba(14,165,160,0.12)",
             border: "1px solid rgba(34,211,238,0.2)",
             borderRadius: 4, padding: "1px 6px",
-            fontSize: 10, fontWeight: 700, color: "#22D3EE", letterSpacing: "0.05em",
+            /* Micro: 11px / semibold 600 / tracking 0.12em (was 10px — below system minimum) */
+            fontSize: 11, fontWeight: 600, color: "#22D3EE", letterSpacing: "0.12em",
           }}>
             {aspectRatio}
           </div>
@@ -322,7 +329,8 @@ function VideoUploadZone({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0, flex: fillParent ? undefined : 1, height: fillParent ? "100%" : undefined }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: T.textMuted, letterSpacing: "0.07em", textTransform: "uppercase", textAlign: "center" }}>
+      {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
+      <div style={{ fontSize: 13, fontWeight: 600, color: T.textMuted, letterSpacing: "0.14em", textTransform: "uppercase", textAlign: "center" }}>
         {label}
       </div>
       <div
@@ -405,7 +413,8 @@ function VideoUploadZone({
               stroke="rgba(100,116,139,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="18" rx="3"/><path d="M9 8l7 4-7 4V8z"/>
             </svg>
-            <div style={{ fontSize: 14, color: T.textMuted, textAlign: "center", lineHeight: 1.5 }}>
+            {/* Chip: 13px / medium 500 / tracking -0.005em */}
+            <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: T.textMuted, textAlign: "center", lineHeight: 1.5 }}>
               Drop video (3–{maxDuration}s)
             </div>
           </div>
@@ -418,7 +427,8 @@ function VideoUploadZone({
         <div style={{ fontSize: 13, color: T.danger, textAlign: "center" }}>{error}</div>
       )}
       {videoName && !error && (
-        <div style={{ fontSize: 12, color: T.textFaint, textAlign: "center",
+        /* Micro: 11px / semibold 600 / tracking 0.12em — filename metadata */
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: T.textFaint, textAlign: "center",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {videoName}
         </div>
@@ -500,7 +510,8 @@ function AudioPlayer({ audio, onRemove }: { audio: AudioSlot; onRemove: () => vo
           }
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: T.textSec, fontWeight: 600,
+          {/* Chip: 13px / semibold 600 / tracking -0.005em */}
+          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", color: T.textSec,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>
             {audio.name ?? "audio file"}
           </div>
@@ -631,7 +642,8 @@ function AudioUploadZone({
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
           <line x1="12" y1="19" x2="12" y2="22"/>
         </svg>
-        <div style={{ fontSize: 15, color: T.textSec, textAlign: "center", lineHeight: 1.5 }}>
+        {/* Chip: 13px / medium 500 / tracking -0.005em */}
+        <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: T.textSec, textAlign: "center", lineHeight: 1.5 }}>
           Drop audio or click to upload
         </div>
         <div style={{ fontSize: 13, color: T.textFaint }}>
@@ -719,14 +731,16 @@ function GeneratingOverlay() {
 
       {/* Stage-aware label */}
       <div style={{ textAlign: "center", minHeight: 44 }}>
+        {/* Studio Title: 30px / bold 700 / tracking -0.02em — note: font-display (Syne) omitted per inline-style hard rule; apply via className when refactored */}
         <div key={stage.label} style={{
-          fontSize: 17, fontWeight: 700, color: T.textPrimary,
-          marginBottom: 5, letterSpacing: "-0.01em",
+          fontSize: 30, fontWeight: 700, color: T.textPrimary,
+          marginBottom: 5, letterSpacing: "-0.02em",
           transition: "opacity 0.4s ease",
         }}>
           {stage.label}
         </div>
-        <div style={{ fontSize: 13, color: "#4E6275" }}>
+        {/* Chip: 13px / medium 500 / tracking -0.005em — color #4E6275 is semantic (dim teal) */}
+        <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#4E6275" }}>
           {stage.sub}
         </div>
       </div>
@@ -895,14 +909,7 @@ function CanvasVideoPreview({
 
   const handleDownload = () => {
     if (!video.url) return;
-    try {
-      const a = document.createElement("a");
-      a.href = video.url;
-      a.download = `zencra-${video.id}.mp4`;
-      a.click();
-    } catch {
-      window.open(video.url, "_blank");
-    }
+    downloadAsset(video.url, `zencra-${video.id}.mp4`);
     onDownload?.();
   };
 
@@ -1013,15 +1020,19 @@ function CanvasVideoPreview({
               </div>
 
               <div>
-                <div key={stage.label} style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary, marginBottom: 6, letterSpacing: "-0.01em" }}>
+                {/* Studio Title: 30px / bold 700 / tracking -0.02em */}
+                <div key={stage.label} style={{ fontSize: 30, fontWeight: 700, color: T.textPrimary, marginBottom: 6, letterSpacing: "-0.02em" }}>
                   {stage.label}
                 </div>
-                <div style={{ fontSize: 13, color: "#4E6275" }}>{stage.sub}</div>
+                {/* Chip: 13px / medium 500 / tracking -0.005em — color semantic */}
+                <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#4E6275" }}>{stage.sub}</div>
               </div>
 
               {video.prompt && (
+                // Chip: 13px / medium 500 / tracking -0.005em — color #3A4F62 is semantic
                 <div style={{
-                  maxWidth: 340, fontSize: 12, color: "#3A4F62", lineHeight: 1.6, fontStyle: "italic",
+                  maxWidth: 340, fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em",
+                  color: "#3A4F62", lineHeight: 1.6, fontStyle: "italic",
                   display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
                 }}>
                   &ldquo;{video.prompt}&rdquo;
@@ -1046,7 +1057,8 @@ function CanvasVideoPreview({
                   style={{
                     padding: "6px 18px", borderRadius: 20,
                     background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)",
-                    color: "#F87171", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    /* Chip: 13px / semibold 600 / tracking -0.005em — color #F87171 is semantic (error red) */
+                    color: "#F87171", fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em", cursor: "pointer",
                     transition: "background 0.15s",
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.22)"; }}
@@ -1082,7 +1094,8 @@ function CanvasVideoPreview({
               position: "absolute", top: 12, left: 12,
               padding: "3px 10px", borderRadius: 5,
               background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.22)",
-              fontSize: 10, fontWeight: 800, color: "#34D399", letterSpacing: "0.06em",
+              /* Micro: 11px / semibold 600 / tracking 0.12em (was 10px — below system minimum) */
+              fontSize: 11, fontWeight: 600, color: "#34D399", letterSpacing: "0.12em",
               pointerEvents: "none",
             }}>
               READY
@@ -1100,7 +1113,8 @@ function CanvasVideoPreview({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {video.prompt && (
                     <div style={{
-                      fontSize: 12, color: "#64748B", lineHeight: 1.55, marginBottom: 5,
+                      /* Chip: 13px / medium 500 / tracking -0.005em — color #64748B is semantic */
+                      fontSize: 13, fontWeight: 500, letterSpacing: "-0.005em", color: "#64748B", lineHeight: 1.55, marginBottom: 5,
                       display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
                     }}>
                       {video.prompt}
@@ -1206,9 +1220,10 @@ function CanvasVideoPreview({
                         style={{
                           height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
                           background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                          color: "#94A3B8", fontSize: 10, fontWeight: 600, cursor: "pointer",
+                          /* Micro: 11px / semibold 600 / tracking 0.12em (was 10px — below system minimum) */
+                          color: "#94A3B8", fontSize: 11, fontWeight: 600, cursor: "pointer",
                           display: "flex", alignItems: "center", gap: 4,
-                          letterSpacing: "0.02em", whiteSpace: "nowrap",
+                          letterSpacing: "0.12em", whiteSpace: "nowrap",
                           transition: "background 0.15s, color 0.15s",
                         }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; (e.currentTarget as HTMLElement).style.color = "#E2E8F0"; }}
@@ -1227,8 +1242,9 @@ function CanvasVideoPreview({
                         style={{
                           height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
                           background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.2)",
-                          color: "#22D3EE", fontSize: 10, fontWeight: 700, cursor: "pointer",
-                          letterSpacing: "0.03em", whiteSpace: "nowrap",
+                          /* Micro: 11px / semibold 600 / tracking 0.12em — color #22D3EE is semantic (teal) */
+                          color: "#22D3EE", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                          letterSpacing: "0.12em", whiteSpace: "nowrap",
                           transition: "background 0.15s",
                         }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(34,211,238,0.18)"; }}
@@ -1246,8 +1262,9 @@ function CanvasVideoPreview({
                         style={{
                           height: 26, padding: "0 8px", borderRadius: 4, flexShrink: 0,
                           background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)",
-                          color: "#A78BFA", fontSize: 10, fontWeight: 700, cursor: "pointer",
-                          letterSpacing: "0.03em", whiteSpace: "nowrap",
+                          /* Micro: 11px / semibold 600 / tracking 0.12em — color #A78BFA is semantic (purple) */
+                          color: "#A78BFA", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                          letterSpacing: "0.12em", whiteSpace: "nowrap",
                           transition: "background 0.15s",
                         }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(139,92,246,0.18)"; }}
@@ -1409,29 +1426,43 @@ export function MotionFlowStrip({ frameMode, endFrameEnabled, hasStartSlot, hasE
 
 // ── Extend instructions ───────────────────────────────────────────────────────
 
+// NOTE: Extend Video is currently disabled for all active Zencra Kling models.
+// The Kling /v1/videos/video-extend endpoint only supports V1.0 / V1.5 / V1.6 source videos.
+// Kling 2.5, 2.6, 3.0, and 3.0 Omni are NOT compatible source models.
+// This component is kept as a safe fallback; it should not be reachable under normal use
+// since extendVideo: false hides the mode in VideoLeftRail for all current models.
 function ExtendInstructions() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
       justifyContent: "center", gap: 16, padding: "32px 24px", textAlign: "center" }}>
       <div style={{
         width: 60, height: 60, borderRadius: 16,
-        border: "1px solid rgba(34,211,238,0.2)", background: "rgba(14,165,160,0.06)",
+        border: "1px solid rgba(100,116,139,0.25)", background: "rgba(100,116,139,0.06)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-          stroke="#22D3EE" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          stroke="#64748B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="6" width="10" height="12" rx="2"/>
           <path d="M14 12h8"/><path d="M18 9l3 3-3 3"/>
         </svg>
       </div>
       <div>
-        <div style={{ fontSize: 17, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>
-          Extend a Video
+        {/* Studio Title: 30px / bold 700 / tracking -0.02em */}
+        <div style={{ fontSize: 30, fontWeight: 700, color: T.textPrimary, marginBottom: 8, letterSpacing: "-0.02em" }}>
+          Extend Video
         </div>
-        <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65, maxWidth: 260 }}>
-          Generate a video first, then click{" "}
-          <span style={{ color: "#22D3EE", fontWeight: 600 }}>Extend</span>
-          {" "}on any result card to continue the scene seamlessly.
+        {/* Body: 16px / leading 1.65 — color T.textMuted is semantic */}
+        <div style={{ fontSize: 16, color: T.textMuted, lineHeight: 1.65, maxWidth: 280 }}>
+          Video extension is not available for the current model.
+        </div>
+        <div style={{
+          marginTop: 14, display: "inline-block",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+          color: "#475569", background: "rgba(71,85,105,0.10)",
+          border: "1px solid rgba(71,85,105,0.20)",
+          borderRadius: 6, padding: "4px 10px",
+        }}>
+          Coming Soon
         </div>
       </div>
     </div>
@@ -1548,9 +1579,12 @@ export default function VideoCanvas({
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = ev => {
-                  const previewUrl = ev.target?.result as string;
-                  onStartSlot({ url: URL.createObjectURL(file), preview: previewUrl, name: file.name });
-                  onMascotUpload?.(file, previewUrl);
+                  // Use data URL for url — blob: URLs are browser-memory-only and
+                  // cannot be resolved server-side. normalizeKlingImageInput() strips
+                  // the data: prefix on the backend before sending to Kling.
+                  const dataUrl = ev.target?.result as string;
+                  onStartSlot({ url: dataUrl, preview: dataUrl, name: file.name });
+                  onMascotUpload?.(file, dataUrl);
                 };
                 reader.readAsDataURL(file);
                 // reset so the same file can be re-picked

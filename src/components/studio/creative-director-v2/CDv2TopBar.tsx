@@ -1,0 +1,538 @@
+"use client";
+
+/**
+ * CDv2TopBar — 64px premium sub-header for Creative Director v2.
+ *
+ * Layout:
+ *   [← Studio]  [Scene name]   [  Explore ●● Locked  ]   [Director]  [⤢ Fullscreen]
+ *
+ * Mode switch: sliding 3D pill highlight with CSS left: transition.
+ * Director button: 48px, cinematic glow on active.
+ * Fullscreen: cinema frame icon — toggles position:fixed layout.
+ */
+
+import { useState, useCallback } from "react";
+import { useDirectionStore }      from "@/lib/creative-director/store";
+import { supabase }               from "@/lib/supabase";
+import type { DirectionMode }     from "@/lib/creative-director/types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CDv2TopBarProps {
+  onExitDirectorMode?:    () => void;
+  isFullscreen:           boolean;
+  onToggleFullscreen:     () => void;
+  saveStatus?:            "idle" | "unsaved" | "saving" | "saved" | "failed";
+  onSaveNow?:             () => void;
+  // Scene Actions — wired from CDv2Shell, rendered in the top center bar
+  onEnhanceScene?:        () => void;
+  onAutoBuild?:           () => void;
+  onDirectScene?:         () => void;
+  onAutoAlign?:           () => void;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SaveStatusPill — inline save-state indicator
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SaveStatus = "idle" | "unsaved" | "saving" | "saved" | "failed";
+
+const SAVE_STATUS_CONFIG: Record<
+  Exclude<SaveStatus, "idle">,
+  { label: string; color: string; bg: string; border: string; icon: string }
+> = {
+  unsaved: {
+    label:  "Unsaved",
+    color:  "rgba(255,255,255,0.35)",
+    bg:     "rgba(255,255,255,0.04)",
+    border: "rgba(255,255,255,0.09)",
+    icon:   "●",
+  },
+  saving: {
+    label:  "Saving…",
+    color:  "rgba(139,92,246,0.8)",
+    bg:     "rgba(139,92,246,0.06)",
+    border: "rgba(139,92,246,0.18)",
+    icon:   "◌",
+  },
+  saved: {
+    label:  "Saved",
+    color:  "rgba(52,211,153,0.85)",
+    bg:     "rgba(52,211,153,0.06)",
+    border: "rgba(52,211,153,0.18)",
+    icon:   "✓",
+  },
+  failed: {
+    label:  "Save failed",
+    color:  "rgba(248,113,113,0.9)",
+    bg:     "rgba(248,113,113,0.07)",
+    border: "rgba(248,113,113,0.2)",
+    icon:   "✕",
+  },
+};
+
+function SaveStatusPill({
+  status,
+  onSaveNow,
+}: {
+  status:     Exclude<SaveStatus, "idle">;
+  onSaveNow?: () => void;
+}) {
+  const cfg          = SAVE_STATUS_CONFIG[status];
+  const isClickable  = status === "unsaved" || status === "failed";
+  const [hover, setHover] = useState(false);
+
+  return (
+    <button
+      onClick={isClickable ? onSaveNow : undefined}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      title={isClickable ? "Save now" : undefined}
+      style={{
+        display:      "flex",
+        alignItems:   "center",
+        gap:          5,
+        fontSize:     10,
+        fontFamily:   "var(--font-sans)",
+        color:        cfg.color,
+        background:   hover && isClickable ? "rgba(255,255,255,0.07)" : cfg.bg,
+        border:       `1px solid ${cfg.border}`,
+        borderRadius: 100,
+        padding:      "3px 10px",
+        letterSpacing: "0.04em",
+        flexShrink:   0,
+        cursor:       isClickable ? "pointer" : "default",
+        transition:   "all 0.2s ease",
+        whiteSpace:   "nowrap",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 8,
+          animation: status === "saving" ? "cd-spin 1.2s linear infinite" : "none",
+          display: "inline-block",
+        }}
+      >
+        {cfg.icon}
+      </span>
+      {status === "unsaved" && hover ? "Save now" : cfg.label}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function CDv2TopBar({
+  onExitDirectorMode,
+  isFullscreen,
+  onToggleFullscreen,
+  saveStatus = "idle",
+  onSaveNow,
+  onEnhanceScene,
+  onAutoBuild,
+  onDirectScene,
+  onAutoAlign,
+}: CDv2TopBarProps) {
+  const {
+    mode,
+    directionId,
+    directionCreated,
+    sceneIntent,
+    toggleDirectorPanel,
+    directorPanelOpen,
+    setMode,
+  } = useDirectionStore();
+
+  const [backHover, setBackHover]           = useState(false);
+  const [directorHover, setDirectorHover]   = useState(false);
+  const [fsHover, setFsHover]               = useState(false);
+  const [actionHover, setActionHover]       = useState<string | null>(null);
+
+  const handleActionHover = useCallback((key: string | null) => setActionHover(key), []);
+
+  async function handleModeToggle(next: DirectionMode) {
+    if (next === mode) return;
+    setMode(next);
+    if (!directionId || !directionCreated) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      await fetch(`/api/creative-director/directions/${directionId}/lock`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isLocked: next === "locked" }),
+      });
+    } catch { /* silent — store already updated */ }
+  }
+
+  const sceneName = sceneIntent.text.trim() || "Untitled Scene";
+
+  // Pill highlight: left = 2px for explore, 50% for locked
+  const pillLeft = mode === "locked" ? "calc(50% + 2px)" : "2px";
+
+  // ── Scene action config ──────────────────────────────────────────────────
+  const SCENE_ACTIONS = [
+    {
+      key:     "enhance",
+      emoji:   "✨",
+      label:   "Enhance",
+      color:   "rgba(251,191,36,1)",
+      glow:    "rgba(251,191,36,0.18)",
+      border:  "rgba(251,191,36,0.32)",
+      handler: onEnhanceScene,
+    },
+    {
+      key:     "auto-build",
+      emoji:   "⚡",
+      label:   "Auto Build",
+      color:   "rgba(34,197,94,1)",
+      glow:    "rgba(34,197,94,0.16)",
+      border:  "rgba(34,197,94,0.3)",
+      handler: onAutoBuild,
+    },
+    {
+      key:     "direct",
+      emoji:   "🎬",
+      label:   "Direct",
+      color:   "rgba(139,92,246,1)",
+      glow:    "rgba(139,92,246,0.18)",
+      border:  "rgba(139,92,246,0.32)",
+      handler: onDirectScene,
+    },
+    {
+      key:     "align",
+      emoji:   "⊞",
+      label:   "Auto Align",
+      color:   "rgba(99,179,237,1)",
+      glow:    "rgba(99,179,237,0.16)",
+      border:  "rgba(99,179,237,0.3)",
+      handler: onAutoAlign,
+    },
+  ] as const;
+
+  return (
+    <div
+      style={{
+        height:          64,
+        display:         "flex",
+        alignItems:      "center",
+        justifyContent:  "space-between",
+        padding:         "0 20px",
+        borderBottom:    "1px solid rgba(255,255,255,0.07)",
+        background:      "rgba(8,8,11,0.98)",
+        backdropFilter:  "blur(20px)",
+        gap:             16,
+        flexShrink:      0,
+        position:        "relative",
+        zIndex:          50,
+      }}
+    >
+      {/* ── Left: back + breadcrumb ────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: 1 }}>
+        <button
+          onClick={onExitDirectorMode}
+          onMouseEnter={() => setBackHover(true)}
+          onMouseLeave={() => setBackHover(false)}
+          style={{
+            background:   backHover ? "rgba(255,255,255,0.06)" : "transparent",
+            border:       "1px solid",
+            borderColor:  backHover ? "rgba(255,255,255,0.12)" : "transparent",
+            borderRadius: 8,
+            color:        backHover ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.35)",
+            fontSize:     12,
+            cursor:       "pointer",
+            padding:      "6px 12px",
+            display:      "flex",
+            alignItems:   "center",
+            gap:          6,
+            fontFamily:   "var(--font-sans)",
+            whiteSpace:   "nowrap",
+            transition:   "all 0.15s ease",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 11L5 7l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Image Studio
+        </button>
+
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)" }} />
+
+        {/* Scene name */}
+        <span
+          style={{
+            fontSize:     13,
+            fontFamily:   "var(--font-display)",
+            color:        "rgba(255,255,255,0.6)",
+            overflow:     "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace:   "nowrap",
+            maxWidth:     200,
+          }}
+        >
+          {sceneName}
+        </span>
+
+        {/* Animated mode badge */}
+        <span
+          style={{
+            fontSize:      10,
+            fontFamily:    "var(--font-sans)",
+            color:         mode === "locked" ? "rgba(251,191,36,0.85)" : "rgba(139,92,246,0.85)",
+            background:    mode === "locked" ? "rgba(251,191,36,0.08)" : "rgba(139,92,246,0.08)",
+            border:        `1px solid ${mode === "locked" ? "rgba(251,191,36,0.18)" : "rgba(139,92,246,0.18)"}`,
+            borderRadius:  100,
+            padding:       "3px 10px",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            flexShrink:    0,
+            transition:    "all 0.3s ease",
+          }}
+        >
+          {mode === "locked" ? "🔒 Locked" : "◎ Explore"}
+        </span>
+
+        {/* ── Save status indicator ─────────────────────────────────────── */}
+        {saveStatus !== "idle" && (
+          <SaveStatusPill status={saveStatus} onSaveNow={onSaveNow} />
+        )}
+      </div>
+
+      {/* ── Center: Scene Action Pill (absolute — always perfectly centered) ── */}
+      <div
+        style={{
+          position:        "absolute",
+          left:            "50%",
+          top:             "50%",
+          transform:       "translate(-50%, -50%)",
+          display:         "flex",
+          alignItems:      "center",
+          gap:             2,
+          background:      "rgba(255,255,255,0.035)",
+          border:          "1px solid rgba(255,255,255,0.08)",
+          borderRadius:    14,
+          padding:         "4px 4px",
+          backdropFilter:  "blur(12px)",
+          pointerEvents:   "auto",
+        }}
+      >
+        {SCENE_ACTIONS.map((action, idx) => {
+          const isHov = actionHover === action.key;
+          return (
+            <button
+              key={action.key}
+              onClick={action.handler}
+              onMouseEnter={() => handleActionHover(action.key)}
+              onMouseLeave={() => handleActionHover(null)}
+              disabled={!action.handler}
+              title={action.label}
+              style={{
+                display:       "flex",
+                alignItems:    "center",
+                gap:           6,
+                background:    isHov ? action.glow : "transparent",
+                border:        `1px solid ${isHov ? action.border : "transparent"}`,
+                borderRadius:  10,
+                color:         isHov ? action.color : "rgba(255,255,255,0.45)",
+                fontSize:      12,
+                fontFamily:    "var(--font-sans)",
+                fontWeight:    isHov ? 600 : 400,
+                letterSpacing: "0.02em",
+                padding:       "6px 12px",
+                height:        36,
+                cursor:        action.handler ? "pointer" : "not-allowed",
+                opacity:       action.handler ? 1 : 0.35,
+                transition:    "all 0.16s ease",
+                whiteSpace:    "nowrap",
+                boxShadow:     isHov ? `0 0 12px ${action.glow}` : "none",
+                // Separator between buttons (thin divider after each except last)
+                borderRight:   idx < SCENE_ACTIONS.length - 1 && !isHov
+                  ? "1px solid rgba(255,255,255,0.06)"
+                  : "1px solid transparent",
+              }}
+            >
+              <span style={{ fontSize: 14, lineHeight: 1 }}>{action.emoji}</span>
+              <span>{action.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Right: mode pill + Director + Fullscreen ───────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+
+        {/* 3D pill mode switch */}
+        <div
+          style={{
+            position:      "relative",
+            display:       "flex",
+            alignItems:    "center",
+            background:    "rgba(255,255,255,0.04)",
+            border:        "1px solid rgba(255,255,255,0.09)",
+            borderRadius:  12,
+            padding:       2,
+            flexShrink:    0,
+            width:         190,
+            height:        40,
+          }}
+        >
+          {/* Sliding highlight */}
+          <div
+            style={{
+              position:     "absolute",
+              top:          2,
+              left:         pillLeft,
+              width:        "calc(50% - 4px)",
+              height:       "calc(100% - 4px)",
+              borderRadius: 9,
+              background:   mode === "locked"
+                ? "linear-gradient(135deg, rgba(251,191,36,0.18) 0%, rgba(245,158,11,0.12) 100%)"
+                : "linear-gradient(135deg, rgba(139,92,246,0.18) 0%, rgba(109,40,217,0.12) 100%)",
+              border:       `1px solid ${mode === "locked" ? "rgba(251,191,36,0.25)" : "rgba(139,92,246,0.25)"}`,
+              boxShadow:    mode === "locked"
+                ? "0 0 12px rgba(251,191,36,0.15)"
+                : "0 0 12px rgba(139,92,246,0.15)",
+              transition:   "left 0.25s cubic-bezier(0.16,1,0.3,1), background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* Explore button */}
+          <button
+            onClick={() => void handleModeToggle("explore")}
+            style={{
+              flex:         1,
+              background:   "transparent",
+              border:       "none",
+              borderRadius: 9,
+              color:        mode === "explore" ? "rgba(139,92,246,1)" : "rgba(255,255,255,0.35)",
+              fontSize:     12,
+              fontFamily:   "var(--font-sans)",
+              fontWeight:   mode === "explore" ? 600 : 400,
+              cursor:       "pointer",
+              height:       "100%",
+              letterSpacing: "0.03em",
+              transition:   "color 0.25s ease",
+              position:     "relative",
+              zIndex:       1,
+            }}
+          >
+            Explore
+          </button>
+
+          {/* Locked button */}
+          <button
+            onClick={() => void handleModeToggle("locked")}
+            style={{
+              flex:         1,
+              background:   "transparent",
+              border:       "none",
+              borderRadius: 9,
+              color:        mode === "locked" ? "rgba(251,191,36,1)" : "rgba(255,255,255,0.35)",
+              fontSize:     12,
+              fontFamily:   "var(--font-sans)",
+              fontWeight:   mode === "locked" ? 600 : 400,
+              cursor:       "pointer",
+              height:       "100%",
+              display:      "flex",
+              alignItems:   "center",
+              justifyContent: "center",
+              gap:          5,
+              letterSpacing: "0.03em",
+              transition:   "color 0.25s ease",
+              position:     "relative",
+              zIndex:       1,
+            }}
+          >
+            {mode === "locked" && <span style={{ fontSize: 11 }}>🔒</span>}
+            Locked
+          </button>
+        </div>
+
+        <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
+
+        {/* Director Panel toggle */}
+        <button
+          onClick={toggleDirectorPanel}
+          onMouseEnter={() => setDirectorHover(true)}
+          onMouseLeave={() => setDirectorHover(false)}
+          className="cd-btn-lift"
+          style={{
+            background:   directorPanelOpen
+              ? "rgba(139,92,246,0.15)"
+              : directorHover ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+            border:       `1px solid ${directorPanelOpen ? "rgba(139,92,246,0.35)" : directorHover ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.09)"}`,
+            borderRadius: 10,
+            color:        directorPanelOpen ? "rgba(139,92,246,1)" : directorHover ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.45)",
+            fontSize:     12,
+            fontFamily:   "var(--font-sans)",
+            cursor:       "pointer",
+            padding:      "0 14px",
+            height:       40,
+            display:      "flex",
+            alignItems:   "center",
+            gap:          8,
+            transition:   "all 0.18s ease",
+            letterSpacing: "0.02em",
+            boxShadow:    directorPanelOpen ? "0 0 20px rgba(139,92,246,0.2)" : "none",
+          }}
+        >
+          {/* Cine settings icon */}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.42 1.42M11.18 11.18l1.42 1.42M3.4 12.6l1.42-1.42M11.18 4.82l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          Director
+          {directorPanelOpen && (
+            <div
+              style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: "rgba(139,92,246,1)",
+                boxShadow: "0 0 6px rgba(139,92,246,0.8)",
+              }}
+            />
+          )}
+        </button>
+
+        {/* Fullscreen / Cinema Mode button */}
+        <button
+          onClick={onToggleFullscreen}
+          onMouseEnter={() => setFsHover(true)}
+          onMouseLeave={() => setFsHover(false)}
+          title={isFullscreen ? "Exit Cinema Mode" : "Enter Cinema Mode"}
+          className="cd-btn-lift"
+          style={{
+            background:   isFullscreen
+              ? "rgba(251,191,36,0.12)"
+              : fsHover ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+            border:       `1px solid ${isFullscreen ? "rgba(251,191,36,0.3)" : fsHover ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.09)"}`,
+            borderRadius: 10,
+            color:        isFullscreen ? "rgba(251,191,36,0.95)" : fsHover ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.4)",
+            cursor:       "pointer",
+            width:        40,
+            height:       40,
+            display:      "flex",
+            alignItems:   "center",
+            justifyContent: "center",
+            transition:   "all 0.18s ease",
+            boxShadow:    isFullscreen ? "0 0 16px rgba(251,191,36,0.15)" : "none",
+          }}
+        >
+          {isFullscreen ? (
+            /* Minimize icon */
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 6h4V2M6 10H2v4M10 6l4-4M6 10l-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            /* Maximize / cinema icon */
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}

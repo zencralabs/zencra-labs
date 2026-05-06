@@ -86,8 +86,8 @@ const navCategories: Record<string, NavCategory> = {
         right: { type: "soon", title: "Enhance Video", badge: "COMING SOON", desc: "Upscale, denoise, and boost frame rate on any video. Turn 480p footage into cinematic 4K.", bullets: ["Up to 4K upscaling", "Frame interpolation (60fps+)", "AI noise removal", "Colour grade assist"] },
       },
       {
-        icon: Mic, label: "Lip Sync", desc: "Sync voice to video", badge: "SOON", href: "#",
-        right: { type: "soon", title: "Lip Sync", badge: "COMING SOON", desc: "Sync any audio or voice to any video with perfectly matched lip movement. Powered by HeyGen & ElevenLabs.", bullets: ["Any language supported", "Natural mouth physics", "Works on AI & real footage", "Export in 1080p+"] },
+        icon: Mic, label: "Lip Sync", desc: "Sync voice to video", badge: "NEW", href: "/studio/lipsync",
+        right: { type: "soon", title: "Studio Lip Sync", badge: "NEW", desc: "Sync any audio to any video with perfectly matched lip movement. Frame-accurate, multi-language, and built for creators.", bullets: ["Frame-accurate lip sync", "Any language supported", "16:9 · 9:16 · 1:1 aspect ratios", "Pro mode with 1.5× quality boost"] },
       },
       {
         icon: Sparkles, label: "Video to Video", desc: "Style transfer & re-render", badge: "SOON", href: "#",
@@ -162,7 +162,7 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Audio Studio",  href: "/studio/audio", hasDropdown: true,  dropdownKey: "Audio"     },
   { label: "Character",     href: "/studio/character", hasDropdown: true,  dropdownKey: "Character" },
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
-  { label: "Pricing",       href: "/pricing",      hasDropdown: false },
+  { label: "Pricing",       href: "#",             hasDropdown: false },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -480,9 +480,11 @@ function UserDropdown({ user, onLogout }: { user: { name: string; email: string;
 function MobileMenu({
   onClose,
   onAuthModal,
+  onOpenPricing,
 }: {
   onClose: () => void;
   onAuthModal: (mode: "login" | "signup") => void;
+  onOpenPricing?: () => void;
 }) {
   // Which section is expanded (null = top level)
   const [section, setSection]   = useState<DropdownKey | null>(null);
@@ -557,6 +559,18 @@ function MobileMenu({
                       />
                       <span className="flex-1 text-left">{link.label}</span>
                       <ChevronRight size={14} style={{ color: "#475569" }} />
+                    </button>
+                  ) : link.label === "Pricing" ? (
+                    /* Pricing opens the overlay — no navigation */
+                    <button
+                      onClick={() => { onClose(); onOpenPricing?.(); }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", textAlign: "left" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
+                    >
+                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
+                      {link.label}
                     </button>
                   ) : (
                     <Link
@@ -679,17 +693,104 @@ function MobileMenu({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CREDITS PILL — shared style constant
+//
+// Both the loading skeleton and the real authenticated credits pill must
+// render with IDENTICAL outer element type, href, and style so that React
+// hydration never sees a structural mismatch between the SSR output and the
+// first client render (which may already have a cached user from localStorage).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CREDITS_PILL_HREF = "/hub/credits";
+
+const creditsPillStyle: React.CSSProperties = {
+  display:        "flex",
+  alignItems:     "center",
+  gap:            "7px",
+  background:     "rgba(37,99,235,0.1)",
+  border:         "1px solid rgba(37,99,235,0.25)",
+  borderRadius:   "20px",
+  padding:        "7px 15px",
+  fontSize:       "13px",
+  fontWeight:     600,
+  color:          "#60A5FA",
+  textDecoration: "none",
+  transition:     "all 0.2s",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH LOADING SKELETON
+// Shown in the desktop action slot while auth state is resolving.
+// Matches the approximate dimensions of the credits pill + avatar pill so
+// there is no layout shift when the real controls appear.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function NavbarAuthSkeleton() {
+  return (
+    <div className="hidden items-center gap-3 lg:flex">
+      {/* Credits pill skeleton — same href, style, and children SHAPE as the real
+          credits pill so React hydration sees no structural mismatch between the
+          SSR output and the first client render (which may already have a cached
+          user from localStorage via AuthContext's provisional-user initializer). */}
+      <Link href={CREDITS_PILL_HREF} style={creditsPillStyle}>
+        <Zap size={13} />
+        {/* Same span tag + style as the real credits pill.
+            suppressHydrationWarning lets the text differ (placeholder vs real)
+            without React throwing a hydration mismatch error. */}
+        <span
+          suppressHydrationWarning
+          style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
+        >
+          ••••• cr
+        </span>
+      </Link>
+      {/* Avatar + name pill placeholder */}
+      <div
+        style={{
+          width: 116,
+          height: 36,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN NAVBAR
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function Navbar() {
+/**
+ * Routes where the Navbar must not render.
+ * Matches the isolated-route set in FooterConditional — keep both in sync.
+ */
+const NAVBAR_HIDDEN_ROUTES = ["/waitlist"];
+
+export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
   const [scrolled, setScrolled]             = useState(false);
   const [mobileOpen, setMobileOpen]         = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey | null>(null);
   const [authModal, setAuthModal]           = useState<"login" | "signup" | null>(null);
+  // mounted gates all client-only auth UI. On the server (and on the first
+  // client render before hydration) this is false, so we always render the
+  // skeleton. After hydration useEffect flips it true and the real credits
+  // pill appears — eliminating the SSR/client content mismatch that caused
+  // React hydration errors when localStorage held a cached user.
+  const [mounted, setMounted]               = useState(false);
   const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { user, logout } = useAuth();
+  const navRef = useRef<HTMLElement>(null);
+  const { user, loading, logout } = useAuth();
   const pathname = usePathname();
+
+  // ── All hooks must run unconditionally (Rules of Hooks) ──────────────────
+  // The hidden-route early return lives AFTER every hook so that hook count
+  // never varies between renders regardless of current pathname.
+
+  // Flip mounted after hydration — gates auth UI to client-only render.
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -718,7 +819,6 @@ export function Navbar() {
   }, []);
 
   // Close dropdown on click outside
-  const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
@@ -742,6 +842,10 @@ export function Navbar() {
   useEffect(() => {
     setActiveDropdown(null);
   }, [pathname]);
+
+  // Isolated full-screen routes (e.g. /waitlist) must not show the Navbar.
+  // This return is intentionally placed AFTER all hooks.
+  if (NAVBAR_HIDDEN_ROUTES.some(r => pathname.startsWith(r))) return null;
 
   return (
     <>
@@ -809,6 +913,25 @@ export function Navbar() {
                           style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
                         />
                       </button>
+                    ) : link.label === "Pricing" ? (
+                      /* Pricing opens the overlay — no route navigation */
+                      <button
+                        onClick={onOpenPricing}
+                        className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
+                        style={{
+                          padding: "10px 15px",
+                          fontSize: "16px",
+                          letterSpacing: "-0.01em",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#94A3B8",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F8FAFC"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
+                      >
+                        {link.label}
+                      </button>
                     ) : (
                       <Link
                         href={link.href}
@@ -866,84 +989,103 @@ export function Navbar() {
             </ul>
 
             {/* ── Desktop actions ── */}
-            <div className="hidden items-center gap-3 lg:flex">
-              {user ? (
-                <>
-                  {/* Credits pill — scaled up */}
-                  <Link
-                    href={user.role === "admin" ? "/hub/credits" : "/dashboard/credits"}
-                    style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "20px", padding: "7px 15px", fontSize: "13px", fontWeight: 600, color: "#60A5FA", textDecoration: "none", transition: "all 0.2s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+            {/*
+              Rendering priority (after mounted):
+                1. !mounted              →  skeleton (SSR + first client paint — prevents hydration mismatch)
+                2. loading && !user      →  skeleton (auth still resolving, no cached state)
+                3. user                  →  credits pill + FCS badge + avatar dropdown
+                4. !user                 →  Login + Try Free  (only after loading=false)
+
+              The `mounted` gate is the critical fix: AuthContext seeds `user` from
+              localStorage on the client before React hydrates, so without this gate
+              the server renders skeleton and the client renders the real credits pill,
+              producing a hydration mismatch and re-render flicker.
+            */}
+            {!mounted || (loading && !user) ? (
+              <NavbarAuthSkeleton />
+            ) : user ? (
+              <div className="hidden items-center gap-3 lg:flex">
+                {/* Credits pill — uses shared href + style to match the skeleton exactly */}
+                <Link
+                  href={CREDITS_PILL_HREF}
+                  style={creditsPillStyle}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
+                >
+                  <Zap size={13} />
+                  {/* Same span tag + style as the skeleton — suppressHydrationWarning
+                      silences the text-content diff (placeholder vs real credits). */}
+                  <span
+                    style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
                   >
-                    <Zap size={13} />
                     {user.credits} cr
-                  </Link>
-                  {/* FCS Active pill — clickable Link to Cinema Studio */}
-                  {hasFCSAccess(user) && (
-                    <Link
-                      href="/studio/cinema"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "7px 13px",
-                        borderRadius: "20px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        letterSpacing: "0.05em",
-                        textTransform: "uppercase",
-                        color: "#0EA5A0",
-                        background: "rgba(14,165,160,0.12)",
-                        border: "1px solid rgba(14,165,160,0.40)",
-                        boxShadow: "0 0 14px rgba(14,165,160,0.22)",
-                        textDecoration: "none",
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.2)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 22px rgba(14,165,160,0.35)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.12)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 14px rgba(14,165,160,0.22)"; }}
-                    >
-                      <span
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: "50%",
-                          backgroundColor: "#0EA5A0",
-                          boxShadow: "0 0 7px #0EA5A0",
-                          flexShrink: 0,
-                          display: "inline-block",
-                          animation: "fcsPulse 2s ease-in-out infinite",
-                        }}
-                      />
-                      FCS Active
-                      <style>{`@keyframes fcsPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }`}</style>
-                    </Link>
-                  )}
-                  <UserDropdown user={user} onLogout={logout} />
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setAuthModal("login")}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
-                  >
-                    Login
-                  </button>
+                  </span>
+                </Link>
+                {/* FCS Active pill — clickable Link to Cinema Studio */}
+                {hasFCSAccess(user) && (
                   <Link
-                    href="/studio/image"
-                    className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
-                    style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                    href="/studio/cinema"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "7px 13px",
+                      borderRadius: "20px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "#0EA5A0",
+                      background: "rgba(14,165,160,0.12)",
+                      border: "1px solid rgba(14,165,160,0.40)",
+                      boxShadow: "0 0 14px rgba(14,165,160,0.22)",
+                      textDecoration: "none",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.2)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 22px rgba(14,165,160,0.35)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(14,165,160,0.12)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 14px rgba(14,165,160,0.22)"; }}
                   >
-                    <Zap size={15} />
-                    Try Free
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        backgroundColor: "#0EA5A0",
+                        boxShadow: "0 0 7px #0EA5A0",
+                        flexShrink: 0,
+                        display: "inline-block",
+                        animation: "fcsPulse 2s ease-in-out infinite",
+                      }}
+                    />
+                    FCS Active
+                    <style>{`@keyframes fcsPulse { 0%,100%{opacity:1} 50%{opacity:0.65} }`}</style>
                   </Link>
-                </>
-              )}
-            </div>
+                )}
+                <UserDropdown user={user} onLogout={logout} />
+              </div>
+            ) : (
+              /* loading=false && user=null → genuinely signed out */
+              <div className="hidden items-center gap-3 lg:flex">
+                <button
+                  onClick={() => setAuthModal("login")}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                >
+                  Login
+                </button>
+                <Link
+                  href="/studio/image"
+                  className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
+                  style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                >
+                  <Zap size={15} />
+                  Try Free
+                </Link>
+              </div>
+            )}
 
             {/* Mobile toggle */}
             <button
@@ -960,6 +1102,7 @@ export function Navbar() {
             <MobileMenu
               onClose={() => setMobileOpen(false)}
               onAuthModal={(mode) => { setMobileOpen(false); setAuthModal(mode); }}
+              onOpenPricing={onOpenPricing}
             />
           )}
         </div>

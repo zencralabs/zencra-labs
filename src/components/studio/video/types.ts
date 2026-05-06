@@ -55,4 +55,29 @@ export interface GeneratedVideo {
   createdAt: number;
   isPublic: boolean;
   is_favorite?: boolean;
+  // ── Zencra Voice Engine — voiceover pipeline ─────────────────────────────────
+  // Populated after video polling succeeds when audioMode === "voiceover".
+  // voiceoverStatus is undefined until voiceover is triggered.
+  voiceoverScript?: string;
+  voiceoverStatus?: "generating" | "ready" | "error";
+  voiceoverUrl?: string | null;
+  // ── Scene Audio — request tracking + adaptive fallback ──────────────────────
+  // audioMode captures which audio mode was active when this video was created.
+  // sceneAudioFallback is true when sound_generation timed out and the job was
+  // re-dispatched without audio. Together they drive the canvas status badge.
+  audioMode?: "none" | "scene" | "voiceover";
+  sceneAudioFallback?: boolean;
+  // ── Server-side audio detection ──────────────────────────────────────────────
+  // Populated on first terminal poll by the server-side MP4 binary scanner.
+  // true  = audio track confirmed present with samples
+  // false = no audio track or all samples empty (e.g. Kling without Sound Gen pack)
+  // null  = detection inconclusive (parse error, or job not yet mirrored)
+  // undefined = not yet received from server (still polling)
+  audioDetected?: boolean | null;
+  // Derived convenience: the final audio source for gallery badges.
+  // "scene"     = scene audio detected in video
+  // "voiceover" = voiceover pipeline attached
+  // "none"      = audioMode was "none" or detection returned false
+  // "unknown"   = audioDetected is null (inconclusive)
+  audioSource?: "scene" | "voiceover" | "none" | "unknown";
 }

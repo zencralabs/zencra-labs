@@ -112,6 +112,30 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     creditMultiplier:   2,
   },
 
+  {
+    key:            "gpt-image-2",
+    providerBrand:  "OpenAI",
+    displayName:    "GPT Image 2",
+    // apiModelId must match the exact string OpenAI's API accepts.
+    // Override at runtime via GPT_IMAGE_2_MODEL_ID env var once confirmed.
+    apiModelId:     "gpt-image-2",
+    studio:         "image",
+    providerFamily: "openai",
+    description:    "OpenAI's next-generation image model — enhanced quality, richer creative control",
+    phase:          1,
+    status:         "active",
+    badge:          "GPT",
+    badgeColor:     "#10A37F",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "photoreal"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "sync",
+    supportsWebhook: false,
+    supportsPolling: false,
+    estimatedCostRange: "4–10 credits",
+    creditMultiplier:   2,
+  },
+
   // ── Nano Banana ────────────────────────────────────────────────────────────
   // Vendor API: api.nanobananaapi.ai
   // Endpoints:
@@ -199,17 +223,20 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   },
 
   // ── Seedream (via fal.ai) ──────────────────────────────────────────────────
-  // fal.ai endpoints: fal-ai/seedream-3 (v5), fal-ai/seedream-v4-5 (4.5)
+  // fal.ai endpoints:
+  //   fal-ai/seedream       → Seedream v5 text-to-image (primary quality model)
+  //   fal-ai/seedream/edit  → Seedream v5 edit / image-to-image (Lite fast+edit tier)
+  //   fal-ai/seedream/v4.5  → Seedream 4.5 legacy (DB inactive, provider registered for error routing)
   // ByteDance / Dreamina brand — served through fal.ai queue
 
   {
     key:            "seedream-v5",
     providerBrand:  "ByteDance / Dreamina",
     displayName:    "Seedream v5",
-    apiModelId:     "fal-ai/seedream-3",
+    apiModelId:     "fal-ai/seedream",
     studio:         "image",
     providerFamily: "fal",
-    description:    "ByteDance's flagship image model — cinematic, richly detailed",
+    description:    "ByteDance's flagship image model — cinematic, richly detailed text-to-image",
     phase:          1,
     status:         "active",
     badge:          "HOT",
@@ -220,28 +247,51 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     asyncMode:       "polling",
     supportsWebhook: false,
     supportsPolling: true,
-    estimatedCostRange: "3–5 credits",
+    estimatedCostRange: "13–17 credits",
     creditMultiplier:   1.5,
   },
 
   {
+    key:            "seedream-v5-lite",
+    providerBrand:  "ByteDance / Dreamina",
+    displayName:    "Seedream Lite",
+    apiModelId:     "fal-ai/seedream/edit",
+    studio:         "image",
+    providerFamily: "fal",
+    description:    "Seedream v5 edit tier — fast generation and image-to-image editing",
+    phase:          1,
+    status:         "active",
+    badge:          "EDIT",
+    badgeColor:     "#06B6D4",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "fast_mode"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "6–10 credits",
+    creditMultiplier:   1,
+  },
+
+  {
+    // Legacy Seedream 4.5 — DB row inactive. Provider registered so orchestrator returns
+    // MODEL_INACTIVE instead of PROVIDER_NOT_REGISTERED for any stale requests.
     key:            "seedream-4-5",
     providerBrand:  "ByteDance / Dreamina",
     displayName:    "Seedream 4.5",
-    apiModelId:     "fal-ai/seedream-v4-5",
+    apiModelId:     "fal-ai/seedream/v4.5",
     studio:         "image",
     providerFamily: "fal",
-    description:    "Optimized Seedream variant — faster with strong quality",
+    description:    "Legacy Seedream variant — superseded by v5 and v5-lite",
     phase:          1,
-    status:         "active",
+    status:         "deprecated",
+    uiHidden:       true,
     capabilities:   ["text_to_image", "photoreal"],
     supportedInputModes:   ["text"],
     supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
     asyncMode:       "polling",
     supportsWebhook: false,
     supportsPolling: true,
-    estimatedCostRange: "2–4 credits",
-    creditMultiplier:   1,
   },
 
   // ── FLUX.1 Kontext (via fal.ai) ────────────────────────────────────────────
@@ -295,6 +345,31 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: true,
     estimatedCostRange: "TBD",
     creditMultiplier:   2,
+    comingSoonLabel: "Coming Phase 2",
+  },
+
+  // FLUX.2 Max — highest tier. Registered as coming-soon until BFL publishes the endpoint.
+  // fal.ai endpoint TBD. Update FAL_MODEL_FLUX_2_MAX env var when available.
+  {
+    key:            "flux-2-max",
+    providerBrand:  "Black Forest Labs",
+    displayName:    "FLUX.2 Max",
+    apiModelId:     "fal-ai/flux-2-ultra",    // placeholder — update when BFL publishes endpoint
+    studio:         "image",
+    providerFamily: "fal",
+    description:    "Black Forest Labs FLUX.2 Max — highest generation tier, maximum quality output",
+    phase:          2,
+    status:         "coming-soon",
+    badge:          "SOON",
+    badgeColor:     "#374151",
+    capabilities:   ["text_to_image", "image_to_image", "edit", "consistency", "photoreal"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "TBD",
+    creditMultiplier:   2.5,
     comingSoonLabel: "Coming Phase 2",
   },
 
@@ -505,7 +580,7 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     creditMultiplier:   1.2,
   },
 
-  // ── Deprecated — hidden from UI, kept in backend ───────────────────────────
+  // ── Kling 2.6 ─────────────────────────────────────────────────────────────
 
   {
     key:            "kling-26",
@@ -514,10 +589,10 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     apiModelId:     "kling-v2-6",
     studio:         "video",
     providerFamily: "kling",
-    description:    "Legacy Kling model — superseded by Kling Video 3.0",
+    description:    "Enhanced scene coherence and character fidelity",
     phase:          1,
-    status:         "deprecated",
-    uiHidden:       true,
+    status:         "active",
+    uiHidden:       false,
     capabilities:   ["text_to_video", "image_to_video", "start_frame", "extend"],
     supportedInputModes:   ["text", "image", "video"],
     supportedAspectRatios: ["16:9", "9:16", "1:1"],
@@ -528,6 +603,8 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: true,
   },
 
+  // ── Kling 2.5 Turbo ───────────────────────────────────────────────────────
+
   {
     key:            "kling-25",
     providerBrand:  "Kling AI",
@@ -535,10 +612,10 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     apiModelId:     "kling-v2-5",
     studio:         "video",
     providerFamily: "kling",
-    description:    "Legacy Kling model — superseded by Kling Video 3.0",
+    description:    "Fast and reliable — ideal for quick iterations",
     phase:          1,
-    status:         "deprecated",
-    uiHidden:       true,
+    status:         "active",
+    uiHidden:       false,
     capabilities:   ["text_to_video", "image_to_video", "start_frame", "end_frame"],
     supportedInputModes:   ["text", "image"],
     supportedAspectRatios: ["16:9", "9:16", "1:1"],
@@ -1043,6 +1120,38 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
     supportsPolling: false,
     estimatedCostRange: "TBD",
     creditMultiplier:   4,
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LIP SYNC STUDIO — Phase 1 Active
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Sync Labs v3 (via fal.ai queue) ────────────────────────────────────────
+  // Completely separate from the existing /api/lipsync/* (legacy) system.
+  // Uses the LipSyncProviderAdapter in src/lib/providers/lipsync/pro.ts directly.
+  // No studioDispatch, no ZProvider — its own dedicated generate + status routes.
+  {
+    key:            "sync-lipsync-v3",
+    providerBrand:  "Sync Labs",
+    displayName:    "Sync v3",
+    apiModelId:     "fal-ai/sync-lipsync/v3",
+    studio:         "lipsync",
+    providerFamily: "fal-lipsync",
+    description:    "Sync Labs v3 lip sync — sync audio to any video face via fal.ai queue",
+    phase:          1,
+    status:         "active",
+    badge:          "SYNC",
+    badgeColor:     "#6366F1",
+    capabilities:   ["lip_sync"],
+    supportedInputModes:   ["video", "audio"],
+    supportedAspectRatios: ["16:9", "9:16", "1:1"],
+    supportedDurations: [5, 10, 15, 20, 25, 30, 60, 90, 120, 180, 240, 300],
+    maxDuration:     300,   // 5 minutes hard cap
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "90–540 credits",
+    creditMultiplier:   1,
   },
 ];
 

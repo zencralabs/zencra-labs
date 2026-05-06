@@ -43,7 +43,8 @@ const ASSET_SELECT = `
   concept_id,
   created_at,
   completed_at,
-  error_message
+  error_message,
+  audio_detected
 ` as const;
 
 const DEFAULT_LIMIT = 40;
@@ -77,9 +78,14 @@ export async function GET(req: Request): Promise<Response> {
     .order("created_at", { ascending: false })
     .limit(limit + 1); // fetch one extra to determine if there's a next page
 
-  // Status filter: normally only ready assets; include failed when requested
+  // Status filter:
+  //   Default          → ready only
+  //   include_failed   → ready + failed + pending
+  //   "pending" assets are in-flight videos whose tab may have closed mid-generation;
+  //   including them lets the gallery show a "still generating" card instead of hiding
+  //   the asset entirely until the 60-minute server-side timeout resolves it.
   if (includeFailed) {
-    query = query.in("status", ["ready", "failed"]);
+    query = query.in("status", ["ready", "failed", "pending"]);
   } else {
     query = query.eq("status", "ready");
   }
@@ -109,6 +115,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   const assets     = data ?? [];
+  console.log(`[GET /api/assets] studio=${studio ?? "all"} includeFailed=${includeFailed} count=${assets.length}`);
   const hasMore    = assets.length > limit;
   const page       = hasMore ? assets.slice(0, limit) : assets;
   const nextCursor = hasMore ? page[page.length - 1]?.created_at ?? null : null;

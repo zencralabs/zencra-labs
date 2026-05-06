@@ -32,12 +32,9 @@ import { supabaseAdmin }          from "@/lib/supabase/admin";
 import { ensureProvidersRegistered } from "@/lib/providers/startup";
 import { getRegisteredProvider }  from "@/lib/providers/core/orchestrator";
 import { getAssetByJobId, updateAssetStatus } from "@/lib/storage/metadata";
-import { buildCreditHooks, buildSupabaseCreditStore }
-                                  from "@/lib/credits/hooks";
 import {
   ok, invalidInput, jobNotFound, notOwner, serverErr,
 } from "@/lib/api/route-utils";
-import type { StudioType }        from "@/lib/providers/core/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,14 +91,22 @@ export async function POST(
   }
 
   // ── Credit rollback ──────────────────────────────────────────────────────────
+  // NOTE: buildCreditHooks()._reserved is an in-memory Map scoped to the dispatch
+  // request. Rebuilding hooks here would produce an empty Map → 0 credits refunded.
+  // Instead, read credits_cost directly from the persisted asset record and call
+  // refund_credits — the same pattern used by the timeout auto-resolve path.
   try {
-    const creditHooks = buildCreditHooks({
-      provider:  asset.provider as import("@/lib/providers/core/types").ProviderFamily,
-      modelKey:  asset.model_key,
-      studio:    asset.studio as StudioType,
-      store:     buildSupabaseCreditStore(supabaseAdmin),
-    });
-    await creditHooks.rollback(userId, jobId);
+    const creditCost = asset.credits_cost ?? 0;
+    if (creditCost > 0) {
+      const { error: refundErr } = await supabaseAdmin.rpc("refund_credits", {
+        p_user_id:     userId,
+        p_amount:      creditCost,
+        p_description: `Cancel refund [${asset.studio}/${asset.model_key}] job=${jobId}`,
+      });
+      if (refundErr) {
+        console.error("[/api/studio/jobs/[jobId]/cancel] refund_credits RPC error:", refundErr.message);
+      }
+    }
   } catch (creditErr) {
     // Non-fatal — log and continue, refunds can be reconciled manually
     console.error("[/api/studio/jobs/[jobId]/cancel] Credit rollback failed:", creditErr);

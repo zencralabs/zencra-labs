@@ -249,7 +249,8 @@ export async function saveGeneration(
   const { data: row, error } = await supabaseAdmin
     .from("creative_generations")
     .insert({
-      project_id: data.project_id,
+      // project_id is nullable — CDv2 "free" directions supply null here.
+      project_id: data.project_id ?? null,
       concept_id: data.concept_id ?? null,
       user_id: data.user_id,
       generation_type: data.generation_type ?? "base",
@@ -266,7 +267,8 @@ export async function saveGeneration(
       idempotency_key: data.idempotency_key ?? null,
       error_message: data.error_message ?? null,
       completed_at: data.completed_at ?? null,
-      ...(data.session_id ? { session_id: data.session_id } : {}),
+      ...(data.session_id   ? { session_id:   data.session_id   } : {}),
+      ...(data.direction_id ? { direction_id: data.direction_id } : {}),
     })
     .select()
     .single();
