@@ -25,7 +25,7 @@ import type { LipSyncQuality } from "@/lib/lipsync/status";
 import { useAuth }             from "@/components/auth/AuthContext";
 import { AuthModal }           from "@/components/auth/AuthModal";
 import VideoLeftRail       from "./VideoLeftRail";
-import VideoCanvas, { MotionFlowStrip } from "./VideoCanvas";
+import VideoCanvas, { MotionFlowStrip, CanvasVideoPreview } from "./VideoCanvas";
 import VideoPromptPanel    from "./VideoPromptPanel";
 import VideoResultsLibrary from "./VideoResultsLibrary";
 import CanvasGenerateBar   from "./CanvasGenerateBar";
@@ -2555,19 +2555,25 @@ export default function VideoStudioShell() {
 
       // When arriving via Animate Start/End Frame the prompt may be empty.
       // Supply a cinematic default so the server validator (min 3 chars) passes.
+      // Omni mode: use "Cinematic scene" when no prompt + no shot-level prompts.
       const effectivePrompt =
         prompt.trim().length > 0
           ? prompt
-          : (frameMode === "start_frame" && (startSlot.url || endSlot.url))
-            ? "Animate this image"
-            : prompt;
+          : isOmni
+            ? (omniShots.some(s => s.prompt.trim().length > 0)
+                ? omniShots.find(s => s.prompt.trim().length > 0)!.prompt
+                : "Cinematic scene")
+            : (frameMode === "start_frame" && (startSlot.url || endSlot.url))
+              ? "Animate this image"
+              : prompt;
 
       const body: Record<string, unknown> = {
         modelKey,
         prompt: effectivePrompt,
         negativePrompt:  negPrompt || undefined,
-        durationSeconds: duration,
-        aspectRatio,
+        // Omni uses its own duration + AR; standard uses global duration + aspectRatio
+        durationSeconds: isOmni ? omniDuration : duration,
+        aspectRatio:     isOmni ? omniAR       : aspectRatio,
         providerParams: {
           videoMode: quality,
           ...(resolution ? { resolution } : {}),
@@ -2601,6 +2607,40 @@ export default function VideoStudioShell() {
       if (frameMode === "motion_control" && motionVideoUrl) body.referenceVideoUrl = motionVideoUrl;
       if (frameMode === "motion_control" && startSlot.url)  body.imageUrl          = startSlot.url;
 
+      // ── Kling 3.0 Omni — inject frames + shot stack regardless of frameMode ─────
+      // Omni bypasses the frameMode gate entirely; startSlot/endSlot are always valid
+      // reference frames for the multi-shot director pipeline.
+      // multiPrompt carries per-shot direction prompts to the /v1/videos/omni-video endpoint.
+      if (isOmni) {
+        if (startSlot.url) body.imageUrl    = startSlot.url;
+        if (endSlot.url)   body.endImageUrl = endSlot.url;
+
+        // Per-shot direction prompts — map each shot to { prompt, duration }
+        // Falls back to effectivePrompt when individual shot prompt is blank.
+        if (omniShots.length > 0) {
+          body.multiPrompt = omniShots.map(s => ({
+            prompt:   s.prompt.trim() || effectivePrompt,
+            duration: omniDuration,
+          }));
+        }
+
+        // Forward Omni-specific output params into providerParams
+        body.providerParams = {
+          ...(body.providerParams as Record<string, unknown>),
+          resolution:  omniResolution,
+          aspectRatio: omniAR,
+        };
+
+        console.log("[VideoStudio] Omni dispatch", {
+          hasStartFrame: !!startSlot.url,
+          hasEndFrame:   !!endSlot.url,
+          omniShots:     omniShots.length,
+          omniDuration,
+          omniAR,
+          omniResolution,
+        });
+      }
+
       // Identity start frame — signal backend to attach canonical hero as imageUrl.
       // Gate: flag ON + handle detected + model supports startFrame + no user image or motion ref.
       // Note: readiness is NOT gated here — the UI blocks generation before this runs
@@ -2617,7 +2657,7 @@ export default function VideoStudioShell() {
 
       // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
       {
-        const displayedCost = getGenerationCreditCost(model.id, { durationSeconds: duration });
+        const displayedCost = getGenerationCreditCost(model.id, { durationSeconds: isOmni ? omniDuration : duration });
         try {
           const costsRes = await fetch("/api/credits/model-costs", {
             headers: { "Authorization": `Bearer ${authToken ?? ""}` },
@@ -2708,9 +2748,23 @@ export default function VideoStudioShell() {
         throw new Error("Video generation accepted but no jobId returned — cannot poll for result.");
       }
 
-      setVideos(prev => prev.map(v =>
-        v.id === newVideo.id ? { ...v, status: "polling", taskId: jobId } : v,
-      ));
+      // ── Align local video ID with server-assigned assetId (BUG 3 dedup fix) ────
+      // The optimistic video was created with a random UUID. After the server responds
+      // with the real assetId, we replace the local ID so refreshVideoHistory() can
+      // deduplicate by ID instead of appending a second copy of the same video.
+      const serverAssetId = resData.data?.assetId;
+      if (serverAssetId && serverAssetId !== newVideo.id) {
+        const localId = newVideo.id;
+        newVideo.id = serverAssetId; // mutate closure ref — closures (onComplete/onError) use new id
+        setVideos(prev => prev.map(v =>
+          v.id === localId ? { ...v, id: serverAssetId, status: "polling", taskId: jobId } : v,
+        ));
+        setCanvasPreviewId(serverAssetId); // keep canvas preview aligned to new id
+      } else {
+        setVideos(prev => prev.map(v =>
+          v.id === newVideo.id ? { ...v, status: "polling", taskId: jobId } : v,
+        ));
+      }
 
       // ── Register in the global job store (cross-tab recovery + drawer) ────────
       const jobStore     = getPendingJobStoreState();
@@ -2781,6 +2835,11 @@ export default function VideoStudioShell() {
               ? { ...v, status: "done", url, thumbnailUrl: null, audioDetected, audioSource }
               : v,
           ));
+
+          // BUG 4 — Always feature the latest completed video on the canvas.
+          // The user may have clicked another video during generation; we override
+          // canvasPreviewId so the freshly-completed video is always shown front.
+          setCanvasPreviewId(newVideo.id);
 
           jobStore.completeJob(jobId, url, update.audioDetected ?? undefined);
 
@@ -3232,26 +3291,48 @@ export default function VideoStudioShell() {
             />
           </div>
 
-          {/* Omni Center — Director Board + Generate Bar */}
+          {/* Omni Center — Canvas Preview (when active) | Director Board (when idle) */}
           <div style={{ minWidth: 0 }}>
-            <OmniDirectorBoard
-              shots={omniShots}
-              startSlot={startSlot}
-              endSlot={endSlot}
-              motionVideoUrl={motionVideoUrl}
-              generating={generating}
-              onAddReferenceImage={() => omniRefImageInputRef.current?.click()}
-              onAddReferenceVideo={() => omniRefVideoInputRef.current?.click()}
-              onTryStoryboardPrompt={handleOmniStoryboardPrompt}
-              onSwapFrames={() => { const t = startSlot; setStartSlot(endSlot); setEndSlot(t); }}
-              onRemoveVideo={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
-              omniAR={omniAR}
-              setOmniAR={setOmniAR}
-              omniDuration={omniDuration}
-              setOmniDuration={setOmniDuration}
-              omniResolution={omniResolution}
-              setOmniResolution={setOmniResolution}
-            />
+            {canvasPreviewVideo ? (
+              /* ── Canvas preview — same system as standard Kling 3.0 ──────────── */
+              <CanvasVideoPreview
+                video={canvasPreviewVideo}
+                isFavorite={canvasPreviewVideo.is_favorite ?? false}
+                onClose={() => setCanvasPreviewId(null)}
+                onFullscreen={(v) => setViewingVideo(v)}
+                onFavoriteToggle={handlePreviewFavToggle}
+                onDownload={
+                  canvasPreviewVideo.url
+                    ? () => { import("@/lib/client/downloadAsset").then(({ downloadAsset }) => downloadAsset(canvasPreviewVideo.url!, `zencra-omni-${canvasPreviewVideo.id}.mp4`)); }
+                    : undefined
+                }
+                onDelete={handlePreviewDelete}
+                onCancel={handlePreviewCancel}
+                onSetStartFrame={handlePreviewSetStartFrame}
+                onSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
+                onReuse={handlePreviewReuse}
+              />
+            ) : (
+              /* ── Director Board — shown when no preview active ──────────────── */
+              <OmniDirectorBoard
+                shots={omniShots}
+                startSlot={startSlot}
+                endSlot={endSlot}
+                motionVideoUrl={motionVideoUrl}
+                generating={generating}
+                onAddReferenceImage={() => omniRefImageInputRef.current?.click()}
+                onAddReferenceVideo={() => omniRefVideoInputRef.current?.click()}
+                onTryStoryboardPrompt={handleOmniStoryboardPrompt}
+                onSwapFrames={() => { const t = startSlot; setStartSlot(endSlot); setEndSlot(t); }}
+                onRemoveVideo={() => { setMotionVideoUrl(null); setMotionVideoName(null); }}
+                omniAR={omniAR}
+                setOmniAR={setOmniAR}
+                omniDuration={omniDuration}
+                setOmniDuration={setOmniDuration}
+                omniResolution={omniResolution}
+                setOmniResolution={setOmniResolution}
+              />
+            )}
             <OmniGenerateBar
               shots={omniShots}
               prompt={prompt}

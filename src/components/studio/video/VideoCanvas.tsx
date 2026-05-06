@@ -807,7 +807,7 @@ function CtrlBtn({
   );
 }
 
-function CanvasVideoPreview({
+export function CanvasVideoPreview({
   video,
   isFavorite = false,
   onClose,

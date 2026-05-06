@@ -1026,7 +1026,7 @@ export default function VideoResultsLibrary({
   const [filter,    setFilter]    = useState<FilterTab>("history");
   const [sort,      setSort]      = useState<SortMode>("latest");
   const [showCount, setShowCount] = useState<ShowCount>(25);
-  const [zoomPct,   setZoomPct]   = useState(60);
+  const [zoomPct,   setZoomPct]   = useState(65);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const now        = Date.now();
@@ -1332,10 +1332,13 @@ export default function VideoResultsLibrary({
 
               {/* ── Overflow grid — CSS auto-fill for flush alignment ──── */}
               {/* When no featured: show all. When featured: show rest after 4 side slots. */}
+              {/* At ≥ 80% zoom, cap to 2 columns so 100% zoom = exactly 2 per row.        */}
               {(featuredVideo ? restVideos.slice(4) : filtered).length > 0 && (
                 <div style={{
                   display: "grid",
-                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(cardWidthFromAR(cardHeight, "16:9"))}px, 1fr))`,
+                  gridTemplateColumns: zoomPct >= 80
+                    ? "repeat(2, 1fr)"
+                    : `repeat(auto-fill, minmax(${Math.round(cardWidthFromAR(cardHeight, "16:9"))}px, 1fr))`,
                   gridAutoRows: `${cardHeight}px`,
                   gap: 22,
                 }}>
