@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import { Familjen_Grotesk, Syne } from "next/font/google";
-import { ThemeProvider } from "@/components/providers/ThemeProvider";
-import { AuthProvider } from "@/components/auth/AuthContext";
-import { ClientLayout } from "@/components/layout/ClientLayout";
-import { FooterConditional } from "@/components/layout/FooterConditional";
+import { ThemeProvider }          from "@/components/providers/ThemeProvider";
+import { AuthProvider }           from "@/components/auth/AuthContext";
+import { ClientLayout }           from "@/components/layout/ClientLayout";
+import { FooterConditional }      from "@/components/layout/FooterConditional";
+// ── Zencra Runtime Infrastructure ───────────────────────────────────────────
+// These three are the ONLY mounting points for the async job runtime.
+// Do not scatter these hooks across individual studio layouts.
+import { AppBootstrap }           from "@/components/system/AppBootstrap";
+import { GlobalToastRenderer }    from "@/components/jobs/GlobalToastRenderer";
+import { GlobalJobsPanel }        from "@/components/jobs/GlobalJobsPanel";
 import "./globals.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,6 +112,17 @@ export default function RootLayout({
       <body className={`${syne.variable} ${neueMontreal.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider>
           <AuthProvider>
+            {/*
+              ── Zencra Runtime Infrastructure ────────────────────────────────
+              AppBootstrap    — job recovery, stale-detection, transition toasts
+              GlobalToastRenderer — top-right job lifecycle toast stack
+              GlobalJobsPanel    — bottom-right pending jobs drawer
+              All three are auth-aware and mount ONCE here.
+            */}
+            <AppBootstrap />
+            <GlobalToastRenderer />
+            <GlobalJobsPanel />
+
             {/* Main site wrapper */}
             <div className="relative flex min-h-screen flex-col" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
               <ClientLayout>
