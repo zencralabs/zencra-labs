@@ -3294,24 +3294,57 @@ export default function VideoStudioShell() {
           {/* Omni Center — Canvas Preview (when active) | Director Board (when idle) */}
           <div style={{ minWidth: 0 }}>
             {canvasPreviewVideo ? (
-              /* ── Canvas preview — same system as standard Kling 3.0 ──────────── */
-              <CanvasVideoPreview
-                video={canvasPreviewVideo}
-                isFavorite={canvasPreviewVideo.is_favorite ?? false}
-                onClose={() => setCanvasPreviewId(null)}
-                onFullscreen={(v) => setViewingVideo(v)}
-                onFavoriteToggle={handlePreviewFavToggle}
-                onDownload={
-                  canvasPreviewVideo.url
-                    ? () => { import("@/lib/client/downloadAsset").then(({ downloadAsset }) => downloadAsset(canvasPreviewVideo.url!, `zencra-omni-${canvasPreviewVideo.id}.mp4`)); }
-                    : undefined
-                }
-                onDelete={handlePreviewDelete}
-                onCancel={handlePreviewCancel}
-                onSetStartFrame={handlePreviewSetStartFrame}
-                onSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
-                onReuse={handlePreviewReuse}
-              />
+              /* ── Cinematic canvas shell — mirrors VideoCanvas root container ─── */
+              <div style={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: omniAR === "9:16" ? "9 / 16"
+                           : omniAR === "1:1"  ? "1 / 1"
+                           : omniAR === "4:3"  ? "4 / 3"
+                           : omniAR === "3:4"  ? "3 / 4"
+                           : "16 / 9",
+                overflow: "hidden",
+                background: "#0A0A12",
+                border: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                flexDirection: "column",
+                boxSizing: "border-box",
+                boxShadow: [
+                  "0 0 0 1px rgba(255,255,255,0.06)",
+                  "0 0 40px rgba(14,165,160,0.18)",
+                  "0 0 80px rgba(14,165,160,0.10)",
+                  "inset 0 0 20px rgba(255,255,255,0.02)",
+                  "0 16px 64px rgba(0,0,0,0.8)",
+                ].join(", "),
+              }}>
+                <div style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "stretch",
+                  justifyContent: "center",
+                  position: "relative",
+                  minHeight: 0,
+                  zIndex: 2,
+                }}>
+                  <CanvasVideoPreview
+                    video={canvasPreviewVideo}
+                    isFavorite={canvasPreviewVideo.is_favorite ?? false}
+                    onClose={() => setCanvasPreviewId(null)}
+                    onFullscreen={(v) => setViewingVideo(v)}
+                    onFavoriteToggle={handlePreviewFavToggle}
+                    onDownload={
+                      canvasPreviewVideo.url
+                        ? () => { import("@/lib/client/downloadAsset").then(({ downloadAsset }) => downloadAsset(canvasPreviewVideo.url!, `zencra-omni-${canvasPreviewVideo.id}.mp4`)); }
+                        : undefined
+                    }
+                    onDelete={handlePreviewDelete}
+                    onCancel={handlePreviewCancel}
+                    onSetStartFrame={handlePreviewSetStartFrame}
+                    onSetEndFrame={model?.capabilities.endFrame ? handlePreviewSetEndFrame : undefined}
+                    onReuse={handlePreviewReuse}
+                  />
+                </div>
+              </div>
             ) : (
               /* ── Director Board — shown when no preview active ──────────────── */
               <OmniDirectorBoard
