@@ -20,9 +20,9 @@
 
 import type { NextRequest }  from "next/server";
 import { NextResponse }      from "next/server";
-import { requireAuthUser }   from "@/lib/supabase/server";
+import { requireAdmin }      from "@/lib/auth/admin-gate";
 import { supabaseAdmin }     from "@/lib/supabase/admin";
-import { unauthorized, serverErr } from "@/lib/api/route-utils";
+import { logger }            from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,7 +125,7 @@ async function writeProviderBalance(
 
   if (histErr) {
     // Non-fatal — history snapshot failure shouldn't block the main update
-    console.warn(`[provider-sync] balance history insert failed for ${providerKey}:`, histErr.message);
+    logger.warn("admin/provider-sync", `balance history insert failed for ${providerKey}`, { message: histErr.message });
   }
 }
 
@@ -135,19 +135,8 @@ async function writeProviderBalance(
 
 export async function POST(req: NextRequest): Promise<Response> {
   // ── Admin auth check ────────────────────────────────────────────────────────
-  const { user, authError } = await requireAuthUser(req);
-  if (authError) return authError ?? unauthorized();
-
-  // Verify admin role
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ success: false, error: "Admin access required" }, { status: 403 });
-  }
+  const { adminError } = await requireAdmin(req);
+  if (adminError) return adminError;
 
   // ── Run sync for each auto-sync provider ────────────────────────────────────
   const synced: string[] = [];
@@ -165,7 +154,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     synced.push("fal");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[provider-sync] fal.ai failed:", msg);
+    logger.error("admin/provider-sync", "fal.ai sync failed", { message: msg });
     errors["fal"] = msg;
   }
 
@@ -187,7 +176,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     synced.push("elevenlabs");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[provider-sync] ElevenLabs failed:", msg);
+    logger.error("admin/provider-sync", "ElevenLabs sync failed", { message: msg });
     errors["elevenlabs"] = msg;
   }
 

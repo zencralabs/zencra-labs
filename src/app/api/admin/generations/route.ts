@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getAuthUser } from "@/lib/supabase/server";
-
-async function isAdmin(req: Request): Promise<boolean> {
-  const user = await getAuthUser(req);
-  if (!user) return false;
-  const { data } = await supabaseAdmin.from("profiles").select("role").eq("id", user.id).single();
-  return data?.role === "admin";
-}
+import { requireAdmin }  from "@/lib/auth/admin-gate";
 
 /**
  * GET /api/admin/generations
  * Query params: page, limit, search (user id/name), status, type
  */
 export async function GET(req: Request) {
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { adminError } = await requireAdmin(req);
+  if (adminError) return adminError;
 
   const url    = new URL(req.url);
   const page   = parseInt(url.searchParams.get("page")   ?? "1");

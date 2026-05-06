@@ -43,12 +43,11 @@ import { apiErr }                     from "@/lib/api/route-utils";
 import { CharacterOrchestrator }      from "@/lib/character";
 import { resolveInfluencerHandles, injectIdentityIntoPrompt }
                                      from "@/lib/ai-influencer/handle-resolver";
+import { logger }                    from "@/lib/logger";
 
 // Runtime key presence check — runs once per cold start, not per request
 if (!process.env.OPENAI_API_KEY) {
-  console.error("[image-generate] OPENAI_API_KEY is NOT set — image generation will fail with 401");
-} else {
-  console.log("[image-generate] OPENAI_API_KEY present ✓ (length:", process.env.OPENAI_API_KEY.length, ")");
+  logger.error("image-generate", "OPENAI_API_KEY is not set — image generation will fail with 401");
 }
 
 export const runtime = "nodejs";

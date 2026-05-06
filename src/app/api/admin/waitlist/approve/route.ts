@@ -30,22 +30,11 @@
 import { NextResponse }              from "next/server";
 import { randomBytes }               from "crypto";
 import { supabaseAdmin }             from "@/lib/supabase/admin";
-import { getAuthUser }               from "@/lib/supabase/server";
+import { requireAdmin }              from "@/lib/auth/admin-gate";
+import { logger }                    from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// ── Admin guard (same pattern as /api/admin/users) ───────────────────────────
-async function isAdmin(req: Request): Promise<boolean> {
-  const user = await getAuthUser(req);
-  if (!user) return false;
-  const { data } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  return data?.role === "admin";
-}
 
 // ── Code generator: ZEN-INVITE-XXXXX (5 uppercase alphanumerics) ─────────────
 const CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -61,9 +50,8 @@ function generateAccessCode(): string {
 
 export async function POST(req: Request): Promise<Response> {
   // ── Auth guard ───────────────────────────────────────────────────────────
-  if (!(await isAdmin(req))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { adminError } = await requireAdmin(req);
+  if (adminError) return adminError;
 
   // ── Parse body ────────────────────────────────────────────────────────────
   let body: { waitlistUserId?: unknown; maxUses?: unknown };
@@ -123,7 +111,7 @@ export async function POST(req: Request): Promise<Response> {
     });
 
   if (insertError) {
-    console.error("[admin/waitlist/approve] insert preview_access error:", insertError.message);
+    logger.error("admin/waitlist/approve", "insert preview_access error", { message: insertError.message });
     return NextResponse.json(
       { error: "Failed to create access code. Please try again." },
       { status: 500 },
@@ -142,12 +130,10 @@ export async function POST(req: Request): Promise<Response> {
 
   if (updateError) {
     // preview_access row is already inserted — log but don't fail; code is valid
-    console.error("[admin/waitlist/approve] update waitlist_users error:", updateError.message);
+    logger.error("admin/waitlist/approve", "update waitlist_users error", { message: updateError.message });
   }
 
-  console.log(
-    `[admin/waitlist/approve] approved user="${waitlistUser.email}" code="${accessCode}" max_uses=${maxUses}`,
-  );
+  logger.info("admin/waitlist/approve", "user approved", { userId: waitlistUserId, maxUses });
 
   // TODO: Send approval email with accessCode when email provider is configured.
 

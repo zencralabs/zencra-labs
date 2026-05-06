@@ -28,9 +28,9 @@
 
 import type { NextRequest }  from "next/server";
 import { NextResponse }      from "next/server";
-import { requireAuthUser }   from "@/lib/supabase/server";
+import { requireAdmin }      from "@/lib/auth/admin-gate";
 import { supabaseAdmin }     from "@/lib/supabase/admin";
-import { unauthorized }      from "@/lib/api/route-utils";
+import { logger }            from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,18 +59,8 @@ interface ProviderCostSummary {
 
 export async function GET(req: NextRequest): Promise<Response> {
   // ── Admin auth check ────────────────────────────────────────────────────────
-  const { user, authError } = await requireAuthUser(req);
-  if (authError) return authError ?? unauthorized();
-
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ success: false, error: "Admin access required" }, { status: 403 });
-  }
+  const { adminError } = await requireAdmin(req);
+  if (adminError) return adminError;
 
   // ── Build current-month date range ──────────────────────────────────────────
   const now       = new Date();
@@ -96,7 +86,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     .lte("recorded_at", monthEnd);
 
   if (costErr) {
-    console.error("[GET /api/admin/provider-costs] cost log query failed:", costErr.message);
+    logger.error("admin/provider-costs", "cost log query failed", { message: costErr.message });
     // Non-fatal — return accounts with zero aggregates
   }
 

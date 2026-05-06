@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**", "release/**"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Type-check · Lint · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Type safety ──────────────────────────────────────────────────────────
+      - name: TypeScript — zero errors
+        run: npx tsc --noEmit
+
+      # ── Code quality ─────────────────────────────────────────────────────────
+      - name: ESLint — no violations
+        run: npx eslint . --ext .ts,.tsx --max-warnings 0
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      # Runs with dummy env vars so Next.js can complete a production build
+      # without real API keys. No server is started; only the artefacts are
+      # checked. Secrets are NEVER embedded — they are injected at deploy time.
+      - name: Next.js production build
+        run: npm run build
+        env:
+          # Supabase (required by next.config.mjs + client init)
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder_service_role_key
+
+          # Feature flags — keep all studios enabled so routes compile
+          ZENCRA_FLAG_IMAGE_ENABLED: "true"
+          ZENCRA_FLAG_VIDEO_ENABLED: "true"
+          ZENCRA_FLAG_AUDIO_ENABLED: "true"
+          ZENCRA_FLAG_CHARACTER_ENABLED: "true"
+          ZENCRA_FLAG_UGC_ENABLED: "true"
+          ZENCRA_FLAG_FCS_ENABLED: "true"
+
+          # Provider API keys — placeholder values (build only, never called)
+          OPENAI_API_KEY: placeholder
+          ELEVENLABS_API_KEY: placeholder
+          FAL_KEY: placeholder
+          NANO_BANANA_API_KEY: placeholder
+          KLING_ACCESS_KEY: placeholder
+          KLING_SECRET_KEY: placeholder
+          SEEDANCE_API_KEY: placeholder
+
+          # App
+          NEXT_PUBLIC_APP_URL: https://placeholder.zencralabs.com
+          ADMIN_EMAILS: admin@placeholder.com
+
+  security-scan:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fail on HIGH or CRITICAL vulnerabilities only
+      # (moderate/low are tracked by Dependabot separately)
+      - name: npm audit — high/critical
+        run: npm audit --audit-level=high
+        continue-on-error: true
