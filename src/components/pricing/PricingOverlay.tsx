@@ -1475,46 +1475,55 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               <div
                 style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}
               >
-                {/* ── Static preview cards — behind headline, no animation ── */}
+                {/* ── Static cinematic preview cards — behind headline ── */}
                 <div style={{
-                  position: "absolute", inset: 0,
+                  position: "absolute",
+                  top: 0, left: 0, right: 0, bottom: 0,
                   overflow: "hidden",
                   pointerEvents: "none",
                   zIndex: 0,
-                  filter: "blur(2px)",
-                  opacity: 0.16,
+                  opacity: 0.34,
                 }}>
-                  {/* Edge fade gradient — left + right softening */}
+                  {/* Edge fade — outer cards partially clipped */}
                   <div style={{
                     position: "absolute", inset: 0, zIndex: 2,
-                    background: "linear-gradient(90deg, rgba(5,7,22,0.95) 0%, transparent 18%, transparent 82%, rgba(5,7,22,0.95) 100%)",
+                    background: "linear-gradient(90deg, rgba(5,7,22,0.92) 0%, transparent 14%, transparent 86%, rgba(5,7,22,0.92) 100%)",
                   }} />
-                  {/* 5 cards in a centered row */}
+                  {/* Bottom fade — blends cards into content below */}
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0, height: "40%", zIndex: 2,
+                    background: "linear-gradient(to bottom, transparent, rgba(5,7,22,0.85))",
+                  }} />
+                  {/* Card row — positioned 70px from top so they sit behind the headline */}
                   <div style={{
                     position: "absolute",
-                    top: "50%", left: "50%",
-                    transform: "translate(-50%, -50%)",
+                    top: 70,
+                    left: "50%",
+                    transform: "translateX(-50%)",
                     display: "flex",
-                    gap: 12,
-                    alignItems: "center",
+                    gap: 14,
+                    alignItems: "flex-start",
                     width: "max-content",
                   }}>
                     {REEL_IMAGES.map((src, i) => {
-                      const FALLBACK_COLORS = [
-                        "rgba(70,40,180,0.80)","rgba(120,30,200,0.80)",
-                        "rgba(30,80,200,0.80)","rgba(180,30,120,0.80)","rgba(60,140,220,0.80)",
+                      const FALLBACK_GRADIENTS = [
+                        "linear-gradient(135deg, rgba(55,30,160,0.95), rgba(20,10,60,1))",
+                        "linear-gradient(135deg, rgba(100,20,170,0.95), rgba(30,8,70,1))",
+                        "linear-gradient(135deg, rgba(20,60,180,0.95), rgba(8,20,70,1))",
+                        "linear-gradient(135deg, rgba(160,20,100,0.95), rgba(60,8,40,1))",
+                        "linear-gradient(135deg, rgba(40,110,200,0.95), rgba(10,35,80,1))",
                       ];
                       return (
                         <div key={i} style={{
-                          width: 260, height: 146,
+                          width: 300, height: 169,
                           flexShrink: 0,
                           borderRadius: 14,
                           overflow: "hidden",
-                          border: "1px solid rgba(255,255,255,0.08)",
+                          border: "1px solid rgba(255,255,255,0.14)",
                           position: "relative",
-                          background: FALLBACK_COLORS[i],
+                          background: FALLBACK_GRADIENTS[i],
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.45)",
                         }}>
-                          {/* Actual image */}
                           <img
                             src={src}
                             alt=""
@@ -1524,10 +1533,10 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                               display: "block",
                             }}
                           />
-                          {/* 50% black overlay */}
+                          {/* Dark overlay — 38% */}
                           <div style={{
                             position: "absolute", inset: 0,
-                            background: "rgba(0,0,0,0.50)",
+                            background: "rgba(0,0,0,0.38)",
                           }} />
                         </div>
                       );
