@@ -33,6 +33,8 @@ import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
 import { getGenerationCreditCost } from "@/lib/credits/model-costs";
+import { startPolling as startUniversalPolling } from "@/lib/jobs/job-polling";
+import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-store";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -2459,32 +2461,141 @@ export default function VideoStudioShell() {
         v.id === newVideo.id ? { ...v, status: "polling", taskId: jobId } : v,
       ));
 
-      // Scene Audio jobs take longer — give them an extended window before
-      // triggering the adaptive fallback (retry without sound_generation).
+      // ── Register in the global job store (cross-tab recovery + drawer) ────────
+      const jobStore     = getPendingJobStoreState();
+      const jobCreatedAt = new Date().toISOString();
+      jobStore.registerJob({
+        jobId,
+        assetId:    resData.data?.assetId ?? jobId,
+        studio:     "video",
+        modelKey,
+        modelLabel: model.displayName,
+        prompt:     effectivePrompt.slice(0, 120),
+        status:     "queued",
+        creditCost: getGenerationCreditCost(modelKey, { durationSeconds: duration }) ?? undefined,
+        createdAt:  jobCreatedAt,
+        parentJobId: null,
+        childJobIds: [],
+      });
+
+      // Scene Audio adaptive fallback — captured at dispatch time for the onError callback.
+      // Sound generation is unstable / account-gated. If the job goes stale, retry
+      // without sound_generation so the user always gets a video.
       const sceneAudioActive = audioMode === "scene" && model.capabilities.nativeAudio;
-      const maxPolls         = sceneAudioActive ? MAX_POLLS_SCENE_AUDIO : MAX_POLLS;
 
-      let polls = 0;
-      const poll = setInterval(async () => {
-        polls++;
-        if (polls > maxPolls) {
-          clearInterval(poll);
+      startUniversalPolling({
+        jobId,
+        studio:    "video",
+        authToken: user.accessToken ?? "",
+        createdAt: jobCreatedAt,
 
-          // ── Scene Audio adaptive fallback ────────────────────────────────────
-          // Sound generation is unstable / account-gated. If the job times out,
-          // retry the SAME generation without sound_generation instead of failing.
-          // The user ALWAYS gets a video — they may or may not get native audio.
-          if (sceneAudioActive) {
+        onUpdate: (update) => {
+          jobStore.updateJob(jobId, {
+            status: update.status,
+            url:    update.url,
+            error:  update.error,
+          });
+          setVideos(prev => prev.map(v =>
+            v.id === newVideo.id ? { ...v, status: "polling" as const } : v,
+          ));
+        },
+
+        onComplete: (update) => {
+          const url           = update.url ?? "";
+          const audioDetected = update.audioDetected ?? null;
+
+          // ── Derive audioSource from server detection ────────────────────────
+          // audioDetected comes from the server-side MP4 binary scanner run
+          // at mirror time — authoritative, zero cross-browser issues.
+          // Precedence: voiceover pipeline > scene audio detection > none.
+          //
+          // For scene audio:
+          //   true  → "scene"  (audio confirmed)
+          //   false → "none"   (no audio confirmed)
+          //   null  → "none"   (detection inconclusive — treat as unavailable)
+          let audioSource: "scene" | "voiceover" | "none" | "unknown" = "none";
+          if (audioMode === "voiceover") {
+            audioSource = "voiceover"; // pipeline fires below; set optimistically
+          } else if (audioMode === "scene") {
+            audioSource = audioDetected === true ? "scene" : "none";
+          }
+
+          console.log(
+            "[VideoStudio] poll success — audioDetected=%s audioSource=%s sceneAudioActive=%s",
+            audioDetected, audioSource, sceneAudioActive
+          );
+
+          setVideos(prev => prev.map(v =>
+            v.id === newVideo.id
+              ? { ...v, status: "done", url, thumbnailUrl: null, audioDetected, audioSource }
+              : v,
+          ));
+
+          jobStore.completeJob(jobId, url, update.audioDetected ?? undefined);
+
+          // ── Zencra Voice Engine — fire voiceover after video success ────────
+          // Fire-and-forget: voiceover failure must NOT fail or block the video.
+          if (audioMode === "voiceover" && voiceoverScript.trim()) {
+            const videoId      = newVideo.id;
+            const scriptToSend = voiceoverScript.trim();
+
+            setVideos(prev => prev.map(v =>
+              v.id === videoId
+                ? { ...v, voiceoverStatus: "generating" as const, voiceoverScript: scriptToSend }
+                : v,
+            ));
+
+            void (async () => {
+              try {
+                const voRes = await fetch("/api/studio/audio/generate", {
+                  method:  "POST",
+                  headers: {
+                    "Content-Type":  "application/json",
+                    "Authorization": `Bearer ${user.accessToken}`,
+                  },
+                  body: JSON.stringify({ modelKey: "elevenlabs", prompt: scriptToSend }),
+                });
+
+                if (voRes.ok) {
+                  const voData = await voRes.json() as { data?: { url?: string } };
+                  const voUrl  = voData.data?.url ?? null;
+                  setVideos(prev => prev.map(v =>
+                    v.id === videoId
+                      ? { ...v, voiceoverStatus: "ready" as const, voiceoverUrl: voUrl }
+                      : v,
+                  ));
+                } else {
+                  console.warn("[VideoStudio] Voiceover generation failed:", voRes.status);
+                  setVideos(prev => prev.map(v =>
+                    v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
+                  ));
+                }
+              } catch (voErr) {
+                console.warn("[VideoStudio] Voiceover dispatch error:", voErr);
+                setVideos(prev => prev.map(v =>
+                  v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
+                ));
+              }
+            })();
+          }
+          // ── End voiceover dispatch ────────────────────────────────────────
+
+          void recordFlowStep({ modelKey, prompt, resultUrl: url, aspectRatio });
+          setGenerating(false);
+          void refreshVideoHistory();
+        },
+
+        onError: (update) => {
+          // ── Scene Audio adaptive fallback ──────────────────────────────────
+          // If Scene Audio job goes stale, retry without sound_generation.
+          if (sceneAudioActive && update.status === "stale") {
             console.warn("[VideoStudio] Scene Audio timed out — retrying without sound_generation");
-
-            // Keep the card alive (generating state) while the fallback fires
             setVideos(prev => prev.map(v =>
               v.id === newVideo.id ? { ...v, status: "generating" as const } : v,
             ));
 
             void (async () => {
               try {
-                // Re-dispatch with nativeAudio explicitly disabled
                 const fallbackBody = {
                   ...body,
                   providerParams: {
@@ -2498,7 +2609,7 @@ export default function VideoStudioShell() {
                   body:    JSON.stringify(fallbackBody),
                 });
                 if (!fbRes.ok) throw new Error(`Scene Audio fallback dispatch failed: ${fbRes.status}`);
-                const fbData  = await fbRes.json() as { data?: { jobId?: string } };
+                const fbData  = await fbRes.json() as { data?: { jobId?: string; assetId?: string } };
                 const fbJobId = fbData.data?.jobId;
                 if (!fbJobId) throw new Error("No jobId returned from Scene Audio fallback dispatch");
 
@@ -2506,54 +2617,66 @@ export default function VideoStudioShell() {
                   v.id === newVideo.id ? { ...v, status: "polling" as const, taskId: fbJobId } : v,
                 ));
 
-                // New poll loop for the fallback job (standard MAX_POLLS — no recursion)
-                let fbPolls = 0;
-                const fbPoll = setInterval(async () => {
-                  fbPolls++;
-                  if (fbPolls > MAX_POLLS) {
-                    clearInterval(fbPoll);
+                const fbCreatedAt = new Date().toISOString();
+                jobStore.registerJob({
+                  jobId:      fbJobId,
+                  assetId:    fbData.data?.assetId ?? fbJobId,
+                  studio:     "video",
+                  modelKey,
+                  modelLabel: model.displayName,
+                  prompt:     effectivePrompt.slice(0, 120),
+                  status:     "queued",
+                  creditCost: getGenerationCreditCost(modelKey, { durationSeconds: duration }) ?? undefined,
+                  createdAt:  fbCreatedAt,
+                  parentJobId: null,
+                  childJobIds: [],
+                });
+
+                startUniversalPolling({
+                  jobId:     fbJobId,
+                  studio:    "video",
+                  authToken: user.accessToken ?? "",
+                  createdAt: fbCreatedAt,
+
+                  onUpdate: (fbUpdate) => {
+                    jobStore.updateJob(fbJobId, {
+                      status: fbUpdate.status,
+                      url:    fbUpdate.url,
+                      error:  fbUpdate.error,
+                    });
+                  },
+
+                  onComplete: (fbUpdate) => {
+                    const fbUrl = fbUpdate.url ?? "";
                     setVideos(prev => prev.map(v =>
-                      v.id === newVideo.id ? { ...v, status: "error" as const, error: "Timed out" } : v,
+                      v.id === newVideo.id
+                        ? { ...v, status: "done" as const, url: fbUrl, thumbnailUrl: null, sceneAudioFallback: true }
+                        : v,
+                    ));
+                    showToast("Video generated — Scene Audio was unavailable for this run", "info");
+                    jobStore.completeJob(fbJobId, fbUrl, undefined);
+                    void recordFlowStep({ modelKey, prompt, resultUrl: fbUrl, aspectRatio });
+                    setGenerating(false);
+                    void refreshVideoHistory();
+                  },
+
+                  onError: (fbUpdate) => {
+                    const fbErrMsg = fbUpdate.error ?? "Generation failed";
+                    setVideos(prev => prev.map(v =>
+                      v.id === newVideo.id ? { ...v, status: "error" as const, error: fbErrMsg } : v,
                     ));
                     showToast("Generation timed out — please try again", "error");
+                    jobStore.failJob(
+                      fbJobId,
+                      fbUpdate.status === "stale"     ? "stale"     :
+                      fbUpdate.status === "refunded"  ? "refunded"  :
+                      fbUpdate.status === "cancelled" ? "cancelled" : "failed",
+                      fbErrMsg,
+                    );
                     setGenerating(false);
-                    return;
-                  }
-                  try {
-                    const sr = await fetch(`/api/studio/jobs/${fbJobId}/status`, {
-                      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.accessToken}` },
-                    });
-                    const sd        = await sr.json() as { data?: { status: string; url?: string; error?: string } };
-                    const fbStatus  = sd.data?.status;
-                    const fbUrl     = sd.data?.url;
-                    if (fbStatus === "success" && fbUrl) {
-                      clearInterval(fbPoll);
-                      // Mark video done + flag that scene audio fell back
-                      setVideos(prev => prev.map(v =>
-                        v.id === newVideo.id
-                          ? { ...v, status: "done" as const, url: fbUrl, thumbnailUrl: null, sceneAudioFallback: true }
-                          : v,
-                      ));
-                      // Subtle premium notice — not an error, just context
-                      showToast("Video generated — Scene Audio was unavailable for this run", "info");
-                      void recordFlowStep({ modelKey, prompt, resultUrl: fbUrl, aspectRatio });
-                      setGenerating(false);
-                      // Re-fetch gallery so the completed video card has server metadata
-                      void refreshVideoHistory();
-                    } else if (fbStatus === "error") {
-                      clearInterval(fbPoll);
-                      const errMsg = sd.data?.error ?? "Generation failed";
-                      setVideos(prev => prev.map(v =>
-                        v.id === newVideo.id ? { ...v, status: "error" as const, error: errMsg } : v,
-                      ));
-                      showToast("Generation failed — please try again", "error");
-                      setGenerating(false);
-                    }
-                  } catch { /* ignore transient poll errors in fallback */ }
-                }, POLL_INTERVAL);
-
+                  },
+                });
               } catch (fbErr) {
-                // Fallback dispatch itself failed — surface a proper error
                 console.warn("[VideoStudio] Scene Audio fallback dispatch error:", fbErr);
                 setVideos(prev => prev.map(v =>
                   v.id === newVideo.id ? { ...v, status: "error" as const, error: "Timed out" } : v,
@@ -2566,151 +2689,21 @@ export default function VideoStudioShell() {
           }
           // ── End Scene Audio fallback ─────────────────────────────────────────
 
-          // Normal timeout — hard failure
+          // Normal terminal failure
+          const terminalStatus =
+            update.status === "refunded"  ? "refunded"  as const :
+            update.status === "cancelled" ? "cancelled" as const :
+            update.status === "stale"     ? "stale"     as const :
+            "failed" as const;
+          const errMsg = update.error ?? "Generation failed";
           setVideos(prev => prev.map(v =>
-            v.id === newVideo.id ? { ...v, status: "error", error: "Timed out" } : v,
+            v.id === newVideo.id ? { ...v, status: "error", error: errMsg } : v,
           ));
-          showToast("Generation timed out — please try again", "error");
+          showToast("Generation failed — please try again", "error");
+          jobStore.failJob(jobId, terminalStatus, errMsg);
           setGenerating(false);
-          return;
-        }
-        try {
-          const sr = await fetch(`/api/studio/jobs/${jobId}/status`, {
-            headers: {
-              "Content-Type":  "application/json",
-              "Authorization": `Bearer ${user.accessToken}`,
-            },
-          });
-          const sd            = await sr.json() as {
-            data?: {
-              status:        string;
-              url?:          string;
-              error?:        string;
-              audioDetected?: boolean | null;
-            };
-          };
-          const status        = sd.data?.status;
-          const url           = sd.data?.url;
-          const audioDetected = sd.data?.audioDetected ?? null;
-          if (status === "success" && url) {
-            clearInterval(poll);
-
-            // ── Derive audioSource from server detection ──────────────────────
-            // audioDetected comes from the server-side MP4 binary scanner run
-            // at mirror time — authoritative, zero cross-browser issues.
-            // Precedence: voiceover pipeline > scene audio detection > none.
-            //
-            // For scene audio:
-            //   true  → "scene"  (audio confirmed)
-            //   false → "none"   (no audio confirmed)
-            //   null  → "none"   (detection inconclusive — treat as unavailable, not unknown)
-            //
-            // null → "unknown" is reserved for non-scene, non-voiceover edge cases only.
-            // In scene mode null almost always means Kling delivered silence (no Sound Gen pack).
-            let audioSource: "scene" | "voiceover" | "none" | "unknown" = "none";
-            if (audioMode === "voiceover") {
-              audioSource = "voiceover"; // pipeline fires below; set optimistically
-            } else if (audioMode === "scene") {
-              audioSource = audioDetected === true ? "scene" : "none";
-              // null or false both → "none" (amber badge "unavailable")
-            }
-
-            console.log(
-              "[VideoStudio] poll success — audioDetected=%s audioSource=%s sceneAudioActive=%s polls=%d",
-              audioDetected, audioSource, sceneAudioActive, polls
-            );
-
-            setVideos(prev => prev.map(v =>
-              v.id === newVideo.id
-                ? {
-                    ...v,
-                    status:       "done",
-                    url,
-                    thumbnailUrl: null,
-                    audioDetected,
-                    audioSource,
-                    // sceneAudioFallback: legacy flag — keep for fallback-dispatch path
-                    // In the primary success path it is NOT forced; audioDetected is authoritative.
-                  }
-                : v,
-            ));
-
-            // ── Zencra Voice Engine — fire voiceover after video success ──────
-            // Fire-and-forget: voiceover failure must NOT fail or block the video.
-            // Captures audioMode + voiceoverScript at handleGenerate invocation time
-            // (correct — we want the values the user had when they clicked Generate).
-            if (audioMode === "voiceover" && voiceoverScript.trim()) {
-              const videoId      = newVideo.id;
-              const scriptToSend = voiceoverScript.trim();
-
-              // Mark this video as having voiceover in progress
-              setVideos(prev => prev.map(v =>
-                v.id === videoId
-                  ? { ...v, voiceoverStatus: "generating" as const, voiceoverScript: scriptToSend }
-                  : v,
-              ));
-
-              // Dispatch to existing /api/studio/audio/generate (ElevenLabs)
-              void (async () => {
-                try {
-                  const voRes = await fetch("/api/studio/audio/generate", {
-                    method:  "POST",
-                    headers: {
-                      "Content-Type":  "application/json",
-                      "Authorization": `Bearer ${user.accessToken}`,
-                    },
-                    body: JSON.stringify({
-                      modelKey: "elevenlabs",
-                      prompt:   scriptToSend,
-                      // No voiceId — use ElevenLabs default (Sarah)
-                      // No providerParams — standard quality
-                    }),
-                  });
-
-                  if (voRes.ok) {
-                    const voData = await voRes.json() as { data?: { url?: string } };
-                    const voUrl  = voData.data?.url ?? null;
-                    setVideos(prev => prev.map(v =>
-                      v.id === videoId
-                        ? { ...v, voiceoverStatus: "ready" as const, voiceoverUrl: voUrl }
-                        : v,
-                    ));
-                  } else {
-                    console.warn("[VideoStudio] Voiceover generation failed:", voRes.status);
-                    setVideos(prev => prev.map(v =>
-                      v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
-                    ));
-                  }
-                } catch (voErr) {
-                  console.warn("[VideoStudio] Voiceover dispatch error:", voErr);
-                  setVideos(prev => prev.map(v =>
-                    v.id === videoId ? { ...v, voiceoverStatus: "error" as const } : v,
-                  ));
-                }
-              })();
-            }
-            // ── End voiceover dispatch ────────────────────────────────────────
-
-            void recordFlowStep({
-              modelKey:    modelKey,
-              prompt:      prompt,
-              resultUrl:   url,
-              aspectRatio: aspectRatio,
-            });
-            setGenerating(false);
-            // Re-fetch gallery so the completed video card has the server URL + metadata
-            void refreshVideoHistory();
-          } else if (status === "error") {
-            clearInterval(poll);
-            const errMsg = sd.data?.error ?? "Generation failed";
-            setVideos(prev => prev.map(v =>
-              v.id === newVideo.id ? { ...v, status: "error", error: errMsg } : v,
-            ));
-            showToast("Generation failed — please try again", "error");
-            setGenerating(false);
-          }
-        } catch { /* ignore transient poll errors */ }
-      }, POLL_INTERVAL);
+        },
+      });
     } catch (err) {
       setVideos(prev => prev.map(v =>
         v.id === newVideo.id ? { ...v, status: "error", error: String(err) } : v,

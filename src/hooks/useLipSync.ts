@@ -218,7 +218,10 @@ export function useLipSync(authToken: string | null) {
   }, []);
 
   // ── Poll generation status ────────────────────────────────────────────────────
-  const startPolling = useCallback((id: string) => {
+  // Named attachLipSyncPolling (not startPolling) to avoid import conflicts with
+  // the universal job-polling engine. LipSync uses its own status endpoint
+  // (/api/lipsync/${id}/status) and status vocabulary, so it keeps its own loop.
+  const attachLipSyncPolling = useCallback((id: string) => {
     stopPoll();
     pollsRef.current = 0;
 
@@ -258,7 +261,7 @@ export function useLipSync(authToken: string | null) {
         }
       } catch { /* ignore transient errors */ }
     }, POLL_INTERVAL_MS);
-  }, [authHeaders, stopPoll]);
+  }, [authHeaders, stopPoll]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Create generation ─────────────────────────────────────────────────────────
   const create = useCallback(async (aspectRatio: string = "9:16") => {
@@ -293,12 +296,12 @@ export function useLipSync(authToken: string | null) {
 
       setGenerationId(data.generation_id);
       setGenStatus("processing");
-      startPolling(data.generation_id);
+      attachLipSyncPolling(data.generation_id);
     } catch (err) {
       setGenStatus("failed");
       setErrorMessage(err instanceof Error ? err.message : "Network error");
     }
-  }, [canGenerate, face.assetId, audio.assetId, effectiveQuality, audioDuration, authHeaders, startPolling]);
+  }, [canGenerate, face.assetId, audio.assetId, effectiveQuality, audioDuration, authHeaders, attachLipSyncPolling]);
 
   // ── Retry failed generation ──────────────────────────────────────────────────
   const retry = useCallback(async () => {
@@ -319,8 +322,8 @@ export function useLipSync(authToken: string | null) {
     }
 
     setGenStatus("processing");
-    startPolling(generationId);
-  }, [generationId, genStatus, authHeaders, startPolling]);
+    attachLipSyncPolling(generationId);
+  }, [generationId, genStatus, authHeaders, attachLipSyncPolling]);
 
   // ── Reset for a new generation ────────────────────────────────────────────────
   const reset = useCallback(() => {
