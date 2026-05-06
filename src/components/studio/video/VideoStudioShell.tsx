@@ -567,13 +567,45 @@ function OmniShotStack({
                     </button>
                   )}
                 </div>
-                {/* Prompt */}
-                <textarea value={shot.prompt} onChange={e => onUpdate(shot.id, { prompt: e.target.value })}
-                  placeholder="Describe this shot…" rows={2}
-                  style={{ width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 7, color: "#CBD5F5", fontSize: 12, padding: "7px 9px", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.55, transition: "border-color 0.15s" }}
-                  onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}60`; }}
-                  onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
-                />
+                {/* Prompt + enhance icon */}
+                <div style={{ position: "relative" }}>
+                  <textarea value={shot.prompt} onChange={e => onUpdate(shot.id, { prompt: e.target.value })}
+                    placeholder="Describe this shot…" rows={2}
+                    style={{ width: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 7, color: "#CBD5F5", fontSize: 12, padding: "7px 28px 7px 9px", resize: "none", outline: "none", fontFamily: "inherit", lineHeight: 1.55, transition: "border-color 0.15s" }}
+                    onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}60`; }}
+                    onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.06)"; }}
+                  />
+                  {/* Enhance icon */}
+                  <button
+                    onClick={() => {
+                      if (!shot.prompt.trim()) {
+                        const SAMPLE_SHOTS = [
+                          "Wide establishing shot — camera pulls back slowly to reveal the scene",
+                          "Close-up on subject's face, shallow depth of field, golden hour light",
+                          "Over-the-shoulder reveal, dramatic tilt upward as scene unfolds",
+                          "Low-angle hero shot, subject walks toward camera with purpose",
+                          "Aerial crane shot sweeping across the landscape",
+                        ];
+                        onUpdate(shot.id, { prompt: SAMPLE_SHOTS[idx % SAMPLE_SHOTS.length] });
+                      }
+                    }}
+                    title="Fill with sample shot description"
+                    style={{
+                      position: "absolute", top: 6, right: 6,
+                      width: 18, height: 18, borderRadius: 5, border: "none",
+                      background: `${ACCENT}14`, cursor: "pointer", color: ACCENT,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.15s", padding: 0, flexShrink: 0,
+                    }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = `${ACCENT}2E`; el.style.boxShadow = `0 0 6px ${ACCENT}44`; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = `${ACCENT}14`; el.style.boxShadow = "none"; }}
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+                    </svg>
+                  </button>
+                </div>
                 {/* Duration + composition */}
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 9, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", background: "rgba(0,0,0,0.40)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 6, padding: 2, gap: 2, flexShrink: 0 }}>
@@ -630,6 +662,21 @@ function OmniDirectorBoard({
   onRemoveVideo:         () => void;
 }) {
   const ACCENT = "#0EA5A0";
+
+  // Center canvas controls — local state for quick adjustment
+  const [canvasAR,         setCanvasAR]         = useState<"16:9" | "9:16" | "1:1" | "4:3" | "3:4">("16:9");
+  const [canvasDuration,   setCanvasDuration]   = useState<5 | 10 | 15>(5);
+  const [canvasResolution, setCanvasResolution] = useState<"720p" | "1080p">("720p");
+
+  // Compute frame card dimensions based on selected AR
+  const AR_DIMS: Record<string, { w: number; h: number }> = {
+    "16:9": { w: 208, h: 117 },
+    "9:16": { w: 74,  h: 132 },
+    "1:1":  { w: 132, h: 132 },
+    "4:3":  { w: 156, h: 117 },
+    "3:4":  { w: 99,  h: 132 },
+  };
+  const fd = AR_DIMS[canvasAR] ?? { w: 208, h: 117 };
   const hasStart = !!startSlot.url;
   const hasEnd   = !!endSlot.url;
   const hasVideo = !!motionVideoUrl;
@@ -641,7 +688,7 @@ function OmniDirectorBoard({
     <div style={{
       position: "relative",
       width: "100%",
-      minHeight: 440,
+      minHeight: 520,
       background: [
         "radial-gradient(ellipse at 22% 15%, rgba(14,165,160,0.14), transparent 50%)",
         "radial-gradient(ellipse at 78% 82%, rgba(34,211,238,0.09), transparent 48%)",
@@ -788,11 +835,12 @@ function OmniDirectorBoard({
                       Start Frame
                     </div>
                     <div style={{
-                      position: "relative", width: 188, height: 116, borderRadius: 10,
+                      position: "relative", width: fd.w, height: fd.h, borderRadius: 10,
                       overflow: "hidden",
                       border: `2px solid ${ACCENT}88`,
                       boxShadow: `0 0 32px ${ACCENT}44, 0 0 64px ${ACCENT}1a, 0 0 0 1px ${ACCENT}22`,
                       flexShrink: 0,
+                      transition: "width 0.22s ease, height 0.22s ease",
                     }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={startSlot.preview ?? startSlot.url ?? ""} alt="start frame"
@@ -863,11 +911,12 @@ function OmniDirectorBoard({
                       End Frame
                     </div>
                     <div style={{
-                      position: "relative", width: 188, height: 116, borderRadius: 10,
+                      position: "relative", width: fd.w, height: fd.h, borderRadius: 10,
                       overflow: "hidden",
                       border: "2px solid rgba(245,158,11,0.70)",
                       boxShadow: "0 0 32px rgba(245,158,11,0.38), 0 0 64px rgba(245,158,11,0.14), 0 0 0 1px rgba(245,158,11,0.15)",
                       flexShrink: 0,
+                      transition: "width 0.22s ease, height 0.22s ease",
                     }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={endSlot.preview ?? endSlot.url ?? ""} alt="end frame"
@@ -1023,6 +1072,67 @@ function OmniDirectorBoard({
                 </button>
               ))}
             </div>
+
+            {/* ── Center canvas controls ── AR · Duration · Resolution ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              gap: 16, marginTop: 8, flexWrap: "wrap",
+            }}>
+              {/* AR chips */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "#253045", letterSpacing: "0.07em" }}>AR</span>
+                {(["16:9", "9:16", "1:1", "4:3", "3:4"] as const).map(ar => (
+                  <button key={ar} onClick={() => setCanvasAR(ar)}
+                    style={{
+                      padding: "4px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                      border: canvasAR === ar ? `1px solid ${ACCENT}70` : "1px solid rgba(255,255,255,0.07)",
+                      background: canvasAR === ar ? `${ACCENT}1E` : "rgba(255,255,255,0.02)",
+                      color: canvasAR === ar ? ACCENT : "#2D4060",
+                      cursor: "pointer", transition: "all 0.14s",
+                      letterSpacing: "0.02em",
+                    }}
+                  >{ar}</button>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.06)" }} />
+
+              {/* Duration chips */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "#253045", letterSpacing: "0.07em" }}>DUR</span>
+                {([5, 10, 15] as const).map(d => (
+                  <button key={d} onClick={() => setCanvasDuration(d)}
+                    style={{
+                      padding: "4px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                      border: canvasDuration === d ? `1px solid ${ACCENT}70` : "1px solid rgba(255,255,255,0.07)",
+                      background: canvasDuration === d ? `${ACCENT}1E` : "rgba(255,255,255,0.02)",
+                      color: canvasDuration === d ? ACCENT : "#2D4060",
+                      cursor: "pointer", transition: "all 0.14s",
+                    }}
+                  >{d}s</button>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.06)" }} />
+
+              {/* Resolution chips */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "#253045", letterSpacing: "0.07em" }}>RES</span>
+                {(["720p", "1080p"] as const).map(r => (
+                  <button key={r} onClick={() => setCanvasResolution(r)}
+                    style={{
+                      padding: "4px 9px", borderRadius: 5, fontSize: 10, fontWeight: 700,
+                      border: canvasResolution === r ? `1px solid ${ACCENT}70` : "1px solid rgba(255,255,255,0.07)",
+                      background: canvasResolution === r ? `${ACCENT}1E` : "rgba(255,255,255,0.02)",
+                      color: canvasResolution === r ? ACCENT : "#2D4060",
+                      cursor: "pointer", transition: "all 0.14s",
+                    }}
+                  >{r}</button>
+                ))}
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -1034,7 +1144,7 @@ function OmniDirectorBoard({
 
 function OmniControlsPanel({
   prompt, setPrompt, negPrompt, setNegPrompt,
-  quality, setQuality, audioMode, setAudioMode,
+  quality: _quality, setQuality: _setQuality, audioMode, setAudioMode,
   startSlot, setStartSlot, endSlot, setEndSlot,
   motionVideoUrl, setMotionVideoUrl, setMotionVideoName,
 }: {
@@ -1054,8 +1164,22 @@ function OmniControlsPanel({
   setMotionVideoUrl:  (u: string | null) => void;
   setMotionVideoName: (n: string | null) => void;
 }) {
-  const ACCENT  = "#0EA5A0";
-  const GLASS   = "rgba(4,8,20,0.92)";
+  const ACCENT = "#0EA5A0";
+  const GLASS  = "rgba(4,8,20,0.92)";
+  const SAMPLE_SCENE_PROMPT = "A lone explorer discovers an ancient temple in a misty jungle — wide establishing shot, close-up of discovery, dramatic reveal with golden light streaming through the canopy";
+
+  // Omni-specific local controls
+  const [omniAR,         setOmniAR]         = useState<"16:9" | "9:16" | "1:1" | "4:3" | "3:4">("16:9");
+  const [omniDuration,   setOmniDuration]   = useState<5 | 10 | 15>(5);
+  const [omniResolution, setOmniResolution] = useState<"720p" | "1080p">("720p");
+
+  // Collapsible state — negPrompt always collapsed, frameRate always collapsed
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    negPrompt: true,
+    frameRate: true,
+  });
+  const toggleSection = (key: string) =>
+    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const inputBase: React.CSSProperties = {
     width: "100%", boxSizing: "border-box",
@@ -1066,9 +1190,10 @@ function OmniControlsPanel({
     transition: "border-color 0.15s",
   };
 
+  // Section card with optional header-right slot
   const Section = ({
-    label, color = ACCENT, children,
-  }: { label: string; color?: string; children: React.ReactNode }) => (
+    label, color = ACCENT, children, headerRight,
+  }: { label: string; color?: string; children: React.ReactNode; headerRight?: React.ReactNode }) => (
     <div style={{
       background: GLASS,
       border: "1px solid rgba(255,255,255,0.06)",
@@ -1078,23 +1203,20 @@ function OmniControlsPanel({
       boxShadow: "inset 0 0 24px rgba(0,0,0,0.20)",
     }}>
       <div style={{
-        fontSize: 10, fontWeight: 800, color: color,
-        letterSpacing: "0.08em", textTransform: "uppercase" as const,
-        marginBottom: 11, opacity: 0.85,
-      }}>{label}</div>
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 11,
+      }}>
+        <div style={{
+          fontSize: 10, fontWeight: 800, color,
+          letterSpacing: "0.08em", textTransform: "uppercase" as const, opacity: 0.85,
+        }}>{label}</div>
+        {headerRight}
+      </div>
       {children}
     </div>
   );
 
-  // Collapsible section — chevron toggle, 220ms height animation
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    exclude: true,
-    frameRate: true,
-    advanced: true,
-  });
-  const toggleSection = (key: string) =>
-    setCollapsedSections(prev => ({ ...prev, [key]: !prev[key] }));
-
+  // Collapsible section
   const CollapsibleSection = ({
     sectionKey, label, color = "#475569", children,
   }: { sectionKey: string; label: string; color?: string; children: React.ReactNode }) => {
@@ -1108,45 +1230,46 @@ function OmniControlsPanel({
         boxShadow: "inset 0 0 24px rgba(0,0,0,0.20)",
         overflow: "hidden",
       }}>
-        <button
-          onClick={() => toggleSection(sectionKey)}
-          style={{
-            width: "100%", display: "flex", alignItems: "center",
-            justifyContent: "space-between",
-            padding: "13px 14px",
-            background: "none", border: "none", cursor: "pointer",
-            textAlign: "left" as const,
-          }}
-        >
+        <button onClick={() => toggleSection(sectionKey)} style={{
+          width: "100%", display: "flex", alignItems: "center",
+          justifyContent: "space-between", padding: "13px 14px",
+          background: "none", border: "none", cursor: "pointer", textAlign: "left" as const,
+        }}>
           <span style={{
-            fontSize: 10, fontWeight: 800, color: color,
-            letterSpacing: "0.08em", textTransform: "uppercase" as const,
-            opacity: 0.85,
+            fontSize: 10, fontWeight: 800, color,
+            letterSpacing: "0.08em", textTransform: "uppercase" as const, opacity: 0.85,
           }}>{label}</span>
-          <svg
-            width="11" height="11" viewBox="0 0 24 24" fill="none"
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
             stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{
-              flexShrink: 0, opacity: 0.7,
-              transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
-              transition: "transform 0.22s ease",
-            }}
-          >
+            style={{ flexShrink: 0, opacity: 0.7, transform: collapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.22s ease" }}>
             <polyline points="6 9 12 15 18 9"/>
           </svg>
         </button>
-        <div style={{
-          maxHeight: collapsed ? 0 : 400,
-          overflow: "hidden",
-          transition: "max-height 0.22s ease",
-        }}>
-          <div style={{ padding: "0 14px 14px" }}>
-            {children}
-          </div>
+        <div style={{ maxHeight: collapsed ? 0 : 400, overflow: "hidden", transition: "max-height 0.22s ease" }}>
+          <div style={{ padding: "0 14px 14px" }}>{children}</div>
         </div>
       </div>
     );
   };
+
+  // Enhance prompt sparkle icon
+  const EnhanceBtn = ({ onClick }: { onClick: () => void }) => (
+    <button onClick={onClick} title="Fill with sample scene prompt"
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 22, height: 22, borderRadius: 6, border: "none",
+        background: `${ACCENT}14`, cursor: "pointer", color: ACCENT,
+        transition: "all 0.15s", flexShrink: 0, padding: 0,
+      }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = `${ACCENT}2E`; el.style.boxShadow = `0 0 8px ${ACCENT}44`; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = `${ACCENT}14`; el.style.boxShadow = "none"; }}
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+      </svg>
+    </button>
+  );
 
   return (
     <div style={{
@@ -1161,8 +1284,7 @@ function OmniControlsPanel({
       <div style={{
         padding: "14px 16px 12px",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
-        background: "rgba(4,8,20,0.72)",
-        backdropFilter: "blur(12px)",
+        background: "rgba(4,8,20,0.72)", backdropFilter: "blur(12px)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{
@@ -1184,29 +1306,9 @@ function OmniControlsPanel({
       </div>
 
       {/* ── Scrollable sections ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 12px 16px", overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "12px 12px 16px", overflowY: "auto" }}>
 
-        {/* Scene Prompt */}
-        <Section label="Scene Direction" color={ACCENT}>
-          <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-            placeholder="Overall scene mood, tone, and cinematic direction…" rows={4}
-            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
-            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
-            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
-          />
-        </Section>
-
-        {/* Negative Prompt — collapsible, default collapsed */}
-        <CollapsibleSection sectionKey="exclude" label="Exclude" color="#475569">
-          <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
-            placeholder="Elements to exclude from the output…" rows={2}
-            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
-            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
-            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
-          />
-        </CollapsibleSection>
-
-        {/* Reference Frames */}
+        {/* 1 · Reference Frames */}
         <Section label="Reference Frames" color="#22D3EE">
           <div style={{ display: "flex", gap: 8 }}>
             {/* Start frame */}
@@ -1216,12 +1318,10 @@ function OmniControlsPanel({
                 <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: `1px solid ${ACCENT}55`, boxShadow: `0 0 16px ${ACCENT}22` }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={startSlot.preview ?? startSlot.url} alt="start" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
-                  {/* Action overlay on hover */}
                   <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(0,0,0,0)", transition: "background 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.48)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0)"; }}
                   >
-                    {/* Replace */}
                     <label style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(14,165,160,0.85)", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
@@ -1229,14 +1329,11 @@ function OmniControlsPanel({
                       Replace
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setStartSlot({ url, preview: url }); }} />
                     </label>
-                    {/* Clear */}
                     <button onClick={() => setStartSlot(EMPTY_SLOT)}
                       style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(239,68,68,0.80)", border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
-                    >
-                      Remove
-                    </button>
+                    >Remove</button>
                   </div>
                 </div>
               ) : (
@@ -1258,12 +1355,10 @@ function OmniControlsPanel({
                 <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(245,158,11,0.60)", boxShadow: "0 0 16px rgba(245,158,11,0.22)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={endSlot.preview ?? endSlot.url} alt="end" style={{ width: "100%", height: "100%", objectFit: "cover", transition: "opacity 0.2s" }} />
-                  {/* Action overlay on hover */}
                   <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(0,0,0,0)", transition: "background 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.48)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0)"; }}
                   >
-                    {/* Replace */}
                     <label style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(245,158,11,0.85)", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
@@ -1271,14 +1366,11 @@ function OmniControlsPanel({
                       Replace
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (!f) return; const url = URL.createObjectURL(f); setEndSlot({ url, preview: url }); }} />
                     </label>
-                    {/* Clear */}
                     <button onClick={() => setEndSlot(EMPTY_SLOT)}
                       style={{ display: "flex", alignItems: "center", gap: 3, padding: "4px 9px", borderRadius: 5, background: "rgba(239,68,68,0.80)", border: "none", cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}
-                    >
-                      Remove
-                    </button>
+                    >Remove</button>
                   </div>
                 </div>
               ) : (
@@ -1296,7 +1388,7 @@ function OmniControlsPanel({
           </div>
         </Section>
 
-        {/* Reference Video */}
+        {/* 2 · Motion Reference */}
         <Section label="Motion Reference" color="#818CF8">
           {motionVideoUrl ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(99,102,241,0.10)", border: "1px solid rgba(99,102,241,0.28)", borderRadius: 8 }}>
@@ -1307,8 +1399,7 @@ function OmniControlsPanel({
               </button>
             </div>
           ) : (
-            <label
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.18s" }}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "rgba(99,102,241,0.03)", border: "1px dashed rgba(99,102,241,0.18)", borderRadius: 8, cursor: "pointer", transition: "all 0.18s" }}
               onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(99,102,241,0.50)"; el.style.background = "rgba(99,102,241,0.10)"; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "1px dashed rgba(99,102,241,0.18)"; el.style.background = "rgba(99,102,241,0.03)"; }}
             >
@@ -1319,83 +1410,130 @@ function OmniControlsPanel({
           )}
         </Section>
 
-        {/* Quality */}
-        <Section label="Output Quality" color="#F59E0B">
+        {/* 3 · Scene Direction — with enhance icon */}
+        <Section label="Scene Direction" color={ACCENT}
+          headerRight={<EnhanceBtn onClick={() => { if (!prompt.trim()) setPrompt(SAMPLE_SCENE_PROMPT); }} />}
+        >
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+            placeholder="Overall scene mood, tone, and cinematic direction…" rows={4}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55 }}
+            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = `${ACCENT}55`; }}
+            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
+          />
+        </Section>
+
+        {/* 4 · Negative Prompt — collapsible, always collapsed, red accent */}
+        <CollapsibleSection sectionKey="negPrompt" label="Negative Prompt" color="#EF4444">
+          <textarea value={negPrompt} onChange={e => setNegPrompt(e.target.value)}
+            placeholder="Describe what to exclude from the scene…" rows={2}
+            style={{ ...inputBase, resize: "none", lineHeight: 1.55, borderColor: "rgba(239,68,68,0.18)" }}
+            onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.50)"; }}
+            onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(239,68,68,0.18)"; }}
+          />
+        </CollapsibleSection>
+
+        {/* 5 · Aspect Ratio */}
+        <Section label="Aspect Ratio" color={ACCENT}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {(["16:9", "9:16", "1:1", "4:3", "3:4"] as const).map(ar => (
+              <button key={ar} onClick={() => setOmniAR(ar)}
+                style={{
+                  padding: "6px 11px", borderRadius: 7, fontSize: 11, fontWeight: 700,
+                  border: omniAR === ar ? `1px solid ${ACCENT}70` : "1px solid rgba(255,255,255,0.07)",
+                  background: omniAR === ar ? `${ACCENT}1E` : "rgba(255,255,255,0.02)",
+                  color: omniAR === ar ? ACCENT : "#3D5070",
+                  cursor: "pointer", transition: "all 0.14s",
+                  boxShadow: omniAR === ar ? `0 0 10px ${ACCENT}22` : "none",
+                  letterSpacing: "0.02em",
+                }}
+              >{ar}</button>
+            ))}
+          </div>
+        </Section>
+
+        {/* 6 · Duration */}
+        <Section label="Duration" color={ACCENT}>
           <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
-            {([{ label: "Standard", value: "std" as Quality }, { label: "Pro", value: "pro" as Quality }]).map(({ label, value }) => (
-              <button key={value} onClick={() => setQuality(value)}
+            {([5, 10, 15] as const).map(d => (
+              <button key={d} onClick={() => setOmniDuration(d)}
                 style={{
-                  flex: 1, padding: "8px 0", borderRadius: 6, border: "none",
-                  fontSize: 12, fontWeight: quality === value ? 700 : 500,
-                  background: quality === value ? "rgba(245,158,11,0.16)" : "transparent",
-                  color: quality === value ? "#F59E0B" : "#334155",
+                  flex: 1, padding: "7px 0", borderRadius: 6, border: "none",
+                  fontSize: 12, fontWeight: omniDuration === d ? 700 : 500,
+                  background: omniDuration === d ? `${ACCENT}22` : "transparent",
+                  color: omniDuration === d ? ACCENT : "#334155",
                   cursor: "pointer", transition: "all 0.14s",
-                  boxShadow: quality === value ? "0 0 12px rgba(245,158,11,0.18)" : "none",
+                  boxShadow: omniDuration === d ? `0 0 8px ${ACCENT}20` : "none",
                 }}
-              >{label}</button>
+              >{d}s</button>
             ))}
           </div>
         </Section>
 
-        {/* Audio */}
-        <Section label="Audio Mode" color="#64748B">
-          <div style={{ display: "flex", gap: 6 }}>
-            {([{ label: "No Audio", value: "none" as const }, { label: "Scene Audio", value: "scene" as const }]).map(({ label, value }) => (
-              <button key={value} onClick={() => setAudioMode(value)}
-                style={{
-                  flex: 1, padding: "7px 10px", borderRadius: 7,
-                  fontSize: 12, fontWeight: audioMode === value ? 600 : 500,
-                  border: audioMode === value ? `1px solid ${ACCENT}55` : "1px solid rgba(255,255,255,0.07)",
-                  background: audioMode === value ? `${ACCENT}15` : "rgba(255,255,255,0.02)",
-                  color: audioMode === value ? ACCENT : "#475569",
-                  cursor: "pointer", transition: "all 0.14s",
-                }}
-              >{label}</button>
-            ))}
-          </div>
-          <div style={{ fontSize: 10, color: "#1E293B", marginTop: 8, lineHeight: 1.5 }}>
-            Lip sync not available for multi-shot Omni scenes.
+        {/* 7 · Scene Audio — cinematic toggle */}
+        <Section label="Scene Audio" color="#64748B">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: audioMode === "scene" ? ACCENT : "#475569", transition: "color 0.18s", lineHeight: 1 }}>
+                Cinematic Audio
+              </div>
+              <div style={{ fontSize: 10, color: "#253045", marginTop: 3, lineHeight: 1.4 }}>
+                {audioMode === "scene" ? "Native scene audio enabled" : "Silent output"}
+              </div>
+            </div>
+            {/* Toggle pill */}
+            <div
+              onClick={() => setAudioMode(audioMode === "scene" ? "none" : "scene")}
+              style={{
+                position: "relative", width: 40, height: 22, borderRadius: 11, flexShrink: 0,
+                background: audioMode === "scene" ? ACCENT : "rgba(255,255,255,0.08)",
+                border: `1px solid ${audioMode === "scene" ? ACCENT : "rgba(255,255,255,0.12)"}`,
+                cursor: "pointer", transition: "background 0.22s, border-color 0.22s",
+                boxShadow: audioMode === "scene" ? `0 0 16px ${ACCENT}44, inset 0 0 8px ${ACCENT}22` : "none",
+              }}
+            >
+              <div style={{
+                position: "absolute", top: 2,
+                left: audioMode === "scene" ? 20 : 2,
+                width: 16, height: 16, borderRadius: "50%",
+                background: audioMode === "scene" ? "#fff" : "#334155",
+                boxShadow: audioMode === "scene" ? `0 0 6px ${ACCENT}88` : "none",
+                transition: "left 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.18s",
+              }} />
+            </div>
           </div>
         </Section>
 
-        {/* Frame Rate — collapsible, default collapsed */}
+        {/* 8 · Resolution */}
+        <Section label="Resolution" color={ACCENT}>
+          <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
+            {(["720p", "1080p"] as const).map(r => (
+              <button key={r} onClick={() => setOmniResolution(r)}
+                style={{
+                  flex: 1, padding: "7px 0", borderRadius: 6, border: "none",
+                  fontSize: 12, fontWeight: omniResolution === r ? 700 : 500,
+                  background: omniResolution === r ? `${ACCENT}22` : "transparent",
+                  color: omniResolution === r ? ACCENT : "#334155",
+                  cursor: "pointer", transition: "all 0.14s",
+                  boxShadow: omniResolution === r ? `0 0 8px ${ACCENT}20` : "none",
+                }}
+              >{r}</button>
+            ))}
+          </div>
+        </Section>
+
+        {/* 9 · Frame Rate — collapsible */}
         <CollapsibleSection sectionKey="frameRate" label="Frame Rate" color="#818CF8">
           <div style={{ display: "flex", background: "rgba(0,0,0,0.30)", borderRadius: 8, padding: 3, gap: 2, border: "1px solid rgba(255,255,255,0.05)" }}>
             {([{ label: "24 fps", value: "24" }, { label: "30 fps", value: "30" }]).map(({ label, value }) => (
               <button key={value}
-                style={{
-                  flex: 1, padding: "7px 0", borderRadius: 6, border: "none",
-                  fontSize: 12, fontWeight: 500,
-                  background: "transparent",
-                  color: "#334155",
-                  cursor: "pointer", transition: "all 0.14s",
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = "rgba(129,140,248,0.12)";
-                  el.style.color = "#818CF8";
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = "transparent";
-                  el.style.color = "#334155";
-                }}
+                style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 500, background: "transparent", color: "#334155", cursor: "pointer", transition: "all 0.14s" }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(129,140,248,0.12)"; el.style.color = "#818CF8"; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = "transparent"; el.style.color = "#334155"; }}
               >{label}</button>
             ))}
           </div>
           <div style={{ fontSize: 10, color: "#1E293B", marginTop: 8, lineHeight: 1.5 }}>
             Frame rate control coming in a future Omni update.
-          </div>
-        </CollapsibleSection>
-
-        {/* Advanced — collapsible placeholder */}
-        <CollapsibleSection sectionKey="advanced" label="Advanced" color="#334155">
-          <div style={{
-            padding: "10px 0 2px",
-            fontSize: 11, color: "#334155", lineHeight: 1.6,
-            textAlign: "center" as const,
-          }}>
-            Advanced controls coming soon.
           </div>
         </CollapsibleSection>
 
@@ -1419,23 +1557,52 @@ function OmniGenerateBar({
   const ACCENT    = "#0EA5A0";
   const AMBER     = "#F59E0B";
   const hasPrompt = prompt.trim().length > 0;
+  const [showValidation, setShowValidation] = useState(false);
+
+  const handleClick = () => {
+    if (!hasPrompt) {
+      setShowValidation(true);
+      setTimeout(() => setShowValidation(false), 2800);
+      return;
+    }
+    setShowValidation(false);
+    if (canGenerate) onGenerate();
+  };
 
   const checks = [
     { label: "Scene prompt",     done: hasPrompt },
     { label: "Shot stack ready", done: shots.length >= 1 },
-    { label: "Quality selected", done: true },
+    { label: "Credits ready",    done: canGenerate },
   ];
 
   return (
     <div style={{
-      background: [
-        "linear-gradient(180deg, rgba(4,8,20,0.92) 0%, rgba(2,5,14,0.97) 100%)",
-      ].join(", "),
+      background: "linear-gradient(180deg, rgba(4,8,20,0.92) 0%, rgba(2,5,14,0.97) 100%)",
       borderTop: "1px solid rgba(14,165,160,0.20)",
-      padding: "16px 22px",
+      padding: "14px 22px",
       display: "flex", alignItems: "center", gap: 18,
       boxShadow: "inset 0 1px 0 rgba(14,165,160,0.06)",
+      position: "relative",
     }}>
+      {/* ── Validation hint ── */}
+      {showValidation && (
+        <div style={{
+          position: "absolute", top: -40, right: 22,
+          background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)",
+          borderRadius: 8, padding: "6px 12px",
+          fontSize: 12, fontWeight: 600, color: "#F87171",
+          backdropFilter: "blur(8px)",
+          animation: "omniDockPop 0.18s ease both",
+          pointerEvents: "none",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Add a scene direction to generate
+        </div>
+      )}
+
       {/* ── Readiness checklist ── */}
       <div style={{ display: "flex", gap: 16, flex: 1, flexWrap: "wrap", alignItems: "center" }}>
         {checks.map(c => (
@@ -1457,11 +1624,8 @@ function OmniGenerateBar({
             </div>
             <span style={{
               fontSize: 11, fontWeight: c.done ? 600 : 400,
-              color: c.done ? "#64748B" : "#253045",
-              letterSpacing: "0.01em",
-            }}>
-              {c.label}
-            </span>
+              color: c.done ? "#64748B" : "#253045", letterSpacing: "0.01em",
+            }}>{c.label}</span>
           </div>
         ))}
       </div>
@@ -1470,14 +1634,11 @@ function OmniGenerateBar({
       <div style={{
         display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0,
         padding: "6px 14px",
-        background: `rgba(245,158,11,0.06)`,
-        border: `1px solid rgba(245,158,11,0.18)`,
+        background: "rgba(245,158,11,0.06)",
+        border: "1px solid rgba(245,158,11,0.18)",
         borderRadius: 8,
       }}>
-        <div style={{
-          fontSize: 20, fontWeight: 900, color: AMBER, lineHeight: 1,
-          textShadow: `0 0 20px ${AMBER}44`,
-        }}>
+        <div style={{ fontSize: 20, fontWeight: 900, color: AMBER, lineHeight: 1, textShadow: `0 0 20px ${AMBER}44` }}>
           {creditEstimate}
         </div>
         <div style={{ fontSize: 9, color: "#92400E", fontWeight: 700, letterSpacing: "0.07em", marginTop: 1 }}>
@@ -1485,33 +1646,30 @@ function OmniGenerateBar({
         </div>
       </div>
 
-      {/* ── Generate button ── */}
+      {/* ── Generate button — always styled, validates on click ── */}
       <button
-        onClick={onGenerate}
-        disabled={!canGenerate}
+        onClick={handleClick}
+        disabled={generating}
         style={{
           padding: "12px 26px", borderRadius: 10, border: "none", flexShrink: 0,
-          background: canGenerate
-            ? `linear-gradient(135deg, ${ACCENT} 0%, #22D3EE 100%)`
-            : "rgba(255,255,255,0.04)",
-          color: canGenerate ? "#020C14" : "#253045",
+          background: `linear-gradient(135deg, ${ACCENT} 0%, #22D3EE 100%)`,
+          color: "#020C14",
           fontSize: 13, fontWeight: 800,
-          cursor: canGenerate ? "pointer" : "default",
+          cursor: generating ? "default" : "pointer",
           transition: "all 0.22s",
           letterSpacing: "0.02em", whiteSpace: "nowrap",
-          boxShadow: canGenerate
-            ? `0 0 36px rgba(14,165,160,0.55), 0 0 72px rgba(14,165,160,0.22), 0 0 120px rgba(14,165,160,0.08), 0 4px 18px rgba(0,0,0,0.45)`
-            : "none",
+          boxShadow: `0 0 36px rgba(14,165,160,0.55), 0 0 72px rgba(14,165,160,0.22), 0 0 120px rgba(14,165,160,0.08), 0 4px 18px rgba(0,0,0,0.45)`,
           display: "flex", alignItems: "center", gap: 8,
+          opacity: generating ? 0.75 : 1,
         }}
         onMouseEnter={e => {
-          if (!canGenerate) return;
+          if (generating) return;
           const el = e.currentTarget as HTMLElement;
           el.style.boxShadow = `0 0 52px rgba(14,165,160,0.70), 0 0 100px rgba(14,165,160,0.30), 0 0 160px rgba(14,165,160,0.12), 0 4px 22px rgba(0,0,0,0.55)`;
           el.style.transform = "translateY(-1px)";
         }}
         onMouseLeave={e => {
-          if (!canGenerate) return;
+          if (generating) return;
           const el = e.currentTarget as HTMLElement;
           el.style.boxShadow = `0 0 36px rgba(14,165,160,0.55), 0 0 72px rgba(14,165,160,0.22), 0 0 120px rgba(14,165,160,0.08), 0 4px 18px rgba(0,0,0,0.45)`;
           el.style.transform = "none";
@@ -1521,14 +1679,10 @@ function OmniGenerateBar({
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
             style={{ animation: "omniGenSpin 1s linear infinite" }}>
-            <line x1="12" y1="2" x2="12" y2="6"/>
-            <line x1="12" y1="18" x2="12" y2="22"/>
-            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
-            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
-            <line x1="2" y1="12" x2="6" y2="12"/>
-            <line x1="18" y1="12" x2="22" y2="12"/>
-            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
-            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+            <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+            <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
           </svg>
         ) : (
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -3008,7 +3162,7 @@ export default function VideoStudioShell() {
            ═══════════════════════════════════════════════════════════ */
         <div style={{
           display: "grid",
-          gridTemplateColumns: "300px 1fr 280px",
+          gridTemplateColumns: "280px 1fr 264px",
           columnGap: 14,
           alignItems: "start",
           width: "100%",
