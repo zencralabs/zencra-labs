@@ -22,6 +22,7 @@ interface Plan {
   icon: string;
   monthlyPrice: number;
   yearlyPrice: number;
+  originalPrice: number;
   credits: number;
   images: number;
   clips: number;
@@ -69,16 +70,17 @@ const PLANS: Plan[] = [
     icon: "⚡",
     monthlyPrice: 12,
     yearlyPrice: 120,
+    originalPrice: 19,
     credits: 600,
     images: 75,
     clips: 5,
-    border: "rgba(34,211,238,0.75)",
-    hoverGlow: "0 0 45px rgba(34,211,238,.32)",
+    border: "rgba(96,165,250,0.70)",
+    hoverGlow: "0 0 45px rgba(96,165,250,.32)",
     ctaLabel: "Start Free (Upgrade later)",
-    ctaBg: "transparent",
-    ctaColor: "#22d3ee",
-    ctaBorder: "1.5px solid rgba(34,211,238,0.38)",
-    ctaHoverShadow: "0 0 24px rgba(34,211,238,0.40)",
+    ctaBg: "linear-gradient(90deg, #2563eb, #3b82f6)",
+    ctaColor: "#fff",
+    ctaBorder: "none",
+    ctaHoverShadow: "0 0 24px rgba(59,130,246,0.45)",
     features: [
       "Basic & Pro Image Models",
       "Fast Video Generation",
@@ -93,16 +95,17 @@ const PLANS: Plan[] = [
     icon: "👑",
     monthlyPrice: 29,
     yearlyPrice: 290,
+    originalPrice: 49,
     credits: 1600,
     images: 200,
     clips: 13,
-    border: "rgba(217,70,239,0.78)",
-    hoverGlow: "0 0 50px rgba(217,70,239,.34)",
+    border: "rgba(236,72,153,0.78)",
+    hoverGlow: "0 0 50px rgba(236,72,153,.34)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(90deg, #ff4fc3, #8b5cf6, #22d3ee)",
+    ctaBg: "linear-gradient(90deg, #ec4899, #db2777)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 40px rgba(217,70,239,0.50), 0 0 80px rgba(139,92,246,0.25)",
+    ctaHoverShadow: "0 0 40px rgba(236,72,153,0.55), 0 0 80px rgba(219,39,119,0.25)",
     highlight: true,
     features: [
       "All Image Models",
@@ -119,16 +122,17 @@ const PLANS: Plan[] = [
     icon: "⚡",
     monthlyPrice: 49,
     yearlyPrice: 490,
+    originalPrice: 79,
     credits: 3500,
     images: 437,
     clips: 29,
-    border: "rgba(124,58,237,0.78)",
-    hoverGlow: "0 0 45px rgba(124,58,237,.32)",
+    border: "rgba(52,211,153,0.78)",
+    hoverGlow: "0 0 45px rgba(52,211,153,.32)",
     ctaLabel: "Get Started",
-    ctaBg: "linear-gradient(90deg, #7c3aed, #9333ea)",
+    ctaBg: "linear-gradient(90deg, #059669, #10b981)",
     ctaColor: "#fff",
     ctaBorder: "none",
-    ctaHoverShadow: "0 0 32px rgba(124,58,237,0.55), 0 0 64px rgba(147,51,234,0.28)",
+    ctaHoverShadow: "0 0 32px rgba(16,185,129,0.55), 0 0 64px rgba(5,150,105,0.28)",
     features: [
       "All Image Models",
       "All Video Models",
@@ -144,17 +148,17 @@ const PLANS: Plan[] = [
     icon: "💎",
     monthlyPrice: 89,
     yearlyPrice: 890,
+    originalPrice: 149,
     credits: 8000,
     images: 1000,
     clips: 66,
-    border: "rgba(255,255,255,0.95)",
-    hoverGlow: "0 0 55px rgba(255,255,255,.34), 0 0 90px rgba(59,130,246,.18)",
+    border: "rgba(59,130,246,0.92)",
+    hoverGlow: "0 0 55px rgba(59,130,246,.40), 0 0 90px rgba(37,99,235,.22)",
     ctaLabel: "Get Started",
-    ctaBg: "#ffffff",
-    ctaColor: "transparent",
+    ctaBg: "linear-gradient(90deg, #2563eb, #1d4ed8)",
+    ctaColor: "#fff",
     ctaBorder: "none",
-    ctaGradientText: "linear-gradient(90deg, #2563eb, #0f1b4d)",
-    ctaHoverShadow: "0 0 20px rgba(255,255,255,0.30), 0 0 40px rgba(255,255,255,0.12)",
+    ctaHoverShadow: "0 0 28px rgba(59,130,246,0.55), 0 0 56px rgba(37,99,235,0.28)",
     features: [
       "All Image Models",
       "All Video Models",
@@ -376,8 +380,6 @@ function BillingToggle({ billing, onChange }: {
         border: `1px solid rgba(255,213,106,0.38)`,
         fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
         color: GOLD, letterSpacing: "0.08em",
-        animation: "zpo-launch-float 4s ease-in-out infinite",
-        willChange: "transform",
       }}>Save 20%</div>
     </div>
   );
@@ -406,13 +408,19 @@ function PricingCard({
   const outputLabel   = billing === "yearly" ? "/ year"         : "/ month";
 
   // Business workspace dynamic pricing
-  const isBusiness     = plan.id === "business";
-  const bSeats         = isBusiness ? businessSeats : 2;
-  const bMonthlyPrice  = isBusiness ? 89 + (bSeats - 2) * 29    : plan.monthlyPrice;
-  const bYearlyPrice   = isBusiness ? bMonthlyPrice * 10         : plan.yearlyPrice;
-  const bCredits       = isBusiness ? 8000 + (bSeats - 2) * 4000 : plan.credits;
-  const price          = billing === "yearly" ? bYearlyPrice : bMonthlyPrice;
-  const displayCredits = bCredits;
+  const isBusiness          = plan.id === "business";
+  const bSeats              = isBusiness ? businessSeats : 2;
+  const bMonthlyPrice       = isBusiness ? 89 + (bSeats - 2) * 29    : plan.monthlyPrice;
+  const bYearlyPrice        = isBusiness ? bMonthlyPrice * 10         : plan.yearlyPrice;
+  const bCredits            = isBusiness ? 8000 + (bSeats - 2) * 4000 : plan.credits;
+  const price               = billing === "yearly" ? bYearlyPrice : bMonthlyPrice;
+  const displayCredits      = bCredits;
+  // Launch discount — original (crossed) price; Business original scales with extra seats
+  const displayOriginalPrice = billing === "yearly"
+    ? null
+    : isBusiness
+      ? plan.originalPrice + (bSeats - 2) * 29
+      : plan.originalPrice;
 
   // FCS CTA logic
   const isFCSDisabled = fcsEnabled && (plan.id === "starter" || plan.id === "creator");
@@ -431,7 +439,7 @@ function PricingCard({
         position: "relative",
         flex: "1 1 220px",
         minWidth: 215, maxWidth: 275,
-        ...(isBusiness ? { minHeight: 560 } : { height: 560 }),
+        minHeight: 560,
         display: "flex", flexDirection: "column",
         justifyContent: "space-between",
         borderRadius: 22,
@@ -479,22 +487,27 @@ function PricingCard({
         {/* ── Business Workspace identity badge ── */}
         {isBusiness && (
           <div style={{ marginBottom: 14 }}>
-            {/* Workspace label */}
+            {/* Workspace label — 2-line, no icon */}
             <div style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "3px 10px 3px 8px",
-              borderRadius: 20,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.20)",
+              padding: "6px 10px",
+              borderRadius: 10,
+              background: "rgba(59,130,246,0.10)",
+              border: "1px solid rgba(59,130,246,0.28)",
               marginBottom: 10,
+              width: "100%",
             }}>
-              <span style={{ fontSize: 11 }}>🏢</span>
-              <span style={{
+              <div style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.12em",
+                color: "rgba(147,197,253,0.90)",
+                textTransform: "uppercase",
+              }}>Team Workspace</div>
+              <div style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 11, fontWeight: 600,
-                color: "rgba(241,245,249,0.80)",
-                letterSpacing: "0.04em",
-              }}>Team Workspace — {bSeats} Seats Included</span>
+                fontSize: 11, fontWeight: 500,
+                color: "rgba(226,232,240,0.65)",
+              }}>{bSeats} Seats Included</div>
             </div>
 
             {/* TEAM SIZE stepper */}
@@ -587,6 +600,16 @@ function PricingCard({
 
         {/* Price */}
         <div style={{ marginBottom: 12 }}>
+          {/* Crossed original price — monthly only */}
+          {displayOriginalPrice && (
+            <div style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 13, fontWeight: 500,
+              color: "rgba(148,163,184,0.45)",
+              textDecoration: "line-through",
+              marginBottom: 2,
+            }}>${displayOriginalPrice}/mo</div>
+          )}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 4, lineHeight: 1 }}>
             <span style={{
               fontFamily: "'Syne', sans-serif",
@@ -660,6 +683,7 @@ function PricingCard({
         {/* CTA button */}
         <button
           disabled={isFCSDisabled}
+          className="zpo-cta-btn"
           style={{
             width: "100%", padding: "13px 0",
             borderRadius: 12,
@@ -674,6 +698,7 @@ function PricingCard({
             transition: "all 0.22s ease",
             marginBottom: 16,
             overflow: "hidden",
+            position: "relative",
           }}
           onMouseEnter={e => {
             if (!isFCSDisabled) {
@@ -695,18 +720,7 @@ function PricingCard({
             }
           }}
         >
-          {isFCSDisabled ? (
-            "FCS requires Pro or Business"
-          ) : plan.ctaGradientText ? (
-            <span style={{
-              backgroundImage: plan.ctaGradientText,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              fontFamily: "'Syne', sans-serif", fontWeight: 700,
-              letterSpacing: "0.06em",
-            }}>{plan.ctaLabel}</span>
-          ) : plan.ctaLabel}
+          {isFCSDisabled ? "FCS requires Pro or Business" : plan.ctaLabel}
         </button>
 
         {/* Features */}
@@ -1709,8 +1723,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   {/* Launch offer */}
                   <div style={{
                     display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28,
-                    animation: "zpo-launch-float 4s ease-in-out infinite",
-                    willChange: "transform",
                   }}>
                     <span style={{
                       fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
@@ -1743,7 +1755,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                 padding: "28px 32px 20px",
                 maxWidth: 1200, margin: "0 auto",
                 justifyContent: "center",
-                alignItems: "flex-start",
+                alignItems: "stretch",
                 flexWrap: "wrap",
               }}>
                 {PLANS.map(plan => (
