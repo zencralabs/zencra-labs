@@ -14,16 +14,12 @@ import type { LipSyncState } from "@/hooks/useLipSync";
 import type { LipSyncQuality } from "@/lib/lipsync/status";
 import { useAuth } from "@/components/auth/AuthContext";
 import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 
-// ── Credit estimation ─────────────────────────────────────────────────────────
-
-const CREDIT_RATES: Record<string, Record<string, Record<number, number>>> = {
-  "kling-30": { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } },
-  "kling-26": { std: { 5: 28, 10: 48 }, pro: { 5: 45, 10: 78 } },
-  "kling-25": { std: { 5: 18, 10: 32 }, pro: { 5: 28, 10: 52 } },
-};
-function estimateCredits(id: string, q: string, d: number) {
-  return CREDIT_RATES[id]?.[q]?.[d] ?? Math.round(d * 5);
+// ── Credit estimation — mirrors VideoStudioShell (thin wrapper around shared utility) ──
+// Duration scaling: Math.ceil(durationSeconds / 5) × base_credits (same as hooks.ts)
+function estimateCredits(id: string, _q: string, d: number): number {
+  return getGenerationCreditCost(id, { durationSeconds: d }) ?? 0;
 }
 
 // ── Prompt presets ────────────────────────────────────────────────────────────

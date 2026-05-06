@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Zap, RotateCcw, Download, Play, ChevronUp, ChevronDown } from "lucide-react";
 import { downloadAsset } from "@/lib/client/downloadAsset";
 import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -268,15 +269,6 @@ const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
   Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
 );
 
-// ── Credit display helper ─────────────────────────────────────────────────────
-function computeCredits(modelId: string, quality: Quality, count: number): number {
-  if (modelId.startsWith("nano-banana")) {
-    if (quality === "4K") return count * 8;
-    if (quality === "2K") return count * 4;
-    return count * 2;
-  }
-  return quality === "2K" ? count * 4 : count * 2;
-}
 
 // ── Aspect ratio → API string ─────────────────────────────────────────────────
 // GPT Image only supports 4 ratios — collapse everything else.
@@ -1974,6 +1966,28 @@ function ImageStudioInner() {
           body.characterLock       = true;
           body.characterReference  = referenceImageUrl;
           body.consistencyStrength = consistencyStrength;
+        }
+
+        // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
+        {
+          const modelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
+          const displayedCost = getGenerationCreditCost(modelKey);
+          try {
+            const costsRes = await fetch("/api/credits/model-costs", {
+              headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+            });
+            if (costsRes.ok) {
+              const costsData = await costsRes.json();
+              const liveCost: number | undefined = costsData?.data?.[modelKey];
+              if (liveCost !== undefined && displayedCost !== null && liveCost !== displayedCost) {
+                showToast("Credit estimate changed. Please refresh and try again.", "error");
+                setImages((prev) => prev.filter((img) => !placeholders.some((p) => p.id === img.id)));
+                return;
+              }
+            }
+          } catch {
+            // Non-fatal: if the safety check fails, allow generation to proceed
+          }
         }
 
         const res = await fetch("/api/studio/image/generate", {
@@ -4223,11 +4237,12 @@ function ImageStudioInner() {
                       <Zap size={14} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                       {currentModel.available && (
                         <span style={{
-                          fontSize: 14, fontWeight: 700,
+                          fontFamily: "var(--font-syne, sans-serif)",
+                          fontSize: 18, fontWeight: 700,
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>
-                          {computeCredits(model, quality, MODEL_TO_KEY[model]?.startsWith("nano-banana") ? 1 : Math.min(batchSize, 4))} cr
+                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1") ?? "—"} cr
                         </span>
                       )}
                     </>

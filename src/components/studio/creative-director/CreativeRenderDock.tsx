@@ -5,6 +5,7 @@ import { Zap } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import { useAuth } from "@/components/auth/AuthContext";
 import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeRenderDock — Floating render command bar (Zencra-branded)
@@ -97,11 +98,12 @@ interface CDModel {
 }
 
 const CD_MODELS: CDModel[] = [
-  { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 16 },
+  // baseCredits mirrors credit_model_costs.base_credits in the DB (via model-costs.ts)
+  { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 15, maxUploads: 16 },
   { value: "nano-banana-pro", label: "Nano Banana Pro",    provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12, maxUploads: 14 },
   { value: "nano-banana-2",   label: "Nano Banana 2",      provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10, maxUploads: 14 },
-  { value: "seedream-v5",     label: "Seedream 5.0 Lite",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 5,  maxUploads: 14 },
-  { value: "flux-kontext",    label: "Flux Kontext Max",   provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 8,  maxUploads: 1  },
+  { value: "seedream-v5",     label: "Seedream 5.0 Lite",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 15, maxUploads: 14 },
+  { value: "flux-kontext",    label: "Flux Kontext Max",   provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 10, maxUploads: 1  },
 ];
 
 const QUALITY_OPTIONS: { value: "low" | "medium" | "high"; label: string; desc: string }[] = [
@@ -232,12 +234,14 @@ function providerToModelValue(provider: string): string {
   return map[provider?.toLowerCase()] ?? "gpt-image-1";
 }
 
-function estimateCredits(model: string, quality: string, resolution: string, count: number): number {
-  const m     = CD_MODELS.find((x) => x.value === model);
-  const base  = m?.baseCredits ?? 8;
-  const qMult = quality === "low" ? 0.7 : quality === "high" ? 1.35 : 1.0;
-  const rMult = resolution === "2k" ? 1.5 : resolution === "4k" ? 2.5 : 1.0;
-  return Math.round(base * qMult * rMult * count * 10) / 10;
+// Credit estimate — uses shared utility that mirrors credit_model_costs DB table.
+// CD image generation charges base credits per output (no quality/resolution scaling).
+function estimateCredits(model: string, _quality: string, _resolution: string, count: number): number {
+  const cost = getGenerationCreditCost(model);
+  if (cost !== null) return cost * count;
+  // Fallback: use baseCredits from CD_MODELS if model key not in shared table
+  const m = CD_MODELS.find((x) => x.value === model);
+  return (m?.baseCredits ?? 15) * count;
 }
 
 /**

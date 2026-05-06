@@ -32,6 +32,7 @@ import CanvasGenerateBar   from "./CanvasGenerateBar";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -67,15 +68,10 @@ function modelAccentColor(m: VideoModel): string {
 }
 
 // ── Credit estimate ───────────────────────────────────────────────────────────
-
-const CREDIT_RATES: Record<string, Record<string, Record<number, number>>> = {
-  "kling-30-omni": { std: { 5: 420, 10: 840 }, pro: { 5: 420, 10: 840 } }, // DB-locked: 420cr base (5s), 840cr (10s)
-  "kling-30":      { std: { 5: 38, 10: 68 }, pro: { 5: 58, 10: 98 } },
-  "kling-26":      { std: { 5: 28, 10: 48 }, pro: { 5: 45, 10: 78 } },
-  "kling-25":      { std: { 5: 18, 10: 32 }, pro: { 5: 28, 10: 52 } },
-};
-function estimateCredits(id: string, q: string, d: number) {
-  return CREDIT_RATES[id]?.[q]?.[d] ?? Math.round(d * 5);
+// Uses the shared getGenerationCreditCost() utility which mirrors credit_model_costs DB table.
+// Duration scaling: Math.ceil(durationSeconds / 5) × base_credits (same as hooks.ts)
+function estimateCredits(id: string, _q: string, d: number): number {
+  return getGenerationCreditCost(id, { durationSeconds: d }) ?? 0;
 }
 
 // ── Family accent colors ──────────────────────────────────────────────────────
@@ -2364,6 +2360,28 @@ export default function VideoStudioShell() {
         !motionVideoUrl
       ) {
         body.useIdentityStartFrame = true;
+      }
+
+      // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
+      {
+        const displayedCost = getGenerationCreditCost(model.id, { durationSeconds: duration });
+        try {
+          const costsRes = await fetch("/api/credits/model-costs", {
+            headers: { "Authorization": `Bearer ${authToken ?? ""}` },
+          });
+          if (costsRes.ok) {
+            const costsData = await costsRes.json();
+            const liveCost: number | undefined = costsData?.data?.[model.id];
+            if (liveCost !== undefined && displayedCost !== null && liveCost !== displayedCost) {
+              showToast("Credit estimate changed. Please refresh and try again.", "error");
+              setGenerating(false);
+              setVideos(prev => prev.filter(v => v.id !== newVideo.id));
+              return;
+            }
+          }
+        } catch {
+          // Non-fatal: if the safety check fails, allow generation to proceed
+        }
       }
 
       const res = await fetch("/api/studio/video/generate", {
