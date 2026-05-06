@@ -46,7 +46,7 @@ async function detectWithMp4Box(buffer: Buffer): Promise<boolean | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let MP4Box: any = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     MP4Box = require("mp4box");
   } catch {
     console.log("[audio-detect] mp4box not installed — skipping primary stage");

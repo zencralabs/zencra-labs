@@ -156,8 +156,10 @@ const _actions: Pick<FlowState, "initWorkflow" | "pushStep" | "updateStep" | "se
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _useFlowStore(): FlowState {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [, rerender] = useState(0);
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     const trigger = () => rerender((n) => n + 1);
     _listeners.add(trigger);
