@@ -16,6 +16,8 @@ import OutputWorkspace, {
 import CreativeRenderDock, { type RenderDockSettings } from "./CreativeRenderDock";
 import OutputPreviewModal from "./OutputPreviewModal";
 import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
+import { startPolling as startUniversalPolling } from "@/lib/jobs/job-polling";
+import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-store";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CreativeDirectorShell — AI Creative Director main layout + state
@@ -811,59 +813,76 @@ export default function CreativeDirectorShell() {
   }, [projectId, brief, getAuthHeaders, addToast]);
 
   // ── Poll generation status ────────────────────────────────────────────────────
-  // Polls the studio job status endpoint. genId is the creative_generation.id
-  // used to find the card in state. assetId is the assets table row ID that the
-  // status route actually expects — for async providers these are different.
-  // The status route returns: { success: true, data: { status: "success"|"pending"|"failed", url? } }
+  // Polls the studio job status endpoint via the universal polling engine.
+  // genId is the creative_generation.id used to find the card in state.
+  // assetId is the assets table row ID that the status route expects —
+  // for async providers these are different; the engine polls /api/studio/jobs/${assetId}/status.
   const pollGeneration = useCallback(
-    async (genId: string, assetId?: string) => {
+    (genId: string, assetId?: string) => {
       // Without an assetId we can't poll — the status route requires it
       if (!assetId) return;
+      if (!session?.access_token) return;
 
-      const MAX_POLLS = 60;
-      let polls = 0;
-      const interval = setInterval(async () => {
-        polls++;
-        if (polls > MAX_POLLS) {
-          clearInterval(interval);
+      const jobStore    = getPendingJobStoreState();
+      const jobCreatedAt = new Date().toISOString();
+
+      // Register in global store so the job appears in the recovery drawer
+      jobStore.registerJob({
+        jobId:      assetId,     // CD uses assetId as the polling key
+        studio:     "image",     // CD generates images
+        modelKey:   "cd-generation",
+        modelLabel: "Creative Director",
+        prompt:     "",          // CD prompt is concept-level, not stored here
+        status:     "queued",
+        createdAt:  jobCreatedAt,
+        parentJobId: null,
+        childJobIds: [],
+      });
+
+      startUniversalPolling({
+        jobId:     assetId,
+        studio:    "image",
+        authToken: session.access_token,
+        createdAt: jobCreatedAt,
+
+        onUpdate: (update) => {
+          jobStore.updateJob(assetId, {
+            status: update.status,
+            url:    update.url,
+            error:  update.error,
+          });
+          // Non-terminal — card stays in processing state (no UI update needed)
+        },
+
+        onComplete: (update) => {
+          const url = update.url ?? null;
+          jobStore.completeJob(assetId, url ?? "", undefined);
+          setGenerations((prev) =>
+            prev.map((g) =>
+              g.id === genId
+                ? { ...g, status: "completed", url: url ?? g.url }
+                : g
+            )
+          );
+        },
+
+        onError: (update) => {
+          jobStore.failJob(
+            assetId,
+            update.status === "stale"     ? "stale"     :
+            update.status === "refunded"  ? "refunded"  :
+            update.status === "cancelled" ? "cancelled" : "failed",
+            update.error,
+          );
           setGenerations((prev) =>
             prev.map((g) =>
               g.id === genId ? { ...g, status: "failed" } : g
             )
           );
-          return;
-        }
-        try {
-          const res = await fetch(`/api/studio/jobs/${assetId}/status`, {
-            headers: authHeader(),
-          });
-          if (!res.ok) return;
-          const envelope = (await res.json()) as {
-            success?: boolean;
-            data?: { status?: string; url?: string };
-          };
-          const jobStatus = envelope.data?.status;
-          if (jobStatus === "success" || jobStatus === "failed") {
-            clearInterval(interval);
-            const cdStatus: GenerationResult["status"] =
-              jobStatus === "success" ? "completed" : "failed";
-            const url = envelope.data?.url ?? null;
-            setGenerations((prev) =>
-              prev.map((g) =>
-                g.id === genId
-                  ? { ...g, status: cdStatus, url: url ?? g.url }
-                  : g
-              )
-            );
-          }
-          // "pending" → keep polling
-        } catch {
-          // silent poll failure — keep polling
-        }
-      }, 5000);
-      return () => clearInterval(interval);
+        },
+      });
     },
-    [authHeader]
+    [session]
   );
 
   // ── Generate outputs ───────────────────────────────────────────────────────────
@@ -997,7 +1016,7 @@ export default function CreativeDirectorShell() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isGeneratingOutputs, brief.outputCount, concepts, sessionId, getAuthHeaders, addToast, pollGeneration]
+    [isGeneratingOutputs, brief.outputCount, concepts, sessionId, getAuthHeaders, addToast, pollGeneration, session]
   );
 
   // ── Select / expand concept ────────────────────────────────────────────────────
