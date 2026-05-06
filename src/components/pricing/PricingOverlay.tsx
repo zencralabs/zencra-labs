@@ -689,7 +689,9 @@ function PricingCard({
                 { name: "Kling 3.0",         isNew: false },
                 { name: "Seedance 2.0",      isNew: true  },
                 { name: "Hailuo 2.3",        isNew: true  },
-                { name: "ElevenLabs v3",     isNew: false },
+                { name: "Motion Control",    isNew: false },
+                { name: "Lip Sync",          isNew: false },
+                { name: "AI Influencer",     isNew: false },
               ].map(m => (
                 <span key={m.name} style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
