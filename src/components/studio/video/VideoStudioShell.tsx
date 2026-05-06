@@ -32,7 +32,7 @@ import CanvasGenerateBar   from "./CanvasGenerateBar";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
-import { getGenerationCreditCost } from "@/lib/credits/model-costs";
+import { getGenerationCreditCost, OMNI_RESOLUTION_MULTIPLIER } from "@/lib/credits/model-costs";
 import { startPolling as startUniversalPolling } from "@/lib/jobs/job-polling";
 import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-store";
 
@@ -3092,7 +3092,13 @@ export default function VideoStudioShell() {
     ? lipSyncState.isGenerating
     : generating;
 
-  const creditEstimate = model ? estimateCredits(model.id, quality, duration) : 0;
+  const omniResMultiplier =
+    model?.id === "kling-30-omni"
+      ? (OMNI_RESOLUTION_MULTIPLIER[omniResolution] ?? 1)
+      : 1;
+  const creditEstimate = model
+    ? Math.round(estimateCredits(model.id, quality, duration) * omniResMultiplier)
+    : 0;
 
   // Which model family's preview to show in the empty canvas state.
   // Priority: hovering a pill > selected model's provider > "kling" fallback.

@@ -191,7 +191,7 @@ function AudioBadge({ video }: { video: GeneratedVideo }) {
         border:     "1px solid rgba(255,160,0,0.32)",
         color:      "#FFA000",
       }}>
-        ⚠ No Scene Audio
+        Silent Audio
       </div>
     );
   }
@@ -713,8 +713,8 @@ function VideoCard({
           </div>
         )}
 
-        {/* Status badges — top left */}
-        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 5, alignItems: "center", zIndex: 4 }}>
+        {/* Status badges — top left, offset 36px to clear 20px checkbox + 8px margin */}
+        <div style={{ position: "absolute", top: 8, left: 36, display: "flex", gap: 5, alignItems: "center", zIndex: 4 }}>
           <InProgressBadge status={video.status} />
           {isError && <ErrorBadge />}
           <AudioBadge video={video} />
@@ -1080,8 +1080,8 @@ export default function VideoResultsLibrary({
       marginTop: 44,
       padding: "34px 24px 54px",
       background: [
-        "radial-gradient(circle at 50% 0%, rgba(45,212,191,0.08), transparent 36%)",
-        "#1B1B1B",
+        "radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.05), transparent 40%)",
+        "#1A1A1A",
       ].join(", "),
       borderTop: "1px solid rgba(255,255,255,0.06)",
       boxSizing: "border-box",
@@ -1094,8 +1094,8 @@ export default function VideoResultsLibrary({
 
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <div style={{
-          fontSize: 12, fontWeight: 700, color: "#374151",
-          letterSpacing: "0.1em", textTransform: "uppercase",
+          fontSize: 16, fontWeight: 800, color: "rgba(226,244,255,0.82)",
+          letterSpacing: "0.06em", textTransform: "uppercase",
           marginBottom: 18,
         }}>
           Your Videos
@@ -1336,6 +1336,7 @@ export default function VideoResultsLibrary({
                 <div style={{
                   display: "grid",
                   gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(cardWidthFromAR(cardHeight, "16:9"))}px, 1fr))`,
+                  gridAutoRows: `${cardHeight}px`,
                   gap: 22,
                 }}>
                   {(featuredVideo ? restVideos.slice(4) : filtered).map(v => (

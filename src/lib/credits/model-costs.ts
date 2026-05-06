@@ -163,3 +163,11 @@ export function getGenerationCreditCost(
 export function formatCreditCost(cost: number | null): string {
   return cost !== null ? `${cost} cr` : "— cr";
 }
+
+// ── Omni resolution cost multipliers ─────────────────────────────────────────
+// Kling 3.0 Omni charges a premium for 1080p output.
+// 720p = 1× base; 1080p = 1.5× base. Mirror any backend change here.
+export const OMNI_RESOLUTION_MULTIPLIER: Record<string, number> = {
+  "720p":  1.0,
+  "1080p": 1.5,
+};
