@@ -8,14 +8,15 @@
  * correct signature verification and payload normalization can be applied.
  *
  * Supported provider slugs (matches ProviderFamily values):
- *   fal       — fal.ai (Seedream, FLUX Kontext, FLUX.2, FLUX Character)
- *   kling     — Kling AI
- *   byteplus  — BytePlus / Volcengine (Seedance)
- *   runway    — Runway (Gen-4.5, Phase 2)
+ *   fal        — fal.ai (Seedream, FLUX Kontext, FLUX.2, FLUX Character)
+ *   kling      — Kling AI
+ *   byteplus   — BytePlus / Volcengine (Seedance)
+ *   runway     — Runway (Gen-4.5, Phase 2)
  *   heygen-ugc — HeyGen UGC
- *   creatify  — Creatify
- *   arcads    — Arcads
- *   openai    — OpenAI (gpt-image-1)
+ *   creatify   — Creatify
+ *   arcads     — Arcads
+ *   openai     — OpenAI (gpt-image-2)
+ *   nano-banana — Nano Banana Pro
  *
  * Webhook registration URLs (set in each provider's dashboard):
  *   https://<domain>/api/webhooks/studio/fal
@@ -23,104 +24,35 @@
  *   ... etc.
  *
  * Security:
- *   - Each provider has its own HMAC secret env var (see WEBHOOK_SECRETS map below)
- *   - If the secret is not configured, verification is skipped in dev, rejected in prod
- *   - Raw body is always read before any JSON parsing (required for HMAC)
+ *   Signature verification is delegated to src/lib/security/webhook-signatures.ts.
+ *   The verifier is provider-agnostic — the route never handles raw HMAC logic.
+ *   Mode is controlled by WEBHOOK_ENFORCEMENT_MODE (dry-run / observe / enforce).
  *
  * Flow:
- *   1. Read raw body
- *   2. Verify provider signature (HMAC or provider-specific scheme)
- *   3. Parse payload
- *   4. Extract externalJobId + status from provider-specific payload shape
- *   5. Look up asset record by externalJobId
- *   6. Route to orchestrator handleWebhook() for provider-specific normalization
- *   7. Update asset record (ready / failed)
- *   8. Return 200 immediately (providers retry on non-2xx)
+ *   1. Read raw body (required for HMAC — must precede JSON parsing)
+ *   2. Verify provider signature via verifyWebhookSignature()
+ *   3. In enforce mode: return 401 if !shouldProceed
+ *      In permissive mode: log and continue regardless
+ *   4. Parse payload JSON
+ *   5. Extract externalJobId + status from provider-specific payload shape
+ *   6. Look up asset record by externalJobId
+ *   7. Route to orchestrator handleWebhook() for provider-specific normalization
+ *   8. Update asset record (ready / failed)
+ *   9. Return 200 immediately (providers retry on non-2xx)
  *
  * All errors return 200 to prevent provider retry storms — errors are logged.
  */
 
-import type { NextRequest }         from "next/server";
-import { supabaseAdmin }            from "@/lib/supabase/admin";
-import { ensureProvidersRegistered } from "@/lib/providers/startup";
-import { handleWebhook }            from "@/lib/providers/core/orchestrator";
-import { updateAssetStatus }        from "@/lib/storage/metadata";
+import type { NextRequest }            from "next/server";
+import { supabaseAdmin }               from "@/lib/supabase/admin";
+import { ensureProvidersRegistered }    from "@/lib/providers/startup";
+import { handleWebhook }               from "@/lib/providers/core/orchestrator";
+import { updateAssetStatus }           from "@/lib/storage/metadata";
+import { logger }                      from "@/lib/logger";
+import { verifyWebhookSignature }      from "@/lib/security/webhook-signatures";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WEBHOOK SECRET MAP — one env var per provider
-// ─────────────────────────────────────────────────────────────────────────────
-
-const WEBHOOK_SECRETS: Record<string, string | undefined> = {
-  fal:            process.env.FAL_WEBHOOK_SECRET,
-  kling:          process.env.KLING_WEBHOOK_SECRET,
-  byteplus:       process.env.BYTEPLUS_WEBHOOK_SECRET,
-  runway:         process.env.RUNWAY_WEBHOOK_SECRET,
-  "heygen-ugc":   process.env.HEYGEN_WEBHOOK_SECRET,
-  creatify:       process.env.CREATIFY_WEBHOOK_SECRET,
-  arcads:         process.env.ARCADS_WEBHOOK_SECRET,
-  openai:         process.env.OPENAI_WEBHOOK_SECRET,
-  "nano-banana":  process.env.NANO_BANANA_WEBHOOK_SECRET,  // optional — NB doesn't always sign
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SIGNATURE VERIFICATION
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function verifyHmacSha256(
-  body:      string,
-  signature: string,
-  secret:    string
-): Promise<boolean> {
-  try {
-    const enc  = new TextEncoder();
-    const key  = await crypto.subtle.importKey(
-      "raw", enc.encode(secret),
-      { name: "HMAC", hash: "SHA-256" },
-      false, ["verify"]
-    );
-    // Signature may be hex-encoded or base64-encoded depending on provider
-    const sigBuf = signature.includes("-")
-      ? hexToBuffer(signature.replace(/-/g, ""))
-      : signature.length === 64
-        ? hexToBuffer(signature)
-        : base64ToBuffer(signature);
-    return crypto.subtle.verify("HMAC", key, sigBuf, enc.encode(body));
-  } catch {
-    return false;
-  }
-}
-
-function hexToBuffer(hex: string): ArrayBuffer {
-  const arr = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return arr.buffer;
-}
-
-function base64ToBuffer(b64: string): ArrayBuffer {
-  const binary = atob(b64);
-  const arr    = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-  return arr.buffer;
-}
-
-/** Returns the signature header for each provider (provider-specific header names) */
-function getSignatureHeader(provider: string, req: NextRequest): string {
-  switch (provider) {
-    case "fal":        return req.headers.get("x-fal-signature")     ?? "";
-    case "kling":      return req.headers.get("x-kling-signature")   ?? "";
-    case "byteplus":   return req.headers.get("x-byteplus-signature") ?? "";
-    case "runway":     return req.headers.get("x-runway-signature")  ?? "";
-    case "creatify":   return req.headers.get("x-creatify-signature") ?? "";
-    case "arcads":     return req.headers.get("x-arcads-signature")  ?? "";
-    case "heygen-ugc": return req.headers.get("x-heygen-signature")  ?? "";
-    default:           return req.headers.get("x-signature")         ?? "";
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYLOAD NORMALIZATION
@@ -138,7 +70,7 @@ interface NormalizedWebhookPayload {
 /** Extract the canonical fields from each provider's webhook payload shape */
 function normalizePayload(
   provider: string,
-  raw:      Record<string, unknown>
+  raw:      Record<string, unknown>,
 ): NormalizedWebhookPayload | null {
   switch (provider) {
 
@@ -262,15 +194,14 @@ function normalizePayload(
       ) as Record<string, unknown>;
 
       const id = String(
-        src.taskId    ?? src.task_id    ?? src.recordId  ?? src.record_id ??
-        raw.taskId    ?? raw.task_id    ?? raw.recordId  ?? raw.record_id ?? ""
+        src.taskId    ?? src.task_id    ?? src.recordId  ?? src.record_id  ??
+        raw.taskId    ?? raw.task_id    ?? raw.recordId  ?? raw.record_id  ?? ""
       );
       if (!id) return null;
 
       const taskStatusNum = Number(src.taskStatus ?? src.task_status ?? raw.taskStatus ?? -1);
       const taskStatusStr = String(src.status ?? raw.status ?? "").toUpperCase();
 
-      // Extract image URL — same logic as getJobStatus polling
       const pickUrl = (s: Record<string, unknown>): string | undefined => {
         if (typeof s.imageUrl  === "string" && s.imageUrl)  return s.imageUrl;
         if (typeof s.image_url === "string" && s.image_url) return s.image_url;
@@ -304,7 +235,7 @@ function normalizePayload(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function getAssetByExternalJobId(
-  externalJobId: string
+  externalJobId: string,
 ): Promise<{ id: string; model_key: string; studio: string; user_id: string } | null> {
   const { data, error } = await supabaseAdmin
     .from("assets")
@@ -322,70 +253,88 @@ async function getAssetByExternalJobId(
 
 export async function POST(
   req:     NextRequest,
-  { params }: { params: Promise<{ provider: string }> }
+  { params }: { params: Promise<{ provider: string }> },
 ): Promise<Response> {
   const { provider } = await params;
-  const isDev        = process.env.NODE_ENV === "development";
 
   ensureProvidersRegistered();
 
-  // ── Read raw body (must happen before any other body reads for HMAC) ─────────
+  // ── 1. Read raw body (required for HMAC — must precede JSON parsing) ──────────
   const rawBody = await req.text();
 
-  // ── Immediate hit log — confirms webhook is reachable ────────────────────────
-  console.log(
-    `[webhook/studio/${provider}] HIT — method=POST ` +
-    `bodyLen=${rawBody.length} ` +
-    `body=${rawBody.slice(0, 600)}`
-  );
+  logger.info(`webhook/studio/${provider}`, "Webhook received", {
+    provider,
+    bodyLength: rawBody.length,
+    preview:    rawBody.slice(0, 200),
+  });
 
-  // ── Signature verification ───────────────────────────────────────────────────
-  const secret    = WEBHOOK_SECRETS[provider];
-  const signature = getSignatureHeader(provider, req);
+  // ── 2. Verify provider signature ──────────────────────────────────────────────
+  // All verification logic lives in webhook-signatures.ts.
+  // This route never touches raw HMAC — it only reads the result.
+  const verification = await verifyWebhookSignature(provider, rawBody, req.headers);
 
-  if (secret) {
-    const valid = await verifyHmacSha256(rawBody, signature, secret);
-    if (!valid) {
-      console.warn(`[webhook/studio/${provider}] Invalid signature — rejecting`);
-      // Return 200 to prevent provider retry; log the failure
-      return new Response("ok", { status: 200 });
-    }
-  } else if (!isDev) {
-    // In production a missing secret means the provider was never secured — reject.
-    // Return 200 so providers don't retry-storm, but log as an error for alerting.
-    console.error(`[webhook/studio/${provider}] SECURITY: No webhook secret configured — rejecting unauthenticated webhook in production`);
-    return new Response("ok", { status: 200 });
+  logger.info(`webhook/studio/${provider}`, "Signature verification result", {
+    outcome:         verification.outcome,
+    shouldProceed:   verification.shouldProceed,
+    webhookEventId:  verification.webhookEventId,
+    timestampDeltaMs: verification.timestampDeltaMs,
+  });
+
+  // ── 3. Mode gate ──────────────────────────────────────────────────────────────
+  // In permissive (dry-run / observe) mode: shouldProceed is always true.
+  // In enforce mode: invalid/missing/replay signatures are blocked here.
+  if (!verification.shouldProceed) {
+    logger.warn(`webhook/studio/${provider}`, "Webhook blocked by signature enforcement", {
+      outcome:  verification.outcome,
+      provider,
+    });
+    // Return 401 in enforce mode — providers with valid signatures will not retry
+    // because 401 signals a permanent misconfiguration, not a transient error.
+    // Providers with bad signatures should not be encouraged to retry.
+    return new Response("Unauthorized", { status: 401 });
   }
 
-  // ── Parse payload ────────────────────────────────────────────────────────────
+  // ── 4. Parse payload ──────────────────────────────────────────────────────────
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
-    console.error(`[webhook/studio/${provider}] Invalid JSON payload`);
+    logger.error(`webhook/studio/${provider}`, "Invalid JSON payload", {
+      provider,
+      bodyLength: rawBody.length,
+    });
     return new Response("ok", { status: 200 });
   }
 
-  // ── Normalize payload ────────────────────────────────────────────────────────
+  // ── 5. Normalize payload ──────────────────────────────────────────────────────
   const normalized = normalizePayload(provider, raw);
   if (!normalized) {
-    console.warn(`[webhook/studio/${provider}] Could not extract jobId from payload`, raw);
+    logger.warn(`webhook/studio/${provider}`, "Could not extract jobId from payload", {
+      provider,
+      rawKeys: Object.keys(raw),
+    });
     return new Response("ok", { status: 200 });
   }
 
-  // ── Still pending — nothing to do yet ────────────────────────────────────────
+  // ── 6. Still pending — nothing to do yet ──────────────────────────────────────
   if (normalized.status === "pending") {
+    logger.info(`webhook/studio/${provider}`, "Webhook status pending — no action", {
+      externalJobId: normalized.externalJobId,
+    });
     return new Response("ok", { status: 200 });
   }
 
-  // ── Look up asset record ─────────────────────────────────────────────────────
+  // ── 7. Look up asset record ───────────────────────────────────────────────────
   const asset = await getAssetByExternalJobId(normalized.externalJobId);
   if (!asset) {
-    console.warn(`[webhook/studio/${provider}] No asset found for externalJobId: ${normalized.externalJobId}`);
+    logger.warn(`webhook/studio/${provider}`, "No asset found for externalJobId", {
+      externalJobId: normalized.externalJobId,
+      provider,
+    });
     return new Response("ok", { status: 200 });
   }
 
-  // ── Route to provider's handleWebhook for normalization ──────────────────────
+  // ── 8. Route to provider's handleWebhook for normalization ───────────────────
   try {
     await handleWebhook(asset.model_key, {
       provider:      provider as import("@/lib/providers/core/types").ProviderFamily,
@@ -395,18 +344,32 @@ export async function POST(
       raw,
     });
   } catch (webhookErr) {
-    console.error(`[webhook/studio/${provider}] handleWebhook error:`, webhookErr);
+    logger.error(`webhook/studio/${provider}`, "handleWebhook error", {
+      error:         String(webhookErr),
+      externalJobId: normalized.externalJobId,
+      modelKey:      asset.model_key,
+    });
     // Continue — still update asset record even if provider hook throws
   }
 
-  // ── Update asset record ──────────────────────────────────────────────────────
+  // ── 9. Update asset record ────────────────────────────────────────────────────
   try {
     const newStatus = normalized.status === "success" ? "ready" : "failed";
     await updateAssetStatus(supabaseAdmin, asset.id, newStatus, normalized.url);
   } catch (updateErr) {
-    console.error(`[webhook/studio/${provider}] Asset update failed:`, updateErr);
+    logger.error(`webhook/studio/${provider}`, "Asset update failed", {
+      error:   String(updateErr),
+      assetId: asset.id,
+    });
   }
 
-  console.info(`[webhook/studio/${provider}] Processed: ${normalized.externalJobId} → ${normalized.status}`);
+  logger.info(`webhook/studio/${provider}`, "Webhook processed successfully", {
+    externalJobId:  normalized.externalJobId,
+    status:         normalized.status,
+    assetId:        asset.id,
+    signatureOutcome: verification.outcome,
+  });
+
+  // Always return 200 — providers retry on non-2xx
   return new Response("ok", { status: 200 });
 }
