@@ -77,7 +77,7 @@ export const MODEL_BASE_CREDITS: Record<string, number> = {
   // ── Image
   "nano-banana-standard":  8,
   "nano-banana-pro":      12,
-  "nano-banana-2":        10,
+  "nano-banana-2":        10,   // flat — 1K only (Step 0 lock; pending NB2 API resolution research)
   "gpt-image-1":          15,
   "gpt-image-2":          20,
   "seedream-v5":          15,

@@ -180,7 +180,13 @@ export function getPricingEngineMode(): "observe" | "enforce" {
 export const STATIC_QUALITY_MULTIPLIERS: Record<string, Record<string, number>> = {
   // ── Image quality tiers ───────────────────────────────────────────────────
   "nano-banana-pro": { "1K": 1.0, "2K": 1.25, "4K": 1.75 },
-  "nano-banana-2":   { "1K": 1.0, "2K": 1.25, "4K": 1.75 },
+
+  // nano-banana-2: REMOVED — Step 0 safety lock (2026-05-07)
+  //   NB2 adapter ignores providerParams.quality and sends fixed ~1K dimensions
+  //   from NB2_DIMENSION_MAP. Charging quality-scaled prices for 1K output would
+  //   overcharge users and violate the "displayed cost = real provider execution" rule.
+  //   Restore this entry ONLY after confirming NB2 API accepts higher-res width/height.
+  //   Research gate tracked in: docs/audits/image-studio-final-architecture-plan-2026-05-07.md §1A-R1
 
   // ── Video resolution tiers ─────────────────────────────────────────────────
   "kling-30-omni":   { "720p": 1.0, "1080p": 1.5 },

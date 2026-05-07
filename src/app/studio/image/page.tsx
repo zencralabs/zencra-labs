@@ -383,7 +383,10 @@ const MODELS: StudioModel[] = [
     available: true,
     icon: "nanobana",
     nbVariant: "nb2",
-    allowedQualities: ["1K", "2K", "4K"],
+    // Step 0 safety lock: NB2 adapter ignores quality and sends fixed ~1K dimensions.
+    // Exposing 2K/4K would display false pricing and false resolution claims.
+    // Restore to ["1K","2K","4K"] only after API research confirms higher-res width/height support.
+    allowedQualities: ["1K"],
   },
   {
     id: "gpt-image-2",
