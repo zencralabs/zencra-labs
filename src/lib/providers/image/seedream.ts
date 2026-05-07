@@ -163,19 +163,31 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       if (input.negativePrompt) payload.negative_prompt = input.negativePrompt;
       if (input.seed)           payload.seed = input.seed;
 
-      const res = await fetch(`https://queue.fal.run/${modelId}`, {
+      const submitUrl = `https://queue.fal.run/${modelId}`;
+      if (variant === "v4-5") {
+        console.info(`[seedream-45] SUBMIT url=${submitUrl}`);
+        console.info(`[seedream-45] SUBMIT payload=${JSON.stringify({ ...payload, image_urls: payload.image_urls ? "[redacted-count:" + (payload.image_urls as unknown[]).length + "]" : undefined })}`);
+      }
+
+      const res = await fetch(submitUrl, {
         method:  "POST",
         headers: { "Authorization": `Key ${apiKey}`, "Content-Type": "application/json" },
         body:    JSON.stringify(payload),
-        signal:  AbortSignal.timeout(30_000),
+        signal:  AbortSignal.timeout(60_000), // increased from 30s — fal queue can be slow to ack
       });
 
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
+        const body = await res.text().catch(() => "<unreadable>");
+        if (variant === "v4-5") {
+          console.error(`[seedream-45] SUBMIT FAILED status=${res.status} body=${body.slice(0, 500)}`);
+        }
         throw new Error(`Seedream (${variant}) submission HTTP ${res.status}: ${body.slice(0, 300)}`);
       }
 
       const data      = (await res.json()) as Record<string, unknown>;
+      if (variant === "v4-5") {
+        console.info(`[seedream-45] SUBMIT OK response=${JSON.stringify(data)}`);
+      }
       const requestId = String(data.request_id ?? data.requestId ?? "");
       if (!requestId) throw new Error("Seedream returned no request ID.");
 
@@ -198,26 +210,50 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const { apiKey } = getFalEnv();
       const modelId    = falModelId();
 
+      const statusUrl = `https://queue.fal.run/${modelId}/requests/${externalJobId}/status`;
+      if (variant === "v4-5") {
+        console.info(`[seedream-45] POLL url=${statusUrl}`);
+      }
+
       const statusRes = await fetch(
-        `https://queue.fal.run/${modelId}/requests/${externalJobId}/status`,
+        statusUrl,
         { headers: { "Authorization": `Key ${apiKey}` }, signal: AbortSignal.timeout(15_000) },
       );
       if (!statusRes.ok) {
-        return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}` };
+        const errBody = await statusRes.text().catch(() => "<unreadable>");
+        if (variant === "v4-5") {
+          console.error(`[seedream-45] POLL FAILED status=${statusRes.status} body=${errBody.slice(0, 300)}`);
+        }
+        return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}: ${errBody.slice(0, 200)}` };
       }
 
       const data   = (await statusRes.json()) as Record<string, unknown>;
       const status = String(data.status ?? "");
 
+      if (variant === "v4-5") {
+        console.info(`[seedream-45] POLL response status=${status} raw=${JSON.stringify(data).slice(0, 200)}`);
+      }
+
       if (status === "COMPLETED") {
+        const resultUrl = `https://queue.fal.run/${modelId}/requests/${externalJobId}`;
+        if (variant === "v4-5") {
+          console.info(`[seedream-45] FETCH RESULT url=${resultUrl}`);
+        }
         const resultRes = await fetch(
-          `https://queue.fal.run/${modelId}/requests/${externalJobId}`,
+          resultUrl,
           { headers: { "Authorization": `Key ${apiKey}` } },
         );
         if (!resultRes.ok) {
+          const resErrBody = await resultRes.text().catch(() => "<unreadable>");
+          if (variant === "v4-5") {
+            console.error(`[seedream-45] RESULT FAILED status=${resultRes.status} body=${resErrBody.slice(0, 300)}`);
+          }
           return { jobId: externalJobId, status: "error", error: "Failed to fetch result." };
         }
         const result = (await resultRes.json()) as Record<string, unknown>;
+        if (variant === "v4-5") {
+          console.info(`[seedream-45] RESULT OK keys=${Object.keys(result).join(",")}`);
+        }
         const images = result.images as Array<{ url: string }> | undefined;
         return {
           jobId: externalJobId, status: "success",
@@ -227,7 +263,11 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       }
 
       if (status === "FAILED") {
-        return { jobId: externalJobId, status: "error", error: "Seedream generation failed." };
+        const failReason = String((data as Record<string, unknown>).error ?? (data as Record<string, unknown>).detail ?? "Seedream generation failed.");
+        if (variant === "v4-5") {
+          console.error(`[seedream-45] JOB FAILED reason=${failReason}`);
+        }
+        return { jobId: externalJobId, status: "error", error: `Seedream generation failed: ${failReason}` };
       }
 
       return { jobId: externalJobId, status: "pending" };
