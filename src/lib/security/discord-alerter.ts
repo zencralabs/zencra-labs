@@ -26,6 +26,8 @@
  */
 
 import { logger } from "@/lib/logger";
+import { checkEventDeduplication } from "@/lib/security/event-deduplicator";
+import type { DeduplicationDecision } from "@/lib/security/event-deduplicator";
 import type { SecurityEvent, ShieldMode } from "@/lib/security/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,7 +56,11 @@ interface DiscordField {
   inline: boolean;
 }
 
-function buildFields(event: SecurityEvent, mode: ShieldMode): DiscordField[] {
+function buildFields(
+  event:    SecurityEvent,
+  mode:     ShieldMode,
+  dedup:    DeduplicationDecision,
+): DiscordField[] {
   const fields: DiscordField[] = [
     {
       name:   "Rule",
@@ -117,20 +123,46 @@ function buildFields(event: SecurityEvent, mode: ShieldMode): DiscordField[] {
     }
   }
 
+  // ── Suppression context ───────────────────────────────────────────────────
+  // Added whenever this alert represents multiple coalesced events.
+  // "emit_aggregated" = cooldown expired with suppressed events
+  // "emit_escalated"  = severity escalated during active cooldown
+  if (dedup.suppressedCount > 0) {
+    const n    = dedup.suppressedCount;
+    const noun = n === 1 ? "event" : "events";
+    const note = dedup.action === "emit_escalated"
+      ? `🔺 **Severity escalated** during cooldown. **+${n} ${noun} suppressed** before this escalation.`
+      : `⚠️ **+${n} identical ${noun} suppressed** during cooldown. This is the first alert after the window expired.`;
+    fields.push({
+      name:   "Suppression Context",
+      value:  note,
+      inline: false,
+    });
+  }
+
   return fields;
 }
 
-function buildEmbed(event: SecurityEvent, mode: ShieldMode): Record<string, unknown> {
+function buildEmbed(
+  event:  SecurityEvent,
+  mode:   ShieldMode,
+  dedup:  DeduplicationDecision,
+): Record<string, unknown> {
   const ts        = event.timestamp ?? new Date().toISOString();
   const colour    = SEVERITY_COLOUR[event.severity] ?? SEVERITY_COLOUR.info;
   const badge     = MODE_BADGE[mode];
   const titleIcon = event.severity === "critical" ? "🚨" : event.severity === "warning" ? "⚠️" : "ℹ️";
 
+  // Prefix title when this alert represents a coalesced window
+  const titlePrefix = dedup.action === "emit_escalated"  ? "🔺 ESCALATED — "
+                    : dedup.action === "emit_aggregated" ? "📦 AGGREGATED — "
+                    : "";
+
   return {
-    title:       `${titleIcon} Zencra Shield Alert`,
+    title:       `${titlePrefix}${titleIcon} Zencra Shield Alert`,
     description: `**${event.rule}**`,
     color:       colour,
-    fields:      buildFields(event, mode),
+    fields:      buildFields(event, mode, dedup),
     footer: {
       text: `${badge} | ${ts}`,
     },
@@ -149,6 +181,15 @@ function buildEmbed(event: SecurityEvent, mode: ShieldMode): Record<string, unkn
  * Silently skips if DISCORD_SECURITY_WEBHOOK_URL is not configured.
  * Never throws — all errors are caught and logged.
  *
+ * Deduplication is applied INSIDE this function — Supabase and the logger
+ * always receive raw events; only Discord is gated by the dedup window.
+ *
+ * Suppression behaviour:
+ *   - "suppress"        → silent drop; logger records the suppression
+ *   - "emit_aggregated" → sends embed with "+N suppressed" context field
+ *   - "emit_escalated"  → bypasses cooldown; sends embed with escalation note
+ *   - "emit"            → normal send
+ *
  * Called by the Event Bus (events.ts) in observe + enforce modes.
  * Do not call directly from producers — use emitSecurityEvent() instead.
  */
@@ -156,6 +197,21 @@ export async function sendDiscordAlert(
   event: SecurityEvent,
   mode:  ShieldMode,
 ): Promise<void> {
+  // ── Deduplication gate ────────────────────────────────────────────────────
+  // Prevents Discord alert floods from noisy event sources (e.g., a failing
+  // provider emitting circuit.opened on every request for 30 minutes).
+  // Supabase receives every raw event regardless of this decision.
+  const dedup = checkEventDeduplication(event);
+
+  if (dedup.action === "suppress") {
+    // Log at debug level so we have observability on suppression rate
+    logger.info("shield/discord", "Alert suppressed by dedup", {
+      rule:            event.rule,
+      suppressedSoFar: dedup.suppressedCount + 1,
+    });
+    return;
+  }
+
   const webhookUrl = process.env.DISCORD_SECURITY_WEBHOOK_URL?.trim();
 
   if (!webhookUrl) {
@@ -171,7 +227,7 @@ export async function sendDiscordAlert(
   try {
     const payload = {
       username: "Zencra Shield",
-      embeds:   [buildEmbed(event, mode)],
+      embeds:   [buildEmbed(event, mode, dedup)],
     };
 
     const res = await fetch(webhookUrl, {
@@ -192,8 +248,10 @@ export async function sendDiscordAlert(
       });
     } else {
       logger.info("shield/discord", "Discord alert sent", {
-        rule:  event.rule,
+        rule:            event.rule,
         mode,
+        dedupAction:     dedup.action,
+        suppressedCount: dedup.suppressedCount,
       });
     }
   } catch (err) {
