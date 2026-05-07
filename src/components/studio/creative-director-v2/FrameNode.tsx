@@ -31,6 +31,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { GenerationFrame, FrameAspectRatio } from "@/lib/creative-director/store";
+import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 /** Default canvas-pixel width for a newly created frame. */
@@ -385,6 +386,9 @@ export function FrameNode({
           transition:   "all 0.2s ease",
         }}
       />
+
+      {/* ── Generating border trace — only while auto-generate is running ─────── */}
+      {isGenerating && <GeneratingBorderTrace borderRadius={12} speed={2.2} zIndex={22} />}
 
       {/* ── Glass shell — spring + onboarding success animation live here, not on outer ─── */}
       <div

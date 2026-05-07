@@ -10,6 +10,7 @@ import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 import { useFlowStore } from "@/lib/flow/store";
 
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
+import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
 import FlowBar from "@/components/studio/flow/FlowBar";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -591,12 +592,15 @@ function AudioCard({
   if (item.status === "generating") {
     return (
       <div style={{
+        position: "relative",
         borderRadius: 12, padding: "16px 18px",
         background: "rgba(198,255,0,0.04)",
         border: `1px solid rgba(198,255,0,0.12)`,
         display: "flex", flexDirection: "column", gap: 12,
         animation: "cardScaleIn 0.35s cubic-bezier(0.22,1,0.36,1) both",
       }}>
+        {/* Glowing border trace — travels around all 4 sides while generating */}
+        <GeneratingBorderTrace borderRadius={12} />
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <AudioPulseIcon size={34} state="generating" />
           <div style={{ flex: 1 }}>

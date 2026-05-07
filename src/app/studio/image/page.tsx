@@ -15,6 +15,7 @@ import type { PublicAsset } from "@/lib/types/generation";
 import { useFlowStore } from "@/lib/flow/store";
 import type { FlowStep } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
+import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
 import FlowBar from "@/components/studio/flow/FlowBar";
 // NextStepPanel removed from Image Studio — premium action panel replaces it
 import type { AssetDetailsResponse } from "@/lib/metadata/types";
@@ -642,6 +643,8 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
 
   return (
     <div style={{ position: "absolute", inset: 0, borderRadius: 0, overflow: "hidden" }}>
+      {/* Glowing border trace — travels around all 4 sides while generating */}
+      <GeneratingBorderTrace borderRadius={0} />
       <div style={{
         position: "absolute", inset: 0,
         background: "linear-gradient(110deg, #060D1A 25%, #0B1530 50%, #060D1A 75%)",

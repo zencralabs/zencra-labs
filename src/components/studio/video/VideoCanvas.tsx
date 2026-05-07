@@ -19,6 +19,7 @@ import type { FrameMode, ImageSlot, AudioSlot, GeneratedVideo } from "./types";
 import VideoEmptyStateMascot from "./VideoEmptyStateMascot";
 import { DeleteConfirmModal } from "@/components/ui/DeleteConfirmModal";
 import { downloadAsset } from "@/lib/client/downloadAsset";
+import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -1918,6 +1919,8 @@ export default function VideoCanvas({
         {renderContent()}
         {/* Standard generating overlay — only when no canvas preview is active */}
         {generating && !previewVideo && <GeneratingOverlay />}
+        {/* Border trace — travels around canvas edges during generation */}
+        {generating && !previewVideo && <GeneratingBorderTrace borderRadius={0} zIndex={25} />}
         {/* Canvas preview overlay — covers generate state AND done playback */}
         {previewVideo && (
           <CanvasVideoPreview
