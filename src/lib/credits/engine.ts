@@ -195,6 +195,12 @@ export const STATIC_QUALITY_MULTIPLIERS: Record<string, Record<string, number>> 
   //   Restore this entry ONLY after confirming NB2 API accepts higher-res width/height.
   //   Research gate tracked in: docs/audits/image-studio-final-architecture-plan-2026-05-07.md §1A-R1
 
+  // seedream-4-5: Phase 1C — native resolution tiers (2K Standard / 4K Ultra chips).
+  //   API values: "1K" | "2K" | "4K"  (map to fal.ai image_size: omit / auto_2K / auto_4K)
+  //   Base: 10 cr (1K default). 2K=1.25×→13cr, 4K=1.75×→18cr.
+  //   Edit mode does NOT add a surcharge — same multiplier applies.
+  "seedream-4-5":    { "1K": 1.0, "2K": 1.25, "4K": 1.75 },
+
   // ── Video resolution tiers ─────────────────────────────────────────────────
   "kling-30-omni":   { "720p": 1.0, "1080p": 1.5 },
 

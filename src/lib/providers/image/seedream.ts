@@ -2,12 +2,19 @@
  * Image Studio — Seedream Provider (via fal.ai)
  *
  * ByteDance's Seedream image generation models.
- * All variants use fal.ai as the API gateway.
+ * All variants use fal.ai as the API gateway (queue endpoint).
  *
  * Models registered:
- *   seedream-v5      → fal-ai/seedream        (Seedream v5 — primary quality t2i)
- *   seedream-v5-lite → fal-ai/seedream/edit   (Seedream v5 — fast + image editing)
- *   seedream-4-5     → fal-ai/seedream/v4.5   (Seedream 4.5 — legacy, DB inactive)
+ *   seedream-v5      → fal-ai/seedream              (Seedream v5 — primary quality t2i)
+ *   seedream-v5-lite → fal-ai/seedream/edit          (Seedream v5 Lite — fast t2i only in Phase 1C)
+ *   seedream-4-5     → fal-ai/bytedance/seedream/v4.5 (Seedream 4.5 — t2i + edit, 2K/4K quality chips)
+ *
+ * Phase 1C notes:
+ *   - Seedream 4.5 supports both t2i (no image payload) and edit (image_urls[] payload).
+ *     Quality maps to fal.ai image_size: "2K"→"auto_2K", "4K"→"auto_4K", "1K"→omitted.
+ *   - Seedream v5 Lite is locked to generation-only in Phase 1C (no edit mode).
+ *     The underlying fal-ai/seedream/edit endpoint supports image input but we deliberately
+ *     do not expose it until a proper edit UX is designed.
  *
  * Async: fal.ai queue (polling)
  * Env: FAL_KEY
@@ -22,7 +29,7 @@ import { newJobId } from "../core/job-lifecycle";
 import { getFalEnv, FAL_MODEL_IDS } from "../core/env";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHARED FACTORY
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 type SeedreamVariant = "v5" | "v5-lite" | "v4-5";
@@ -47,17 +54,33 @@ const FAL_ASPECT_MAP: Record<string, string> = {
 };
 
 /**
- * Whether this variant supports image-to-image editing (fal.ai /edit endpoint).
- * v5-lite routes to fal-ai/seedream/edit which accepts an `image_url` payload field.
+ * Seedream 4.5 quality → fal.ai image_size mapping.
+ * "1K" is omitted (provider default resolution).
+ * "2K" and "4K" are native fal.ai preset strings honored by the endpoint.
  */
-function isEditVariant(variant: SeedreamVariant): boolean {
-  return variant === "v5-lite";
+const V45_QUALITY_TO_SIZE: Record<string, string | undefined> = {
+  "1K": undefined,      // omit field — provider selects default
+  "2K": "auto_2K",
+  "4K": "auto_4K",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACTORY
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Whether this variant supports image-to-image editing.
+ * Only Seedream 4.5 (v4-5) exposes edit in Phase 1C.
+ * v5-lite's underlying endpoint accepts images but we lock it to t2i here.
+ */
+function supportsEdit(variant: SeedreamVariant): boolean {
+  return variant === "v4-5";
 }
 
 function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider {
   const variant    = MODEL_KEY_TO_VARIANT[modelKey] ?? "v5";
   const falModelId = () => VARIANT_TO_MODEL_ID[variant];
-  const isEdit     = isEditVariant(variant);
+  const canEdit    = supportsEdit(variant);
 
   return {
     providerId:  "fal",
@@ -68,14 +91,16 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
 
     getCapabilities(): ProviderCapabilities {
       return {
-        supportedInputModes:   isEdit ? ["text", "image"] : ["text"],
+        supportedInputModes:   canEdit ? ["text", "image"] : ["text"],
         supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
-        capabilities:          isEdit
-          ? ["text_to_image", "image_to_image", "edit", "fast_mode"]
-          : ["text_to_image", "photoreal", "cinematic"],
-        asyncMode:             "polling",
-        supportsWebhook:       false,
-        supportsPolling:       true,
+        capabilities: canEdit
+          ? ["text_to_image", "image_to_image", "edit", "photoreal"]
+          : variant === "v5-lite"
+            ? ["text_to_image", "fast_mode"]
+            : ["text_to_image", "photoreal", "cinematic"],
+        asyncMode:       "polling",
+        supportsWebhook: false,
+        supportsPolling: true,
       };
     },
 
@@ -84,22 +109,34 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       if (!input.prompt || input.prompt.trim().length < 3) {
         errors.push("Prompt must be at least 3 characters.");
       }
-      // Edit variant requires an input image
-      if (isEdit && !input.imageUrl) {
-        errors.push("Seedream Lite requires an input image for editing.");
+      // v4-5 edit mode: image is optional (absence = t2i). No validation failure needed.
+      // v5 / v5-lite: never accept image input in Phase 1C.
+      if (!canEdit && input.imageUrl) {
+        errors.push(`${displayName} does not support image input in this version.`);
       }
       return { valid: errors.length === 0, errors, warnings: [] };
     },
 
-    estimateCost(_input: ZProviderInput): CreditEstimate {
-      const base = variant === "v5" ? 15 : variant === "v5-lite" ? 8 : 10;
-      return { min: base - 2, max: base + 2, expected: base, breakdown: { base } };
+    estimateCost(input: ZProviderInput): CreditEstimate {
+      let base: number;
+      if (variant === "v5")      base = 15;
+      else if (variant === "v5-lite") base = 8;
+      else {
+        // v4-5: base 10 cr (1K). Quality multipliers applied by credit engine.
+        // Edit jobs cost the same as t2i (no surcharge).
+        base = 10;
+      }
+      return { min: base - 2, max: base + 4, expected: base, breakdown: { base } };
     },
 
     async createJob(input: ZProviderInput): Promise<ZJob> {
       const { apiKey } = getFalEnv();
       const jobId      = newJobId();
       const modelId    = falModelId();
+      const isEditJob  = canEdit && !!input.imageUrl;
+
+      // Safe diagnostic: confirm actual fal.ai model ID in runtime logs.
+      console.info(`[seedream] variant=${variant} model=${modelId} mode=${isEditJob ? "edit" : "t2i"}`);
 
       const payload: Record<string, unknown> = {
         prompt:                input.prompt,
@@ -108,9 +145,19 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         enable_safety_checker: true,
       };
 
-      // Edit variant: attach the source image
-      if (isEdit && input.imageUrl) {
-        payload.image_url = input.imageUrl;
+      // ── Seedream 4.5: edit path ────────────────────────────────────────────
+      // Edit is detected by the presence of an input image.
+      // The v4.5 endpoint uses `image_urls` (array), NOT `image_url` (singular).
+      if (isEditJob && input.imageUrl) {
+        payload.image_urls = [input.imageUrl];
+      }
+
+      // ── Seedream 4.5: quality → image_size ────────────────────────────────
+      // "2K" → "auto_2K", "4K" → "auto_4K", "1K" → omit (provider default).
+      if (variant === "v4-5") {
+        const quality  = input.providerParams?.quality as string | undefined;
+        const imageSize = quality ? V45_QUALITY_TO_SIZE[quality] : undefined;
+        if (imageSize) payload.image_size = imageSize;
       }
 
       if (input.negativePrompt) payload.negative_prompt = input.negativePrompt;
@@ -123,7 +170,11 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         signal:  AbortSignal.timeout(30_000),
       });
 
-      if (!res.ok) throw new Error(`Seedream (${variant}) submission HTTP ${res.status}.`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Seedream (${variant}) submission HTTP ${res.status}: ${body.slice(0, 300)}`);
+      }
+
       const data      = (await res.json()) as Record<string, unknown>;
       const requestId = String(data.request_id ?? data.requestId ?? "");
       if (!requestId) throw new Error("Seedream returned no request ID.");
@@ -133,7 +184,12 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         id: jobId, provider: "fal", modelKey,
         studioType: "image", status: "pending", externalJobId: requestId,
         createdAt: now, updatedAt: now, identity: input.identity,
-        providerMeta: { modelId, requestId, variant },
+        providerMeta: {
+          modelId,
+          requestId,
+          variant,
+          generationMode: isEditJob ? "image-edit" : "text-to-image",
+        },
         estimatedCredits: input.estimatedCredits,
       };
     },
@@ -142,25 +198,38 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const { apiKey } = getFalEnv();
       const modelId    = falModelId();
 
-      const statusRes = await fetch(`https://queue.fal.run/${modelId}/requests/${externalJobId}/status`, {
-        headers: { "Authorization": `Key ${apiKey}` },
-        signal:  AbortSignal.timeout(15_000),
-      });
-      if (!statusRes.ok) return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}` };
+      const statusRes = await fetch(
+        `https://queue.fal.run/${modelId}/requests/${externalJobId}/status`,
+        { headers: { "Authorization": `Key ${apiKey}` }, signal: AbortSignal.timeout(15_000) },
+      );
+      if (!statusRes.ok) {
+        return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}` };
+      }
 
       const data   = (await statusRes.json()) as Record<string, unknown>;
       const status = String(data.status ?? "");
 
       if (status === "COMPLETED") {
-        const resultRes = await fetch(`https://queue.fal.run/${modelId}/requests/${externalJobId}`, {
-          headers: { "Authorization": `Key ${apiKey}` },
-        });
-        if (!resultRes.ok) return { jobId: externalJobId, status: "error", error: "Failed to fetch result." };
+        const resultRes = await fetch(
+          `https://queue.fal.run/${modelId}/requests/${externalJobId}`,
+          { headers: { "Authorization": `Key ${apiKey}` } },
+        );
+        if (!resultRes.ok) {
+          return { jobId: externalJobId, status: "error", error: "Failed to fetch result." };
+        }
         const result = (await resultRes.json()) as Record<string, unknown>;
         const images = result.images as Array<{ url: string }> | undefined;
-        return { jobId: externalJobId, status: "success", url: images?.[0]?.url, metadata: { seed: result.seed } };
+        return {
+          jobId: externalJobId, status: "success",
+          url: images?.[0]?.url,
+          metadata: { seed: result.seed },
+        };
       }
-      if (status === "FAILED") return { jobId: externalJobId, status: "error", error: "Seedream generation failed." };
+
+      if (status === "FAILED") {
+        return { jobId: externalJobId, status: "error", error: "Seedream generation failed." };
+      }
+
       return { jobId: externalJobId, status: "pending" };
     },
 
@@ -194,12 +263,16 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
 /** Seedream v5 — primary high-quality text-to-image (fal-ai/seedream) */
 export const seedreamV5Provider     = buildSeedreamProvider("seedream-v5",      "Seedream v5");
 
-/** Seedream v5 Lite — fast + image editing (fal-ai/seedream/edit) */
+/**
+ * Seedream v5 Lite — fast text-to-image (fal-ai/seedream/edit).
+ * Phase 1C: generation only. Image input is intentionally blocked at the provider level.
+ * The underlying endpoint supports edit but we do not expose it until a proper UX is designed.
+ */
 export const seedreamV5LiteProvider = buildSeedreamProvider("seedream-v5-lite", "Seedream Lite");
 
 /**
- * Seedream 4.5 — legacy model (fal-ai/seedream/v4.5)
- * DB row is inactive — provider registered so orchestrator returns MODEL_INACTIVE,
- * not PROVIDER_NOT_REGISTERED.
+ * Seedream 4.5 — text-to-image + image editing (fal-ai/bytedance/seedream/v4.5).
+ * Native quality tiers: 1K (base), 2K (auto_2K), 4K (auto_4K).
+ * Edit mode activated automatically when an input image is provided.
  */
 export const seedream45Provider     = buildSeedreamProvider("seedream-4-5",     "Seedream 4.5");

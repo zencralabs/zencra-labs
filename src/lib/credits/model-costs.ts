@@ -38,6 +38,7 @@
  *   gpt-image-2          20 cr
  *   seedream-v5          15 cr
  *   seedream-v5-lite      8 cr
+ *   seedream-4-5         10 cr   (1K base; engine applies 2K=1.25×→13cr, 4K=1.75×→18cr)
  *   flux-kontext         10 cr
  *
  * Video models (base = 5s cost; 10s = 2×base):
@@ -82,6 +83,7 @@ export const MODEL_BASE_CREDITS: Record<string, number> = {
   "gpt-image-2":          20,
   "seedream-v5":          15,
   "seedream-v5-lite":      8,
+  "seedream-4-5":         10,   // 1K base; engine: 2K=1.25×→13cr, 4K=1.75×→18cr (observe mode)
   "flux-kontext":         10,
 
   // ── Video (base = 5-second cost)

@@ -112,7 +112,11 @@ export const FAL_MODEL_IDS = {
   // fal-ai/seedream/v4.5 → Seedream 4.5 legacy (disabled — kept for reference)
   seedreamV5:      optional("FAL_MODEL_SEEDREAM_V5",      "fal-ai/seedream") as string,
   seedreamV5Lite:  optional("FAL_MODEL_SEEDREAM_V5_LITE", "fal-ai/seedream/edit") as string,
-  seedream45:      optional("FAL_MODEL_SEEDREAM_45",      "fal-ai/seedream/v4.5") as string,
+  // Seedream 4.5 — text-to-image AND edit (image_urls[] array param distinguishes edit vs t2i).
+  // Correct endpoint: fal-ai/bytedance/seedream/v4.5 (NOT fal-ai/seedream/v4.5 — that 404s).
+  seedream45:      optional("FAL_MODEL_SEEDREAM_45",      "fal-ai/bytedance/seedream/v4.5") as string,
+  // Same model endpoint for edit path — kept as a separate key so it can be overridden independently.
+  seedream45Edit:  optional("FAL_MODEL_SEEDREAM_45_EDIT", "fal-ai/bytedance/seedream/v4.5") as string,
   // Black Forest Labs FLUX via fal.ai queue
   // FLUX.1 Kontext [pro] — production model (Image Studio + context editing)
   fluxKontext:   optional("FAL_MODEL_FLUX_KONTEXT",    "fal-ai/flux-pro/kontext") as string,

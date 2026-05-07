@@ -267,8 +267,15 @@ interface StudioModel {
   icon: string;
   requiresImg?: boolean;
   nbVariant?: string;
-  allowedQualities?: Quality[];    // resolution tier models (NB Pro etc.)
-  qualityOptions?:   QualityOption[]; // performance tier models (GPT Image etc.)
+  allowedQualities?:   Quality[];      // resolution tier models (NB Pro etc.)
+  qualityOptions?:     QualityOption[]; // performance tier models (GPT Image, Seedream 4.5 etc.)
+  /**
+   * Controls how qualityOptions are rendered:
+   *   "segmented" — inline Fast / Standard / Ultra toggle (GPT Image style)
+   *   "chips"     — dropdown chip selector (Seedream 4.5 resolution tiers)
+   * If absent, allowedQualities renders the legacy resolution selector.
+   */
+  qualityDisplayMode?: "segmented" | "chips";
 }
 
 // ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
@@ -280,6 +287,7 @@ const MODEL_TO_KEY: Record<string, string> = {
   "nano-banana-2":        "nano-banana-2",
   "seedream-v5":          "seedream-v5",
   "seedream-v5-lite":     "seedream-v5-lite",
+  "seedream-4-5":         "seedream-4-5",
 };
 
 // ── Reverse map — model key → UI model ID (used by flow variation handler) ───
@@ -445,6 +453,24 @@ const MODELS: StudioModel[] = [
     icon: "seedream",
     requiresImg: false,   // edit mode is optional — also works text-only
     allowedQualities: ["1K"],
+  },
+  {
+    id: "seedream-4-5",
+    name: "Seedream 4.5",
+    provider: "ByteDance",
+    description: "Text-to-image + image editing · 2K & 4K native resolution · 10 cr base",
+    badge: "EDIT",
+    badgeColor: "#8B5CF6",
+    available: true,
+    icon: "seedream",
+    requiresImg: false,
+    // Phase 1C: native resolution quality tiers exposed as chip selector.
+    // API values are sent as providerParams.quality → seedream.ts maps to fal.ai image_size.
+    qualityOptions: [
+      { label: "2K Standard", apiValue: "2K", creditMultiplier: 1.25, desc: "auto_2K · balanced" },
+      { label: "4K Ultra",    apiValue: "4K", creditMultiplier: 1.75, desc: "auto_4K · highest" },
+    ],
+    qualityDisplayMode: "chips",
   },
   {
     id: "flux2-pro",
@@ -1984,6 +2010,13 @@ function ImageStudioInner() {
           // In transform mode, /v1/images/edits ignores quality — adapter does not forward it to FormData.
           // No translation needed: quality state IS the API value for this model.
           body.providerParams = { quality };
+          if (referenceImageUrl) body.imageUrl = referenceImageUrl;
+        } else if (modelKey === "seedream-4-5") {
+          // Seedream 4.5: quality is the chip value ("2K" | "4K" | "" for default).
+          // The provider maps "2K"→auto_2K and "4K"→auto_4K via V45_QUALITY_TO_SIZE.
+          // Empty string means no image_size param → provider default (~1K).
+          if (quality) body.providerParams = { quality };
+          // Edit mode: attach reference image if present; adapter uses image_urls[] (array).
           if (referenceImageUrl) body.imageUrl = referenceImageUrl;
         } else if (isNanoB) {
           // Nano Banana family: pass quality for resolution selection.
@@ -4084,9 +4117,11 @@ function ImageStudioInner() {
               );
             })()}
 
-            {/* GPT Image performance mode — Fast / Standard / Ultra (segmented inline selector) */}
-            {/* Hidden entirely in transform/edit mode: /v1/images/edits ignores quality. */}
-            {currentModel.qualityOptions && !isTransformMode && (
+            {/* Quality selector — two display modes driven by qualityDisplayMode */}
+
+            {/* "segmented" — GPT Image Fast / Standard / Ultra inline toggle */}
+            {/* Hidden in transform/edit mode: /v1/images/edits ignores quality. */}
+            {currentModel.qualityOptions && currentModel.qualityDisplayMode !== "chips" && !isTransformMode && (
               <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
                 {currentModel.qualityOptions.map((opt) => {
                   const isActive = quality === opt.apiValue;
@@ -4113,6 +4148,49 @@ function ImageStudioInner() {
                           {opt.desc}
                         </span>
                       )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* "chips" — Seedream 4.5 native resolution chip selector (2K Standard / 4K Ultra) */}
+            {/* Renders as a compact pill row. No quality = provider default (1K). */}
+            {currentModel.qualityOptions && currentModel.qualityDisplayMode === "chips" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {/* "None / 1K" deselect chip — lets user reset to base cost */}
+                <button
+                  onClick={() => setQuality("" as StudioQuality)}
+                  title="Default resolution (provider selects, ~1K cost)"
+                  style={{
+                    padding: "4px 9px", borderRadius: 8, border: "1px solid",
+                    borderColor: !quality ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.12)",
+                    background: !quality ? "rgba(139,92,246,0.18)" : "transparent",
+                    cursor: "pointer", fontSize: 11, fontWeight: !quality ? 700 : 400,
+                    color: !quality ? "#a78bfa" : "rgba(255,255,255,0.4)",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  Default
+                </button>
+                {currentModel.qualityOptions.map((opt) => {
+                  const isActive = quality === opt.apiValue;
+                  return (
+                    <button
+                      key={opt.apiValue}
+                      onClick={() => setQuality(opt.apiValue as StudioQuality)}
+                      title={opt.desc}
+                      style={{
+                        padding: "4px 10px", borderRadius: 8, border: "1px solid",
+                        borderColor: isActive ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.12)",
+                        background: isActive ? "rgba(139,92,246,0.22)" : "transparent",
+                        cursor: "pointer", fontSize: 11, fontWeight: isActive ? 700 : 400,
+                        color: isActive ? "#a78bfa" : "rgba(255,255,255,0.45)",
+                        boxShadow: isActive ? "0 0 8px rgba(139,92,246,0.3)" : "none",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {opt.label}
                     </button>
                   );
                 })}
