@@ -47,7 +47,7 @@ export interface OpenAIEnv {
 export function getOpenAIEnv(): OpenAIEnv {
   return {
     apiKey: required("OPENAI_API_KEY"),
-    model:  optional("GPT_IMAGE_MODEL_ID",   "gpt-image-1") as string,
+    model:  optional("GPT_IMAGE_MODEL_ID",   "gpt-image-1.5") as string,
     model2: optional("GPT_IMAGE_2_MODEL_ID",  "gpt-image-2") as string,
   };
 }
