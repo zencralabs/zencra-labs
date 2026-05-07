@@ -6,6 +6,7 @@ import { Zap, RotateCcw, Download, Play, ChevronUp, ChevronDown } from "lucide-r
 import { downloadAsset } from "@/lib/client/downloadAsset";
 import { buildJustifiedRows } from "@/lib/gallery/justifiedLayout";
 import { getGenerationCreditCost } from "@/lib/credits/model-costs";
+import { getDisplayModelName } from "@/lib/studio/model-display-names";
 import type { JustifiedInput } from "@/lib/gallery/justifiedLayout";
 import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -5204,7 +5205,7 @@ function ImageStudioInner() {
                     {/* Model / Provider / AR / Quality row */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                       {[
-                        { label: "MODEL",    val: panelDetails?.asset.model_key || selectedImage.model },
+                        { label: "MODEL",    val: getDisplayModelName(panelDetails?.asset.model_key || selectedImage.model) },
                         { label: "PROVIDER", val: panelDetails?.asset.provider },
                         { label: "RATIO",    val: panelDetails?.generation_metadata?.aspect_ratio as string | undefined || selectedImage.aspectRatio },
                         { label: "QUALITY",  val: panelDetails?.generation_metadata?.quality as string | undefined },

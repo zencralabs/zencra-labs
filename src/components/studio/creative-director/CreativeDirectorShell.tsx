@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { getDisplayModelName } from "@/lib/studio/model-display-names";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -1665,7 +1666,7 @@ export default function CreativeDirectorShell() {
             generation={previewGen}
             batchCount={previewBatchIds.length}
             conceptTitle={previewConcept}
-            modelLabel={previewGen?.model}
+            modelLabel={getDisplayModelName(previewGen?.model)}
             onClose={() => {
               setPreviewOpen(false);
               setPreviewFocusId(null);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Tooltip from "@/components/ui/Tooltip";
+import { getDisplayModelName } from "@/lib/studio/model-display-names";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OutputWorkspace — Right column of the AI Creative Director
@@ -482,7 +483,7 @@ function GenerationCard({
               whiteSpace: "nowrap",
             }}
           >
-            {gen.model}
+            {getDisplayModelName(gen.model)}
           </span>
           <span
             style={{

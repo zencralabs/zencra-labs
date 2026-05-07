@@ -33,6 +33,7 @@ import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
 import { getGenerationCreditCost } from "@/lib/credits/model-costs";
+import { getDisplayModelName }     from "@/lib/studio/model-display-names";
 import { startPolling as startUniversalPolling } from "@/lib/jobs/job-polling";
 import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-store";
 
@@ -2110,7 +2111,7 @@ export default function VideoStudioShell() {
     prompt:        a.prompt ?? "",
     negPrompt:     "",
     modelId:       a.model_key,
-    modelName:     VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? a.model_key,
+    modelName:     VIDEO_MODEL_REGISTRY.find(m => m.id === a.model_key)?.displayName ?? getDisplayModelName(a.model_key),
     duration:      5,
     aspectRatio:   (a.aspect_ratio ?? "16:9") as VideoAR,
     frameMode:     "text_to_video" as const,
