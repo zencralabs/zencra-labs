@@ -69,6 +69,9 @@ export type SecurityRule =
   | "provider.circuit.opened"           // circuit breaker tripped — provider isolated
   | "provider.circuit.half_open"        // circuit breaker probing — one trial request
   | "provider.circuit.closed"           // circuit breaker recovered — traffic restored
+  | "provider.circuit.degraded"         // circuit in DEGRADED state — partial traffic
+  | "provider.circuit.stabilizing"      // circuit stabilizing — degraded window active
+  | "provider.circuit.recovering"       // circuit recovering — half-open probe succeeded
   | "provider.timeout.spike"            // provider timeout rate spike
 
   // ── Webhook / inbound verification rules ───────────────────────────────────
@@ -100,6 +103,7 @@ export type SecurityActionTaken =
   | "job_cancelled"         // enforce: async generation job cancelled
   | "provider_isolated"     // enforce: provider removed from active rotation
   | "provider_restored"     // enforce: provider returned to rotation
+  | "provider_degraded"     // enforce: provider marked degraded (partial traffic)
   | "credit_deducted"       // enforce: credits deducted (scheduled action)
   | "access_denied"         // enforce: access denied at gate
   | "audit_logged";         // always: written to admin_audit_log (not security_events_log)
@@ -186,11 +190,16 @@ export interface ProviderEvent extends SecurityEventBase {
     | "provider.circuit.opened"
     | "provider.circuit.half_open"
     | "provider.circuit.closed"
+    | "provider.circuit.degraded"
+    | "provider.circuit.stabilizing"
+    | "provider.circuit.recovering"
     | "provider.timeout.spike";
-  providerKey:      string;
-  errorRatePct:     number;
-  windowSeconds:    number;
-  consecutiveErrors?: number;
+  providerKey:          string;
+  errorRatePct:         number;
+  windowSeconds:        number;
+  consecutiveErrors?:   number;
+  consecutiveSuccesses?: number;
+  degradedDurationSec?:  number;
 }
 
 export interface WebhookEvent extends SecurityEventBase {
