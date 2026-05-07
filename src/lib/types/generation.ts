@@ -114,6 +114,54 @@ export interface VisibilityUpdatePayload {
   project_id?: string | null;
 }
 
+// ── MediaCard flexible asset shape (Batch 1 — backward-compat union) ──────────
+
+/**
+ * Flexible asset shape accepted by MediaCard.
+ *
+ * Supports both legacy `generations` rows (result_url / tool_category)
+ * and new `assets` rows (url / studio).  Either pair may be present;
+ * consumers should never assume both exist at once.
+ *
+ * Batch 6 will narrow this to assets-only once the gallery cutover is done.
+ */
+export interface MediaCardAsset {
+  id:         string;
+  prompt:     string;
+  visibility: AssetVisibility;
+  /** Legacy generations shape */
+  result_url?:    string | null;
+  result_urls?:   string[] | null;
+  tool?:          string;
+  tool_category?: string;
+  credits_used?:  number;
+  /** Assets table shape (introduced Batch 1, fully active Batch 6+) */
+  url?:    string | null;
+  studio?: string;
+  /** Shared optional fields */
+  project_id?: string | null;
+  created_at?: string;
+}
+
+// ── Safe public asset record for /api/assets/public (Batch 2) ─────────────────
+
+/**
+ * Minimal public-safe subset of an `assets` row.
+ * Omits user_id, workspace_id, api_cost_usd, model_key, and any private fields.
+ * Returned by GET /api/assets/public and the /p/[slug] permalink API.
+ */
+export interface PublicAssetRecord {
+  id:           string;
+  studio:       string;
+  url:          string;
+  prompt:       string;
+  aspect_ratio: string | null;
+  slug:         string | null;
+  visibility:   AssetVisibility;
+  is_featured:  boolean;
+  created_at:   string;
+}
+
 // ── Action menu types ──────────────────────────────────────────────────────────
 
 export type CardAction =

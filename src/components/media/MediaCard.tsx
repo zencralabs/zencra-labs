@@ -34,12 +34,13 @@ import {
   Check,
   X,
 } from "lucide-react";
-import type { PublicAsset, AssetVisibility } from "@/lib/types/generation";
+import { supabase } from "@/lib/supabase";
+import type { MediaCardAsset, AssetVisibility } from "@/lib/types/generation";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface MediaCardProps {
-  asset: PublicAsset;
+  asset: MediaCardAsset;
   /** Whether the current viewer is the owner — shows edit/delete actions */
   isOwner?: boolean;
   /** Compact mode: no bottom bar, smaller icons (used in homepage carousel) */
@@ -62,13 +63,13 @@ export interface MediaCardProps {
    */
   aspectRatio?: string;
   /** Called when the user clicks Regenerate */
-  onRegenerate?: (asset: PublicAsset) => void;
+  onRegenerate?: (asset: MediaCardAsset) => void;
   /** Called when the user clicks Reuse Prompt */
   onReusePrompt?: (prompt: string) => void;
   /** Called when the user clicks Enhance */
-  onEnhance?: (asset: PublicAsset) => void;
+  onEnhance?: (asset: MediaCardAsset) => void;
   /** Called when the user selects Start Frame or End Frame in the Animate submenu (images only) */
-  onAnimate?: (asset: PublicAsset, frame: "start" | "end") => void;
+  onAnimate?: (asset: MediaCardAsset, frame: "start" | "end") => void;
   /** Called after visibility is changed successfully */
   onVisibilityChange?: (id: string, visibility: AssetVisibility) => void;
   /** Called after delete */
@@ -153,12 +154,12 @@ function VisibilityBadge({ visibility }: { visibility: AssetVisibility }) {
 // ── More menu ──────────────────────────────────────────────────────────────────
 
 interface MoreMenuProps {
-  asset: PublicAsset;
+  asset: MediaCardAsset;
   isOwner: boolean;
   onClose: () => void;
   onVisibilityChange?: (id: string, v: AssetVisibility) => void;
   onDelete?: (id: string) => void;
-  onRegenerate?: (asset: PublicAsset) => void;
+  onRegenerate?: (asset: MediaCardAsset) => void;
   onReusePrompt?: (prompt: string) => void;
 }
 
@@ -177,10 +178,15 @@ function MoreMenu({
   async function patchVisibility(v: AssetVisibility) {
     setUpdating(true);
     try {
-      const res = await fetch(`/api/generations/${asset.id}/visibility`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const res = await fetch(`/api/assets/${asset.id}`, {
         method:  "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ visibility: v }),
+        headers: {
+          "Content-Type":  "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ visibility: v }),
       });
       if (res.ok) {
         onVisibilityChange?.(asset.id, v);
@@ -192,7 +198,7 @@ function MoreMenu({
   }
 
   function handleOpen() {
-    const url = asset.result_url ?? asset.result_urls?.[0];
+    const url = asset.url ?? asset.result_url ?? asset.result_urls?.[0];
     if (url) window.open(url, "_blank", "noopener");
     onClose();
   }
@@ -275,7 +281,12 @@ function MoreMenu({
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={async () => {
-                    await fetch(`/api/generations/${asset.id}`, { method: "DELETE" });
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token ?? "";
+                    await fetch(`/api/assets/${asset.id}`, {
+                      method:  "DELETE",
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    });
                     onDelete?.(asset.id);
                     onClose();
                   }}
@@ -389,10 +400,10 @@ export default function MediaCard({
   const moreButtonRef  = useRef<HTMLDivElement>(null);    // wraps the ⋮ trigger
   const portalMenuRef  = useRef<HTMLDivElement>(null);    // wraps the portal dropdown
 
-  const mediaUrl  = asset.result_url ?? asset.result_urls?.[0] ?? null;
+  const mediaUrl  = asset.url ?? asset.result_url ?? asset.result_urls?.[0] ?? null;
   const isVideo   = mediaUrl ? isVideoUrl(mediaUrl) : false;
   const isImage   = !isVideo;
-  const category  = asset.tool_category;
+  const category  = asset.tool_category ?? asset.studio;
 
   // ── Close portal menu on scroll / resize (capture phase catches nested scrollers) ──
   useEffect(() => {
