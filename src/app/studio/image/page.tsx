@@ -295,6 +295,30 @@ const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
   Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
 );
 
+// ── Catalog ↔ Studio model maps ───────────────────────────────────────────────
+// Catalog IDs are safe for URLs (never expose internal "dalle3" key).
+// CATALOG_TO_STUDIO_MODEL: ?model= URL param → internal UI model ID
+// STUDIO_TO_CATALOG:       internal UI model ID → ?model= URL param (for writing back)
+const CATALOG_TO_STUDIO_MODEL: Record<string, string> = {
+  "gpt-image-2":     "gpt-image-2",
+  "gpt-image-15":    "dalle3",
+  "nano-banana-2":   "nano-banana-2",
+  "nano-banana-pro": "nano-banana-pro",
+  "nano-banana":     "nano-banana-standard",
+  "seedream-v5":     "seedream-v5",
+  "seedream-4-5":    "seedream-4-5",
+} as const;
+
+const STUDIO_TO_CATALOG: Record<string, string> = {
+  "dalle3":               "gpt-image-15",
+  "gpt-image-2":          "gpt-image-2",
+  "nano-banana-2":        "nano-banana-2",
+  "nano-banana-pro":      "nano-banana-pro",
+  "nano-banana-standard": "nano-banana",
+  "seedream-v5":          "seedream-v5",
+  "seedream-4-5":         "seedream-4-5",
+} as const;
+
 
 // ── Aspect ratio → API string ─────────────────────────────────────────────────
 // GPT Image only supports 4 ratios — collapse everything else.
@@ -1038,16 +1062,7 @@ function ImageStudioInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Map catalog IDs (from navbar ?model= param) to internal studio model IDs
-  const CATALOG_TO_STUDIO_MODEL: Record<string, string> = {
-    "gpt-image-2":     "gpt-image-2",
-    "gpt-image-15":    "dalle3",
-    "nano-banana-2":   "nano-banana-2",
-    "nano-banana-pro": "nano-banana-pro",
-    "nano-banana":     "nano-banana-standard",
-    "seedream-v5":     "seedream-v5",
-    "seedream-4-5":    "seedream-4-5",
-  };
+  // Resolve initial model from ?model= URL param (module-level maps are safe to read here)
   const modelParam = searchParams.get("model") ?? "";
   const initialModel = CATALOG_TO_STUDIO_MODEL[modelParam] ?? "dalle3";
 
@@ -1072,14 +1087,27 @@ function ImageStudioInner() {
   // so the justified layout engine allocates the correct column width per image.
   const [imageRatios, setImageRatios] = useState<Record<string, number>>({});
   // ── Studio mode — Standard Generate or Creative Director ────────────────────
-  // Lazy initializer reads ?mode=creative-director from URL on first render.
-  // This lets navbar / dashboard links deep-link directly into CD mode.
-  const [studioMode, setStudioMode] = useState<"standard" | "creative-director">(() => {
-    if (typeof window === "undefined") return "standard";
-    return new URLSearchParams(window.location.search).get("mode") === "creative-director"
-      ? "creative-director"
-      : "standard";
-  });
+  // Initialized from ?mode= URL param so navbar / dashboard links deep-link correctly.
+  // A useEffect below keeps this in sync when searchParams changes (e.g. back/forward).
+  const [studioMode, setStudioMode] = useState<"standard" | "creative-director">(
+    searchParams.get("mode") === "creative-director" ? "creative-director" : "standard"
+  );
+
+  // ── URL ↔ State sync (model + mode) ─────────────────────────────────────────
+  // Keeps React state in sync when the URL changes after mount (back/forward nav,
+  // navbar link clicks). Uses the CATALOG_TO_STUDIO_MODEL map so internal model IDs
+  // are always resolved from safe catalog keys — "dalle3" never appears in the URL.
+  useEffect(() => {
+    const urlModel  = searchParams.get("model") ?? "";
+    const resolved  = CATALOG_TO_STUDIO_MODEL[urlModel] ?? "dalle3";
+    setModel(resolved);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const urlMode = searchParams.get("mode");
+    setStudioMode(urlMode === "creative-director" ? "creative-director" : "standard");
+  }, [searchParams]);
+
   const [authModal, setAuthModal] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState("");   // source image for edit models
 
@@ -2563,7 +2591,21 @@ function ImageStudioInner() {
               return (
                 <button
                   key={id}
-                  onClick={() => setStudioMode(id)}
+                  onClick={() => {
+                    setStudioMode(id);
+                    // Write mode to URL so refreshes, back/forward, and shared links work.
+                    const params = new URLSearchParams(searchParams.toString());
+                    if (id === "creative-director") {
+                      params.set("mode", "creative-director");
+                    } else {
+                      params.delete("mode");
+                    }
+                    // Preserve current model param in URL
+                    const catalogId = STUDIO_TO_CATALOG[model];
+                    if (catalogId) params.set("model", catalogId);
+                    else params.delete("model");
+                    router.replace(`/studio/image?${params.toString()}`, { scroll: false });
+                  }}
                   style={{
                     position:       "relative",
                     zIndex:         1,
@@ -2664,7 +2706,16 @@ function ImageStudioInner() {
       {/* ── Creative Director mode — full-width shell, replaces gallery ── */}
       {studioMode === "creative-director" && (
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <CDv2Shell onExitDirectorMode={() => setStudioMode("standard")} />
+          <CDv2Shell onExitDirectorMode={() => {
+            setStudioMode("standard");
+            // Remove ?mode= from URL so back/forward and refresh land in standard mode
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete("mode");
+            const catalogId = STUDIO_TO_CATALOG[model];
+            if (catalogId) params.set("model", catalogId);
+            else params.delete("model");
+            router.replace(`/studio/image?${params.toString()}`, { scroll: false });
+          }} />
         </div>
       )}
 
@@ -3919,6 +3970,12 @@ function ImageStudioInner() {
                         if (!isDisabled) {
                           setModel(m.id);
                           closeDropdowns();
+                          // Write model selection to URL (use safe catalog key, never expose "dalle3")
+                          const catalogId = STUDIO_TO_CATALOG[m.id];
+                          const params = new URLSearchParams(searchParams.toString());
+                          if (catalogId) params.set("model", catalogId);
+                          else params.delete("model");
+                          router.replace(`/studio/image?${params.toString()}`, { scroll: false });
                         }
                       }}
                       style={{

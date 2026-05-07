@@ -15,6 +15,7 @@
 
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   // ── OpenAI GPT Image ───────────────────────────────────────────────────────
+  "dalle3":               "GPT Image 1.5",  // safety net — internal UI model ID; must never reach URL/display raw
   "gpt-image-1":          "GPT Image 1.5",  // legacy DB alias → same display
   "gpt-image-1.5":        "GPT Image 1.5",
   "gpt-image-2":          "GPT Image 2",

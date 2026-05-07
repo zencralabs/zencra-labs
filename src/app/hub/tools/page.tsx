@@ -2,7 +2,6 @@
 
 const TOOLS = [
   { name: "GPT Image 1.5",    type: "Image",  status: "active",     provider: "OpenAI",     credits: 2 },
-  { name: "DALL·E 3",         type: "Image",  status: "active",     provider: "OpenAI",     credits: 2 },
   { name: "Nano Banana Pro",  type: "Image",  status: "soon",       provider: "Nano",       credits: 3 },
   { name: "Kling 2.6",        type: "Video",  status: "active",     provider: "Kling",      credits: 8 },
   { name: "Kling 3.0",        type: "Video",  status: "active",     provider: "Kling",      credits: 10 },

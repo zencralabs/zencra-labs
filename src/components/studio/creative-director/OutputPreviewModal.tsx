@@ -5,7 +5,7 @@ import type { GenerationResult } from "./OutputWorkspace";
 
 // Models available for retry
 const RETRY_MODELS = [
-  { value: "gpt-image-1",     label: "GPT Image 2"       },
+  { value: "gpt-image-1",     label: "GPT Image 1.5"     },
   { value: "nano-banana-pro", label: "Nano Banana Pro"   },
   { value: "nano-banana-2",   label: "Nano Banana 2"     },
   { value: "seedream-v5",     label: "Seedream v5" },
