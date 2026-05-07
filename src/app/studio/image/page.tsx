@@ -236,9 +236,25 @@ function classifyError(raw: string | undefined): ErrorInfo {
 }
 
 type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
-type Quality = "1K" | "2K" | "4K";
+type ResolutionQuality = "1K" | "2K" | "4K";
+type GPTQuality        = "low" | "medium" | "high";
+type StudioQuality     = ResolutionQuality | GPTQuality;
+type Quality           = ResolutionQuality; // used by allowedQualities — resolution models only
 type OutputFormat = "JPG" | "PNG";
 type Tab = "history" | "community";
+
+/**
+ * Provider-native quality tier option.
+ * Used by models that expose performance tiers rather than resolution tiers.
+ * Labels (Fast/Standard/Ultra) are shown in the UI; apiValues (low/medium/high)
+ * are sent to the provider. creditMultiplier is informational — the engine owns the math.
+ */
+interface QualityOption {
+  label:            string;  // UI label: "Fast" | "Standard" | "Ultra"
+  apiValue:         string;  // Provider API value: "low" | "medium" | "high"
+  creditMultiplier: number;  // Informational — engine reads from STATIC_QUALITY_MULTIPLIERS
+  desc?:            string;  // Short sublabel shown beneath the tier button
+}
 
 interface StudioModel {
   id: string;
@@ -251,7 +267,8 @@ interface StudioModel {
   icon: string;
   requiresImg?: boolean;
   nbVariant?: string;
-  allowedQualities?: Quality[];
+  allowedQualities?: Quality[];    // resolution tier models (NB Pro etc.)
+  qualityOptions?:   QualityOption[]; // performance tier models (GPT Image etc.)
 }
 
 // ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
@@ -346,7 +363,14 @@ const MODELS: StudioModel[] = [
     badgeColor: null,
     available: true,
     icon: "openai",
-    allowedQualities: ["1K", "2K"],
+    // Phase 1B: provider-native quality tiers replace fake 1K/2K resolution labels.
+    // Labels are performance modes; apiValues are sent directly to OpenAI /v1/images/generations.
+    // Transform mode (/v1/images/edits) ignores quality — selector is hidden when referenceImageUrl is set.
+    qualityOptions: [
+      { label: "Fast",     apiValue: "low",    creditMultiplier: 1.0,  desc: "Faster" },
+      { label: "Standard", apiValue: "medium", creditMultiplier: 1.25, desc: "Balanced" },
+      { label: "Ultra",    apiValue: "high",   creditMultiplier: 1.75, desc: "Highest" },
+    ],
   },
   {
     id: "nano-banana-standard",
@@ -1018,7 +1042,7 @@ function ImageStudioInner() {
   });
   const [model, setModel] = useState(initialModel);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1");
-  const [quality, setQuality] = useState<Quality>("1K");
+  const [quality, setQuality] = useState<StudioQuality>("1K");
   const [outputFormat, setOutputFormat] = useState<OutputFormat>("JPG");
   const [batchSize, setBatchSize] = useState(1);
   const [zoomLevel, setZoomLevel] = useState(4); // 1-5
@@ -1153,6 +1177,11 @@ function ImageStudioInner() {
   // Backward compat for character lock logic (uses first image):
   const referenceImageUrl = referenceImageUrls[0] ?? "";
   const referencePreviewUrl = referenceImages[0]?.previewUrl ?? "";
+
+  // Transform mode: GPT Image + reference image uploaded → provider routes to /v1/images/edits.
+  // OpenAI /v1/images/edits ignores quality. Selector is hidden and pricing is flat in this mode.
+  // Source of truth: whether referenceImageUrl is set AND the current model is dalle3.
+  const isTransformMode = model === "dalle3" && !!referenceImageUrl;
 
   // ── @imgN intelligence — derived from prompt ──────────────────────────────────
   // Set of 0-based indices of reference images currently mentioned in the prompt.
@@ -1779,7 +1808,10 @@ function ImageStudioInner() {
   useEffect(() => {
     const cm = MODELS.find((m) => m.id === model);
     if (!cm) return;
-    if (cm.allowedQualities && !cm.allowedQualities.includes(quality)) {
+    if (cm.qualityOptions) {
+      // GPT Image: default to Standard (medium) on model switch
+      setQuality("medium");
+    } else if (cm.allowedQualities && !cm.allowedQualities.includes(quality as ResolutionQuality)) {
       setQuality(cm.allowedQualities[0]);
     }
     if (!cm.requiresImg) setEditImageUrl("");
@@ -1904,7 +1936,6 @@ function ImageStudioInner() {
     const isNanoB    = modelKey.startsWith("nano-banana");
     const isAsync    = isNanoB;   // NB = async polling; gpt-image-1 = sync
     const count      = isAsync ? 1 : Math.min(batchSize, 4);
-    const apiQuality = quality === "2K" ? "high" : "auto";  // gpt-image-1 tiers
     // AR routing: NB gets actual string; GPT gets collapsed 4-ratio set
     const apiAr = isNanoB ? mapArForNB(activeAr) : mapArToApiAr(activeAr);
 
@@ -1949,8 +1980,10 @@ function ImageStudioInner() {
         };
 
         if (modelKey === "gpt-image-1") {
-          // GPT Image: pass quality as providerParam; reference image as imageUrl
-          body.providerParams = { quality: apiQuality };
+          // GPT Image: quality is now the provider-native API value ("low" | "medium" | "high").
+          // In transform mode, /v1/images/edits ignores quality — adapter does not forward it to FormData.
+          // No translation needed: quality state IS the API value for this model.
+          body.providerParams = { quality };
           if (referenceImageUrl) body.imageUrl = referenceImageUrl;
         } else if (isNanoB) {
           // Nano Banana family: pass quality for resolution selection.
@@ -1977,7 +2010,8 @@ function ImageStudioInner() {
         // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
         {
           const modelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
-          const displayedCost = getGenerationCreditCost(modelKey, { quality });
+          // In transform mode, quality selector is hidden and pricing is flat — no quality param.
+          const displayedCost = getGenerationCreditCost(modelKey, isTransformMode ? {} : { quality });
           try {
             const costsRes = await fetch("/api/credits/model-costs", {
               headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
@@ -4050,7 +4084,42 @@ function ImageStudioInner() {
               );
             })()}
 
-            {/* Quality — hidden for fixed-quality models */}
+            {/* GPT Image performance mode — Fast / Standard / Ultra (segmented inline selector) */}
+            {/* Hidden entirely in transform/edit mode: /v1/images/edits ignores quality. */}
+            {currentModel.qualityOptions && !isTransformMode && (
+              <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
+                {currentModel.qualityOptions.map((opt) => {
+                  const isActive = quality === opt.apiValue;
+                  return (
+                    <button
+                      key={opt.apiValue}
+                      onClick={() => setQuality(opt.apiValue as GPTQuality)}
+                      title={opt.desc}
+                      style={{
+                        display: "flex", flexDirection: "column", alignItems: "center",
+                        padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer",
+                        background: isActive ? "rgba(37,99,235,0.55)" : "transparent",
+                        boxShadow: isActive ? "0 0 10px rgba(37,99,235,0.35)" : "none",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(37,99,235,0.55)" : "transparent"; }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? "#fff" : "rgba(255,255,255,0.55)", letterSpacing: "0.01em" }}>
+                        {opt.label}
+                      </span>
+                      {opt.desc && (
+                        <span style={{ fontSize: 9, color: isActive ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.3)", marginTop: 1, letterSpacing: "0.02em" }}>
+                          {opt.desc}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Resolution quality — 1K / 2K / 4K dropdown (NB Pro and resolution-tier models) */}
             {(currentModel.allowedQualities?.length ?? 0) > 1 && (
               <div data-dd style={{ position: "relative" }}>
                 <button onClick={() => { closeDropdowns(); setShowQualityPicker((v) => !v); }} style={ctrlBtn(showQualityPicker)}>
@@ -4248,7 +4317,7 @@ function ImageStudioInner() {
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>
-                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1", { quality }) ?? "—"} cr
+                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1", isTransformMode ? {} : { quality }) ?? "—"} cr
                         </span>
                       )}
                     </>

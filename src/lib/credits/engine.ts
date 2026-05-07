@@ -181,6 +181,13 @@ export const STATIC_QUALITY_MULTIPLIERS: Record<string, Record<string, number>> 
   // ── Image quality tiers ───────────────────────────────────────────────────
   "nano-banana-pro": { "1K": 1.0, "2K": 1.25, "4K": 1.75 },
 
+  // gpt-image-1: Phase 1B — provider-native performance tiers (Fast/Standard/Ultra).
+  //   API values: "low" | "medium" | "high"  (UI labels: Fast / Standard / Ultra)
+  //   Observe mode: backend charges flat base, delta logged. Frontend shows scaled cost.
+  //   Edit/transform path: quality is intentionally NOT sent to /v1/images/edits —
+  //   multiplier irrelevant for that path; isTransformMode reverts display to flat.
+  "gpt-image-1":     { "low": 1.0, "medium": 1.25, "high": 1.75 },
+
   // nano-banana-2: REMOVED — Step 0 safety lock (2026-05-07)
   //   NB2 adapter ignores providerParams.quality and sends fixed ~1K dimensions
   //   from NB2_DIMENSION_MAP. Charging quality-scaled prices for 1K output would
