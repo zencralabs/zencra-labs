@@ -30,7 +30,7 @@
 import { NextResponse }              from "next/server";
 import { randomBytes }               from "crypto";
 import { supabaseAdmin }             from "@/lib/supabase/admin";
-import { requireAdmin }              from "@/lib/auth/admin-gate";
+import { requireAdmin, logAdminAction } from "@/lib/auth/admin-gate";
 import { logger }                    from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -50,7 +50,7 @@ function generateAccessCode(): string {
 
 export async function POST(req: Request): Promise<Response> {
   // ── Auth guard ───────────────────────────────────────────────────────────
-  const { adminError } = await requireAdmin(req);
+  const { user, adminError } = await requireAdmin(req);
   if (adminError) return adminError;
 
   // ── Parse body ────────────────────────────────────────────────────────────
@@ -68,6 +68,12 @@ export async function POST(req: Request): Promise<Response> {
 
   const maxUses =
     typeof body.maxUses === "number" && body.maxUses > 0 ? body.maxUses : 1;
+
+  // ── Audit log ─────────────────────────────────────────────────────────────
+  await logAdminAction(user.id, "/api/admin/waitlist/approve", "POST", {
+    waitlistUserId,
+    maxUses,
+  });
 
   // ── Read waitlist user ────────────────────────────────────────────────────
   const { data: waitlistUser, error: readError } = await supabaseAdmin

@@ -1,14 +1,15 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { requireAdmin }  from "@/lib/auth/admin-gate";
+import { NextResponse }                      from "next/server";
+import { supabaseAdmin }                     from "@/lib/supabase/admin";
+import { requireAdmin, logAdminAction }      from "@/lib/auth/admin-gate";
 
 function daysAgo(n: number) {
   return new Date(Date.now() - n * 86400000).toISOString();
 }
 
 export async function GET(req: Request) {
-  const { adminError } = await requireAdmin(req);
+  const { user, adminError } = await requireAdmin(req);
   if (adminError) return adminError;
+  await logAdminAction(user.id, "/api/admin/analytics", "GET");
 
   try {
     const [usersRaw, generationsRaw, toolsRaw] = await Promise.all([

@@ -20,7 +20,7 @@
 
 import type { NextRequest }  from "next/server";
 import { NextResponse }      from "next/server";
-import { requireAdmin }      from "@/lib/auth/admin-gate";
+import { requireAdmin, logAdminAction } from "@/lib/auth/admin-gate";
 import { supabaseAdmin }     from "@/lib/supabase/admin";
 import { logger }            from "@/lib/logger";
 
@@ -135,8 +135,9 @@ async function writeProviderBalance(
 
 export async function POST(req: NextRequest): Promise<Response> {
   // ── Admin auth check ────────────────────────────────────────────────────────
-  const { adminError } = await requireAdmin(req);
+  const { user, adminError } = await requireAdmin(req);
   if (adminError) return adminError;
+  await logAdminAction(user.id, "/api/admin/provider-costs/sync", "POST");
 
   // ── Run sync for each auto-sync provider ────────────────────────────────────
   const synced: string[] = [];

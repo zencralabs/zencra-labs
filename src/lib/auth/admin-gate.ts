@@ -16,11 +16,21 @@
  *   4. Both checks are server-authoritative — nothing is trusted from the client.
  *
  * Supports both Request and NextRequest transparently.
+ *
+ * Audit log:
+ *   logAdminAction() writes a row to admin_audit_log via the service role key.
+ *   Silent-fail by design — a log write failure must never fail an admin route.
+ *   Call it immediately after requireAdmin() passes, before business logic:
+ *
+ *     const { user, adminError } = await requireAdmin(req);
+ *     if (adminError) return adminError;
+ *     await logAdminAction(user.id, "/api/admin/waitlist/approve", "POST", { waitlistUserId });
  */
 
 import type { User } from "@supabase/supabase-js";
 import { getAuthUser }   from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { logger }        from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -105,4 +115,59 @@ export async function requireAdmin(req: Request): Promise<AdminGateResult> {
 export async function isAdminUser(req: Request): Promise<boolean> {
   const result = await requireAdmin(req);
   return result.adminError === null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN AUDIT LOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * logAdminAction
+ *
+ * Writes a row to `admin_audit_log` via the service role key.
+ * Silent-fail by design — a log write failure must NEVER fail an admin route.
+ *
+ * Call immediately after requireAdmin() passes, before business logic:
+ *
+ *   const { user, adminError } = await requireAdmin(req);
+ *   if (adminError) return adminError;
+ *   await logAdminAction(user.id, "/api/admin/waitlist/approve", "POST", { waitlistUserId });
+ *
+ * @param adminUserId  - Verified admin user ID from requireAdmin()
+ * @param targetRoute  - Full API route path (e.g. "/api/admin/users")
+ * @param method       - HTTP method (defaults to "POST")
+ * @param actionMeta   - Action-specific context (IDs, new values, etc.)
+ */
+export async function logAdminAction(
+  adminUserId: string,
+  targetRoute: string,
+  method = "POST",
+  actionMeta: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from("admin_audit_log")
+      .insert({
+        admin_user_id: adminUserId,
+        target_route:  targetRoute,
+        method,
+        event_context: actionMeta,
+        occurred_at:   new Date().toISOString(),
+      });
+
+    if (error) {
+      // Log warning but never throw — audit failure must not fail the request
+      logger.warn("admin-gate/audit", "Failed to write admin audit log", {
+        adminUserId,
+        targetRoute,
+        message: error.message,
+      });
+    }
+  } catch (err) {
+    logger.warn("admin-gate/audit", "logAdminAction threw unexpectedly", {
+      error: String(err),
+      adminUserId,
+      targetRoute,
+    });
+  }
 }

@@ -28,7 +28,7 @@
 
 import type { NextRequest }  from "next/server";
 import { NextResponse }      from "next/server";
-import { requireAdmin }      from "@/lib/auth/admin-gate";
+import { requireAdmin, logAdminAction } from "@/lib/auth/admin-gate";
 import { supabaseAdmin }     from "@/lib/supabase/admin";
 import { logger }            from "@/lib/logger";
 
@@ -59,8 +59,9 @@ interface ProviderCostSummary {
 
 export async function GET(req: NextRequest): Promise<Response> {
   // ── Admin auth check ────────────────────────────────────────────────────────
-  const { adminError } = await requireAdmin(req);
+  const { user, adminError } = await requireAdmin(req);
   if (adminError) return adminError;
+  await logAdminAction(user.id, "/api/admin/provider-costs", "GET");
 
   // ── Build current-month date range ──────────────────────────────────────────
   const now       = new Date();
