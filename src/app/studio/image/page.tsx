@@ -1974,7 +1974,7 @@ function ImageStudioInner() {
         // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
         {
           const modelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
-          const displayedCost = getGenerationCreditCost(modelKey);
+          const displayedCost = getGenerationCreditCost(modelKey, { quality });
           try {
             const costsRes = await fetch("/api/credits/model-costs", {
               headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
@@ -4245,7 +4245,7 @@ function ImageStudioInner() {
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>
-                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1") ?? "—"} cr
+                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1", { quality }) ?? "—"} cr
                         </span>
                       )}
                     </>
