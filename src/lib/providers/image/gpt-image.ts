@@ -99,6 +99,9 @@ function makeGptImageProvider(
     async createJob(input: ZProviderInput): Promise<ZJob> {
       const { apiKey } = getOpenAIEnv();
       const model      = resolveModel();
+      // Safe diagnostic: logs the resolved OpenAI model string without exposing credentials.
+      // In Vercel runtime logs, confirm this reads "gpt-image-1.5" (or your GPT_IMAGE_MODEL_ID value).
+      console.info(`[gpt-image] resolved model=${model} zencra-key=${key}`);
       const jobId      = newJobId();
       const isEdit     = !!input.imageUrl;
       const size       = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
