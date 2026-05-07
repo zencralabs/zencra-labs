@@ -212,7 +212,7 @@ export const CD_MODELS: CDModelDef[] = [
   { key: "nano-banana-2",        label: "Nano Banana 2",    active: true  },
   // Seedream
   { key: "seedream-4-5",         label: "Seedream 4.5",     active: true  },
-  { key: "seedream-v5",          label: "Seedream 5.0 Lite", active: true  },
+  { key: "seedream-v5",          label: "Seedream v5",        active: true  },
   // Flux
   { key: "flux-kontext",         label: "Flux.2 Flex",      active: true  },
   { key: "flux-2-image",         label: "Flux.2 Pro",       active: false, soon: true },

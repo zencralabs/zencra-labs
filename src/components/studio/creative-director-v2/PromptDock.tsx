@@ -65,7 +65,7 @@ const MODEL_GROUPS = [
   {
     key:          "seedream",
     label:        "Seedream",
-    defaultLabel: "Seedream 5.0 Lite",
+    defaultLabel: "Seedream v5",
     models:       ["seedream-4-5", "seedream-v5"] as const,
   },
   {

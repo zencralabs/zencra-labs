@@ -684,7 +684,7 @@ function PricingCard({
               {[
                 { name: "GPT Image 2",       isNew: true  },
                 { name: "Nano Banana 2",     isNew: true  },
-                { name: "Seedream v5 Lite",  isNew: false },
+                { name: "Seedream v5",  isNew: false },
                 { name: "FLUX.2",            isNew: false },
                 { name: "Kling 3.0",         isNew: false },
                 { name: "Seedance 2.0",      isNew: true  },

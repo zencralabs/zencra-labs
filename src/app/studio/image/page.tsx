@@ -286,7 +286,6 @@ const MODEL_TO_KEY: Record<string, string> = {
   "nano-banana-pro":      "nano-banana-pro",
   "nano-banana-2":        "nano-banana-2",
   "seedream-v5":          "seedream-v5",
-  "seedream-v5-lite":     "seedream-v5-lite",
   "seedream-4-5":         "seedream-4-5",
 };
 
@@ -356,7 +355,7 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
 
 /**
  * Seedream v5 supports 4 aspect ratios (same as GPT Image).
- * Seedream Lite (v5-lite/edit) uses the same set.
+ * Seedream 4.5 uses the same set.
  */
 const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
 
@@ -440,18 +439,6 @@ const MODELS: StudioModel[] = [
     badgeColor: "#EF4444",
     available: true,
     icon: "seedream",
-    allowedQualities: ["1K"],
-  },
-  {
-    id: "seedream-v5-lite",
-    name: "Seedream Lite",
-    provider: "ByteDance",
-    description: "Fast generation + image editing · v5 quality, lower cost",
-    badge: "EDIT",
-    badgeColor: "#06B6D4",
-    available: true,
-    icon: "seedream",
-    requiresImg: false,   // edit mode is optional — also works text-only
     allowedQualities: ["1K"],
   },
   {

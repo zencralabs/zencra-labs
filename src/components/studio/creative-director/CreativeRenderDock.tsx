@@ -102,7 +102,7 @@ const CD_MODELS: CDModel[] = [
   { value: "gpt-image-1",     label: "GPT Image 2",        provider: "openai",       supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 15, maxUploads: 16 },
   { value: "nano-banana-pro", label: "Nano Banana Pro",    provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "high",   baseCredits: 12, maxUploads: 14 },
   { value: "nano-banana-2",   label: "Nano Banana 2",      provider: "nano-banana",  supportedResolutions: ["1k", "2k", "4k"],  defaultQuality: "medium", baseCredits: 10, maxUploads: 14 },
-  { value: "seedream-v5",     label: "Seedream 5.0 Lite",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 15, maxUploads: 14 },
+  { value: "seedream-v5",     label: "Seedream v5",  provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "low",    baseCredits: 15, maxUploads: 14 },
   { value: "flux-kontext",    label: "Flux Kontext Max",   provider: "fal",          supportedResolutions: ["1k", "2k"],        defaultQuality: "medium", baseCredits: 10, maxUploads: 1  },
 ];
 

@@ -37,7 +37,7 @@
  *   gpt-image-1          15 cr   (Fast base; Standard=1.25×→19cr, Ultra=1.75×→27cr via engine)
  *   gpt-image-2          20 cr
  *   seedream-v5          15 cr
- *   seedream-v5-lite      8 cr
+ *   seedream-v5-lite      8 cr   (internal; not exposed in UI)
  *   seedream-4-5         10 cr   (1K base; engine applies 2K=1.25×→13cr, 4K=1.75×→18cr)
  *   flux-kontext         10 cr
  *
