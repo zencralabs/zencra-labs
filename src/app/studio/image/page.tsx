@@ -361,7 +361,20 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
 const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
 
 // ── Model definitions ─────────────────────────────────────────────────────────
+// Order matches navbar dock order: GPT Image 2 → GPT Image 1.5 → NB2 → NB Pro → NB → Seedream v5 → Seedream 4.5
 const MODELS: StudioModel[] = [
+  {
+    // GATE: generation disabled until token pricing is finalised — see generate button below.
+    id: "gpt-image-2",
+    name: "GPT Image 2",
+    provider: "OpenAI",
+    description: "OpenAI's next-generation model · richer detail · precise control",
+    badge: "NEW",
+    badgeColor: "#10A37F",
+    available: true,
+    icon: "openai",
+    allowedQualities: ["1K"],
+  },
   {
     id: "dalle3",           // backend provider key → "dalle" → resolves to "dalle-3" in tool-registry
     name: "GPT Image 1.5",
@@ -381,15 +394,18 @@ const MODELS: StudioModel[] = [
     ],
   },
   {
-    id: "nano-banana-standard",
-    name: "Nano Banana",
+    id: "nano-banana-2",
+    name: "Nano Banana 2",
     provider: "NanoBanana",
-    description: "Fast text-to-image generation",
-    badge: "Fast",
-    badgeColor: "#065F46",
+    description: "Next-gen model · improved quality · multi-reference",
+    badge: "NEW",
+    badgeColor: "#0E7490",
     available: true,
     icon: "nanobana",
-    nbVariant: "standard",
+    nbVariant: "nb2",
+    // Step 0 safety lock: NB2 adapter ignores quality and sends fixed ~1K dimensions.
+    // Exposing 2K/4K would display false pricing and false resolution claims.
+    // Restore to ["1K","2K","4K"] only after API research confirms higher-res width/height support.
     allowedQualities: ["1K"],
   },
   // nano-banana-edit removed — no backend registry entry exists in new provider system
@@ -406,29 +422,15 @@ const MODELS: StudioModel[] = [
     allowedQualities: ["1K", "2K", "4K"],
   },
   {
-    id: "nano-banana-2",
-    name: "Nano Banana 2",
+    id: "nano-banana-standard",
+    name: "Nano Banana",
     provider: "NanoBanana",
-    description: "Next-gen model · improved quality · multi-reference",
-    badge: "NEW",
-    badgeColor: "#0E7490",
+    description: "Fast text-to-image generation",
+    badge: "Fast",
+    badgeColor: "#065F46",
     available: true,
     icon: "nanobana",
-    nbVariant: "nb2",
-    // Step 0 safety lock: NB2 adapter ignores quality and sends fixed ~1K dimensions.
-    // Exposing 2K/4K would display false pricing and false resolution claims.
-    // Restore to ["1K","2K","4K"] only after API research confirms higher-res width/height support.
-    allowedQualities: ["1K"],
-  },
-  {
-    id: "gpt-image-2",
-    name: "GPT Image 2",
-    provider: "OpenAI",
-    description: "OpenAI's next-generation model · richer detail · precise control",
-    badge: "NEW",
-    badgeColor: "#10A37F",
-    available: true,
-    icon: "openai",
+    nbVariant: "standard",
     allowedQualities: ["1K"],
   },
   {
@@ -1038,10 +1040,13 @@ function ImageStudioInner() {
 
   // Map catalog IDs (from navbar ?model= param) to internal studio model IDs
   const CATALOG_TO_STUDIO_MODEL: Record<string, string> = {
+    "gpt-image-2":     "gpt-image-2",
     "gpt-image-15":    "dalle3",
-    "nano-banana":     "nano-banana-standard",
-    "nano-banana-pro": "nano-banana-pro",
     "nano-banana-2":   "nano-banana-2",
+    "nano-banana-pro": "nano-banana-pro",
+    "nano-banana":     "nano-banana-standard",
+    "seedream-v5":     "seedream-v5",
+    "seedream-4-5":    "seedream-4-5",
   };
   const modelParam = searchParams.get("model") ?? "";
   const initialModel = CATALOG_TO_STUDIO_MODEL[modelParam] ?? "dalle3";
@@ -4339,17 +4344,24 @@ function ImageStudioInner() {
               );
             })()}
 
-            {/* Generate button — disabled while reference image is uploading */}
+            {/* Generate button — disabled while reference image is uploading or model is gated */}
             {(() => {
-              const isDisabled = !prompt.trim() || !currentModel.available
+              // GPT Image 2 generate gate: model is visible and selectable but generation is
+              // blocked until token pricing is finalised. No API request fires, no credits charged.
+              const isGpt2 = model === "gpt-image-2";
+              const isDisabled = isGpt2 || !prompt.trim() || !currentModel.available
                 || (currentModel.requiresImg && !editImageUrl)
                 || referenceUploading;
-              const isUploadWait = referenceUploading;
+              const isUploadWait = referenceUploading && !isGpt2;
               return (
                 <button
-                  onClick={() => generate()}
+                  onClick={() => { if (!isGpt2) generate(); }}
                   disabled={isDisabled}
-                  title={isUploadWait ? "Waiting for reference image to finish uploading…" : undefined}
+                  title={
+                    isGpt2       ? "GPT Image 2 pricing is being calibrated" :
+                    isUploadWait ? "Waiting for reference image to finish uploading…" :
+                    undefined
+                  }
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
                     padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
@@ -4367,7 +4379,11 @@ function ImageStudioInner() {
                   onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                 >
-                  {isUploadWait ? (
+                  {isGpt2 ? (
+                    <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8, textAlign: "center", lineHeight: 1.3 }}>
+                      Pricing being calibrated
+                    </span>
+                  ) : isUploadWait ? (
                     <>
                       <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.6)", animation: "spin 0.7s linear infinite" }} />
                       Uploading…

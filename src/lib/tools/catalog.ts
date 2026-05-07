@@ -50,6 +50,16 @@ export const TOOL_CATALOG: CatalogTool[] = [
 
   // ── IMAGE — active ──────────────────────────────────────────────────────────
   {
+    id: "gpt-image-2",
+    provider: "dalle",
+    displayName: "GPT Image 2",
+    category: "image",
+    status: "active",
+    description: "OpenAI's next-generation model — richer detail, precise control",
+    badge: "NEW",
+    sortOrder: 5,
+  },
+  {
     id: "gpt-image-15",
     provider: "dalle",           // maps to "dalle-3" in tool-registry.ts
     displayName: "GPT Image 1.5",
@@ -61,14 +71,14 @@ export const TOOL_CATALOG: CatalogTool[] = [
 
   // ── IMAGE — Nano Banana (active) ───────────────────────────────────────────
   {
-    id: "nano-banana",
+    id: "nano-banana-2",
     provider: "nano-banana",
-    displayName: "Nano Banana",
+    displayName: "Nano Banana 2",
     category: "image",
     status: "active",
-    description: "Fast AI image generation",
-    badge: "FAST",
-    sortOrder: 20,
+    description: "Next-gen model — improved quality, multi-reference",
+    badge: "NEW",
+    sortOrder: 15,
   },
   {
     id: "nano-banana-pro",
@@ -79,8 +89,41 @@ export const TOOL_CATALOG: CatalogTool[] = [
     description: "High-res Pro model — 1K & 2K output",
     badge: "PRO",
     premium: true,
-    sortOrder: 30,
+    sortOrder: 20,
   },
+  {
+    id: "nano-banana",
+    provider: "nano-banana",
+    displayName: "Nano Banana",
+    category: "image",
+    status: "active",
+    description: "Fast AI image generation",
+    badge: "FAST",
+    sortOrder: 25,
+  },
+
+  // ── IMAGE — Seedream (active) ──────────────────────────────────────────────
+  {
+    id: "seedream-v5",
+    provider: "seedream",
+    displayName: "Seedream v5",
+    category: "image",
+    status: "active",
+    description: "ByteDance flagship — cinematic quality, richly detailed",
+    badge: "HOT",
+    sortOrder: 35,
+  },
+  {
+    id: "seedream-4-5",
+    provider: "seedream",
+    displayName: "Seedream 4.5",
+    category: "image",
+    status: "active",
+    description: "Text-to-image + image editing — 2K & 4K native resolution",
+    badge: "EDIT",
+    sortOrder: 40,
+  },
+
   {
     id: "flux-pro",
     provider: "flux",
