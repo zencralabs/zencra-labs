@@ -274,21 +274,22 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   },
 
   {
-    // Legacy Seedream 4.5 — DB row inactive. Provider registered so orchestrator returns
-    // MODEL_INACTIVE instead of PROVIDER_NOT_REGISTERED for any stale requests.
+    // Seedream 4.5 — active text-to-image + image editing via fal.ai queue.
+    // Correct endpoint: fal-ai/bytedance/seedream/v4.5 (NOT fal-ai/seedream/v4.5 — that 404s).
+    // Supports 2K (auto_2K) and 4K (auto_4K) native output. Edit mode via image_urls[] param.
     key:            "seedream-4-5",
     providerBrand:  "ByteDance / Dreamina",
     displayName:    "Seedream 4.5",
-    apiModelId:     "fal-ai/seedream/v4.5",
+    apiModelId:     "fal-ai/bytedance/seedream/v4.5",
     studio:         "image",
     providerFamily: "fal",
-    description:    "Legacy Seedream variant — superseded by v5 and v5-lite",
+    description:    "Text-to-image + image editing · 2K & 4K native resolution · 10 cr base",
     phase:          1,
-    status:         "deprecated",
-    uiHidden:       true,
-    capabilities:   ["text_to_image", "photoreal"],
-    supportedInputModes:   ["text"],
-    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
+    status:         "active",
+    uiHidden:       false,
+    capabilities:   ["text_to_image", "image_to_image", "photoreal"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5", "3:4", "4:3"],
     asyncMode:       "polling",
     supportsWebhook: false,
     supportsPolling: true,
