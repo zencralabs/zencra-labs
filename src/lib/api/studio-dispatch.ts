@@ -35,6 +35,10 @@ import {
   markIdempotencyFailed,
 }                                     from "@/lib/security/idempotency";
 import { logRequest, startTimer }     from "@/lib/security/request-logger";
+// ── Zencra Shield observers (fire-and-forget — never block the dispatch path) ─
+import { recordRequest, checkVelocity } from "@/lib/security/velocity-scorer";
+import { recordOutcome }                from "@/lib/security/circuit-breaker";
+import { recordCreditDebit }            from "@/lib/security/credit-burn-monitor";
 import type { ZProviderInput, ZJob, StudioType, IdentityContext, CreditEstimate }
                                       from "@/lib/providers/core/types";
 // isDev / DEV_DEMO_USER_ID removed — all callers must supply a real userId
@@ -279,6 +283,13 @@ export async function studioDispatch(
     }
   }
 
+  // ── Shield: record request for velocity window (before dispatch, never awaited) ─
+  // This records the request timestamp + studio/model context so the velocity
+  // scorer has accurate sliding-window counts. Fire-and-forget — never blocks.
+  if (!input.skipCredits) {
+    try { recordRequest(userId, input.studio, input.modelKey); } catch { /* silent */ }
+  }
+
   // Step 2 — build ZProviderInput
   const providerInput: ZProviderInput = {
     requestId,
@@ -339,7 +350,11 @@ export async function studioDispatch(
       skipCreditCheck: input.skipCredits ?? false,
       fcsAccessGranted: input.fcsAccessGranted,
     });
+    // Shield: record successful provider outcome for circuit breaker
+    void recordOutcome(input.modelKey, true).catch(() => {});
   } catch (err) {
+    // Shield: record failed provider outcome for circuit breaker
+    void recordOutcome(input.modelKey, false).catch(() => {});
     // Mark idempotency key as failed so retries can proceed
     void markIdempotencyFailed(idempotencyKey);
     // Log the failed attempt
@@ -422,6 +437,24 @@ export async function studioDispatch(
     assetId:      assetId,
     durationMs:   elapsed(),
   });
+
+  // ── Shield: velocity check (fire-and-forget) ──────────────────────────────
+  // Scores the rolling window and emits a SecurityEvent if thresholds crossed.
+  // In dry-run/observe: emits event only — never blocks generation or response.
+  if (!input.skipCredits) {
+    void checkVelocity(userId, input.studio, input.modelKey).catch(() => {});
+  }
+
+  // ── Shield: credit burn monitor (fire-and-forget) ─────────────────────────
+  // Records the credit deduction in the rolling-hour window.
+  // creditsBalance is not fetched here to avoid an extra DB round-trip;
+  // negative-balance monitoring is deferred to Phase B (Redis-backed state).
+  if (!input.skipCredits) {
+    const creditsUsed = job.actualCredits ?? job.reservedCredits;
+    if (creditsUsed && creditsUsed > 0) {
+      void recordCreditDebit(userId, creditsUsed, undefined).catch(() => {});
+    }
+  }
 
   return { job, assetId };
 }
@@ -515,6 +548,8 @@ export async function pollAndUpdateJob(
       // can show the correct AudioBadge state after a page refresh.
       await updateAssetStatus(supabaseAdmin, assetId, "ready", persistentUrl, undefined, audioDetected);
       console.log(`[pollAndUpdateJob] asset=${assetId} status=ready audioDetected=${audioDetected}`);
+      // Shield: provider recovered successfully — record outcome for circuit breaker
+      void recordOutcome(modelKey, true).catch(() => {});
       return {
         status: "success",
         url:    persistentUrl,
@@ -527,6 +562,8 @@ export async function pollAndUpdateJob(
         .trim()
         .slice(0, 500);
       await updateAssetStatus(supabaseAdmin, assetId, "failed", undefined, errorMsg);
+      // Shield: provider job failed — record outcome for circuit breaker
+      void recordOutcome(modelKey, false).catch(() => {});
     }
 
     return {
@@ -535,6 +572,8 @@ export async function pollAndUpdateJob(
       error:  jobStatus.error,
     };
   } catch (err) {
+    // Shield: polling threw — treat as provider failure for circuit breaker
+    void recordOutcome(modelKey, false).catch(() => {});
     return {
       status: "error",
       error:  err instanceof Error ? err.message : "Polling failed.",
