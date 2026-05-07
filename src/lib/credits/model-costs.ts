@@ -1,25 +1,39 @@
 /**
- * model-costs.ts — Single source of truth for UI credit display
+ * model-costs.ts — Frontend credit display layer
  *
- * This module mirrors the `credit_model_costs` DB table so the frontend
- * can show the exact same credit amount the backend will charge — with
- * ZERO async calls required at render time.
+ * This module provides `getGenerationCreditCost()` — the ONLY function
+ * UI components should call to show credit costs in generate buttons.
+ *
+ * ── Architecture ─────────────────────────────────────────────────────────────
+ *
+ *   This module is a THIN WRAPPER over calculateCreditCost() from engine.ts.
+ *   It supplies the static base cost (from MODEL_BASE_CREDITS) and forwards
+ *   all pricing parameters to the engine. The engine owns all math.
+ *
+ *   Frontend display path:
+ *     getGenerationCreditCost(modelKey, opts)
+ *       → looks up MODEL_BASE_CREDITS[modelKey]    ← Phase 1 static fallback
+ *       → calls calculateCreditCost(base, params)  ← engine does all math
+ *       → returns total
+ *
+ *   Phase 2 upgrade path (no function signature changes):
+ *     Replace MODEL_BASE_CREDITS lookup with a fetch from the pricing manifest
+ *     endpoint (/api/credits/model-costs). The engine call below does NOT change.
+ *     When manifest is live, delete MODEL_BASE_CREDITS entirely.
  *
  * ── Rules ────────────────────────────────────────────────────────────────────
- *  1. Every value here MUST match credit_model_costs.base_credits in the DB.
+ *  1. Every value in MODEL_BASE_CREDITS MUST match credit_model_costs.base_credits in DB.
  *  2. When the DB is updated, this file MUST be updated in the same commit.
  *  3. The backend hooks.ts reads from the DB (authoritative).
- *     This file is the frontend read-cache of the same values.
- *  4. Duration scaling uses the same formula as hooks.ts:
- *       multiplier = Math.ceil(durationSeconds / 5)
- *       5s → 1×, 10s → 2×
+ *     This file is the frontend read-cache of the same base values.
+ *  4. Do NOT perform credit math here. The engine owns all calculations.
  *
- * ── Locked costs (mirrors credit_model_costs) ────────────────────────────────
+ * ── Locked costs (mirrors credit_model_costs.base_credits) ──────────────────
  *
  * Image models:
- *   nano-banana-standard  8 cr
- *   nano-banana-pro      12 cr
- *   nano-banana-2        10 cr
+ *   nano-banana-standard  8 cr   (no quality tiers — flat)
+ *   nano-banana-pro      12 cr   (1K base; engine applies 2K=1.25×, 4K=1.75×)
+ *   nano-banana-2        10 cr   (1K base; engine applies 2K=1.25×, 4K=1.75×)
  *   gpt-image-1          15 cr
  *   gpt-image-2          20 cr
  *   seedream-v5          15 cr
@@ -27,16 +41,16 @@
  *   flux-kontext         10 cr
  *
  * Video models (base = 5s cost; 10s = 2×base):
- *   kling-30            320 cr  (5s = 320, 10s = 640)
- *   kling-30-omni       420 cr  (5s = 420, 10s = 840)
- *   kling-26            190 cr  (5s = 190, 10s = 380)
- *   kling-25            150 cr  (5s = 150, 10s = 300)
- *   seedance-20-fast    120 cr  (5s = 120, 10s = 240)
- *   seedance-20         160 cr  (5s = 160, 10s = 320)
- *   seedance-15         100 cr  (5s = 100, 10s = 200)
+ *   kling-30            320 cr  (5s = 320, 10s = 640; 720p flat)
+ *   kling-30-omni       420 cr  (5s 720p base; engine applies 1080p=1.5×, then duration)
+ *   kling-26            190 cr
+ *   kling-25            150 cr
+ *   seedance-20-fast    120 cr
+ *   seedance-20         160 cr
+ *   seedance-15         100 cr
  *
  * Video add-ons (flat, not duration-scaled):
- *   addon-start-end      80 cr  (both start+end frame supplied)
+ *   addon-start-end      80 cr
  *   addon-motion-control 120 cr
  *   addon-multi-element   50 cr
  *
@@ -44,15 +58,21 @@
  *   elevenlabs            8 cr
  *   elevenlabs-premium   12 cr
  *
- * Lip Sync:
- *   sync-lipsync-v3      90 cr  (per-minute: billed as Math.ceil(seconds/60) minutes)
+ * Lip Sync (per-minute rate):
+ *   sync-lipsync-v3      90 cr  (Math.ceil(seconds/60) minutes, min 1)
  *
  * FCS:
  *   fcs_ltx23_pro       350 cr
  *   fcs_ltx23_director  600 cr
  */
 
+import { calculateCreditCost, type PricingParams } from "./engine";
+
 // ── Base cost table — mirrors DB credit_model_costs.base_credits ──────────────
+//
+// Phase 1: static compile-time fallback.
+// Phase 2: delete this table when the pricing manifest endpoint is live.
+//          The manifest supplies the same values dynamically.
 export const MODEL_BASE_CREDITS: Record<string, number> = {
   // ── Image
   "nano-banana-standard":  8,
@@ -90,29 +110,39 @@ export const MODEL_BASE_CREDITS: Record<string, number> = {
   "fcs_ltx23_director":  600,
 };
 
-// ── Models that bill per-minute (same list as hooks.ts) ───────────────────────
-const PER_MINUTE_MODELS = new Set(["dubbing", "voice-isolation", "sync-lipsync-v3"]);
-
-// ── Video studio model keys (receive duration scaling) ────────────────────────
-const VIDEO_MODEL_KEYS = new Set([
-  "kling-30", "kling-30-omni", "kling-26", "kling-25",
-  "seedance-20-fast", "seedance-20", "seedance-15",
-]);
+// ─────────────────────────────────────────────────────────────────────────────
+// OPTIONS
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface CreditCostOptions {
   /**
+   * Quality / resolution tier selected by the user.
+   *   Image:  "1K" | "2K" | "4K"
+   *   Video:  "720p" | "1080p"
+   * If absent, engine uses 1.0× (flat pricing).
+   */
+  quality?: string;
+
+  /**
    * Duration in seconds — required for video and per-minute models.
-   * Video: multiplier = Math.ceil(durationSeconds / 5)
+   * Video:      multiplier = Math.ceil(durationSeconds / 5)
    * Per-minute: multiplier = Math.ceil(durationSeconds / 60), min 1 minute
    */
   durationSeconds?: number;
+
   /** True when both start + end frame are supplied (adds addon-start-end cost). */
   hasStartEnd?: boolean;
+
   /** True when a motion control preset is active (adds addon-motion-control cost). */
   hasMotionControl?: boolean;
+
   /** True when multi-element mode is active (adds addon-multi-element cost). */
   hasMultiElement?: boolean;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN DISPLAY FUNCTION
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * getGenerationCreditCost — compute the exact credit cost the backend will charge.
@@ -122,6 +152,8 @@ export interface CreditCostOptions {
  *
  * Returns the total credit cost as a whole number, or null if the model
  * is not found in the cost table (caller should show "—" or fetch from server).
+ *
+ * For the full breakdown (line items for tooltips), use getGenerationCreditBreakdown().
  */
 export function getGenerationCreditCost(
   modelKey: string,
@@ -130,29 +162,50 @@ export function getGenerationCreditCost(
   const base = MODEL_BASE_CREDITS[modelKey];
   if (base === undefined) return null;
 
-  const { durationSeconds, hasStartEnd, hasMotionControl, hasMultiElement } = opts;
+  const params: PricingParams = {
+    modelKey,
+    quality:          opts.quality,
+    durationSeconds:  opts.durationSeconds,
+    hasStartEnd:      opts.hasStartEnd,
+    hasMotionControl: opts.hasMotionControl,
+    hasMultiElement:  opts.hasMultiElement,
+  };
 
-  // ── Per-minute billing ────────────────────────────────────────────────────
-  if (PER_MINUTE_MODELS.has(modelKey)) {
-    const minutes = durationSeconds ? Math.ceil(durationSeconds / 60) : 1;
-    return base * minutes;
-  }
-
-  // ── Video duration scaling (5-second intervals) ───────────────────────────
-  let scaledBase = base;
-  if (VIDEO_MODEL_KEYS.has(modelKey) && durationSeconds && durationSeconds > 0) {
-    const intervals = Math.ceil(durationSeconds / 5);
-    scaledBase = base * intervals;
-  }
-
-  // ── Add-on summing ────────────────────────────────────────────────────────
-  let addons = 0;
-  if (hasStartEnd)      addons += MODEL_BASE_CREDITS["addon-start-end"]      ?? 0;
-  if (hasMotionControl) addons += MODEL_BASE_CREDITS["addon-motion-control"]  ?? 0;
-  if (hasMultiElement)  addons += MODEL_BASE_CREDITS["addon-multi-element"]   ?? 0;
-
-  return scaledBase + addons;
+  const result = calculateCreditCost(base, params, undefined, "static");
+  return result.total;
 }
+
+/**
+ * getGenerationCreditBreakdown — full line-item breakdown for tooltip display.
+ *
+ * Returns the PricingResult breakdown map so generate button tooltips can
+ * show itemised costs: base, quality multiplier, duration, and add-ons.
+ *
+ * Returns null if the model is not in the cost table.
+ */
+export function getGenerationCreditBreakdown(
+  modelKey: string,
+  opts: CreditCostOptions = {}
+): { total: number; breakdown: Record<string, number> } | null {
+  const base = MODEL_BASE_CREDITS[modelKey];
+  if (base === undefined) return null;
+
+  const params: PricingParams = {
+    modelKey,
+    quality:          opts.quality,
+    durationSeconds:  opts.durationSeconds,
+    hasStartEnd:      opts.hasStartEnd,
+    hasMotionControl: opts.hasMotionControl,
+    hasMultiElement:  opts.hasMultiElement,
+  };
+
+  const { total, breakdown } = calculateCreditCost(base, params, undefined, "static");
+  return { total, breakdown };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISPLAY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * formatCreditCost — format cost for display in generate buttons.
@@ -163,11 +216,3 @@ export function getGenerationCreditCost(
 export function formatCreditCost(cost: number | null): string {
   return cost !== null ? `${cost} cr` : "— cr";
 }
-
-// ── Omni resolution cost multipliers ─────────────────────────────────────────
-// Kling 3.0 Omni charges a premium for 1080p output.
-// 720p = 1× base; 1080p = 1.5× base. Mirror any backend change here.
-export const OMNI_RESOLUTION_MULTIPLIER: Record<string, number> = {
-  "720p":  1.0,
-  "1080p": 1.5,
-};

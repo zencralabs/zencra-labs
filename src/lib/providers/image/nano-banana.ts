@@ -274,15 +274,20 @@ function buildNanoBananaProvider(modelKey: string, displayName: string): ZProvid
       return { valid: errors.length === 0, errors, warnings: [] };
     },
 
-    estimateCost(input: ZProviderInput): CreditEstimate {
-      const quality = (input.providerParams?.quality as string | undefined) ?? "1K";
-      const creditMap: Record<NBVariant, Record<string, number>> = {
-        standard: { "1K": 2, "2K": 2, "4K": 2 },
-        pro:      { "1K": 2, "2K": 4, "4K": 8 },
-        nb2:      { "1K": 2, "2K": 4, "4K": 8 },
-      };
-      const expected = creditMap[variant][quality] ?? 2;
-      return { min: 2, max: 8, expected, breakdown: { base: expected } };
+    estimateCost(_input: ZProviderInput): CreditEstimate {
+      // ── STUBBED — do not perform credit math here ─────────────────────────────
+      // Per the Zencra sacred rule: no provider adapter may calculate credit costs.
+      // All billing flows through calculateCreditCost() in src/lib/credits/engine.ts,
+      // called by hooks.ts estimate() which reads from credit_model_costs (DB).
+      //
+      // This method is NOT called in the billing path. It exists to satisfy the
+      // ZProvider interface. If you see this logged in production, a caller is
+      // incorrectly setting input.estimatedCredits from this method — investigate.
+      console.error(
+        `[nano-banana] estimateCost() called on model=${variant} — ` +
+        `this is a stub; all billing must go through engine.ts + hooks.ts`
+      );
+      return { min: 0, max: 0, expected: 0, breakdown: {} };
     },
 
     async createJob(input: ZProviderInput): Promise<ZJob> {

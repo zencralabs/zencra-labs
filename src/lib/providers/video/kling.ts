@@ -270,32 +270,23 @@ function buildKlingProvider(entry: KlingModelEntry): ZProvider {
       return { valid: errors.length === 0, errors, warnings: [] };
     },
 
-    estimateCost(input: ZProviderInput): CreditEstimate {
-      const duration = input.durationSeconds ?? 5;
-
-      // Kling 3.0 Omni has fixed pricing — 5s=420cr, 10s=840cr (linear).
-      // DB credit_model_costs.base_credits=420 (kling-30-omni) already reflects this.
-      // TypeScript must match DB exactly — no dynamic calculation for Omni.
-      if (modelKey === "kling-30-omni") {
-        const expected = duration <= 5 ? 420 : 840;
-        return {
-          min:       420,
-          max:       840,
-          expected,
-          breakdown: { base: expected },
-        };
-      }
-
-      const base         = 10;
-      const durationCost = duration > 5 ? Math.ceil((duration - 5) / 5) * 3 : 0;
-      const motionExtra  = isMotionControl ? 5 : 0;
-      const expected     = base + durationCost + motionExtra;
-      return {
-        min:       10,
-        max:       22,
-        expected,
-        breakdown: { base, duration: durationCost, motion_control: motionExtra },
-      };
+    estimateCost(_input: ZProviderInput): CreditEstimate {
+      // ── STUBBED — do not perform credit math here ─────────────────────────────
+      // Per the Zencra sacred rule: no provider adapter may calculate credit costs.
+      // All billing flows through calculateCreditCost() in src/lib/credits/engine.ts,
+      // called by hooks.ts estimate() which reads from credit_model_costs (DB).
+      //
+      // Previous implementation had misaligned hardcoded values (base=10, wrong formula
+      // for non-Omni; Omni returned 420/840 hardcoded bypassing quality multipliers).
+      // Stubbing prevents these from silently overriding the engine if ever called.
+      //
+      // This method is NOT called in the billing path. If you see this logged in
+      // production, a caller is incorrectly bypassing the credit hooks — investigate.
+      console.error(
+        `[kling] estimateCost() called on model=${modelKey} — ` +
+        `this is a stub; all billing must go through engine.ts + hooks.ts`
+      );
+      return { min: 0, max: 0, expected: 0, breakdown: {} };
     },
 
     async createJob(input: ZProviderInput): Promise<ZJob> {

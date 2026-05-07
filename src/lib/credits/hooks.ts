@@ -33,6 +33,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CreditHooks }    from "../providers/core/orchestrator";
 import type { CreditEstimate, ZProviderInput, StudioType } from "../providers/core/types";
+import {
+  calculateCreditCost,
+  getPricingEngineMode,
+  type PricingParams,
+  type PricingConfig,
+} from "./engine";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CREDIT STORE INTERFACE (database-agnostic)
@@ -252,105 +258,119 @@ export function buildCreditHooks(ctx: CreditHooksContext): CreditHooks {
 
       // Unpack: null = row not in DB (fallback allowed), number = active cost
       const dbCost = modelLookup; // number | null
+
       if (dbCost !== null && dbCost > 0) {
-        const duration = input.durationSeconds;
+        const quality   = input.providerParams?.quality as string | undefined;
+        const duration  = input.durationSeconds;
 
-        // ── Per-minute scaling (dubbing, voice-isolation) ─────────────────────
-        // These model_keys store the per-MINUTE rate in base_credits.
-        // Dispatch multiplies by Math.ceil(durationSeconds / 60) to get total cost.
-        // Minimum charge: 1 minute (when duration is unknown, we charge 1 minute).
-        const isPerMinuteModel = ctx.modelKey === "dubbing" || ctx.modelKey === "voice-isolation";
-        if (isPerMinuteModel) {
-          const minutes = duration ? Math.ceil(duration / 60) : 1;
-          const total = dbCost * minutes;
-          console.log(
-            `[credits] estimate model=${ctx.modelKey} rate=${dbCost}cr/min` +
-            ` duration=${duration ?? "?"}s minutes=${minutes} total=${total}cr (DB per-min)`
-          );
-          return {
-            min:      total,
-            max:      total,
-            expected: total,
-            breakdown: { base: total },
-          };
+        // ── Determine add-on flags ─────────────────────────────────────────────
+        // Start + End Frame: charged when BOTH imageUrl AND endImageUrl are present.
+        //   Using only a start frame for image-to-video does NOT trigger this add-on.
+        // Motion Control: flagged by providerParams.motionControlActive = true.
+        // Multi Element: flagged by providerParams.multiElementActive = true.
+        const hasStartEnd      = ctx.studio === "video" && !!input.imageUrl && !!input.endImageUrl;
+        const hasMotionControl = ctx.studio === "video" && input.providerParams?.motionControlActive === true;
+        const hasMultiElement  = ctx.studio === "video" && input.providerParams?.multiElementActive === true;
+
+        // ── Look up add-on costs from DB ──────────────────────────────────────
+        // Add-on rows are looked up from credit_model_costs so spec changes take
+        // effect without a code deploy. Inactive add-on rows waive the charge
+        // (feature still works; this is intentionally different from an inactive
+        // base model row which BLOCKS generation entirely).
+        //
+        // The resolved DB costs override the engine's STATIC_ADDON_COSTS, ensuring
+        // the backend always bills the DB spec value even if the static table drifts.
+        const resolveAddon = (lookup: ModelCostLookup): number =>
+          typeof lookup === "number" ? lookup : 0;
+
+        const addonCostsFromDB: Record<string, number> = {};
+        if (hasStartEnd) {
+          const v = resolveAddon(await ctx.store.lookupModelCost("addon-start-end"));
+          if (v > 0) addonCostsFromDB["addon-start-end"] = v;
+        }
+        if (hasMotionControl) {
+          const v = resolveAddon(await ctx.store.lookupModelCost("addon-motion-control"));
+          if (v > 0) addonCostsFromDB["addon-motion-control"] = v;
+        }
+        if (hasMultiElement) {
+          const v = resolveAddon(await ctx.store.lookupModelCost("addon-multi-element"));
+          if (v > 0) addonCostsFromDB["addon-multi-element"] = v;
         }
 
-        // ── Duration scaling (video studio — 5-second intervals) ───────────────
-        // Spec: 5s = 1× base, 10s = 2× base.
-        // Formula: multiplier = Math.ceil(durationSeconds / 5).
-        //   5s → 1×, 10s → 2×, 6–10s → 2×, 11–15s → 3×, etc.
-        // Applied to the BASE MODEL cost only — add-ons below are flat regardless of duration.
-        // When no duration is provided for a video, treat as 5s (1× base).
-        let scaledBase = dbCost;
-        let durationIntervals = 1;
-        if (ctx.studio === "video" && duration && duration > 0) {
-          durationIntervals = Math.ceil(duration / 5);
-          scaledBase = dbCost * durationIntervals;
-        }
+        // Build engine config — pass DB add-on costs to override static table.
+        // qualityMultipliers not passed: engine uses STATIC_QUALITY_MULTIPLIERS
+        // (mirrors the seeded DB values exactly in Phase 1).
+        // Phase 2: extend lookupModelCost to return quality_multipliers JSONB,
+        //          then pass it here via config.qualityMultipliers.
+        const engineConfig: PricingConfig | undefined =
+          Object.keys(addonCostsFromDB).length > 0
+            ? { addonCosts: addonCostsFromDB }
+            : undefined;
 
-        // ── Add-on summing ─────────────────────────────────────────────────────
-        // Add-ons are flat charges (not duration-scaled) summed on top of scaledBase.
-        // Each add-on is looked up from credit_model_costs so spec changes take effect
-        // without a code deploy.
-        let addonTotal = 0;
-        const addonBreakdown: Record<string, number> = {};
-
-        // Add-on lookup helper — narrows ModelCostLookup for add-on rows.
-        // Inactive add-on rows skip the charge (the feature still works, we just don't
-        // bill the add-on until its row is activated). This is intentionally different
-        // from the base model check: an inactive BASE model blocks generation entirely,
-        // while an inactive ADD-ON row merely waives the add-on cost.
-        const resolveAddon = (lookup: ModelCostLookup): number => {
-          if (typeof lookup === "number") return lookup; // active → charge it
-          return 0;                                       // inactive or null → waive
+        const params: PricingParams = {
+          modelKey:        ctx.modelKey,
+          quality,
+          durationSeconds: duration,
+          hasStartEnd,
+          hasMotionControl,
+          hasMultiElement,
         };
 
-        // Start + End Frame add-on (+80cr, locked spec):
-        //   Charged when BOTH a start frame (imageUrl) AND an end frame (endImageUrl)
-        //   are provided for a video generation. Using only a start frame for standard
-        //   image-to-video does NOT trigger this add-on.
-        if (ctx.studio === "video" && input.imageUrl && input.endImageUrl) {
-          const addonCost = resolveAddon(await ctx.store.lookupModelCost("addon-start-end"));
-          if (addonCost > 0) {
-            addonTotal += addonCost;
-            addonBreakdown["addon-start-end"] = addonCost;
-          }
-        }
+        // ── Engine calculation ─────────────────────────────────────────────────
+        // newCost: quality-scaled (what the engine charges after multipliers).
+        // oldCost: flat (no quality multiplier — matches pre-engine behavior).
+        // Both use the same duration scaling and add-ons.
+        const engineResult = calculateCreditCost(dbCost, params, engineConfig, "db");
+        const newCost = engineResult.total;
 
-        // Motion Control add-on (+120cr, locked spec):
-        //   Charged when a motion control preset is active (preset !== "none").
-        //   The video generate route flags this by setting
-        //   providerParams.motionControlActive = true before calling dispatch.
-        if (ctx.studio === "video" && input.providerParams?.motionControlActive === true) {
-          const addonCost = resolveAddon(await ctx.store.lookupModelCost("addon-motion-control"));
-          if (addonCost > 0) {
-            addonTotal += addonCost;
-            addonBreakdown["addon-motion-control"] = addonCost;
-          }
-        }
+        const flatResult = calculateCreditCost(
+          dbCost,
+          { ...params, quality: undefined },
+          engineConfig,
+          "db"
+        );
+        const oldCost = flatResult.total;
 
-        // ── Final total ───────────────────────────────────────────────────────
-        const total = scaledBase + addonTotal;
-        const breakdown: Record<string, number> = { base: scaledBase };
-        if (addonTotal > 0) breakdown.addons = addonTotal;
-        Object.assign(breakdown, addonBreakdown);
+        // ── Observe / Enforce mode ─────────────────────────────────────────────
+        // observe (default): charge old flat cost — safe direction during calibration.
+        //   User always pays the LOWER amount. Overcharging destroys trust.
+        //   Log the delta so the calibration window can confirm multiplier accuracy.
+        // enforce: charge the quality-scaled cost from the engine.
+        //   Activate by setting PRICING_ENGINE_MODE=enforce in Vercel env vars.
+        //   Rollback: set PRICING_ENGINE_MODE=observe to revert instantly.
+        const mode = getPricingEngineMode();
+        const chargedCost      = mode === "enforce" ? newCost      : oldCost;
+        const chargedBreakdown = mode === "enforce" ? engineResult.breakdown : flatResult.breakdown;
+
+        if (mode === "observe" && oldCost !== newCost) {
+          const deltaSign = newCost > oldCost ? "+" : "";
+          console.warn(
+            `[pricing-engine][observe] model=${ctx.modelKey}` +
+            ` quality=${quality ?? "none"}` +
+            (duration ? ` duration=${duration}s` : "") +
+            ` old=${oldCost}cr new=${newCost}cr delta=${deltaSign}${newCost - oldCost}cr` +
+            ` → charging OLD flat cost (observe mode)`
+          );
+        }
 
         console.log(
           `[credits] estimate model=${ctx.modelKey}` +
-          (ctx.studio === "video" && duration ? ` duration=${duration}s×${durationIntervals}` : "") +
-          ` base=${dbCost}cr scaled=${scaledBase}cr addons=${addonTotal}cr total=${total}cr (DB)`
+          (quality    ? ` quality=${quality}`       : "") +
+          (duration   ? ` duration=${duration}s`    : "") +
+          ` charged=${chargedCost}cr mode=${mode} (DB)`
         );
+
         return {
-          min:      total,
-          max:      total,
-          expected: total,
-          breakdown,
+          min:       chargedCost,
+          max:       chargedCost,
+          expected:  chargedCost,
+          breakdown: chargedBreakdown,
         };
       }
 
       // ── Priority 3: Studio-level fallbacks (safety net only) ─────────────────
-      // These fire ONLY if the model_key is missing from credit_model_costs or the
-      // row is inactive. A DB miss is logged so it can be caught and fixed quickly.
+      // These fire ONLY if the model_key is missing from credit_model_costs.
+      // A DB miss is logged so it can be caught and fixed quickly.
       //
       // ⚠ PROVISIONAL — these values are NOT locked spec pricing.
       // They are a last-resort guard against zero-credit charges on unregistered models.

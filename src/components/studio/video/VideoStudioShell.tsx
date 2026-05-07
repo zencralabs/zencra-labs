@@ -32,7 +32,7 @@ import CanvasGenerateBar   from "./CanvasGenerateBar";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
 import { useSequenceState } from "@/hooks/useSequenceState";
 import { ShotStack }        from "./ShotStack";
-import { getGenerationCreditCost, OMNI_RESOLUTION_MULTIPLIER } from "@/lib/credits/model-costs";
+import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 import { startPolling as startUniversalPolling } from "@/lib/jobs/job-polling";
 import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-store";
 
@@ -72,8 +72,10 @@ function modelAccentColor(m: VideoModel): string {
 // ── Credit estimate ───────────────────────────────────────────────────────────
 // Uses the shared getGenerationCreditCost() utility which mirrors credit_model_costs DB table.
 // Duration scaling: Math.ceil(durationSeconds / 5) × base_credits (same as hooks.ts)
-function estimateCredits(id: string, _q: string, d: number): number {
-  return getGenerationCreditCost(id, { durationSeconds: d }) ?? 0;
+function estimateCredits(id: string, quality: string, d: number): number {
+  // Pass quality to the engine so it applies the correct multiplier
+  // (e.g. kling-30-omni: 720p=1.0×, 1080p=1.5×; nano-banana-pro: 1K/2K/4K tiers).
+  return getGenerationCreditCost(id, { quality: quality || undefined, durationSeconds: d }) ?? 0;
 }
 
 // ── Family accent colors ──────────────────────────────────────────────────────
@@ -3165,12 +3167,13 @@ export default function VideoStudioShell() {
     ? lipSyncState.isGenerating
     : generating;
 
-  const omniResMultiplier =
-    model?.id === "kling-30-omni"
-      ? (OMNI_RESOLUTION_MULTIPLIER[omniResolution] ?? 1)
-      : 1;
+  // For Kling Omni, pass resolution as the quality tier so the engine applies the
+  // 1080p multiplier (1.5×) via STATIC_QUALITY_MULTIPLIERS["kling-30-omni"].
+  // For all other models, pass the standard quality param (or undefined for flat pricing).
+  const qualityForEngine =
+    model?.id === "kling-30-omni" ? omniResolution : quality;
   const creditEstimate = model
-    ? Math.round(estimateCredits(model.id, quality, duration) * omniResMultiplier)
+    ? estimateCredits(model.id, qualityForEngine, duration)
     : 0;
 
   // Which model family's preview to show in the empty canvas state.
