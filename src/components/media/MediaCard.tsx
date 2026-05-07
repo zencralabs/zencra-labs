@@ -471,7 +471,7 @@ export default function MediaCard({
     <div
       ref={cardRef}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setMoreOpen(false); setMenuPos(null); }}
+      onMouseLeave={() => setHovered(false)}
       style={galleryMode ? {
         // Gallery justified-row mode: fills the explicit width+height of the
         // parent wrapper. height: 100% propagates the wrapper's pixel height
