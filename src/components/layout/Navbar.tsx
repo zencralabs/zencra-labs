@@ -19,7 +19,7 @@ import { hasFCSAccess } from "@/lib/fcs";
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RightPanel =
-  | { type: "models"; heading: string; models: CatalogTool[] }
+  | { type: "models"; heading: string; models: CatalogTool[]; hrefPrefix?: string }
   | { type: "soon"; title: string; desc: string; bullets: string[]; badge?: string };
 
 interface NavFeature {
@@ -37,7 +37,7 @@ interface NavCategory {
   features: NavFeature[];
 }
 
-const imageModels  = getNavModels("image", 6);
+const imageModels  = getNavModels("image", 7);
 const videoModels  = getNavModels("video", 14);
 const audioModels  = getToolsByCategory("audio").filter(t => t.id !== "suno-ai").slice(0, 4);
 const charModels   = getToolsByCategory("character").slice(0, 3);
@@ -53,7 +53,7 @@ const navCategories: Record<string, NavCategory> = {
       },
       {
         icon: Cpu, label: "Creative Director", desc: "AI-guided concept-to-creative workflow", badge: "NEW", href: "/studio/image?mode=creative-director",
-        right: { type: "soon", title: "Creative Director", badge: "NEW", desc: "Brief your campaign, receive 3 distinct creative concepts from an AI art director, then render any concept into production-ready visuals — all in one workflow.", bullets: ["AI-generated creative concepts", "Multi-provider smart routing", "Variation engine (5 passes)", "Format adaptation (Story, Square, Banner)"] },
+        right: { type: "models", heading: "Image Models", models: imageModels, hrefPrefix: "/studio/image?mode=creative-director" },
       },
       {
         icon: Sparkles, label: "Enhance & Upscale", desc: "Topaz-powered 4K boost", badge: "SOON", href: "#",
@@ -186,7 +186,13 @@ function RightPanelContent({ panel, color, studioKey, onClose }: { panel: RightP
         <div className="flex flex-col gap-0.5">
           {panel.models.map((model) => {
             const isSoon = model.status !== "active";
-            const href = !isSoon ? `${studioBase}?${paramName}=${model.id}` : "#";
+            // hrefPrefix already contains the base + any existing query params (e.g. ?mode=creative-director)
+            // so we join with & rather than ? to avoid double question marks.
+            const href = !isSoon
+              ? panel.hrefPrefix
+                ? `${panel.hrefPrefix}&${paramName}=${model.id}`
+                : `${studioBase}?${paramName}=${model.id}`
+              : "#";
             return (
               <Link
                 key={model.id}
