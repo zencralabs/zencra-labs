@@ -173,34 +173,107 @@ export interface FCSAssetMeta {
 /**
  * Shape written to `assets` table in Supabase.
  * Matches the AssetMetadata structure but serialized for DB insert.
+ *
+ * Column groups:
+ *   Core identifiers       — always written at creation
+ *   Studio & provider      — generation source
+ *   Character / identity   — character studio links
+ *   Asset properties       — storage, MIME, URL
+ *   Generation parameters  — prompt, AR, duration, credits
+ *   Project ownership      — project/session/concept links + ownership layer
+ *   User flags             — is_favorite, is_featured
+ *   Publishing             — visibility, slug
+ *   Workspace              — Business-plan team ownership (Phase 4)
+ *   Metadata engine        — generation provenance + enrichment
+ *   Async recovery         — polling, stale detection
+ *   Timestamps             — created/updated/completed
  */
 export interface AssetRecord {
+  // ── Core identifiers ───────────────────────────────────────────────────────
   id:              string;
   job_id:          string;
   user_id:         string;
+
+  // ── Studio & provider ──────────────────────────────────────────────────────
   studio:          string;
   provider:        string;
   model_key:       string;
   external_job_id?: string;
+
+  // ── Character / identity ───────────────────────────────────────────────────
   character_id?:   string;
   soul_id?:        string;
   reference_urls?: string[];
+
+  // ── Asset properties ───────────────────────────────────────────────────────
   status:          string;
   mime_type:       string;
   url:             string;
   storage_path:    string;
   bucket:          string;
   size_bytes?:     number;
+  audio_detected?: boolean | null;
+
+  // ── Generation parameters ─────────────────────────────────────────────────
   prompt?:         string;
   aspect_ratio?:   string;
   duration_seconds?: number;
   credits_cost?:   number;
+
+  // ── Project ownership ─────────────────────────────────────────────────────
+  /**
+   * FK → projects (standard) or resolved via concept_id → creative_projects (creative).
+   * Use owner_project_type to determine which table project_id points to.
+   */
+  project_id?:         string | null;
+  session_id?:         string | null;
+  concept_id?:         string | null;
+  /**
+   * Discriminator for project_id. Values: 'standard' | 'creative' | future types.
+   * NULL = no project ownership assigned (personal/unlinked asset).
+   * Intentionally unconstrained — enum grows without migration.
+   */
+  owner_project_type?: string | null;
+
+  // ── User flags ─────────────────────────────────────────────────────────────
+  /** User-set favourite flag (personal preference). */
+  is_favorite?:    boolean;
+  /**
+   * Editorial/platform curation flag. Set by admin only.
+   * Distinct from is_favorite. Surfaces asset in homepage/featured galleries.
+   */
+  is_featured?:    boolean;
+
+  // ── Publishing ─────────────────────────────────────────────────────────────
+  /** Visibility scope: 'private' | 'public' | 'project'. Default: 'private'. */
+  visibility?:     string;
+  /**
+   * URL-safe permalink slug for public asset pages (/p/[slug]).
+   * NULL = no permalink assigned. Assigned by Phase 3 publishing routes.
+   */
+  slug?:           string | null;
+
+  // ── Workspace (Phase 4) ────────────────────────────────────────────────────
+  /**
+   * FK → workspaces for Business-plan team asset ownership.
+   * NULL = personal asset. No RLS enforcement yet.
+   */
+  workspace_id?:   string | null;
+
+  // ── Studio-specific meta ───────────────────────────────────────────────────
   studio_meta:          Record<string, unknown>;
+
+  // ── Metadata engine ────────────────────────────────────────────────────────
   generation_metadata?: Record<string, unknown> | null;
   enriched_metadata?:   Record<string, unknown> | null;
   metadata_enriched_at?: string | null;
   metadata_version?:    number | null;
+
+  // ── Error state ────────────────────────────────────────────────────────────
   error_message?:       string | null;
+
+  // ── Timestamps ────────────────────────────────────────────────────────────
   created_at:           string;
   updated_at:           string;
+  completed_at?:        string | null;
 }
