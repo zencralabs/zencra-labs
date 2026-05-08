@@ -362,12 +362,23 @@ const CSS = `
     box-shadow: 0 8px 26px rgba(99,102,241,0.32);
   }
 
-  @media (max-width: 640px) {
+  /* ── Mobile-only: center pricing cards + CTA bar (max-width 767px) ──── */
+  @media (max-width: 767px) {
+    /* Each plan card: narrower than column so margin:auto produces visible centering */
+    .hpp-card {
+      width: calc(100% - 24px);
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* CTA helper bar: stack vertically, center everything */
     .hpp-cta-band {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: center;
+      text-align: center;
       gap: 16px;
     }
+    .hpp-cta-copy { text-align: center; }
     .hpp-cta-btn { width: 100%; justify-content: center; }
   }
 

@@ -96,7 +96,7 @@ function StoryCard({
       style={{
         position: "relative",
         flexShrink: 0,
-        width: "clamp(180px, 14vw, 200px)",
+        width: "clamp(145px, 14vw, 200px)",
         aspectRatio: "9/16",
         overflow: "hidden",
         borderRadius: 0,
@@ -159,8 +159,10 @@ function StoryCard({
       </video>
 
       {/* ── Mute/Unmute button — top right — lime audio identity ──────────── */}
+      {/* story-mute-btn class forces opacity:1 on touch devices via CSS below */}
       <button
         type="button"
+        className="story-mute-btn"
         onClick={(e) => { e.stopPropagation(); togglePersistent(); }}
         aria-label={isActive ? "Mute video" : "Unmute video"}
         style={{
@@ -168,8 +170,8 @@ function StoryCard({
           top: "8px",
           right: "8px",
           zIndex: 25,
-          width: "26px",
-          height: "26px",
+          width: "32px",
+          height: "32px",
           borderRadius: 0,
           background: isActive ? AUDIO_LIME_COLORS.bg       : AUDIO_LIME_COLORS.mutedBg,
           border: `1px solid ${isActive ? AUDIO_LIME_COLORS.border : AUDIO_LIME_COLORS.mutedBorder}`,
@@ -296,6 +298,13 @@ export function VerticalStoriesSection() {
         overflow: "hidden",
       }}
     >
+      {/* Touch device: always show mute button (no hover state exists) */}
+      <style>{`
+        @media (hover: none) {
+          .story-mute-btn { opacity: 1 !important; }
+        }
+        .vss-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
       <div className="container-site">
         {/*
           Desktop: flex-row — left text block + right scrollable cards
@@ -305,8 +314,7 @@ export function VerticalStoriesSection() {
 
           {/* ── LEFT TEXT BLOCK ───────────────────────────────────────────── */}
           <div
-            className="w-full flex-shrink-0"
-            style={{ maxWidth: "260px" }}
+            className="w-full md:max-w-[260px] flex-shrink-0 text-center md:text-left"
           >
             {/* Eyebrow */}
             <p
@@ -437,7 +445,7 @@ export function VerticalStoriesSection() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex gap-[16px] overflow-x-auto pb-4"
+              className="vss-scroll flex gap-[16px] overflow-x-auto pb-4"
               style={{
                 scrollSnapType: "x mandatory",
                 WebkitOverflowScrolling: "touch",

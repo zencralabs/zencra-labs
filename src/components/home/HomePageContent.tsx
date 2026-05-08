@@ -383,7 +383,7 @@ export function HomePageContent() {
   }
 
   // ── Split layout helper widths
-  const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0";
+  const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0 text-center md:text-left";
 
   return (
     <HomeVideoAudioProvider>
@@ -409,7 +409,7 @@ export function HomePageContent() {
             </div>
 
             {/* Right: 3 step cards */}
-            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4 hzw-cards-wrap">
               {workflowSteps.map((step) => {
                 const Icon = step.icon;
                 return (
@@ -829,8 +829,8 @@ export function HomePageContent() {
               style={{ height: "1px", background: "linear-gradient(to right, rgba(212,175,55,0.55) 0%, rgba(212,175,55,0.18) 50%, transparent 100%)" }}
             />
 
-            {/* Content — left aligned, max 54% wide on desktop */}
-            <div className="relative z-10 flex flex-col items-start gap-4 px-8 py-10 md:py-12 md:max-w-[54%]">
+            {/* Content — centered on mobile, left-aligned max 54% wide on desktop */}
+            <div className="relative z-10 flex flex-col items-center md:items-start gap-4 px-8 py-10 md:py-12 md:max-w-[54%] text-center md:text-left fcs-content">
 
               {/* Main title — FUTURE CINEMA STUDIO (large gold, single occurrence) */}
               <h2 className="fcs-title-main">Future Cinema Studio</h2>
@@ -841,7 +841,7 @@ export function HomePageContent() {
                 <span className="fcs-scene-text">Scene by Scene.</span>
               </p>
               {/* Thin gold accent underline */}
-              <div className="fcs-scene-underline" aria-hidden="true" />
+              <div className="fcs-scene-underline mx-auto md:mx-0" aria-hidden="true" />
 
               {/* Subline */}
               <p style={{
@@ -856,7 +856,7 @@ export function HomePageContent() {
               </p>
 
               {/* Feature chips — black glass + gold */}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                 {["AI Scene Generation", "Smart Continuity", "Voice & Lip-Sync", "Cinematic Export"].map((feat) => (
                   <div
                     key={feat}
@@ -890,7 +890,7 @@ export function HomePageContent() {
               </div>
 
               {/* CTAs */}
-              <div className="flex flex-wrap items-center gap-3 mt-1">
+              <div className="flex flex-wrap items-center gap-3 mt-1 justify-center md:justify-start">
                 {/* Primary — gold gradient */}
                 <button
                   onClick={() => router.push("/studio/cinema")}
@@ -1022,13 +1022,19 @@ export function HomePageContent() {
               <SectionSub>Powerful tools for every type of storyteller.</SectionSub>
             </div>
 
-            {/* Right: 3 square audience cards — paddingLeft shifts cards right, right edge stays flush */}
-            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4" style={{ paddingLeft: "84px" }}>
+            {/* Right: 3 square audience cards
+                Mobile: horizontal swipe strip (~1.1 cards visible, 280px each, scroll-snap)
+                Desktop: unchanged 3-col grid via md:grid md:grid-cols-3
+            */}
+            <div
+              className="flex-1 min-w-0 audience-cards-wrap md:grid md:grid-cols-3 md:gap-4"
+              style={{ paddingLeft: "clamp(0px, calc((100vw - 640px) * 0.2), 84px)" }}
+            >
               {audienceCards.map((card) => {
                 return (
                   <div
                     key={card.title}
-                    className="relative overflow-hidden group cursor-pointer"
+                    className="relative overflow-hidden group cursor-pointer audience-card-item"
                     style={{
                       aspectRatio: "1/1",
                       background: card.gradient,
@@ -1291,6 +1297,42 @@ export function HomePageContent() {
         .fcs-title-main  { animation: none; background-position: 44% center; }
         .fcs-scene-text  { animation: none; background-position: 44% center; }
         .fcs-reel-shine  { animation: none; opacity: 0; }
+      }
+
+      /* ── HOW ZENCRA WORKS — force cards grid to full width on mobile ────── */
+      @media (max-width: 767px) {
+        .hzw-cards-wrap { width: 100% !important; }
+      }
+
+      /* ── FCS — release inline height so aspect-ratio: 9/16 applies ──────── */
+      @media (max-width: 767px) {
+        .cinema-card { height: auto !important; }
+        /* Push content lower for upper-center feel in the tall 9:16 frame */
+        .fcs-content { padding-top: 72px !important; }
+      }
+
+      /* ── BUILT FOR CREATORS — mobile horizontal swipe strip ─────────────── */
+      @media (max-width: 767px) {
+        .audience-cards-wrap {
+          display: flex !important;
+          gap: 14px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 16px;
+          /* Right-side peek: pad so 1.1 cards visible without clipping */
+          padding-right: calc(100vw - 280px - 14px);
+        }
+        .audience-cards-wrap::-webkit-scrollbar { display: none; }
+        .audience-card-item {
+          flex: 0 0 280px !important;
+          width: 280px !important;
+          scroll-snap-align: start;
+        }
+        /* Always show mute button on touch devices inside audience cards */
+        .audience-card-item button[aria-label="Unmute video"],
+        .audience-card-item button[aria-label="Mute video"] { opacity: 1 !important; }
       }
     `}</style>
 

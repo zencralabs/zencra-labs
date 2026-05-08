@@ -54,8 +54,8 @@ export function HeroModeSwitch() {
               router.push(mode.route);
             }}
             style={{
-              padding: "9px 22px",
-              fontSize: "13px",
+              padding: "9px clamp(11px, 3.5vw, 22px)",
+              fontSize: "clamp(11px, 1.5vw, 13px)",
               fontWeight: isActive ? 700 : 400,
               letterSpacing: isActive ? "-0.01em" : "0em",
               color: "#ffffff",
