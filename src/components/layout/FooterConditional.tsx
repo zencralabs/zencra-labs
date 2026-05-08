@@ -14,7 +14,7 @@ import { Footer } from "@/components/layout/Footer";
  * /studio/* — app workspaces that own their own viewport.
  * /waitlist  — isolated full-screen entry screen; no chrome.
  */
-const WORKSPACE_PREFIXES = ["/studio", "/waitlist"];
+const WORKSPACE_PREFIXES = ["/studio", "/waitlist", "/login", "/signup"];
 
 export function FooterConditional() {
   const pathname = usePathname();

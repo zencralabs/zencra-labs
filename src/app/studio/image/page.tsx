@@ -2107,8 +2107,8 @@ function ImageStudioInner() {
         }
 
         if (res.status === 403 && data.code === "FREE_LIMIT_REACHED") {
-          // Free-tier limit hit — redirect to pricing, do not show error toast
-          router.push("/pricing");
+          // Free-tier limit hit — redirect to upgrade page, do not show error toast
+          router.push("/waitlist");
           return;
         }
 

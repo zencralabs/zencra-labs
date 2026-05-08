@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Film, ImageIcon, Mic, Layers, Clapperboard, Users, Check, ArrowRight,
-  Volume2, VolumeX,
+  Volume2, VolumeX, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { AuthModal }   from "@/components/auth/AuthModal";
@@ -372,6 +372,32 @@ export function HomePageContent() {
 
   function handleStartCreating() { router.push("/studio/image"); }
 
+  // ── WYCC Carousel
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+
+  function scrollCarousel(dir: 1 | -1) {
+    const el = carouselRef.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>("[data-carousel-card]");
+    const gap = 16; // gap-4
+    const cardW = card ? card.offsetWidth + gap : 340;
+    el.scrollBy({ left: dir * cardW, behavior: "smooth" });
+  }
+
+  function handleCarouselScroll() {
+    const el = carouselRef.current;
+    if (!el) return;
+    const card = el.querySelector<HTMLElement>("[data-carousel-card]");
+    const gap = 16;
+    const cardW = card ? card.offsetWidth + gap : 340;
+    const idx = Math.min(
+      Math.round(el.scrollLeft / cardW),
+      showcaseSlides.length - 1,
+    );
+    setCarouselIdx(idx);
+  }
+
   // ── Split layout helper widths
   const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0";
 
@@ -526,111 +552,218 @@ export function HomePageContent() {
               </button>
             </div>
 
-            {/* Right: native scroll showcase cards */}
+            {/* Right: JS-controlled cinematic carousel */}
             <div className="flex-1 min-w-0" style={{ overflow: "hidden" }}>
-              <div
-                className="flex gap-4 overflow-x-auto pb-3"
-                style={{
-                  scrollSnapType: "x mandatory",
-                  WebkitOverflowScrolling: "touch",
-                  scrollBehavior: "smooth",
-                  msOverflowStyle: "none",
-                  scrollbarWidth: "none",
-                }}
-              >
-                {showcaseSlides.map((asset, i) => {
-                  const color = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
-                  const toolLabel = toolDisplayName(asset.tool);
-                  const cardLabel = WYCC_LABELS[i] ?? (
-                    asset.tool === "heygen" ? "Talking Avatar" : "Cinematic Video"
-                  );
 
-                  return (
-                    <div
-                      key={asset.id ?? i}
-                      className="relative group"
-                      style={{
-                        scrollSnapAlign: "start",
-                        flex: "0 0 auto",
-                        width: "clamp(180px, 22vw, 250px)",
-                        aspectRatio: "16/9",
-                        background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
-                        border: `1px solid ${color}22`,
-                        overflow: "hidden",
-                        borderRadius: 0,
-                        transition: "transform 0.25s ease, box-shadow 0.25s ease",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={e => {
-                        (e.currentTarget as HTMLElement).style.transform = "translateY(-4px) scale(1.01)";
-                        (e.currentTarget as HTMLElement).style.boxShadow = `0 16px 50px rgba(0,0,0,0.6), 0 0 40px ${color}22`;
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLElement).style.transform = "";
-                        (e.currentTarget as HTMLElement).style.boxShadow = "";
-                      }}
-                    >
-                      {asset.result_url && (
-                        <VideoMuted
-                          src={asset.result_url}
-                          preload="none"
-                          className="absolute inset-0 h-full w-full object-cover"
-                          style={{ opacity: 1, borderRadius: 0 }}
-                          btnPos={{ bottom: "40px", right: "8px" }}
-                        />
-                      )}
+              {/* Arrow + strip wrapper */}
+              <div style={{ position: "relative" }}>
 
-                      {/* Category badge */}
-                      <div style={{ position: "absolute", top: "10px", right: "10px" }}>
-                        <span style={{
-                          padding: "2px 8px",
-                          background: "rgba(0,0,0,0.55)",
-                          border: "1px solid rgba(255,255,255,0.14)",
-                          backdropFilter: "blur(8px)",
-                          fontSize: "9px",
-                          fontWeight: 700,
-                          textTransform: "uppercase" as const,
-                          color: "rgba(255,255,255,0.85)",
-                          letterSpacing: "0.06em",
-                          borderRadius: 0,
-                        }}>
-                          {cardLabel}
-                        </span>
-                      </div>
+                {/* ← Left arrow */}
+                <button
+                  aria-label="Previous"
+                  onClick={() => scrollCarousel(-1)}
+                  style={{
+                    display: carouselIdx === 0 ? "none" : "flex",
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-60%)",
+                    zIndex: 20,
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "50%",
+                    background: "rgba(10,14,26,0.72)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    color: "rgba(255,255,255,0.88)",
+                    cursor: "pointer",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)",
+                    transition: "background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease",
+                    padding: 0,
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(30,40,70,0.90)";
+                    b.style.boxShadow = "0 6px 32px rgba(0,0,0,0.70), 0 0 18px rgba(59,130,246,0.18)";
+                    b.style.transform = "translateY(-60%) scale(1.08)";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(10,14,26,0.72)";
+                    b.style.boxShadow = "0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)";
+                    b.style.transform = "translateY(-60%) scale(1)";
+                  }}
+                >
+                  <ChevronLeft size={17} strokeWidth={2.2} />
+                </button>
 
-                      {/* Bottom: tool + duration */}
+                {/* → Right arrow */}
+                <button
+                  aria-label="Next"
+                  onClick={() => scrollCarousel(1)}
+                  style={{
+                    display: carouselIdx >= showcaseSlides.length - 1 ? "none" : "flex",
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-60%)",
+                    zIndex: 20,
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "50%",
+                    background: "rgba(10,14,26,0.72)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    color: "rgba(255,255,255,0.88)",
+                    cursor: "pointer",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)",
+                    transition: "background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease",
+                    padding: 0,
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(30,40,70,0.90)";
+                    b.style.boxShadow = "0 6px 32px rgba(0,0,0,0.70), 0 0 18px rgba(59,130,246,0.18)";
+                    b.style.transform = "translateY(-60%) scale(1.08)";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(10,14,26,0.72)";
+                    b.style.boxShadow = "0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04)";
+                    b.style.transform = "translateY(-60%) scale(1)";
+                  }}
+                >
+                  <ChevronRight size={17} strokeWidth={2.2} />
+                </button>
+
+                {/* Scroll strip */}
+                <div
+                  ref={carouselRef}
+                  onScroll={handleCarouselScroll}
+                  className="flex gap-4 overflow-x-auto pb-3"
+                  style={{
+                    scrollSnapType: "x mandatory",
+                    WebkitOverflowScrolling: "touch",
+                    scrollBehavior: "smooth",
+                    msOverflowStyle: "none",
+                    scrollbarWidth: "none",
+                  }}
+                >
+                  {showcaseSlides.map((asset, i) => {
+                    const color = (asset.tool && TOOL_COLOR[asset.tool]) ?? DEFAULT_TOOL_COLOR;
+                    const toolLabel = toolDisplayName(asset.tool);
+                    const cardLabel = WYCC_LABELS[i] ?? (
+                      asset.tool === "heygen" ? "Talking Avatar" : "Cinematic Video"
+                    );
+
+                    return (
                       <div
+                        key={asset.id ?? i}
+                        data-carousel-card
+                        className="relative group"
                         style={{
-                          position: "absolute",
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          padding: "10px 10px 8px",
-                          background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
+                          scrollSnapAlign: "start",
+                          flex: "0 0 auto",
+                          /* Desktop ~2.5 visible | tablet ~2 | mobile ~1 */
+                          width: "clamp(260px, 30vw, 390px)",
+                          aspectRatio: "16/9",
+                          background: "linear-gradient(160deg,#0F1A32 0%,#0d1a2a 100%)",
+                          border: `1px solid ${color}22`,
+                          overflow: "hidden",
+                          borderRadius: 0,
+                          transition: "transform 0.25s ease, box-shadow 0.25s ease",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLElement).style.transform = "translateY(-4px) scale(1.01)";
+                          (e.currentTarget as HTMLElement).style.boxShadow = `0 16px 50px rgba(0,0,0,0.6), 0 0 40px ${color}22`;
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLElement).style.transform = "";
+                          (e.currentTarget as HTMLElement).style.boxShadow = "";
                         }}
                       >
-                        <div className="flex items-center gap-1.5">
-                          <div style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0 }} />
-                          <span style={{ fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.88)" }}>{toolLabel}</span>
+                        {asset.result_url && (
+                          <VideoMuted
+                            src={asset.result_url}
+                            preload="none"
+                            className="absolute inset-0 h-full w-full object-cover"
+                            style={{ opacity: 1, borderRadius: 0 }}
+                            btnPos={{ bottom: "40px", right: "8px" }}
+                          />
+                        )}
+
+                        {/* Category badge */}
+                        <div style={{ position: "absolute", top: "10px", right: "10px" }}>
+                          <span style={{
+                            padding: "2px 8px",
+                            background: "rgba(0,0,0,0.55)",
+                            border: "1px solid rgba(255,255,255,0.14)",
+                            backdropFilter: "blur(8px)",
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            textTransform: "uppercase" as const,
+                            color: "rgba(255,255,255,0.85)",
+                            letterSpacing: "0.06em",
+                            borderRadius: 0,
+                          }}>
+                            {cardLabel}
+                          </span>
+                        </div>
+
+                        {/* Bottom: tool dot + label */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: "10px 10px 8px",
+                            background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)",
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <div style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0 }} />
+                            <span style={{ fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.88)" }}>{toolLabel}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-                <div aria-hidden="true" style={{ flex: "0 0 4px" }} />
+                    );
+                  })}
+                  <div aria-hidden="true" style={{ flex: "0 0 4px" }} />
+                </div>
               </div>
 
-              {/* Dot indicators */}
+              {/* Dot indicators — synced to carouselIdx */}
               <div className="flex items-center gap-1.5 mt-4">
                 {showcaseSlides.slice(0, 8).map((_, i) => (
-                  <div
+                  <button
                     key={i}
+                    aria-label={`Go to card ${i + 1}`}
+                    onClick={() => {
+                      const el = carouselRef.current;
+                      if (!el) return;
+                      const card = el.querySelector<HTMLElement>("[data-carousel-card]");
+                      const gap = 16;
+                      const cardW = card ? card.offsetWidth + gap : 340;
+                      el.scrollTo({ left: i * cardW, behavior: "smooth" });
+                    }}
                     style={{
-                      width: i === 0 ? "16px" : "6px",
+                      width: i === carouselIdx ? "20px" : "6px",
                       height: "6px",
                       borderRadius: "3px",
-                      background: i === 0 ? "#3B82F6" : "rgba(255,255,255,0.18)",
-                      transition: "width 0.2s ease",
+                      background: i === carouselIdx ? "#3B82F6" : "rgba(255,255,255,0.18)",
+                      transition: "width 0.22s ease, background 0.22s ease",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      flexShrink: 0,
                     }}
                   />
                 ))}
@@ -641,115 +774,195 @@ export function HomePageContent() {
       </section>
 
       {/* ── 5. FUTURE CINEMA STUDIO ─────────────────────────────────────────── */}
-      {/* Full-bleed card, content left-aligned within left half */}
-      <section className="py-8 md:py-14" style={{ backgroundColor: "var(--page-bg)" }}>
+      {/* Black + Gold luxury cinematic banner */}
+      <section className="py-8 md:py-12" style={{ backgroundColor: "var(--page-bg)" }}>
         <div className="px-0 md:px-10 lg:px-16 xl:px-24">
           <div
             className="cinema-card relative w-full overflow-hidden"
             style={{
-              background: "linear-gradient(135deg, #050a14 0%, #0a0f1e 30%, #120a26 60%, #1a0d3a 100%)",
-              border: "1px solid rgba(168,85,247,0.22)",
-              boxShadow: "0 0 80px rgba(168,85,247,0.08), 0 24px 70px rgba(0,0,0,0.5)",
+              /* Fixed cinematic banner height — no full-screen vertical stretch */
+              height: "clamp(420px, 45vw, 580px)",
+              background: "linear-gradient(135deg, #050502 0%, #0c0a04 35%, #100e06 60%, #0a0804 100%)",
+              /* Subtle gold outer frame */
+              border: "1px solid rgba(212,175,55,0.28)",
+              boxShadow: "0 0 0 1px rgba(184,137,46,0.10), 0 0 60px rgba(212,175,55,0.06), 0 28px 80px rgba(0,0,0,0.65)",
               borderRadius: 0,
             }}
           >
-            {/* BG video */}
+            {/* BG video — same src, cropped to upper cinematic composition */}
             <VideoMuted
               src="/cinema/bg.mp4"
               preload="none"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.65, borderRadius: 0 }}
+              style={{
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                objectPosition: "center 20%",   /* crop to upper/mid cinematic frame */
+                opacity: 0.60,
+                borderRadius: 0,
+              }}
               btnPos={{ top: "14px", right: "14px" }}
             />
 
-            {/* Glows */}
+            {/* Gold atmospheric glows */}
             <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-              <div style={{ position: "absolute", width: "60%", height: "80%", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.18) 0%, transparent 70%)", top: "-20%", right: "-10%", filter: "blur(80px)" }} />
-              <div style={{ position: "absolute", width: "40%", height: "60%", borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)", bottom: "-15%", left: "5%", filter: "blur(60px)" }} />
+              <div style={{
+                position: "absolute", width: "55%", height: "90%",
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(212,175,55,0.10) 0%, transparent 65%)",
+                top: "-25%", right: "-5%", filter: "blur(90px)",
+              }} />
+              <div style={{
+                position: "absolute", width: "35%", height: "60%",
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(184,137,46,0.08) 0%, transparent 70%)",
+                bottom: "-20%", left: "10%", filter: "blur(70px)",
+              }} />
             </div>
 
-            {/* Grid lines */}
-            <div className="pointer-events-none absolute inset-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(168,85,247,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.5) 1px, transparent 1px)", backgroundSize: "60px 60px" }} aria-hidden="true" />
-
-            {/* Readability gradient */}
-            <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(to right, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.65) 40%, transparent 100%)" }} />
-
-            {/* LEFT-aligned content (mockup: text in left ~50% of card) */}
+            {/* Subtle gold grid lines */}
             <div
-              className="relative z-10 flex flex-col items-start gap-4 px-8 py-10 md:py-14 md:max-w-[56%]"
-            >
-              {/* Eyebrow */}
-              <div
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.35)", color: "#C084FC", backdropFilter: "blur(8px)", borderRadius: 0 }}
-              >
-                <Clapperboard size={11} />
-                AI Filmmaking Redefined
-              </div>
+              className="pointer-events-none absolute inset-0 opacity-[0.018]"
+              style={{
+                backgroundImage: "linear-gradient(rgba(212,175,55,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(212,175,55,0.6) 1px, transparent 1px)",
+                backgroundSize: "60px 60px",
+              }}
+              aria-hidden="true"
+            />
 
-              {/* Headline */}
-              <h2
-                className="font-display tracking-tight"
-                style={{
-                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                  fontSize: "clamp(1.6rem, 4.5vw, 3.2rem)",
-                  fontWeight: 800,
-                  lineHeight: 0.95,
-                  letterSpacing: "-0.04em",
-                  color: "#F8FAFC",
-                  textShadow: "0 2px 20px rgba(0,0,0,0.9)",
-                  margin: 0,
-                }}
-              >
-                Direct AI Films.{" "}
-                <span style={{
-                  display: "block",
-                  background: "linear-gradient(135deg, #A855F7 0%, #60A5FA 100%)",
-                  WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-                }}>
-                  Scene by Scene.
-                </span>
-              </h2>
+            {/* Left-side readability gradient — deep black base fading right */}
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "linear-gradient(to right, rgba(4,3,2,0.95) 0%, rgba(4,3,2,0.72) 42%, rgba(4,3,2,0.15) 72%, transparent 100%)" }}
+            />
+
+            {/* Top thin gold accent line */}
+            <div
+              className="pointer-events-none absolute top-0 left-0 right-0"
+              style={{ height: "1px", background: "linear-gradient(to right, rgba(212,175,55,0.55) 0%, rgba(212,175,55,0.18) 50%, transparent 100%)" }}
+            />
+
+            {/* Content — left aligned, max 54% wide on desktop */}
+            <div className="relative z-10 flex flex-col items-start gap-4 px-8 py-10 md:py-12 md:max-w-[54%]">
+
+              {/* Main title — FUTURE CINEMA STUDIO (large gold, single occurrence) */}
+              <h2 className="fcs-title-main">Future Cinema Studio</h2>
+
+              {/* Secondary — Direct AI Films. (white) + Scene by Scene. (gold) */}
+              <p className="fcs-subtitle-line">
+                <span className="fcs-direct">Direct AI Films.</span>{" "}
+                <span className="fcs-scene-text">Scene by Scene.</span>
+              </p>
+              {/* Thin gold accent underline */}
+              <div className="fcs-scene-underline" aria-hidden="true" />
 
               {/* Subline */}
-              <p style={{ fontSize: "13px", lineHeight: 1.65, color: "rgba(255,255,255,0.72)", textShadow: "0 1px 10px rgba(0,0,0,0.9)", maxWidth: "380px" }}>
+              <p style={{
+                fontSize: "13px",
+                lineHeight: 1.65,
+                color: "rgba(245,240,232,0.72)",
+                textShadow: "0 1px 12px rgba(0,0,0,0.95)",
+                maxWidth: "370px",
+                margin: 0,
+              }}>
                 From concept to final cut — generate, edit, voice, and export your film in one seamless studio.
               </p>
 
-              {/* Feature chips */}
+              {/* Feature chips — black glass + gold */}
               <div className="flex flex-wrap gap-2">
                 {["AI Scene Generation", "Smart Continuity", "Voice & Lip-Sync", "Cinematic Export"].map((feat) => (
                   <div
                     key={feat}
                     className="flex items-center gap-1.5 px-3 py-1.5"
-                    style={{ background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.20)", backdropFilter: "blur(8px)", borderRadius: 0 }}
+                    style={{
+                      background: "rgba(212,175,55,0.07)",
+                      border: "1px solid rgba(212,175,55,0.28)",
+                      backdropFilter: "blur(10px)",
+                      WebkitBackdropFilter: "blur(10px)",
+                      borderRadius: 0,
+                      transition: "background 0.18s ease, box-shadow 0.18s ease",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(212,175,55,0.13)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = "0 0 12px rgba(212,175,55,0.14)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background = "rgba(212,175,55,0.07)";
+                      (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                    }}
                   >
-                    <div style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#A855F7", boxShadow: "0 0 5px #A855F7" }} />
-                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#C084FC" }}>{feat}</span>
+                    <div style={{
+                      width: "4px", height: "4px", borderRadius: "50%",
+                      backgroundColor: "#D4AF37",
+                      boxShadow: "0 0 5px rgba(212,175,55,0.7)",
+                      flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: "11px", fontWeight: 600, color: "#F5C76B" }}>{feat}</span>
                   </div>
                 ))}
               </div>
 
               {/* CTAs */}
               <div className="flex flex-wrap items-center gap-3 mt-1">
+                {/* Primary — gold gradient */}
                 <button
                   onClick={() => router.push("/studio/cinema")}
                   className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold"
-                  style={{ background: "linear-gradient(135deg, #A855F7, #6366F1)", color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 0 28px rgba(168,85,247,0.32)", borderRadius: 0, transition: "box-shadow 0.2s ease" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 48px rgba(168,85,247,0.55)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 28px rgba(168,85,247,0.32)"; }}
+                  style={{
+                    background: "linear-gradient(135deg, #D4AF37 0%, #B8892E 100%)",
+                    color: "#0A0800",
+                    border: "none",
+                    cursor: "pointer",
+                    borderRadius: 0,
+                    fontWeight: 700,
+                    letterSpacing: "0.01em",
+                    boxShadow: "0 0 28px rgba(212,175,55,0.28), 0 4px 16px rgba(0,0,0,0.45)",
+                    transition: "box-shadow 0.2s ease, filter 0.2s ease",
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.boxShadow = "0 0 50px rgba(212,175,55,0.50), 0 6px 24px rgba(0,0,0,0.55)";
+                    b.style.filter = "brightness(1.08)";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.boxShadow = "0 0 28px rgba(212,175,55,0.28), 0 4px 16px rgba(0,0,0,0.45)";
+                    b.style.filter = "";
+                  }}
                 >
                   Start Creating
                   <ArrowRight size={14} />
                 </button>
+
+                {/* Secondary — black glass + gold border */}
                 <button
                   type="button"
-                  onClick={handleStartCreating}
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm"
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.75)", cursor: "pointer", borderRadius: 0, transition: "background 0.15s ease, color 0.15s ease" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)"; }}
+                  style={{
+                    background: "rgba(4,3,2,0.65)",
+                    border: "1px solid rgba(212,175,55,0.38)",
+                    color: "rgba(245,199,107,0.88)",
+                    cursor: "pointer",
+                    borderRadius: 0,
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    transition: "background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease",
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(212,175,55,0.10)";
+                    b.style.borderColor = "rgba(212,175,55,0.65)";
+                    b.style.boxShadow = "0 0 18px rgba(212,175,55,0.16)";
+                    b.style.color = "#F5C76B";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(4,3,2,0.65)";
+                    b.style.borderColor = "rgba(212,175,55,0.38)";
+                    b.style.boxShadow = "none";
+                    b.style.color = "rgba(245,199,107,0.88)";
+                  }}
                 >
-                  {/* Circle-play icon */}
                   <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
                     <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.2" />
                     <path d="M6 5l4 2.5L6 10V5z" fill="currentColor" />
@@ -759,18 +972,34 @@ export function HomePageContent() {
               </div>
             </div>
 
-            {/* Bottom timeline strip — desktop only */}
+            {/* Bottom timeline reel — gold/bronze accents */}
             <div
               className="absolute bottom-0 left-0 right-0 hidden md:flex items-center gap-px px-6 py-2.5"
-              style={{ background: "linear-gradient(to top, rgba(5,10,20,0.88), transparent)" }}
+              style={{ background: "linear-gradient(to top, rgba(4,3,2,0.92), transparent)", overflow: "hidden" }}
             >
-              {Array.from({ length: 28 }).map((_, i) => (
-                <div key={i} className="flex-1" style={{
-                  height: "12px",
-                  background: i % 4 === 0 ? "rgba(168,85,247,0.45)" : i % 7 === 0 ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.04)",
-                  borderRadius: 0,
-                }} />
+              {/* Gold reflection sweep */}
+              <div className="fcs-reel-shine" aria-hidden="true" />
+              {Array.from({ length: 32 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-1"
+                  style={{
+                    height: i % 8 === 0 ? "14px" : "10px",
+                    background:
+                      i % 4 === 0
+                        ? "rgba(212,175,55,0.52)"
+                        : i % 9 === 0
+                        ? "rgba(184,137,46,0.38)"
+                        : "rgba(245,240,232,0.05)",
+                    borderRadius: 0,
+                  }}
+                />
               ))}
+              {/* Gold line above reel */}
+              <div
+                className="absolute top-0 left-6 right-6"
+                style={{ height: "1px", background: "linear-gradient(to right, rgba(212,175,55,0.35) 0%, rgba(212,175,55,0.10) 60%, transparent 100%)" }}
+              />
             </div>
           </div>
         </div>
@@ -780,65 +1009,55 @@ export function HomePageContent() {
       {/* Split: left text + right 3 compact audience cards */}
       <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
         <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
+          {/* gap-12 md:gap-16 keeps left text panel fully clear of the card grid */}
+          <div className="flex flex-col md:flex-row gap-12 md:gap-16 items-start">
 
-            {/* Left text */}
+            {/* Left text — flex-shrink-0 prevents any compression */}
             <div className={LEFT_W} style={{ paddingTop: "8px" }}>
               <SectionLabel>Made for You</SectionLabel>
-              <SectionHeading>
-                Built for Creators,<br />Filmmakers,<br />and Agencies
-              </SectionHeading>
+              <h2
+                className="font-display tracking-tight"
+                style={{
+                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                  fontSize: "clamp(1.7rem, 3vw, 2.4rem)",
+                  fontWeight: 800,
+                  lineHeight: 1.0,
+                  letterSpacing: "-0.04em",
+                  color: "var(--page-text)",
+                  margin: "0 0 12px",
+                }}
+              >
+                Built for<br />
+                Creators,<br />
+                Filmmakers,<br />
+                <span style={{ whiteSpace: "nowrap" }}>and Agencies.</span>
+              </h2>
               <SectionSub>Powerful tools for every type of storyteller.</SectionSub>
             </div>
 
-            {/* Right: 3 audience cards */}
-            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Right: 3 square audience cards — paddingLeft shifts cards right, right edge stays flush */}
+            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4" style={{ paddingLeft: "84px" }}>
               {audienceCards.map((card) => {
-                const Icon = card.icon;
                 return (
                   <div
                     key={card.title}
                     className="relative overflow-hidden group cursor-pointer"
                     style={{
-                      aspectRatio: "3/4",
+                      aspectRatio: "1/1",
                       background: card.gradient,
-                      border: `1px solid ${card.color}22`,
+                      border: "none",
                       borderRadius: 0,
                       transition: "transform 0.25s ease, box-shadow 0.25s ease",
                     }}
                     onMouseEnter={e => {
                       (e.currentTarget as HTMLElement).style.transform = "translateY(-5px)";
-                      (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 60px rgba(0,0,0,0.5), 0 0 40px ${card.color}20`;
+                      (e.currentTarget as HTMLElement).style.boxShadow = "0 20px 60px rgba(0,0,0,0.5)";
                     }}
                     onMouseLeave={e => {
                       (e.currentTarget as HTMLElement).style.transform = "";
                       (e.currentTarget as HTMLElement).style.boxShadow = "";
                     }}
                   >
-                    {/* Most Popular badge */}
-                    {card.isMostPopular && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "12px",
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          zIndex: 20,
-                          padding: "3px 10px",
-                          background: `linear-gradient(135deg, ${card.color}, #A855F7)`,
-                          fontSize: "9px",
-                          fontWeight: 700,
-                          letterSpacing: "0.12em",
-                          color: "#fff",
-                          textTransform: "uppercase" as const,
-                          borderRadius: 0,
-                          whiteSpace: "nowrap" as const,
-                        }}
-                      >
-                        Most Popular
-                      </div>
-                    )}
-
                     {/* Background video — deferred */}
                     {card.videoSrc && mounted && (
                       <VideoMuted
@@ -849,18 +1068,11 @@ export function HomePageContent() {
                       />
                     )}
 
-                    {/* Icon badge */}
-                    <div style={{ position: "absolute", top: card.isMostPopular ? "46px" : "14px", left: "14px" }}>
-                      <div style={{ width: "36px", height: "36px", background: `${card.color}22`, border: `1px solid ${card.color}40`, backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 0 }}>
-                        <Icon size={18} style={{ color: card.color }} />
-                      </div>
-                    </div>
-
                     {/* Bottom content */}
                     <div
-                      style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px", background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.10) 70%, transparent 100%)" }}
+                      style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px", background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.12) 70%, transparent 100%)" }}
                     >
-                      <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#F8FAFC", textShadow: "0 2px 10px rgba(0,0,0,0.9)", margin: "0 0 5px" }}>{card.title}</h3>
+                      <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#FFFFFF", textShadow: "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.8)", margin: "0 0 5px", letterSpacing: "-0.01em" }}>{card.title}</h3>
                       <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.78)", lineHeight: 1.55, textShadow: "0 1px 6px rgba(0,0,0,0.9)", margin: 0 }}>{card.desc}</p>
                     </div>
                   </div>
@@ -1026,6 +1238,111 @@ export function HomePageContent() {
       /* Mute button hover sync */
       button[aria-label="Unmute video"]:hover { opacity: 1 !important; }
       button[aria-label="Mute video"]:hover   { opacity: 1 !important; }
+
+      /* ── FCS TITLE SYSTEM ────────────────────────────────────────────── */
+
+      /* Scene-text continuous shimmer — used by "Scene by Scene." subtitle */
+      @keyframes fcsShimmer {
+        0%   { background-position: 200% center; }
+        100% { background-position: -200% center; }
+      }
+
+      /* Title shine — slow sweep with natural pauses at each end */
+      @keyframes fcsTitleShine {
+        0%,  28% { background-position: 220% center; }
+        72%, 100% { background-position: -220% center; }
+      }
+
+      /* Reel shine — a single narrow light bar travelling left → right */
+      @keyframes fcsReelShine {
+        0%,  18% { transform: translateX(-120%); opacity: 0; }
+        22%       { opacity: 1; }
+        78%       { opacity: 1; }
+        82%, 100% { transform: translateX(280%);  opacity: 0; }
+      }
+
+      /* Main title — FUTURE CINEMA STUDIO */
+      .fcs-title-main {
+        display: block;
+        font-family: var(--font-display, 'Syne', sans-serif);
+        font-size: clamp(2.0rem, 5vw, 4.4rem);
+        font-weight: 800;
+        line-height: 1.0;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0;
+        /* Concentrated highlight band — rests dark, sweeps bright */
+        background: linear-gradient(90deg, #B8892E, #C49A30, #D4AF37, #F5C76B, #FFF2B8, #F5C76B, #D4AF37, #C49A30, #B8892E);
+        background-size: 400% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: fcsTitleShine 4s ease-in-out infinite;
+      }
+      /* Hover: ease off slightly — luxury feel, not a full stop */
+      .cinema-card:hover .fcs-title-main {
+        animation-duration: 6s;
+      }
+
+      /* Subtitle row */
+      .fcs-subtitle-line {
+        display: block;
+        font-family: var(--font-display, 'Syne', sans-serif);
+        font-size: clamp(1.1rem, 2.4vw, 1.9rem);
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+
+      /* "Direct AI Films." — warm champagne white */
+      .fcs-direct {
+        color: #F5EDD8;
+        text-shadow: 0 2px 18px rgba(0,0,0,0.92), 0 1px 4px rgba(0,0,0,0.75);
+      }
+
+      /* "Scene by Scene." — continuous gold shimmer, no filter */
+      .fcs-scene-text {
+        display: inline;
+        background: linear-gradient(90deg, #F9E7A1, #D4AF37, #FFF2B8, #B8892E, #D4AF37, #F9E7A1);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: fcsShimmer 4.5s linear infinite;
+      }
+
+      /* Thin gold accent line */
+      .fcs-scene-underline {
+        display: block;
+        height: 1px;
+        width: min(300px, 80%);
+        background: linear-gradient(to right, rgba(212,175,55,0.65) 0%, rgba(212,175,55,0.20) 70%, transparent 100%);
+        margin-top: 2px;
+      }
+
+      /* Reel shine overlay — narrow gold reflection sliding across the strip */
+      .fcs-reel-shine {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 32%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.22) 50%, transparent 100%);
+        pointer-events: none;
+        z-index: 3;
+        animation: fcsReelShine 4.5s ease-in-out infinite;
+      }
+      /* Hover: pause the reel shine */
+      .cinema-card:hover .fcs-reel-shine {
+        animation-play-state: paused;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .fcs-title-main  { animation: none; background-position: 44% center; }
+        .fcs-scene-text  { animation: none; background-position: 44% center; }
+        .fcs-reel-shine  { animation: none; opacity: 0; }
+      }
     `}</style>
 
     {authModal && (

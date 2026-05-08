@@ -2697,9 +2697,9 @@ export default function VideoStudioShell() {
         let errCode: string | undefined;
         try { const e = await res.json(); if (e.error) errMsg = e.error; if (e.code) errCode = e.code; } catch { /* ignore */ }
 
-        // ── Free-tier limit reached — redirect to pricing ─────────────────────
+        // ── Free-tier limit reached — redirect to upgrade page ───────────────
         if (errCode === "FREE_LIMIT_REACHED") {
-          router.push("/pricing");
+          router.push("/waitlist");
           setGenerating(false);
           return;
         }
