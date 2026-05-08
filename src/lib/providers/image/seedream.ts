@@ -191,10 +191,27 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const requestId = String(data.request_id ?? data.requestId ?? "");
       if (!requestId) throw new Error("Seedream returned no request ID.");
 
+      // ── v4-5: store fal.ai's own polling URLs in externalJobId ───────────────
+      // fal.ai returns status_url and response_url in the submit response.
+      // These are authoritative — the multi-segment model ID path
+      // (fal-ai/bytedance/seedream/v4.5) may produce 405 when constructed
+      // manually but works correctly when fal.ai builds the URL itself.
+      // Encoded as "{requestId}|{statusUrl}|{responseUrl}" for retrieval in getJobStatus.
+      let externalJobId = requestId;
+      if (variant === "v4-5") {
+        const falStatusUrl   = typeof data.status_url   === "string" ? data.status_url   : "";
+        const falResponseUrl = typeof data.response_url === "string" ? data.response_url : "";
+        console.info(`[seedream-45] SUBMIT URLs status=${falStatusUrl || "(not-in-response)"} response=${falResponseUrl || "(not-in-response)"}`);
+        if (falStatusUrl && falResponseUrl) {
+          externalJobId = `${requestId}|${falStatusUrl}|${falResponseUrl}`;
+          console.info(`[seedream-45] SUBMIT encoded-job-id=${externalJobId.slice(0, 120)}`);
+        }
+      }
+
       const now = new Date();
       return {
         id: jobId, provider: "fal", modelKey,
-        studioType: "image", status: "pending", externalJobId: requestId,
+        studioType: "image", status: "pending", externalJobId,
         createdAt: now, updatedAt: now, identity: input.identity,
         providerMeta: {
           modelId,
@@ -210,9 +227,21 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const { apiKey } = getFalEnv();
       const modelId    = falModelId();
 
-      const statusUrl = `https://queue.fal.run/${modelId}/requests/${externalJobId}/status`;
+      // ── Parse encoded externalJobId (v4-5 encodes fal URLs at submit time) ──
+      // Format: "{requestId}" (legacy/other variants)
+      // or     "{requestId}|{statusUrl}|{responseUrl}" (v4-5 with stored fal URLs)
+      const parts              = externalJobId.split("|");
+      const rawRequestId       = parts[0];
+      const storedStatusUrl    = parts[1] ?? "";
+      const storedResponseUrl  = parts[2] ?? "";
+
+      // Use fal.ai's own URLs when available; fall back to manual construction.
+      const statusUrl = storedStatusUrl  || `https://queue.fal.run/${modelId}/requests/${rawRequestId}/status`;
+      const resultUrl = storedResponseUrl || `https://queue.fal.run/${modelId}/requests/${rawRequestId}`;
+
       if (variant === "v4-5") {
         console.info(`[seedream-45] POLL url=${statusUrl}`);
+        console.info(`[seedream-45] POLL METHOD GET stored=${!!storedStatusUrl}`);
       }
 
       const statusRes = await fetch(
@@ -220,9 +249,10 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         { headers: { "Authorization": `Key ${apiKey}` }, signal: AbortSignal.timeout(15_000) },
       );
       if (!statusRes.ok) {
-        const errBody = await statusRes.text().catch(() => "<unreadable>");
+        const errBody    = await statusRes.text().catch(() => "<unreadable>");
+        const allowHdr   = statusRes.headers.get("allow") ?? statusRes.headers.get("Allow") ?? "not-set";
         if (variant === "v4-5") {
-          console.error(`[seedream-45] POLL FAILED status=${statusRes.status} body=${errBody.slice(0, 300)}`);
+          console.error(`[seedream-45] POLL FAILED status=${statusRes.status} allow=${allowHdr} body=${errBody.slice(0, 400)}`);
         }
         return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}: ${errBody.slice(0, 200)}` };
       }
@@ -231,13 +261,12 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const status = String(data.status ?? "");
 
       if (variant === "v4-5") {
-        console.info(`[seedream-45] POLL response status=${status} raw=${JSON.stringify(data).slice(0, 200)}`);
+        console.info(`[seedream-45] POLL RESPONSE status=${status} raw=${JSON.stringify(data).slice(0, 200)}`);
       }
 
       if (status === "COMPLETED") {
-        const resultUrl = `https://queue.fal.run/${modelId}/requests/${externalJobId}`;
         if (variant === "v4-5") {
-          console.info(`[seedream-45] FETCH RESULT url=${resultUrl}`);
+          console.info(`[seedream-45] RESULT URL ${resultUrl}`);
         }
         const resultRes = await fetch(
           resultUrl,
@@ -276,7 +305,9 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
     async cancelJob(externalJobId: string): Promise<void> {
       const { apiKey } = getFalEnv();
       const modelId    = falModelId();
-      await fetch(`https://queue.fal.run/${modelId}/requests/${externalJobId}/cancel`, {
+      // Parse encoded externalJobId — cancel always uses the raw request ID.
+      const rawRequestId = externalJobId.split("|")[0];
+      await fetch(`https://queue.fal.run/${modelId}/requests/${rawRequestId}/cancel`, {
         method: "PUT", headers: { "Authorization": `Key ${apiKey}` },
       }).catch(() => {});
     },
