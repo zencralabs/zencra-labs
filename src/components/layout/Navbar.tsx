@@ -870,8 +870,8 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
         style={{
           backgroundColor: scrolled ? "var(--page-bg)" : "transparent",
           backdropFilter: scrolled ? "blur(20px)" : "none",
-          borderBottom: scrolled ? "1px solid var(--border-subtle)" : "none",
-          boxShadow: scrolled ? "0 4px 40px rgba(0,0,0,0.25)" : "none",
+          borderBottom: "none",
+          boxShadow: scrolled ? "0 18px 50px rgba(0,0,0,0.38)" : "none",
         }}
       >
         <div className="container-site">

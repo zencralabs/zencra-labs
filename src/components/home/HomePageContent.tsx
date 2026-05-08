@@ -12,6 +12,8 @@ import { useAuth }     from "@/components/auth/AuthContext";
 import type { PublicAsset } from "@/lib/types/generation";
 import { HeroSection } from "@/components/home/hero/HeroSection";
 import { VerticalStoriesSection } from "@/components/home/sections/VerticalStoriesSection";
+import { HomePricingPreview } from "@/components/home/HomePricingPreview";
+import { HomeVideoAudioProvider, useHomeVideoAudio, AUDIO_LIME_COLORS } from "@/hooks/useHomeVideoAudio";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA LABS — Homepage V2 Correction Pass
@@ -153,43 +155,12 @@ const audienceCards = [
   },
 ];
 
-// ── Pricing tiers ─────────────────────────────────────────────────────────────
-const pricingTiers = [
-  {
-    name: "Free",
-    price: "$0",
-    period: "/ month",
-    description: "Get started with basic features.",
-    color: "#64748B",
-    features: ["720p Exports", "Limited Generations", "Watermark", "Community Support"],
-    cta: "Get Started",
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "$19",
-    period: "/ month",
-    description: "Everything you need to create more.",
-    color: "#3B82F6",
-    features: ["1080p Exports", "Unlimited Generations", "No Watermark", "Priority Support"],
-    cta: "Try Pro",
-    highlight: true,
-  },
-  {
-    name: "Studio",
-    price: "$49",
-    period: "/ month",
-    description: "Advanced tools for professionals.",
-    color: "#A855F7",
-    features: ["4K Exports", "Advanced AI Models", "Team Collaboration", "Commercial License"],
-    cta: "Upgrade",
-    highlight: false,
-  },
-];
 
-// ── VideoMuted — video with purple mute toggle ────────────────────────────────
-// V2: active state is purple (not teal).
+// ── VideoMuted — video with global audio controller ───────────────────────────
+// V3: driven by HomeVideoAudioProvider — only one video unmuted at a time.
+// Hover = temporary preview. Button click = persistent until another takes over.
 function VideoMuted({
+  id,
   src,
   style,
   className,
@@ -197,6 +168,7 @@ function VideoMuted({
   poster,
   btnPos = { bottom: "10px", right: "10px" },
 }: {
+  id: string;
   src: string;
   style?: React.CSSProperties;
   className?: string;
@@ -204,20 +176,30 @@ function VideoMuted({
   poster?: string;
   btnPos?: { top?: string; bottom?: string; left?: string; right?: string };
 }) {
-  const [muted, setMuted] = useState(true);
-  const ref = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const { isActive, hoverRequest, hoverRelease, togglePersistent } = useHomeVideoAudio(id);
 
-  function toggle(e: React.MouseEvent) {
-    e.stopPropagation();
-    const next = !muted;
-    if (ref.current) ref.current.muted = next;
-    setMuted(next);
-  }
+  // Sync video muted state with global controller
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isActive) {
+      video.muted = false;
+      if (video.paused) {
+        video.play().catch(() => {
+          // Browser blocked unmuted autoplay — fall back gracefully
+          if (videoRef.current) videoRef.current.muted = true;
+        });
+      }
+    } else {
+      video.muted = true;
+    }
+  }, [isActive]);
 
   return (
     <>
       <video
-        ref={ref}
+        ref={videoRef}
         autoPlay
         muted
         loop
@@ -229,13 +211,15 @@ function VideoMuted({
         controlsList="nodownload"
         onContextMenu={(e) => e.preventDefault()}
         onError={e => { (e.currentTarget as HTMLVideoElement).style.display = "none"; }}
+        onMouseEnter={hoverRequest}
+        onMouseLeave={hoverRelease}
       >
         <source src={src} type="video/mp4" />
       </video>
 
       <button
-        onClick={toggle}
-        aria-label={muted ? "Unmute video" : "Mute video"}
+        onClick={(e) => { e.stopPropagation(); togglePersistent(); }}
+        aria-label={isActive ? "Mute video" : "Unmute video"}
         style={{
           position: "absolute",
           top:    btnPos.top,
@@ -246,34 +230,34 @@ function VideoMuted({
           width: "28px",
           height: "28px",
           borderRadius: "50%",
-          background: muted ? "rgba(0,0,0,0.55)" : "rgba(139,92,246,0.30)",
-          border: `1px solid ${muted ? "rgba(255,255,255,0.18)" : "rgba(139,92,246,0.65)"}`,
+          background: isActive ? AUDIO_LIME_COLORS.bg        : AUDIO_LIME_COLORS.mutedBg,
+          border: `1px solid ${isActive ? AUDIO_LIME_COLORS.border  : AUDIO_LIME_COLORS.mutedBorder}`,
           backdropFilter: "blur(14px)",
           WebkitBackdropFilter: "blur(14px)",
-          boxShadow: muted
-            ? "0 2px 14px rgba(0,0,0,0.45)"
-            : "0 0 18px rgba(139,92,246,0.50)",
+          boxShadow: isActive ? AUDIO_LIME_COLORS.glow       : AUDIO_LIME_COLORS.mutedGlow,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          color: muted ? "rgba(255,255,255,0.75)" : "#C084FC",
-          transition: "all 0.2s ease",
+          color: isActive ? AUDIO_LIME_COLORS.icon           : AUDIO_LIME_COLORS.mutedIcon,
+          transition: "all 0.20s ease",
           flexShrink: 0,
           pointerEvents: "auto",
         }}
         onMouseEnter={e => {
           const el = e.currentTarget as HTMLElement;
-          el.style.transform = "scale(1.12)";
-          el.style.background = muted ? "rgba(255,255,255,0.14)" : "rgba(139,92,246,0.45)";
+          el.style.transform = "scale(1.10)";
+          el.style.background  = isActive ? AUDIO_LIME_COLORS.bgHover      : AUDIO_LIME_COLORS.mutedBgHover;
+          el.style.boxShadow   = isActive ? AUDIO_LIME_COLORS.glowHover     : AUDIO_LIME_COLORS.mutedGlow;
         }}
         onMouseLeave={e => {
           const el = e.currentTarget as HTMLElement;
           el.style.transform = "scale(1)";
-          el.style.background = muted ? "rgba(0,0,0,0.55)" : "rgba(139,92,246,0.30)";
+          el.style.background  = isActive ? AUDIO_LIME_COLORS.bg            : AUDIO_LIME_COLORS.mutedBg;
+          el.style.boxShadow   = isActive ? AUDIO_LIME_COLORS.glow          : AUDIO_LIME_COLORS.mutedGlow;
         }}
       >
-        {muted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+        {isActive ? <Volume2 size={11} /> : <VolumeX size={11} />}
       </button>
     </>
   );
@@ -402,7 +386,7 @@ export function HomePageContent() {
   const LEFT_W = "w-full md:w-[240px] lg:w-[270px] flex-shrink-0";
 
   return (
-    <>
+    <HomeVideoAudioProvider>
     <div style={{ backgroundColor: "var(--page-bg)", color: "var(--page-text)", minHeight: "100vh" }}>
 
       {/* ── 1. HERO ─────────────────────────────────────────────────────────── */}
@@ -454,6 +438,7 @@ export function HomePageContent() {
                         />
                       ) : (
                         <VideoMuted
+                          id={`how-it-works-${step.num}`}
                           src={`/how-it-works/step-${parseInt(step.num)}.mp4`}
                           preload="none"
                           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", borderRadius: 0 }}
@@ -691,6 +676,7 @@ export function HomePageContent() {
                       >
                         {asset.result_url && (
                           <VideoMuted
+                            id={`wycc-${asset.id ?? i}`}
                             src={asset.result_url}
                             preload="none"
                             className="absolute inset-0 h-full w-full object-cover"
@@ -791,6 +777,7 @@ export function HomePageContent() {
           >
             {/* BG video — same src, cropped to upper cinematic composition */}
             <VideoMuted
+              id="fcs-bg"
               src="/cinema/bg.mp4"
               preload="none"
               style={{
@@ -1061,6 +1048,7 @@ export function HomePageContent() {
                     {/* Background video — deferred */}
                     {card.videoSrc && mounted && (
                       <VideoMuted
+                        id={`audience-${card.title.toLowerCase().replace(/\s+/g, "-")}`}
                         src={card.videoSrc}
                         preload="none"
                         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.85, borderRadius: 0 }}
@@ -1084,142 +1072,103 @@ export function HomePageContent() {
       </section>
 
       {/* ── 7. PRICING ──────────────────────────────────────────────────────── */}
-      {/* Split: left text + right 3 pricing cards */}
-      <section className="py-10 md:py-16" style={{ backgroundColor: "var(--page-bg)" }}>
-        <div className="container-site">
-          <div className="flex flex-col md:flex-row gap-8 md:gap-14 items-start">
-
-            {/* Left text */}
-            <div className={LEFT_W} style={{ paddingTop: "8px" }}>
-              <SectionLabel>Flexible Pricing</SectionLabel>
-              <SectionHeading>Start Free.<br />Scale as You Create.</SectionHeading>
-              <SectionSub>Choose the plan that fits your needs.</SectionSub>
-            </div>
-
-            {/* Right: 3 pricing cards */}
-            <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {pricingTiers.map((tier) => (
-                <div
-                  key={tier.name}
-                  className="relative flex flex-col p-5 md:p-6"
-                  style={{
-                    background: tier.highlight
-                      ? `linear-gradient(135deg, ${tier.color}14 0%, rgba(139,92,246,0.07) 100%)`
-                      : "var(--page-bg-2)",
-                    border: tier.highlight ? `1px solid ${tier.color}45` : "1px solid rgba(255,255,255,0.07)",
-                    boxShadow: tier.highlight ? `0 0 50px ${tier.color}12` : "none",
-                    borderRadius: 0,
-                  }}
-                >
-                  {/* Most Popular badge */}
-                  {tier.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span
-                        style={{ padding: "3px 12px", background: `linear-gradient(135deg, ${tier.color}, #8B5CF6)`, color: "#fff", fontSize: "9px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" as const, borderRadius: 0, whiteSpace: "nowrap" as const }}
-                      >
-                        Most Popular
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Price header */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <p style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" as const, color: tier.color, marginBottom: "6px" }}>{tier.name}</p>
-                    <div className="flex items-end gap-1">
-                      <span style={{ fontSize: "28px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{tier.price}</span>
-                      <span style={{ fontSize: "12px", color: "#64748B", marginBottom: "2px" }}>{tier.period}</span>
-                    </div>
-                    <p style={{ fontSize: "11px", color: "#64748B", marginTop: "5px", lineHeight: 1.5 }}>{tier.description}</p>
-                  </div>
-
-                  {/* Features */}
-                  <ul className="flex flex-col gap-2 mb-6">
-                    {tier.features.map((feat) => (
-                      <li key={feat} className="flex items-center gap-2" style={{ fontSize: "11px", color: "#94A3B8" }}>
-                        <Check size={12} style={{ color: tier.color, flexShrink: 0 }} />
-                        {feat}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA */}
-                  <div className="mt-auto">
-                    <button
-                      onClick={handleStartCreating}
-                      className="w-full py-2.5 text-xs font-semibold transition-all duration-200"
-                      style={{
-                        background: tier.highlight ? `linear-gradient(135deg, ${tier.color}, #8B5CF6)` : "var(--page-bg-3)",
-                        border: tier.highlight ? "none" : "1px solid var(--border-medium)",
-                        color: tier.highlight ? "#fff" : "var(--page-text-2)",
-                        cursor: "pointer",
-                        borderRadius: 0,
-                      }}
-                      onMouseEnter={e => {
-                        if (!tier.highlight) { (e.currentTarget as HTMLElement).style.background = "var(--page-bg-2)"; }
-                        else { (e.currentTarget as HTMLElement).style.opacity = "0.9"; }
-                      }}
-                      onMouseLeave={e => {
-                        if (!tier.highlight) { (e.currentTarget as HTMLElement).style.background = "var(--page-bg-3)"; }
-                        else { (e.currentTarget as HTMLElement).style.opacity = "1"; }
-                      }}
-                    >
-                      {tier.cta}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomePricingPreview />
 
       {/* ── 8. FOOTER CTA BAND ──────────────────────────────────────────────── */}
       <section
-        className="py-12 md:py-20"
+        className="py-20 md:py-28"
         style={{
-          background: "linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(139,92,246,0.04) 50%, rgba(168,85,247,0.05) 100%)",
-          borderTop: "1px solid var(--border-subtle)",
+          position: "relative",
+          overflow: "hidden",
+          borderTop: "1px solid rgba(255,255,255,0.05)",
         }}
       >
-        <div className="container-site flex flex-col items-center gap-5 text-center px-6 md:px-0">
+        {/* Cinematic background still */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "url('/hero/cyberpunk.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center 30%",
+            opacity: 0.62,
+            zIndex: 0,
+          }}
+        />
+        {/* Neutral black cinematic overlay — no blue tint */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, rgba(4,4,6,0.52) 0%, rgba(4,4,6,0.42) 50%, rgba(4,4,6,0.56) 100%)",
+            zIndex: 1,
+          }}
+        />
+        {/* Edge vignette — subtle blue/purple only at outer corners */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "radial-gradient(ellipse 85% 85% at 50% 50%, transparent 40%, rgba(4,4,8,0.78) 78%, rgba(10,8,28,0.88) 100%)",
+            zIndex: 2,
+          }}
+        />
+
+        {/* Content */}
+        <div
+          className="container-site flex flex-col items-center gap-6 text-center px-6 md:px-0"
+          style={{ position: "relative", zIndex: 3 }}
+        >
           <h2
-            className="font-display tracking-tight"
+            className="font-display"
             style={{
               fontFamily: "var(--font-display, 'Syne', sans-serif)",
-              fontSize: "clamp(1.6rem, 3.5vw, 2.6rem)",
+              fontSize: "clamp(2rem, 4.5vw, 3.4rem)",
               fontWeight: 800,
-              lineHeight: 0.95,
-              letterSpacing: "-0.04em",
-              color: "var(--page-text)",
+              lineHeight: 1.0,
+              letterSpacing: "-0.03em",
+              color: "#F8FAFC",
               margin: 0,
             }}
           >
-            Ready to Create Something Cinematic?
+            Ready to Direct Your Next Film?
           </h2>
-          <p style={{ color: "#64748B", lineHeight: 1.65, maxWidth: "380px", fontSize: "14px" }}>
-            Start for free. No credit card required.
+          <p style={{
+            color: "rgba(255,255,255,0.46)",
+            lineHeight: 1.65,
+            maxWidth: "380px",
+            fontSize: "15px",
+            margin: 0,
+          }}>
+            Start with a scene, a character, or a single idea.
           </p>
           <button
             onClick={handleStartCreating}
-            className="inline-flex items-center gap-2 px-7 py-3.5 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 px-8 py-4 text-sm font-bold text-white"
             style={{
               background: "linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)",
-              boxShadow: "0 0 36px rgba(59,130,246,0.32)",
+              boxShadow: "0 4px 28px rgba(59,130,246,0.30)",
               border: "none",
               cursor: "pointer",
               borderRadius: 0,
-              transition: "box-shadow 0.2s ease, transform 0.15s ease",
+              letterSpacing: "0.01em",
+              transition: "box-shadow 0.2s ease, transform 0.15s ease, opacity 0.2s ease",
             }}
             onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 56px rgba(59,130,246,0.55)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 40px rgba(59,130,246,0.46)";
               (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+              (e.currentTarget as HTMLElement).style.opacity = "0.92";
             }}
             onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 36px rgba(59,130,246,0.32)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 28px rgba(59,130,246,0.30)";
               (e.currentTarget as HTMLElement).style.transform = "";
+              (e.currentTarget as HTMLElement).style.opacity = "1";
             }}
           >
-            Try Free Now
+            Start Creating Free
             <ArrowRight size={15} />
           </button>
         </div>
@@ -1235,8 +1184,8 @@ export function HomePageContent() {
       /* Hide scrollbars on all native-scroll tracks */
       .overflow-x-auto::-webkit-scrollbar { display: none; }
 
-      /* Mute button hover sync */
-      button[aria-label="Unmute video"]:hover { opacity: 1 !important; }
+      /* Audio button — lime identity */
+      button[aria-label="Unmute video"]:hover,
       button[aria-label="Mute video"]:hover   { opacity: 1 !important; }
 
       /* ── FCS TITLE SYSTEM ────────────────────────────────────────────── */
@@ -1351,6 +1300,6 @@ export function HomePageContent() {
         onClose={() => setAuthModal(null)}
       />
     )}
-    </>
+    </HomeVideoAudioProvider>
   );
 }

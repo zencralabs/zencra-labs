@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
+import { useHomeVideoAudio, AUDIO_LIME_COLORS } from "@/hooks/useHomeVideoAudio";
 
 export interface HeroCardProps {
   id: string;
@@ -21,17 +23,41 @@ export interface HeroCardProps {
  *   2. <video> autoplay     — muted, loop, playsInline, preload=metadata
  *   3. Gradient overlay + genre chip + title label
  *
+ * Audio: participates in the global HomeVideoAudioProvider.
+ *   • Hover = temporary preview (re-mutes on leave)
+ *   • Mute button click = persistent until another video takes over
+ *
  * No image fallback — video source is always provided by the caller.
  * border-radius: 0 everywhere (sharp cinematic edges).
  * Hover: scale(1.03) + purple border glow.
  */
-export function HeroCard({ title, tag, videoSrc }: HeroCardProps) {
+export function HeroCard({ id, title, tag, videoSrc }: HeroCardProps) {
   const [hovered, setHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const { isActive, hoverRequest, hoverRelease, togglePersistent } = useHomeVideoAudio(id);
+
+  // Sync video muted state with global audio controller
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isActive) {
+      video.muted = false;
+      if (video.paused) {
+        video.play().catch(() => {
+          // Browser blocked unmuted autoplay — fall back gracefully
+          if (videoRef.current) videoRef.current.muted = true;
+        });
+      }
+    } else {
+      video.muted = true;
+    }
+  }, [isActive]);
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); hoverRequest(); }}
+      onMouseLeave={() => { setHovered(false); hoverRelease(); }}
       style={{
         width: "clamp(264px, 20vw, 292px)",
         height: "clamp(176px, 13.8vw, 195px)",
@@ -57,6 +83,7 @@ export function HeroCard({ title, tag, videoSrc }: HeroCardProps) {
     >
       {/* ── Video — autoplay, no image fallback ──────────────────────────── */}
       <video
+        ref={videoRef}
         autoPlay
         muted
         loop
@@ -109,6 +136,50 @@ export function HeroCard({ title, tag, videoSrc }: HeroCardProps) {
       >
         {tag}
       </div>
+
+      {/* ── Mute/Unmute button — top right — lime audio identity ──────────── */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); togglePersistent(); }}
+        aria-label={isActive ? "Mute video" : "Unmute video"}
+        style={{
+          position: "absolute",
+          top: "9px",
+          right: "9px",
+          zIndex: 25,
+          width: "26px",
+          height: "26px",
+          borderRadius: 0,
+          background: isActive ? AUDIO_LIME_COLORS.bg       : AUDIO_LIME_COLORS.mutedBg,
+          border: `1px solid ${isActive ? AUDIO_LIME_COLORS.border : AUDIO_LIME_COLORS.mutedBorder}`,
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          boxShadow: isActive ? AUDIO_LIME_COLORS.glow      : AUDIO_LIME_COLORS.mutedGlow,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          color: isActive ? AUDIO_LIME_COLORS.icon          : AUDIO_LIME_COLORS.mutedIcon,
+          transition: "all 0.20s ease",
+          flexShrink: 0,
+          pointerEvents: "auto",
+          opacity: hovered || isActive ? 1 : 0,
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.opacity    = "1";
+          el.style.background = isActive ? AUDIO_LIME_COLORS.bgHover     : AUDIO_LIME_COLORS.mutedBgHover;
+          el.style.boxShadow  = isActive ? AUDIO_LIME_COLORS.glowHover   : AUDIO_LIME_COLORS.mutedGlow;
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.opacity    = hovered || isActive ? "1" : "0";
+          el.style.background = isActive ? AUDIO_LIME_COLORS.bg          : AUDIO_LIME_COLORS.mutedBg;
+          el.style.boxShadow  = isActive ? AUDIO_LIME_COLORS.glow        : AUDIO_LIME_COLORS.mutedGlow;
+        }}
+      >
+        {isActive ? <Volume2 size={10} /> : <VolumeX size={10} />}
+      </button>
 
       {/* ── Title — bottom ───────────────────────────────────────────────── */}
       <div

@@ -14,7 +14,7 @@
  *
  * Performance targets:
  *   hero-bg.mp4 → under 5 MB, no audio track, H.264 baseline
- *   hero-bg.jpg → poster shown during video buffering
+ *   During buffering: base #050509 colour layer shows instantly — no poster needed
  *
  * Overflow fix: right-side glow is positioned at right:0, NOT right:-60px.
  * The previous negative value caused blur() to paint past the viewport edge.
@@ -34,28 +34,9 @@ export function HeroBackground() {
         style={{ position: "absolute", inset: 0, backgroundColor: "#050509" }}
       />
 
-      {/* ── 2. Fallback <img> — rendered BELOW video ─────────────────────── */}
-      {/*
-        Belt-and-suspenders: if the video element fails (404 on .mp4, codec
-        mismatch, data-saver mode), the browser may not surface the poster
-        attribute reliably. This img ensures the still is always visible.
-        eslint-disable-next-line: intentional — no next/image; this is a
-        decorative background, not a CLS-sensitive content image.
-      */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/hero/hero-bg.jpg"
-        alt=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center 30%",
-          opacity: 0.65,
-        }}
-      />
+      {/* ── 2. Fallback layer — base #050509 colour above handles buffering ── */}
+      {/* hero-bg.jpg does not exist; the dark base colour (layer 1) is      */}
+      {/* sufficient during video buffering — no img fallback needed.         */}
 
       {/* ── 3. Background video ───────────────────────────────────────────── */}
       <video
@@ -64,7 +45,6 @@ export function HeroBackground() {
         loop
         playsInline
         preload="metadata"
-        poster="/hero/hero-bg.jpg"
         style={{
           position: "absolute",
           inset: 0,
