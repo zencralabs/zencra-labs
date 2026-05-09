@@ -24,6 +24,14 @@ import CreativeDirectorShell from "@/components/studio/creative-director/Creativ
 import { CDv2Shell } from "@/components/studio/creative-director-v2/CDv2Shell";
 import Tooltip from "@/components/ui/Tooltip";
 import { MODEL_CAPABILITIES } from "@/lib/studio/model-capabilities";
+import {
+  IMAGE_MODEL_CONFIGS,
+  BATCH_LOCKED_MODEL_KEYS,
+  getModelDockConfig,
+  getDefaultQuality,
+  type QualityOption,
+  type QualityDisplayMode,
+} from "@/lib/studio/image-model-config";
 import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
 import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
 import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
@@ -244,20 +252,7 @@ type Quality           = ResolutionQuality; // used by allowedQualities — reso
 type OutputFormat = "JPG" | "PNG";
 type Tab = "history" | "community";
 
-/**
- * Provider-native quality tier option.
- * Used by models that expose performance tiers rather than resolution tiers.
- * Labels (Fast/Cinematic/Ultra) are shown in the UI; apiValues are Zencra vocabulary
- * ("fast" | "cinematic" | "ultra") — translated to OpenAI values in gpt-image.ts.
- * creditMultiplier is informational — the engine reads from DB quality_multipliers.
- */
-interface QualityOption {
-  label:            string;   // UI label: "Fast" | "Cinematic" | "Ultra"
-  apiValue:         string;   // Zencra quality vocab: "fast" | "cinematic" | "ultra"
-  creditMultiplier: number;   // Informational — engine reads from STATIC_QUALITY_MULTIPLIERS / DB
-  desc?:            string;   // Short sublabel shown beneath the tier button
-  isDefault?:       boolean;  // If true, this option is selected when the model is first chosen
-}
+// QualityOption and QualityDisplayMode are imported from @/lib/studio/image-model-config
 
 interface StudioModel {
   id: string;
@@ -270,15 +265,8 @@ interface StudioModel {
   icon: string;
   requiresImg?: boolean;
   nbVariant?: string;
-  allowedQualities?:   Quality[];      // resolution tier models (NB Pro etc.)
-  qualityOptions?:     QualityOption[]; // performance tier models (GPT Image, Seedream 4.5 etc.)
-  /**
-   * Controls how qualityOptions are rendered:
-   *   "segmented" — inline Fast / Standard / Ultra toggle (GPT Image style)
-   *   "chips"     — dropdown chip selector (Seedream 4.5 resolution tiers)
-   * If absent, allowedQualities renders the legacy resolution selector.
-   */
-  qualityDisplayMode?: "segmented" | "chips";
+  // Quality, AR, and batch-lock config is NOT stored here.
+  // Use getModelDockConfig(MODEL_TO_KEY[id]) from image-model-config.ts — single source of truth.
 }
 
 // ── Provider routing — maps UI model IDs → /api/studio/image/generate modelKeys ──────────
@@ -297,16 +285,7 @@ const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
   Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
 );
 
-// ── Models that cannot produce more than 1 image per generation ──────────────
-// Nano Banana uses an async job API (1 job = 1 image).
-// Flux Kontext is a transform/edit model — batching is not meaningful.
-// Keep this set in sync with the backend clamp in the generate route.
-const BATCH_LOCKED_MODEL_KEYS = new Set([
-  "nano-banana-standard",
-  "nano-banana-pro",
-  "nano-banana-2",
-  "flux-kontext",
-]);
+// BATCH_LOCKED_MODEL_KEYS is imported from @/lib/studio/image-model-config (derived from batchLocked).
 
 // ── Catalog ↔ Studio model maps ───────────────────────────────────────────────
 // Catalog IDs are safe for URLs (never expose internal "dalle3" key).
@@ -345,35 +324,14 @@ function mapArForGpt(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
 }
 
 // ── Per-model AR lists ────────────────────────────────────────────────────────
-// Hard-locked to playground-confirmed behaviour.
-// Keep in sync with NB_SUPPORTED_ASPECT_RATIOS / NB2_SUPPORTED_ASPECT_RATIOS in nano-banana.ts.
+// Derived from IMAGE_MODEL_CONFIGS (single source of truth in image-model-config.ts).
+// Inline AR arrays removed — use getModelDockConfig(key)?.aspectRatios instead.
 
-/** NB Standard: exactly 10 concrete options, no Auto. */
-const NB_STANDARD_AR: AspectRatio[] = [
-  "1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "4:5", "5:4", "21:9",
-];
-
-/** NB Pro: same 10 + Auto (Auto → omit aspectRatio → model picks dimensions). */
-const NB_PRO_AR: AspectRatio[] = [
-  "Auto", "1:1", "9:16", "16:9", "3:4", "4:3", "3:2", "2:3", "4:5", "5:4", "21:9",
-];
-
-/** NB2: 7 options including Auto (Auto → no AR sent → NB2 server default). */
-const NB2_AR: AspectRatio[] = ["Auto", "1:1", "4:5", "5:4", "9:16", "16:9", "8:1"];
-
-/** GPT Image 1.5 (dalle3): collapsed internally by mapArForGpt — 4 options. */
-const DALLE_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
-
-/**
- * GPT Image 2: 10 aspect ratios with native size mapping per AR.
- * Excludes extreme ARs (1:4, 1:8, 4:1, 8:1) — gpt-image-2 API enforces 3:1 max ratio.
- * ARs are passed through directly; gpt-image.ts GPT2_FAST/CINEMATIC_SIZES resolve the pixel dimensions.
- */
-const GPT2_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5", "5:4", "3:4", "4:3", "2:3", "3:2", "21:9"];
-
-// Nano Banana Standard/Pro concrete AR passthrough — the same 10 ARs are valid
-// for both models. "Auto" is excluded: it maps to undefined (no AR sent).
-const NB_AR_PASSTHROUGH = new Set<AspectRatio>(NB_STANDARD_AR);
+// Nano Banana Standard/Pro concrete AR passthrough — derived from shared config.
+// "Auto" is excluded: it maps to undefined (no AR sent).
+const NB_AR_PASSTHROUGH = new Set<AspectRatio>(
+  (getModelDockConfig("nano-banana-standard")?.aspectRatios ?? ["1:1"]) as AspectRatio[]
+);
 function mapArForNB(ar: AspectRatio): string | undefined {
   if (ar === "Auto") return undefined;
   return NB_AR_PASSTHROUGH.has(ar) ? ar : undefined;
@@ -398,11 +356,7 @@ function mapArToApiAr(ar: AspectRatio): "1:1" | "16:9" | "9:16" | "4:5" {
   return mapArForGpt(ar);
 }
 
-/**
- * Seedream v5 supports 4 aspect ratios (same as GPT Image).
- * Seedream 4.5 uses the same set.
- */
-const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
+// SEEDREAM_AR removed — use getModelDockConfig("seedream-v5")?.aspectRatios from image-model-config.ts
 
 // ── Model definitions ─────────────────────────────────────────────────────────
 // Order matches navbar dock order: GPT Image 2 → GPT Image 1.5 → NB2 → NB Pro → NB → Seedream v5 → Seedream 4.5
@@ -416,13 +370,7 @@ const MODELS: StudioModel[] = [
     badgeColor: "#10A37F",
     available: true,
     icon: "openai",
-    // Quality uses Zencra vocabulary ("fast" | "cinematic") — translated to OpenAI API values in gpt-image.ts.
-    // "ultra" exists in DB + provider but is intentionally hidden from UI (Phase 1A pricing decision).
-    // Transform mode (/v1/images/edits) ignores quality — selector hidden when referenceImageUrl is set.
-    qualityOptions: [
-      { label: "Fast",      apiValue: "fast",      creditMultiplier: 1.0,   desc: "Quick generation" },
-      { label: "Cinematic", apiValue: "cinematic", creditMultiplier: 3.667, desc: "Premium quality", isDefault: true },
-    ],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("gpt-image-2")
   },
   {
     id: "dalle3",           // backend provider key → "dalle" → resolves to "dalle-3" in tool-registry
@@ -433,14 +381,7 @@ const MODELS: StudioModel[] = [
     badgeColor: null,
     available: true,
     icon: "openai",
-    // Phase 1B: provider-native quality tiers replace fake 1K/2K resolution labels.
-    // Labels are performance modes; apiValues are sent directly to OpenAI /v1/images/generations.
-    // Transform mode (/v1/images/edits) ignores quality — selector is hidden when referenceImageUrl is set.
-    qualityOptions: [
-      { label: "Fast",     apiValue: "low",    creditMultiplier: 1.0,  desc: "Faster" },
-      { label: "Standard", apiValue: "medium", creditMultiplier: 1.25, desc: "Balanced" },
-      { label: "Ultra",    apiValue: "high",   creditMultiplier: 1.75, desc: "Highest" },
-    ],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("gpt-image-1")
   },
   {
     id: "nano-banana-2",
@@ -452,10 +393,7 @@ const MODELS: StudioModel[] = [
     available: true,
     icon: "nanobana",
     nbVariant: "nb2",
-    // Step 0 safety lock: NB2 adapter ignores quality and sends fixed ~1K dimensions.
-    // Exposing 2K/4K would display false pricing and false resolution claims.
-    // Restore to ["1K","2K","4K"] only after API research confirms higher-res width/height support.
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("nano-banana-2")
   },
   // nano-banana-edit removed — no backend registry entry exists in new provider system
   {
@@ -468,7 +406,7 @@ const MODELS: StudioModel[] = [
     available: true,
     icon: "nanobana",
     nbVariant: "pro",
-    allowedQualities: ["1K", "2K", "4K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("nano-banana-pro")
   },
   {
     id: "nano-banana-standard",
@@ -480,7 +418,7 @@ const MODELS: StudioModel[] = [
     available: true,
     icon: "nanobana",
     nbVariant: "standard",
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("nano-banana-standard")
   },
   {
     id: "seedream-v5",
@@ -491,7 +429,7 @@ const MODELS: StudioModel[] = [
     badgeColor: "#EF4444",
     available: true,
     icon: "seedream",
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("seedream-v5")
   },
   {
     id: "seedream-4-5",
@@ -503,13 +441,7 @@ const MODELS: StudioModel[] = [
     available: true,
     icon: "seedream",
     requiresImg: false,
-    // Phase 1C: native resolution quality tiers exposed as chip selector.
-    // API values are sent as providerParams.quality → seedream.ts maps to fal.ai image_size.
-    qualityOptions: [
-      { label: "2K Standard", apiValue: "2K", creditMultiplier: 1.25, desc: "auto_2K · balanced" },
-      { label: "4K Ultra",    apiValue: "4K", creditMultiplier: 1.75, desc: "auto_4K · highest" },
-    ],
-    qualityDisplayMode: "chips",
+    // Quality config lives in image-model-config.ts — getModelDockConfig("seedream-4-5")
   },
   {
     id: "flux2-pro",
@@ -520,7 +452,7 @@ const MODELS: StudioModel[] = [
     badgeColor: "#374151",
     available: false,
     icon: "flux",
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("flux-2-image")
   },
   {
     id: "flux2-flex",
@@ -531,7 +463,7 @@ const MODELS: StudioModel[] = [
     badgeColor: "#374151",
     available: false,
     icon: "flux",
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("flux-kontext")
   },
   {
     id: "flux2-max",
@@ -542,7 +474,7 @@ const MODELS: StudioModel[] = [
     badgeColor: "#374151",
     available: false,
     icon: "flux",
-    allowedQualities: ["1K"],
+    // Quality config lives in image-model-config.ts — getModelDockConfig("flux-2-max")
   },
 ];
 
@@ -1385,6 +1317,9 @@ function ImageStudioInner() {
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
+  // ── Shared dock config — single source of truth from image-model-config.ts ──
+  const currentDockConfig  = getModelDockConfig(currentModelKey);
+
   // ── Effective batch size — locked models (NB, Flux) are capped at 1 ────────
   const batchLocked       = BATCH_LOCKED_MODEL_KEYS.has(currentModelKey);
   const effectiveBatchSize = batchLocked ? 1 : batchSize;
@@ -1879,43 +1814,31 @@ function ImageStudioInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When model changes: reset quality if not allowed, clear edit image if not needed,
-  // and hard-reset aspect ratio if the current AR is not in the new model's supported list.
+  // When model changes: reset quality to the new model's default, clear edit image
+  // if not needed, and hard-reset aspect ratio if the current AR is not supported.
   useEffect(() => {
     const cm = MODELS.find((m) => m.id === model);
     if (!cm) return;
-    if (cm.qualityOptions) {
+    const modelKey   = MODEL_TO_KEY[model] ?? "gpt-image-1";
+    const dockConfig = getModelDockConfig(modelKey);
+
+    if (dockConfig?.qualityOptions) {
       // Use the model's own declared default; fall back to first option if none marked.
-      const defaultOpt = cm.qualityOptions.find((o) => o.isDefault) ?? cm.qualityOptions[0];
+      const defaultOpt = dockConfig.qualityOptions.find((o) => o.isDefault) ?? dockConfig.qualityOptions[0];
       setQuality((defaultOpt?.apiValue as StudioQuality) ?? "medium");
-    } else if (cm.allowedQualities && !cm.allowedQualities.includes(quality as ResolutionQuality)) {
-      setQuality(cm.allowedQualities[0]);
+    } else if (dockConfig?.allowedQualities && !dockConfig.allowedQualities.includes(quality as ResolutionQuality)) {
+      setQuality(dockConfig.allowedQualities[0]);
     }
     if (!cm.requiresImg) setEditImageUrl("");
     if (cm.requiresImg) setBatchSize(1);  // edit models: 1 at a time
 
     // ── AR hard-lock per model ────────────────────────────────────────────────
     // If the current AR is not in the target model's supported list, reset to 1:1.
+    // Derived from IMAGE_MODEL_CONFIGS — no inline AR arrays needed.
     setAspectRatio((cur) => {
-      if (model === "nano-banana-2") {
-        return (NB2_AR as readonly string[]).includes(cur) ? cur : "1:1";
-      }
-      if (model === "nano-banana-pro") {
-        return (NB_PRO_AR as readonly string[]).includes(cur) ? cur : "1:1";
-      }
-      if (model.startsWith("nano-banana")) {
-        return (NB_STANDARD_AR as readonly string[]).includes(cur) ? cur : "1:1";
-      }
-      // Seedream — collapses to 4-option set
-      if (model.startsWith("seedream")) {
-        return (SEEDREAM_AR as readonly string[]).includes(cur) ? cur : "1:1";
-      }
-      // GPT Image 2 — hard-lock to supported 10-AR set
-      if (model === "gpt-image-2") {
-        return (GPT2_AR as readonly string[]).includes(cur) ? cur : "1:1";
-      }
-      // GPT Image 1 — always pass through (mapArForGpt collapses internally)
-      return cur;
+      const supported = dockConfig?.aspectRatios as readonly string[] | undefined;
+      if (!supported) return cur;
+      return supported.includes(cur) ? cur : "1:1";
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model]);
@@ -4204,14 +4127,10 @@ function ImageStudioInner() {
 
             {/* Aspect Ratio */}
             {(() => {
-              // Hard-locked AR list per model — only supported ratios are shown.
+              // Hard-locked AR list per model — derived from shared image-model-config.ts.
               const activeArList: AspectRatio[] =
-                model === "nano-banana-2"          ? NB2_AR :
-                model === "nano-banana-pro"        ? NB_PRO_AR :
-                model.startsWith("nano-banana")    ? NB_STANDARD_AR :
-                model.startsWith("seedream")       ? SEEDREAM_AR :
-                model === "gpt-image-2"            ? GPT2_AR :
-                DALLE_AR;
+                (currentDockConfig?.aspectRatios as AspectRatio[] | undefined) ??
+                ["1:1", "16:9", "9:16", "4:5"];
 
               return (
                 <div data-dd style={{ position: "relative" }}>
@@ -4255,9 +4174,9 @@ function ImageStudioInner() {
 
             {/* "segmented" — GPT Image Fast / Standard / Ultra inline toggle */}
             {/* Hidden in transform/edit mode: /v1/images/edits ignores quality. */}
-            {currentModel.qualityOptions && currentModel.qualityDisplayMode !== "chips" && !isTransformMode && (
+            {currentDockConfig?.qualityOptions && currentDockConfig.qualityDisplayMode !== "chips" && !isTransformMode && (
               <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
-                {currentModel.qualityOptions.map((opt) => {
+                {currentDockConfig.qualityOptions.map((opt) => {
                   const isActive = quality === opt.apiValue;
                   return (
                     <button
@@ -4290,7 +4209,7 @@ function ImageStudioInner() {
 
             {/* "chips" — Seedream 4.5 native resolution chip selector (2K Standard / 4K Ultra) */}
             {/* Renders as a compact pill row. No quality = provider default (1K). */}
-            {currentModel.qualityOptions && currentModel.qualityDisplayMode === "chips" && (
+            {currentDockConfig?.qualityOptions && currentDockConfig.qualityDisplayMode === "chips" && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {/* "None / 1K" deselect chip — lets user reset to base cost */}
                 <button
@@ -4307,7 +4226,7 @@ function ImageStudioInner() {
                 >
                   Default
                 </button>
-                {currentModel.qualityOptions.map((opt) => {
+                {currentDockConfig.qualityOptions.map((opt) => {
                   const isActive = quality === opt.apiValue;
                   return (
                     <button
@@ -4332,7 +4251,7 @@ function ImageStudioInner() {
             )}
 
             {/* Resolution quality — 1K / 2K / 4K dropdown (NB Pro and resolution-tier models) */}
-            {(currentModel.allowedQualities?.length ?? 0) > 1 && (
+            {(currentDockConfig?.allowedQualities?.length ?? 0) > 1 && (
               <div data-dd style={{ position: "relative" }}>
                 <button onClick={() => { closeDropdowns(); setShowQualityPicker((v) => !v); }} style={ctrlBtn(showQualityPicker)}>
                   ♡ {quality}
@@ -4353,7 +4272,7 @@ function ImageStudioInner() {
                       { label: "2K" as Quality, desc: "HD · Better detail" },
                       { label: "4K" as Quality, desc: "Ultra HD · Pro only" },
                     ] as { label: Quality; desc: string }[])
-                      .filter(({ label }) => currentModel.allowedQualities?.includes(label))
+                      .filter(({ label }) => currentDockConfig?.allowedQualities?.includes(label))
                       .map(({ label, desc }) => (
                         <button
                           key={label}
