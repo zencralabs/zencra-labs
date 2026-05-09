@@ -595,17 +595,17 @@ function MobileMenu({
               );
             })}
 
-            {/* Cinema Studio */}
+            {/* Future Cinema Studio — reuses desktop .fcs-nav-link / .fcs-text / .fcs-soon tokens */}
             <li>
               <Link
                 href="/studio/cinema"
                 onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
-                style={{ color: "#94A3B8", fontSize: "16px" }}
+                className="fcs-nav-link flex w-full items-center gap-3"
+                style={{ padding: "12px 16px", borderRadius: "12px" }}
               >
-                <Clapperboard size={14} style={{ color: "#A855F7", flexShrink: 0 }} />
-                <span className="flex-1">Cinema Studio</span>
-                <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7" }}>SOON</span>
+                <Clapperboard size={15} style={{ color: "#D4AF37", flexShrink: 0 }} />
+                <span className="fcs-text" style={{ flex: 1, fontSize: "16px" }}>Future Cinema Studio</span>
+                <span className="fcs-soon">SOON</span>
               </Link>
             </li>
           </ul>
