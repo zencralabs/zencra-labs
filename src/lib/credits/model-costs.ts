@@ -140,6 +140,14 @@ export interface CreditCostOptions {
 
   /** True when multi-element mode is active (adds addon-multi-element cost). */
   hasMultiElement?: boolean;
+
+  /**
+   * Number of images to generate in a single batch (1–4).
+   * The final credit cost is multiplied by this value.
+   * Clamped server-side as well; this is for frontend display accuracy only.
+   * Default: 1 (single image).
+   */
+  outputCount?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,7 +182,8 @@ export function getGenerationCreditCost(
   };
 
   const result = calculateCreditCost(base, params, undefined, "static");
-  return result.total;
+  const count = Math.max(1, Math.min(opts.outputCount ?? 1, 4));
+  return result.total * count;
 }
 
 /**

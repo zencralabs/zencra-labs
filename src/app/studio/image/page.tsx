@@ -295,6 +295,17 @@ const KEY_TO_MODEL: Record<string, string> = Object.fromEntries(
   Object.entries(MODEL_TO_KEY).map(([uiId, key]) => [key, uiId])
 );
 
+// ── Models that cannot produce more than 1 image per generation ──────────────
+// Nano Banana uses an async job API (1 job = 1 image).
+// Flux Kontext is a transform/edit model — batching is not meaningful.
+// Keep this set in sync with the backend clamp in the generate route.
+const BATCH_LOCKED_MODEL_KEYS = new Set([
+  "nano-banana-standard",
+  "nano-banana-pro",
+  "nano-banana-2",
+  "flux-kontext",
+]);
+
 // ── Catalog ↔ Studio model maps ───────────────────────────────────────────────
 // Catalog IDs are safe for URLs (never expose internal "dalle3" key).
 // CATALOG_TO_STUDIO_MODEL: ?model= URL param → internal UI model ID
@@ -1360,6 +1371,10 @@ function ImageStudioInner() {
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
+  // ── Effective batch size — locked models (NB, Flux) are capped at 1 ────────
+  const batchLocked       = BATCH_LOCKED_MODEL_KEYS.has(currentModelKey);
+  const effectiveBatchSize = batchLocked ? 1 : batchSize;
+
   // ── AI Influencer @handle detection (local only — no DB, no async) ───────────
   // Purely syntactic: detects @Handle tokens in the current prompt so the UI can
   // show "Using @[handle] identity" badges before the user hits Generate.
@@ -1982,11 +1997,38 @@ function ImageStudioInner() {
 
     const isNanoB    = modelKey.startsWith("nano-banana");
     const isAsync    = isNanoB;   // NB = async polling; gpt-image-1 = sync
-    const count      = isAsync ? 1 : Math.min(batchSize, 4);
+    const isLocked   = BATCH_LOCKED_MODEL_KEYS.has(modelKey);
+    const count      = (isAsync || isLocked) ? 1 : Math.min(batchSize, 4);
     // AR routing: NB gets actual string; GPT gets collapsed 4-ratio set
     const apiAr = isNanoB ? mapArForNB(activeAr) : mapArToApiAr(activeAr);
 
-    console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr });
+    console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr, count });
+
+    // ── Upfront balance check — reject early if credits insufficient for full batch ──
+    {
+      const singleCost = getGenerationCreditCost(modelKey, isTransformMode ? {} : { quality });
+      if (singleCost !== null && count > 1) {
+        const totalNeeded = singleCost * count;
+        try {
+          const balRes  = await fetch("/api/credits/balance", {
+            headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+          });
+          if (balRes.ok) {
+            const balData = await balRes.json();
+            const available: number = balData?.data?.available ?? Infinity;
+            if (available < totalNeeded) {
+              showToast(
+                `Not enough credits for ${count} images (need ${totalNeeded} cr, have ${available} cr).`,
+                "error"
+              );
+              return;
+            }
+          }
+        } catch {
+          // Non-fatal — if balance check fails, let the generation proceed; backend is authoritative
+        }
+      }
+    }
 
     // Add placeholder(s) immediately so the grid shows shimmer
     // Store rawPrompt (not enriched) so the card displays the user's original text
@@ -2030,7 +2072,8 @@ function ImageStudioInner() {
           // GPT Image: quality is now the provider-native API value ("low" | "medium" | "high").
           // In transform mode, /v1/images/edits ignores quality — adapter does not forward it to FormData.
           // No translation needed: quality state IS the API value for this model.
-          body.providerParams = { quality };
+          // outputCount: passed when count > 1 so the provider uses native n= batching.
+          body.providerParams = { quality, ...(count > 1 ? { outputCount: count } : {}) };
           if (referenceImageUrl) body.imageUrl = referenceImageUrl;
         } else if (modelKey === "seedream-4-5") {
           // Seedream 4.5: quality is the chip value ("2K" | "4K" | "" for default).
@@ -4341,29 +4384,34 @@ function ImageStudioInner() {
               </>
             )}
 
-            {/* Batch size */}
+            {/* Batch size — locked to 1 for NB and Flux models */}
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button
-                onClick={() => setBatchSize((v) => Math.max(1, v - 1))}
+                onClick={() => !batchLocked && setBatchSize((v) => Math.max(1, v - 1))}
+                disabled={batchLocked || batchSize <= 1}
                 style={{
                   width: 26, height: 26, borderRadius: 7, border: "none",
                   background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)",
-                  cursor: batchSize > 1 ? "pointer" : "not-allowed", fontSize: 16,
+                  cursor: (batchLocked || batchSize <= 1) ? "not-allowed" : "pointer", fontSize: 16,
                   display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600,
-                  opacity: batchSize <= 1 ? 0.4 : 1,
+                  opacity: (batchLocked || batchSize <= 1) ? 0.4 : 1,
                 }}
               >−</button>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", minWidth: 28, textAlign: "center", fontWeight: 500 }}>
-                {batchSize}/4
+              <span
+                style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", minWidth: 28, textAlign: "center", fontWeight: 500 }}
+                title={batchLocked ? "This model supports 1 image per generation" : undefined}
+              >
+                {batchLocked ? "1/1" : `${batchSize}/4`}
               </span>
               <button
-                onClick={() => setBatchSize((v) => Math.min(4, v + 1))}
+                onClick={() => !batchLocked && setBatchSize((v) => Math.min(4, v + 1))}
+                disabled={batchLocked || batchSize >= 4}
                 style={{
                   width: 26, height: 26, borderRadius: 7, border: "none",
                   background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)",
-                  cursor: batchSize < 4 ? "pointer" : "not-allowed", fontSize: 16,
+                  cursor: (batchLocked || batchSize >= 4) ? "not-allowed" : "pointer", fontSize: 16,
                   display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600,
-                  opacity: batchSize >= 4 ? 0.4 : 1,
+                  opacity: (batchLocked || batchSize >= 4) ? 0.4 : 1,
                 }}
               >+</button>
             </div>
@@ -4456,7 +4504,7 @@ function ImageStudioInner() {
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>
-                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1", isTransformMode ? {} : { quality }) ?? "—"} cr
+                          {getGenerationCreditCost(MODEL_TO_KEY[model] ?? "gpt-image-1", isTransformMode ? {} : { quality, outputCount: effectiveBatchSize }) ?? "—"} cr
                         </span>
                       )}
                     </>
