@@ -577,10 +577,15 @@ function MobileMenu({
                       onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
                       onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                     >
-                      <span
-                        className="h-2 w-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: cat!.color, boxShadow: `0 0 6px ${cat!.color}` }}
-                      />
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: `${cat!.color}14`, border: `1px solid ${cat!.color}22`, boxShadow: `0 0 8px ${cat!.color}18` }}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: cat!.color, boxShadow: `0 0 6px ${cat!.color}` }}
+                        />
+                      </div>
                       <span className="flex-1 text-left">{link.label}</span>
                       <ChevronRight size={14} style={{ color: "#475569" }} />
                     </button>
