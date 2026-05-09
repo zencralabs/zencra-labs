@@ -542,7 +542,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           // Resolve prompt: TextNode input takes priority, then scene + character suffix.
           const resolvedPrompt = textNodeInput || promptSuffix || "";
 
-          // Tier: cinematic default when references present and no manual override.
+          // Tier: _quality now carries canonical apiValues from PromptDock's store
+          // ("fast", "cinematic", "2K", "4K", …) — NOT the old "standard"/"hd" strings.
+          // So _quality === "fast" correctly resolves to the Fast tier.
+          // Cinematic default when references are present and no manual override.
           const hasReferences = references.length > 0;
           const tier: "fast" | "cinematic" =
             hasReferences && !_quality ? "cinematic" :
@@ -568,6 +571,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
               tier,
               aspectRatio,
               outputCount: count,
+              model:       selectedModel, // forwarded for future capability routing
             }),
           });
           if (!res.ok) {
@@ -705,6 +709,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           tier:        "cinematic",
           aspectRatio: "1:1",
           outputCount: 1,
+          model:       selectedModel, // forwarded for future capability routing
         }),
       });
       if (!res.ok) {
@@ -759,6 +764,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             tier:        "cinematic",
             aspectRatio,
             outputCount: 1,
+            model:       selectedModel, // forwarded for future capability routing
           }),
         });
         if (!res.ok) {

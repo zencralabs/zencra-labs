@@ -35,16 +35,20 @@ import {
   STYLE_MOOD_PRESETS,
   buildCharacterDirectionSuffix,
 }                                                      from "@/lib/creative-director/store";
+import {
+  getModelDockConfig,
+  getDefaultQuality,
+  getDefaultAspectRatio,
+  BATCH_LOCKED_MODEL_KEYS,
+}                                                      from "@/lib/studio/image-model-config";
 import { AssetTray }                                   from "./AssetTray";
+import { getGenerationCreditCost }                      from "@/lib/credits/model-costs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COUNT_OPTIONS  = [1, 2, 4] as const;
-const AR_OPTIONS     = ["1:1", "16:9", "9:16", "4:5"] as const;
-const QUALITY_OPTIONS: Array<{ key: "standard" | "hd"; label: string }> = [
-  { key: "standard", label: "STD" },
-  { key: "hd",       label: "HD"  },
-];
+const COUNT_OPTIONS = [1, 2, 4] as const;
+// Fallback AR list — overridden per-model from image-model-config.ts at runtime.
+const AR_FALLBACK = ["1:1", "16:9", "9:16", "4:5"] as const;
 
 // Brand groups for the model selector.
 // models[] order = oldest → newest (top → bottom when dropdown opens upward).
@@ -142,15 +146,17 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
     textNodes,
     selectedModel,
     setSelectedModel,
+    quality,
+    outputCount,
+    setQuality,
+    setOutputCount,
     uploadedAssets,
     refinements,
     characterDirection,
     activeStyleMood,
   } = useDirectionStore();
 
-  const [count,        setCount]        = useState<1 | 2 | 4>(1);
   const [ar,           setAr]           = useState<string>("1:1");
-  const [quality,      setQuality]      = useState<"standard" | "hd">("standard");
   const [directInput,  setDirectInput]  = useState("");
   const [genHover,     setGenHover]     = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
@@ -161,6 +167,46 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
   // Dock hide / mini mode
   const [dockHidden,   setDockHidden]   = useState(false);
   const [hideHovered,  setHideHovered]  = useState(false);
+
+  // ── Shared model dock config — single source of truth ──────────────────
+  const currentDockConfig = getModelDockConfig(selectedModel);
+  const batchLocked       = BATCH_LOCKED_MODEL_KEYS.has(selectedModel);
+  const effectiveCount    = batchLocked ? 1 : (outputCount ?? 1);
+  // Per-model AR list from shared config; falls back to a 4-ratio set.
+  const activeArList: string[] =
+    (currentDockConfig?.aspectRatios as string[] | undefined) ?? Array.from(AR_FALLBACK);
+
+  // ── Model-switch effect: sync quality + AR + outputCount to new model ──
+  useEffect(() => {
+    // Resolve default quality for the new model
+    const defaultQ = getDefaultQuality(selectedModel);
+    // Always reset quality on model switch so stale apiValues never carry over
+    setQuality(defaultQ);
+
+    // Clamp AR to what the new model supports
+    setAr((cur) => {
+      const dockConfig = getModelDockConfig(selectedModel);
+      const supported  = dockConfig?.aspectRatios as readonly string[] | undefined;
+      if (!supported) return cur;
+      if (supported.includes(cur)) return cur;
+      return getDefaultAspectRatio(selectedModel);
+    });
+
+    // Batch-locked models must use count=1
+    if (BATCH_LOCKED_MODEL_KEYS.has(selectedModel)) {
+      setOutputCount(1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModel]);
+
+  // ── Mount: initialize quality if store has null (first load) ───────────
+  useEffect(() => {
+    if (quality === null) {
+      const defaultQ = getDefaultQuality(selectedModel);
+      if (defaultQ) setQuality(defaultQ);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync: when parent (CDv2Shell) opens the dock via the shell-level mini strip,
   // reset internal dockHidden so the full console content shows.
@@ -214,6 +260,13 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
   const genAnimation = canGenerate && !isGenerating
     ? (isLocked ? "cd-locked-pulse 3s ease-in-out infinite" : "cd-generate-pulse 3s ease-in-out infinite")
     : "none";
+
+  // ── Credit cost — same shared helper as Image Studio (no separate logic) ──
+  // Passes the canonical quality apiValue from store so multipliers match exactly.
+  const creditCost = getGenerationCreditCost(selectedModel, {
+    quality:     quality ?? undefined,
+    outputCount: effectiveCount,
+  });
 
   const px = isFullscreen ? "24px" : "14px";
 
@@ -285,11 +338,11 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        if (canGenerate) onGenerate(count, ar, quality, directInput.trim() || undefined);
+        if (canGenerate) onGenerate(effectiveCount, ar, quality ?? undefined, directInput.trim() || undefined);
       }
       // Plain Enter → native newline, no interception needed
     },
-    [canGenerate, count, ar, quality, directInput, onGenerate]
+    [canGenerate, effectiveCount, ar, quality, directInput, onGenerate]
   );
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -475,39 +528,79 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
               }}
             />
 
-            {/* Quality toggle */}
-            <div style={{
-              display:      "flex",
-              gap:          2,
-              background:   "rgba(255,255,255,0.03)",
-              border:       "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 8,
-              padding:      2,
-              flexShrink:   0,
-            }}>
-              {QUALITY_OPTIONS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setQuality(key)}
-                  className="cd-model-pill"
-                  style={{
-                    background:    quality === key ? "rgba(255,255,255,0.1)" : "transparent",
-                    border:        `1px solid ${quality === key ? "rgba(255,255,255,0.18)" : "transparent"}`,
-                    borderRadius:  6,
-                    color:         quality === key ? "#E8ECF5" : "#AEB7D0",
-                    fontSize:      11,
-                    fontFamily:    "var(--font-sans)",
-                    fontWeight:    quality === key ? 700 : 400,
-                    cursor:        "pointer",
-                    padding:       "3px 9px",
-                    letterSpacing: "0.07em",
-                    transition:    "all 0.15s ease",
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* Quality selector — model-aware from image-model-config.ts.
+                qualityOptions models: segmented pill toggle with Zencra labels.
+                allowedQualities models with >1 tier: pill buttons with resolution labels.
+                Single-quality models (NB2, NB Standard, etc.): hidden entirely. */}
+            {currentDockConfig?.qualityOptions && currentDockConfig.qualityOptions.length > 1 && (
+              <div style={{
+                display:      "flex",
+                gap:          2,
+                background:   "rgba(255,255,255,0.03)",
+                border:       "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 8,
+                padding:      2,
+                flexShrink:   0,
+              }}>
+                {currentDockConfig.qualityOptions.map((opt) => (
+                  <button
+                    key={opt.apiValue}
+                    onClick={() => setQuality(opt.apiValue)}
+                    title={opt.desc}
+                    className="cd-model-pill"
+                    style={{
+                      background:    quality === opt.apiValue ? "rgba(255,255,255,0.1)" : "transparent",
+                      border:        `1px solid ${quality === opt.apiValue ? "rgba(255,255,255,0.18)" : "transparent"}`,
+                      borderRadius:  6,
+                      color:         quality === opt.apiValue ? "#E8ECF5" : "#AEB7D0",
+                      fontSize:      11,
+                      fontFamily:    "var(--font-sans)",
+                      fontWeight:    quality === opt.apiValue ? 700 : 400,
+                      cursor:        "pointer",
+                      padding:       "3px 9px",
+                      letterSpacing: "0.07em",
+                      transition:    "all 0.15s ease",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!currentDockConfig?.qualityOptions && (currentDockConfig?.allowedQualities?.length ?? 0) > 1 && (
+              <div style={{
+                display:      "flex",
+                gap:          2,
+                background:   "rgba(255,255,255,0.03)",
+                border:       "1px solid rgba(255,255,255,0.07)",
+                borderRadius: 8,
+                padding:      2,
+                flexShrink:   0,
+              }}>
+                {currentDockConfig!.allowedQualities!.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setQuality(q)}
+                    className="cd-model-pill"
+                    style={{
+                      background:    quality === q ? "rgba(255,255,255,0.1)" : "transparent",
+                      border:        `1px solid ${quality === q ? "rgba(255,255,255,0.18)" : "transparent"}`,
+                      borderRadius:  6,
+                      color:         quality === q ? "#E8ECF5" : "#AEB7D0",
+                      fontSize:      11,
+                      fontFamily:    "var(--font-sans)",
+                      fontWeight:    quality === q ? 700 : 400,
+                      cursor:        "pointer",
+                      padding:       "3px 9px",
+                      letterSpacing: "0.07em",
+                      transition:    "all 0.15s ease",
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Hide / minimize button — disabled during generation */}
             {!isGenerating && (
@@ -662,17 +755,20 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
               {/* AR + Count row */}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 
-                {/* Aspect Ratio */}
+                {/* Aspect Ratio — per-model list from image-model-config.ts */}
                 <div style={{
-                  display:      "flex",
-                  gap:          2,
-                  background:   "rgba(255,255,255,0.03)",
-                  border:       "1px solid rgba(255,255,255,0.08)",
+                  display:    "flex",
+                  gap:        2,
+                  background: "rgba(255,255,255,0.03)",
+                  border:     "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 9,
-                  padding:      2,
-                  alignItems:   "center",
+                  padding:    2,
+                  alignItems: "center",
+                  overflowX:  "auto",
+                  maxWidth:   220,
+                  scrollbarWidth: "none",
                 }}>
-                  {AR_OPTIONS.map((ratio) => (
+                  {activeArList.map((ratio) => (
                     <button
                       key={ratio}
                       onClick={() => setAr(ratio)}
@@ -689,6 +785,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                         transition:    "all 0.15s ease",
                         letterSpacing: "0.02em",
                         whiteSpace:    "nowrap",
+                        flexShrink:    0,
                       }}
                     >
                       {ratio}
@@ -696,7 +793,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                   ))}
                 </div>
 
-                {/* Count */}
+                {/* Count — 2× and 4× visually disabled for batch-locked models */}
                 <div style={{
                   display:      "flex",
                   gap:          2,
@@ -706,30 +803,38 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                   padding:      2,
                   alignItems:   "center",
                 }}>
-                  {COUNT_OPTIONS.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setCount(n as 1 | 2 | 4)}
-                      style={{
-                        background:   count === n
-                          ? (isLocked ? "rgba(251,191,36,0.15)" : "rgba(139,92,246,0.15)")
-                          : "transparent",
-                        border:       "none",
-                        borderRadius: 6,
-                        color:        count === n
-                          ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
-                          : "rgba(255,255,255,0.32)",
-                        fontSize:     12,
-                        fontFamily:   "var(--font-sans)",
-                        fontWeight:   count === n ? 700 : 400,
-                        cursor:       "pointer",
-                        padding:      "3px 10px",
-                        transition:   "all 0.15s ease",
-                      }}
-                    >
-                      {n}×
-                    </button>
-                  ))}
+                  {COUNT_OPTIONS.map((n) => {
+                    const isCountDisabled = batchLocked && n !== 1;
+                    return (
+                      <button
+                        key={n}
+                        onClick={() => !isCountDisabled && setOutputCount(n as 1 | 2 | 4)}
+                        disabled={isCountDisabled}
+                        title={isCountDisabled ? "This model generates 1 image at a time" : undefined}
+                        style={{
+                          background:   effectiveCount === n
+                            ? (isLocked ? "rgba(251,191,36,0.15)" : "rgba(139,92,246,0.15)")
+                            : "transparent",
+                          border:       "none",
+                          borderRadius: 6,
+                          color:        isCountDisabled
+                            ? "rgba(255,255,255,0.15)"
+                            : effectiveCount === n
+                              ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
+                              : "rgba(255,255,255,0.32)",
+                          fontSize:     12,
+                          fontFamily:   "var(--font-sans)",
+                          fontWeight:   effectiveCount === n ? 700 : 400,
+                          cursor:       isCountDisabled ? "not-allowed" : "pointer",
+                          padding:      "3px 10px",
+                          transition:   "all 0.15s ease",
+                          opacity:      isCountDisabled ? 0.4 : 1,
+                        }}
+                      >
+                        {n}×
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -806,7 +911,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
 
                 {/* Generate CTA */}
                 <button
-                  onClick={() => canGenerate && onGenerate(count, ar, quality, directInput.trim() || undefined)}
+                  onClick={() => canGenerate && onGenerate(effectiveCount, ar, quality ?? undefined, directInput.trim() || undefined)}
                   disabled={!canGenerate}
                   onMouseEnter={() => setGenHover(true)}
                   onMouseLeave={() => setGenHover(false)}
@@ -856,12 +961,13 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                       }
                       {selectedFrameIsFilled ? "Update Scene" : "Generate Shot"}
                       <span style={{
-                        fontSize:   9,
-                        color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)",
+                        fontSize:   10,
+                        color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.45)",
                         fontFamily: "var(--font-sans)",
                         fontWeight: 400,
+                        letterSpacing: "0.01em",
                       }}>
-                        {count}×
+                        {creditCost !== null ? `${creditCost} cr` : `${effectiveCount}×`}
                       </span>
                     </>
                   )}

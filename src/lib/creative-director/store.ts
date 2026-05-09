@@ -243,6 +243,14 @@ export interface DirectionState {
   // ── Selected image model ─────────────────────────────────────────────────
   selectedModel: string;
 
+  // ── Generation quality + batch count ─────────────────────────────────────
+  // quality: null = use model default (resolved in PromptDock on mount / model switch)
+  // Canonical apiValue strings from image-model-config.ts QualityOption.apiValue
+  // (e.g. "fast" | "cinematic" for gpt-image-2, "2K" | "4K" for seedream-4-5)
+  quality:     string | null;
+  // outputCount: 1 for batch-locked models (NB family, flux-kontext); up to 4 for others
+  outputCount: 1 | 2 | 4;
+
   // ── Character direction (local — injected as promptSuffix) ───────────────
   characterDirection: CharacterDirection;
 
@@ -302,6 +310,9 @@ export interface DirectionActions {
 
   // Model selection
   setSelectedModel: (model: string) => void;
+  // Quality + output count — set by PromptDock when user interacts or model switches
+  setQuality:     (quality: string | null) => void;
+  setOutputCount: (count: 1 | 2 | 4) => void;
 
   // Character direction (local, builds promptSuffix)
   patchCharacterDirection: (patch: Partial<CharacterDirection>) => void;
@@ -364,6 +375,8 @@ const INITIAL: DirectionState = {
   refinements:         null,
   activeStyleMood:     null,
   selectedModel:       "gpt-image-2",
+  quality:             null,   // resolved on mount by PromptDock via getDefaultQuality()
+  outputCount:         1,
   characterDirection:  DEFAULT_CHARACTER_DIRECTION,
   uploadedAssets:      [],
   canvasTransform:     { x: 0, y: 0, scale: 100 },
@@ -419,6 +432,8 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
 
   // ── Model selection ───────────────────────────────────────────────────────
   setSelectedModel: (model) => set({ selectedModel: model }),
+  setQuality:     (quality) => set({ quality }),
+  setOutputCount: (count)   => set({ outputCount: count }),
 
   // ── Character direction ───────────────────────────────────────────────────
   patchCharacterDirection: (patch) =>
@@ -571,7 +586,10 @@ export const useDirectionStore = create<DirectionState & DirectionActions>()((se
 // Convenience selectors — stable references so components don't re-render on
 // unrelated state changes.
 // ─────────────────────────────────────────────────────────────────────────────
-export const selectElements       = (s: DirectionState & DirectionActions) => s.elements;
+export const selectSelectedModel   = (s: DirectionState & DirectionActions) => s.selectedModel;
+export const selectQuality         = (s: DirectionState & DirectionActions) => s.quality;
+export const selectOutputCount     = (s: DirectionState & DirectionActions) => s.outputCount;
+export const selectElements        = (s: DirectionState & DirectionActions) => s.elements;
 export const selectRefinements    = (s: DirectionState & DirectionActions) => s.refinements;
 export const selectOutputs        = (s: DirectionState & DirectionActions) => s.outputs;
 export const selectMode           = (s: DirectionState & DirectionActions) => s.mode;
