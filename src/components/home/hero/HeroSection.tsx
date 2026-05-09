@@ -52,10 +52,10 @@ export function HeroSection() {
           position: "relative",
           zIndex: 10,
           width: "100%",
-          paddingTop: "121px",
+          paddingTop: "clamp(88px, 12vw, 121px)",
           paddingBottom: "32px",
-          paddingLeft: "clamp(24px, 6vw, 80px)",
-          paddingRight: "24px",
+          paddingLeft: "clamp(20px, 6vw, 80px)",
+          paddingRight: "clamp(20px, 6vw, 24px)",
         }}
       >
         {/* Inner wrapper — centered on mobile, left on desktop */}

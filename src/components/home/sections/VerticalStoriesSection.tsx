@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { Volume2, VolumeX } from "lucide-react";
+import { useHomeVideoAudio, AUDIO_LIME_COLORS } from "@/hooks/useHomeVideoAudio";
 
 /**
  * VerticalStoriesSection
@@ -25,7 +27,7 @@ import { useRef, useState } from "react";
  *   • border-radius: 0 on all <video> and <img> elements
  *   • CSS transitions only — no Framer Motion
  *   • Native scroll-snap for swipe feel
- *   • Autoplay muted loop — no play icon, no duration badge
+ *   • Autoplay muted loop — audio via global HomeVideoAudioProvider
  */
 
 /**
@@ -53,6 +55,7 @@ const STORIES = [
 
 /** Single 9:16 story card — autoplay muted loop, no play icon, no duration badge */
 function StoryCard({
+  id,
   label,
   poster,
   videoPrimary,
@@ -65,13 +68,35 @@ function StoryCard({
   accent: string;
 }) {
   const [hovered, setHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const { isActive, hoverRequest, hoverRelease, togglePersistent } = useHomeVideoAudio(
+    `story-${id}`
+  );
+
+  // Sync muted state with global audio controller
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isActive) {
+      video.muted = false;
+      if (video.paused) {
+        video.play().catch(() => {
+          // Browser blocked unmuted autoplay — fall back gracefully
+          if (videoRef.current) videoRef.current.muted = true;
+        });
+      }
+    } else {
+      video.muted = true;
+    }
+  }, [isActive]);
 
   return (
     <div
       style={{
         position: "relative",
         flexShrink: 0,
-        width: "clamp(180px, 14vw, 200px)",
+        width: "clamp(145px, 14vw, 200px)",
         aspectRatio: "9/16",
         overflow: "hidden",
         borderRadius: 0,
@@ -84,8 +109,8 @@ function StoryCard({
         cursor: "pointer",
         backgroundColor: "#070A14",
       }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); hoverRequest(); }}
+      onMouseLeave={() => { setHovered(false); hoverRelease(); }}
     >
       {/* ── Poster image — always rendered as baseline visual ───────────── */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -109,6 +134,7 @@ function StoryCard({
 
       {/* ── Video — autoplay muted loop, layered above poster ───────────── */}
       <video
+        ref={videoRef}
         autoPlay
         muted
         loop
@@ -131,6 +157,52 @@ function StoryCard({
       >
         {videoPrimary && <source src={videoPrimary} type="video/mp4" />}
       </video>
+
+      {/* ── Mute/Unmute button — top right — lime audio identity ──────────── */}
+      {/* story-mute-btn class forces opacity:1 on touch devices via CSS below */}
+      <button
+        type="button"
+        className="story-mute-btn"
+        onClick={(e) => { e.stopPropagation(); togglePersistent(); }}
+        aria-label={isActive ? "Mute video" : "Unmute video"}
+        style={{
+          position: "absolute",
+          top: "8px",
+          right: "8px",
+          zIndex: 25,
+          width: "32px",
+          height: "32px",
+          borderRadius: 0,
+          background: isActive ? AUDIO_LIME_COLORS.bg       : AUDIO_LIME_COLORS.mutedBg,
+          border: `1px solid ${isActive ? AUDIO_LIME_COLORS.border : AUDIO_LIME_COLORS.mutedBorder}`,
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          boxShadow: isActive ? AUDIO_LIME_COLORS.glow      : AUDIO_LIME_COLORS.mutedGlow,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          color: isActive ? AUDIO_LIME_COLORS.icon          : AUDIO_LIME_COLORS.mutedIcon,
+          transition: "all 0.20s ease",
+          flexShrink: 0,
+          pointerEvents: "auto",
+          opacity: hovered || isActive ? 1 : 0,
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.opacity    = "1";
+          el.style.background = isActive ? AUDIO_LIME_COLORS.bgHover     : AUDIO_LIME_COLORS.mutedBgHover;
+          el.style.boxShadow  = isActive ? AUDIO_LIME_COLORS.glowHover   : AUDIO_LIME_COLORS.mutedGlow;
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLElement;
+          el.style.opacity    = hovered || isActive ? "1" : "0";
+          el.style.background = isActive ? AUDIO_LIME_COLORS.bg          : AUDIO_LIME_COLORS.mutedBg;
+          el.style.boxShadow  = isActive ? AUDIO_LIME_COLORS.glow        : AUDIO_LIME_COLORS.mutedGlow;
+        }}
+      >
+        {isActive ? <Volume2 size={10} /> : <VolumeX size={10} />}
+      </button>
 
       {/* ── Bottom gradient — label readability ──────────────────────────── */}
       <div
@@ -226,6 +298,13 @@ export function VerticalStoriesSection() {
         overflow: "hidden",
       }}
     >
+      {/* Touch device: always show mute button (no hover state exists) */}
+      <style>{`
+        @media (hover: none) {
+          .story-mute-btn { opacity: 1 !important; }
+        }
+        .vss-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
       <div className="container-site">
         {/*
           Desktop: flex-row — left text block + right scrollable cards
@@ -235,8 +314,7 @@ export function VerticalStoriesSection() {
 
           {/* ── LEFT TEXT BLOCK ───────────────────────────────────────────── */}
           <div
-            className="w-full flex-shrink-0"
-            style={{ maxWidth: "260px" }}
+            className="w-full md:max-w-[260px] flex-shrink-0 text-center md:text-left"
           >
             {/* Eyebrow */}
             <p
@@ -367,7 +445,7 @@ export function VerticalStoriesSection() {
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex gap-[16px] overflow-x-auto pb-4"
+              className="vss-scroll flex gap-[16px] overflow-x-auto pb-4"
               style={{
                 scrollSnapType: "x mandatory",
                 WebkitOverflowScrolling: "touch",

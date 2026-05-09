@@ -7,6 +7,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
   Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
   UserCircle2, Clapperboard, ArrowUpCircle, ArrowLeft, Cpu,
+  Compass, Images, Gem,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -164,6 +165,14 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
   { label: "Pricing",       href: "#",             hasDropdown: false },
 ];
+
+// Premium icon metadata for plain mobile nav rows (Explore, Gallery, Pricing).
+// Keeps icon + color co-located so the map stays clean.
+const MOBILE_PLAIN_ICON: { [key: string]: { Icon: React.ElementType; color: string } | undefined } = {
+  Explore: { Icon: Compass, color: "#A855F7" },
+  Gallery: { Icon: Images,  color: "#0EA5A0" },
+  Pricing: { Icon: Gem,     color: "#D4AF37" },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RIGHT PANEL CONTENT
@@ -505,6 +514,12 @@ function MobileMenu({
     if (detail !== null) { setDetail(null); return; }
     setSection(null);
   }
+  /** Close all mobile state and the drawer in one call. Use for all navigating actions. */
+  function handleNavigate() {
+    setSection(null);
+    setDetail(null);
+    onClose();
+  }
 
   const sectionData = section ? navCategories[section] : null;
 
@@ -549,6 +564,9 @@ function MobileMenu({
             {navLinks.map((link) => {
               const hasSection = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
               const cat = hasSection ? navCategories[link.dropdownKey!] : null;
+              // Premium icon for plain rows (Explore, Gallery, Pricing)
+              const plainMeta = !hasSection ? MOBILE_PLAIN_ICON[link.label] : undefined;
+              const PlainIcon = plainMeta?.Icon ?? null;
               return (
                 <li key={link.href + link.label}>
                   {hasSection ? (
@@ -559,61 +577,78 @@ function MobileMenu({
                       onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
                       onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
                     >
-                      <span
-                        className="h-2 w-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: cat!.color, boxShadow: `0 0 6px ${cat!.color}` }}
-                      />
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: `${cat!.color}14`, border: `1px solid ${cat!.color}22`, boxShadow: `0 0 8px ${cat!.color}18` }}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: cat!.color, boxShadow: `0 0 6px ${cat!.color}` }}
+                        />
+                      </div>
                       <span className="flex-1 text-left">{link.label}</span>
                       <ChevronRight size={14} style={{ color: "#475569" }} />
                     </button>
                   ) : link.label === "Pricing" ? (
                     /* Pricing opens the overlay — no navigation */
                     <button
-                      onClick={() => { onClose(); onOpenPricing?.(); }}
+                      onClick={() => { handleNavigate(); onOpenPricing?.(); }}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", textAlign: "left" }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
                     >
-                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
-                      {link.label}
+                      {PlainIcon && plainMeta && (
+                        <div
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: `${plainMeta.color}14`, border: `1px solid ${plainMeta.color}22`, boxShadow: `0 0 8px ${plainMeta.color}18` }}
+                        >
+                          <PlainIcon size={13} style={{ color: plainMeta.color }} />
+                        </div>
+                      )}
+                      <span className="flex-1">{link.label}</span>
                     </button>
                   ) : (
                     <Link
                       href={link.href}
-                      onClick={onClose}
+                      onClick={handleNavigate}
                       className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
                       style={{ color: "#94A3B8", fontSize: "16px" }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
                     >
-                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
-                      {link.label}
+                      {PlainIcon && plainMeta && (
+                        <div
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: `${plainMeta.color}14`, border: `1px solid ${plainMeta.color}22`, boxShadow: `0 0 8px ${plainMeta.color}18` }}
+                        >
+                          <PlainIcon size={13} style={{ color: plainMeta.color }} />
+                        </div>
+                      )}
+                      <span className="flex-1">{link.label}</span>
                     </Link>
                   )}
                 </li>
               );
             })}
 
-            {/* Cinema Studio */}
-            <li>
-              <Link
-                href="/studio/cinema"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
-                style={{ color: "#94A3B8", fontSize: "16px" }}
-              >
-                <Clapperboard size={14} style={{ color: "#A855F7", flexShrink: 0 }} />
-                <span className="flex-1">Cinema Studio</span>
-                <span className="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase" style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7" }}>SOON</span>
-              </Link>
-            </li>
           </ul>
 
           {/* Auth buttons */}
           <div className="mt-4 flex flex-col gap-2 px-1">
+            {/* Future Cinema Studio — lives here so width = Login/Try Free (same px-1 container) */}
+            <Link
+              href="/studio/cinema"
+              onClick={handleNavigate}
+              className="fcs-nav-link flex w-full items-center gap-3"
+              style={{ padding: "12px 16px", borderRadius: "12px" }}
+            >
+              <Clapperboard size={15} style={{ color: "#D4AF37", flexShrink: 0 }} />
+              <span className="fcs-text" style={{ flex: 1, fontSize: "16px" }}>Future Cinema Studio</span>
+              <span className="fcs-soon">SOON</span>
+            </Link>
             <button
-              onClick={() => { onClose(); onAuthModal("login"); }}
+              onClick={() => { handleNavigate(); onAuthModal("login"); }}
               className="block text-center rounded-xl font-medium w-full transition-colors"
               style={{ padding: "12px", fontSize: "16px", color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
             >
@@ -621,7 +656,7 @@ function MobileMenu({
             </button>
             <Link
               href="/studio/image"
-              onClick={onClose}
+              onClick={handleNavigate}
               className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white w-full"
               style={{ padding: "13px 16px", fontSize: "16px", background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", textDecoration: "none" }}
             >
@@ -678,13 +713,13 @@ function MobileMenu({
       {/* ── LEVEL 3: right panel detail for a feature ── */}
       {section && detail !== null && sectionData && (
         <div className="py-4 px-4">
-          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} studioKey={section ?? undefined} />
+          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} studioKey={section ?? undefined} onClose={handleNavigate} />
 
           {/* Link to feature if it's active */}
           {sectionData.features[detail].href !== "#" && (
             <Link
               href={sectionData.features[detail].href}
-              onClick={onClose}
+              onClick={handleNavigate}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl font-semibold"
               style={{ padding: "13px 16px", fontSize: "16px", background: `linear-gradient(135deg, ${sectionData.color}, ${sectionData.color}bb)`, color: "#fff", textDecoration: "none" }}
             >
@@ -710,18 +745,21 @@ function MobileMenu({
 const CREDITS_PILL_HREF = "/hub/credits";
 
 const creditsPillStyle: React.CSSProperties = {
-  display:        "flex",
+  display:        "inline-flex",
   alignItems:     "center",
-  gap:            "7px",
-  background:     "rgba(37,99,235,0.1)",
-  border:         "1px solid rgba(37,99,235,0.25)",
-  borderRadius:   "20px",
-  padding:        "7px 15px",
-  fontSize:       "13px",
-  fontWeight:     600,
-  color:          "#60A5FA",
+  gap:            "9px",
+  background:     "linear-gradient(135deg, rgba(10,18,52,0.96) 0%, rgba(5,10,34,0.98) 100%)",
+  border:         "1px solid rgba(56,189,248,0.20)",
+  borderRadius:   "24px",
+  padding:        "7px 14px 7px 8px",
   textDecoration: "none",
-  transition:     "all 0.2s",
+  cursor:         "pointer",
+  transition:     "all 0.25s ease",
+  position:       "relative",
+  overflow:       "hidden",
+  backdropFilter: "blur(16px)",
+  boxShadow:      "0 0 20px rgba(37,99,235,0.10), 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+  flexShrink:     0,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -738,17 +776,14 @@ function NavbarAuthSkeleton() {
           credits pill so React hydration sees no structural mismatch between the
           SSR output and the first client render (which may already have a cached
           user from localStorage via AuthContext's provisional-user initializer). */}
-      <Link href={CREDITS_PILL_HREF} style={creditsPillStyle}>
-        <Zap size={13} />
-        {/* Same span tag + style as the real credits pill.
-            suppressHydrationWarning lets the text differ (placeholder vs real)
-            without React throwing a hydration mismatch error. */}
-        <span
-          suppressHydrationWarning
-          style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
-        >
-          ••••• cr
+      <Link href={CREDITS_PILL_HREF} className="cr-pill" style={creditsPillStyle}>
+        {/* Gold zap icon — sits directly in pill, no box wrapper */}
+        <Zap size={14} style={{ color: "#D4AF37", filter: "drop-shadow(0 0 4px rgba(212,175,55,0.85))", flexShrink: 0 }} />
+        {/* Number — suppressHydrationWarning lets placeholder text differ from real value */}
+        <span suppressHydrationWarning style={{ fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.02em", minWidth: 46, display: "inline-block" }}>
+          •••••
         </span>
+        <span style={{ fontSize: "11px", fontWeight: 600, color: "#7DD3FC", letterSpacing: "0.02em", marginLeft: "-4px" }}>cr</span>
       </Link>
       {/* Avatar + name pill placeholder */}
       <div
@@ -773,7 +808,7 @@ function NavbarAuthSkeleton() {
  * Routes where the Navbar must not render.
  * Matches the isolated-route set in FooterConditional — keep both in sync.
  */
-const NAVBAR_HIDDEN_ROUTES = ["/waitlist"];
+const NAVBAR_HIDDEN_ROUTES = ["/waitlist", "/login", "/signup"];
 
 export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
   const [scrolled, setScrolled]             = useState(false);
@@ -855,14 +890,23 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
 
   return (
     <>
+      {/* ── Credits pill hover styles ── */}
+      <style>{`
+        .cr-pill:hover {
+          background: linear-gradient(135deg, rgba(15,28,72,0.98) 0%, rgba(8,16,52,0.99) 100%) !important;
+          border-color: rgba(56,189,248,0.40) !important;
+          box-shadow: 0 0 32px rgba(56,189,248,0.22), 0 0 60px rgba(37,99,235,0.12), 0 4px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+          transform: translateY(-1px) !important;
+        }
+      `}</style>
       <header
         ref={navRef}
         className="fixed top-0 z-[1100] w-full transition-all duration-300"
         style={{
           backgroundColor: scrolled ? "var(--page-bg)" : "transparent",
           backdropFilter: scrolled ? "blur(20px)" : "none",
-          borderBottom: scrolled ? "1px solid var(--border-subtle)" : "none",
-          boxShadow: scrolled ? "0 4px 40px rgba(0,0,0,0.25)" : "none",
+          borderBottom: "none",
+          boxShadow: scrolled ? "0 18px 50px rgba(0,0,0,0.38)" : "none",
         }}
       >
         <div className="container-site">
@@ -973,23 +1017,94 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
                 );
               })}
 
-              {/* Future Cinema Studio */}
+              {/* Future Cinema Studio — gold metallic premium */}
               <li className="relative ml-1">
+                <style>{`
+                  @keyframes fcsShimmer {
+                    0%   { background-position: 200% center; }
+                    100% { background-position: -200% center; }
+                  }
+                  @keyframes fcsGlide {
+                    0%   { left: -60%; opacity: 0; }
+                    8%   { opacity: 1; }
+                    92%  { opacity: 1; }
+                    100% { left: 120%; opacity: 0; }
+                  }
+                  .fcs-nav-link {
+                    position: relative;
+                    overflow: hidden;
+                    border-radius: 10px;
+                    background: rgba(212,175,55,0.06);
+                    border: 1px solid rgba(212,175,55,0.22);
+                    transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+                  }
+                  /* Film perforation dots — subtle cinematic backplate */
+                  .fcs-nav-link::before {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    background-image: radial-gradient(circle, rgba(80,72,32,0.55) 1px, transparent 1px);
+                    background-size: 7px 7px;
+                    opacity: 0.26;
+                    pointer-events: none;
+                    border-radius: inherit;
+                  }
+                  /* Animated gold shimmer sweep */
+                  .fcs-nav-link::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: -60%;
+                    width: 52%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent);
+                    animation: fcsGlide 3.8s ease-in-out infinite;
+                    pointer-events: none;
+                  }
+                  .fcs-nav-link:hover {
+                    background: rgba(212,175,55,0.11);
+                    border-color: rgba(212,175,55,0.42);
+                    box-shadow: 0 0 18px rgba(212,175,55,0.14);
+                  }
+                  .fcs-nav-link:hover::after {
+                    animation-play-state: paused;
+                  }
+                  .fcs-text {
+                    background: linear-gradient(90deg, #F9E7A1, #D4AF37, #FFF2B8, #B8892E, #D4AF37, #F9E7A1);
+                    background-size: 300% 100%;
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    animation: fcsShimmer 4.5s linear infinite;
+                    font-size: 16px;
+                    font-weight: 500;
+                    letter-spacing: -0.01em;
+                  }
+                  .fcs-nav-link:hover .fcs-text {
+                    animation-play-state: paused;
+                    filter: brightness(1.12);
+                  }
+                  .fcs-soon {
+                    background: rgba(212,175,55,0.12);
+                    border: 1px solid rgba(212,175,55,0.38);
+                    color: #C9A227;
+                    font-size: 8px;
+                    font-weight: 700;
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                    padding: 2px 7px;
+                    border-radius: 20px;
+                    flex-shrink: 0;
+                  }
+                `}</style>
                 <Link
                   href="/studio/cinema"
-                  className="flex items-center gap-1.5 rounded-lg font-medium transition-all duration-200"
-                  style={{ padding: "10px 15px", fontSize: "16px", color: "#94A3B8" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#C084FC")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                  className="fcs-nav-link inline-flex items-center gap-1.5"
+                  style={{ padding: "8px 13px" }}
                 >
-                  <Clapperboard size={14} style={{ color: "#A855F7" }} />
-                  Future Cinema Studio
-                  <span
-                    className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                    style={{ background: "rgba(168,85,247,0.15)", color: "#A855F7", border: "1px solid rgba(168,85,247,0.25)" }}
-                  >
-                    SOON
-                  </span>
+                  <Clapperboard size={13} style={{ color: "#D4AF37", flexShrink: 0 }} />
+                  <span className="fcs-text">Future Cinema Studio</span>
+                  <span className="fcs-soon">SOON</span>
                 </Link>
               </li>
             </ul>
@@ -1014,18 +1129,16 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
                 {/* Credits pill — uses shared href + style to match the skeleton exactly */}
                 <Link
                   href={CREDITS_PILL_HREF}
+                  className="cr-pill"
                   style={creditsPillStyle}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 16px rgba(37,99,235,0.25)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(37,99,235,0.1)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                 >
-                  <Zap size={13} />
-                  {/* Same span tag + style as the skeleton — suppressHydrationWarning
-                      silences the text-content diff (placeholder vs real credits). */}
-                  <span
-                    style={{ minWidth: 58, display: "inline-block", textAlign: "left" }}
-                  >
-                    {user.credits} cr
+                  {/* Gold zap icon — sits directly in pill, no box wrapper */}
+                  <Zap size={14} style={{ color: "#D4AF37", filter: "drop-shadow(0 0 4px rgba(212,175,55,0.85))", flexShrink: 0 }} />
+                  {/* Number — suppressHydrationWarning silences placeholder vs real diff */}
+                  <span suppressHydrationWarning style={{ fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.02em", minWidth: 46, display: "inline-block" }}>
+                    {user.credits.toLocaleString()}
                   </span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: "#7DD3FC", letterSpacing: "0.02em", marginLeft: "-4px" }}>cr</span>
                 </Link>
                 {/* FCS Active pill — clickable Link to Cinema Studio */}
                 {hasFCSAccess(user) && (
@@ -1071,23 +1184,79 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
               </div>
             ) : (
               /* loading=false && user=null → genuinely signed out */
-              <div className="hidden items-center gap-3 lg:flex">
+              <div className="hidden items-center gap-2 lg:flex">
+                {/* Login — premium glass pill */}
                 <button
                   onClick={() => setAuthModal("login")}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", fontWeight: 500, transition: "color 0.2s" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "#F8FAFC")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "118px",
+                    height: "44px",
+                    borderRadius: "14px",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(59,130,246,0.28)",
+                    backdropFilter: "blur(8px)",
+                    cursor: "pointer",
+                    color: "#93C5FD",
+                    fontSize: "15px",
+                    fontWeight: 600,
+                    letterSpacing: "-0.01em",
+                    transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(59,130,246,0.10)";
+                    b.style.borderColor = "rgba(59,130,246,0.55)";
+                    b.style.boxShadow = "0 0 18px rgba(59,130,246,0.22)";
+                    b.style.color = "#BFDBFE";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.background = "rgba(255,255,255,0.05)";
+                    b.style.borderColor = "rgba(59,130,246,0.28)";
+                    b.style.boxShadow = "none";
+                    b.style.color = "#93C5FD";
+                  }}
                 >
                   Login
                 </button>
+
+                {/* Try Free — Zencra blue/cyan gradient pill */}
                 <Link
                   href="/studio/image"
-                  className="inline-flex items-center gap-2 rounded-xl text-white transition-all duration-300"
-                  style={{ padding: "11px 22px", fontSize: "16px", fontWeight: 600, background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", boxShadow: "0 0 20px rgba(37,99,235,0.3)", border: "none", cursor: "pointer", textDecoration: "none" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(37,99,235,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 20px rgba(37,99,235,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
+                  className="inline-flex items-center justify-center gap-2 text-white"
+                  style={{
+                    width: "132px",
+                    height: "44px",
+                    borderRadius: "14px",
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    letterSpacing: "-0.01em",
+                    background: "linear-gradient(135deg, #1D4ED8 0%, #2563EB 45%, #0891B2 100%)",
+                    border: "1px solid rgba(37,99,235,0.28)",
+                    boxShadow: "0 0 22px rgba(37,99,235,0.32), inset 0 1px 0 rgba(255,255,255,0.10)",
+                    textDecoration: "none",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    transition: "box-shadow 0.2s ease, transform 0.2s ease, filter 0.2s ease",
+                  }}
+                  onMouseEnter={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.boxShadow = "0 0 40px rgba(37,99,235,0.58), inset 0 1px 0 rgba(255,255,255,0.10)";
+                    b.style.transform = "translateY(-1px)";
+                    b.style.filter = "brightness(1.08)";
+                  }}
+                  onMouseLeave={e => {
+                    const b = e.currentTarget as HTMLElement;
+                    b.style.boxShadow = "0 0 22px rgba(37,99,235,0.32), inset 0 1px 0 rgba(255,255,255,0.10)";
+                    b.style.transform = "none";
+                    b.style.filter = "";
+                  }}
                 >
-                  <Zap size={15} />
+                  <Zap size={14} strokeWidth={2.5} />
                   Try Free
                 </Link>
               </div>
