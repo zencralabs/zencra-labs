@@ -37,6 +37,57 @@ const ASPECT_TO_SIZE: Record<string, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GPT IMAGE 2 — QUALITY-DRIVEN SIZE MAPS
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// gpt-image-2 resolution is NOT a user-facing parameter. It is locked to quality:
+//   Fast      → 1K reference dimension (1024px)
+//   Cinematic → 2K reference dimension (2048px)
+//   Ultra     → 2K (same as Cinematic; 4K upgrade path reserved for future phase)
+//
+// This is Zencra's cinematic positioning: quality unlocks rendering resolution.
+// The UX only exposes "Fast" and "Cinematic". Resolution is implicit.
+//
+// Constraints (gpt-image-2 API):
+//   - All dimensions must be multiples of 16
+//   - Max edge: 3840px
+//   - Max aspect ratio: 3:1 (width/height or height/width)
+//   - Total pixels: 655,360 – 8,294,400
+//
+// Extreme ARs (1:4, 1:8, 4:1, 8:1) exceed the 3:1 constraint.
+// They are capped to the nearest valid size and blocked in the UI via
+// supportedAspectRatios on the gpt-image-2 model entry.
+
+/** Fast quality (OpenAI "low") — 1K reference dimension. */
+const GPT2_FAST_SIZES: Record<string, string> = {
+  "1:1":  "1024x1024",
+  "16:9": "1536x1024",  // native landscape; 1536/1024 = 1.5:1
+  "9:16": "1024x1536",  // native portrait
+  "4:5":  "1024x1280",  // 1024×(5/4×1024)=1280; both ÷16 ✓
+  "5:4":  "1280x1024",
+  "3:4":  "768x1024",   // 768 ÷16 = 48 ✓; ratio 1.33:1
+  "4:3":  "1024x768",
+  "2:3":  "672x1024",   // 1024×(2/3)=682→672 (÷16); ratio 1.52:1
+  "3:2":  "1536x1024",  // 3:2 = 1.5:1 ≈ native landscape
+  "21:9": "1792x768",   // 1792÷16=112 ✓; 768÷16=48 ✓; ratio 2.33:1
+};
+
+/** Cinematic quality (OpenAI "medium") — 2K reference dimension.
+ *  Ultra uses the same map; 4K upgrade is reserved for a future phase. */
+const GPT2_CINEMATIC_SIZES: Record<string, string> = {
+  "1:1":  "2048x2048",
+  "16:9": "2048x1152",  // 2048×(9/16)=1152 ÷16=72 ✓; ratio 1.78:1
+  "9:16": "1152x2048",
+  "4:5":  "1632x2048",  // 2048×(4/5)=1638.4→1632 (÷16=102); ratio 1.25:1
+  "5:4":  "2048x1632",
+  "3:4":  "1536x2048",  // 2048×(3/4)=1536 ÷16=96 ✓; ratio 1.33:1
+  "4:3":  "2048x1536",
+  "2:3":  "1360x2048",  // 2048×(2/3)=1365.3→1360 (÷16=85); ratio 1.51:1
+  "3:2":  "2048x1360",
+  "21:9": "2048x880",   // 2048×(9/21)=877.7→880 (÷16=55); ratio 2.33:1
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // QUALITY ABSTRACTION LAYER
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -127,7 +178,11 @@ function makeGptImageProvider(
       console.info(`[gpt-image] resolved model=${model} zencra-key=${key}`);
       const jobId      = newJobId();
       const isEdit     = !!input.imageUrl;
-      const size       = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
+      // Size resolution:
+      //   gpt-image-2: quality-driven automatic mapping.
+      //     Fast (rawQuality="fast")      → GPT2_FAST_SIZES      (1K, ~1024px ref)
+      //     Cinematic/Ultra               → GPT2_CINEMATIC_SIZES  (2K, ~2048px ref)
+      //   gpt-image-1: uses the shared ASPECT_TO_SIZE map (4 standard sizes only).
       // Quality resolution:
       //   gpt-image-2 receives Zencra terms ("fast" | "cinematic" | "ultra") from the UI.
       //   ZENCRA_TO_OPENAI_QUALITY translates those to OpenAI API values ("low" | "medium" | "high").
@@ -137,6 +192,17 @@ function makeGptImageProvider(
       const rawQuality = (input.providerParams?.quality as string | undefined)
         ?? (key === "gpt-image-2" ? "cinematic" : "auto");
       const quality    = ZENCRA_TO_OPENAI_QUALITY[rawQuality] ?? rawQuality;
+      // Size resolution:
+      //   gpt-image-2: quality-driven automatic mapping.
+      //     Fast (rawQuality="fast")      → GPT2_FAST_SIZES      (1K, ~1024px ref)
+      //     Cinematic/Ultra               → GPT2_CINEMATIC_SIZES  (2K, ~2048px ref)
+      //   gpt-image-1: uses the shared ASPECT_TO_SIZE map (4 standard sizes only).
+      const ar = input.aspectRatio ?? "1:1";
+      const size = key === "gpt-image-2"
+        ? rawQuality === "fast"
+          ? (GPT2_FAST_SIZES[ar]      ?? "1024x1024")
+          : (GPT2_CINEMATIC_SIZES[ar] ?? "2048x2048")
+        : (ASPECT_TO_SIZE[ar] ?? "1024x1024");
 
       let url:  string | undefined;
       const urls: undefined = undefined; // Phase B (native n= batching) deferred

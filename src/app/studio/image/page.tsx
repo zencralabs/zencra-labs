@@ -361,8 +361,15 @@ const NB_PRO_AR: AspectRatio[] = [
 /** NB2: 7 options including Auto (Auto → no AR sent → NB2 server default). */
 const NB2_AR: AspectRatio[] = ["Auto", "1:1", "4:5", "5:4", "9:16", "16:9", "8:1"];
 
-/** GPT Image: collapsed internally by mapArForGpt — show 4 meaningful options. */
+/** GPT Image 1.5 (dalle3): collapsed internally by mapArForGpt — 4 options. */
 const DALLE_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
+
+/**
+ * GPT Image 2: 10 aspect ratios with native size mapping per AR.
+ * Excludes extreme ARs (1:4, 1:8, 4:1, 8:1) — gpt-image-2 API enforces 3:1 max ratio.
+ * ARs are passed through directly; gpt-image.ts GPT2_FAST/CINEMATIC_SIZES resolve the pixel dimensions.
+ */
+const GPT2_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5", "5:4", "3:4", "4:3", "2:3", "3:2", "21:9"];
 
 // Nano Banana Standard/Pro concrete AR passthrough — the same 10 ARs are valid
 // for both models. "Auto" is excluded: it maps to undefined (no AR sent).
@@ -1903,7 +1910,11 @@ function ImageStudioInner() {
       if (model.startsWith("seedream")) {
         return (SEEDREAM_AR as readonly string[]).includes(cur) ? cur : "1:1";
       }
-      // GPT Image — always pass through (mapArForGpt collapses internally)
+      // GPT Image 2 — hard-lock to supported 10-AR set
+      if (model === "gpt-image-2") {
+        return (GPT2_AR as readonly string[]).includes(cur) ? cur : "1:1";
+      }
+      // GPT Image 1 — always pass through (mapArForGpt collapses internally)
       return cur;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2007,8 +2018,13 @@ function ImageStudioInner() {
     const isAsync    = isNanoB;   // NB = async polling; gpt-image-1 = sync
     const isLocked   = BATCH_LOCKED_MODEL_KEYS.has(modelKey);
     const count      = (isAsync || isLocked) ? 1 : Math.min(batchSize, 4);
-    // AR routing: NB gets actual string; GPT gets collapsed 4-ratio set
-    const apiAr = isNanoB ? mapArForNB(activeAr) : mapArToApiAr(activeAr);
+    // AR routing: NB → mapped string; GPT Image 2 → direct passthrough (10-AR size maps in provider);
+    // GPT Image 1 → collapsed 4-ratio set via mapArToApiAr
+    const apiAr = isNanoB
+      ? mapArForNB(activeAr)
+      : modelKey === "gpt-image-2"
+        ? activeAr   // GPT Image 2: provider size maps handle all 10 ARs directly
+        : mapArToApiAr(activeAr);
 
     console.log("[ImageStudio] dispatch", { modelKey, prompt: activePrompt, aspectRatio: apiAr, count });
 
@@ -4187,6 +4203,7 @@ function ImageStudioInner() {
                 model === "nano-banana-pro"        ? NB_PRO_AR :
                 model.startsWith("nano-banana")    ? NB_STANDARD_AR :
                 model.startsWith("seedream")       ? SEEDREAM_AR :
+                model === "gpt-image-2"            ? GPT2_AR :
                 DALLE_AR;
 
               return (
