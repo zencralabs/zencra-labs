@@ -47,7 +47,7 @@ export async function createWorkflow(
   userId: string,
 ): Promise<CreateWorkflowResult> {
   const { data, error } = await supabaseAdmin
-    .from("workflows")
+    .from("workflows_legacy")
     .insert({ user_id: userId })
     .select("id")
     .single();
@@ -85,14 +85,14 @@ export async function addWorkflowStep(params: {
 }): Promise<AddStepResult> {
   // Determine next step_number for this workflow
   const { count } = await supabaseAdmin
-    .from("workflow_steps")
+    .from("workflow_steps_legacy")
     .select("id", { count: "exact", head: true })
     .eq("workflow_id", params.workflowId);
 
   const stepNumber = (count ?? 0) + 1;
 
   const { data: stepRow, error: stepErr } = await supabaseAdmin
-    .from("workflow_steps")
+    .from("workflow_steps_legacy")
     .insert({
       workflow_id:     params.workflowId,
       user_id:         params.userId,
@@ -120,7 +120,7 @@ export async function addWorkflowStep(params: {
   if (params.assetId) {
     try {
       await supabaseAdmin
-        .from("workflow_step_assets")
+        .from("workflow_step_assets_legacy")
         .insert({
           step_id:    stepRow.id,
           user_id:    params.userId,
