@@ -708,6 +708,119 @@ function GeneratingPlaceholder({ ar, onCancel }: { ar: AspectRatio; onCancel?: (
   );
 }
 
+// ── IS design tokens — Image Studio dock chip surface ─────────────────────────
+// Single source of truth for ALL dock control chips: model selector, AR,
+// quality segmented, quality flat, batch −/+ controls.
+// New models added to image-model-config.ts inherit the system automatically.
+const IS = {
+  h:           32,                            // unified chip height (all types)
+  r:           8,                             // chip border-radius
+  px:          12,                            // standard horizontal padding
+  pxT:         9,                             // tight h-padding (AR, flat chips)
+  fs:          13,                            // chip font-size
+  // Group container (quality segmented / flat chip strip)
+  groupR:      10,
+  groupPad:    3,
+  groupGap:    2,
+  groupBg:     "rgba(255,255,255,0.045)",
+  groupBdr:    "rgba(255,255,255,0.10)",
+  groupShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.25)",
+  // Active (violet — unified across all chip types)
+  activeBg:     "rgba(139,92,246,0.22)",
+  activeBdr:    "rgba(139,92,246,0.5)",
+  activeColor:  "#E8ECF5",
+  activeShadow: "0 0 14px rgba(139,92,246,0.28), inset 0 1px 0 rgba(255,255,255,0.12)",
+  // Open/hover state for dropdown-trigger chips
+  openBg:      "rgba(255,255,255,0.12)",
+  openBdr:     "rgba(255,255,255,0.20)",
+  openColor:   "#D8E0F0",
+  // Inactive
+  inactiveBg:    "rgba(255,255,255,0.07)",
+  inactiveBdr:   "rgba(255,255,255,0.11)",
+  inactiveColor: "#A0ADCC",
+} as const;
+
+/** Dropdown-trigger or active control chip (model, AR, quality picker, format). */
+function isChip(state: "active" | "open" | "default"): React.CSSProperties {
+  const map = {
+    active:  { bg: IS.activeBg,   bdr: IS.activeBdr,   col: IS.activeColor,   shadow: IS.activeShadow, fw: 600 },
+    open:    { bg: IS.openBg,     bdr: IS.openBdr,     col: IS.openColor,     shadow: "none",          fw: 500 },
+    default: { bg: IS.inactiveBg, bdr: IS.inactiveBdr, col: IS.inactiveColor, shadow: "none",          fw: 500 },
+  };
+  const s = map[state];
+  return {
+    display: "flex", alignItems: "center", gap: 6,
+    height: IS.h, padding: `0 ${IS.px}px`,
+    borderRadius: IS.r, border: `1px solid ${s.bdr}`,
+    background: s.bg, color: s.col,
+    fontSize: IS.fs, fontFamily: "var(--font-sans)", fontWeight: s.fw,
+    cursor: "pointer", transition: "all 0.15s ease",
+    boxShadow: s.shadow, flexShrink: 0,
+    whiteSpace: "nowrap" as const, position: "relative" as const,
+    letterSpacing: "0.02em",
+  };
+}
+
+/** Group container — wraps segmented quality pills or flat chip strip. */
+function isQualGroup(): React.CSSProperties {
+  return {
+    display: "flex", gap: IS.groupGap,
+    background: IS.groupBg,
+    border: `1px solid ${IS.groupBdr}`,
+    borderRadius: IS.groupR,
+    padding: IS.groupPad,
+    alignItems: "center",
+    boxShadow: IS.groupShadow,
+    flexShrink: 0,
+  };
+}
+
+/** Segmented quality pill — label + subtitle (Fast/Cinematic style). */
+function isQualSegmented(isActive: boolean): React.CSSProperties {
+  return {
+    display: "flex", flexDirection: "column" as const,
+    alignItems: "center", justifyContent: "center", gap: 1,
+    background: isActive ? IS.activeBg : "transparent",
+    border: `1px solid ${isActive ? IS.activeBdr : "transparent"}`,
+    borderRadius: IS.r - 2,
+    cursor: "pointer", padding: "5px 14px",
+    transition: "all 0.15s ease",
+    boxShadow: isActive ? IS.activeShadow : "none",
+    flexShrink: 0, whiteSpace: "nowrap" as const, minWidth: 62,
+  };
+}
+
+/** Flat quality chip — resolution tier (Default / 2K / 4K). */
+function isQualFlat(isActive: boolean): React.CSSProperties {
+  return {
+    height: IS.h, display: "flex", alignItems: "center", justifyContent: "center",
+    background: isActive ? IS.activeBg : IS.inactiveBg,
+    border: `1px solid ${isActive ? IS.activeBdr : IS.inactiveBdr}`,
+    borderRadius: IS.r,
+    color: isActive ? IS.activeColor : IS.inactiveColor,
+    fontSize: IS.fs, fontFamily: "var(--font-sans)", fontWeight: isActive ? 600 : 400,
+    cursor: "pointer", padding: `0 ${IS.pxT}px`,
+    letterSpacing: "0.03em", transition: "all 0.15s ease",
+    boxShadow: isActive ? IS.activeShadow : "none",
+    flexShrink: 0, whiteSpace: "nowrap" as const,
+  };
+}
+
+/** Batch −/+ square button. */
+function isBatchBtn(disabled: boolean): React.CSSProperties {
+  return {
+    width: IS.h, height: IS.h,
+    borderRadius: IS.r,
+    border: `1px solid ${disabled ? "rgba(255,255,255,0.06)" : IS.inactiveBdr}`,
+    background: disabled ? "rgba(255,255,255,0.03)" : IS.inactiveBg,
+    color: disabled ? "rgba(255,255,255,0.18)" : IS.inactiveColor,
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center",
+    fontWeight: 400, opacity: disabled ? 0.45 : 1, flexShrink: 0,
+    transition: "all 0.15s ease",
+  };
+}
+
 // ── Masonry gallery helpers ───────────────────────────────────────────────────
 // The Image Studio uses CSS columns masonry.  Every image renders at its
 // natural aspect ratio — no forced height, no cropping, no black dead-space.
@@ -2403,14 +2516,10 @@ function ImageStudioInner() {
   }, [prompt]);
 
   // ── Styles ──────────────────────────────────────────────────────────────────
-  const ctrlBtn = (active?: boolean): React.CSSProperties => ({
-    display: "flex", alignItems: "center", gap: 6,
-    padding: "6px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500,
-    cursor: "pointer", border: "none",
-    background: active ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
-    color: active ? "#fff" : "rgba(255,255,255,0.75)",
-    transition: "all 0.15s", whiteSpace: "nowrap" as const, position: "relative" as const,
-  });
+  // ctrlBtn delegates to IS token system — all dropdown-trigger chips share the same
+  // height, border, and color language. "active" = picker is open (not a selection state).
+  const ctrlBtn = (active?: boolean): React.CSSProperties =>
+    isChip(active ? "open" : "default");
 
   const ddItem = (selected?: boolean, disabled?: boolean): React.CSSProperties => ({
     display: "flex", alignItems: "center", gap: 10,
@@ -4175,7 +4284,7 @@ function ImageStudioInner() {
             {/* "segmented" — GPT Image Fast / Standard / Ultra inline toggle */}
             {/* Hidden in transform/edit mode: /v1/images/edits ignores quality. */}
             {currentDockConfig?.qualityOptions && currentDockConfig.qualityDisplayMode !== "chips" && !isTransformMode && (
-              <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 3 }}>
+              <div style={isQualGroup()}>
                 {currentDockConfig.qualityOptions.map((opt) => {
                   const isActive = quality === opt.apiValue;
                   return (
@@ -4183,21 +4292,24 @@ function ImageStudioInner() {
                       key={opt.apiValue}
                       onClick={() => setQuality(opt.apiValue as GPTQuality)}
                       title={opt.desc}
-                      style={{
-                        display: "flex", flexDirection: "column", alignItems: "center",
-                        padding: "5px 11px", borderRadius: 8, border: "none", cursor: "pointer",
-                        background: isActive ? "rgba(37,99,235,0.55)" : "transparent",
-                        boxShadow: isActive ? "0 0 10px rgba(37,99,235,0.35)" : "none",
-                        transition: "all 0.15s",
-                      }}
+                      style={isQualSegmented(isActive)}
                       onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? "rgba(37,99,235,0.55)" : "transparent"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isActive ? IS.activeBg : "transparent"; }}
                     >
-                      <span style={{ fontSize: 12, fontWeight: isActive ? 700 : 500, color: isActive ? "#fff" : "rgba(255,255,255,0.55)", letterSpacing: "0.01em" }}>
+                      <span style={{
+                        fontSize: IS.fs - 1, fontFamily: "var(--font-sans)",
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive ? IS.activeColor : IS.inactiveColor,
+                        lineHeight: 1.25, letterSpacing: "0.03em",
+                      }}>
                         {opt.label}
                       </span>
                       {opt.desc && (
-                        <span style={{ fontSize: 9, color: isActive ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.3)", marginTop: 1, letterSpacing: "0.02em" }}>
+                        <span style={{
+                          fontSize: 9, fontFamily: "var(--font-sans)", fontWeight: 400,
+                          color: isActive ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.22)",
+                          lineHeight: 1.2, letterSpacing: "0.02em",
+                        }}>
                           {opt.desc}
                         </span>
                       )}
@@ -4210,19 +4322,12 @@ function ImageStudioInner() {
             {/* "chips" — Seedream 4.5 native resolution chip selector (2K Standard / 4K Ultra) */}
             {/* Renders as a compact pill row. No quality = provider default (1K). */}
             {currentDockConfig?.qualityOptions && currentDockConfig.qualityDisplayMode === "chips" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {/* "None / 1K" deselect chip — lets user reset to base cost */}
+              <div style={isQualGroup()}>
+                {/* "Default" deselect chip — lets user reset to base (1K) cost */}
                 <button
                   onClick={() => setQuality("" as StudioQuality)}
                   title="Default resolution (provider selects, ~1K cost)"
-                  style={{
-                    padding: "4px 9px", borderRadius: 8, border: "1px solid",
-                    borderColor: !quality ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.12)",
-                    background: !quality ? "rgba(139,92,246,0.18)" : "transparent",
-                    cursor: "pointer", fontSize: 11, fontWeight: !quality ? 700 : 400,
-                    color: !quality ? "#a78bfa" : "rgba(255,255,255,0.4)",
-                    transition: "all 0.15s",
-                  }}
+                  style={isQualFlat(!quality)}
                 >
                   Default
                 </button>
@@ -4233,15 +4338,7 @@ function ImageStudioInner() {
                       key={opt.apiValue}
                       onClick={() => setQuality(opt.apiValue as StudioQuality)}
                       title={opt.desc}
-                      style={{
-                        padding: "4px 10px", borderRadius: 8, border: "1px solid",
-                        borderColor: isActive ? "rgba(139,92,246,0.7)" : "rgba(255,255,255,0.12)",
-                        background: isActive ? "rgba(139,92,246,0.22)" : "transparent",
-                        cursor: "pointer", fontSize: 11, fontWeight: isActive ? 700 : 400,
-                        color: isActive ? "#a78bfa" : "rgba(255,255,255,0.45)",
-                        boxShadow: isActive ? "0 0 8px rgba(139,92,246,0.3)" : "none",
-                        transition: "all 0.15s",
-                      }}
+                      style={isQualFlat(isActive)}
                     >
                       {opt.label}
                     </button>
@@ -4349,16 +4446,15 @@ function ImageStudioInner() {
               <button
                 onClick={() => !batchLocked && setBatchSize((v) => Math.max(1, v - 1))}
                 disabled={batchLocked || batchSize <= 1}
-                style={{
-                  width: 26, height: 26, borderRadius: 7, border: "none",
-                  background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)",
-                  cursor: (batchLocked || batchSize <= 1) ? "not-allowed" : "pointer", fontSize: 16,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600,
-                  opacity: (batchLocked || batchSize <= 1) ? 0.4 : 1,
-                }}
+                style={isBatchBtn(batchLocked || batchSize <= 1)}
               >−</button>
               <span
-                style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", minWidth: 28, textAlign: "center", fontWeight: 500 }}
+                style={{
+                  fontSize: IS.fs, fontFamily: "var(--font-sans)",
+                  color: batchLocked ? IS.inactiveColor : "rgba(255,255,255,0.82)",
+                  minWidth: 30, textAlign: "center" as const, fontWeight: 600,
+                  letterSpacing: "0.02em",
+                }}
                 title={batchLocked ? "This model supports 1 image per generation" : undefined}
               >
                 {batchLocked ? "1/1" : `${batchSize}/4`}
@@ -4366,13 +4462,7 @@ function ImageStudioInner() {
               <button
                 onClick={() => !batchLocked && setBatchSize((v) => Math.min(4, v + 1))}
                 disabled={batchLocked || batchSize >= 4}
-                style={{
-                  width: 26, height: 26, borderRadius: 7, border: "none",
-                  background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)",
-                  cursor: (batchLocked || batchSize >= 4) ? "not-allowed" : "pointer", fontSize: 16,
-                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600,
-                  opacity: (batchLocked || batchSize >= 4) ? 0.4 : 1,
-                }}
+                style={isBatchBtn(batchLocked || batchSize >= 4)}
               >+</button>
             </div>
 
