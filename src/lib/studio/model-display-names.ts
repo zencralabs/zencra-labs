@@ -26,7 +26,7 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "nano-banana-2":        "Nano Banana 2",
 
   // ── Seedream (ByteDance) ──────────────────────────────────────────────────
-  "seedream-v5":          "Seedream v5",
+  "seedream-v5":          "Seedream v5 Lite",
   "seedream-4-5":         "Seedream 4.5",
   // Note: seedream-v5-lite is intentionally omitted — internal/billing key only
 

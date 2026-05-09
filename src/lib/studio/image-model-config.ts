@@ -159,7 +159,7 @@ export const IMAGE_MODEL_CONFIGS: Record<string, ModelDockConfig> = {
   // ── Seedream ─────────────────────────────────────────────────────────────────
 
   "seedream-v5": {
-    name:             "Seedream v5",
+    name:             "Seedream v5 Lite",
     available:        true,
     allowedQualities: ["1K"],
     aspectRatios:     ["1:1", "16:9", "9:16", "4:5"],
