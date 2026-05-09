@@ -17,6 +17,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "nano-banana-standard": { maxReferenceImages: 1,  uploadCapLabel: "Single reference image" },
   "nano-banana-2":        { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
   "seedream-v5":          { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
+  "seedream-4-5":         { maxReferenceImages: 1,  uploadCapLabel: "1 reference image for edit mode" },
   "flux-kontext":         { maxReferenceImages: 1,  uploadCapLabel: "Single reference image only" },
 };
 
