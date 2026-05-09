@@ -854,7 +854,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                           </svg>
                         )
                       }
-                      {selectedFrameIsFilled ? "Update Scene" : "Generate"}
+                      {selectedFrameIsFilled ? "Update Scene" : "Generate Shot"}
                       <span style={{
                         fontSize:   9,
                         color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.5)",

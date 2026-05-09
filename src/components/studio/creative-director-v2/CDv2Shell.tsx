@@ -532,31 +532,42 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         try {
           const authHdrs = await getAuthHeaders();
 
-          // ── Pre-request payload log ────────────────────────────────────────
-          // Logged before fetch so failures are diagnosable without server access.
-          const subjectElements = elements.filter((el) => el.type === "subject" && el.asset_url);
+          // ── Phase 3A: Build references from canvas elements ───────────────
+          // subject → references[0], scene → references[1]; max 2 (route enforces cap).
+          const subjectEl = elements.find((el) => el.type === "subject" && el.asset_url);
+          const sceneEl   = elements.find((el) => el.type === "world"   && el.asset_url);
+          const references = [subjectEl?.asset_url, sceneEl?.asset_url]
+            .filter((u): u is string => !!u);
+
+          // Resolve prompt: TextNode input takes priority, then scene + character suffix.
+          const resolvedPrompt = textNodeInput || promptSuffix || "";
+
+          // Tier: cinematic default when references present and no manual override.
+          const hasReferences = references.length > 0;
+          const tier: "fast" | "cinematic" =
+            hasReferences && !_quality ? "cinematic" :
+            _quality === "fast"        ? "fast"       : "cinematic";
+
           console.log("[CDv2 generate payload]", {
-            model:             selectedModel,
+            route:            "/api/workflows/reference-stack-render",
+            tier,
             count,
             aspectRatio,
-            identity_lock:     refinements?.identity_lock ?? false,
-            hasReferenceImage: subjectElements.length > 0,
-            referenceUrls:     subjectElements.map((el) => el.asset_url),
-            hasTextNodeInput:  !!textNodeInput,
-            hasPromptSuffix:   !!(promptSuffix),
-            directionId:       dId,
+            identity_lock:    refinements?.identity_lock ?? false,
+            referenceCount:   references.length,
+            hasTextNodeInput: !!textNodeInput,
+            hasPromptSuffix:  !!promptSuffix,
           });
 
-          const res = await fetch("/api/creative-director/generate", {
-            method: "POST",
+          const res = await fetch("/api/workflows/reference-stack-render", {
+            method:  "POST",
             headers: { "Content-Type": "application/json", ...authHdrs },
-            body: JSON.stringify({
-              directionId:   dId,
-              count,
+            body:    JSON.stringify({
+              prompt:      resolvedPrompt || "cinematic portrait",
+              references:  references.length > 0 ? references : undefined,
+              tier,
               aspectRatio,
-              modelOverride: selectedModel,
-              promptSuffix:  promptSuffix || undefined,
-              textNodeInput: textNodeInput || undefined,
+              outputCount: count,
             }),
           });
           if (!res.ok) {
@@ -564,114 +575,26 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             finishGenerating([], err.error ?? `Generation failed (${res.status})`);
             return;
           }
-          const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
-          console.log("[CDv2] generate response:", {
-            count:    data.generations?.length,
-            statuses: data.generations?.map((g) => g.status),
-            jobIds:   data.generations?.map((g) => g.job_id ?? "(sync)"),
-          });
+          const data = await res.json();
+          const resultUrls: string[] = data.data?.resultUrls ?? [];
+          console.log("[CDv2] workflow response:", { runId: data.data?.runId, count: resultUrls.length });
 
-          // ── Async provider polling ─────────────────────────────────────
-          // Providers like Nano Banana and Seedream return status="processing"
-          // immediately and require polling to get the final image URL.
-          // Poll GET /api/studio/jobs/[job_id]/status every 3s until all
-          // generations resolve or the 90s timeout fires.
-          //
-          // isGenerating stays true (via startGenerating() above) for the
-          // entire polling window so the frame shimmer stays active.
-          const resolved = [...(data.generations ?? [])];
-          const POLL_MS  = 3_000;
-          const TIMEOUT_MS = 90_000;
-          const pollStart  = Date.now();
-
-          while (resolved.some((g) => g.status === "processing" && g.job_id)) {
-            // User clicked Cancel — break immediately without calling finishGenerating
-            // (cancelGenerating has already been called from handleCancel).
-            if (pollCancelledRef.current) {
-              console.log("[CDv2] polling cancelled by user");
-              break;
-            }
-            if (Date.now() - pollStart > TIMEOUT_MS) {
-              console.warn("[CDv2] polling timed out after 90s");
-              for (let i = 0; i < resolved.length; i++) {
-                if (resolved[i].status === "processing") {
-                  resolved[i] = {
-                    ...resolved[i],
-                    status: "failed",
-                    error_message: "Generation timed out — please try again.",
-                  };
-                }
-              }
-              break;
-            }
-
-            // Wait before polling
-            await new Promise<void>((r) => setTimeout(r, POLL_MS));
-
-            for (let i = 0; i < resolved.length; i++) {
-              const gen = resolved[i];
-              if (gen.status !== "processing" || !gen.job_id) continue;
-
-              try {
-                const pollRes = await fetch(`/api/studio/jobs/${gen.job_id}/status`, {
-                  headers: authHdrs,
-                });
-                if (!pollRes.ok) continue;
-
-                const pollJson = await pollRes.json();
-                const s   = pollJson?.data?.status as string | undefined;
-                const url = pollJson?.data?.url    as string | undefined;
-                const err = pollJson?.data?.error  as string | undefined;
-
-                console.log("[CDv2] poll", gen.job_id, "→", s, url ?? "");
-
-                if (s === "success" && url) {
-                  resolved[i] = { ...gen, status: "completed", url };
-                  // Wire to frame immediately as it resolves
-                  if (targetFrameId) {
-                    updateFrame(targetFrameId, { generatedImageUrl: url });
-                  }
-                } else if (s === "error" || s === "failed") {
-                  resolved[i] = {
-                    ...gen,
-                    status: "failed",
-                    error_message: err ?? "Generation failed",
-                  };
-                  // Trigger credit refund for this async failure.
-                  // The generate route charged credits upfront; the provider
-                  // failed asynchronously, so we must explicitly refund here.
-                  if (gen.id) {
-                    void fetch(`/api/creative-director/generations/${gen.id}/refund`, {
-                      method:  "POST",
-                      headers: authHdrs,
-                    });
-                  }
-                }
-                // status "pending" → keep looping
-              } catch {
-                /* swallow poll error — will retry on next iteration */
-              }
-            }
+          // GPT Image 2 is synchronous — results arrive in the 200 response; no polling.
+          if (targetFrameId && resultUrls[0]) {
+            updateFrame(targetFrameId, { generatedImageUrl: resultUrls[0] });
           }
-
-          // ── Cancel guard ────────────────────────────────────────────────
-          // If user cancelled mid-poll, cancelGenerating() was already called from
-          // handleCancel(). Calling finishGenerating() here would prepend the stale
-          // local `resolved` array (which still has status:"processing" entries) back
-          // into the store outputs, re-showing a GENERATING card that should be gone.
-          if (pollCancelledRef.current) {
-            return;
-          }
-
-          // ── Wire frame for sync providers ──────────────────────────────
-          // Async results were wired inside the poll loop above.
-          // For sync providers (GPT Image) the loop never runs; wire here.
-          const firstDone = resolved.find((g) => g.status === "completed" && g.url);
-          if (firstDone?.url && targetFrameId) {
-            updateFrame(targetFrameId, { generatedImageUrl: firstDone.url });
-          }
-
-          finishGenerating(resolved);
+          const now = new Date().toISOString();
+          finishGenerating(resultUrls.map((url) => ({
+            id:          crypto.randomUUID(),
+            url,
+            status:      "completed" as const,
+            mode:        "explore" as const,
+            credit_cost: 0,
+            provider:    "workflow",
+            model:       "reference-stack-render",
+            created_at:  now,
+            completed_at: now,
+          })));
         } catch (err) {
           finishGenerating([], err instanceof Error ? err.message : "Network error");
         }
@@ -688,7 +611,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         pollCancelledRef.current = false;
       }
     },
-    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, selectedModel, characterDirection, selectedFrameId, updateFrame, getAuthHeaders]
+    [ensureDirection, refinements, syncRefinements, startGenerating, finishGenerating, characterDirection, selectedFrameId, elements, updateFrame, getAuthHeaders]
   );
 
   // ── Frame Regenerate (Phase 4.2 — Director Flow) ───────────────────────────
@@ -752,9 +675,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   }, [addUploadedAsset, openDirectorPanel]);
 
   // ── Regenerate Variation ──────────────────────────────────────────────────
-  // Real API call to the existing generate route with a variation suffix.
-  // Costs credits. Uses current directionId, refinements, model, and character
-  // direction — exactly the same as a normal generate, but appends the suffix.
+  // Phase 3A: routes through the workflow engine with a variation suffix.
+  // Subject + world references from canvas are carried forward so the engine
+  // can produce a coherent variation of the existing scene.
   const VARIATION_SUFFIX = "same subject and composition, subtle variation, refined cinematic detail";
 
   const handleRegenVariation = useCallback(async () => {
@@ -764,19 +687,24 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       await syncRefinements(dId, refinements as Record<string, unknown>);
     }
     startGenerating();
-    const charSuffix   = buildCharacterDirectionSuffix(characterDirection);
-    const promptSuffix = [charSuffix, VARIATION_SUFFIX].filter(Boolean).join(", ");
+    const charSuffix = buildCharacterDirectionSuffix(characterDirection);
+    const prompt     = [charSuffix, VARIATION_SUFFIX].filter(Boolean).join(", ");
     try {
-      const authHdrs = await getAuthHeaders();
-      const res = await fetch("/api/creative-director/generate", {
+      const authHdrs  = await getAuthHeaders();
+      const { elements: currentEls } = useDirectionStore.getState();
+      const subjectEl = currentEls.find((el) => el.type === "subject" && el.asset_url);
+      const worldEl   = currentEls.find((el) => el.type === "world"   && el.asset_url);
+      const references = [subjectEl?.asset_url, worldEl?.asset_url].filter((u): u is string => !!u);
+
+      const res = await fetch("/api/workflows/reference-stack-render", {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...authHdrs },
-        body: JSON.stringify({
-          directionId:   dId,
-          count:         1,
-          aspectRatio:   "1:1",
-          modelOverride: selectedModel,
-          promptSuffix:  promptSuffix || undefined,
+        body:    JSON.stringify({
+          prompt:      prompt || "cinematic portrait, subtle variation",
+          references:  references.length > 0 ? references : undefined,
+          tier:        "cinematic",
+          aspectRatio: "1:1",
+          outputCount: 1,
         }),
       });
       if (!res.ok) {
@@ -784,8 +712,20 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         finishGenerating([], err.error ?? `Variation failed (${res.status})`);
         return;
       }
-      const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
-      finishGenerating(data.generations ?? []);
+      const data = await res.json();
+      const resultUrls: string[] = data.data?.resultUrls ?? [];
+      const varNow = new Date().toISOString();
+      finishGenerating(resultUrls.map((url) => ({
+        id:           crypto.randomUUID(),
+        url,
+        status:       "completed" as const,
+        mode:         "explore" as const,
+        credit_cost:  0,
+        provider:     "workflow",
+        model:        "reference-stack-render",
+        created_at:   varNow,
+        completed_at: varNow,
+      })));
     } catch (err) {
       finishGenerating([], err instanceof Error ? err.message : "Network error");
     }
@@ -795,34 +735,30 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     syncRefinements,
     startGenerating,
     finishGenerating,
-    selectedModel,
     characterDirection,
     getAuthHeaders,
   ]);
 
   // ── Phase 3 — auto generate "WOW" moment ─────────────────────────────────
   // Called by SceneCanvas when onboardingStep reaches 4.
-  // Reuses the same orchestration path as the manual Generate button:
-  //   ensureDirection → startGenerating → POST /api/creative-director/generate
-  //   → finishGenerating (pushes result to OutputPanel) → return imageUrl.
+  // Phase 3A: routes through the workflow engine (reference-stack-render).
+  // GPT Image 2 is synchronous — no polling needed; result arrives in 200.
   // Returns null on any failure (onboarding continues gracefully).
   const handleAutoGenerate = useCallback(
-    async (prompt: string, modelKey: string, aspectRatio: string, textNodeInput?: string): Promise<string | null> => {
+    async (prompt: string, _modelKey: string, aspectRatio: string, textNodeInput?: string): Promise<string | null> => {
       const dId = await ensureDirection();
       if (!dId) return null;
       startGenerating();
       try {
         const authHdrs = await getAuthHeaders();
-        const res = await fetch("/api/creative-director/generate", {
+        const res = await fetch("/api/workflows/reference-stack-render", {
           method:  "POST",
           headers: { "Content-Type": "application/json", ...authHdrs },
-          body: JSON.stringify({
-            directionId:   dId,
-            count:         1,
+          body:    JSON.stringify({
+            prompt:      textNodeInput || prompt,
+            tier:        "cinematic",
             aspectRatio,
-            modelOverride: modelKey,
-            promptSuffix:  prompt,
-            textNodeInput: textNodeInput || undefined,
+            outputCount: 1,
           }),
         });
         if (!res.ok) {
@@ -830,9 +766,21 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           finishGenerating([], err.error ?? `Auto-generation failed (${res.status})`);
           return null;
         }
-        const data: { generations: CDGenerationOutput[]; mode: string } = await res.json();
-        finishGenerating(data.generations ?? []);
-        return data.generations?.[0]?.url ?? null;
+        const data = await res.json();
+        const resultUrls: string[] = data.data?.resultUrls ?? [];
+        const autoNow = new Date().toISOString();
+        finishGenerating(resultUrls.map((url) => ({
+          id:          crypto.randomUUID(),
+          url,
+          status:      "completed" as const,
+          mode:        "explore" as const,
+          credit_cost: 0,
+          provider:    "workflow",
+          model:       "reference-stack-render",
+          created_at:  autoNow,
+          completed_at: autoNow,
+        })));
+        return resultUrls[0] ?? null;
       } catch (err) {
         finishGenerating([], err instanceof Error ? err.message : "Network error");
         return null;
