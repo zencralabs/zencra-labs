@@ -821,14 +821,14 @@ function ImageCard({
         <div style={{
           position: "absolute", inset: 0,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          gap: 8, padding: "20px 16px",
+          gap: 10, padding: "20px 16px",
         }}>
-          <span style={{ fontSize: 24, lineHeight: 1 }}>{icon}</span>
+          <span style={{ fontSize: 28, lineHeight: 1 }}>{icon}</span>
           <div style={{ textAlign: "center" }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)", margin: 0, marginBottom: 4 }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.75)", margin: 0, marginBottom: 4 }}>
               {title}
             </p>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", margin: 0, lineHeight: 1.5 }}>
               {detail}
             </p>
           </div>
@@ -838,7 +838,7 @@ function ImageCard({
               <button
                 onClick={() => onReusePrompt?.(img.prompt)}
                 style={{
-                  fontSize: 9, fontWeight: 700, padding: "4px 9px", borderRadius: 6,
+                  fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
                   border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)",
                   color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
                 }}
@@ -851,7 +851,7 @@ function ImageCard({
             <button
               onClick={() => onDelete?.(img.id, img.assetId)}
               style={{
-                fontSize: 9, fontWeight: 700, padding: "4px 9px", borderRadius: 6,
+                fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
                 border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)",
                 color: "rgba(239,68,68,0.6)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
               }}
