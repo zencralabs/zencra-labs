@@ -2072,8 +2072,9 @@ function ImageStudioInner() {
           // GPT Image: quality is now the provider-native API value ("low" | "medium" | "high").
           // In transform mode, /v1/images/edits ignores quality — adapter does not forward it to FormData.
           // No translation needed: quality state IS the API value for this model.
-          // outputCount: passed when count > 1 so the provider uses native n= batching.
-          body.providerParams = { quality, ...(count > 1 ? { outputCount: count } : {}) };
+          // outputCount NOT passed — native n= batching conflicts with the loop strategy.
+          // Phase B (single-call native batch + frontend urls[] consumption) is deferred.
+          body.providerParams = { quality };
           if (referenceImageUrl) body.imageUrl = referenceImageUrl;
         } else if (modelKey === "seedream-4-5") {
           // Seedream 4.5: quality is the chip value ("2K" | "4K" | "" for default).

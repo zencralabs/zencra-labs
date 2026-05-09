@@ -107,11 +107,9 @@ function makeGptImageProvider(
       const size       = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
       // Quality tiers: "low" | "medium" | "high" | "auto"  (NOT "standard"/"hd" — those are DALL-E 3)
       const quality    = (input.providerParams?.quality as string | undefined) ?? "auto";
-      // outputCount: clamp 1–4. Edit mode is always 1 (edits API doesn't batch the same way).
-      const outputCount = isEdit ? 1 : Math.max(1, Math.min(Number(input.providerParams?.outputCount ?? 1), 4));
 
       let url:  string | undefined;
-      let urls: string[] | undefined;
+      const urls: undefined = undefined; // Phase B (native n= batching) deferred
 
       if (isEdit && input.imageUrl) {
         // Image editing endpoint — requires source image as blob
@@ -141,34 +139,26 @@ function makeGptImageProvider(
         }
 
       } else {
-        // Standard generation endpoint.
-        // gpt-image models do NOT support response_format — always return b64_json.
-        // Native n= batching: one API call returns outputCount images concurrently.
+        // Standard generation endpoint — always n=1 per dispatch call.
+        // Multi-image batching uses the loop strategy in page.tsx (one call per image).
+        // Native n= batching (Phase B) is deferred until frontend can consume urls[].
         const res = await fetch("https://api.openai.com/v1/images/generations", {
           method:  "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body:    JSON.stringify({ model, prompt: input.prompt, size, quality, n: outputCount }),
-          signal:  AbortSignal.timeout(180_000), // extra headroom for multi-image batches
+          body:    JSON.stringify({ model, prompt: input.prompt, size, quality, n: 1 }),
+          signal:  AbortSignal.timeout(120_000),
         });
         if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
         const data = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
 
-        // Upload all returned images concurrently, index-suffixed to avoid path collisions.
-        const uploadedUrls = await Promise.all(
-          data.data.map(async (raw, idx) => {
-            if (raw?.url) return raw.url;
-            if (raw?.b64_json) {
-              const suffix = idx === 0 ? "" : `-${idx}`;
-              return await uploadGeneratedImage(raw.b64_json, `${jobId}${suffix}`, storageFolder);
-            }
-            return null;
-          })
-        );
+        const raw = data.data[0];
+        if (raw?.url) {
+          url = raw.url;
+        } else if (raw?.b64_json) {
+          url = await uploadGeneratedImage(raw.b64_json, jobId, storageFolder);
+        }
 
-        const validUrls = uploadedUrls.filter((u): u is string => !!u);
-        if (validUrls.length === 0) throw new Error(`${displayName} returned no image URLs.`);
-        url  = validUrls[0];
-        urls = validUrls.length > 1 ? validUrls : undefined;
+        if (!url) throw new Error(`${displayName} returned no image URL.`);
       }
 
       if (!url) throw new Error(`${displayName} returned no image URL.`);
@@ -177,7 +167,7 @@ function makeGptImageProvider(
       const result: ZProviderResult = {
         jobId, provider: "openai", modelKey: key,
         status: "success", url, urls,
-        metadata: { size, quality, outputCount, mode: isEdit ? "edit" : "generate" },
+        metadata: { size, quality, mode: isEdit ? "edit" : "generate" },
       };
 
       return {

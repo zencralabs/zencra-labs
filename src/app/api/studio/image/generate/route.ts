@@ -27,8 +27,6 @@
  */
 
 import { requireAuthUser }           from "@/lib/supabase/server";
-import { supabaseAdmin }             from "@/lib/supabase/admin";
-import { buildAssetMetadata, saveAssetMetadata } from "@/lib/storage/metadata";
 import { guardStudio }               from "@/lib/api/feature-gate";
 import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
@@ -243,48 +241,12 @@ export async function POST(req: Request): Promise<Response> {
       void consumeFreeUsage(userId, "image");
     }
 
-    // ── Native multi-output: persist additional assets for URLs[1..n] ────────
-    // When the provider returns result.urls (native batching), studioDispatch only
-    // persists result.url (the first image). Additional URLs are persisted here.
-    const additionalAssetIds: string[] = [];
-    const additionalUrls = job.result?.urls;
-    if (additionalUrls && additionalUrls.length > 1) {
-      // urls[0] is already persisted as assetId — start from index 1
-      await Promise.allSettled(
-        additionalUrls.slice(1).map(async (extraUrl, idx) => {
-          try {
-            const meta = buildAssetMetadata({
-              job,
-              userId,
-              url:         extraUrl,
-              storagePath: `users/${userId}/generations/${job.id}-${idx + 1}`,
-              bucket:      "generations",
-              status:      "ready",
-              prompt:      resolvedPrompt,
-              creditsCost: 0, // credits were reserved for the full batch at dispatch
-            });
-            await saveAssetMetadata(supabaseAdmin, meta);
-            additionalAssetIds.push(meta.assetId);
-          } catch (err) {
-            logger.error("image-generate", `Failed to persist batch asset[${idx + 1}]: ${String(err)}`);
-          }
-        })
-      );
-    }
-
-    const allUrls     = additionalUrls && additionalUrls.length > 1 ? additionalUrls : undefined;
-    const allAssetIds = additionalAssetIds.length > 0
-      ? [assetId, ...additionalAssetIds].filter(Boolean) as string[]
-      : undefined;
-
     return accepted({
       jobId:            job.id,
       externalJobId:    job.externalJobId,
       status:           job.status,
       url:              job.result?.url,
-      urls:             allUrls,
       assetId,
-      assetIds:         allAssetIds,
       estimatedCredits: job.estimatedCredits,
     });
   } catch (err) {
