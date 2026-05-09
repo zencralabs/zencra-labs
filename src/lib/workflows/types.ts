@@ -69,10 +69,22 @@ export type CapabilityParams = RenderWithQualityParams;
 /**
  * Full capability dispatch payload sent to the registry.
  * Adds orchestration context (userId) to the semantic params.
+ *
+ * billingMode controls which credit accounting path is active:
+ *   "direct"            — provider-level credit hooks handle reserve/debit.
+ *                         Used by the direct Image Studio route via dispatch().
+ *   "workflow_reserved" — the route pre-reserved credits before runWorkflow().
+ *                         The engine releases the remainder at terminal state.
+ *                         The capability registry MUST NOT apply provider-level
+ *                         credit hooks when this mode is active — they are
+ *                         already bypassed because the registry calls createJob()
+ *                         directly (not via dispatch()), but this field makes
+ *                         the contract explicit and guards against future drift.
  */
 export interface CapabilityInput {
-  userId: string;
-  params: CapabilityParams;
+  userId:      string;
+  params:      CapabilityParams;
+  billingMode: "direct" | "workflow_reserved";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,10 +136,16 @@ export interface WorkflowDefinition {
 /**
  * Entry point for runWorkflow().
  * The engine loads the workflow_run row from DB by workflowRunId.
+ *
+ * creditReserved — the amount already deducted from the user's balance by the
+ * calling route (Phase 2C workflow billing). The engine uses this as a fallback
+ * refund amount in the rare event the workflow_run row cannot be loaded from DB.
+ * Defaults to 0 (no pre-reservation — Phase 2B behaviour).
  */
 export interface RunWorkflowInput {
-  workflowRunId: string;
-  userId:        string;
+  workflowRunId:   string;
+  userId:          string;
+  creditReserved?: number;
 }
 
 /**

@@ -52,6 +52,10 @@ import { StudioDispatchError, dispatchErrorStatus }
   from "@/lib/api/studio-dispatch";
 import { createWorkflowRun, runWorkflow }
   from "@/lib/workflows/workflow-engine";
+import { WORKFLOW_REGISTRY } from "@/lib/workflows/workflows/index";
+import { estimateCapabilityCost } from "@/lib/workflows/capability-registry";
+import { buildSupabaseCreditStore } from "@/lib/credits/hooks";
+import { supabaseAdmin }     from "@/lib/supabase/admin";
 import { logger }            from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -115,31 +119,95 @@ export async function POST(req: Request): Promise<Response> {
       ? Math.min(body!.outputCount, 4)
       : 1;
 
+  // ── Phase 2C: Workflow-level credit reservation ───────────────────────────────
+  //
+  // The reference_stack_render workflow uses "workflow_reserved" billing:
+  //   1. Estimate the credit cost for each step via the capability registry.
+  //   2. Check the user's balance and deduct upfront via spend_credits.
+  //   3. Pass the reserved amount to createWorkflowRun so the engine can
+  //      release the unused remainder at terminal state.
+  //
+  // The capability registry still calls createJob() directly — provider-level
+  // credit hooks are NOT involved. This keeps the direct Image Studio path
+  // (which uses dispatch() + creditHooks) completely isolated.
+
+  const inputPayload = {
+    prompt,
+    tier,
+    references: references.length > 0 ? references : undefined,
+    aspectRatio,
+    outputCount,
+  };
+
+  // ── Estimate total workflow cost ──────────────────────────────────────────────
+  const definition = WORKFLOW_REGISTRY["reference_stack_render"];
+  let estimatedCost = 0;
+  if (definition) {
+    for (const step of definition.steps) {
+      const stepParams = step.buildParams(inputPayload);
+      estimatedCost += await estimateCapabilityCost(stepParams);
+    }
+  }
+
+  // ── Pre-deduct credits ────────────────────────────────────────────────────────
+  // spend_credits is atomic (row-level lock on profiles). If the user has
+  // insufficient credits, it returns success=false and we gate here.
+  // If estimatedCost is 0 (unknown — estimator fallback), we proceed without
+  // pre-deduction and fall back to Phase 2B behaviour (no workflow-level reserve).
+  let creditReserved = 0;
+
+  if (estimatedCost > 0) {
+    const store = buildSupabaseCreditStore(supabaseAdmin);
+    const deducted = await store.deduct(
+      userId,
+      estimatedCost,
+      `Workflow reserve [reference_stack_render] — ${estimatedCost} cr`,
+    );
+
+    if (!deducted) {
+      return Response.json(
+        { success: false, error: "Insufficient credits for this workflow.", code: "INSUFFICIENT_CREDITS" },
+        { status: 402 },
+      );
+    }
+
+    creditReserved = estimatedCost;
+    logger.info("workflow-route", "credits reserved", { userId, estimatedCost, creditReserved });
+  } else {
+    logger.warn("workflow-route", "estimatedCost=0; skipping pre-deduction (fallback to Phase 2B billing)", { userId });
+  }
+
   // ── Create workflow run ───────────────────────────────────────────────────────
-  // credit_reserved = 0 in Phase 2B — actual credit accounting is handled inside
-  // the capability registry via the existing provider creditHooks layer.
   const runResult = await createWorkflowRun({
     userId,
-    intentType:     "reference_stack_render",
-    inputPayload:   {
-      prompt,
-      tier,
-      references:  references.length > 0 ? references : undefined,
-      aspectRatio,
-      outputCount,
-    },
-    creditReserved: 0,
+    intentType:   "reference_stack_render",
+    inputPayload,
+    creditReserved,
   });
 
+  // If run creation fails AFTER credits were deducted, refund immediately.
+  // The engine never ran, so no further refund will happen from within the engine.
   if (!runResult.ok) {
+    if (creditReserved > 0) {
+      const store = buildSupabaseCreditStore(supabaseAdmin);
+      await store.restore(
+        userId,
+        creditReserved,
+        `Workflow create-fail refund [reference_stack_render] — ${creditReserved} cr restored`,
+      );
+      logger.warn("workflow-route", "createWorkflowRun failed; credits refunded", { userId, creditReserved });
+    }
     logger.error("workflow-route", "createWorkflowRun failed", { userId, error: runResult.error });
     return serverErr(runResult.error ?? "Failed to create workflow run");
   }
 
   // ── Execute workflow ──────────────────────────────────────────────────────────
+  // Pass creditReserved so the engine can refund on the rare run-load-fail path.
+  // All other failure/success terminal states are handled inside runWorkflow().
   const result = await runWorkflow({
-    workflowRunId: runResult.workflowRunId,
+    workflowRunId:  runResult.workflowRunId,
     userId,
+    creditReserved,
   });
 
   if (!result.ok) {

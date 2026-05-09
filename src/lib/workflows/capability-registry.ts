@@ -25,7 +25,7 @@
  *   or workflow definitions, the orchestration boundary has collapsed.
  */
 
-import type { CapabilityInput, CapabilityResult } from "./types";
+import type { CapabilityInput, CapabilityParams, CapabilityResult } from "./types";
 import type { ZProviderInput, AspectRatio } from "../providers/core/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,7 +45,13 @@ export async function executeCapability(
 
   switch (params.capability) {
     case "renderWithQuality":
-      return renderWithQuality({ userId, params });
+      // billingMode is carried on the CapabilityInput but is NOT forwarded to
+      // createJob(). The registry calls createJob() directly — the orchestrator's
+      // credit hooks are never invoked here regardless of mode. billingMode is
+      // consumed upstream: the route reserves credits ("workflow_reserved") or
+      // the orchestrator's dispatch() reserves them ("direct"). The registry's
+      // job is execution only.
+      return renderWithQuality({ userId, params, billingMode: input.billingMode });
 
     default: {
       // TypeScript exhaustiveness guard — compile error if a new capability
@@ -57,6 +63,73 @@ export async function executeCapability(
         creditsUsed: 0,
         error:       `Unknown capability: ${String((exhausted as CapabilityInput["params"]).capability)}`,
       };
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COST ESTIMATION (route-level pre-reservation support)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Estimate the credit cost for a capability without executing it.
+ *
+ * Used by workflow routes to pre-reserve credits before calling createWorkflowRun().
+ * Uses the same DB-backed pricing engine as the direct Image Studio path so
+ * estimates are consistent between billing modes.
+ *
+ * Returns the expected cost in credits (integer). Returns 0 on any estimation
+ * error — callers should treat 0 as "unknown cost, proceed with caution."
+ *
+ * This function is the ONLY place in the workflow layer that imports from
+ * src/lib/credits/ — consistent with the registry being the only file that
+ * imports from src/lib/providers/.
+ */
+export async function estimateCapabilityCost(
+  params: CapabilityParams,
+): Promise<number> {
+  switch (params.capability) {
+    case "renderWithQuality": {
+      try {
+        // Dynamic imports — keep credit system out of the module graph for unit
+        // tests that mock executeCapability without Supabase credentials.
+        const { supabaseAdmin }                         = await import("../supabase/admin");
+        const { buildSupabaseCreditStore, buildCreditHooks } = await import("../credits/hooks");
+
+        const store = buildSupabaseCreditStore(supabaseAdmin);
+        const hooks = buildCreditHooks({
+          provider: "openai",
+          modelKey: "gpt-image-2",   // Phase 2A: static. Phase 3: resolved by registry.
+          studio:   "image",
+          store,
+        });
+
+        // Construct a minimal ZProviderInput — only the fields estimate() reads.
+        // userId is intentionally empty: estimate() does not use it.
+        const zpInput: ZProviderInput = {
+          requestId:      `wf-estimate-${Date.now()}`,
+          userId:         "",
+          studioType:     "image",
+          modelKey:       "gpt-image-2",
+          prompt:         params.prompt,
+          aspectRatio:    (params.aspectRatio ?? "1:1") as AspectRatio,
+          providerParams: { quality: params.tier },
+        };
+
+        const estimate = await hooks.estimate(zpInput);
+        return estimate.expected;
+      } catch (err) {
+        console.error("[capability-registry] estimateCapabilityCost error:", err);
+        return 0; // unknown — caller proceeds without pre-reservation guarantee
+      }
+    }
+
+    default: {
+      // TypeScript exhaustiveness guard — compile error if CapabilityName grows
+      // without a matching case in this function.
+      const _exhausted = params as never;
+      void _exhausted;
+      return 0;
     }
   }
 }
@@ -81,7 +154,8 @@ export async function executeCapability(
  *   tier: "cinematic"  →  CapabilityResult { ok, resultUrls, creditsUsed }
  */
 async function renderWithQuality(input: CapabilityInput): Promise<CapabilityResult> {
-  const { params, userId } = input;
+  const { params, userId, billingMode } = input;
+  void billingMode; // consumed upstream — no provider-level hook to suppress here
   if (params.capability !== "renderWithQuality") {
     return { ok: false, resultUrls: [], creditsUsed: 0, error: "Capability mismatch" };
   }

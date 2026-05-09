@@ -49,6 +49,47 @@ import type {
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CREDIT RELEASE HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Atomically return credits to a user balance via the refund_credits RPC.
+ * Non-fatal: logs on error but does not propagate — the job is already done.
+ * A refund failure means the user keeps their credits (safe direction).
+ *
+ * @param userId          User who reserved the credits
+ * @param amount          Credits to return (must be > 0)
+ * @param description     Audit description for credit_transactions
+ * @param workflowRunId   Associated run (passed as p_generation_id for auditability)
+ */
+async function releaseCredits(
+  userId:        string,
+  amount:        number,
+  description:   string,
+  workflowRunId: string,
+): Promise<void> {
+  if (amount <= 0) return;
+
+  const { error } = await supabaseAdmin.rpc("refund_credits", {
+    p_user_id:       userId,
+    p_amount:        amount,
+    p_description:   description,
+    p_generation_id: workflowRunId,
+  });
+
+  if (error) {
+    console.error(
+      `[workflow-engine] releaseCredits failed (run=${workflowRunId} amount=${amount}):`,
+      error.message,
+    );
+  } else {
+    console.info(
+      `[workflow-engine] releaseCredits ok (run=${workflowRunId} amount=${amount})`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC ENTRY POINT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -64,7 +105,7 @@ import type {
 export async function runWorkflow(
   input: RunWorkflowInput,
 ): Promise<RunWorkflowResult> {
-  const { workflowRunId, userId } = input;
+  const { workflowRunId, userId, creditReserved: inputCreditReserved = 0 } = input;
 
   // ── 1. Load the workflow_run row ───────────────────────────────────────────
   const { data: runRow, error: runLoadErr } = await supabaseAdmin
@@ -77,6 +118,23 @@ export async function runWorkflow(
   if (runLoadErr || !runRow) {
     const msg = runLoadErr?.message ?? "workflow_run not found";
     console.error("[workflow-engine] load run error:", msg);
+
+    // Defensive refund: if the caller pre-reserved credits but we can't even
+    // load the run row, return the reserved amount now. This is an edge case
+    // (DB transient error after createWorkflowRun succeeded) — log it loudly.
+    if (inputCreditReserved > 0) {
+      console.error(
+        `[workflow-engine] run-load-fail with pre-reserved credits (amount=${inputCreditReserved}). ` +
+        `Refunding to userId=${userId}.`,
+      );
+      await releaseCredits(
+        userId,
+        inputCreditReserved,
+        `Workflow run-load-fail refund (run=${workflowRunId})`,
+        workflowRunId,
+      );
+    }
+
     return { ok: false, runId: workflowRunId, error: msg };
   }
 
@@ -94,7 +152,7 @@ export async function runWorkflow(
   if (!definition) {
     const msg = `No workflow definition for intent_type: ${runRow.intent_type}`;
     console.error("[workflow-engine]", msg);
-    await failRun(workflowRunId, msg);
+    await failRun(workflowRunId, msg, { userId, creditReserved: (runRow.credit_reserved as number) ?? 0, creditUsedSoFar: 0 });
     return { ok: false, runId: workflowRunId, error: msg };
   }
 
@@ -105,7 +163,8 @@ export async function runWorkflow(
     .eq("id", workflowRunId);
 
   // ── 4. Execute steps ──────────────────────────────────────────────────────
-  const payload = (runRow.input_payload ?? {}) as Record<string, unknown>;
+  const payload          = (runRow.input_payload ?? {}) as Record<string, unknown>;
+  const creditReservedDB = (runRow.credit_reserved as number) ?? 0;
   const allResultUrls: string[] = [];
   let totalCreditsUsed = 0;
 
@@ -136,7 +195,7 @@ export async function runWorkflow(
     if (stepInsertErr || !stepRow) {
       const msg = stepInsertErr?.message ?? "Failed to create workflow_step row";
       console.error("[workflow-engine] step insert error:", msg);
-      await failRun(workflowRunId, msg);
+      await failRun(workflowRunId, msg, { userId, creditReserved: creditReservedDB, creditUsedSoFar: totalCreditsUsed });
       return { ok: false, runId: workflowRunId, error: msg };
     }
 
@@ -160,7 +219,14 @@ export async function runWorkflow(
       .eq("id", stepRow.id);
 
     // ── Dispatch to capability registry ────────────────────────────────────
-    const capInput: CapabilityInput = { userId, params: stepInput };
+    // billingMode: "workflow_reserved" — credits were pre-deducted at the route.
+    // The registry must NOT apply provider-level credit hooks (it already bypasses
+    // them by calling createJob() directly, but the field makes the contract explicit).
+    const capInput: CapabilityInput = {
+      userId,
+      params:      stepInput,
+      billingMode: "workflow_reserved",
+    };
     const capResult = await executeCapability(capInput);
 
     if (!capResult.ok) {
@@ -176,7 +242,7 @@ export async function runWorkflow(
         })
         .eq("id", stepRow.id);
 
-      await failRun(workflowRunId, msg);
+      await failRun(workflowRunId, msg, { userId, creditReserved: creditReservedDB, creditUsedSoFar: totalCreditsUsed });
       return { ok: false, runId: workflowRunId, error: msg };
     }
 
@@ -200,21 +266,34 @@ export async function runWorkflow(
   }
 
   // ── 5. Mark run as completed ──────────────────────────────────────────────
-  const creditReserved = (runRow.credit_reserved as number) ?? 0;
-  const creditReleased = Math.max(0, creditReserved - totalCreditsUsed);
+  const creditReleased = Math.max(0, creditReservedDB - totalCreditsUsed);
 
   await supabaseAdmin
     .from("workflow_runs")
     .update({
-      status:        "completed",
-      credit_used:   totalCreditsUsed,
+      status:          "completed",
+      credit_used:     totalCreditsUsed,
       credit_released: creditReleased,
-      completed_at:  new Date().toISOString(),
+      completed_at:    new Date().toISOString(),
     })
     .eq("id", workflowRunId);
 
+  // ── Release unused pre-reserved credits ───────────────────────────────────
+  // Return the difference between what was reserved and what was actually used.
+  // This is the "workflow_reserved" billing path: the route pre-deducted the
+  // full estimated cost; we refund the unused portion now at terminal state.
+  if (creditReleased > 0) {
+    await releaseCredits(
+      userId,
+      creditReleased,
+      `Workflow completed — ${creditReleased} cr released (reserved=${creditReservedDB} used=${totalCreditsUsed})`,
+      workflowRunId,
+    );
+  }
+
   console.info(
-    `[workflow-engine] run ${workflowRunId} completed: ${allResultUrls.length} url(s), ${totalCreditsUsed} cr used`,
+    `[workflow-engine] run ${workflowRunId} completed: ${allResultUrls.length} url(s), ` +
+    `${totalCreditsUsed} cr used, ${creditReleased} cr released`,
   );
 
   return { ok: true, runId: workflowRunId, resultUrls: allResultUrls };
@@ -260,13 +339,46 @@ export async function createWorkflowRun(params: {
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function failRun(workflowRunId: string, errorMessage: string): Promise<void> {
+/**
+ * Mark a workflow run as failed and optionally refund pre-reserved credits.
+ *
+ * creditContext — present when the route pre-reserved credits (workflow billing).
+ *   creditReserved   — total credits deducted upfront by the route.
+ *   creditUsedSoFar  — credits consumed by steps that completed before the failure.
+ *   The refund amount = max(0, reserved - usedSoFar).
+ *
+ * On failure of a single-step workflow (Phase 2C), creditUsedSoFar is always 0
+ * because the capability failure means no assets were produced and no provider-level
+ * billing occurred (the registry calls createJob() directly, not dispatch()).
+ */
+async function failRun(
+  workflowRunId: string,
+  errorMessage:  string,
+  creditContext?: { userId: string; creditReserved: number; creditUsedSoFar: number },
+): Promise<void> {
+  const creditUsedSoFar = creditContext?.creditUsedSoFar ?? 0;
+  const refundAmount    = creditContext
+    ? Math.max(0, creditContext.creditReserved - creditUsedSoFar)
+    : 0;
+
   await supabaseAdmin
     .from("workflow_runs")
     .update({
-      status:        "failed",
-      error_message: errorMessage,
-      completed_at:  new Date().toISOString(),
+      status:          "failed",
+      error_message:   errorMessage,
+      credit_used:     creditUsedSoFar,
+      credit_released: refundAmount,
+      completed_at:    new Date().toISOString(),
     })
     .eq("id", workflowRunId);
+
+  // Return unused pre-reserved credits to the user's balance.
+  if (creditContext && refundAmount > 0) {
+    await releaseCredits(
+      creditContext.userId,
+      refundAmount,
+      `Workflow failed — ${refundAmount} cr returned (reserved=${creditContext.creditReserved} used=${creditUsedSoFar})`,
+      workflowRunId,
+    );
+  }
 }
