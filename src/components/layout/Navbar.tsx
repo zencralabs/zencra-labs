@@ -7,6 +7,7 @@ import {
   Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
   Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
   UserCircle2, Clapperboard, ArrowUpCircle, ArrowLeft, Cpu,
+  Compass, Images, Gem,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { AuthModal } from "@/components/auth/AuthModal";
@@ -164,6 +165,14 @@ const navLinks: Array<{ label: string; href: string; hasDropdown: boolean; dropd
   { label: "Gallery",       href: "/gallery",      hasDropdown: false },
   { label: "Pricing",       href: "#",             hasDropdown: false },
 ];
+
+// Premium icon metadata for plain mobile nav rows (Explore, Gallery, Pricing).
+// Keeps icon + color co-located so the map stays clean.
+const MOBILE_PLAIN_ICON: { [key: string]: { Icon: React.ElementType; color: string } | undefined } = {
+  Explore: { Icon: Compass, color: "#A855F7" },
+  Gallery: { Icon: Images,  color: "#0EA5A0" },
+  Pricing: { Icon: Gem,     color: "#D4AF37" },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RIGHT PANEL CONTENT
@@ -505,6 +514,12 @@ function MobileMenu({
     if (detail !== null) { setDetail(null); return; }
     setSection(null);
   }
+  /** Close all mobile state and the drawer in one call. Use for all navigating actions. */
+  function handleNavigate() {
+    setSection(null);
+    setDetail(null);
+    onClose();
+  }
 
   const sectionData = section ? navCategories[section] : null;
 
@@ -549,6 +564,9 @@ function MobileMenu({
             {navLinks.map((link) => {
               const hasSection = link.hasDropdown && link.dropdownKey && link.dropdownKey in navCategories;
               const cat = hasSection ? navCategories[link.dropdownKey!] : null;
+              // Premium icon for plain rows (Explore, Gallery, Pricing)
+              const plainMeta = !hasSection ? MOBILE_PLAIN_ICON[link.label] : undefined;
+              const PlainIcon = plainMeta?.Icon ?? null;
               return (
                 <li key={link.href + link.label}>
                   {hasSection ? (
@@ -569,51 +587,63 @@ function MobileMenu({
                   ) : link.label === "Pricing" ? (
                     /* Pricing opens the overlay — no navigation */
                     <button
-                      onClick={() => { onClose(); onOpenPricing?.(); }}
+                      onClick={() => { handleNavigate(); onOpenPricing?.(); }}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
                       style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: "16px", textAlign: "left" }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
                     >
-                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
-                      {link.label}
+                      {PlainIcon && plainMeta && (
+                        <div
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: `${plainMeta.color}14`, border: `1px solid ${plainMeta.color}22`, boxShadow: `0 0 8px ${plainMeta.color}18` }}
+                        >
+                          <PlainIcon size={13} style={{ color: plainMeta.color }} />
+                        </div>
+                      )}
+                      <span className="flex-1">{link.label}</span>
                     </button>
                   ) : (
                     <Link
                       href={link.href}
-                      onClick={onClose}
+                      onClick={handleNavigate}
                       className="flex items-center gap-3 rounded-xl px-3 py-3.5 font-medium"
                       style={{ color: "#94A3B8", fontSize: "16px" }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = "#F8FAFC"}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#94A3B8"}
                     >
-                      <span className="h-2 w-2 rounded-full flex-shrink-0 bg-transparent" />
-                      {link.label}
+                      {PlainIcon && plainMeta && (
+                        <div
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: `${plainMeta.color}14`, border: `1px solid ${plainMeta.color}22`, boxShadow: `0 0 8px ${plainMeta.color}18` }}
+                        >
+                          <PlainIcon size={13} style={{ color: plainMeta.color }} />
+                        </div>
+                      )}
+                      <span className="flex-1">{link.label}</span>
                     </Link>
                   )}
                 </li>
               );
             })}
 
-            {/* Future Cinema Studio — reuses desktop .fcs-nav-link / .fcs-text / .fcs-soon tokens */}
-            <li>
-              <Link
-                href="/studio/cinema"
-                onClick={onClose}
-                className="fcs-nav-link flex w-full items-center gap-3"
-                style={{ padding: "12px 16px", borderRadius: "12px" }}
-              >
-                <Clapperboard size={15} style={{ color: "#D4AF37", flexShrink: 0 }} />
-                <span className="fcs-text" style={{ flex: 1, fontSize: "16px" }}>Future Cinema Studio</span>
-                <span className="fcs-soon">SOON</span>
-              </Link>
-            </li>
           </ul>
 
           {/* Auth buttons */}
           <div className="mt-4 flex flex-col gap-2 px-1">
+            {/* Future Cinema Studio — lives here so width = Login/Try Free (same px-1 container) */}
+            <Link
+              href="/studio/cinema"
+              onClick={handleNavigate}
+              className="fcs-nav-link flex w-full items-center gap-3"
+              style={{ padding: "12px 16px", borderRadius: "12px" }}
+            >
+              <Clapperboard size={15} style={{ color: "#D4AF37", flexShrink: 0 }} />
+              <span className="fcs-text" style={{ flex: 1, fontSize: "16px" }}>Future Cinema Studio</span>
+              <span className="fcs-soon">SOON</span>
+            </Link>
             <button
-              onClick={() => { onClose(); onAuthModal("login"); }}
+              onClick={() => { handleNavigate(); onAuthModal("login"); }}
               className="block text-center rounded-xl font-medium w-full transition-colors"
               style={{ padding: "12px", fontSize: "16px", color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
             >
@@ -621,7 +651,7 @@ function MobileMenu({
             </button>
             <Link
               href="/studio/image"
-              onClick={onClose}
+              onClick={handleNavigate}
               className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-white w-full"
               style={{ padding: "13px 16px", fontSize: "16px", background: "linear-gradient(135deg,#2563EB 0%,#0EA5A0 100%)", textDecoration: "none" }}
             >
@@ -678,13 +708,13 @@ function MobileMenu({
       {/* ── LEVEL 3: right panel detail for a feature ── */}
       {section && detail !== null && sectionData && (
         <div className="py-4 px-4">
-          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} studioKey={section ?? undefined} />
+          <RightPanelContent panel={sectionData.features[detail].right} color={sectionData.color} studioKey={section ?? undefined} onClose={handleNavigate} />
 
           {/* Link to feature if it's active */}
           {sectionData.features[detail].href !== "#" && (
             <Link
               href={sectionData.features[detail].href}
-              onClick={onClose}
+              onClick={handleNavigate}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl font-semibold"
               style={{ padding: "13px 16px", fontSize: "16px", background: `linear-gradient(135deg, ${sectionData.color}, ${sectionData.color}bb)`, color: "#fff", textDecoration: "none" }}
             >
