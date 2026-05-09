@@ -37,6 +37,29 @@ const ASPECT_TO_SIZE: Record<string, string> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// QUALITY ABSTRACTION LAYER
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Translates Zencra quality vocabulary → OpenAI API quality parameter values.
+ *
+ * Zencra owns the user-facing quality names ("fast", "cinematic", "ultra").
+ * OpenAI owns the API values ("low", "medium", "high").
+ *
+ * This map is the ONLY place that coupling lives. The DB, UI, and credit engine
+ * all use Zencra vocabulary. The provider translates at dispatch time.
+ *
+ * gpt-image-1 passes "low" | "medium" | "high" | "auto" directly from providerParams —
+ * those values are not in this map, so they pass through unchanged via the ?? fallback.
+ * gpt-image-2 sends Zencra terms ("fast" | "cinematic" | "ultra") which are mapped here.
+ */
+const ZENCRA_TO_OPENAI_QUALITY: Record<string, string> = {
+  fast:      "low",
+  cinematic: "medium",
+  ultra:     "high",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PROVIDER FACTORY
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -105,8 +128,15 @@ function makeGptImageProvider(
       const jobId      = newJobId();
       const isEdit     = !!input.imageUrl;
       const size       = ASPECT_TO_SIZE[input.aspectRatio ?? "1:1"] ?? "1024x1024";
-      // Quality tiers: "low" | "medium" | "high" | "auto"  (NOT "standard"/"hd" — those are DALL-E 3)
-      const quality    = (input.providerParams?.quality as string | undefined) ?? "auto";
+      // Quality resolution:
+      //   gpt-image-2 receives Zencra terms ("fast" | "cinematic" | "ultra") from the UI.
+      //   ZENCRA_TO_OPENAI_QUALITY translates those to OpenAI API values ("low" | "medium" | "high").
+      //   gpt-image-1 receives OpenAI terms directly ("low" | "medium" | "high" | "auto") —
+      //   those are not in the map, so the ?? fallback passes them through unchanged.
+      //   Default for gpt-image-2 is "cinematic" (medium); all other models default to "auto".
+      const rawQuality = (input.providerParams?.quality as string | undefined)
+        ?? (key === "gpt-image-2" ? "cinematic" : "auto");
+      const quality    = ZENCRA_TO_OPENAI_QUALITY[rawQuality] ?? rawQuality;
 
       let url:  string | undefined;
       const urls: undefined = undefined; // Phase B (native n= batching) deferred

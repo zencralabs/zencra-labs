@@ -238,7 +238,7 @@ function classifyError(raw: string | undefined): ErrorInfo {
 
 type AspectRatio = "Auto" | "1:1" | "3:4" | "4:3" | "2:3" | "3:2" | "9:16" | "16:9" | "5:4" | "4:5" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
 type ResolutionQuality = "1K" | "2K" | "4K";
-type GPTQuality        = "low" | "medium" | "high";
+type GPTQuality        = "low" | "medium" | "high" | "fast" | "cinematic" | "ultra";
 type StudioQuality     = ResolutionQuality | GPTQuality;
 type Quality           = ResolutionQuality; // used by allowedQualities — resolution models only
 type OutputFormat = "JPG" | "PNG";
@@ -247,14 +247,16 @@ type Tab = "history" | "community";
 /**
  * Provider-native quality tier option.
  * Used by models that expose performance tiers rather than resolution tiers.
- * Labels (Fast/Standard/Ultra) are shown in the UI; apiValues (low/medium/high)
- * are sent to the provider. creditMultiplier is informational — the engine owns the math.
+ * Labels (Fast/Cinematic/Ultra) are shown in the UI; apiValues are Zencra vocabulary
+ * ("fast" | "cinematic" | "ultra") — translated to OpenAI values in gpt-image.ts.
+ * creditMultiplier is informational — the engine reads from DB quality_multipliers.
  */
 interface QualityOption {
-  label:            string;  // UI label: "Fast" | "Standard" | "Ultra"
-  apiValue:         string;  // Provider API value: "low" | "medium" | "high"
-  creditMultiplier: number;  // Informational — engine reads from STATIC_QUALITY_MULTIPLIERS
-  desc?:            string;  // Short sublabel shown beneath the tier button
+  label:            string;   // UI label: "Fast" | "Cinematic" | "Ultra"
+  apiValue:         string;   // Zencra quality vocab: "fast" | "cinematic" | "ultra"
+  creditMultiplier: number;   // Informational — engine reads from STATIC_QUALITY_MULTIPLIERS / DB
+  desc?:            string;   // Short sublabel shown beneath the tier button
+  isDefault?:       boolean;  // If true, this option is selected when the model is first chosen
 }
 
 interface StudioModel {
@@ -399,16 +401,21 @@ const SEEDREAM_AR: AspectRatio[] = ["1:1", "16:9", "9:16", "4:5"];
 // Order matches navbar dock order: GPT Image 2 → GPT Image 1.5 → NB2 → NB Pro → NB → Seedream v5 → Seedream 4.5
 const MODELS: StudioModel[] = [
   {
-    // GATE: generation disabled until token pricing is finalised — see generate button below.
     id: "gpt-image-2",
     name: "GPT Image 2",
     provider: "OpenAI",
-    description: "OpenAI's next-generation model · richer detail · precise control",
+    description: "OpenAI's Cinematic Intelligence Engine · structured composition · precise scene direction",
     badge: "NEW",
     badgeColor: "#10A37F",
     available: true,
     icon: "openai",
-    allowedQualities: ["1K"],
+    // Quality uses Zencra vocabulary ("fast" | "cinematic") — translated to OpenAI API values in gpt-image.ts.
+    // "ultra" exists in DB + provider but is intentionally hidden from UI (Phase 1A pricing decision).
+    // Transform mode (/v1/images/edits) ignores quality — selector hidden when referenceImageUrl is set.
+    qualityOptions: [
+      { label: "Fast",      apiValue: "fast",      creditMultiplier: 1.0,   desc: "Quick generation" },
+      { label: "Cinematic", apiValue: "cinematic", creditMultiplier: 3.667, desc: "Premium quality", isDefault: true },
+    ],
   },
   {
     id: "dalle3",           // backend provider key → "dalle" → resolves to "dalle-3" in tool-registry
@@ -1871,8 +1878,9 @@ function ImageStudioInner() {
     const cm = MODELS.find((m) => m.id === model);
     if (!cm) return;
     if (cm.qualityOptions) {
-      // GPT Image: default to Standard (medium) on model switch
-      setQuality("medium");
+      // Use the model's own declared default; fall back to first option if none marked.
+      const defaultOpt = cm.qualityOptions.find((o) => o.isDefault) ?? cm.qualityOptions[0];
+      setQuality((defaultOpt?.apiValue as StudioQuality) ?? "medium");
     } else if (cm.allowedQualities && !cm.allowedQualities.includes(quality as ResolutionQuality)) {
       setQuality(cm.allowedQualities[0]);
     }
@@ -2069,11 +2077,19 @@ function ImageStudioInner() {
         };
 
         if (modelKey === "gpt-image-1") {
-          // GPT Image: quality is now the provider-native API value ("low" | "medium" | "high").
+          // GPT Image 1.5: quality is the provider-native API value ("low" | "medium" | "high").
           // In transform mode, /v1/images/edits ignores quality — adapter does not forward it to FormData.
-          // No translation needed: quality state IS the API value for this model.
+          // No translation needed: quality state IS the OpenAI API value for this model.
           // outputCount NOT passed — native n= batching conflicts with the loop strategy.
           // Phase B (single-call native batch + frontend urls[] consumption) is deferred.
+          body.providerParams = { quality };
+          if (referenceImageUrl) body.imageUrl = referenceImageUrl;
+        } else if (modelKey === "gpt-image-2") {
+          // GPT Image 2: quality is a Zencra term ("fast" | "cinematic") — NOT an OpenAI value.
+          // Translation to OpenAI API values ("low" | "medium") happens in gpt-image.ts
+          // via the ZENCRA_TO_OPENAI_QUALITY constant. UI never surfaces OpenAI terminology.
+          // In transform mode, quality is still sent — the provider forwards it to /v1/images/edits.
+          // outputCount NOT passed — Phase B (native n=) deferred to a dedicated PR.
           body.providerParams = { quality };
           if (referenceImageUrl) body.imageUrl = referenceImageUrl;
         } else if (modelKey === "seedream-4-5") {

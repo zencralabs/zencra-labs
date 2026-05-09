@@ -35,7 +35,7 @@
  *   nano-banana-pro      12 cr   (1K base; engine applies 2K=1.25×, 4K=1.75×)
  *   nano-banana-2        10 cr   (1K base; engine applies 2K=1.25×, 4K=1.75×)
  *   gpt-image-1          15 cr   (Fast base; Standard=1.25×→19cr, Ultra=1.75×→27cr via engine)
- *   gpt-image-2          20 cr
+ *   gpt-image-2          15 cr   (Fast base; cinematic=3.667×→55cr default, ultra=12.0×→180cr hidden)
  *   seedream-v5          15 cr
  *   seedream-v5-lite      8 cr   (internal; not exposed in UI)
  *   seedream-4-5         10 cr   (1K base; engine applies 2K=1.25×→13cr, 4K=1.75×→18cr)
@@ -80,7 +80,7 @@ export const MODEL_BASE_CREDITS: Record<string, number> = {
   "nano-banana-pro":      12,
   "nano-banana-2":        10,   // flat — 1K only (Step 0 lock; pending NB2 API resolution research)
   "gpt-image-1":          15,   // Fast=15cr base; engine applies Standard=1.25×→19cr, Ultra=1.75×→27cr (observe mode)
-  "gpt-image-2":          20,
+  "gpt-image-2":          15,   // Fast=15cr base; engine: cinematic=3.667×→55cr (default), ultra=12.0×→180cr (hidden in UI)
   "seedream-v5":          15,
   "seedream-v5-lite":      8,
   "seedream-4-5":         10,   // 1K base; engine: 2K=1.25×→13cr, 4K=1.75×→18cr (observe mode)
