@@ -1,0 +1,272 @@
+/**
+ * src/lib/workflows/workflow-engine.ts
+ *
+ * Phase 2A Workflow Engine — Orchestration Runtime
+ *
+ * ── What this is ──────────────────────────────────────────────────────────────
+ *   The engine executes a workflow_run:
+ *     1. Load the workflow_run row from workflow_runs (DB)
+ *     2. Resolve the WorkflowDefinition by intent_type
+ *     3. Execute each step via the capability registry
+ *     4. Persist step state to workflow_steps (DB)
+ *     5. Finalize the workflow_run at terminal state
+ *
+ *   The engine knows:
+ *     - workflow state (pending / running / completed / failed)
+ *     - step state (pending / running / completed / failed)
+ *     - idempotency_key format: "{run_id}:{step_index}:{attempt}"
+ *     - credit accounting (credit_used per step → credit_released at terminal)
+ *
+ *   The engine does NOT know:
+ *     - Which provider executes a step (that is the registry's concern)
+ *     - How a provider's API works (that is the adapter's concern)
+ *     - How to build step inputs (that is the workflow definition's concern)
+ *
+ * ── DB tables ─────────────────────────────────────────────────────────────────
+ *   workflow_runs  — one row per orchestration intent
+ *   workflow_steps — one row per step × attempt
+ *
+ * ── Idempotency ───────────────────────────────────────────────────────────────
+ *   Each step insertion is guarded by the (workflow_run_id, step_index, attempt)
+ *   UNIQUE constraint. Duplicate dispatch on retry is safe — the DB rejects the
+ *   second INSERT and the engine reads the existing row instead.
+ *
+ * ── Phase 2B additions (do not build yet) ─────────────────────────────────────
+ *   - Retry loop: on step failure, increment attempt, re-dispatch
+ *   - Multi-step workflows: pass step N output as step N+1 input
+ *   - Credit reservation: reserve at run creation, release at terminal
+ *   - Long-poll / webhook bridging for async providers
+ */
+
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { executeCapability } from "./capability-registry";
+import { WORKFLOW_REGISTRY } from "./workflows";
+import type {
+  RunWorkflowInput,
+  RunWorkflowResult,
+  WorkflowDefinition,
+  CapabilityInput,
+} from "./types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC ENTRY POINT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Execute a workflow run end-to-end.
+ *
+ * The caller has already created the workflow_run row (via createWorkflowRun)
+ * and stored the input_payload. This function picks it up and executes it.
+ *
+ * Returns a typed result — never throws. All errors are caught and surfaced
+ * in the result.error field, and persisted to workflow_runs.error_message.
+ */
+export async function runWorkflow(
+  input: RunWorkflowInput,
+): Promise<RunWorkflowResult> {
+  const { workflowRunId, userId } = input;
+
+  // ── 1. Load the workflow_run row ───────────────────────────────────────────
+  const { data: runRow, error: runLoadErr } = await supabaseAdmin
+    .from("workflow_runs")
+    .select("id, intent_type, input_payload, status, credit_reserved")
+    .eq("id", workflowRunId)
+    .eq("user_id", userId)
+    .single();
+
+  if (runLoadErr || !runRow) {
+    const msg = runLoadErr?.message ?? "workflow_run not found";
+    console.error("[workflow-engine] load run error:", msg);
+    return { ok: false, runId: workflowRunId, error: msg };
+  }
+
+  // Prevent re-running a terminal workflow
+  if (runRow.status === "completed" || runRow.status === "failed" || runRow.status === "cancelled") {
+    return {
+      ok:    runRow.status === "completed",
+      runId: workflowRunId,
+      error: runRow.status !== "completed" ? `Run already in terminal state: ${runRow.status}` : undefined,
+    };
+  }
+
+  // ── 2. Resolve the workflow definition ────────────────────────────────────
+  const definition: WorkflowDefinition | undefined = WORKFLOW_REGISTRY[runRow.intent_type];
+  if (!definition) {
+    const msg = `No workflow definition for intent_type: ${runRow.intent_type}`;
+    console.error("[workflow-engine]", msg);
+    await failRun(workflowRunId, msg);
+    return { ok: false, runId: workflowRunId, error: msg };
+  }
+
+  // ── 3. Mark run as running ────────────────────────────────────────────────
+  await supabaseAdmin
+    .from("workflow_runs")
+    .update({ status: "running" })
+    .eq("id", workflowRunId);
+
+  // ── 4. Execute steps ──────────────────────────────────────────────────────
+  const payload = (runRow.input_payload ?? {}) as Record<string, unknown>;
+  const allResultUrls: string[] = [];
+  let totalCreditsUsed = 0;
+
+  for (const stepSpec of definition.steps) {
+    const { stepIndex, capability, buildParams } = stepSpec;
+    const attempt = 1; // Phase 2B: retry loop increments this
+    const idempotencyKey = `${workflowRunId}:${stepIndex}:${attempt}`;
+
+    // ── Insert step row (idempotent via UNIQUE constraint) ─────────────────
+    const stepInput = buildParams(payload);
+    const { data: stepRow, error: stepInsertErr } = await supabaseAdmin
+      .from("workflow_steps")
+      .upsert(
+        {
+          workflow_run_id:  workflowRunId,
+          step_index:       stepIndex,
+          attempt,
+          idempotency_key:  idempotencyKey,
+          capability,
+          status:           "pending",
+          input_payload:    stepInput,
+        },
+        { onConflict: "workflow_run_id,step_index,attempt", ignoreDuplicates: false },
+      )
+      .select("id, status, output_payload")
+      .single();
+
+    if (stepInsertErr || !stepRow) {
+      const msg = stepInsertErr?.message ?? "Failed to create workflow_step row";
+      console.error("[workflow-engine] step insert error:", msg);
+      await failRun(workflowRunId, msg);
+      return { ok: false, runId: workflowRunId, error: msg };
+    }
+
+    // If this step already completed (resume after crash), collect its output
+    if (stepRow.status === "completed") {
+      const out = stepRow.output_payload as Record<string, unknown> | null;
+      const urls = (out?.resultUrls as string[] | undefined) ?? [];
+      allResultUrls.push(...urls);
+      continue;
+    }
+
+    // ── Mark step as running ───────────────────────────────────────────────
+    await supabaseAdmin
+      .from("workflow_steps")
+      .update({
+        status:        "running",
+        started_at:    new Date().toISOString(),
+        provider_key:  "openai",    // Phase 2A: static. Phase 3: resolved by registry.
+        model_key:     "gpt-image-2",
+      })
+      .eq("id", stepRow.id);
+
+    // ── Dispatch to capability registry ────────────────────────────────────
+    const capInput: CapabilityInput = { userId, params: stepInput };
+    const capResult = await executeCapability(capInput);
+
+    if (!capResult.ok) {
+      const msg = capResult.error ?? "Capability execution failed";
+      console.error(`[workflow-engine] step ${stepIndex} failed:`, msg);
+
+      await supabaseAdmin
+        .from("workflow_steps")
+        .update({
+          status:        "failed",
+          error_message: msg,
+          completed_at:  new Date().toISOString(),
+        })
+        .eq("id", stepRow.id);
+
+      await failRun(workflowRunId, msg);
+      return { ok: false, runId: workflowRunId, error: msg };
+    }
+
+    // ── Mark step as completed ─────────────────────────────────────────────
+    totalCreditsUsed += capResult.creditsUsed;
+    allResultUrls.push(...capResult.resultUrls);
+
+    await supabaseAdmin
+      .from("workflow_steps")
+      .update({
+        status:         "completed",
+        output_payload: { resultUrls: capResult.resultUrls, creditsUsed: capResult.creditsUsed },
+        credits_used:   capResult.creditsUsed,
+        completed_at:   new Date().toISOString(),
+      })
+      .eq("id", stepRow.id);
+
+    console.info(
+      `[workflow-engine] step ${stepIndex} completed: ${capResult.resultUrls.length} url(s), ${capResult.creditsUsed} cr`,
+    );
+  }
+
+  // ── 5. Mark run as completed ──────────────────────────────────────────────
+  const creditReserved = (runRow.credit_reserved as number) ?? 0;
+  const creditReleased = Math.max(0, creditReserved - totalCreditsUsed);
+
+  await supabaseAdmin
+    .from("workflow_runs")
+    .update({
+      status:        "completed",
+      credit_used:   totalCreditsUsed,
+      credit_released: creditReleased,
+      completed_at:  new Date().toISOString(),
+    })
+    .eq("id", workflowRunId);
+
+  console.info(
+    `[workflow-engine] run ${workflowRunId} completed: ${allResultUrls.length} url(s), ${totalCreditsUsed} cr used`,
+  );
+
+  return { ok: true, runId: workflowRunId, resultUrls: allResultUrls };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createWorkflowRun
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a workflow_run row before calling runWorkflow().
+ *
+ * Called by API routes after auth + credit pre-check.
+ * Accepts the semantic input payload — the engine reads it at execution time.
+ */
+export async function createWorkflowRun(params: {
+  userId:         string;
+  intentType:     string;
+  inputPayload:   Record<string, unknown>;
+  creditReserved?: number;
+}): Promise<{ ok: true; workflowRunId: string } | { ok: false; error: string }> {
+  const { data, error } = await supabaseAdmin
+    .from("workflow_runs")
+    .insert({
+      user_id:         params.userId,
+      intent_type:     params.intentType,
+      input_payload:   params.inputPayload,
+      credit_reserved: params.creditReserved ?? 0,
+      source:          "studio",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("[workflow-engine] createWorkflowRun error:", error?.message);
+    return { ok: false, error: error?.message ?? "Failed to create workflow run" };
+  }
+
+  return { ok: true, workflowRunId: data.id as string };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERNAL HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function failRun(workflowRunId: string, errorMessage: string): Promise<void> {
+  await supabaseAdmin
+    .from("workflow_runs")
+    .update({
+      status:        "failed",
+      error_message: errorMessage,
+      completed_at:  new Date().toISOString(),
+    })
+    .eq("id", workflowRunId);
+}
