@@ -4429,7 +4429,8 @@ function ImageStudioInner() {
                   }
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
-                    padding: "11px 26px", borderRadius: 13, fontSize: 14, fontWeight: 700,
+                    padding: "11px 26px", borderRadius: 13, fontSize: 16, fontWeight: 700,
+                    fontFamily: "var(--font-display)",
                     border: "none",
                     cursor: isDisabled ? "not-allowed" : "pointer",
                     background: "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
@@ -4455,8 +4456,8 @@ function ImageStudioInner() {
                       <Zap size={14} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
                       {currentModel.available && (
                         <span style={{
-                          fontFamily: "var(--font-syne, sans-serif)",
-                          fontSize: 18, fontWeight: 700,
+                          fontFamily: "var(--font-display)",
+                          fontSize: 16, fontWeight: 700,
                           color: "rgba(255,255,255,0.92)",
                           letterSpacing: "-0.01em",
                         }}>

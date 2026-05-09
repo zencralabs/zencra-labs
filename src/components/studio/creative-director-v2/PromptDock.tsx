@@ -506,7 +506,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
               flexShrink: 0,
               display:    "flex",
               alignItems: "center",
-              gap:        8,
+              gap:        10,
               padding:    `0 ${px}`,
               overflow:   "hidden",
             }}
@@ -535,11 +535,11 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
             {currentDockConfig?.qualityOptions && currentDockConfig.qualityOptions.length > 1 && (
               <div style={{
                 display:      "flex",
-                gap:          2,
-                background:   "rgba(255,255,255,0.03)",
-                border:       "1px solid rgba(255,255,255,0.07)",
-                borderRadius: 8,
-                padding:      2,
+                gap:          3,
+                background:   "rgba(255,255,255,0.05)",
+                border:       "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 9,
+                padding:      3,
                 flexShrink:   0,
               }}>
                 {currentDockConfig.qualityOptions.map((opt) => (
@@ -549,17 +549,18 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                     title={opt.desc}
                     className="cd-model-pill"
                     style={{
-                      background:    quality === opt.apiValue ? "rgba(255,255,255,0.1)" : "transparent",
-                      border:        `1px solid ${quality === opt.apiValue ? "rgba(255,255,255,0.18)" : "transparent"}`,
+                      background:    quality === opt.apiValue ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
+                      border:        `1px solid ${quality === opt.apiValue ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
                       borderRadius:  6,
                       color:         quality === opt.apiValue ? "#E8ECF5" : "#AEB7D0",
-                      fontSize:      11,
+                      fontSize:      13,
                       fontFamily:    "var(--font-sans)",
                       fontWeight:    quality === opt.apiValue ? 700 : 400,
                       cursor:        "pointer",
-                      padding:       "3px 9px",
+                      padding:       "4px 11px",
                       letterSpacing: "0.07em",
                       transition:    "all 0.15s ease",
+                      boxShadow:     quality === opt.apiValue ? "0 0 8px rgba(139,92,246,0.2)" : "none",
                     }}
                   >
                     {opt.label}
@@ -570,11 +571,11 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
             {!currentDockConfig?.qualityOptions && (currentDockConfig?.allowedQualities?.length ?? 0) > 1 && (
               <div style={{
                 display:      "flex",
-                gap:          2,
-                background:   "rgba(255,255,255,0.03)",
-                border:       "1px solid rgba(255,255,255,0.07)",
-                borderRadius: 8,
-                padding:      2,
+                gap:          3,
+                background:   "rgba(255,255,255,0.05)",
+                border:       "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 9,
+                padding:      3,
                 flexShrink:   0,
               }}>
                 {currentDockConfig!.allowedQualities!.map((q) => (
@@ -583,17 +584,18 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                     onClick={() => setQuality(q)}
                     className="cd-model-pill"
                     style={{
-                      background:    quality === q ? "rgba(255,255,255,0.1)" : "transparent",
-                      border:        `1px solid ${quality === q ? "rgba(255,255,255,0.18)" : "transparent"}`,
+                      background:    quality === q ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
+                      border:        `1px solid ${quality === q ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
                       borderRadius:  6,
                       color:         quality === q ? "#E8ECF5" : "#AEB7D0",
-                      fontSize:      11,
+                      fontSize:      13,
                       fontFamily:    "var(--font-sans)",
                       fontWeight:    quality === q ? 700 : 400,
                       cursor:        "pointer",
-                      padding:       "3px 9px",
+                      padding:       "4px 11px",
                       letterSpacing: "0.07em",
                       transition:    "all 0.15s ease",
+                      boxShadow:     quality === q ? "0 0 8px rgba(139,92,246,0.2)" : "none",
                     }}
                   >
                     {q}
@@ -758,11 +760,11 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                 {/* Aspect Ratio — per-model list from image-model-config.ts */}
                 <div style={{
                   display:    "flex",
-                  gap:        2,
-                  background: "rgba(255,255,255,0.03)",
-                  border:     "1px solid rgba(255,255,255,0.08)",
+                  gap:        3,
+                  background: "rgba(255,255,255,0.05)",
+                  border:     "1px solid rgba(255,255,255,0.12)",
                   borderRadius: 9,
-                  padding:    2,
+                  padding:    3,
                   alignItems: "center",
                   overflowX:  "auto",
                   maxWidth:   220,
@@ -773,19 +775,20 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                       key={ratio}
                       onClick={() => setAr(ratio)}
                       style={{
-                        background:    ar === ratio ? "rgba(255,255,255,0.09)" : "transparent",
-                        border:        "none",
+                        background:    ar === ratio ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
+                        border:        `1px solid ${ar === ratio ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
                         borderRadius:  6,
                         color:         ar === ratio ? "#E8ECF5" : "#AEB7D0",
-                        fontSize:      12,
+                        fontSize:      13,
                         fontFamily:    "var(--font-sans)",
                         fontWeight:    ar === ratio ? 600 : 400,
                         cursor:        "pointer",
-                        padding:       "3px 8px",
+                        padding:       "4px 10px",
                         transition:    "all 0.15s ease",
                         letterSpacing: "0.02em",
                         whiteSpace:    "nowrap",
                         flexShrink:    0,
+                        boxShadow:     ar === ratio ? "0 0 8px rgba(139,92,246,0.2)" : "none",
                       }}
                     >
                       {ratio}
@@ -796,11 +799,11 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                 {/* Count — 2× and 4× visually disabled for batch-locked models */}
                 <div style={{
                   display:      "flex",
-                  gap:          2,
-                  background:   "rgba(255,255,255,0.03)",
-                  border:       "1px solid rgba(255,255,255,0.08)",
+                  gap:          3,
+                  background:   "rgba(255,255,255,0.05)",
+                  border:       "1px solid rgba(255,255,255,0.12)",
                   borderRadius: 9,
-                  padding:      2,
+                  padding:      3,
                   alignItems:   "center",
                 }}>
                   {COUNT_OPTIONS.map((n) => {
@@ -813,22 +816,27 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                         title={isCountDisabled ? "This model generates 1 image at a time" : undefined}
                         style={{
                           background:   effectiveCount === n
-                            ? (isLocked ? "rgba(251,191,36,0.15)" : "rgba(139,92,246,0.15)")
-                            : "transparent",
-                          border:       "none",
+                            ? (isLocked ? "rgba(251,191,36,0.18)" : "rgba(139,92,246,0.18)")
+                            : "rgba(255,255,255,0.04)",
+                          border:       effectiveCount === n
+                            ? `1px solid ${isLocked ? "rgba(251,191,36,0.45)" : "rgba(139,92,246,0.45)"}`
+                            : "1px solid rgba(255,255,255,0.08)",
                           borderRadius: 6,
                           color:        isCountDisabled
                             ? "rgba(255,255,255,0.15)"
                             : effectiveCount === n
                               ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
-                              : "rgba(255,255,255,0.32)",
-                          fontSize:     12,
+                              : "rgba(255,255,255,0.45)",
+                          fontSize:     13,
                           fontFamily:   "var(--font-sans)",
                           fontWeight:   effectiveCount === n ? 700 : 400,
                           cursor:       isCountDisabled ? "not-allowed" : "pointer",
-                          padding:      "3px 10px",
+                          padding:      "4px 11px",
                           transition:   "all 0.15s ease",
                           opacity:      isCountDisabled ? 0.4 : 1,
+                          boxShadow:    effectiveCount === n && !isCountDisabled
+                            ? `0 0 8px ${isLocked ? "rgba(251,191,36,0.2)" : "rgba(139,92,246,0.2)"}`
+                            : "none",
                         }}
                       >
                         {n}×
@@ -921,7 +929,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                     border:        "none",
                     borderRadius:  12,
                     color:         !canGenerate ? "rgba(255,255,255,0.2)" : "white",
-                    fontSize:      14,
+                    fontSize:      16,
                     fontFamily:    "var(--font-display)",
                     fontWeight:    700,
                     cursor:        canGenerate ? "pointer" : "not-allowed",
@@ -961,10 +969,10 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                       }
                       {selectedFrameIsFilled ? "Update Scene" : "Generate Shot"}
                       <span style={{
-                        fontSize:   10,
-                        color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.45)",
-                        fontFamily: "var(--font-sans)",
-                        fontWeight: 400,
+                        fontSize:   14,
+                        color:      !canGenerate ? "rgba(255,255,255,0.15)" : isLocked ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)",
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 700,
                         letterSpacing: "0.01em",
                       }}>
                         {creditCost !== null ? `${creditCost} cr` : `${effectiveCount}×`}
