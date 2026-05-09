@@ -684,7 +684,7 @@ function PricingCard({
               {[
                 { name: "GPT Image 2",       isNew: true  },
                 { name: "Nano Banana 2",     isNew: true  },
-                { name: "Seedream v5",  isNew: false },
+                { name: "Seedream 4.5", isNew: false },
                 { name: "FLUX.2",            isNew: false },
                 { name: "Kling 3.0",         isNew: false },
                 { name: "Seedance 2.0",      isNew: true  },
@@ -1094,11 +1094,12 @@ function BoostSelector() {
 // ── ComparisonTable ───────────────────────────────────────────────────────────
 
 function ComparisonTable() {
+  // Colors aligned to each plan's border hue
   const planColors = [
-    "rgba(34,211,238,0.90)",
-    "rgba(168,85,247,0.90)",
-    "rgba(124,58,237,0.90)",
-    "rgba(255,255,255,0.90)",
+    "rgba(255,255,255,0.82)",    // Starter — white
+    "rgba(236,72,153,0.90)",     // Creator — pink
+    "rgba(52,211,153,0.90)",     // Pro — teal-green
+    "rgba(59,130,246,0.92)",     // Business — blue
   ];
 
   const renderVal = (val: string | boolean, colIdx: number) => {
@@ -1165,7 +1166,7 @@ function ComparisonTable() {
                 <div style={{
                   fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700,
                   letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: i === 1 ? "#a855f7" : "rgba(255,255,255,0.55)",
+                  color: i === 1 ? "#EC4899" : "rgba(255,255,255,0.55)",
                   ...(i === 1 ? { fontWeight: 600 } : {}),
                 }}>
                   {p.icon} {p.name}
@@ -1208,7 +1209,7 @@ function ComparisonTable() {
                 <div key={colIdx} style={{
                   display: "flex", justifyContent: "center", alignItems: "center",
                   padding: "4px 8px", height: "100%",
-                  background: colIdx === 1 ? "rgba(168,85,247,0.08)" : "transparent",
+                  background: colIdx === 1 ? "rgba(236,72,153,0.08)" : "transparent",
                   borderRadius: 0,
                 }}>
                   {renderVal(val as string | boolean, colIdx)}
@@ -1745,7 +1746,6 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     fontWeight: 900, lineHeight: 0.95,
                     letterSpacing: "-0.045em",
                     margin: "0 0 24px",
-                    whiteSpace: "nowrap",
                     background: "linear-gradient(90deg, #ffffff 0%, #f7f4ff 42%, #d946ef 72%, #7c8cff 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
@@ -1759,7 +1759,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     display: "flex", alignItems: "center", justifyContent: "center",
                     gap: 10, flexWrap: "wrap", marginBottom: 24,
                   }}>
-                    {["Nano Banana Pro", "FLUX Pro", "Seedream", "Kling 3.0"].map((m, i) => (
+                    {["Nano Banana 2", "FLUX.2", "Seedream 4.5", "Kling 3.0"].map((m, i) => (
                       <span key={m} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{
                           fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13, fontWeight: 600,
@@ -1800,10 +1800,10 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               </div>
 
               {/* ── Pricing cards ── */}
-              <div style={{
+              <div id="pricing-plans" style={{
                 display: "flex", gap: 18,
                 padding: "28px 32px 20px",
-                maxWidth: 1200, margin: "0 auto",
+                maxWidth: PRICING_CONTENT_MAX_WIDTH, margin: "0 auto",
                 justifyContent: "center",
                 alignItems: "stretch",
                 flexWrap: "wrap",
@@ -1824,7 +1824,21 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
               </div>
 
               {/* ── FCS Strip — controlled ── */}
-              <div style={{ marginBottom: 40 }}>
+              <div id="fcs-addon" style={{ marginBottom: 40 }}>
+                <div style={{
+                  textAlign: "center", marginBottom: 20,
+                  display: "flex", alignItems: "center", gap: 16,
+                  maxWidth: PRICING_CONTENT_MAX_WIDTH, margin: "0 auto 20px",
+                  padding: "0 32px",
+                }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,213,106,0.12)" }} />
+                  <span style={{
+                    fontFamily: "'Syne', sans-serif", fontSize: 10, fontWeight: 700,
+                    letterSpacing: "0.16em", textTransform: "uppercase",
+                    color: "rgba(255,213,106,0.55)",
+                  }}>Optional Add-on</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,213,106,0.12)" }} />
+                </div>
                 <FCSStrip
                   enabled={fcsEnabled}
                   onToggle={(v) => setFcsEnabled(v)}
@@ -1883,6 +1897,9 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                       e.currentTarget.style.transform = "scale(1)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
+                    onClick={() =>
+                      document.getElementById("pricing-plans")?.scrollIntoView({ behavior: "smooth" })
+                    }
                   >
                     Choose your plan →
                   </button>
@@ -1925,7 +1942,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     <span style={{
                       fontFamily: "'Familjen Grotesk', sans-serif",
                       fontSize: 12.5, color: "rgba(148,163,184,0.70)",
-                    }}>Trusted by 50,000+ creators worldwide</span>
+                    }}>Trusted by creators worldwide</span>
                   </div>
                 </div>
 
@@ -1938,7 +1955,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   Prices shown in USD. Credit costs vary by model and resolution.<br />
                   All plans include a commercial license. Future Cinema Studio requires Pro or Business subscription.<br />
                   <span style={{ fontStyle: "italic" }}>ⓘ Output may vary based on model selection and quality settings.</span>
-                  {"  ·  "}Credits reset monthly. Unused credits do not roll over.
+                  {" · "}Credits reset monthly. Unused credits do not roll over.
                 </div>
               </div>
 
