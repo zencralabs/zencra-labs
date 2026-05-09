@@ -13,6 +13,11 @@ export interface ModelCapabilities {
 
 export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "gpt-image-1":          { maxReferenceImages: 16, uploadCapLabel: "Up to 16 reference images" },
+  // Phase 1C: gpt-image-2 Reference Stack — max 2 (subject + scene).
+  // imageUrls[0] = primary subject / identity reference
+  // imageUrls[1] = scene / style reference
+  // Future: evolve to roles-aware references[] when needed.
+  "gpt-image-2":          { maxReferenceImages: 2,  uploadCapLabel: "Up to 2 references (subject + scene)" },
   "nano-banana-pro":      { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
   "nano-banana-standard": { maxReferenceImages: 1,  uploadCapLabel: "Single reference image" },
   "nano-banana-2":        { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },

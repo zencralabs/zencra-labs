@@ -295,6 +295,13 @@ export const CAPABILITY_META: Record<CapabilityTag, CapabilityMeta> = {
     description: "Supports extended duration cinematic generation",
     studio: "fcs",
   },
+  // ── Scene orchestration ────────────────────────────────────────────────────
+  multi_reference: {
+    tag: "multi_reference",
+    label: "Multi-Reference",
+    description: "Accepts multiple reference images (imageUrls[]) for scene composition",
+    studio: "image",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

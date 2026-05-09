@@ -110,7 +110,9 @@ export type CapabilityTag =
   | "character_to_ugc"
   // ── FCS ────────────────────────────────────────────────────────────────────
   | "cinematic_studio"
-  | "long_form";
+  | "long_form"
+  // ── Scene orchestration ────────────────────────────────────────────────────
+  | "multi_reference";  // accepts imageUrls[] for multi-reference scene composition
 
 /** Input modalities a provider can accept. */
 export type InputMode = "text" | "image" | "video" | "audio" | "url";
@@ -239,6 +241,24 @@ export interface ZProviderInput {
   videoUrl?: string;
   audioUrl?: string;
   referenceVideoUrl?: string;
+
+  /**
+   * Multi-reference image inputs — provider-agnostic scene orchestration.
+   *
+   * Ordered by semantic priority:
+   *   imageUrls[0] → primary subject / identity reference
+   *   imageUrls[1] → scene / style reference
+   *
+   * Phase 1C: gpt-image-2 is the first active consumer (max 2).
+   * Future consumers: Flux Kontext, Seedream, Nano Banana, Runway image systems.
+   * All providers that support multi-reference editing read this field.
+   *
+   * Future evolution path (do NOT build yet):
+   *   references?: Array<{ url: string; role: "subject" | "style" | "scene" | "lighting" | "wardrobe" }>
+   *   When role-aware routing is needed, migrate imageUrls[] → references[].
+   *   imageUrls[] stays as the compact form for providers that don't need roles.
+   */
+  imageUrls?: string[];
 
   // Generation parameters
   aspectRatio?: AspectRatio;

@@ -2107,7 +2107,14 @@ function ImageStudioInner() {
           // In transform mode, quality is still sent — the provider forwards it to /v1/images/edits.
           // outputCount NOT passed — Phase B (native n=) deferred to a dedicated PR.
           body.providerParams = { quality };
-          if (referenceImageUrl) body.imageUrl = referenceImageUrl;
+          // Reference Stack (Phase 1C): 2 refs → imageUrls[] (scene orchestration);
+          // 1 ref → imageUrl (standard single-image edit path).
+          // referenceImageUrls is ordered: [0] = subject/identity, [1] = scene/style.
+          if (referenceImageUrls.length >= 2) {
+            body.imageUrls = referenceImageUrls.slice(0, 2); // hard cap: subject + scene
+          } else if (referenceImageUrls.length === 1) {
+            body.imageUrl = referenceImageUrls[0];
+          }
         } else if (modelKey === "seedream-4-5") {
           // Seedream 4.5: quality is the chip value ("2K" | "4K" | "" for default).
           // The provider maps "2K"→auto_2K and "4K"→auto_4K via V45_QUALITY_TO_SIZE.

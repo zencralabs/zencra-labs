@@ -58,6 +58,8 @@ export interface StudioDispatchInput {
   prompt:          string;
   negativePrompt?: string;
   imageUrl?:          string;
+  /** Multi-reference image inputs — provider-agnostic scene orchestration. See ZProviderInput.imageUrls. */
+  imageUrls?:         string[];
   endImageUrl?:       string;
   referenceVideoUrl?: string;
   videoUrl?:          string;
@@ -299,6 +301,7 @@ export async function studioDispatch(
     prompt:          input.prompt ?? "",
     negativePrompt:  input.negativePrompt,
     imageUrl:           input.imageUrl,
+    imageUrls:          input.imageUrls,
     endImageUrl:        input.endImageUrl,
     referenceVideoUrl:  input.referenceVideoUrl,
     videoUrl:           input.videoUrl,

@@ -106,6 +106,12 @@ export async function POST(req: Request): Promise<Response> {
   // Optional fields
   const negativePrompt = typeof body!.negativePrompt === "string" ? body!.negativePrompt : undefined;
   const imageUrl       = typeof body!.imageUrl       === "string" ? body!.imageUrl       : undefined;
+  // Multi-reference image inputs — provider-agnostic scene orchestration (Phase 1C).
+  // imageUrls[0] = subject/identity reference, imageUrls[1] = scene/style reference.
+  // Currently active: gpt-image-2 Reference Stack. Future: Flux Kontext, Seedream, NB.
+  const imageUrls: string[] | undefined = Array.isArray(body!.imageUrls)
+    ? (body!.imageUrls as unknown[]).filter((u): u is string => typeof u === "string")
+    : undefined;
   const aspectRatio    = typeof body!.aspectRatio    === "string" ? body!.aspectRatio    : undefined;
   const seed           = typeof body!.seed           === "number" ? body!.seed           : undefined;
   const providerParams = typeof body!.providerParams === "object" && body!.providerParams !== null
@@ -128,7 +134,7 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
-  // ── Reference image cap ──────────────────────────────────────────────────────
+  // ── Reference image cap (providerParams.referenceUrls — NB/Seedream path) ────
   // Enforce server-side cap before any credit reserve or DB write.
   // Cap comes from MODEL_CAPABILITIES (product-configured, not provider hard limits).
   if (providerParams) {
@@ -145,6 +151,20 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  // ── Reference image cap (imageUrls[] — multi-reference scene orchestration path) ──
+  // Separate cap for the imageUrls[] field used by gpt-image-2 Reference Stack.
+  // Future providers (Flux Kontext, Seedream, NB) will also route through this check.
+  if (imageUrls && imageUrls.length > 0) {
+    const cap = getModelCapabilities(modelKey!);
+    if (imageUrls.length > cap.maxReferenceImages) {
+      return apiErr(
+        "TOO_MANY_REFERENCE_IMAGES",
+        `Too many reference images: ${imageUrls.length} provided, maximum is ${cap.maxReferenceImages} for model "${modelKey}". ${cap.uploadCapLabel}.`,
+        400
+      );
+    }
+  }
+
   // ── AI Influencer @handle resolution ─────────────────────────────────────────
   // If the prompt contains any @Handle tokens, ALL of them must resolve to an
   // active influencer with a complete identity lock.  If any handle is missing
@@ -158,8 +178,9 @@ export async function POST(req: Request): Promise<Response> {
     ),
   ];
 
-  let resolvedPrompt       = prompt!;
-  let dispatchImageUrl     = imageUrl;
+  let resolvedPrompt         = prompt!;
+  let dispatchImageUrl       = imageUrl;
+  let dispatchImageUrls      = imageUrls;   // gpt-image-2 multi-ref scene orchestration
   let dispatchProviderParams = providerParams;
 
   if (rawHandles.length > 0) {
@@ -200,6 +221,12 @@ export async function POST(req: Request): Promise<Response> {
       if (caps.maxReferenceImages > 0 && !userHasImgRef && !userHasNbRefs && ctx.canonical_asset_url) {
         if (modelKey === "gpt-image-1") {
           dispatchImageUrl = ctx.canonical_asset_url;
+        } else if (modelKey === "gpt-image-2") {
+          // GPT Image 2 — canonical asset enters as imageUrls[0] (subject reference).
+          // Only inject when the user has not already supplied any imageUrls references.
+          if (!dispatchImageUrls?.length) {
+            dispatchImageUrls = [ctx.canonical_asset_url];
+          }
         } else {
           // Nano Banana family — prepend canonical to referenceUrls
           dispatchProviderParams = {
@@ -221,6 +248,7 @@ export async function POST(req: Request): Promise<Response> {
       prompt:        resolvedPrompt,
       negativePrompt,
       imageUrl:      dispatchImageUrl,
+      imageUrls:     dispatchImageUrls,
       aspectRatio,
       seed,
       providerParams: dispatchProviderParams,

@@ -137,6 +137,20 @@ function makeGptImageProvider(
     status:      "active",
 
     getCapabilities(): ProviderCapabilities {
+      if (key === "gpt-image-2") {
+        return {
+          // gpt-image-2: full 10-AR set + multi-reference scene orchestration.
+          // "multi_reference" signals that imageUrls[] is supported for the Reference Stack
+          // (subject image + scene/style image → cinematic edit pipeline).
+          supportedInputModes:   ["text", "image"],
+          supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5", "5:4", "3:4", "4:3", "2:3", "3:2", "21:9"],
+          capabilities:          ["text_to_image", "image_to_image", "edit", "photoreal", "multi_reference"],
+          asyncMode:             "sync",
+          supportsWebhook:       false,
+          supportsPolling:       false,
+        };
+      }
+      // gpt-image-1: standard 4-AR set, no multi-reference.
       return {
         supportedInputModes:   ["text", "image"],
         supportedAspectRatios: ["1:1", "16:9", "9:16", "4:5"],
@@ -207,8 +221,46 @@ function makeGptImageProvider(
       let url:  string | undefined;
       const urls: undefined = undefined; // Phase B (native n= batching) deferred
 
-      if (isEdit && input.imageUrl) {
-        // Image editing endpoint — requires source image as blob
+      // ── gpt-image-2: Reference Stack (multi-reference edit) ─────────────────
+      // Triggered when imageUrls[] contains 2 references (server hard-capped).
+      //   imageUrls[0] → subject / identity reference
+      //   imageUrls[1] → scene / style reference
+      // Both are fetched and appended as separate "image[]" fields in FormData.
+      // Quality respects the caller's choice — default cinematic, Fast allowed.
+      if (key === "gpt-image-2" && input.imageUrls && input.imageUrls.length >= 2) {
+        const refs = input.imageUrls.slice(0, 2); // hard cap at 2
+        console.info(`[gpt-image] gpt-image-2 Reference Stack: ${refs.length} refs, quality=${quality}, size=${size}`);
+
+        const form = new FormData();
+        form.append("model",   model);
+        form.append("prompt",  input.prompt);
+        form.append("size",    size);
+        form.append("quality", quality);
+        form.append("n",       "1");
+
+        for (let i = 0; i < refs.length; i++) {
+          const refRes = await fetch(refs[i], { signal: AbortSignal.timeout(20_000) });
+          if (!refRes.ok) throw new Error(`Failed to fetch reference image ${i + 1} for GPT Image 2 Reference Stack.`);
+          form.append("image[]", await refRes.blob(), `reference_${i + 1}.png`);
+        }
+
+        const res = await fetch("https://api.openai.com/v1/images/edits", {
+          method:  "POST",
+          headers: { "Authorization": `Bearer ${apiKey}` },
+          body:    form,
+          signal:  AbortSignal.timeout(120_000),
+        });
+        if (!res.ok) throw new Error(await sanitizeOpenAIError(res));
+        const editData = (await res.json()) as { data: Array<{ url?: string; b64_json?: string }> };
+        const editRaw  = editData.data[0];
+        if (editRaw?.url) {
+          url = editRaw.url;
+        } else if (editRaw?.b64_json) {
+          url = await uploadGeneratedImage(editRaw.b64_json, jobId, storageFolder);
+        }
+
+      } else if (isEdit && input.imageUrl) {
+        // Single-image edit endpoint — gpt-image-1 and gpt-image-2 single ref path
         const form = new FormData();
         form.append("model",   model);
         form.append("prompt",  input.prompt);
