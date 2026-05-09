@@ -50,6 +50,134 @@ const COUNT_OPTIONS = [1, 2, 4] as const;
 // Fallback AR list — overridden per-model from image-model-config.ts at runtime.
 const AR_FALLBACK = ["1:1", "16:9", "9:16", "4:5"] as const;
 
+// ── Dock chip design tokens ──────────────────────────────────────────────────
+// Single source of truth for ALL chip/control styling in PromptDock.
+// Every chip type calls a factory below — new models inherit automatically.
+const DK = {
+  // Bottom-row chip geometry
+  chipH:       28,                               // height for AR + count chips
+  chipR:       7,                                // pill border-radius
+  chipPX:      10,                               // default horizontal padding
+  chipPXTight: 7,                                // AR tight padding (many items)
+  chipFS:      12,                               // chip font size
+  // Group container
+  groupR:      10,                               // outer container radius
+  groupPad:    3,                                // container padding
+  groupGap:    2,                                // gap between pills
+  groupBg:     "rgba(255,255,255,0.045)",
+  groupBdr:    "rgba(255,255,255,0.1)",
+  groupShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 6px rgba(0,0,0,0.25)",
+  // Active chip
+  activeBg:     "rgba(139,92,246,0.2)",
+  activeBdr:    "rgba(139,92,246,0.45)",
+  activeColor:  "#E8ECF5",
+  activeShadow: "0 0 12px rgba(139,92,246,0.22), inset 0 1px 0 rgba(255,255,255,0.1)",
+  // Inactive chip
+  inactiveBg:    "rgba(255,255,255,0.04)",
+  inactiveBdr:   "rgba(255,255,255,0.08)",
+  inactiveColor: "#8C96B0",
+  // Count locked amber variant
+  lockedActiveBg:     "rgba(251,191,36,0.18)",
+  lockedActiveBdr:    "rgba(251,191,36,0.45)",
+  lockedActiveColor:  "rgba(251,191,36,1)",
+  lockedActiveShadow: "0 0 10px rgba(251,191,36,0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
+} as const;
+
+/** Group container — quality, AR strip, count strip */
+function dkGroup(extra?: React.CSSProperties): React.CSSProperties {
+  return {
+    display:      "flex",
+    gap:          DK.groupGap,
+    background:   DK.groupBg,
+    border:       `1px solid ${DK.groupBdr}`,
+    borderRadius: DK.groupR,
+    padding:      DK.groupPad,
+    flexShrink:   0,
+    alignItems:   "center",
+    boxShadow:    DK.groupShadow,
+    ...extra,
+  };
+}
+
+/** Standard pill — AR, resolution allowedQualities */
+function dkPill(isActive: boolean, tight = false): React.CSSProperties {
+  return {
+    height:         DK.chipH,
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     isActive ? DK.activeBg    : DK.inactiveBg,
+    border:         `1px solid ${isActive ? DK.activeBdr : DK.inactiveBdr}`,
+    borderRadius:   DK.chipR,
+    color:          isActive ? DK.activeColor : DK.inactiveColor,
+    fontSize:       DK.chipFS,
+    fontFamily:     "var(--font-sans)",
+    fontWeight:     isActive ? 600 : 400,
+    cursor:         "pointer",
+    padding:        `0 ${tight ? DK.chipPXTight : DK.chipPX}px`,
+    letterSpacing:  "0.04em",
+    transition:     "all 0.15s ease",
+    boxShadow:      isActive ? DK.activeShadow : "none",
+    flexShrink:     0,
+    whiteSpace:     "nowrap" as const,
+  };
+}
+
+/** Quality chip with stacked label + subtitle (segmented displayMode) */
+function dkQualSegmented(isActive: boolean): React.CSSProperties {
+  return {
+    display:        "flex",
+    flexDirection:  "column" as const,
+    alignItems:     "center",
+    justifyContent: "center",
+    gap:            1,
+    background:     isActive ? DK.activeBg    : DK.inactiveBg,
+    border:         `1px solid ${isActive ? DK.activeBdr : DK.inactiveBdr}`,
+    borderRadius:   DK.chipR,
+    cursor:         "pointer",
+    padding:        "5px 13px",
+    transition:     "all 0.15s ease",
+    boxShadow:      isActive ? DK.activeShadow : "none",
+    flexShrink:     0,
+    whiteSpace:     "nowrap" as const,
+    minWidth:       54,
+  };
+}
+
+/** Count pill — with amber variant for batch-locked models */
+function dkCountPill(isActive: boolean, isLocked: boolean, isDisabled: boolean): React.CSSProperties {
+  const bg     = isLocked ? DK.lockedActiveBg     : DK.activeBg;
+  const bdr    = isLocked ? DK.lockedActiveBdr    : DK.activeBdr;
+  const color  = isDisabled
+    ? "rgba(255,255,255,0.15)"
+    : isActive
+      ? (isLocked ? DK.lockedActiveColor : DK.activeColor)
+      : "rgba(255,255,255,0.4)";
+  const shadow = isActive && !isDisabled
+    ? (isLocked ? DK.lockedActiveShadow : DK.activeShadow)
+    : "none";
+  return {
+    height:         DK.chipH,
+    display:        "flex",
+    alignItems:     "center",
+    justifyContent: "center",
+    background:     isActive ? bg : DK.inactiveBg,
+    border:         `1px solid ${isActive ? bdr : DK.inactiveBdr}`,
+    borderRadius:   DK.chipR,
+    color,
+    fontSize:       DK.chipFS,
+    fontFamily:     "var(--font-sans)",
+    fontWeight:     isActive ? 700 : 400,
+    cursor:         isDisabled ? "not-allowed" : "pointer",
+    padding:        `0 ${DK.chipPX}px`,
+    transition:     "all 0.15s ease",
+    opacity:        isDisabled ? 0.4 : 1,
+    boxShadow:      shadow,
+    flexShrink:     0,
+    whiteSpace:     "nowrap" as const,
+  };
+}
+
 // Brand groups for the model selector.
 // models[] order = oldest → newest (top → bottom when dropdown opens upward).
 // defaultLabel = shown on the group button when no model from this group is selected.
@@ -532,71 +660,55 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                 qualityOptions models: segmented pill toggle with Zencra labels.
                 allowedQualities models with >1 tier: pill buttons with resolution labels.
                 Single-quality models (NB2, NB Standard, etc.): hidden entirely. */}
+            {/* Quality selector — segmented mode (label + subtitle) */}
             {currentDockConfig?.qualityOptions && currentDockConfig.qualityOptions.length > 1 && (
-              <div style={{
-                display:      "flex",
-                gap:          3,
-                background:   "rgba(255,255,255,0.05)",
-                border:       "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 9,
-                padding:      3,
-                flexShrink:   0,
-              }}>
-                {currentDockConfig.qualityOptions.map((opt) => (
-                  <button
-                    key={opt.apiValue}
-                    onClick={() => setQuality(opt.apiValue)}
-                    title={opt.desc}
-                    className="cd-model-pill"
-                    style={{
-                      background:    quality === opt.apiValue ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
-                      border:        `1px solid ${quality === opt.apiValue ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
-                      borderRadius:  6,
-                      color:         quality === opt.apiValue ? "#E8ECF5" : "#AEB7D0",
-                      fontSize:      13,
-                      fontFamily:    "var(--font-sans)",
-                      fontWeight:    quality === opt.apiValue ? 700 : 400,
-                      cursor:        "pointer",
-                      padding:       "4px 11px",
-                      letterSpacing: "0.07em",
-                      transition:    "all 0.15s ease",
-                      boxShadow:     quality === opt.apiValue ? "0 0 8px rgba(139,92,246,0.2)" : "none",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div style={dkGroup()}>
+                {currentDockConfig.qualityOptions.map((opt) => {
+                  const isActive = quality === opt.apiValue;
+                  return (
+                    <button
+                      key={opt.apiValue}
+                      onClick={() => setQuality(opt.apiValue)}
+                      title={opt.desc}
+                      className="cd-model-pill"
+                      style={dkQualSegmented(isActive)}
+                    >
+                      <span style={{
+                        fontSize:      DK.chipFS,
+                        fontFamily:    "var(--font-sans)",
+                        fontWeight:    isActive ? 600 : 400,
+                        color:         isActive ? DK.activeColor : DK.inactiveColor,
+                        lineHeight:    1.25,
+                        letterSpacing: "0.04em",
+                      }}>
+                        {opt.label}
+                      </span>
+                      {opt.desc && (
+                        <span style={{
+                          fontSize:      9,
+                          fontFamily:    "var(--font-sans)",
+                          fontWeight:    400,
+                          color:         isActive ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.2)",
+                          lineHeight:    1.2,
+                          letterSpacing: "0.02em",
+                        }}>
+                          {opt.desc}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
+            {/* Quality selector — chips mode (resolution labels) */}
             {!currentDockConfig?.qualityOptions && (currentDockConfig?.allowedQualities?.length ?? 0) > 1 && (
-              <div style={{
-                display:      "flex",
-                gap:          3,
-                background:   "rgba(255,255,255,0.05)",
-                border:       "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 9,
-                padding:      3,
-                flexShrink:   0,
-              }}>
+              <div style={dkGroup()}>
                 {currentDockConfig!.allowedQualities!.map((q) => (
                   <button
                     key={q}
                     onClick={() => setQuality(q)}
                     className="cd-model-pill"
-                    style={{
-                      background:    quality === q ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
-                      border:        `1px solid ${quality === q ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
-                      borderRadius:  6,
-                      color:         quality === q ? "#E8ECF5" : "#AEB7D0",
-                      fontSize:      13,
-                      fontFamily:    "var(--font-sans)",
-                      fontWeight:    quality === q ? 700 : 400,
-                      cursor:        "pointer",
-                      padding:       "4px 11px",
-                      letterSpacing: "0.07em",
-                      transition:    "all 0.15s ease",
-                      boxShadow:     quality === q ? "0 0 8px rgba(139,92,246,0.2)" : "none",
-                    }}
+                    style={dkPill(quality === q)}
                   >
                     {q}
                   </button>
@@ -758,38 +870,13 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 
                 {/* Aspect Ratio — per-model list from image-model-config.ts */}
-                <div style={{
-                  display:    "flex",
-                  gap:        3,
-                  background: "rgba(255,255,255,0.05)",
-                  border:     "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 9,
-                  padding:    3,
-                  alignItems: "center",
-                  overflowX:  "auto",
-                  maxWidth:   220,
-                  scrollbarWidth: "none",
-                }}>
+                <div style={dkGroup({ overflowX: "auto", maxWidth: 220, scrollbarWidth: "none" })}>
                   {activeArList.map((ratio) => (
                     <button
                       key={ratio}
                       onClick={() => setAr(ratio)}
-                      style={{
-                        background:    ar === ratio ? "rgba(139,92,246,0.18)" : "rgba(255,255,255,0.04)",
-                        border:        `1px solid ${ar === ratio ? "rgba(139,92,246,0.45)" : "rgba(255,255,255,0.08)"}`,
-                        borderRadius:  6,
-                        color:         ar === ratio ? "#E8ECF5" : "#AEB7D0",
-                        fontSize:      13,
-                        fontFamily:    "var(--font-sans)",
-                        fontWeight:    ar === ratio ? 600 : 400,
-                        cursor:        "pointer",
-                        padding:       "4px 10px",
-                        transition:    "all 0.15s ease",
-                        letterSpacing: "0.02em",
-                        whiteSpace:    "nowrap",
-                        flexShrink:    0,
-                        boxShadow:     ar === ratio ? "0 0 8px rgba(139,92,246,0.2)" : "none",
-                      }}
+                      className="cd-model-pill"
+                      style={dkPill(ar === ratio, true)}
                     >
                       {ratio}
                     </button>
@@ -797,15 +884,7 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                 </div>
 
                 {/* Count — 2× and 4× visually disabled for batch-locked models */}
-                <div style={{
-                  display:      "flex",
-                  gap:          3,
-                  background:   "rgba(255,255,255,0.05)",
-                  border:       "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 9,
-                  padding:      3,
-                  alignItems:   "center",
-                }}>
+                <div style={dkGroup()}>
                   {COUNT_OPTIONS.map((n) => {
                     const isCountDisabled = batchLocked && n !== 1;
                     return (
@@ -814,30 +893,8 @@ export function PromptDock({ onGenerate, isFullscreen, defaultAr, isMinimized, o
                         onClick={() => !isCountDisabled && setOutputCount(n as 1 | 2 | 4)}
                         disabled={isCountDisabled}
                         title={isCountDisabled ? "This model generates 1 image at a time" : undefined}
-                        style={{
-                          background:   effectiveCount === n
-                            ? (isLocked ? "rgba(251,191,36,0.18)" : "rgba(139,92,246,0.18)")
-                            : "rgba(255,255,255,0.04)",
-                          border:       effectiveCount === n
-                            ? `1px solid ${isLocked ? "rgba(251,191,36,0.45)" : "rgba(139,92,246,0.45)"}`
-                            : "1px solid rgba(255,255,255,0.08)",
-                          borderRadius: 6,
-                          color:        isCountDisabled
-                            ? "rgba(255,255,255,0.15)"
-                            : effectiveCount === n
-                              ? (isLocked ? "rgba(251,191,36,1)" : "rgba(139,92,246,1)")
-                              : "rgba(255,255,255,0.45)",
-                          fontSize:     13,
-                          fontFamily:   "var(--font-sans)",
-                          fontWeight:   effectiveCount === n ? 700 : 400,
-                          cursor:       isCountDisabled ? "not-allowed" : "pointer",
-                          padding:      "4px 11px",
-                          transition:   "all 0.15s ease",
-                          opacity:      isCountDisabled ? 0.4 : 1,
-                          boxShadow:    effectiveCount === n && !isCountDisabled
-                            ? `0 0 8px ${isLocked ? "rgba(251,191,36,0.2)" : "rgba(139,92,246,0.2)"}`
-                            : "none",
-                        }}
+                        className="cd-model-pill"
+                        style={dkCountPill(effectiveCount === n, isLocked, isCountDisabled)}
                       >
                         {n}×
                       </button>
@@ -1066,30 +1123,31 @@ function ModelGroupSelector({
                 ref={(el) => { btnRefs.current[group.key] = el; }}
                 className={!isOpen ? "cd-btn-lift" : undefined}
                 style={{
-                  height:     36,
-                  padding:    "0 12px",
+                  height:     32,
+                  padding:    `0 ${DK.chipPX}px`,
                   background: groupSelected
-                    ? "rgba(139,92,246,0.18)"
-                    : isOpen ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+                    ? DK.activeBg
+                    : isOpen ? "rgba(255,255,255,0.08)" : DK.inactiveBg,
                   border: `1px solid ${
                     groupSelected
-                      ? "rgba(139,92,246,0.45)"
-                      : isOpen ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)"
+                      ? DK.activeBdr
+                      : isOpen ? "rgba(255,255,255,0.16)" : DK.inactiveBdr
                   }`,
-                  borderRadius:  8,
+                  borderRadius:  DK.chipR,
                   color:         groupSelected
-                    ? "rgba(139,92,246,1)"
-                    : isOpen ? "#B8C0D4" : "#9AA3B2",
-                  fontSize:      14,
+                    ? DK.activeColor
+                    : isOpen ? "#B8C0D4" : DK.inactiveColor,
+                  fontSize:      DK.chipFS + 1,       // 13px — slightly larger than chip labels
                   fontFamily:    "var(--font-sans)",
-                  fontWeight:    groupSelected ? 700 : 400,
+                  fontWeight:    groupSelected ? 600 : 400,
                   cursor:        "pointer",
                   whiteSpace:    "nowrap",
                   display:       "flex",
                   alignItems:    "center",
                   gap:           6,
                   transition:    "all 0.15s ease",
-                  boxShadow:     groupSelected ? "0 0 12px rgba(139,92,246,0.25)" : "none",
+                  boxShadow:     groupSelected ? DK.activeShadow : "none",
+                  letterSpacing: "0.03em",
                 }}
               >
                 {/* Active dot */}
