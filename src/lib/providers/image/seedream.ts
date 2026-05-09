@@ -7,7 +7,7 @@
  * Models registered:
  *   seedream-v5      → fal-ai/seedream              (Seedream v5 — primary quality t2i)
  *   seedream-v5-lite → fal-ai/seedream/edit          (Seedream v5 Lite — fast t2i only in Phase 1C)
- *   seedream-4-5     → fal-ai/bytedance/seedream/v4.5 (Seedream 4.5 — t2i + edit, 2K/4K quality chips)
+ *   seedream-4-5     → fal-ai/bytedance/seedream/v4.5/text-to-image | /edit (Seedream 4.5 — t2i + edit, 2K/4K quality chips)
  *
  * Phase 1C notes:
  *   - Seedream 4.5 supports both t2i (no image payload) and edit (image_urls[] payload).
@@ -132,8 +132,12 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
     async createJob(input: ZProviderInput): Promise<ZJob> {
       const { apiKey } = getFalEnv();
       const jobId      = newJobId();
-      const modelId    = falModelId();
       const isEditJob  = canEdit && !!input.imageUrl;
+      // v4-5: select the correct fal endpoint by operation type.
+      // fal.ai requires the /text-to-image or /edit suffix — the bare base path 404s.
+      const modelId = variant === "v4-5"
+        ? (isEditJob ? FAL_MODEL_IDS.seedream45Edit : FAL_MODEL_IDS.seedream45)
+        : falModelId();
 
       // Safe diagnostic: confirm actual fal.ai model ID in runtime logs.
       console.info(`[seedream] variant=${variant} model=${modelId} mode=${isEditJob ? "edit" : "t2i"}`);
@@ -193,9 +197,9 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
 
       // ── v4-5: store fal.ai's own polling URLs in externalJobId ───────────────
       // fal.ai returns status_url and response_url in the submit response.
-      // These are authoritative — the multi-segment model ID path
-      // (fal-ai/bytedance/seedream/v4.5) may produce 405 when constructed
-      // manually but works correctly when fal.ai builds the URL itself.
+      // These are the authoritative polling URLs — use them directly rather than
+      // constructing from modelId (which now includes the /text-to-image or /edit suffix
+      // and may not map cleanly to the status/result URL pattern).
       // Encoded as "{requestId}|{statusUrl}|{responseUrl}" for retrieval in getJobStatus.
       let externalJobId = requestId;
       if (variant === "v4-5") {
@@ -342,7 +346,9 @@ export const seedreamV5Provider     = buildSeedreamProvider("seedream-v5",      
 export const seedreamV5LiteProvider = buildSeedreamProvider("seedream-v5-lite", "Seedream Lite");
 
 /**
- * Seedream 4.5 — text-to-image + image editing (fal-ai/bytedance/seedream/v4.5).
+ * Seedream 4.5 — text-to-image + image editing.
+ * t2i → fal-ai/bytedance/seedream/v4.5/text-to-image
+ * edit → fal-ai/bytedance/seedream/v4.5/edit
  * Native quality tiers: 1K (base), 2K (auto_2K), 4K (auto_4K).
  * Edit mode activated automatically when an input image is provided.
  */
