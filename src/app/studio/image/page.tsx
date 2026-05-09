@@ -4525,11 +4525,7 @@ function ImageStudioInner() {
                   onMouseEnter={e => { if (!isDisabled) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 45px rgba(37,99,235,0.65), 0 4px 20px rgba(0,0,0,0.5)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = !isDisabled ? "0 0 28px rgba(37,99,235,0.45), 0 4px 16px rgba(0,0,0,0.4)" : "0 0 14px rgba(37,99,235,0.18), 0 2px 8px rgba(0,0,0,0.3)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}
                 >
-                  {isGpt2 ? (
-                    <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.8, textAlign: "center", lineHeight: 1.3 }}>
-                      Pricing being calibrated
-                    </span>
-                  ) : isUploadWait ? (
+                  {isUploadWait ? (
                     <>
                       <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "rgba(255,255,255,0.6)", animation: "spin 0.7s linear infinite" }} />
                       Uploading…

@@ -188,6 +188,14 @@ export const STATIC_QUALITY_MULTIPLIERS: Record<string, Record<string, number>> 
   //   multiplier irrelevant for that path; isTransformMode reverts display to flat.
   "gpt-image-1":     { "low": 1.0, "medium": 1.25, "high": 1.75 },
 
+  // gpt-image-2: Phase 1A — Zencra quality vocabulary ("fast" | "cinematic").
+  //   Translated to OpenAI API values in gpt-image.ts via ZENCRA_TO_OPENAI_QUALITY.
+  //   UI vocabulary: "fast"=1.0×→15cr, "cinematic"=3.667×→55cr (default).
+  //   "ultra" (12.0×→180cr) exists in DB but is intentionally hidden from UI (Phase 1A decision).
+  //   Edit/transform path: quality IS forwarded to /v1/images/edits (unlike gpt-image-1).
+  //   Multiplier locked May 2026 — matches credit_model_costs.quality_multipliers in DB.
+  "gpt-image-2":     { "fast": 1.0, "cinematic": 3.667, "ultra": 12.0 },
+
   // nano-banana-2: REMOVED — Step 0 safety lock (2026-05-07)
   //   NB2 adapter ignores providerParams.quality and sends fixed ~1K dimensions
   //   from NB2_DIMENSION_MAP. Charging quality-scaled prices for 1K output would
