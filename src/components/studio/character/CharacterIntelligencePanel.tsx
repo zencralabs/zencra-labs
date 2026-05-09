@@ -442,7 +442,6 @@ export default function CharacterIntelligencePanel({
             fontSize: 13, lineHeight: 2.1,
           }}>
             {[
-              { label: "Provider", value: soul?.embedding_provider ?? "fal-v2" },
               { label: "Version",  value: soul?.embedding_version  ?? "flux-char-1" },
               { label: "Status",   value: soul?.embedding_status   ?? "pending", isStatus: true },
             ].map(row => (

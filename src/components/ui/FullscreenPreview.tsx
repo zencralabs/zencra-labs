@@ -453,10 +453,7 @@ export function FullscreenPreview({
               <MetaRow label="Model" value={metadata.modelName} accent />
             )}
 
-            {/* Provider — always muted, internal-facing only */}
-            {metadata?.provider && (
-              <MetaRow label="Provider" value={metadata.provider} muted />
-            )}
+            {/* Provider intentionally omitted from user-facing view — raw slug never shown */}
 
             {/* Settings — aspect ratio + resolution + quality grouped */}
             <SettingsGroup

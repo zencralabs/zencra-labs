@@ -215,7 +215,7 @@ function AssetThumb({ asset, onClick }: { asset: Asset; onClick: () => void }) {
           display: "flex", alignItems: "flex-end", padding: 8,
         }}>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {asset.prompt ?? asset.provider}
+            {asset.prompt ?? "—"}
           </div>
         </div>
       )}

@@ -5275,13 +5275,13 @@ function ImageStudioInner() {
                       </p>
                     </div>
 
-                    {/* Model / Provider / AR / Quality row */}
+                    {/* Model / AR / Quality / Resolution row */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                       {[
-                        { label: "MODEL",    val: getDisplayModelName(panelDetails?.asset.model_key || selectedImage.model) },
-                        { label: "PROVIDER", val: panelDetails?.asset.provider },
-                        { label: "RATIO",    val: panelDetails?.generation_metadata?.aspect_ratio as string | undefined || selectedImage.aspectRatio },
-                        { label: "QUALITY",  val: panelDetails?.generation_metadata?.quality as string | undefined },
+                        { label: "MODEL",      val: getDisplayModelName(panelDetails?.asset.model_key || selectedImage.model) },
+                        { label: "RATIO",      val: panelDetails?.generation_metadata?.aspect_ratio as string | undefined || selectedImage.aspectRatio },
+                        { label: "QUALITY",    val: panelDetails?.generation_metadata?.quality as string | undefined },
+                        { label: "RESOLUTION", val: (panelDetails?.generation_metadata?.width && panelDetails?.generation_metadata?.height ? `${panelDetails.generation_metadata.width} × ${panelDetails.generation_metadata.height}` : undefined) },
                       ].filter(({ val }) => !!val).map(({ label, val }) => (
                         <div key={label} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 7, padding: "6px 10px" }}>
                           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", display: "block", marginBottom: 3, letterSpacing: "0.05em" }}>{label}</span>
