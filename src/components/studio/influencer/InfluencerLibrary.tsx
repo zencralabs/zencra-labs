@@ -6,7 +6,7 @@
 // Props unchanged: onNew / onSelect / activeId
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
@@ -62,26 +62,48 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
   const [query, setQuery]             = useState("");
   const [activeStyle, setActiveStyle] = useState<StyleCategory | "all">("all");
 
+  // Slot info
+  const [slotsUsed,  setSlotsUsed]  = useState(0);
+  const [slotsLimit, setSlotsLimit] = useState(8);
+
+  // Delete modal state
+  const [deleteTarget,   setDeleteTarget]   = useState<AIInfluencer | null>(null);
+  const [deleting,       setDeleting]       = useState(false);
+  const [deleteError,    setDeleteError]    = useState<string | null>(null);
+
+  // Auth token helper (avoids importing getAuthHeader from Canvas)
+  const getToken = useCallback(async (): Promise<Record<string, string>> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+    } catch { return {}; }
+  }, []);
+
+  // Fetch influencers + slots
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      // Resolve a live token — same pattern as AIInfluencerBuilder.
-      // Supabase auth is localStorage-backed so Authorization header is required;
-      // credentials:"include" sends no useful cookies.
-      let token: string | null = null;
+      let token: Record<string, string> = {};
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        token = session?.access_token ?? null;
-      } catch { /* non-fatal — request will 401 if token missing */ }
+        if (session?.access_token) token = { Authorization: `Bearer ${session.access_token}` };
+      } catch { /* non-fatal */ }
 
       if (cancelled) return;
 
       try {
-        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await fetch("/api/character/ai-influencers", { headers });
-        const d   = await res.json();
+        const [infRes, slotRes] = await Promise.all([
+          fetch("/api/character/ai-influencers", { headers: token }),
+          fetch("/api/character/ai-influencers/slots", { headers: token }),
+        ]);
+        const d = await infRes.json();
         if (!cancelled) setInfluencers(d.data?.influencers ?? d.influencers ?? []);
+        if (slotRes.ok) {
+          const sd = await slotRes.json();
+          const { used, limit } = sd.data ?? sd;
+          if (!cancelled) { setSlotsUsed(used ?? 0); setSlotsLimit(limit ?? 8); }
+        }
       } catch (err) {
         console.error("[InfluencerLibrary] fetch failed:", err);
       } finally {
@@ -91,6 +113,38 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 
     return () => { cancelled = true; };
   }, []);
+
+  // Delete handler
+  async function handleDelete() {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const headers = await getToken();
+      const res = await fetch(
+        `/api/character/ai-influencers/${deleteTarget.id}`,
+        { method: "DELETE", headers },
+      );
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setDeleteError(d?.error ?? "Delete failed. Please try again.");
+        setDeleting(false);
+        return;
+      }
+      const d = await res.json();
+      // Remove from list and update slot count
+      setInfluencers(prev => prev.filter(i => i.id !== deleteTarget.id));
+      setSlotsUsed(s => Math.max(0, s - 1));
+      if (d.data?.slots_remaining !== undefined) {
+        setSlotsUsed(slotsLimit - d.data.slots_remaining);
+      }
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError("Network error. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // ── Client-side filter + style grouping ──────────────────────────────────
   const grouped = useMemo(() => {
@@ -127,6 +181,105 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         .inf-list::-webkit-scrollbar-thumb { background: #1a1f2e; border-radius: 2px; }
       `}</style>
 
+      {/* ── Delete Confirm Modal ────────────────────────────────────────────── */}
+      {deleteTarget && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.72)",
+          backdropFilter: "blur(4px)",
+        }} onClick={() => !deleting && setDeleteTarget(null)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 340, background: "#0e1118",
+              border: "1px solid rgba(255,255,255,0.12)",
+              padding: "24px 24px 20px",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.65)",
+            }}
+          >
+            {/* Icon */}
+            <div style={{
+              width: 40, height: 40, marginBottom: 16,
+              background: "rgba(239,68,68,0.10)",
+              border: "1px solid rgba(239,68,68,0.22)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="#ef4444" strokeWidth="2" strokeLinecap="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </div>
+            {/* Title */}
+            <div style={{
+              fontSize: 16, fontWeight: 700, color: "#e8eaf0",
+              letterSpacing: "-0.01em", marginBottom: 8,
+            }}>
+              Delete Influencer?
+            </div>
+            <div style={{
+              fontSize: 13, color: "rgba(255,255,255,0.52)",
+              lineHeight: 1.6, marginBottom: 20,
+            }}>
+              This permanently removes{" "}
+              <strong style={{ color: "#e8eaf0" }}>
+                {deleteTarget.display_name ?? deleteTarget.handle ?? "this influencer"}
+              </strong>{" "}
+              and frees 1 identity slot. Generated assets are not deleted.
+            </div>
+            {deleteError && (
+              <div style={{
+                fontSize: 11, color: "#fca5a5", fontWeight: 600,
+                letterSpacing: "0.08em", textTransform: "uppercase" as const,
+                marginBottom: 12,
+              }}>
+                {deleteError}
+              </div>
+            )}
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => !deleting && setDeleteTarget(null)}
+                style={{
+                  flex: 1, height: 36,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.60)",
+                  fontSize: 13, fontWeight: 600,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  flex: 1, height: 36,
+                  background: deleting ? "rgba(239,68,68,0.20)" : "rgba(239,68,68,0.16)",
+                  border: "1px solid rgba(239,68,68,0.35)",
+                  color: deleting ? "rgba(252,165,165,0.50)" : "#fca5a5",
+                  fontSize: 13, fontWeight: 700,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => {
+                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.25)";
+                }}
+                onMouseLeave={e => {
+                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.16)";
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
         padding: "16px 14px 12px",
@@ -149,16 +302,17 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-            {totalCount > 0 && (
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: "#3d4560",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 10, padding: "2px 7px",
-              }}>
-                {totalCount}
-              </span>
-            )}
+            {/* Slot counter */}
+            <span style={{
+              fontSize: 11, fontWeight: 600,
+              color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.80)",
+              background: slotsUsed >= slotsLimit ? "rgba(239,68,68,0.10)" : "rgba(245,158,11,0.08)",
+              border: `1px solid ${slotsUsed >= slotsLimit ? "rgba(239,68,68,0.22)" : "rgba(245,158,11,0.18)"}`,
+              borderRadius: 10, padding: "2px 7px",
+              whiteSpace: "nowrap",
+            }}>
+              {slotsUsed}/{slotsLimit} slots
+            </span>
             <button
               onClick={onNew}
               title="Create new influencer"
@@ -349,6 +503,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 onOpen={() => onSelect(inf)}
                 onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
                 onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
+                onDelete={() => setDeleteTarget(inf)}
               />
             ))}
           </div>
@@ -361,13 +516,14 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
 function InfluencerCard({
-  influencer, active, onOpen, onImage, onVideo,
+  influencer, active, onOpen, onImage, onVideo, onDelete,
 }: {
   influencer: AIInfluencer;
   active:     boolean;
   onOpen:     () => void;
   onImage:    () => void;
   onVideo:    () => void;
+  onDelete:   () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -496,6 +652,38 @@ function InfluencerCard({
                 disabled={!isLocked}
                 tooltip={!isLocked ? "Finish identity selection first" : undefined}
               />
+              {/* Trash — delete this influencer */}
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(); }}
+                title="Delete influencer"
+                style={{
+                  marginLeft: "auto",
+                  width: 24, height: 24,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(239,68,68,0.10)",
+                  border: "1px solid rgba(239,68,68,0.22)",
+                  borderRadius: 5,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.22)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.45)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.10)";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.22)";
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="rgba(239,68,68,0.80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6M14 11v6"/>
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </button>
             </>
           )}
         </div>

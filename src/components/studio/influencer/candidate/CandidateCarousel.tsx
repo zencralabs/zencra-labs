@@ -23,6 +23,9 @@ interface CandidateCarouselProps {
   compareUrls:     string[];
   accent:          string;
   isLocking:       boolean;
+  lockedUrls:      string[];       // urls that have been locked
+  lockingUrl:      string | null;  // url currently being locked (per-card spinner)
+  slotsFull:       boolean;        // global slot limit reached
   onSetActive:     (url: string) => void;
   onPreview:       (url: string) => void;
   onToggleCompare: (url: string) => void;
@@ -33,7 +36,8 @@ interface CandidateCarouselProps {
 
 export default function CandidateCarousel({
   candidates, activeUrl, compareUrls, accent,
-  isLocking, onSetActive, onPreview, onToggleCompare, onSelect,
+  isLocking, lockedUrls, lockingUrl, slotsFull,
+  onSetActive, onPreview, onToggleCompare, onSelect,
 }: CandidateCarouselProps) {
   const maxCompareReached = compareUrls.length >= 3;
 
@@ -81,7 +85,10 @@ export default function CandidateCarousel({
             isActive={url === activeUrl}
             isInCompare={compareUrls.includes(url)}
             isLocking={isLocking}
+            isBeingLocked={lockingUrl === url}
+            isLocked={lockedUrls.includes(url)}
             maxCompare={maxCompareReached && !compareUrls.includes(url)}
+            slotsFull={slotsFull && !lockedUrls.includes(url)}
             onPreview={() => { onSetActive(url); onPreview(url); }}
             onCompare={() => onToggleCompare(url)}
             onSelect={() => onSelect(url)}

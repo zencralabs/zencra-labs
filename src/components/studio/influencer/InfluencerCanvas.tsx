@@ -94,6 +94,7 @@ interface Props {
   canvasState:           CanvasState;
   onCandidatesReady:     (influencer_id: string, candidateUrls: string[]) => void;
   onSelected:            (active: ActiveInfluencer) => void;
+  onCandidateLocked?:    (active: ActiveInfluencer) => void; // multi-lock: each locked candidate
   onCreateClick:         () => void;   // handleCreateInfluencer — single source of truth
   isCreating:            boolean;      // true while API calls are in flight
   createError:           string | null;
@@ -144,7 +145,7 @@ function getPackUiState(packType: PackType, packOutputs: PackOutput[]): PackUiSt
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function InfluencerCanvas({
-  canvasState, onCandidatesReady, onSelected,
+  canvasState, onCandidatesReady, onSelected, onCandidateLocked,
   onCreateClick, isCreating, createError, selectedStyleCategory, candidateCount,
 }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
@@ -483,6 +484,7 @@ export default function InfluencerCanvas({
             candidates={canvasState.candidates}
             accent={currentAccent}
             onSelected={onSelected}
+            onCandidateLocked={onCandidateLocked}
           />
         )}
         {canvasState.phase === "selected" && (
@@ -911,23 +913,42 @@ function GeneratingState({
 
 const MAX_COMPARE = 3;
 
+// Locked item — info returned from lock-candidate after success
+interface LockedItem {
+  url:                string;
+  influencer_id:      string;
+  identity_lock_id:   string;
+  canonical_asset_id: string;
+  hero_url:           string;
+  handle:             string | null;
+  display_name:       string | null;
+}
+
 function CandidatesState({
   influencer_id,
   candidates,
   accent,
   onSelected,
+  onCandidateLocked,
 }: {
-  influencer_id: string;
-  candidates:    string[];
-  accent:        string;
-  onSelected:    (active: ActiveInfluencer) => void;
+  influencer_id:      string;
+  candidates:         string[];
+  accent:             string;
+  onSelected:         (active: ActiveInfluencer) => void;
+  onCandidateLocked?: (active: ActiveInfluencer) => void;
 }) {
-  const [activeUrl,   setActiveUrl]   = useState<string | null>(null);
-  const [compareUrls, setCompareUrls] = useState<string[]>([]);
-  const [previewUrl,  setPreviewUrl]  = useState<string | null>(null);
-  const [locking,     setLocking]     = useState(false);
-  const [lockError,   setLockError]   = useState<string | null>(null);
-  const [mounted,     setMounted]     = useState(false);
+  const [activeUrl,    setActiveUrl]    = useState<string | null>(null);
+  const [compareUrls,  setCompareUrls]  = useState<string[]>([]);
+  const [previewUrl,   setPreviewUrl]   = useState<string | null>(null);
+  const [lockingUrl,   setLockingUrl]   = useState<string | null>(null);  // per-card spinner
+  const [lockedItems,  setLockedItems]  = useState<LockedItem[]>([]);
+  const [lockError,    setLockError]    = useState<string | null>(null);
+  const [slotsFull,    setSlotsFull]    = useState(false);
+  const [slotsUsed,    setSlotsUsed]    = useState(0);
+  const [slotsLimit,   setSlotsLimit]   = useState(8);
+  const [mounted,      setMounted]      = useState(false);
+
+  const router = useRouter();
 
   // Entry animation
   useEffect(() => {
@@ -942,6 +963,23 @@ function CandidatesState({
     }
   }, [candidates, activeUrl]);
 
+  // Fetch slot info on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const authHeader = await getAuthHeader();
+        const res = await fetch("/api/character/ai-influencers/slots", { headers: authHeader });
+        if (res.ok) {
+          const d = await res.json();
+          const { used, limit, remaining } = d.data ?? d;
+          setSlotsUsed(used ?? 0);
+          setSlotsLimit(limit ?? 8);
+          setSlotsFull((remaining ?? 1) <= 0);
+        }
+      } catch { /* non-fatal */ }
+    })();
+  }, []);
+
   // ── Toggle compare (max 3) ──────────────────────────────────────────────────
   function toggleCompare(url: string) {
     setCompareUrls(prev => {
@@ -951,50 +989,112 @@ function CandidatesState({
     });
   }
 
-  // ── Identity lock ───────────────────────────────────────────────────────────
-  async function handleConfirm(targetUrl?: string) {
-    const urlToLock = targetUrl ?? activeUrl;
-    if (!urlToLock || locking) return;
-    setLocking(true);
+  // ── Per-candidate identity lock ─────────────────────────────────────────────
+  async function handleLock(url: string) {
+    if (lockingUrl || lockedItems.some(l => l.url === url)) return;
+    setLockingUrl(url);
     setLockError(null);
     setPreviewUrl(null); // close modal if open
     try {
       const authHeader = await getAuthHeader();
       const res = await fetch(
-        `/api/character/ai-influencers/${influencer_id}/select`,
+        `/api/character/ai-influencers/${influencer_id}/lock-candidate`,
         {
           method:  "POST",
           headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ candidate_url: urlToLock }),
+          body: JSON.stringify({ candidate_url: url }),
         },
       );
       if (!res.ok) {
-        setLockError("Couldn't lock this identity. Please try again.");
-        setLocking(false);
+        const d = await res.json().catch(() => ({}));
+        const msg = d?.error ?? "Couldn't lock this identity. Please try again.";
+        setLockError(msg);
+        setLockingUrl(null);
         return;
       }
       const data = await res.json();
-      onSelected({
-        influencer:         data.data.influencer,
-        hero_url:           data.data.hero_url,
-        identity_lock_id:   data.data.identity_lock_id,
-        canonical_asset_id: data.data.canonical_asset_id,
+      const {
+        influencer_id:      newInfluencerId,
+        identity_lock_id,
+        canonical_asset_id,
+        hero_url,
+        handle,
+        display_name,
+        slots_remaining,
+      } = data.data ?? data;
+
+      const item: LockedItem = {
+        url,
+        influencer_id:      newInfluencerId,
+        identity_lock_id,
+        canonical_asset_id,
+        hero_url,
+        handle:             handle ?? null,
+        display_name:       display_name ?? null,
+      };
+
+      setLockedItems(prev => [...prev, item]);
+      setSlotsUsed(s => s + 1);
+      if (slots_remaining <= 0) setSlotsFull(true);
+
+      // Notify parent (bumps libraryKey) — optional callback for multi-lock
+      onCandidateLocked?.({
+        influencer: {
+          id:               newInfluencerId,
+          user_id:          "",          // caller doesn't need this
+          name:             display_name ?? "",
+          handle:           handle ?? null,
+          display_name:     display_name ?? null,
+          status:           "active",
+          style_category:   "hyper-real",
+          hero_asset_id:    canonical_asset_id ?? null,
+          identity_lock_id: identity_lock_id ?? null,
+          thumbnail_url:    hero_url ?? null,
+          parent_influencer_id: influencer_id,
+          created_at:       new Date().toISOString(),
+          updated_at:       new Date().toISOString(),
+        },
+        hero_url:           hero_url ?? null,
+        identity_lock_id:   identity_lock_id ?? null,
+        canonical_asset_id: canonical_asset_id ?? null,
       });
-      // component unmounts on success — no setLocking(false) needed
     } catch (err) {
       console.error(err);
       setLockError("Couldn't lock this identity. Please try again.");
-      setLocking(false);
+    } finally {
+      setLockingUrl(null);
     }
   }
 
-  const maxCompareReached   = compareUrls.length >= MAX_COMPARE;
-  const activeIndex         = activeUrl ? candidates.indexOf(activeUrl) + 1 : null;
+  // ── "View in Library" → go to selected state with first locked item ─────────
+  function goToFirst() {
+    const first = lockedItems[0];
+    if (!first) return;
+    onSelected({
+      influencer: {
+        id:               first.influencer_id,
+        user_id:          "",
+        name:             first.display_name ?? "",
+        handle:           first.handle ?? null,
+        display_name:     first.display_name ?? null,
+        status:           "active",
+        style_category:   "hyper-real",
+        hero_asset_id:    first.canonical_asset_id ?? null,
+        identity_lock_id: first.identity_lock_id ?? null,
+        thumbnail_url:    first.hero_url ?? null,
+        parent_influencer_id: influencer_id,
+        created_at:       new Date().toISOString(),
+        updated_at:       new Date().toISOString(),
+      },
+      hero_url:           first.hero_url ?? null,
+      identity_lock_id:   first.identity_lock_id ?? null,
+      canonical_asset_id: first.canonical_asset_id ?? null,
+    });
+  }
 
-  // Derive style category for the modal from the parent accent (we don't have it
-  // directly here — but InfluencerCanvas passes the influencer's style_category
-  // through canvasState; we thread it via a prop in the upgrade below)
-  // For the modal we pass a synthetic styleCategory via closure.
+  const maxCompareReached = compareUrls.length >= MAX_COMPARE;
+  const lockedUrls        = lockedItems.map(l => l.url);
+  const hasLocked         = lockedItems.length > 0;
 
   return (
     <>
@@ -1008,12 +1108,12 @@ function CandidatesState({
             url={previewUrl}
             index={previewIndex}
             accent={accent}
-            styleCategory="hyper-real"   /* best-effort; real category comes from parent */
+            styleCategory="hyper-real"
             isInCompare={isInCompare}
             maxCompare={maxReached}
-            isLocking={locking}
+            isLocking={!!lockingUrl}
             onClose={() => setPreviewUrl(null)}
-            onSelect={() => handleConfirm(previewUrl)}
+            onSelect={() => handleLock(previewUrl)}
             onCompare={() => toggleCompare(previewUrl)}
           />
         );
@@ -1048,31 +1148,53 @@ function CandidatesState({
 
           {/* ── Header ──────────────────────────────────────────────── */}
           <div style={{ padding: "24px 32px 16px", flexShrink: 0 }}>
-            {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
-            <div style={{
-              fontSize: 13, fontWeight: 600, letterSpacing: "0.14em",
-              color: `${accent}cc`,
-              textTransform: "uppercase" as const,
-              marginBottom: 8,
-            }}>
-              AI Casting Studio
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                {/* UI Label */}
+                <div style={{
+                  fontSize: 13, fontWeight: 600, letterSpacing: "0.14em",
+                  color: `${accent}cc`,
+                  textTransform: "uppercase" as const,
+                  marginBottom: 8,
+                }}>
+                  AI Casting Studio
+                </div>
+                {/* Studio Title */}
+                <div style={{
+                  fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
+                  color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
+                }}>
+                  {hasLocked ? "Lock more identities" : "Choose your digital human"}
+                </div>
+                {/* Body */}
+                <div style={{
+                  fontSize: 16, fontWeight: 400, lineHeight: 1.65,
+                  color: "rgba(255,255,255,0.50)", maxWidth: 560,
+                }}>
+                  {hasLocked
+                    ? `${lockedItems.length} identit${lockedItems.length === 1 ? "y" : "ies"} locked. Lock more or go to your library.`
+                    : "Lock any candidate to create a persistent AI identity. You can lock multiple."}
+                </div>
+              </div>
+
+              {/* Slot counter chip */}
+              <div style={{
+                flexShrink: 0,
+                padding: "6px 12px",
+                background: slotsFull
+                  ? "rgba(239,68,68,0.12)"
+                  : "rgba(245,158,11,0.10)",
+                border: `1px solid ${slotsFull ? "rgba(239,68,68,0.30)" : "rgba(245,158,11,0.25)"}`,
+                fontSize: 12, fontWeight: 600, letterSpacing: "0.08em",
+                color: slotsFull ? "#fca5a5" : "rgba(253,230,138,0.88)",
+                textTransform: "uppercase" as const,
+                whiteSpace: "nowrap",
+              }}>
+                {slotsUsed}/{slotsLimit} slots
+              </div>
             </div>
-            {/* Studio Title: 30px / 700 / -0.02em */}
-            <div style={{
-              fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
-              color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
-            }}>
-              Choose your digital human
-            </div>
-            {/* Body: 16px / 400 / leading 1.65 */}
-            <div style={{
-              fontSize: 16, fontWeight: 400, lineHeight: 1.65,
-              color: "rgba(255,255,255,0.50)", maxWidth: 560,
-            }}>
-              Pick one candidate to lock the identity. Every future image, video, and pack will follow this face.
-            </div>
+
             {lockError && (
-              /* Micro: 11px / semibold 600 / 0.12em */
               <div style={{
                 marginTop: 8,
                 fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
@@ -1091,35 +1213,145 @@ function CandidatesState({
               activeUrl={activeUrl}
               compareUrls={compareUrls}
               accent={accent}
-              isLocking={locking}
+              isLocking={!!lockingUrl}
+              lockedUrls={lockedUrls}
+              lockingUrl={lockingUrl}
+              slotsFull={slotsFull}
               onSetActive={setActiveUrl}
               onPreview={url => { setActiveUrl(url); setPreviewUrl(url); }}
               onToggleCompare={toggleCompare}
-              onSelect={url => handleConfirm(url)}
+              onSelect={url => handleLock(url)}
             />
           </div>
 
-          {/* Flex spacer so tray+controls stay at bottom */}
+          {/* Flex spacer so tray+action bar stay at bottom */}
           <div style={{ flex: 1 }} />
 
           {/* ── Compare Tray (slides up when ≥ 2) ────────────────────── */}
           <CandidateCompareTray
             compareUrls={compareUrls}
             accent={accent}
-            isLocking={locking}
+            isLocking={!!lockingUrl}
             onRemove={url => setCompareUrls(prev => prev.filter(u => u !== url))}
-            onSelectOne={url => handleConfirm(url)}
+            onSelectOne={url => handleLock(url)}
             onClearAll={() => setCompareUrls([])}
           />
 
-          {/* ── Controls (confirm row) ────────────────────────────────── */}
-          <CandidateControls
-            activeUrl={activeUrl}
-            accent={accent}
-            isLocking={locking}
-            candidateIndex={activeIndex}
-            onConfirm={() => handleConfirm()}
-          />
+          {/* ── Bottom action bar — shown after ≥1 locked ────────────── */}
+          {hasLocked && (
+            <div style={{
+              flexShrink: 0,
+              display: "flex", gap: 8, alignItems: "center",
+              padding: "12px 32px 20px",
+              background: "linear-gradient(to top, rgba(5,7,13,0.98) 0%, rgba(5,7,13,0.80) 100%)",
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              {/* Locked count badge */}
+              <div style={{
+                flexShrink: 0,
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 12px",
+                background: "rgba(245,158,11,0.10)",
+                border: "1px solid rgba(245,158,11,0.25)",
+                fontSize: 12, fontWeight: 700,
+                letterSpacing: "0.08em",
+                color: "rgba(253,230,138,0.90)",
+                textTransform: "uppercase" as const,
+              }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "#f59e0b",
+                  boxShadow: "0 0 6px rgba(245,158,11,0.70)",
+                }} />
+                {lockedItems.length} locked
+              </div>
+
+              <div style={{ flex: 1 }} />
+
+              {/* View in Library */}
+              <button
+                onClick={goToFirst}
+                style={{
+                  height: 36, padding: "0 16px",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  color: "#ffffff",
+                  fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
+                  cursor: "pointer",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+              >
+                View in Library
+              </button>
+
+              {/* Image Studio */}
+              <button
+                onClick={() => {
+                  const first = lockedItems[0];
+                  if (!first) { router.push("/studio/image"); return; }
+                  const params = new URLSearchParams();
+                  params.set("influencer_id",    first.influencer_id);
+                  params.set("identity_lock_id", first.identity_lock_id ?? "");
+                  params.set("mode",             "influencer");
+                  if (first.handle)       params.set("handle",             first.handle);
+                  if (first.display_name) params.set("display_name",       first.display_name);
+                  if (first.canonical_asset_id) params.set("canonical_asset_id", first.canonical_asset_id);
+                  if (first.hero_url)     params.set("reference_url",       first.hero_url);
+                  router.push(`/studio/image?${params.toString()}`);
+                }}
+                style={{
+                  height: 36, padding: "0 16px",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  color: "#ffffff",
+                  fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
+                  cursor: "pointer",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+              >
+                Image Studio
+              </button>
+
+              {/* Video Studio */}
+              <button
+                onClick={() => {
+                  const first = lockedItems[0];
+                  if (!first) { router.push("/studio/video"); return; }
+                  const params = new URLSearchParams();
+                  params.set("influencer_id",    first.influencer_id);
+                  params.set("identity_lock_id", first.identity_lock_id ?? "");
+                  params.set("flow",             "start-frame");
+                  params.set("mode",             "influencer");
+                  if (first.handle)       params.set("handle",       first.handle);
+                  if (first.display_name) params.set("display_name", first.display_name);
+                  if (first.hero_url) {
+                    params.set("startFrame",    first.hero_url);
+                    params.set("reference_url", first.hero_url);
+                  }
+                  router.push(`/studio/video?${params.toString()}`);
+                }}
+                style={{
+                  height: 36, padding: "0 16px",
+                  background: `linear-gradient(135deg, #d97706, #f59e0b)`,
+                  border: "none",
+                  color: "#000000",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+                  textTransform: "uppercase" as const,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 20px rgba(245,158,11,0.35)",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 28px rgba(245,158,11,0.55)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 20px rgba(245,158,11,0.35)"; }}
+              >
+                Video Studio
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -268,6 +268,14 @@ export default function AIInfluencerBuilder() {
     [],
   );
 
+  // Multi-lock: called each time a candidate is locked — bumps library to show it
+  const handleCandidateLocked = useCallback(
+    (_active: ActiveInfluencer) => {
+      setLibraryKey(k => k + 1);
+    },
+    [],
+  );
+
   const handleNewInfluencer = useCallback(() => {
     setCanvasState({ phase: "empty" });
   }, []);
@@ -324,6 +332,7 @@ export default function AIInfluencerBuilder() {
           canvasState={canvasState}
           onCandidatesReady={handleCandidatesReady}
           onSelected={handleSelected}
+          onCandidateLocked={handleCandidateLocked}
           onCreateClick={handleCreateInfluencer}
           isCreating={isCreating}
           createError={createError}

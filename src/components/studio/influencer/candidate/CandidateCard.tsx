@@ -27,23 +27,27 @@ function isVideoUrl(url: string): boolean {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CandidateCardProps {
-  url:         string;
-  index:       number;       // 1-based display number
-  accent:      string;
-  isActive:    boolean;      // keyboard / scroll focus
-  isInCompare: boolean;      // in the compare tray — indigo border
-  isLocking:   boolean;      // identity lock in flight
-  maxCompare:  boolean;      // compare tray at capacity and this card NOT in it
-  onPreview:   () => void;
-  onCompare:   () => void;
-  onSelect:    () => void;
+  url:            string;
+  index:          number;       // 1-based display number
+  accent:         string;
+  isActive:       boolean;      // keyboard / scroll focus
+  isInCompare:    boolean;      // in the compare tray — indigo border
+  isLocking:      boolean;      // global lock in flight (legacy; prefer isBeingLocked)
+  isBeingLocked:  boolean;      // this specific card's lock is in flight
+  isLocked:       boolean;      // this candidate has been successfully locked
+  maxCompare:     boolean;      // compare tray at capacity and this card NOT in it
+  slotsFull:      boolean;      // identity slot limit reached — disable lock button
+  onPreview:      () => void;
+  onCompare:      () => void;
+  onSelect:       () => void;   // now means "lock this candidate"
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CandidateCard({
   url, index, accent, isActive, isInCompare, isLocking,
-  maxCompare, onPreview, onCompare, onSelect,
+  isBeingLocked, isLocked, maxCompare, slotsFull,
+  onPreview, onCompare, onSelect,
 }: CandidateCardProps) {
   const [hovered,     setHovered]     = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
@@ -81,10 +85,10 @@ export default function CandidateCard({
         role="button"
         tabIndex={0}
         aria-label={`Candidate ${String(index).padStart(2, "0")} — click to preview`}
-        onMouseEnter={() => !isLocking && setHovered(true)}
+        onMouseEnter={() => !isLocking && !isBeingLocked && setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onClick={() => !isLocking && onPreview()}
-        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); !isLocking && onPreview(); } }}
+        onClick={() => !isLocking && !isBeingLocked && !isLocked && onPreview()}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); !isLocking && !isBeingLocked && !isLocked && onPreview(); } }}
         style={{
           flexShrink:  0,
           position:    "relative",
@@ -92,11 +96,15 @@ export default function CandidateCard({
           height:      380,
           borderRadius: 0,                   // sharp — spec requirement
           overflow:    "hidden",
-          border:      `1px solid ${borderColor}`,
-          boxShadow,
-          cursor:      isLocking ? "not-allowed" : "pointer",
-          transform:   hovered && !isLocking ? "scale(1.03)" : "scale(1)",
-          opacity:     isLocking ? 0.55 : 1,
+          border:      isLocked
+            ? "1.5px solid rgba(245,158,11,0.55)"
+            : `1px solid ${borderColor}`,
+          boxShadow: isLocked
+            ? "0 0 24px rgba(245,158,11,0.20), 0 8px 32px rgba(0,0,0,0.55)"
+            : boxShadow,
+          cursor:      isLocking || isBeingLocked ? "not-allowed" : isLocked ? "default" : "pointer",
+          transform:   hovered && !isLocking && !isBeingLocked && !isLocked ? "scale(1.03)" : "scale(1)",
+          opacity:     isBeingLocked ? 0.65 : 1,
           transition: [
             "transform 0.22s cubic-bezier(0.22,1,0.36,1)",
             "border-color 0.2s ease",
@@ -185,15 +193,69 @@ export default function CandidateCard({
           zIndex: 3,
         }} />
 
+        {/* ── Identity Locked overlay — replaces hover when locked ──────── */}
+        {isLocked && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 7,
+            display: "flex", flexDirection: "column",
+            justifyContent: "flex-end",
+            padding: "14px 12px",
+            background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)",
+            pointerEvents: "none",
+          }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 10px",
+              background: "rgba(245,158,11,0.15)",
+              border: "1px solid rgba(245,158,11,0.35)",
+              backdropFilter: "blur(8px)",
+            }}>
+              <div style={{
+                width: 6, height: 6,
+                borderRadius: "50%",
+                background: "#f59e0b",
+                boxShadow: "0 0 8px rgba(245,158,11,0.7)",
+                flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: 12, fontWeight: 700,
+                letterSpacing: "0.08em",
+                color: "rgba(253,230,138,0.95)",
+                textTransform: "uppercase" as const,
+              }}>
+                Identity Locked
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Being-locked spinner overlay ─────────────────────────────── */}
+        {isBeingLocked && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 7,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(5,7,13,0.55)",
+            backdropFilter: "blur(4px)",
+            pointerEvents: "none",
+          }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%",
+              border: "2.5px solid rgba(245,158,11,0.18)",
+              borderTopColor: "#f59e0b",
+              animation: "candidateCardSpin 0.75s linear infinite",
+            }} />
+          </div>
+        )}
+
         {/* ── Hover overlay — actions + metadata ──────────────────────── */}
         <div style={{
           position:   "absolute", inset: 0, zIndex: 6,
           display:    "flex", flexDirection: "column",
           justifyContent: "flex-end",
           padding:    "14px 12px",
-          opacity:    hovered && !isLocking ? 1 : 0,
+          opacity:    hovered && !isLocking && !isBeingLocked && !isLocked ? 1 : 0,
           transition: "opacity 0.18s ease",
-          pointerEvents: hovered && !isLocking ? "auto" : "none",
+          pointerEvents: hovered && !isLocking && !isBeingLocked && !isLocked ? "auto" : "none",
         }}>
           {/* Metadata */}
           <div style={{ marginBottom: 10 }}>
@@ -254,24 +316,32 @@ export default function CandidateCard({
             </button>
           </div>
 
-          {/* Select — full width */}
+          {/* Lock Identity — full width */}
           <button
-            onClick={e => { e.stopPropagation(); onSelect(); }}
+            onClick={e => { e.stopPropagation(); if (!slotsFull && !isLocked) onSelect(); }}
+            disabled={slotsFull}
             style={{
               width: "100%", height: 36,
-              background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-              border: "none",
-              color: "#ffffff",
-              /* Button: 15px / semibold 600 / -0.01em */
-              fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em",
-              cursor: "pointer",
-              boxShadow: "0 4px 20px rgba(99,102,241,0.32)",
-              transition: "box-shadow 0.15s ease",
+              background: slotsFull
+                ? "rgba(255,255,255,0.06)"
+                : "linear-gradient(135deg, #d97706, #f59e0b)",
+              border: slotsFull ? "1px solid rgba(255,255,255,0.12)" : "none",
+              color: slotsFull ? "rgba(255,255,255,0.30)" : "#000000",
+              /* Button: 13px / semibold 700 / 0.06em */
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+              cursor: slotsFull ? "not-allowed" : "pointer",
+              textTransform: "uppercase" as const,
+              boxShadow: slotsFull ? "none" : "0 4px 20px rgba(245,158,11,0.35)",
+              transition: "all 0.15s ease",
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 28px rgba(99,102,241,0.50)"; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 20px rgba(99,102,241,0.32)"; }}
+            onMouseEnter={e => {
+              if (!slotsFull) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 28px rgba(245,158,11,0.55)";
+            }}
+            onMouseLeave={e => {
+              if (!slotsFull) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 20px rgba(245,158,11,0.35)";
+            }}
           >
-            Select Identity
+            {slotsFull ? "Slots Full" : "Lock Identity"}
           </button>
         </div>
 
