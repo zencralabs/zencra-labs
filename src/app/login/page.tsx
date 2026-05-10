@@ -16,11 +16,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye, EyeOff, ArrowRight, X, ChevronLeft,
   Mail, Key, Fingerprint, ChevronRight,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -383,6 +385,10 @@ const KEYFRAMES = `
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+  const { login, loginWithPasskey, loginWithOAuth } = useAuth();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+
   // Auth view state
   const [view,         setView]         = useState<AuthView>("default");
   const [email,        setEmail]        = useState("");
@@ -390,6 +396,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [otpCode,      setOtpCode]      = useState("");
   const [otpSent,      setOtpSent]      = useState(false);
+  const [isLoading,    setIsLoading]    = useState(false);
+  const [authError,    setAuthError]    = useState<string | null>(null);
 
   // Slider state
   const [slide,         setSlide]         = useState(0);
@@ -409,7 +417,57 @@ export default function LoginPage() {
     return () => clearInterval(t);
   }, [go]);
 
-  const resetToDefault = () => { setView("default"); setOtpSent(false); setOtpCode(""); };
+  const resetToDefault = () => { setView("default"); setOtpSent(false); setOtpCode(""); setAuthError(null); };
+
+  // Redirect destination — ?next= param, or /studio as default
+  const redirectAfterLogin = () => {
+    const next = searchParams?.get("next");
+    router.push(next && next.startsWith("/") ? next : "/studio");
+  };
+
+  // ── Email / Password submit ─────────────────────────────────────────────────
+  async function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const ok = await login(email, password);
+      if (ok) {
+        redirectAfterLogin();
+      } else {
+        setAuthError("Invalid email or password. Please try again.");
+      }
+    } catch {
+      setAuthError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // ── Passkey sign-in ─────────────────────────────────────────────────────────
+  async function handlePasskeySignIn() {
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const ok = await loginWithPasskey();
+      if (ok) {
+        redirectAfterLogin();
+      } else {
+        setAuthError("Passkey authentication failed. Try a different method.");
+      }
+    } catch {
+      setAuthError("Passkey not available on this device.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // ── Google OAuth ─────────────────────────────────────────────────────────────
+  async function handleGoogleSignIn() {
+    setAuthError(null);
+    await loginWithOAuth("google");
+    // Browser redirects — no further action
+  }
 
   const lbl = (_?: string): React.CSSProperties => ({
     display: "block", marginBottom: 6,
@@ -587,7 +645,7 @@ export default function LoginPage() {
                     className="zl-up"
                     style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, animationDelay: "0.18s" }}
                   >
-                    <button className="zl-btn"><GoogleIcon    /><span>Google</span></button>
+                    <button className="zl-btn" onClick={handleGoogleSignIn}><GoogleIcon    /><span>Google</span></button>
                     <button className="zl-btn"><AppleIcon     /><span>Apple</span></button>
                     <button className="zl-btn"><FacebookIcon  /><span>Facebook</span></button>
                     <button className="zl-btn"><MicrosoftIcon /><span>Microsoft</span></button>
@@ -635,7 +693,7 @@ export default function LoginPage() {
                 <form
                   className="zl-up flex flex-col"
                   style={{ gap: 13, animationDelay: "0.04s" }}
-                  onSubmit={e => e.preventDefault()}
+                  onSubmit={handleEmailSubmit}
                 >
                   <div>
                     <label style={lbl("email")}>Email address</label>
@@ -675,8 +733,19 @@ export default function LoginPage() {
                       </button>
                     </div>
                   </div>
-                  <button type="submit" className="zl-cta" style={{ marginTop: 2 }}>
-                    Sign In <ArrowRight size={14} style={{ marginLeft: "auto" }} />
+                  {authError && (
+                    <p style={{ fontSize: 13, color: "#F87171", textAlign: "center", letterSpacing: "-0.01em" }}>
+                      {authError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="zl-cta"
+                    style={{ marginTop: 2, opacity: isLoading ? 0.7 : 1 }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Signing in…" : "Sign In"}
+                    {!isLoading && <ArrowRight size={14} style={{ marginLeft: "auto" }} />}
                   </button>
                 </form>
               )}
@@ -747,10 +816,17 @@ export default function LoginPage() {
                     <p style={{ fontSize: 14.5, fontWeight: 600, color: "#F1F5F9", letterSpacing: "-0.02em" }}>Ready to authenticate</p>
                     <p style={{ marginTop: 3, fontSize: 12.5, color: "rgba(203,213,225,0.85)" }}>Use your device biometrics or security key</p>
                   </div>
-                  <button className="zl-cta" style={{ width: "auto", padding: "11px 26px" }} onClick={e => e.preventDefault()}>
-                    Authenticate
+                  <button
+                    className="zl-cta"
+                    style={{ width: "auto", padding: "11px 26px", opacity: isLoading ? 0.7 : 1 }}
+                    disabled={isLoading}
+                    onClick={handlePasskeySignIn}
+                  >
+                    {isLoading ? "Authenticating…" : "Authenticate"}
                   </button>
-                  <p style={{ fontSize: 10.5, color: "rgba(100,116,139,0.82)", letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 600 }}>Coming soon</p>
+                  {authError && (
+                    <p style={{ fontSize: 13, color: "#F87171", textAlign: "center" }}>{authError}</p>
+                  )}
                 </div>
               )}
 

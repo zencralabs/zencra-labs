@@ -2,7 +2,7 @@
 // v3 — active state + pathname highlighting
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu, X, ChevronDown, ChevronRight, ImageIcon, Music, Wand2, Sparkles, Mic,
   Zap, Film, Layers, LayoutDashboard, User, CreditCard, LogOut,
@@ -501,6 +501,7 @@ function MobileMenu({
   onAuthModal: (mode: "login" | "signup") => void;
   onOpenPricing?: () => void;
 }) {
+  const router = useRouter();
   // Which section is expanded (null = top level)
   const [section, setSection]   = useState<DropdownKey | null>(null);
   // Which feature detail panel is open (null = feature list)
@@ -648,7 +649,7 @@ function MobileMenu({
               <span className="fcs-soon">SOON</span>
             </Link>
             <button
-              onClick={() => { handleNavigate(); onAuthModal("login"); }}
+              onClick={() => { handleNavigate(); router.push("/login"); }}
               className="block text-center rounded-xl font-medium w-full transition-colors"
               style={{ padding: "12px", fontSize: "16px", color: "#94A3B8", border: "1px solid rgba(255,255,255,0.1)", background: "none", cursor: "pointer" }}
             >
@@ -825,6 +826,7 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
   const navRef = useRef<HTMLElement>(null);
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
+  const router   = useRouter();
 
   // ── All hooks must run unconditionally (Rules of Hooks) ──────────────────
   // The hidden-route early return lives AFTER every hook so that hook count
@@ -1187,7 +1189,7 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
               <div className="hidden items-center gap-2 lg:flex">
                 {/* Login — premium glass pill */}
                 <button
-                  onClick={() => setAuthModal("login")}
+                  onClick={() => router.push("/login")}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
