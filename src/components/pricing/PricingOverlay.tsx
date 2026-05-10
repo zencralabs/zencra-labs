@@ -308,6 +308,7 @@ const KEYFRAMES = `
 
 /* ── Mobile Responsiveness ──────────────────────────────────────────────── */
 @media (max-width: 640px) {
+  /* ── Container & panel ── */
   .zpo-click-outer {
     padding: 8px !important;
   }
@@ -315,6 +316,8 @@ const KEYFRAMES = `
     border-radius: 16px !important;
     min-height: calc(100vh - 16px) !important;
   }
+
+  /* ── Hero ── */
   .zpo-hero {
     padding: 56px 20px 36px !important;
   }
@@ -325,23 +328,85 @@ const KEYFRAMES = `
   .zpo-launch-offer span {
     font-size: 18px !important;
   }
+
+  /* ── Pricing cards — 1-col stack, centered, badge clearance ── */
   #pricing-plans {
-    padding: 12px 16px !important;
-    gap: 12px !important;
+    padding: 12px 20px !important;
+    gap: 32px !important;
   }
   #pricing-plans > div {
     flex: 1 1 100% !important;
     min-width: unset !important;
-    max-width: 100% !important;
+    max-width: 390px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100% !important;
   }
+  .zpo-card-featured {
+    padding-top: 24px !important;
+  }
+
+  /* ── FCS add-on card — centered mobile composition ── */
   .zpo-fcs-strip {
     padding: 0 16px !important;
   }
+  .zpo-fcs-inner {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 28px 24px !important;
+    gap: 24px !important;
+  }
+  .zpo-fcs-left {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 14px !important;
+    flex: none !important;
+    width: 100% !important;
+  }
+  .zpo-fcs-title-text {
+    font-size: 18px !important;
+    text-align: center !important;
+    letter-spacing: 0.05em !important;
+  }
+  .zpo-fcs-desc {
+    text-align: center !important;
+    max-width: 280px !important;
+    margin: 0 auto !important;
+  }
+  .zpo-fcs-prices {
+    justify-content: center !important;
+    gap: 24px !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  .zpo-fcs-toggle {
+    align-items: center !important;
+  }
+
+  /* ── Boost Credits — centered mobile composition ── */
   .zpo-boost-wrap {
     padding: 0 16px !important;
   }
   .zpo-boost-inner {
-    padding: 24px 20px !important;
+    padding: 28px 24px !important;
+  }
+  .zpo-boost-header {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 10px !important;
+    margin-bottom: 10px !important;
+  }
+  .zpo-boost-title-row {
+    justify-content: center !important;
+  }
+  .zpo-boost-title-text {
+    font-size: 18px !important;
+  }
+  .zpo-boost-desc {
+    text-align: center !important;
+    margin-bottom: 20px !important;
   }
   .zpo-boost-grid {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -352,6 +417,8 @@ const KEYFRAMES = `
     min-height: 72px !important;
     align-self: auto !important;
   }
+
+  /* ── Comparison table — horizontal scroll ── */
   .zpo-compare-section {
     overflow-x: auto !important;
     overflow-y: hidden !important;
@@ -367,7 +434,26 @@ const KEYFRAMES = `
     overflow: visible !important;
     padding: 0 16px;
   }
+
+  /* ── Bottom trust bar — vertical centered stack ── */
+  .zpo-trust-bar {
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px 16px !important;
+    gap: 16px !important;
+    margin-top: 32px !important;
+  }
+  .zpo-trust-left {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .zpo-trust-right {
+    justify-content: center !important;
+  }
 }
+
 @media (min-width: 641px) and (max-width: 900px) {
   #pricing-plans {
     padding: 20px 24px 14px !important;
@@ -508,6 +594,7 @@ function PricingCard({
 
   return (
     <div
+      className={plan.highlight ? "zpo-card-featured" : ""}
       style={{
         position: "relative",
         flex: "1 1 220px",
@@ -880,7 +967,7 @@ function FCSStrip({ enabled, onToggle }: {
 }) {
   return (
     <div className="zpo-fcs-strip" style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
-      <div style={{
+      <div className="zpo-fcs-inner" style={{
         borderRadius: 20,
         background: `
           radial-gradient(circle at 10% 50%, rgba(255,180,60,.16), transparent 30%),
@@ -892,7 +979,7 @@ function FCSStrip({ enabled, onToggle }: {
         boxShadow: "0 0 28px rgba(255,180,60,.16), inset 0 1px 0 rgba(255,255,255,.08)",
       }}>
         {/* Left */}
-        <div style={{ flex: "1 1 260px", display: "flex", alignItems: "flex-start", gap: 18 }}>
+        <div className="zpo-fcs-left" style={{ flex: "1 1 260px", display: "flex", alignItems: "flex-start", gap: 18 }}>
           <div style={{
             width: 56, height: 56, borderRadius: 16, flexShrink: 0,
             background: "linear-gradient(135deg, rgba(255,180,60,0.22) 0%, rgba(139,92,246,0.20) 100%)",
@@ -902,13 +989,13 @@ function FCSStrip({ enabled, onToggle }: {
             boxShadow: "0 0 22px rgba(255,180,60,0.22)",
           }}>🎬</div>
           <div>
-            <div style={{
+            <div className="zpo-fcs-title-text" style={{
               fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
               letterSpacing: "0.08em", color: GOLD, textTransform: "uppercase",
               marginBottom: 6,
               textShadow: "0 0 24px rgba(255,213,106,0.55)",
             }}>Future Cinema Studio</div>
-            <div style={{
+            <div className="zpo-fcs-desc" style={{
               fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
               color: BODY, lineHeight: 1.65, maxWidth: 380,
             }}>
@@ -919,7 +1006,7 @@ function FCSStrip({ enabled, onToggle }: {
         </div>
 
         {/* Price columns */}
-        <div style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+        <div className="zpo-fcs-prices" style={{ display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
           {[
             { label: "For Pro",      price: "+$29", credits: "+800 credits / month" },
             { label: "For Business", price: "+$49", credits: "+1,800 credits / month" },
@@ -950,7 +1037,7 @@ function FCSStrip({ enabled, onToggle }: {
         </div>
 
         {/* Toggle */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 9 }}>
+        <div className="zpo-fcs-toggle" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 9 }}>
           <button
             onClick={() => onToggle(!enabled)}
             style={{
@@ -1003,10 +1090,10 @@ function BoostSelector() {
         padding: "32px 40px",
       }}>
         {/* Header row */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="zpo-boost-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 6 }}>
+          <div className="zpo-boost-title-row" style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 20 }}>🚀</span>
-            <div style={{
+            <div className="zpo-boost-title-text" style={{
               fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800,
               letterSpacing: "0.08em", color: WHITE, textTransform: "uppercase",
             }}>Boost Credit Packs</div>
@@ -1042,7 +1129,7 @@ function BoostSelector() {
           )}
         </div>
 
-        <div style={{
+        <div className="zpo-boost-desc" style={{
           fontFamily: "'Familjen Grotesk', sans-serif", fontSize: 13.5,
           color: "rgba(203,213,225,0.70)", marginBottom: 24,
         }}>
@@ -1982,13 +2069,13 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                 </div>
 
                 {/* Trust bar */}
-                <div style={{
+                <div className="zpo-trust-bar" style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   flexWrap: "wrap", gap: 16,
                   margin: "52px auto 0", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "20px 32px",
                   borderTop: "1px solid rgba(255,255,255,0.04)",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                  <div className="zpo-trust-left" style={{ display: "flex", alignItems: "center", gap: 24 }}>
                     {[
                       { icon: "🔒", text: "Secure payments" },
                       { icon: "✓",  text: "Cancel anytime" },
@@ -2003,7 +2090,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                     ))}
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div className="zpo-trust-right" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center" }}>
                       {["#8B5CF6", "#22d3ee", "#EC4899", "#FFD56A", "#3B82F6"].map((color, i) => (
                         <div key={i} style={{
