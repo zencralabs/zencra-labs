@@ -305,6 +305,79 @@ const KEYFRAMES = `
 .zpo-cta-btn:hover::before {
   transform: translateX(120%);
 }
+
+/* ── Mobile Responsiveness ──────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .zpo-click-outer {
+    padding: 8px !important;
+  }
+  .zpo-panel {
+    border-radius: 16px !important;
+    min-height: calc(100vh - 16px) !important;
+  }
+  .zpo-hero {
+    padding: 56px 20px 36px !important;
+  }
+  .zpo-launch-offer {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .zpo-launch-offer span {
+    font-size: 18px !important;
+  }
+  #pricing-plans {
+    padding: 12px 16px !important;
+    gap: 12px !important;
+  }
+  #pricing-plans > div {
+    flex: 1 1 100% !important;
+    min-width: unset !important;
+    max-width: 100% !important;
+  }
+  .zpo-fcs-strip {
+    padding: 0 16px !important;
+  }
+  .zpo-boost-wrap {
+    padding: 0 16px !important;
+  }
+  .zpo-boost-inner {
+    padding: 24px 20px !important;
+  }
+  .zpo-boost-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+  .zpo-boost-preview {
+    grid-column: 1 / -1 !important;
+    min-height: 72px !important;
+    align-self: auto !important;
+  }
+  .zpo-compare-section {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+  .zpo-compare-label {
+    padding: 24px 16px 16px !important;
+  }
+  .zpo-compare-shell {
+    padding: 0 0 24px !important;
+  }
+  .zpo-compare-inner {
+    min-width: 560px;
+    overflow: visible !important;
+    padding: 0 16px;
+  }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  #pricing-plans {
+    padding: 20px 24px 14px !important;
+  }
+  #pricing-plans > div {
+    flex: 1 1 calc(50% - 16px) !important;
+    min-width: unset !important;
+    max-width: calc(50% - 9px) !important;
+  }
+}
 `;
 
 const CLOSE_MS = 320;
@@ -806,7 +879,7 @@ function FCSStrip({ enabled, onToggle }: {
   onToggle: (v: boolean) => void;
 }) {
   return (
-    <div style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
+    <div className="zpo-fcs-strip" style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
       <div style={{
         borderRadius: 20,
         background: `
@@ -922,8 +995,8 @@ function BoostSelector() {
   const packIcons  = ["⚡", "🚀", "🎬", "💎"];
 
   return (
-    <div style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
-      <div style={{
+    <div className="zpo-boost-wrap" style={{ margin: "0 auto", maxWidth: PRICING_CONTENT_MAX_WIDTH, width: "100%", padding: "0 32px" }}>
+      <div className="zpo-boost-inner" style={{
         borderRadius: 20,
         background: "linear-gradient(135deg, rgba(14,165,160,0.06) 0%, rgba(14,165,160,0.02) 100%)",
         border: "1px solid rgba(14,165,160,0.18)",
@@ -977,7 +1050,7 @@ function BoostSelector() {
         </div>
 
         {/* Single-row grid: 4 pack cards + preview card */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 260px", alignItems: "stretch", gap: 16 }}>
+        <div className="zpo-boost-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr) 260px", alignItems: "stretch", gap: 16 }}>
           {BOOST_PACKS.map((b, i) => {
             const isActive = i === selected;
             return (
@@ -1032,7 +1105,7 @@ function BoostSelector() {
           })}
 
           {/* Preview card — 5th column */}
-          <div style={{
+          <div className="zpo-boost-preview" style={{
             alignSelf: "stretch",
             display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: 18,
@@ -1125,7 +1198,7 @@ function ComparisonTable() {
   };
 
   return (
-    <section style={{
+    <section className="zpo-compare-section" style={{
       margin: "0 auto",
       maxWidth: PRICING_CONTENT_MAX_WIDTH,
       width: "100%",
@@ -1135,7 +1208,7 @@ function ComparisonTable() {
       background: "#0b0614",
     }}>
       {/* Label */}
-      <div style={{ textAlign: "center", padding: "36px 32px 28px" }}>
+      <div className="zpo-compare-label" style={{ textAlign: "center", padding: "36px 32px 28px" }}>
         <div style={{
           fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 600,
           letterSpacing: "0.12em", color: "rgba(255,255,255,0.85)",
@@ -1145,8 +1218,8 @@ function ComparisonTable() {
       </div>
 
       {/* Table shell */}
-      <div style={{ padding: "0 32px 36px" }}>
-        <div style={{ overflow: "hidden" }}>
+      <div className="zpo-compare-shell" style={{ padding: "0 32px 36px" }}>
+        <div className="zpo-compare-inner" style={{ overflow: "hidden" }}>
 
           {/* Column headers */}
           <div style={{
@@ -1506,6 +1579,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
       >
         {/* ── Click-outside-to-close wrapper ── */}
         <div
+          className="zpo-click-outer"
           onClick={e => { if (e.target === e.currentTarget) handleClose(); }}
           style={{
             position: "relative", zIndex: 3,
@@ -1517,6 +1591,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
         >
           {/* ── Glass panel ── */}
           <div
+            className="zpo-panel"
             onClick={e => e.stopPropagation()}
             style={{
               width: "100%", maxWidth: 1440,
@@ -1667,6 +1742,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
 
               {/* ── Hero ── */}
               <div
+                className="zpo-hero"
                 style={{ textAlign: "center", padding: "88px 24px 52px", position: "relative", overflow: "hidden" }}
               >
                 {/* ── Static cinematic preview cards — behind headline ── */}
@@ -1771,7 +1847,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
                   </div>
 
                   {/* Launch offer */}
-                  <div style={{
+                  <div className="zpo-launch-offer" style={{
                     display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28,
                   }}>
                     <span style={{
