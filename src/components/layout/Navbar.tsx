@@ -1135,10 +1135,10 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
                   {/* Gold zap icon — sits directly in pill, no box wrapper */}
                   <Zap size={14} style={{ color: "#D4AF37", filter: "drop-shadow(0 0 4px rgba(212,175,55,0.85))", flexShrink: 0 }} />
                   {/* Number — suppressHydrationWarning silences placeholder vs real diff */}
-                  <span suppressHydrationWarning style={{ fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.02em", minWidth: 46, display: "inline-block" }}>
+                  <span suppressHydrationWarning style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em", lineHeight: 1, minWidth: 46, display: "inline-block" }}>
                     {user.credits.toLocaleString()}
                   </span>
-                  <span style={{ fontSize: "11px", fontWeight: 600, color: "#7DD3FC", letterSpacing: "0.02em", marginLeft: "-4px" }}>cr</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: "12px", fontWeight: 700, color: "#7DD3FC", letterSpacing: "-0.01em", lineHeight: 1, marginLeft: "-4px" }}>cr</span>
                 </Link>
                 {/* FCS Active pill — clickable Link to Cinema Studio */}
                 {hasFCSAccess(user) && (
