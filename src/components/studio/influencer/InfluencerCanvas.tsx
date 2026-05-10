@@ -1583,19 +1583,72 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
       display: "flex", justifyContent: "center",
       padding: "32px 24px 24px",
     }}>
-      {/* Card container */}
+      {/* ── Two-column cinematic cast reveal ───────────────────────────────── */}
+      {/* Left: handle in negative space / Right: enlarged 9:16 portrait        */}
       <div style={{
-        position: "relative",
-        maxWidth: 248, width: "100%",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", gap: 40,
+        display: "flex", flexDirection: "row",
+        alignItems: "flex-start", gap: 44,
       }}>
 
-        {/* Portrait */}
+        {/* ── Left column: handle + metadata — cinematic editorial title ───── */}
         <div style={{
-          width: "100%",
+          width: 180, flexShrink: 0,
+          display: "flex", flexDirection: "column",
+          justifyContent: "flex-start",
+          paddingTop: 80,
+        }}>
+
+          {/* @handle — Syne, left-aligned, luxury cast title */}
+          <div style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: 30, fontWeight: 800,
+            color: "#ffffff", letterSpacing: "-0.03em",
+            textAlign: "left",
+            textShadow: `0 0 28px ${accent}50, 0 2px 12px rgba(0,0,0,0.80)`,
+            lineHeight: 1.0,
+            whiteSpace: "nowrap",
+          }}>
+            {formatHandle(active.influencer.handle)}
+          </div>
+
+          {/* Style category — uppercase meta label */}
+          <div style={{
+            marginTop: 10,
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 11, fontWeight: 600,
+            color: "rgba(255,255,255,0.35)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+          }}>
+            {categoryLabel}
+          </div>
+
+          {/* Active status dot + label */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6, marginTop: 12,
+          }}>
+            <div style={{
+              width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
+              background: "#10b981",
+              boxShadow: "0 0 6px rgba(16,185,129,0.65)",
+            }} />
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 11, fontWeight: 600,
+              color: "rgba(16,185,129,0.72)",
+              letterSpacing: "0.04em",
+            }}>
+              Active
+            </span>
+          </div>
+        </div>
+
+        {/* ── Right column: enlarged portrait — 300px wide, 9:16, 0 radius ── */}
+        <div style={{
+          width: 300, flexShrink: 0,
           aspectRatio: "9/16",
           overflow: "hidden",
+          borderRadius: 0,
           background: "rgba(255,255,255,0.03)",
           border: `1px solid ${accent}30`,
           boxShadow: `0 0 0 1px rgba(255,255,255,0.05), 0 0 60px ${accent}20, 0 32px 80px rgba(0,0,0,0.60)`,
@@ -1618,6 +1671,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
                 onLoad={() => setImgLoaded(true)}
                 style={{
                   width: "100%", height: "100%", objectFit: "cover",
+                  borderRadius: 0,
                   display: imgLoaded ? "block" : "none",
                 }}
               />
@@ -1636,7 +1690,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
             </div>
           )}
 
-          {/* Subtle bottom vignette over portrait — ~22% opacity black gradient */}
+          {/* Subtle bottom vignette — ~22% black gradient */}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
             height: "40%",
@@ -1645,18 +1699,6 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
           }} aria-hidden="true" />
         </div>
 
-        {/* Handle — cinematic title below portrait, 30px Syne, overflow allowed */}
-        <div style={{
-          fontFamily: "'Syne', sans-serif",
-          fontSize: 30, fontWeight: 800,
-          color: "#ffffff", letterSpacing: "-0.03em",
-          textAlign: "center",
-          textShadow: `0 0 28px ${accent}50, 0 2px 12px rgba(0,0,0,0.80)`,
-          whiteSpace: "nowrap",
-          lineHeight: 1.0,
-        }}>
-          {formatHandle(active.influencer.handle)}
-        </div>
       </div>
     </div>
   );

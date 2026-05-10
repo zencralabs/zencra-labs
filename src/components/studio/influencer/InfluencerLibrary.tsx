@@ -783,7 +783,7 @@ function InfluencerCard({
           {label && (
             <div style={{
               fontFamily: "'Syne', sans-serif",
-              fontSize: 10.5, fontWeight: 700,
+              fontSize: 12.5, fontWeight: 700,
               color: active ? "#f59e0b" : "#cdd0de",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               letterSpacing: "0.01em", marginBottom: 3,
@@ -794,7 +794,7 @@ function InfluencerCard({
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <div style={{
-              width: 4, height: 4, borderRadius: "50%", flexShrink: 0,
+              width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
               background:  isActive ? "#10b981" : isLocked ? "#f59e0b" : "rgba(255,255,255,0.18)",
               boxShadow:   isActive
                 ? "0 0 5px rgba(16,185,129,0.65)"
@@ -804,7 +804,7 @@ function InfluencerCard({
             }} />
             <span style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 9, fontWeight: 500,
+              fontSize: 11, fontWeight: 500,
               color: isActive
                 ? "rgba(16,185,129,0.80)"
                 : isLocked
@@ -834,8 +834,8 @@ function PortraitButton({
     <button
       onClick={disabled ? undefined : onClick}
       style={{
-        padding: "2px 5px",
-        fontSize: 9, fontWeight: 600,
+        padding: "3px 7px",
+        fontSize: 11, fontWeight: 600,
         fontFamily: "'Familjen Grotesk', sans-serif",
         letterSpacing: "0.03em",
         border: "1px solid rgba(255,255,255,0.08)",
