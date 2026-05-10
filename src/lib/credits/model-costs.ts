@@ -39,7 +39,8 @@
  *   seedream-v5          15 cr
  *   seedream-v5-lite      8 cr   (internal; not exposed in UI)
  *   seedream-4-5         10 cr   (1K base; engine applies 2K=1.25×→13cr, 4K=1.75×→18cr)
- *   flux-kontext         10 cr
+ *   flux-kontext         10 cr   (fal-hosted; Image Studio general editing)
+ *   bfl-kontext          8 cr   (direct BFL API; Look Pack only; 4-image batch = 32 cr)
  *
  * Video models (base = 5s cost; 10s = 2×base):
  *   kling-30            320 cr  (5s = 320, 10s = 640; 720p flat)
@@ -85,6 +86,7 @@ export const MODEL_BASE_CREDITS: Record<string, number> = {
   "seedream-v5-lite":      8,
   "seedream-4-5":         10,   // 1K base; engine: 2K=1.25×→13cr, 4K=1.75×→18cr (observe mode)
   "flux-kontext":         10,
+  "bfl-kontext":          8,   // 8 cr/image; 4-image Look Pack = 32 cr; FLUX.1 Kontext [pro] direct BFL API ($0.04 infra/image)
 
   // ── Video (base = 5-second cost)
   "kling-30":            320,
