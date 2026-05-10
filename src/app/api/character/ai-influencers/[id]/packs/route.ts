@@ -40,7 +40,10 @@ const VALID_PACK_TYPES: PackType[] = [
   "identity-sheet", "look-pack", "scene-pack", "pose-pack", "social-pack",
 ];
 
-const DEFAULT_MODEL_KEY = "nb-standard";
+// "instant-character" is the only registered character studio provider that
+// accepts a reference image (reference_image_url) for identity consistency.
+// "nb-standard" was a placeholder key that never existed in the registry.
+const DEFAULT_MODEL_KEY = "instant-character";
 
 export async function POST(
   req: Request,
