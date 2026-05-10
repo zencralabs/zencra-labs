@@ -31,6 +31,7 @@ import { gptImageProvider, gptImage2Provider } from "./gpt-image";
 import { nanoBananaStandardProvider, nanoBananaProProvider, nanoBanana2Provider } from "./nano-banana";
 import { seedreamV5Provider, seedreamV5LiteProvider, seedream45Provider } from "./seedream";
 import { fluxKontextProvider }      from "./flux-kontext";
+import { bflKontextProvider }       from "./bfl-kontext";
 import { flux2Provider }            from "./flux2";
 
 export function registerImageProviders(): void {
@@ -44,6 +45,7 @@ export function registerImageProviders(): void {
   registerProvider(seedreamV5LiteProvider);
   registerProvider(seedream45Provider);   // legacy — DB inactive; registered so orchestrator returns MODEL_INACTIVE
   registerProvider(fluxKontextProvider);
+  registerProvider(bflKontextProvider);   // Look Pack — direct BFL Kontext API (identity-preserving)
 
   // Phase 2 — registered but NOT callable (status: "coming-soon", validateInput always fails)
   // Kept here so orchestrator returns MODEL_NOT_ACTIVE instead of PROVIDER_NOT_REGISTERED.
@@ -62,5 +64,6 @@ export {
   seedreamV5LiteProvider,
   seedream45Provider,
   fluxKontextProvider,
+  bflKontextProvider,
   flux2Provider,
 };

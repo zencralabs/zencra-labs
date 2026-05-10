@@ -38,10 +38,15 @@ import { buildPackPrompt }    from "@/lib/influencer/pack-prompts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// FLUX Kontext — identity-preserving image-to-image
+// BFL Kontext — direct Black Forest Labs API for identity-preserving Look Pack generation.
+// Architecture lock (2026-05-10): Look Pack uses direct BFL API, NOT fal-hosted flux-kontext.
+//   Instant Character (fal.ai)   → influencer candidate generation
+//   bfl-kontext (direct BFL API) → Look Pack identity-preserving variation
+//   flux-kontext (fal.ai)        → Image Studio general context editing (unchanged)
+//
 // Dispatched as studio: "image" so the universal polling engine uses the
 // correct status route (/api/studio/jobs/:id/status) and stale threshold.
-const LOOK_PACK_MODEL_KEY = "flux-kontext";
+const LOOK_PACK_MODEL_KEY = "bfl-kontext";
 const LOOK_PACK_STUDIO    = "image" as const;
 
 export async function POST(

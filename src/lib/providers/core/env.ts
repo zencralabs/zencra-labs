@@ -329,6 +329,37 @@ export const FCS_FAL_MODEL_IDS = {
 // No separate env section needed.
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BLACK FOREST LABS (BFL) — direct FLUX Kontext API
+//
+// Used exclusively by AI Influencer Look Pack (bfl-kontext provider).
+// Separate from fal-hosted "flux-kontext" which routes through fal.ai queue.
+//
+// Architecture lock (2026-05-10):
+//   - Instant Character (fal.ai)    → influencer candidate generation
+//   - bfl-kontext (direct BFL API)  → Look Pack identity-preserving variation
+//   - flux-kontext (fal.ai)         → Image Studio general context editing
+//
+// Env vars:
+//   BFL_API_KEY           — required; your BFL API key from api.bfl.ai
+//   BFL_KONTEXT_ENDPOINT  — optional; override model endpoint (default: flux-kontext-pro)
+//                           Options: flux-kontext-pro | flux-kontext-max
+//                           Do NOT expose flux-kontext-max in UI yet (premium tier, deferred)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BflEnv {
+  apiKey:   string;
+  /** BFL model endpoint path — appended to https://api.bfl.ai/v1/<endpoint> */
+  endpoint: string;
+}
+
+export function getBflEnv(): BflEnv {
+  return {
+    apiKey:   required("BFL_API_KEY"),
+    endpoint: optional("BFL_KONTEXT_ENDPOINT", "flux-kontext-pro") as string,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SUPABASE (storage) — shared across providers
 // ─────────────────────────────────────────────────────────────────────────────
 

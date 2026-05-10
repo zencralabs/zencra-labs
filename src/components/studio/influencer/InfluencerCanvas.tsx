@@ -258,8 +258,8 @@ export default function InfluencerCanvas({
           for (const { jobId, label } of jobs) {
             store.registerJob({
               jobId,
-              studio:     "image",          // FLUX Kontext dispatches as image studio
-              modelKey:   "flux-kontext",
+              studio:     "image",          // BFL Kontext dispatches as image studio
+              modelKey:   "bfl-kontext",    // direct BFL API — NOT fal-hosted flux-kontext
               modelLabel: "Look Pack",
               prompt:     `Look variation — ${label} for @${active.influencer.handle ?? ""}`,
               createdAt:  new Date().toISOString(),
