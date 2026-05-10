@@ -21,22 +21,25 @@
 
 INSERT INTO credit_model_costs (
   model_key,
-  studio_type,
+  studio,
+  label,
   base_credits,
-  credit_multiplier,
-  notes
+  is_addon,
+  active
 )
-VALUES
-  (
-    'bfl-kontext',
-    'image',
-    8,
-    1.0,
-    'FLUX.1 Kontext [pro] via direct BFL API — 8 cr/image flat; 4-image Look Pack = 32 cr; infra $0.04/image'
-  )
+VALUES (
+  'bfl-kontext',
+  'image',
+  'FLUX.1 Kontext (BFL Direct) — Look Pack',
+  8,
+  false,
+  true
+)
 ON CONFLICT (model_key) DO UPDATE
   SET
-    base_credits      = EXCLUDED.base_credits,
-    credit_multiplier = EXCLUDED.credit_multiplier,
-    notes             = EXCLUDED.notes,
-    updated_at        = NOW();
+    studio       = EXCLUDED.studio,
+    label        = EXCLUDED.label,
+    base_credits = EXCLUDED.base_credits,
+    is_addon     = EXCLUDED.is_addon,
+    active       = EXCLUDED.active,
+    updated_at   = NOW();
