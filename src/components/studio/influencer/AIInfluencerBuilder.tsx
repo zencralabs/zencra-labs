@@ -72,6 +72,8 @@ export default function AIInfluencerBuilder() {
   const [notes,          setNotes]          = useState("");
   // Identity Options — how many candidates to generate (1–4, default 4)
   const [candidateCount, setCandidateCount] = useState(4);
+  // Library tags — user-defined labels for filtering in the AI Talent Roster
+  const [tags,           setTags]           = useState<string[]>([]);
 
   // ── Auth token ref — kept current via onAuthStateChange ──────────────────
   // Used by startPolling so every poll tick reads a live JWT even if the
@@ -151,6 +153,7 @@ export default function AIInfluencerBuilder() {
           mood,
           platform_intent:   platforms,
           appearance_notes:  notes,
+          tags,
         }),
       });
 
@@ -257,7 +260,7 @@ export default function AIInfluencerBuilder() {
     }
   }, [
     session, styleCategory, gender, ageRange, skinTone, faceStruct,
-    fashion, realism, mood, platforms, notes, candidateCount, handleCreated, handleCandidatesReady,
+    fashion, realism, mood, platforms, notes, candidateCount, tags, handleCreated, handleCandidatesReady,
   ]);
 
   const handleSelected = useCallback(
@@ -362,6 +365,7 @@ export default function AIInfluencerBuilder() {
           platforms={platforms}            setPlatforms={setPlatforms}
           notes={notes}                    setNotes={setNotes}
           candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
+          tags={tags}                      setTags={setTags}
         />
       </div>
 

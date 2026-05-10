@@ -61,6 +61,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
   const [loading, setLoading]         = useState(true);
   const [query, setQuery]             = useState("");
   const [activeStyle, setActiveStyle] = useState<StyleCategory | "all">("all");
+  const [activeTag,   setActiveTag]   = useState<string | "all">("all");
 
   // Slot info
   const [slotsUsed,  setSlotsUsed]  = useState(0);
@@ -146,12 +147,22 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
     }
   }
 
+  // ── All unique tags across influencers (for filter chips) ────────────────
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const inf of influencers) {
+      for (const t of (inf.tags ?? [])) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [influencers]);
+
   // ── Client-side filter + style grouping ──────────────────────────────────
   const grouped = useMemo(() => {
     const q = query.toLowerCase().trim();
 
     const filtered = influencers.filter(inf => {
       if (activeStyle !== "all" && inf.style_category !== activeStyle) return false;
+      if (activeTag !== "all" && !(inf.tags ?? []).includes(activeTag)) return false;
       if (!q) return true;
       const handle      = (inf.handle       ?? "").toLowerCase();
       const displayName = (inf.display_name ?? "").toLowerCase();
@@ -218,17 +229,17 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               fontSize: 16, fontWeight: 700, color: "#e8eaf0",
               letterSpacing: "-0.01em", marginBottom: 8,
             }}>
-              Delete Influencer?
+              Archive Influencer?
             </div>
             <div style={{
               fontSize: 13, color: "rgba(255,255,255,0.52)",
               lineHeight: 1.6, marginBottom: 20,
             }}>
-              This permanently removes{" "}
+              This removes{" "}
               <strong style={{ color: "#e8eaf0" }}>
                 {deleteTarget.display_name ?? deleteTarget.handle ?? "this influencer"}
               </strong>{" "}
-              and frees 1 identity slot. Generated assets are not deleted.
+              from your roster and frees 1 identity slot. Generated assets are preserved.
             </div>
             {deleteError && (
               <div style={{
@@ -273,7 +284,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                   if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.16)";
                 }}
               >
-                {deleting ? "Deleting…" : "Delete permanently"}
+                {deleting ? "Archiving…" : "Remove From Cast"}
               </button>
             </div>
           </div>
@@ -295,25 +306,13 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               fontSize: 13, fontWeight: 700, color: "#e8eaf0",
               letterSpacing: "0.01em",
             }}>
-              AI Influencers
+              AI Talent Roster
             </div>
             <div style={{ fontSize: 11, color: "#3d4560", marginTop: 2 }}>
               Your locked digital cast
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-            {/* Slot counter */}
-            <span style={{
-              fontSize: 11, fontWeight: 600,
-              color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.80)",
-              background: slotsUsed >= slotsLimit ? "rgba(239,68,68,0.10)" : "rgba(245,158,11,0.08)",
-              border: `1px solid ${slotsUsed >= slotsLimit ? "rgba(239,68,68,0.22)" : "rgba(245,158,11,0.18)"}`,
-              borderRadius: 10, padding: "2px 7px",
-              whiteSpace: "nowrap",
-            }}>
-              {slotsUsed}/{slotsLimit} slots
-            </span>
-            <button
+          <button
               onClick={onNew}
               title="Create new influencer"
               style={{
@@ -342,8 +341,44 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               New
             </button>
           </div>
+
+          {/* ── Slot Meter ─────────────────────────────────────────────────── */}
+          <div style={{ marginTop: 10 }}>
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              alignItems: "center", marginBottom: 5,
+            }}>
+              <span style={{
+                fontSize: 10, fontWeight: 600, color: "#3d4560",
+                letterSpacing: "0.08em", textTransform: "uppercase" as const,
+              }}>
+                Roster Slots
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.80)",
+              }}>
+                {slotsUsed}/{slotsLimit} used
+              </span>
+            </div>
+            <div style={{
+              height: 4, borderRadius: 2, background: "rgba(255,255,255,0.07)",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%",
+                width: `${Math.min(100, slotsLimit > 0 ? (slotsUsed / slotsLimit) * 100 : 0)}%`,
+                background: slotsUsed >= slotsLimit
+                  ? "linear-gradient(90deg,#ef4444,#dc2626)"
+                  : slotsUsed / slotsLimit >= 0.75
+                  ? "linear-gradient(90deg,#f59e0b,#ea8d00)"
+                  : "linear-gradient(90deg,#f59e0b,#fbbf24)",
+                borderRadius: 2,
+                transition: "width 0.4s ease",
+              }} />
+            </div>
+          </div>
         </div>
-      </div>
 
       {/* ── Search ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
@@ -413,6 +448,43 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           );
         })}
       </div>
+
+      {/* ── Tag Filter Chips — shown only when tags exist ───────────────────── */}
+      {allTags.length > 0 && (
+        <div
+          className="inf-chip-scroll"
+          style={{
+            display: "flex", gap: 5, padding: "5px 10px 0",
+            overflowX: "auto", flexShrink: 0,
+            scrollbarWidth: "none",
+          }}
+        >
+          {(["all" as const, ...allTags]).map(tag => {
+            const on = activeTag === tag;
+            return (
+              <button
+                key={tag}
+                onClick={() => setActiveTag(tag)}
+                style={{
+                  flexShrink: 0, padding: "2px 7px", borderRadius: 20,
+                  fontSize: 10, fontWeight: on ? 700 : 500,
+                  border: on
+                    ? "1px solid rgba(167,139,250,0.45)"
+                    : "1px solid rgba(255,255,255,0.07)",
+                  background: on
+                    ? "rgba(167,139,250,0.10)"
+                    : "rgba(255,255,255,0.02)",
+                  color: on ? "#a78bfa" : "#3d4560",
+                  cursor: "pointer", transition: "all 0.15s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {tag === "all" ? "All Tags" : tag}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Scrollable content ──────────────────────────────────────────────── */}
       <div
@@ -503,6 +575,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 onOpen={() => onSelect(inf)}
                 onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
                 onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
+                onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
                 onDelete={() => setDeleteTarget(inf)}
               />
             ))}
@@ -516,18 +589,20 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
 function InfluencerCard({
-  influencer, active, onOpen, onImage, onVideo, onDelete,
+  influencer, active, onOpen, onImage, onVideo, onLookPack, onDelete,
 }: {
   influencer: AIInfluencer;
-  active:     boolean;
-  onOpen:     () => void;
-  onImage:    () => void;
-  onVideo:    () => void;
-  onDelete:   () => void;
+  active:      boolean;
+  onOpen:      () => void;
+  onImage:     () => void;
+  onVideo:     () => void;
+  onLookPack:  () => void;
+  onDelete:    () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   const isLocked    = !!influencer.identity_lock_id;
+  const isActive    = influencer.status === "active";
   const handle      = influencer.handle      ? `@${influencer.handle}`  : null;
   const displayName = influencer.display_name ?? null;
 
@@ -568,6 +643,8 @@ function InfluencerCard({
               width: "100%", height: "100%",
               objectFit: "cover", borderRadius: 0,
               display: "block",
+              transform: hovered ? "scale(1.06)" : "scale(1)",
+              transition: "transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)",
             }}
             draggable={false}
           />
@@ -614,19 +691,19 @@ function InfluencerCard({
               {displayName}
             </div>
           )}
-          {/* Identity status */}
+          {/* Status badge — Active vs Draft */}
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{
               width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-              background:  isLocked ? "#f59e0b" : "rgba(255,255,255,0.18)",
-              boxShadow:   isLocked ? "0 0 5px rgba(245,158,11,0.55)" : "none",
+              background:  isActive ? "#10b981" : isLocked ? "#f59e0b" : "rgba(255,255,255,0.18)",
+              boxShadow:   isActive ? "0 0 5px rgba(16,185,129,0.55)" : isLocked ? "0 0 5px rgba(245,158,11,0.55)" : "none",
               transition: "all 0.15s",
             }} />
             <span style={{
               fontSize: 10, fontWeight: 500,
-              color: isLocked ? "rgba(245,158,11,0.80)" : "#3d4560",
+              color: isActive ? "rgba(16,185,129,0.85)" : isLocked ? "rgba(245,158,11,0.80)" : "#3d4560",
             }}>
-              {isLocked ? "Identity Locked" : "Needs Selection"}
+              {isActive ? "Active" : isLocked ? "Draft" : "Needs Selection"}
             </span>
           </div>
         </div>
@@ -637,7 +714,7 @@ function InfluencerCard({
           {/* Open — always visible */}
           <MicroButton label="Open" onClick={onOpen} />
 
-          {/* Image + Video — appear on hover */}
+          {/* Image + Video + Look Pack — appear on hover */}
           {hovered && (
             <>
               <MicroButton
@@ -651,6 +728,12 @@ function InfluencerCard({
                 onClick={onVideo}
                 disabled={!isLocked}
                 tooltip={!isLocked ? "Finish identity selection first" : undefined}
+              />
+              <MicroButton
+                label="Looks"
+                onClick={onLookPack}
+                disabled={!isLocked}
+                tooltip={!isLocked ? "Lock identity first" : "Generate Look Pack"}
               />
               {/* Trash — delete this influencer */}
               <button

@@ -57,6 +57,9 @@ interface Props {
   // Identity Options — candidate count (1–4, default 4)
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
+  // Library tags — used for AI Talent Roster filtering
+  tags:    string[];
+  setTags: (v: string[]) => void;
 }
 
 export default function InfluencerControls({
@@ -72,6 +75,7 @@ export default function InfluencerControls({
   platforms, setPlatforms,
   notes, setNotes,
   candidateCount, setCandidateCount,
+  tags, setTags,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
@@ -128,6 +132,7 @@ export default function InfluencerControls({
             platforms={platforms}            setPlatforms={setPlatforms}
             notes={notes}                    setNotes={setNotes}
             candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
+            tags={tags}                      setTags={setTags}
           />
         )}
         {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
@@ -256,6 +261,9 @@ interface BuilderTabProps {
   // Identity Options — candidate count
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
+  // Library tags
+  tags:    string[];
+  setTags: (v: string[]) => void;
 }
 
 export function BuilderTab({
@@ -271,6 +279,7 @@ export function BuilderTab({
   platforms, setPlatforms,
   notes, setNotes,
   candidateCount, setCandidateCount,
+  tags, setTags,
 }: BuilderTabProps) {
 
   // Accent for the currently selected style
@@ -459,6 +468,23 @@ export function BuilderTab({
           onFocus={e => (e.currentTarget.style.borderColor = selectedCat.accent + "55")}
           onBlur={e => (e.currentTarget.style.borderColor = T.border)}
         />
+      </section>
+
+      {/* Roster Tags — library filter labels */}
+      <section>
+        <SectionLabel label="Roster Tags" />
+        <ChipGroup
+          options={[
+            "Fashion", "Luxury", "Fitness", "Cyberpunk", "Anime",
+            "Music Video", "Lifestyle", "Gaming", "Sports", "Beauty",
+          ]}
+          selected={tags}
+          onToggle={v => setTags(tags.includes(v) ? tags.filter(t => t !== v) : [...tags, v])}
+          accent={selectedCat.accent}
+        />
+        <div style={{ fontSize: 11, color: T.muted, marginTop: 6 }}>
+          Tags appear as filter chips in your AI Talent Roster.
+        </div>
       </section>
 
       {/* Identity Options — candidate count selector */}

@@ -101,6 +101,8 @@ export interface AIInfluencer {
   hero_asset_id: string | null;
   identity_lock_id: string | null;
   thumbnail_url: string | null;
+  parent_influencer_id: string | null;  // non-null for siblings created via multi-lock
+  tags: string[];                        // e.g. ["Fashion", "Luxury"] — library filter labels
   created_at: string;
   updated_at: string;
 }

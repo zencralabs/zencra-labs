@@ -19,11 +19,15 @@ export async function GET(req: Request): Promise<Response> {
   if (authError) return authError;
   const userId = user!.id;
 
+  // Library shows only locked (active) influencers.
+  // Draft records are session anchors (candidate generation parents) and
+  // should not appear in the library. Archived = soft-deleted (never shown).
   const { data: influencers, error } = await supabaseAdmin
     .from("ai_influencers")
     .select("*, ai_influencer_profiles(*)")
     .eq("user_id", userId)
-    .neq("status", "archived")
+    .eq("status", "active")
+    .not("identity_lock_id", "is", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -73,6 +77,9 @@ export async function POST(req: Request): Promise<Response> {
     appearance_notes: typeof body?.appearance_notes  === "string" ? body.appearance_notes  : null,
   };
 
+  // Tags — user-defined library filter labels (e.g. ["Fashion", "Luxury"])
+  const tags: string[] = Array.isArray(body?.tags) ? (body.tags as string[]) : [];
+
   // Create influencer — name mirrors display_name for backwards compatibility
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
@@ -83,6 +90,7 @@ export async function POST(req: Request): Promise<Response> {
       display_name,                 // clean display (e.g. "Nova")
       status:       "draft",
       style_category,
+      tags,
     })
     .select()
     .single();
