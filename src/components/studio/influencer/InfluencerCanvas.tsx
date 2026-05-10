@@ -427,11 +427,17 @@ export default function InfluencerCanvas({
   function goVideoFlow() {
     if (canvasState.phase === "selected") {
       const { active } = canvasState;
-      const params = new URLSearchParams({
-        influencer_id:    active.influencer.id,
-        identity_lock_id: active.identity_lock_id ?? "",
-        mode:             "start-frame",
-      });
+      const params = new URLSearchParams();
+      params.set("influencer_id",    active.influencer.id);
+      params.set("identity_lock_id", active.identity_lock_id ?? "");
+      params.set("flow",             "start-frame");   // Video Studio reads ?flow= (not ?mode=)
+      params.set("mode",             "influencer");    // signals influencer arrival context
+      if (active.influencer.handle)       params.set("handle",       active.influencer.handle);
+      if (active.influencer.display_name) params.set("display_name", active.influencer.display_name);
+      if (active.hero_url) {
+        params.set("startFrame",    active.hero_url);   // pre-populates start-frame slot
+        params.set("reference_url", active.hero_url);   // identity portrait reference
+      }
       router.push(`/studio/video?${params.toString()}`);
     } else {
       router.push("/studio/video");

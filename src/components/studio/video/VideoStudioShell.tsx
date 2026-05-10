@@ -1890,6 +1890,23 @@ export default function VideoStudioShell() {
     ? "Image loaded from Creative Director — ready to animate"
     : "Image loaded from Image Studio — ready to animate";
 
+  // Influencer arrival context — set when coming from Influencer Canvas (mode=influencer)
+  // Drives the amber "Cinematic with @handle 🔒" identity chip above the canvas.
+  const modeParam        = searchParams.get("mode") || "";
+  const handleParam      = searchParams.get("handle") || "";
+  const displayNameParam = searchParams.get("display_name") || "";
+  const referenceUrlParam = searchParams.get("reference_url") || "";
+
+  const [influencerMode, setInfluencerMode] = useState<{
+    handle: string;
+    displayName: string;
+    referenceUrl: string;
+  } | null>(() =>
+    modeParam === "influencer" && handleParam
+      ? { handle: handleParam, displayName: displayNameParam || handleParam, referenceUrl: referenceUrlParam }
+      : null
+  );
+
   // Controls
   // Open in start_frame mode when a start image is provided or flow indicates frame-level use
   const [frameMode,      setFrameMode]      = useState<FrameMode>(
@@ -3477,6 +3494,85 @@ export default function VideoStudioShell() {
           transition: "filter 0.35s ease",
           filter: cinemaModeActive ? "brightness(1.04)" : "brightness(1)",
         }}>
+          {/* ── Influencer identity chip — shown when arriving from Influencer Canvas ── */}
+          {influencerMode && (() => {
+            const displayHandle = influencerMode.handle.startsWith("@")
+              ? influencerMode.handle
+              : `@${influencerMode.handle}`;
+            return (
+              <div style={{
+                marginBottom: 10,
+                padding: "9px 12px",
+                borderRadius: 10,
+                background: "rgba(251,191,36,0.08)",
+                border: "1px solid rgba(251,191,36,0.22)",
+                boxShadow: "0 0 20px rgba(251,191,36,0.06)",
+                animation: "vsArrivalFadeIn 0.4s ease",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}>
+                {/* Portrait thumbnail */}
+                {influencerMode.referenceUrl && (
+                  <img
+                    src={influencerMode.referenceUrl}
+                    alt={displayHandle}
+                    style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "1.5px solid rgba(251,191,36,0.4)",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                {/* Lock dot + label */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 10.5, color: "rgba(253,230,138,0.75)", fontWeight: 500,
+                    marginBottom: 2,
+                  }}>
+                    Influencer Canvas → Video Studio
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "#F59E0B",
+                      boxShadow: "0 0 8px rgba(245,158,11,0.7)",
+                      flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontSize: 12, fontWeight: 600,
+                      color: "rgba(253,230,138,0.9)",
+                      letterSpacing: "0.01em",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      Cinematic with {displayHandle} 🔒
+                    </span>
+                  </div>
+                </div>
+                {/* Dismiss button */}
+                <button
+                  onClick={() => setInfluencerMode(null)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "rgba(253,230,138,0.45)",
+                    padding: "2px 4px", borderRadius: 4,
+                    fontSize: 14, lineHeight: 1,
+                    flexShrink: 0,
+                    transition: "color 0.18s ease",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(253,230,138,0.85)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(253,230,138,0.45)")}
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })()}
+
           {/* ── Premium arrival banner — shown when arriving from any studio ─── */}
           {fromStudio && (() => {
             const isCD     = fromParam === "creative-director";
