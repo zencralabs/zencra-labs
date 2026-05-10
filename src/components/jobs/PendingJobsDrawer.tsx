@@ -31,7 +31,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X, RotateCcw, ExternalLink, Clock,
-  Activity, CheckCircle2, AlertTriangle,
+  Activity, CheckCircle2, AlertTriangle, Trash2,
 } from "lucide-react";
 import {
   usePendingJobStore,
@@ -57,6 +57,14 @@ interface PendingJobsDrawerProps {
    * and calling store.retryJob(originalJobId, newJobId).
    */
   onRetry?: (job: PendingJob) => void;
+
+  /**
+   * Called when the user confirms deletion of a failed generation card.
+   * The parent (GlobalJobsPanel) is responsible for calling
+   * DELETE /api/jobs/[assetId]?studio=<studio> and then removeJob().
+   * Returns a Promise that resolves on success or rejects on error.
+   */
+  onDelete?: (job: PendingJob) => Promise<void>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -242,12 +250,18 @@ function SectionHeader({
 
 function JobCard({
   job,
-  onDismiss,
+  isConfirmingDelete,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onRetry,
 }: {
-  job:       PendingJob;
-  onDismiss: (jobId: string) => void;
-  onRetry?:  (job: PendingJob) => void;
+  job:                PendingJob;
+  isConfirmingDelete: boolean;
+  onRequestDelete:    (jobId: string) => void;
+  onCancelDelete:     () => void;
+  onConfirmDelete:    (job: PendingJob) => void;
+  onRetry?:           (job: PendingJob) => void;
 }) {
   const colors    = STATUS_COLOR[job.status];
   const active    = isActive(job.status);
@@ -397,13 +411,13 @@ function JobCard({
 
       {/* Actions column */}
       <div style={{
-        display:    "flex",
+        display:       "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
-        gap:        4,
-        flexShrink: 0,
-        alignSelf:  "center",
-        marginLeft: showThumb ? 0 : 4,
+        alignItems:    "flex-end",
+        gap:           4,
+        flexShrink:    0,
+        alignSelf:     "center",
+        marginLeft:    showThumb ? 0 : 4,
       }}>
         {/* View chip — completed + has URL */}
         {job.status === "completed" && job.url && (
@@ -436,54 +450,125 @@ function JobCard({
           </a>
         )}
 
-        {/* Retry — failed / stale */}
+        {/* Retry — failed / stale only */}
         {(job.status === "failed" || job.status === "stale") && onRetry && (
           <button
             onClick={(e) => { e.stopPropagation(); onRetry(job); }}
-            title="Retry"
+            title="Retry generation"
             style={{
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           24,
-              height:          24,
-              borderRadius:    6,
-              color:           "#94A3B8",
-              background:      "rgba(255,255,255,0.05)",
-              border:          "1px solid rgba(255,255,255,0.08)",
-              cursor:          "pointer",
-              padding:         0,
-              transition:      "background 0.15s",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              width:          24,
+              height:         24,
+              borderRadius:   6,
+              color:          "#94A3B8",
+              background:     "rgba(255,255,255,0.05)",
+              border:         "1px solid rgba(255,255,255,0.08)",
+              cursor:         "pointer",
+              padding:        0,
+              transition:     "background 0.15s",
             }}
           >
             <RotateCcw size={11} />
           </button>
         )}
 
-        {/* Dismiss — terminal states */}
-        {terminal && (
+        {/* Delete — failed / stale / cancelled / refunded cards */}
+        {terminal && job.status !== "completed" && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDismiss(job.jobId); }}
-            title="Dismiss"
+            onClick={(e) => { e.stopPropagation(); onRequestDelete(job.jobId); }}
+            title="Delete permanently"
             style={{
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           24,
-              height:          24,
-              borderRadius:    6,
-              color:           "#475569",
-              background:      "transparent",
-              border:          "none",
-              cursor:          "pointer",
-              padding:         0,
-              transition:      "color 0.15s",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              width:          24,
+              height:         24,
+              borderRadius:   6,
+              color:          "#6B7280",
+              background:     "transparent",
+              border:         "none",
+              cursor:         "pointer",
+              padding:        0,
+              transition:     "color 0.15s",
             }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#FCA5A5")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#6B7280")}
           >
-            <X size={11} />
+            <Trash2 size={11} />
           </button>
         )}
       </div>
+
+      {/* ── Inline delete confirmation overlay ── */}
+      {isConfirmingDelete && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position:       "absolute",
+            inset:          0,
+            borderRadius:   10,
+            background:     "rgba(8,8,12,0.96)",
+            backdropFilter: "blur(4px)",
+            display:        "flex",
+            flexDirection:  "column",
+            alignItems:     "center",
+            justifyContent: "center",
+            gap:            10,
+            padding:        "12px 14px",
+            animation:      "zc-fade-in 0.15s ease-out",
+            zIndex:         2,
+          }}
+        >
+          <span style={{
+            fontSize:   11,
+            fontWeight: 600,
+            color:      "#E2E8F0",
+            fontFamily: "'Syne', sans-serif",
+            textAlign:  "center",
+            lineHeight: 1.4,
+          }}>
+            Delete this failed generation permanently?
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={onCancelDelete}
+              style={{
+                padding:      "5px 12px",
+                borderRadius: 6,
+                fontSize:     10,
+                fontWeight:   600,
+                color:        "#94A3B8",
+                background:   "rgba(255,255,255,0.06)",
+                border:       "1px solid rgba(255,255,255,0.10)",
+                cursor:       "pointer",
+                fontFamily:   "'Familjen Grotesk', sans-serif",
+                transition:   "background 0.15s",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onConfirmDelete(job)}
+              style={{
+                padding:      "5px 12px",
+                borderRadius: 6,
+                fontSize:     10,
+                fontWeight:   700,
+                color:        "#FCA5A5",
+                background:   "rgba(252,165,165,0.10)",
+                border:       "1px solid rgba(252,165,165,0.25)",
+                cursor:       "pointer",
+                fontFamily:   "'Familjen Grotesk', sans-serif",
+                transition:   "background 0.15s",
+              }}
+            >
+              Delete permanently
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -611,11 +696,13 @@ function ActivityButton({
 const MAX_DISPLAYED_JOBS      = 12;
 const AUTO_DISMISS_DELAY_MS   = 8_000;
 
-export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
-  const [open, setOpen]             = useState(false);
-  const allJobs                     = useAllJobs();
-  const activeCount                 = useActiveJobCount();
-  const { removeJob, clearTerminal } = usePendingJobStore();
+export function PendingJobsDrawer({ onRetry, onDelete }: PendingJobsDrawerProps) {
+  const [open, setOpen]                   = useState(false);
+  const [confirmingDelete, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting]           = useState(false);
+  const allJobs                           = useAllJobs();
+  const activeCount                       = useActiveJobCount();
+  const { removeJob, clearTerminal }      = usePendingJobStore();
 
   // ── Auto-open on job completion, auto-close after delay ─────────────────────
   const terminalCount     = allJobs.filter(j => isTerminal(j.status)).length;
@@ -649,9 +736,32 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
     setOpen(v => !v);
   }, []);
 
-  const handleDismiss = useCallback((jobId: string) => {
-    removeJob(jobId);
-  }, [removeJob]);
+  // ── Delete handlers ──────────────────────────────────────────────────────────
+  const handleRequestDelete = useCallback((jobId: string) => {
+    setConfirming(jobId);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirming(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async (job: PendingJob) => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      if (onDelete) {
+        await onDelete(job);
+      } else {
+        // Fallback: local-only remove if no delete handler provided
+        removeJob(job.jobId);
+      }
+    } catch {
+      // Parent is responsible for surfacing delete errors — we just reset state
+    } finally {
+      setDeleting(false);
+      setConfirming(null);
+    }
+  }, [deleting, onDelete, removeJob]);
 
   // ── Section split ────────────────────────────────────────────────────────────
   const displayed   = allJobs.slice(0, MAX_DISPLAYED_JOBS);
@@ -818,7 +928,15 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
                   />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 4 }}>
                     {activeJobs.map(job => (
-                      <JobCard key={job.jobId} job={job} onDismiss={handleDismiss} onRetry={onRetry} />
+                      <JobCard
+                        key={job.jobId}
+                        job={job}
+                        isConfirmingDelete={confirmingDelete === job.jobId}
+                        onRequestDelete={handleRequestDelete}
+                        onCancelDelete={handleCancelDelete}
+                        onConfirmDelete={handleConfirmDelete}
+                        onRetry={onRetry}
+                      />
                     ))}
                   </div>
                 </>
@@ -835,7 +953,15 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
                   />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 4 }}>
                     {doneJobs.map(job => (
-                      <JobCard key={job.jobId} job={job} onDismiss={handleDismiss} onRetry={onRetry} />
+                      <JobCard
+                        key={job.jobId}
+                        job={job}
+                        isConfirmingDelete={confirmingDelete === job.jobId}
+                        onRequestDelete={handleRequestDelete}
+                        onCancelDelete={handleCancelDelete}
+                        onConfirmDelete={handleConfirmDelete}
+                        onRetry={onRetry}
+                      />
                     ))}
                   </div>
                 </>
@@ -852,7 +978,15 @@ export function PendingJobsDrawer({ onRetry }: PendingJobsDrawerProps) {
                   />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 4 }}>
                     {failedJobs.map(job => (
-                      <JobCard key={job.jobId} job={job} onDismiss={handleDismiss} onRetry={onRetry} />
+                      <JobCard
+                        key={job.jobId}
+                        job={job}
+                        isConfirmingDelete={confirmingDelete === job.jobId}
+                        onRequestDelete={handleRequestDelete}
+                        onCancelDelete={handleCancelDelete}
+                        onConfirmDelete={handleConfirmDelete}
+                        onRetry={onRetry}
+                      />
                     ))}
                   </div>
                 </>

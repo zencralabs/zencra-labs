@@ -3,39 +3,71 @@
 /**
  * src/components/jobs/GlobalJobsPanel.tsx
  *
- * Thin auth-aware wrapper that connects the useRetryJob hook to
- * PendingJobsDrawer. Mounted ONCE in the root layout.
+ * Auth-aware wrapper that connects the Activity Center to auth state.
+ * Mounted ONCE in the root layout — never mount again.
+ *
+ * ─── What lives here ──────────────────────────────────────────────────────────
+ *
+ *   • useRetryJob    — re-dispatches a failed job (needs session token)
+ *   • handleDelete   — permanently deletes a failed generation from the DB
+ *                      (needs session token, routes by studio type)
  *
  * ─── Why this wrapper exists ──────────────────────────────────────────────────
  *
- *   PendingJobsDrawer accepts an optional `onRetry` callback.
- *   useRetryJob() needs the current session access token, which comes from
- *   useAuth(). This wrapper is the ONLY place that bridges the two — keeping
- *   PendingJobsDrawer itself auth-free and easily testable.
+ *   PendingJobsDrawer is auth-free. All operations that need a JWT live here
+ *   and are passed down as stable callbacks so the drawer doesn't re-render
+ *   on every token rotation.
  *
- * ─── Collapse persistence ─────────────────────────────────────────────────────
+ * ─── Delete routing ───────────────────────────────────────────────────────────
  *
- *   The open/collapsed state lives inside PendingJobsDrawer (useState).
- *   It does NOT need localStorage persistence — the drawer starts collapsed,
- *   which is the correct default on every page load. Users who want to see
- *   their jobs click the pill; the drawer auto-expands when active jobs exist.
+ *   DELETE /api/jobs/[assetId]?studio=<studio>
  *
- * ─── Re-render safety ─────────────────────────────────────────────────────────
+ *   The endpoint routes by studio:
+ *     lipsync  → generations   table
+ *     workflow → workflow_runs table
+ *     else     → assets         table
  *
- *   useRetryJob returns a stable callback (useCallback on authToken).
- *   GlobalJobsPanel will only re-render when session changes, which is rare.
- *   PendingJobsDrawer only re-renders when job store state changes.
- *   The two are decoupled by the stable callback reference.
+ *   On success, the job is removed from the Zustand store.
+ *   On failure, the drawer's confirmation overlay closes — no silent swallow.
  */
 
-import { useAuth }         from "@/components/auth/AuthContext";
-import { useRetryJob }     from "@/lib/jobs/use-retry-job";
+import { useCallback }       from "react";
+import { useAuth }           from "@/components/auth/AuthContext";
+import { useRetryJob }       from "@/lib/jobs/use-retry-job";
+import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
+import type { PendingJob }   from "@/lib/jobs/pending-job-store";
 import { PendingJobsDrawer } from "./PendingJobsDrawer";
 
 export function GlobalJobsPanel() {
   const { session } = useAuth();
-  // Stable callback — only changes when session changes.
   const retryJob    = useRetryJob(session?.access_token ?? null);
 
-  return <PendingJobsDrawer onRetry={retryJob} />;
+  // ── Permanent delete handler ────────────────────────────────────────────────
+  const handleDelete = useCallback(async (job: PendingJob): Promise<void> => {
+    const token = session?.access_token;
+    if (!token) throw new Error("Not authenticated");
+
+    const url = `/api/jobs/${encodeURIComponent(job.assetId ?? job.jobId)}?studio=${encodeURIComponent(job.studio)}`;
+
+    const res = await fetch(url, {
+      method:  "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      // Surface a typed error so the drawer can reset its confirming state
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error ?? `Delete failed (${res.status})`);
+    }
+
+    // Remove from local Zustand store on success
+    getPendingJobStoreState().removeJob(job.jobId);
+  }, [session?.access_token]);
+
+  return (
+    <PendingJobsDrawer
+      onRetry={retryJob}
+      onDelete={handleDelete}
+    />
+  );
 }
