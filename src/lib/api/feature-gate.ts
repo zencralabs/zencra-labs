@@ -94,6 +94,7 @@ function studioLabel(studio: StudioType): string {
     ugc:       "UGC Studio",
     fcs:       "Future Cinema Studio",
     lipsync:   "Lip Sync Studio",
+    workflow:  "Creative Director",
   };
   return labels[studio] ?? studio;
 }

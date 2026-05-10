@@ -21,7 +21,8 @@ export type StudioType =
   | "character"
   | "ugc"
   | "fcs"            // Future Cinema Studio — isolated from video
-  | "lipsync";       // Studio Lip Sync — Sync Labs v3 via fal.ai
+  | "lipsync"        // Studio Lip Sync — Sync Labs v3 via fal.ai
+  | "workflow";      // Creative Director v2 — workflow-engine-backed generation
 
 /** Phase designation. FCS is always its own lane regardless of launch date. */
 export type Phase = 1 | 2 | "fcs";

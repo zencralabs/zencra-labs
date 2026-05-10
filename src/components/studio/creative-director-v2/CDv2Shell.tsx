@@ -54,6 +54,7 @@ import { OutputPanel }                               from "./OutputPanel";
 import { AIAssistBar }                               from "./AIAssistBar";
 import type { DirectionElementType, DirectionElementRow } from "@/lib/creative-director/types";
 import type { CDGenerationOutput }                   from "@/lib/creative-director/store";
+import { getPendingJobStoreState }                   from "@/lib/jobs/pending-job-store";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -581,7 +582,28 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           }
           const data = await res.json();
           const resultUrls: string[] = data.data?.resultUrls ?? [];
-          console.log("[CDv2] workflow response:", { runId: data.data?.runId, count: resultUrls.length });
+          const runId: string | undefined = data.data?.runId;
+          console.log("[CDv2] workflow response:", { runId, count: resultUrls.length });
+
+          // ── Phase 3A: register job in pending-job-store ─────────────────────
+          // Workflow is synchronous — register immediately then complete so the
+          // job appears in the global drawer history (briefly as completed).
+          if (runId) {
+            const jobStore = getPendingJobStoreState();
+            const now3A = new Date().toISOString();
+            jobStore.registerJob({
+              jobId:      runId,
+              assetId:    runId,
+              studio:     "workflow",
+              modelKey:   "reference-stack-render",
+              modelLabel: "Creative Director",
+              prompt:     typeof resolvedPrompt === "string" ? resolvedPrompt.slice(0, 120) : "",
+              createdAt:  now3A,
+            });
+            if (resultUrls[0]) {
+              jobStore.completeJob(runId, resultUrls[0]);
+            }
+          }
 
           // GPT Image 2 is synchronous — results arrive in the 200 response; no polling.
           if (targetFrameId && resultUrls[0]) {
@@ -719,7 +741,26 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       }
       const data = await res.json();
       const resultUrls: string[] = data.data?.resultUrls ?? [];
+      const varRunId: string | undefined = data.data?.runId;
       const varNow = new Date().toISOString();
+
+      // ── Phase 3A: register variation job ───────────────────────────────────
+      if (varRunId) {
+        const jobStore = getPendingJobStoreState();
+        jobStore.registerJob({
+          jobId:      varRunId,
+          assetId:    varRunId,
+          studio:     "workflow",
+          modelKey:   "reference-stack-render",
+          modelLabel: "Creative Director",
+          prompt:     (prompt || "cinematic portrait, subtle variation").slice(0, 120),
+          createdAt:  varNow,
+        });
+        if (resultUrls[0]) {
+          jobStore.completeJob(varRunId, resultUrls[0]);
+        }
+      }
+
       finishGenerating(resultUrls.map((url) => ({
         id:           crypto.randomUUID(),
         url,
@@ -774,7 +815,26 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         }
         const data = await res.json();
         const resultUrls: string[] = data.data?.resultUrls ?? [];
+        const autoRunId: string | undefined = data.data?.runId;
         const autoNow = new Date().toISOString();
+
+        // ── Phase 3A: register auto-generate job ──────────────────────────────
+        if (autoRunId) {
+          const jobStore = getPendingJobStoreState();
+          jobStore.registerJob({
+            jobId:      autoRunId,
+            assetId:    autoRunId,
+            studio:     "workflow",
+            modelKey:   "reference-stack-render",
+            modelLabel: "Creative Director",
+            prompt:     (textNodeInput || prompt || "").slice(0, 120),
+            createdAt:  autoNow,
+          });
+          if (resultUrls[0]) {
+            jobStore.completeJob(autoRunId, resultUrls[0]);
+          }
+        }
+
         finishGenerating(resultUrls.map((url) => ({
           id:          crypto.randomUUID(),
           url,

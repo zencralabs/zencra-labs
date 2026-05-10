@@ -140,6 +140,56 @@ export async function GET(req: NextRequest): Promise<Response> {
     console.error("[jobs/pending] completed-assets reconciliation query failed:", err);
   }
 
+  // ── Source 3: workflow_runs table (CDv2 / Creative Director v2) ───────────────
+  // CDv2 generation runs through the Workflow Engine. Normally these complete
+  // synchronously (GPT Image 2) and are never returned here — CDv2Shell calls
+  // registerJob() + completeJob() inline. This source covers the crash-recovery
+  // path: a run stuck in "running" because the server process died mid-execution.
+  // The recover-stale cron (Phase 2D) will eventually mark these "failed", but
+  // until then the polling engine should watch them.
+  try {
+    const { data: workflowRuns, error: workflowError } = await supabaseAdmin
+      .from("workflow_runs")
+      .select("id, intent_type, input_payload, credit_reserved, created_at")
+      .eq("user_id", userId)
+      .eq("status", "running")
+      .is("completed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(MAX_PER_SOURCE);
+
+    if (!workflowError && workflowRuns) {
+      for (const run of workflowRuns) {
+        const createdAt = String(run.created_at ?? "");
+
+        // Extract prompt from input_payload — Reference Stack stores it at top level.
+        const inputPayload = run.input_payload as Record<string, unknown> | null;
+        const prompt = truncatePrompt(
+          typeof inputPayload?.prompt === "string" ? inputPayload.prompt : null
+        );
+
+        // Use the intent_type to build a display-friendly model key.
+        // "reference_stack_render" → "reference-stack-render" (kebab-case for registry compat)
+        const intentType = String(run.intent_type ?? "reference_stack_render");
+        const modelKey   = intentType.replace(/_/g, "-");
+        const modelLabel = "Creative Director";
+
+        descriptors.push({
+          jobId:      String(run.id),
+          assetId:    String(run.id), // workflow runs use run ID as the job reference
+          studio:     "workflow",
+          modelKey,
+          modelLabel,
+          prompt,
+          status:     "processing",  // still in "running" DB state
+          creditCost: typeof run.credit_reserved === "number" ? run.credit_reserved : undefined,
+          createdAt,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[jobs/pending] workflow_runs query failed:", err);
+  }
+
   // ── Source 2: generations table (lipsync only) ─────────────────────────────
   // LipSync uses its own table ("generations") and a separate status endpoint.
   // We recover these alongside asset-based jobs so the drawer shows everything.

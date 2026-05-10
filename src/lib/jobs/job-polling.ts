@@ -79,10 +79,11 @@ const ERROR_RETRY_MS     = 8_000;
  * "stale" by stale-job-detector.ts.
  *
  * Values are deliberately conservative — they cover worst-case provider queues.
- *   image:   5 min  — NB/Flux/GPT typical max; NB can hit 8 min on overload
- *   video:  30 min  — Kling 4K worst case; Seedance usually < 5 min
- *   audio:  15 min  — ElevenLabs is sync so this never fires in practice
- *   lipsync:20 min  — Sync Labs v3 via fal.ai queue
+ *   image:    5 min  — NB/Flux/GPT typical max; NB can hit 8 min on overload
+ *   video:   30 min  — Kling 4K worst case; Seedance usually < 5 min
+ *   audio:   15 min  — ElevenLabs is sync so this never fires in practice
+ *   lipsync: 20 min  — Sync Labs v3 via fal.ai queue
+ *   workflow: 5 min  — GPT Image 2 is sync; stale detector fires only on crash recovery
  *   character/ugc/fcs: conservative defaults
  */
 export const STALE_THRESHOLD_MS: Record<StudioType, number> = {
@@ -90,6 +91,7 @@ export const STALE_THRESHOLD_MS: Record<StudioType, number> = {
   video:     30 * 60_000,
   audio:     15 * 60_000,
   lipsync:   20 * 60_000,
+  workflow:   5 * 60_000,   // Matches recover-stale cron threshold (Phase 2D)
   character: 10 * 60_000,
   ugc:       15 * 60_000,
   fcs:       30 * 60_000,
@@ -104,6 +106,7 @@ const MAX_POLL_DURATION_MS: Record<StudioType, number> = {
   video:     60 * 60_000,   // 60 min — server PENDING_TIMEOUT_MS matches
   audio:      5 * 60_000,   // 5 min (sync; fires only for edge-case polling)
   lipsync:    6 * 60_000,   // 6 min — matches MAX_POLLS=90 × 4s (existing)
+  workflow:  10 * 60_000,   // 10 min — conservative for future async workflow steps
   character: 10 * 60_000,
   ugc:       10 * 60_000,
   fcs:       10 * 60_000,
@@ -160,13 +163,19 @@ const activePolls = new Map<string, ActivePollEntry>();
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * LipSync uses its own status endpoint because the lipsync generation
- * system is separate from the universal studio-dispatch pipeline.
- * All other studios use the universal job status route.
+ * Studio-aware status endpoint selector.
+ *
+ * Each studio family has its own status contract:
+ *   lipsync  — separate pipeline with its own table (generations); own endpoint
+ *   workflow — Workflow Engine runs tracked in workflow_runs; own endpoint
+ *   all else — universal studio-dispatch pipeline; shared endpoint
  */
 function statusUrl(jobId: string, studio: StudioType): string {
   if (studio === "lipsync") {
     return `/api/lipsync/${jobId}/status`;
+  }
+  if (studio === "workflow") {
+    return `/api/workflows/${jobId}/status`;
   }
   return `/api/studio/jobs/${jobId}/status`;
 }
