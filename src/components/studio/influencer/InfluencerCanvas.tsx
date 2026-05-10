@@ -1133,13 +1133,10 @@ function CandidatesState({
         position: "relative", overflow: "hidden",
       }}>
 
-        {/* Ambient radial glow */}
+        {/* Ambient radial glow — purple band removed; subtle blue only */}
         <div style={{
           position: "absolute", inset: 0, pointerEvents: "none",
-          background: [
-            "radial-gradient(circle at 50% 10%, rgba(59,130,246,0.15), transparent 36%)",
-            "radial-gradient(circle at 80% 80%, rgba(168,85,247,0.12), transparent 34%)",
-          ].join(", "),
+          background: "radial-gradient(circle at 50% 10%, rgba(59,130,246,0.10), transparent 36%)",
         }} aria-hidden="true" />
 
         {/* Content — above glow */}
@@ -1557,13 +1554,13 @@ function RevealHeader({ accent }: { accent: string }) {
         Your Digital Human is Ready
       </h2>
 
-      {/* Sub-line */}
+      {/* Sub-line — whiteSpace nowrap keeps it on one line on desktop */}
       <p style={{
         margin: 0,
         fontFamily: "'Familjen Grotesk', sans-serif",
         fontSize: 14, fontWeight: 400, lineHeight: 1.6,
-        color: "rgba(255,255,255,0.44)",
-        maxWidth: 420, marginInline: "auto",
+        color: "rgba(255,255,255,0.50)",
+        whiteSpace: "nowrap",
       }}>
         Your identity is locked across every studio. Generate packs, animate, or go live.
       </p>
@@ -1591,7 +1588,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
         position: "relative",
         maxWidth: 248, width: "100%",
         display: "flex", flexDirection: "column",
-        alignItems: "center", gap: 14,
+        alignItems: "center", gap: 40,
       }}>
 
         {/* Portrait */}
@@ -1754,7 +1751,7 @@ function AssetPackCard({
     if (uiState === "completed")  return pack.accent;
     if (uiState === "generating") return pack.accent;
     if (uiState === "ready")      return "rgba(255,255,255,0.55)";
-    return "rgba(255,255,255,0.18)";
+    return "rgba(255,255,255,0.40)"; // locked — lifted from 0.18 for readability
   })();
 
   const cardBg = (() => {
@@ -1818,7 +1815,7 @@ function AssetPackCard({
           fontSize: isFoundation ? 14 : 12,
           fontWeight: 700,
           letterSpacing: "-0.01em",
-          color: isLocked ? T.ghost : stateColor,
+          color: isLocked ? "rgba(255,255,255,0.38)" : stateColor,
           lineHeight: 1.2,
           display: "flex", alignItems: "center", gap: 6,
         }}>
@@ -1838,7 +1835,7 @@ function AssetPackCard({
         {/* Descriptor */}
         <div style={{
           fontSize: 11, lineHeight: 1.45,
-          color: isLocked ? "rgba(255,255,255,0.18)" : T.ghost,
+          color: isLocked ? "rgba(255,255,255,0.36)" : "rgba(255,255,255,0.42)",
           marginTop: 3,
           whiteSpace: isFoundation ? undefined : "nowrap",
           overflow: isFoundation ? undefined : "hidden",

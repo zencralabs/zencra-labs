@@ -104,7 +104,7 @@ export default function InfluencerControls({
               borderBottom: activeTab === tab.id
                 ? `2px solid ${T.amber}`
                 : "2px solid transparent",
-              color: activeTab === tab.id ? T.amber : "#2d3347",
+              color: activeTab === tab.id ? T.amber : "rgba(255,255,255,0.32)",
               fontFamily: "'Familjen Grotesk', sans-serif",
               fontSize: 11, fontWeight: 700,
               cursor: "pointer", letterSpacing: "0.06em",
@@ -214,7 +214,7 @@ function CategorySelector({
                 </div>
                 <div style={{
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 10, color: "#2d3347", marginTop: 2,
+                  fontSize: 10, color: "rgba(255,255,255,0.38)", marginTop: 2,
                 }}>
                   {cat.desc}
                 </div>
@@ -312,7 +312,7 @@ export function BuilderTab({
       <div style={{ padding: "24px 18px" }}>
         <div style={{ marginBottom: 16 }}>
           <div style={{
-            fontSize: 11, fontWeight: 900, color: T.ghost,
+            fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.45)",
             letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8,
           }}>
             Active Influencer
@@ -340,7 +340,7 @@ export function BuilderTab({
         <div style={{
           padding: "12px 14px", borderRadius: 9,
           background: "rgba(255,255,255,0.03)", border: `1px solid ${T.border}`,
-          fontSize: 12, color: T.ghost, lineHeight: 1.65,
+          fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.65,
         }}>
           Use the pack buttons below the hero image to expand {handle}&apos;s content world.
         </div>
@@ -374,7 +374,7 @@ export function BuilderTab({
         padding: "10px 13px", borderRadius: 9,
         background: "rgba(245,158,11,0.06)",
         border: "1px solid rgba(245,158,11,0.14)",
-        fontSize: 12, color: T.ghost, lineHeight: 1.6,
+        fontSize: 12, color: "rgba(255,255,255,0.42)", lineHeight: 1.6,
       }}>
         <span style={{ color: T.amber, fontWeight: 700 }}>@Handle auto-assigned.</span>
         {" "}Your influencer receives a unique name when created.
@@ -527,7 +527,7 @@ export function BuilderTab({
         </div>
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 10, color: "#2d3347", textAlign: "center",
+          fontSize: 10, color: "rgba(255,255,255,0.38)", textAlign: "center",
           letterSpacing: "0.02em",
         }}>
           {candidateCount * 8} cr total · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
@@ -539,7 +539,7 @@ export function BuilderTab({
         padding: "10px 13px", borderRadius: 9,
         background: "rgba(255,255,255,0.03)",
         border: `1px solid ${T.border}`,
-        fontSize: 12, color: T.ghost, lineHeight: 1.6, textAlign: "center",
+        fontSize: 12, color: "rgba(255,255,255,0.42)", lineHeight: 1.6, textAlign: "center",
       }}>
         Use the <span style={{ color: T.text, fontWeight: 600 }}>Create Influencer</span> button in the canvas to generate.
       </div>
@@ -569,7 +569,7 @@ function PacksInfoTab({ active }: { active: ActiveInfluencer | null }) {
   return (
     <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{
-        fontSize: 11, fontWeight: 900, color: T.ghost,
+        fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.45)",
         letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4,
       }}>
         Available Packs
@@ -582,10 +582,10 @@ function PacksInfoTab({ active }: { active: ActiveInfluencer | null }) {
           display: "flex", flexDirection: "column", gap: 3,
         }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: p.accent }}>{p.label}</div>
-          <div style={{ fontSize: 12, color: T.ghost }}>{p.desc}</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.42)" }}>{p.desc}</div>
         </div>
       ))}
-      <div style={{ fontSize: 12, color: T.ghost, marginTop: 6, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.42)", marginTop: 6, lineHeight: 1.6 }}>
         Use the pack buttons below the hero image to generate each pack.
       </div>
     </div>
@@ -606,12 +606,12 @@ function RefineTab({ active }: { active: ActiveInfluencer | null }) {
   return (
     <div style={{ padding: "20px 18px" }}>
       <div style={{
-        fontSize: 11, fontWeight: 900, color: T.ghost,
+        fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.45)",
         letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14,
       }}>
         Refine Identity
       </div>
-      <div style={{ fontSize: 13, color: T.ghost, lineHeight: 1.65, marginBottom: 20 }}>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 20 }}>
         Generate a variation of the hero image while preserving the core identity.
         Identity lock is always maintained.
       </div>
@@ -635,12 +635,12 @@ function AdvancedTab() {
   return (
     <div style={{ padding: "20px 18px" }}>
       <div style={{
-        fontSize: 11, fontWeight: 900, color: T.ghost,
+        fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.45)",
         letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14,
       }}>
         Advanced
       </div>
-      <div style={{ fontSize: 13, color: T.ghost, lineHeight: 1.65 }}>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>
         Advanced identity controls — custom prompt overrides, seed control, and generation fine-tuning — coming in a future update.
       </div>
     </div>
@@ -653,7 +653,7 @@ function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
       fontFamily: "'Syne', sans-serif",
-      fontSize: 9, fontWeight: 700, color: "#252b3a",
+      fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)",
       letterSpacing: "0.13em", textTransform: "uppercase",
       marginBottom: 8,
     }}>

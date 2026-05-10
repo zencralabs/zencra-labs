@@ -199,19 +199,21 @@ export default function CandidateCard({
           />
         )}
 
-        {/* ── Candidate number badge — top left ───────────────────────── */}
-        <div style={{
-          position:   "absolute", top: 10, left: 10, zIndex: 5,
-          padding:    "3px 8px",
-          background: "rgba(0,0,0,0.65)",
-          backdropFilter: "blur(8px)",
-          /* Micro: 11px / semibold 600 / tracking 0.12em / uppercase */
-          fontSize:   11, fontWeight: 600, letterSpacing: "0.12em",
-          color:      "rgba(255,255,255,0.82)",
-          textTransform: "uppercase" as const,
-        }}>
-          {String(index).padStart(2, "0")}
-        </div>
+        {/* ── Candidate number badge — top left (hidden after identity lock) ── */}
+        {!isLocked && (
+          <div style={{
+            position:   "absolute", top: 10, left: 10, zIndex: 5,
+            padding:    "3px 8px",
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(8px)",
+            /* Micro: 11px / semibold 600 / tracking 0.12em / uppercase */
+            fontSize:   11, fontWeight: 600, letterSpacing: "0.12em",
+            color:      "rgba(255,255,255,0.82)",
+            textTransform: "uppercase" as const,
+          }}>
+            {String(index).padStart(2, "0")}
+          </div>
+        )}
 
         {/* ── Compare check badge — top right ─────────────────────────── */}
         {isInCompare && (

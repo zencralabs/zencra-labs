@@ -321,7 +321,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             </div>
             <div style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 10, color: "#262c3e", marginTop: 3,
+              fontSize: 11, color: "rgba(255,255,255,0.40)", marginTop: 3,
               letterSpacing: "0.05em",
             }}>
               Your locked digital cast
@@ -368,7 +368,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           }}>
             <span style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 9, fontWeight: 600, color: "#252b3a",
+              fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)",
               letterSpacing: "0.10em", textTransform: "uppercase" as const,
             }}>
               Roster Slots
@@ -405,7 +405,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         <div style={{ position: "relative" }}>
           <svg
             width="11" height="11" viewBox="0 0 24 24" fill="none"
-            stroke="#2d3347" strokeWidth="2.5" strokeLinecap="round"
+            stroke="rgba(255,255,255,0.25)" strokeWidth="2.5" strokeLinecap="round"
             style={{
               position: "absolute", left: 10, top: "50%",
               transform: "translateY(-50%)", pointerEvents: "none",
@@ -454,14 +454,14 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               style={{
                 flexShrink: 0, padding: "3px 8px",
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 10, fontWeight: on ? 700 : 500,
+                fontSize: 11, fontWeight: on ? 700 : 500,
                 border: on
                   ? "1px solid rgba(245,158,11,0.38)"
                   : "1px solid rgba(255,255,255,0.07)",
                 background: on
                   ? "rgba(245,158,11,0.09)"
                   : "rgba(255,255,255,0.02)",
-                color: on ? "#f59e0b" : "#3a4058",
+                color: on ? "#f59e0b" : "rgba(255,255,255,0.42)",
                 cursor: "pointer", transition: "all 0.15s",
                 whiteSpace: "nowrap",
                 letterSpacing: on ? "0.01em" : "0",
@@ -499,7 +499,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                   background: on
                     ? "rgba(167,139,250,0.09)"
                     : "rgba(255,255,255,0.02)",
-                  color: on ? "#a78bfa" : "#2d3347",
+                  color: on ? "#a78bfa" : "rgba(255,255,255,0.38)",
                   cursor: "pointer", transition: "all 0.15s",
                   whiteSpace: "nowrap",
                 }}
@@ -566,7 +566,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             </div>
             <div style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 11, color: "#2d3347", lineHeight: 1.7,
+              fontSize: 11, color: "rgba(255,255,255,0.38)", lineHeight: 1.7,
             }}>
               Create your first AI Influencer to start building your digital cast.
             </div>
@@ -578,7 +578,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           <div style={{
             padding: "28px 12px", textAlign: "center",
             fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 12, color: "#2d3347",
+            fontSize: 12, color: "rgba(255,255,255,0.38)",
           }}>
             No cast members match &ldquo;{query}&rdquo;
           </div>
@@ -596,14 +596,14 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             }}>
               <span style={{
                 fontFamily: "'Syne', sans-serif",
-                fontSize: 9, fontWeight: 700, color: "#252b3a",
+                fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)",
                 letterSpacing: "0.14em", textTransform: "uppercase" as const,
               }}>
                 {STYLE_LABELS[cat]}
               </span>
               <span style={{
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 9, color: "#252b3a", fontWeight: 600,
+                fontSize: 10, color: "rgba(255,255,255,0.30)", fontWeight: 600,
               }}>
                 {members.length}
               </span>
@@ -809,7 +809,7 @@ function InfluencerCard({
                 ? "rgba(16,185,129,0.80)"
                 : isLocked
                 ? "rgba(245,158,11,0.72)"
-                : "#252b3a",
+                : "rgba(255,255,255,0.32)",
               textShadow: "0 1px 4px rgba(0,0,0,0.95)",
             }}>
               {isActive ? "Active" : isLocked ? "Draft" : "Pending"}
