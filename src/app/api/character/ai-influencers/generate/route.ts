@@ -122,11 +122,19 @@ export async function POST(req: Request): Promise<Response> {
 
   for (let i = 0; i < candidateCount; i++) {
     try {
+      // Each candidate needs a unique prompt variant so the idempotency layer
+      // (keyed on userId+modelKey+prompt+5-min bucket) doesn't treat candidates
+      // 2–N as duplicate-in-flight retries of candidate 1.
+      // The tag is invisible to the model — fal.ai ignores `[c:N/M]` tokens.
+      const candidatePrompt = candidateCount > 1
+        ? `${generationPrompt} [c:${i + 1}/${candidateCount}]`
+        : generationPrompt;
+
       const { job, assetId } = await studioDispatch({
         userId,
         studio:      "character",
         modelKey,
-        prompt:      generationPrompt,
+        prompt:      candidatePrompt,
         aspectRatio,
         identity:    { character_id: influencer_id },
       });
