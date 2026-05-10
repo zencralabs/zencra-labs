@@ -35,7 +35,7 @@ function getStorageClient() {
 /**
  * Download a video from an external CDN URL and upload it to Supabase Storage.
  *
- * Target bucket : generated-assets   (must be public)
+ * Target bucket : generations         (must be public)
  * Storage path  : videos/{assetId}.mp4
  *
  * Returns { url, audioDetected } on success.
