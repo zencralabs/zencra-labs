@@ -11,12 +11,15 @@
 //   • isCreating / createError — threaded down to Canvas dock button
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import InfluencerLibrary   from "./InfluencerLibrary";
 import InfluencerCanvas    from "./InfluencerCanvas";
 import InfluencerControls  from "./InfluencerControls";
 import { useAuth }         from "@/components/auth/AuthContext";
 import { supabase }        from "@/lib/supabase";
+import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
+import { startPolling }    from "@/lib/jobs/job-polling";
+import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -68,6 +71,20 @@ export default function AIInfluencerBuilder() {
   const [platforms,     setPlatforms]     = useState<string[]>([]);
   const [notes,         setNotes]         = useState("");
 
+  // ── Auth token ref — kept current via onAuthStateChange ──────────────────
+  // Used by startPolling so every poll tick reads a live JWT even if the
+  // token rotated while candidate generation was in progress (up to 10 min).
+  const authTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => { authTokenRef.current = session?.access_token ?? null; })
+      .catch(() => { /* ignore */ });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, sess) => {
+      authTokenRef.current = sess?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // ── Creation state — driven by canvas dock button ─────────────────────────
   const [isCreating,  setIsCreating]  = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -81,6 +98,19 @@ export default function AIInfluencerBuilder() {
       style_category: influencer.style_category ?? "hyper-real",
     });
   }, []);
+
+  // ── Canvas state transitions ──────────────────────────────────────────────
+  const handleCandidatesReady = useCallback(
+    (influencer_id: string, candidateUrls: string[]) => {
+      setCanvasState(prev => ({
+        phase:          "candidates",
+        influencer_id,
+        candidates:     candidateUrls,
+        style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
+      }));
+    },
+    [],
+  );
 
   // ── SINGLE SOURCE OF TRUTH: all creation logic lives here ─────────────────
   const handleCreateInfluencer = useCallback(async () => {
@@ -133,20 +163,19 @@ export default function AIInfluencerBuilder() {
       const influencer = createData.data?.influencer;
       if (!influencer) { setCreateError("Unexpected response."); return; }
 
-      // Step 2: Trigger generation — capture job IDs for polling
+      // Step 2: Trigger generation
       const generateRes = await fetch("/api/character/ai-influencers/generate", {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ influencer_id: influencer.id }),
       });
 
-      let jobIds: string[] = [];
       if (generateRes.ok) {
         const generateData = await generateRes.json();
         const mockCandidates: string[] = generateData.data?.mock_candidates ?? [];
 
         if (mockCandidates.length > 0) {
-          // Provider not live — skip generating state, jump straight to candidates
+          // Provider not live — jump straight to candidates (no polling needed)
           console.info("[AIInfluencerBuilder] mock candidates received — jumping to candidates state");
           setCanvasState({
             phase:          "candidates",
@@ -157,16 +186,67 @@ export default function AIInfluencerBuilder() {
           return;
         }
 
-        jobIds = (generateData.data?.jobs ?? []).map(
-          (j: { jobId: string }) => j.jobId,
-        );
+        // Real async jobs — transition canvas to shimmer state
+        const jobs: Array<{ jobId: string }> = generateData.data?.jobs ?? [];
+        const jobIds = jobs.map((j: { jobId: string }) => j.jobId);
+        handleCreated(influencer, jobIds);
+
+        if (jobs.length > 0) {
+          // ── Activity Center integration (universal polling engine) ──────────
+          // Each influencer candidate job is registered in the pending-job-store
+          // and polled via job-polling.ts — identical lifecycle to Video/Image/CDv2.
+          // When all jobs resolve, handleCandidatesReady transitions the canvas.
+          const store = getPendingJobStoreState();
+          let resolvedCount = 0;
+          const completedUrls: string[] = [];
+
+          const onJobResolved = (url?: string) => {
+            if (url) completedUrls.push(url);
+            resolvedCount++;
+            if (resolvedCount === jobs.length) {
+              handleCandidatesReady(influencer.id, completedUrls);
+            }
+          };
+
+          for (const { jobId } of jobs) {
+            store.registerJob({
+              jobId,
+              studio:     "character",
+              modelKey:   "influencer-candidate",
+              modelLabel: "AI Influencer",
+              prompt:     `Candidate for @${influencer.handle ?? ""}`,
+              createdAt:  new Date().toISOString(),
+            });
+
+            startPolling({
+              jobId,
+              studio:   "character",
+              // getToken reads ref so JWT rotation during long polls is safe
+              getToken: () => authTokenRef.current,
+              onComplete: (update) => {
+                store.completeJob(jobId, update.url ?? "");
+                onJobResolved(update.url);
+              },
+              onError: (update) => {
+                store.failJob(
+                  jobId,
+                  update.status as Extract<GenerationStatus, "failed" | "refunded" | "stale" | "cancelled">,
+                  update.error,
+                );
+                onJobResolved(); // still count toward completion so canvas unblocks
+              },
+              onUpdate: (update) => {
+                store.updateJob(jobId, { status: update.status });
+              },
+            });
+          }
+        }
       } else {
         const errBody = await generateRes.json().catch(() => ({}));
         console.warn("[AIInfluencerBuilder] generate returned non-ok:", generateRes.status, errBody);
-        // Non-fatal — canvas will enter generating state with empty jobs array
+        // Non-fatal — enter generating state with empty jobs (canvas stays in shimmer)
+        handleCreated(influencer, []);
       }
-
-      handleCreated(influencer, jobIds);
     } catch (err) {
       console.error(err);
       setCreateError("Something went wrong. Try again.");
@@ -175,21 +255,8 @@ export default function AIInfluencerBuilder() {
     }
   }, [
     session, styleCategory, gender, ageRange, skinTone, faceStruct,
-    fashion, realism, mood, platforms, notes, handleCreated,
+    fashion, realism, mood, platforms, notes, handleCreated, handleCandidatesReady,
   ]);
-
-  // ── Canvas state transitions ──────────────────────────────────────────────
-  const handleCandidatesReady = useCallback(
-    (influencer_id: string, candidateUrls: string[]) => {
-      setCanvasState(prev => ({
-        phase:          "candidates",
-        influencer_id,
-        candidates:     candidateUrls,
-        style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
-      }));
-    },
-    [],
-  );
 
   const handleSelected = useCallback(
     (active: ActiveInfluencer) => {

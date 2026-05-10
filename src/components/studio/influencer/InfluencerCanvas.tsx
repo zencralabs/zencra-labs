@@ -533,22 +533,22 @@ const GENERATING_LINES = [
 ];
 
 function GeneratingState({
-  influencer_id,
   jobIds,
   accent,
-  onReady,
 }: {
-  influencer_id: string;
+  // influencer_id and onReady are no longer used here — the canvas transition is
+  // driven by AIInfluencerBuilder via startPolling onComplete/onError callbacks.
+  // The job IDs are kept as a prop so the shimmer skeleton count is accurate.
+  influencer_id?: string;  // retained for compatibility, not used
   jobIds: string[];
   accent: string;
-  onReady: (influencer_id: string, urls: string[]) => void;
+  onReady?: (influencer_id: string, urls: string[]) => void;  // retained, not used
 }) {
-  const [progress,   setProgress]   = useState(0);
-  const [completed,  setCompleted]  = useState(0);
-  const [lineIdx,    setLineIdx]    = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [lineIdx,  setLineIdx]  = useState(0);
   const total = jobIds.length || 4;
 
-  // Ambient progress creep
+  // Ambient progress creep — cinematic feel while the universal engine polls
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress(p => Math.min(p + Math.random() * 4, 78));
@@ -564,33 +564,12 @@ function GeneratingState({
     return () => clearInterval(interval);
   }, []);
 
-  // Poll all jobs
-  useEffect(() => {
-    if (jobIds.length === 0) return;
-    let cancelled = false;
+  // NOTE: Polling is now handled by the universal engine (job-polling.ts) wired
+  // in AIInfluencerBuilder.handleCreateInfluencer via startPolling(). Jobs are
+  // registered in the Activity Center (pending-job-store). When all complete,
+  // handleCandidatesReady() is called directly — no local polling loop here.
 
-    async function pollAll() {
-      const results = await Promise.all(
-        jobIds.map(async jobId => {
-          const url = await pollJobForUrl(jobId);
-          if (!cancelled) setCompleted(c => c + 1);
-          return url;
-        }),
-      );
-      if (cancelled) return;
-      const urls = results.filter((u): u is string => !!u);
-      setProgress(100);
-      setTimeout(() => { if (!cancelled) onReady(influencer_id, urls); }, 400);
-    }
-
-    pollAll().catch(console.error);
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobIds.join(",")]);
-
-  const displayProgress = jobIds.length > 0
-    ? Math.round((completed / total) * 100)
-    : progress;
+  const displayProgress = progress;
 
   return (
     <div style={{
@@ -655,16 +634,6 @@ function GeneratingState({
           }}
         >
           {GENERATING_LINES[lineIdx]}
-          {jobIds.length > 0 && (
-            <span style={{
-              marginLeft: 12,
-              /* Chip: 13px / semibold 600 / -0.005em */
-              fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
-              color: `${accent}bb`,
-            }}>
-              {completed}/{total}
-            </span>
-          )}
         </div>
       </div>
 
