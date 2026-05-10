@@ -374,3 +374,176 @@ export function buildGenerationPrompt(
 // ── Style catalogue export (used by identity-lock.ts for signature building) ──
 export { STYLE_CATALOGUE };
 export type { StyleDescriptor };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// composeInfluencerPrompt — Hidden Cinematic Prompt Composer
+//
+// Converts all builder signals into a single cinematic prompt for
+// fal-ai/instant-character. Called once per candidate during initial
+// casting generation (pre-lock).
+//
+// Design rules:
+//   - No cross-style contradictions (anime ≠ photorealistic, pixel ≠ subsurface scattering)
+//   - Candidate index drives persona energy — same style DNA, subtle personality shift
+//   - Appearance notes always last (highest user override priority)
+//   - Negative prompt is static — kept internal, never surfaced to UI
+//   - image_url is NOT sent for initial casting (Option A). Reference image is only
+//     used post-lock during pack generation via buildPackPrompt() + referenceUrl.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Compose input / output ────────────────────────────────────────────────────
+
+export interface ComposeInfluencerPromptInput {
+  profile:        AIInfluencerProfile;
+  styleCategory:  StyleCategory;
+  rosterTags:     string[];
+  candidateIndex: number;   // 0-based
+  candidateCount: number;
+}
+
+export interface ComposedInfluencerPrompt {
+  prompt:         string;
+  negativePrompt: string;
+}
+
+// ── Negative prompt — standard quality guard ──────────────────────────────────
+// Internal only. Never shown to user or stored in UI state.
+const NEGATIVE_PROMPT =
+  "blurry, low quality, distorted face, extra limbs, duplicate face, bad anatomy, " +
+  "deformed hands, watermark, text, logo, oversaturated, plastic skin, uncanny valley, " +
+  "harsh artifacts, multiple people, crowd, collage, grid, split screen";
+
+// ── Style-aware quality suffix ────────────────────────────────────────────────
+// Each category gets quality language that belongs to its visual world.
+// No photorealistic language on anime. No cel-shading on hyper-real.
+const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
+  "hyper-real":       "sharp focus, natural bokeh, premium portrait photography quality, professional studio lighting",
+  "3d-animation":     "high-end 3D render quality, smooth surface detail, cinematic character lighting",
+  "anime-manga":      "clean crisp line art, vibrant flat color palette, high-quality anime illustration, sharp edges",
+  "fine-art":         "masterful painting technique, rich tonal depth, museum-quality composition, painterly brushwork",
+  "game-concept":     "high-detail character concept art, cinematic rim lighting, professional game art quality",
+  "physical-texture": "sharp material detail, professional craft photography, tactile surface quality, clean light",
+  "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing",
+};
+
+// ── Candidate casting variants — 4 persona directions per style ───────────────
+// Creates CASTING DIVERSITY: same creative direction, different personality energy.
+// Candidates should feel like 4 options in a real casting session — not random strangers.
+const CANDIDATE_VARIANTS: Record<StyleCategory, string[]> = {
+  "hyper-real": [
+    "confident editorial presence, direct powerful gaze, strong fashion energy",
+    "natural approachable warmth, lifestyle authenticity, relaxed ease",
+    "cinematic moody portrait, artistic personality, dramatic atmospheric light",
+    "dynamic high-energy creator presence, playful expression, vibrant life",
+  ],
+  "3d-animation": [
+    "bold expressive character design, confident hero pose, strong eye contact",
+    "friendly approachable character, warm inviting smile, gentle personality",
+    "mysterious dramatic lighting, artistic moody atmosphere, intense expression",
+    "energetic dynamic pose, playful expression, vibrant animated personality",
+  ],
+  "anime-manga": [
+    "cool composed expression, sharp editorial gaze, strong character presence",
+    "warm friendly expression, soft expressive eyes, approachable anime charm",
+    "dramatic emotional intensity, atmospheric lighting, artistic depth",
+    "energetic expressive pose, vibrant dynamic personality, bold character energy",
+  ],
+  "fine-art": [
+    "classical composed portrait, dignified presence, strong artistic gaze",
+    "soft contemplative expression, warm painterly mood, gentle inner light",
+    "dramatic chiaroscuro portrait, intense emotional expression, deep shadows",
+    "lively animated subject, rich color energy, expressive character vitality",
+  ],
+  "game-concept": [
+    "heroic commanding stance, powerful presence, battle-ready energy",
+    "wise enigmatic expression, thoughtful depth, mysterious character gravity",
+    "intense dramatic pose, cinematic tension, high-stakes atmospheric energy",
+    "agile dynamic character, fluid movement energy, explosive presence",
+  ],
+  "physical-texture": [
+    "posed with quiet confidence, clean craft composition, strong character presence",
+    "warm expressive character, charming handmade quality, gentle personality",
+    "artistically dramatic placement, material depth, moody craft atmosphere",
+    "playful dynamic arrangement, tactile energy, expressive character movement",
+  ],
+  "retro-pixel": [
+    "hero character sprite, confident pose, commanding pixel presence",
+    "friendly approachable design, warm pixel expression, inviting energy",
+    "mysterious rogue character, dramatic pixel lighting, cool atmospheric energy",
+    "energetic action sprite, dynamic pixel motion, vibrant explosive color",
+  ],
+};
+
+// ── Platform intent → composition language ────────────────────────────────────
+function resolvePlatformLanguage(platform_intent: string[]): string {
+  if (platform_intent.includes("Instagram"))
+    return "Instagram-ready creator portrait, content-optimized composition";
+  if (platform_intent.includes("TikTok"))
+    return "TikTok-native creator presence, vertical-format composition";
+  if (platform_intent.includes("YouTube"))
+    return "YouTube creator presence, thumbnail-ready composition";
+  if (platform_intent.includes("LinkedIn"))
+    return "professional creator presence, editorial composition";
+  if (platform_intent.length > 0)
+    return "social media creator composition, content-ready framing";
+  return "";
+}
+
+// ── Main composer ─────────────────────────────────────────────────────────────
+
+export function composeInfluencerPrompt({
+  profile,
+  styleCategory,
+  rosterTags,
+  candidateIndex,
+  candidateCount: _candidateCount,
+}: ComposeInfluencerPromptInput): ComposedInfluencerPrompt {
+  const style    = STYLE_CATALOGUE[styleCategory];
+  const variants = CANDIDATE_VARIANTS[styleCategory];
+  // Clamp index — safe for 1×, 2×, 3× candidate counts
+  const variant  = variants[candidateIndex % variants.length];
+
+  const parts: string[] = [];
+
+  // 1. Rendering base — establishes the entire visual world (style-aware)
+  //    This leads every prompt. The category decides the language — no contradictions.
+  parts.push(style.renderingBase);
+
+  // 2. Identity traits
+  if (profile.gender)     parts.push(profile.gender);
+  if (profile.age_range)  parts.push(`aged ${profile.age_range}`);
+
+  // Skin tone + face structure — most meaningful for realism-adjacent styles,
+  // harmless for stylized ones (anime/pixel artists can still apply these)
+  if (profile.skin_tone)      parts.push(`${profile.skin_tone} skin tone`);
+  if (profile.face_structure) parts.push(`${profile.face_structure} face structure`);
+
+  // 3. Fashion + mood
+  if (profile.fashion_style)   parts.push(`${profile.fashion_style} aesthetic`);
+  if (profile.mood.length > 0) parts.push(profile.mood.join(", "));
+
+  // 4. Platform composition language
+  const platformLang = resolvePlatformLanguage(profile.platform_intent);
+  if (platformLang) parts.push(platformLang);
+
+  // 5. Roster tags → creative direction context
+  //    e.g. ["Fashion", "Luxury"] → "Fashion, Luxury creator"
+  if (rosterTags.length > 0) {
+    parts.push(`${rosterTags.join(", ")} creator`);
+  }
+
+  // 6. Appearance notes — user-written direction, always last (highest override priority)
+  if (profile.appearance_notes) parts.push(profile.appearance_notes);
+
+  // 7. Style-aware quality suffix — no contradictory rendering terms
+  parts.push(STYLE_QUALITY_SUFFIX[styleCategory]);
+
+  // 8. Candidate casting direction — subtle persona energy variation
+  //    Same style DNA, different personality. Casting options, not random strangers.
+  parts.push(variant);
+
+  return {
+    prompt:         parts.join(", "),
+    negativePrompt: NEGATIVE_PROMPT,
+  };
+}

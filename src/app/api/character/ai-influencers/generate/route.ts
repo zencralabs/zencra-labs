@@ -25,8 +25,8 @@ import { ok, accepted, invalidInput, serverErr, parseBody }
 import { checkEntitlement, consumeTrialUsage }
                              from "@/lib/billing/entitlement";
 import { checkStudioRateLimit } from "@/lib/security/rate-limit";
-import { buildGenerationPrompt } from "@/lib/influencer/pack-prompts";
-import type { AIInfluencerProfile } from "@/lib/influencer/types";
+import { composeInfluencerPrompt } from "@/lib/influencer/pack-prompts";
+import type { AIInfluencerProfile, StyleCategory } from "@/lib/influencer/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,7 +79,7 @@ export async function POST(req: Request): Promise<Response> {
   // ── Verify influencer ownership ─────────────────────────────────────────────
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
-    .select("id, user_id, name, style_category")
+    .select("id, user_id, name, style_category, tags")
     .eq("id", influencer_id)
     .eq("user_id", userId)
     .single();
@@ -93,15 +93,20 @@ export async function POST(req: Request): Promise<Response> {
     .eq("influencer_id", influencer_id)
     .single();
 
-  // Build generation prompt — style_category shapes the rendering language
-  const generationPrompt = buildGenerationPrompt(
-    (profile ?? {
-      gender: null, age_range: null, skin_tone: null, face_structure: null,
-      fashion_style: null, realism_level: "photorealistic", mood: [], platform_intent: [],
-      appearance_notes: null,
-    }) as AIInfluencerProfile,
-    influencer.style_category ?? "hyper-real",
-  );
+  // Resolve the profile fallback shape for when no profile row exists yet.
+  // composeInfluencerPrompt will still produce a valid cinematic prompt from
+  // the style category alone — all identity fields are optional.
+  const safeProfile = (profile ?? {
+    id: "", influencer_id, gender: null, age_range: null, skin_tone: null,
+    face_structure: null, fashion_style: null, realism_level: "photorealistic",
+    mood: [], platform_intent: [], appearance_notes: null,
+    created_at: "", updated_at: "",
+  }) as AIInfluencerProfile;
+
+  const styleCategory = (influencer.style_category ?? "hyper-real") as StyleCategory;
+  const rosterTags    = Array.isArray((influencer as Record<string, unknown>).tags)
+    ? (influencer as Record<string, unknown>).tags as string[]
+    : [];
 
   // ── Billing entitlement ──────────────────────────────────────────────────────
   let entitlement: Awaited<ReturnType<typeof checkEntitlement>>;
@@ -122,21 +127,45 @@ export async function POST(req: Request): Promise<Response> {
 
   for (let i = 0; i < candidateCount; i++) {
     try {
-      // Each candidate needs a unique prompt variant so the idempotency layer
-      // (keyed on userId+modelKey+prompt+5-min bucket) doesn't treat candidates
-      // 2–N as duplicate-in-flight retries of candidate 1.
-      // The tag is invisible to the model — fal.ai ignores `[c:N/M]` tokens.
+      // Compose a cinematic prompt for this candidate.
+      // Each candidate gets a different persona energy variant (same style DNA,
+      // different personality direction — casting diversity, not random strangers).
+      // image_url is NOT sent for initial casting (Option A: pre-lock = diversity mode).
+      // reference_image_url is only used post-lock in pack generation.
+      const composed = composeInfluencerPrompt({
+        profile:        safeProfile,
+        styleCategory,
+        rosterTags,
+        candidateIndex: i,
+        candidateCount,
+      });
+
+      // Append [c:N/M] idempotency suffix so the dedup layer (keyed on
+      // userId+modelKey+prompt+5-min bucket) treats each candidate as a
+      // distinct job — even if two candidates share similar prose.
       const candidatePrompt = candidateCount > 1
-        ? `${generationPrompt} [c:${i + 1}/${candidateCount}]`
-        : generationPrompt;
+        ? `${composed.prompt} [c:${i + 1}/${candidateCount}]`
+        : composed.prompt;
+
+      // Dev logging — prompt visible in terminal, never in UI or DB UI layer
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `[instant-character] candidate ${i + 1}/${candidateCount} prompt:`,
+          candidatePrompt,
+        );
+        console.log(
+          `[instant-character] candidate ${i + 1}/${candidateCount} style: ${styleCategory} | tags: [${rosterTags.join(", ")}]`,
+        );
+      }
 
       const { job, assetId } = await studioDispatch({
         userId,
-        studio:      "character",
+        studio:         "character",
         modelKey,
-        prompt:      candidatePrompt,
+        prompt:         candidatePrompt,
+        negativePrompt: composed.negativePrompt,
         aspectRatio,
-        identity:    { character_id: influencer_id },
+        identity:       { character_id: influencer_id },
       });
 
       // Record job in influencer_generation_jobs
@@ -149,7 +178,7 @@ export async function POST(req: Request): Promise<Response> {
         job_type:          "generate",
         status:            job.status,
         external_job_id:   job.externalJobId,
-        prompt:            generationPrompt,
+        prompt:            composed.prompt,  // base prompt without idempotency suffix
         pack_label:        `Candidate ${i + 1}`,
         model_key:         modelKey,
         aspect_ratio:      aspectRatio,
