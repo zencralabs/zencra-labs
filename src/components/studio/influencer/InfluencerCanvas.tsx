@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Zap } from "lucide-react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
 import { formatHandle } from "@/lib/ai-influencer/format-handle";
@@ -1949,6 +1950,7 @@ function CanvasDock({
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
 
         {/* Create Influencer — center, primary CTA — single source of truth */}
+        {/* Typography locked: Familjen Grotesk 14px / 600 / h-10 / gap-1.5 — matches Image Studio Generate CTA */}
         <button
           onClick={onCreateClick}
           disabled={locked}
@@ -1958,11 +1960,11 @@ function CanvasDock({
             overflow: "hidden",
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 6,                                      // gap-1.5 = 6px — matches Image Studio
             // Expand on creating — smooth padding growth
-            padding: isCreating ? "0 36px" : "0 32px",
-            height: 50,
-            borderRadius: 11,
+            padding: isCreating ? "0 28px" : "0 24px",
+            height: 40,                                  // h-10 — matches Image Studio
+            borderRadius: 8,
             border: "none",
             whiteSpace: "nowrap",
             // Color: full gradient when creating OR idle; dim ghost when generating-only
@@ -1983,13 +1985,14 @@ function CanvasDock({
             // Box-shadow: glow animation owns it when creating; static glow when idle; none when locked
             boxShadow: isCreating
               ? undefined  // keyframe canvasDockGlow takes over
-              : (!locked ? `0 0 24px ${accent}38, 0 2px 12px rgba(0,0,0,0.4)` : "none"),
+              : (!locked ? `0 0 20px ${accent}30, 0 2px 8px rgba(0,0,0,0.4)` : "none"),
             // Animate glow pulse only when creating
             animation: isCreating ? "canvasDockGlow 1.2s ease-in-out infinite" : undefined,
-            // Type
-            fontSize: 15,
-            fontWeight: 800,
-            letterSpacing: "0.02em",
+            // Type — locked to match Image Studio Generate CTA
+            fontSize: 14,                                // text-[14px]
+            fontWeight: 600,                             // font-semibold
+            letterSpacing: "0.01em",
+            fontFamily: "var(--font-familjen-grotesk, inherit)",
             cursor: locked ? "not-allowed" : "pointer",
             // Smooth all non-keyframe transitions
             transition: [
@@ -2012,7 +2015,7 @@ function CanvasDock({
             }} />
           )}
 
-          {/* Icon: spinner when creating, person+ icon when idle */}
+          {/* Icon: spinner when creating, Zap icon when idle (matches Image Studio CTA) */}
           {isCreating ? (
             <span style={{
               display: "inline-block",
@@ -2024,13 +2027,7 @@ function CanvasDock({
               animation: "spin 0.75s linear infinite",
             }} />
           ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M20 21a8 8 0 1 0-16 0" />
-              <line x1="18" y1="8" x2="22" y2="8" />
-              <line x1="20" y1="6" x2="20" y2="10" />
-            </svg>
+            <Zap size={14} strokeWidth={2.2} style={{ flexShrink: 0 }} />
           )}
 
           {/* Label */}
@@ -2043,6 +2040,18 @@ function CanvasDock({
                   ? "New Influencer"
                   : "Create Influencer"}
           </span>
+
+          {/* Credit cost — only shown in idle state, matches Image Studio "15 cr" pattern */}
+          {!isCreating && !isGenerating && (
+            <span style={{
+              fontSize: 12,
+              fontWeight: 500,
+              opacity: 0.7,
+              letterSpacing: "0.01em",
+            }}>
+              8 cr
+            </span>
+          )}
         </button>
 
         {/* Divider */}
