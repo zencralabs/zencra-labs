@@ -40,9 +40,6 @@ import { getPendingJobStoreState }               from "@/lib/jobs/pending-job-st
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const USER_CREDITS  = 500;
-const POLL_INTERVAL           = 4000;
-const MAX_POLLS               = 60;   // 60 × 4s = 4 min — normal jobs
-const MAX_POLLS_SCENE_AUDIO   = 75;   // 75 × 4s = 5 min — Scene Audio gets extra time before fallback
 const SIDE_GUTTER   = 20;
 
 // ── Type for a raw history asset row returned by /api/assets ─────────────────
@@ -2867,7 +2864,8 @@ export default function VideoStudioShell() {
                   method:  "POST",
                   headers: {
                     "Content-Type":  "application/json",
-                    "Authorization": `Bearer ${user.accessToken}`,
+                    // Use ref so the JWT is always fresh even if video polling ran for minutes
+                    "Authorization": `Bearer ${authTokenRef.current}`,
                   },
                   body: JSON.stringify({ modelKey: "elevenlabs", prompt: scriptToSend }),
                 });
@@ -2921,7 +2919,8 @@ export default function VideoStudioShell() {
                 };
                 const fbRes = await fetch("/api/studio/video/generate", {
                   method:  "POST",
-                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${user.accessToken}` },
+                  // Use ref — this fires ~5 min after the callback was created; closure token is stale by then
+                  headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authTokenRef.current}` },
                   body:    JSON.stringify(fallbackBody),
                 });
                 if (!fbRes.ok) throw new Error(`Scene Audio fallback dispatch failed: ${fbRes.status}`);
