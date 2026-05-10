@@ -51,6 +51,7 @@ export default function CandidateCard({
 }: CandidateCardProps) {
   const [hovered,     setHovered]     = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [mediaError,  setMediaError]  = useState(false);
   const isVideo = isVideoUrl(url);
 
   // ── Border / glow derivation ───────────────────────────────────────────────
@@ -118,12 +119,53 @@ export default function CandidateCard({
       >
 
         {/* ── Media shimmer placeholder — shown before load ───────────── */}
-        {!mediaLoaded && (
+        {!mediaLoaded && !mediaError && (
           <div style={{
             position:  "absolute", inset: 0, zIndex: 1,
             background: `radial-gradient(ellipse at 50% 30%, ${accent}18, transparent 65%)`,
             animation: "candidateCardShimmer 1.8s ease-in-out infinite",
           }} />
+        )}
+
+        {/* ── Expired URL state — shown when image fails to load ─────── */}
+        {mediaError && (
+          <div style={{
+            position:  "absolute", inset: 0, zIndex: 7,
+            display:   "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            background: "rgba(5,7,13,0.90)",
+            backdropFilter: "blur(8px)",
+            padding: "12px",
+            gap: 8,
+          }}>
+            {/* Icon */}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(255,255,255,0.32)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {/* Body */}
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.10em", textTransform: "uppercase" as const,
+                color: "rgba(255,255,255,0.55)",
+                marginBottom: 4,
+              }}>
+                Image Expired
+              </div>
+              <div style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 10, fontWeight: 400,
+                color: "rgba(255,255,255,0.28)",
+                lineHeight: 1.5,
+              }}>
+                Regenerate to create new candidates
+              </div>
+            </div>
+          </div>
         )}
 
         {/* ── Media — video-first, image fallback ─────────────────────── */}
@@ -132,6 +174,7 @@ export default function CandidateCard({
             src={url}
             autoPlay muted loop playsInline
             onLoadedData={() => setMediaLoaded(true)}
+            onError={() => setMediaError(true)}
             style={{
               width: "100%", height: "100%",
               objectFit: "cover",
@@ -145,10 +188,11 @@ export default function CandidateCard({
             src={url}
             alt={`AI influencer candidate ${String(index).padStart(2, "0")}`}
             onLoad={() => setMediaLoaded(true)}
+            onError={() => setMediaError(true)}
             style={{
               width: "100%", height: "100%",
               objectFit: "cover",
-              display: "block",
+              display: mediaError ? "none" : "block",  // hide broken img element
               borderRadius: 0,               // sharp
               position: "relative", zIndex: 2,
             }}

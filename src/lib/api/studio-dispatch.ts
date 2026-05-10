@@ -23,7 +23,7 @@ import { buildCreditHooks, buildSupabaseCreditStore, noopCreditHooks }
                                       from "@/lib/credits/hooks";
 import { buildAssetMetadata, saveAssetMetadata, updateAssetStatus }
                                       from "@/lib/storage/metadata";
-import { mirrorVideoToStorage }       from "@/lib/storage/upload";
+import { mirrorVideoToStorage, mirrorCandidateToStorage } from "@/lib/storage/upload";
 import { logProviderCost }            from "@/lib/providers/core/cost-logger";
 import { ensureProvidersRegistered }  from "@/lib/providers/startup";
 import { validateStudioRequest }      from "@/lib/security/request-validator";
@@ -553,6 +553,12 @@ export async function pollAndUpdateJob(
         const mirrored = await mirrorVideoToStorage(jobStatus.url, assetId);
         persistentUrl  = mirrored.url;
         audioDetected  = mirrored.audioDetected;
+      } else if (modelKey === "instant-character") {
+        // ── AI Influencer candidate images: always mirror unconditionally ─────────
+        // fal.ai URLs expire regardless of subdomain (fal.media, fal.run, etc.).
+        // Candidate cards + library thumbnails + hero_url must use permanent URLs.
+        // Provider URLs are temporary. Supabase URLs are product truth.
+        persistentUrl = await mirrorCandidateToStorage(jobStatus.url, assetId);
       } else {
         // Mirror temp provider images (e.g. NB's tempfile.aiquickdraw.com)
         persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);

@@ -6,6 +6,13 @@
  *
  * All helpers are non-fatal: on failure they log the error and return the
  * original URL as a fallback so the caller can still resolve the asset.
+ *
+ * Mirroring contract:
+ *   mirrorVideoToStorage       — Kling videos       → generations/videos/{assetId}.mp4
+ *   mirrorCandidateToStorage   — fal.ai candidate   → generations/character-generations/{assetId}.jpg
+ *
+ * Provider URLs are ALWAYS temporary. Supabase URLs are product truth.
+ * Any function in this file must mirror unconditionally (no domain check).
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -122,5 +129,89 @@ export async function mirrorVideoToStorage(
       ` tempUrl="${externalUrl.slice(0, 80)}..."`
     );
     return { url: externalUrl, audioDetected: null };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANDIDATE IMAGE MIRROR — fal.ai Instant Character
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Download an AI influencer candidate image from fal.ai and upload it to
+ * Supabase Storage so candidate cards never depend on expiring provider URLs.
+ *
+ * Target bucket : generations                                   (must be public)
+ * Storage path  : character-generations/{assetId}.{ext}
+ *
+ * Mirrors UNCONDITIONALLY — no domain check. All fal.ai URLs are temporary
+ * regardless of subdomain (fal.media, fal.run, cdn.fal.ai, etc.).
+ *
+ * Returns the permanent Supabase public URL on success.
+ * Falls back to the original provider URL on any failure (non-fatal).
+ *
+ * @param externalUrl  The fal.ai CDN URL returned by the instant-character model
+ * @param assetId      The Zencra asset UUID — used as the filename
+ */
+export async function mirrorCandidateToStorage(
+  externalUrl: string,
+  assetId:     string,
+): Promise<string> {
+  const BUCKET = "generations";
+
+  try {
+    // 1. Download from fal.ai CDN
+    const res = await fetch(externalUrl, {
+      signal: AbortSignal.timeout(60_000), // 60-second window (images are smaller than video)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Download failed: HTTP ${res.status} from ${externalUrl}`);
+    }
+
+    const buffer      = Buffer.from(await res.arrayBuffer());
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const ext         = contentType.includes("png") ? "png" : "jpg";
+    const storagePath = `character-generations/${assetId}.${ext}`;
+
+    console.log(
+      `[mirrorCandidateToStorage] downloaded ${(buffer.byteLength / 1024).toFixed(0)} KB` +
+      ` for asset=${assetId}`
+    );
+
+    // 2. Upload to Supabase Storage
+    const storage = getStorageClient();
+
+    const { error } = await storage.storage
+      .from(BUCKET)
+      .upload(storagePath, buffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      throw new Error(`Supabase upload failed: ${error.message}`);
+    }
+
+    // 3. Get permanent public URL
+    const { data } = storage.storage.from(BUCKET).getPublicUrl(storagePath);
+
+    console.log(
+      `✅ [mirrorCandidateToStorage] candidate image persisted to Supabase.` +
+      ` asset=${assetId}` +
+      ` url=${data.publicUrl}`
+    );
+    return data.publicUrl;
+
+  } catch (err) {
+    // Non-fatal: log and fall back to the original provider URL.
+    // ⚠️ If you see this in Vercel logs, candidate cards will show blank after URL expiry.
+    console.warn(
+      `⚠️ [mirrorCandidateToStorage] candidate image NOT persisted to Supabase — using temporary provider URL.` +
+      ` asset=${assetId}` +
+      ` bucket=generations` +
+      ` reason="${err instanceof Error ? err.message : String(err)}"` +
+      ` tempUrl="${externalUrl.slice(0, 80)}..."`
+    );
+    return externalUrl;
   }
 }
