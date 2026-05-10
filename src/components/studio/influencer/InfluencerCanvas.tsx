@@ -11,7 +11,8 @@ import { useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
-import { formatHandle } from "@/lib/ai-influencer/format-handle";
+import { formatHandle }    from "@/lib/ai-influencer/format-handle";
+import { downloadAsset }   from "@/lib/client/downloadAsset";
 import { supabase }        from "@/lib/supabase";
 import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
 import { startPolling }    from "@/lib/jobs/job-polling";
@@ -103,12 +104,13 @@ interface Props {
 // ── Pack output state ─────────────────────────────────────────────────────────
 
 interface PackOutput {
-  type:    PackType;
-  label:   string;
-  accent:  string;
+  type:       PackType;
+  label:      string;
+  accent:     string;
   descriptor: string;
-  status:  "loading" | "complete" | "failed";
-  images:  Array<{ url: string; label: string }>;
+  status:     "loading" | "complete" | "failed";
+  images:     Array<{ url: string; label: string }>;
+  totalJobs?: number;  // known upfront for look-pack; drives mixed skeleton+reveal
 }
 
 // ── Pack UI state ─────────────────────────────────────────────────────────────
@@ -180,7 +182,13 @@ export default function InfluencerCanvas({
 
       // Add loading section immediately — then animate in
       setPackOutputs(prev => {
-        if (prev.some(p => p.type === packType)) return prev; // already triggered
+        const exists = prev.some(p => p.type === packType);
+        if (exists) {
+          // Re-trigger: reset failed pack to loading so user can retry
+          return prev.map(p =>
+            p.type === packType ? { ...p, status: "loading", images: [], totalJobs: undefined } : p,
+          );
+        }
         return [...prev, {
           type:       packType,
           label:      packDef.label,
@@ -232,22 +240,40 @@ export default function InfluencerCanvas({
             return;
           }
 
+          // ── Step 6D: Set totalJobs immediately so PackOutputPanel can render
+          // labelled skeleton cards equal to the number of in-flight jobs.
+          setPackOutputs(prev =>
+            prev.map(p =>
+              p.type === "look-pack" ? { ...p, totalJobs: jobs.length } : p,
+            ),
+          );
+
           // ── Activity Center integration (universal polling engine) ─────────────
           // Each look-pack job is registered in the pending-job-store and polled via
           // job-polling.ts — identical lifecycle to Video/Image/CDv2 jobs.
-          // When all jobs resolve, packOutputs transitions to "complete".
+          // Step 6D: Images are added progressively one-by-one as each job resolves
+          // so the output panel reveals cards in real time, not all at once.
           const store = getPendingJobStoreState();
           let resolvedCount = 0;
-          const completedImages: Array<{ url: string; label: string }> = [];
 
           const onJobResolved = (url?: string, label?: string) => {
-            if (url && label) completedImages.push({ url, label });
-            resolvedCount++;
-            if (resolvedCount === jobs.length) {
+            // Progressive reveal — push each image as it lands
+            if (url && label) {
               setPackOutputs(prev =>
                 prev.map(p =>
                   p.type === "look-pack"
-                    ? { ...p, status: completedImages.length > 0 ? "complete" : "failed", images: completedImages }
+                    ? { ...p, images: [...p.images, { url, label }] }
+                    : p,
+                ),
+              );
+            }
+            resolvedCount++;
+            if (resolvedCount === jobs.length) {
+              // All done — flip status; images already accumulated progressively
+              setPackOutputs(prev =>
+                prev.map(p =>
+                  p.type === "look-pack"
+                    ? { ...p, status: p.images.length > 0 ? "complete" : "failed" }
                     : p,
                 ),
               );
@@ -1190,7 +1216,11 @@ function SelectedState({
       <div ref={packSectionRef}>
         {activePack && activeDef && (
           <div key={activePack}>
-            <PackOutputPanel output={activeOutput} packDef={activeDef} />
+            <PackOutputPanel
+              output={activeOutput}
+              packDef={activeDef}
+              onRetry={() => onTriggerPack(activePack)}
+            />
           </div>
         )}
       </div>
@@ -1503,6 +1533,8 @@ function AssetPackCard({
   onTrigger:   (type: PackType) => void;
   onSelect:    (type: PackType) => void;
 }) {
+  // Derive which pack must complete before this one unlocks
+  const prevPackLabel = idx > 0 ? PACK_ACTIONS[idx - 1].label : null;
   const [hovered, setHovered] = useState(false);
   const isLocked = uiState === "locked";
 
@@ -1614,13 +1646,14 @@ function AssetPackCard({
       <div style={{
         flexShrink: 0,
         fontSize: 10, fontWeight: 700,
-        letterSpacing: "0.06em",
+        letterSpacing: "0.04em",
         color: stateColor,
-        textTransform: "uppercase" as const,
+        textTransform: isLocked ? "none" as const : "uppercase" as const,
         textAlign: "right",
         whiteSpace: "nowrap",
+        lineHeight: 1.3,
       }}>
-        {uiState === "locked"     && "Locked"}
+        {uiState === "locked"     && (prevPackLabel ? `After ${prevPackLabel}` : "Locked")}
         {uiState === "ready"      && (isFoundation ? "Start here →" : "Build")}
         {uiState === "generating" && "…"}
         {uiState === "completed"  && "✓ Done"}
@@ -1790,13 +1823,18 @@ function ActionBtn({
 // Receives the active pack's output (or null if not yet triggered) and its
 // PACK_ACTIONS definition. Remounts via `key={activePack}` in SelectedState,
 // which triggers the fade-in animation on every pack switch.
+//
+// Step 6D: Mixed skeleton+reveal rendering — as jobs complete progressively,
+// completed cards reveal with stagger while remaining skeletons keep pulsing.
 
 function PackOutputPanel({
   output,
   packDef,
+  onRetry,
 }: {
   output:  PackOutput | null;
   packDef: typeof PACK_ACTIONS[0];
+  onRetry: () => void;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -1804,6 +1842,17 @@ function PackOutputPanel({
     const t = setTimeout(() => setVisible(true), 60);
     return () => clearTimeout(t);
   }, []);
+
+  // How many skeleton cards to show while loading
+  const skeletonCount = (() => {
+    if (!output || output.status !== "loading") return 0;
+    const total = output.totalJobs ?? 4;
+    return Math.max(0, total - output.images.length);
+  })();
+
+  const isComplete   = output?.status === "complete";
+  const isFailed     = output?.status === "failed";
+  const hasImages    = (output?.images.length ?? 0) > 0;
 
   return (
     <div style={{
@@ -1814,54 +1863,144 @@ function PackOutputPanel({
       transform: visible ? "translateY(0)" : "translateY(12px)",
       transition: "opacity 0.28s ease, transform 0.28s ease",
     }}>
+      {/* Keyframes */}
+      <style>{`
+        @keyframes packPulse{0%,100%{opacity:0.35}50%{opacity:0.65}}
+        @keyframes packReveal{from{opacity:0;transform:translateY(10px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes packCompletePulse{0%{box-shadow:0 0 0 0 ${packDef.accent}44}70%{box-shadow:0 0 0 16px ${packDef.accent}00}100%{box-shadow:0 0 0 0 ${packDef.accent}00}}
+      `}</style>
+
       {/* Section header */}
       <div style={{
         paddingTop: 28, paddingBottom: 14,
         borderTop: `1px solid ${T.border}`,
         marginBottom: 4,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{
-          fontSize: 16, fontWeight: 700,
-          color: packDef.accent,
-          marginBottom: 4,
-        }}>
-          {packDef.label}
+        <div>
+          <div style={{
+            fontSize: 16, fontWeight: 700,
+            color: isComplete ? packDef.accent : T.text,
+            marginBottom: 4,
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            {packDef.label}
+            {isComplete && hasImages && (
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.10em",
+                color: packDef.accent, textTransform: "uppercase",
+                padding: "2px 7px",
+                border: `1px solid ${packDef.accent}50`,
+                background: `${packDef.accent}10`,
+                animation: "packCompletePulse 0.8s ease-out",
+              }}>
+                Complete
+              </span>
+            )}
+            {output?.status === "loading" && hasImages && (
+              <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>
+                {output.images.length}/{output.totalJobs ?? "…"} ready
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: T.ghost }}>
+            {packDef.descriptor}
+          </div>
         </div>
-        <div style={{ fontSize: 13, color: T.ghost }}>
-          {packDef.descriptor}
-        </div>
+
+        {/* Retry button — only shown in failed state */}
+        {isFailed && (
+          <button
+            onClick={onRetry}
+            style={{
+              padding: "7px 14px",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.28)",
+              cursor: "pointer", outline: "none",
+              fontSize: 12, fontWeight: 700, color: "#ef4444",
+              letterSpacing: "0.04em",
+              transition: "all 0.14s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.16)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+          >
+            ↺ Retry
+          </button>
+        )}
       </div>
 
-      {/* Loading skeletons — shown when pack is in-flight OR not yet triggered (ready state) */}
-      {(!output || output.status === "loading") && (
+      {/* Main image strip — mixed completed + skeleton */}
+      {(!isFailed) && (
         <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{
-              flexShrink: 0, width: 120, aspectRatio: "2/3",
-              borderRadius: 0, background: "rgba(255,255,255,0.04)",
-              animation: "pulse 1.8s ease-in-out infinite",
-              animationDelay: `${i * 0.15}s`,
-            }}>
-              <style>{`@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.7}}`}</style>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {output?.status === "failed" && (
-        <div style={{ padding: "16px 0", fontSize: 13, color: "#ef4444" }}>
-          This pack couldn't be generated. Try again.
-        </div>
-      )}
-
-      {output?.status === "complete" && output.images.length > 0 && (
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-          {output.images.map(img => (
+          {/* Completed cards — revealed with stagger */}
+          {output?.images.map((img, i) => (
             <PackAssetCard
               key={img.url}
               url={img.url}
               label={img.label}
               accentColor={packDef.accent}
+              revealIndex={i}
+              isComplete={isComplete}
+            />
+          ))}
+
+          {/* Remaining skeleton cards — shown while jobs still in-flight */}
+          {Array.from({ length: skeletonCount }).map((_, i) => (
+            <div key={`skel-${i}`} style={{
+              flexShrink: 0, width: 130,
+              aspectRatio: "2/3",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              animation: "packPulse 1.8s ease-in-out infinite",
+              animationDelay: `${i * 0.22}s`,
+              display: "flex", flexDirection: "column",
+              justifyContent: "flex-end", padding: 8,
+            }}>
+              <div style={{
+                height: 7, width: "60%",
+                background: "rgba(255,255,255,0.07)",
+                marginBottom: 4,
+              }} />
+              <div style={{
+                height: 5, width: "40%",
+                background: "rgba(255,255,255,0.04)",
+              }} />
+            </div>
+          ))}
+
+          {/* Pure loading state — no totalJobs known yet, no images yet */}
+          {!output && Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={{
+              flexShrink: 0, width: 130, aspectRatio: "2/3",
+              background: "rgba(255,255,255,0.04)",
+              animation: "packPulse 1.8s ease-in-out infinite",
+              animationDelay: `${i * 0.15}s`,
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* Failed state — no images at all */}
+      {isFailed && !hasImages && (
+        <div style={{
+          padding: "20px 0 8px",
+          fontSize: 13, color: "#ef4444", lineHeight: 1.5,
+        }}>
+          This pack couldn't be generated. Hit Retry to try again.
+        </div>
+      )}
+
+      {/* Failed but some images did land — show what we got */}
+      {isFailed && hasImages && (
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
+          {output!.images.map((img, i) => (
+            <PackAssetCard
+              key={img.url}
+              url={img.url}
+              label={img.label}
+              accentColor={packDef.accent}
+              revealIndex={i}
+              isComplete={false}
             />
           ))}
         </div>
@@ -1871,68 +2010,154 @@ function PackOutputPanel({
 }
 
 // ── Pack asset card ────────────────────────────────────────────────────────────
+// Step 6D: staggered reveal animation, wired download, SVG icon actions.
 
 function PackAssetCard({
-  url, label, accentColor,
-}: { url: string; label: string; accentColor: string }) {
-  const [hovered, setHovered] = useState(false);
+  url, label, accentColor, revealIndex = 0, isComplete = true,
+}: {
+  url:          string;
+  label:        string;
+  accentColor:  string;
+  revealIndex?: number;
+  isComplete?:  boolean;
+}) {
+  const [hovered,      setHovered]      = useState(false);
+  const [downloading,  setDownloading]  = useState(false);
+  const [revealed,     setRevealed]     = useState(false);
+
+  // Staggered entrance — each card reveals slightly after the previous
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), revealIndex * 80 + 40);
+    return () => clearTimeout(t);
+  }, [revealIndex]);
+
+  async function handleDownload(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadAsset(url, `look-${label.toLowerCase().replace(/\s+/g, "-")}.jpg`);
+    } catch { /* silent */ }
+    finally { setDownloading(false); }
+  }
 
   return (
     <div
       style={{
         flexShrink: 0, width: 130, aspectRatio: "2/3",
-        borderRadius: 0, overflow: "hidden", position: "relative",
+        overflow: "hidden", position: "relative",
         cursor: "pointer",
-        transition: "transform 0.2s ease",
-        transform: hovered ? "translateY(-2px)" : "none",
+        opacity:   revealed ? 1 : 0,
+        transform: revealed ? "translateY(0) scale(1)" : "translateY(10px) scale(0.97)",
+        transition: `
+          opacity 0.32s ease ${revealIndex * 0.06}s,
+          transform 0.32s cubic-bezier(0.22,1,0.36,1) ${revealIndex * 0.06}s
+        `,
+        boxShadow: isComplete && hovered
+          ? `0 8px 28px ${accentColor}22, 0 2px 8px rgba(0,0,0,0.4)`
+          : "none",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <img src={url} alt={label}
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        style={{
+          width: "100%", height: "100%", objectFit: "cover", display: "block",
+          transform: hovered ? "scale(1.04)" : "scale(1)",
+          transition: "transform 0.32s ease",
+        }}
       />
 
       {/* Hover action overlay */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 45%)",
+        background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.18) 52%, transparent 100%)",
         opacity: hovered ? 1 : 0,
         transition: "opacity 0.18s ease",
         display: "flex", flexDirection: "column",
         justifyContent: "flex-end",
-        padding: "10px 8px",
-        gap: 4,
+        padding: "8px 7px 8px",
+        gap: 6,
       }}>
         {/* Label */}
         <div style={{
           fontSize: 10, fontWeight: 700, color: accentColor,
-          letterSpacing: "0.06em", marginBottom: 6,
+          letterSpacing: "0.06em", lineHeight: 1.2,
         }}>
           {label}
         </div>
 
-        {/* Action icons */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {[
-            { icon: "⭐", tip: "Save as Hero" },
-            { icon: "↺", tip: "Refine" },
-            { icon: "⬆", tip: "Upscale" },
-            { icon: "⬇", tip: "Download" },
-          ].map(action => (
-            <button key={action.tip}
-              title={action.tip}
-              style={{
-                width: 26, height: 26, borderRadius: 6,
-                background: "rgba(255,255,255,0.12)",
-                border: "none", cursor: "pointer",
-                fontSize: 10, color: T.text,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              {action.icon}
-            </button>
-          ))}
+        {/* Action row */}
+        <div style={{ display: "flex", gap: 5 }}>
+          {/* Download — wired */}
+          <button
+            title="Download"
+            onClick={handleDownload}
+            style={{
+              width: 26, height: 26,
+              background: downloading ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              cursor: downloading ? "wait" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.14s ease",
+            }}
+            onMouseEnter={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+          >
+            {downloading ? (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 2v20M2 12l10 10 10-10"/>
+              </svg>
+            ) : (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            )}
+          </button>
+
+          {/* Save as Hero — stub, coming in 6E */}
+          <button
+            title="Save as Hero"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 26, height: 26,
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.14s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </button>
+
+          {/* Use in Image Studio */}
+          <button
+            title="Open in Image Studio"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 26, height: 26,
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.14s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
