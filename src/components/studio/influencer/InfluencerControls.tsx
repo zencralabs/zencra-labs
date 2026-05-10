@@ -54,6 +54,9 @@ interface Props {
   setPlatforms:     (v: string[]) => void;
   notes:            string;
   setNotes:         (v: string) => void;
+  // Identity Options — candidate count (1–4, default 4)
+  candidateCount:    number;
+  setCandidateCount: (v: number) => void;
 }
 
 export default function InfluencerControls({
@@ -68,6 +71,7 @@ export default function InfluencerControls({
   mood, setMood,
   platforms, setPlatforms,
   notes, setNotes,
+  candidateCount, setCandidateCount,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
@@ -123,6 +127,7 @@ export default function InfluencerControls({
             mood={mood}                      setMood={setMood}
             platforms={platforms}            setPlatforms={setPlatforms}
             notes={notes}                    setNotes={setNotes}
+            candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
           />
         )}
         {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
@@ -248,6 +253,9 @@ interface BuilderTabProps {
   setPlatforms:     (v: string[]) => void;
   notes:            string;
   setNotes:         (v: string) => void;
+  // Identity Options — candidate count
+  candidateCount:    number;
+  setCandidateCount: (v: number) => void;
 }
 
 export function BuilderTab({
@@ -262,6 +270,7 @@ export function BuilderTab({
   mood, setMood,
   platforms, setPlatforms,
   notes, setNotes,
+  candidateCount, setCandidateCount,
 }: BuilderTabProps) {
 
   // Accent for the currently selected style
@@ -450,6 +459,41 @@ export function BuilderTab({
           onFocus={e => (e.currentTarget.style.borderColor = selectedCat.accent + "55")}
           onBlur={e => (e.currentTarget.style.borderColor = T.border)}
         />
+      </section>
+
+      {/* Identity Options — candidate count selector */}
+      <section>
+        <SectionLabel label="Identity Options" />
+        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+          {([1, 2, 3, 4] as const).map(n => {
+            const selected = candidateCount === n;
+            return (
+              <button
+                key={n}
+                onClick={() => setCandidateCount(n)}
+                style={{
+                  flex: 1,
+                  padding: "7px 0",
+                  borderRadius: 7,
+                  border: selected
+                    ? `1px solid ${T.amber}`
+                    : `1px solid ${T.ghost}`,
+                  background: selected ? T.amberBg : "transparent",
+                  color: selected ? T.amber : T.muted,
+                  fontSize: 12, fontWeight: 700,
+                  cursor: "pointer",
+                  letterSpacing: "0.03em",
+                  transition: "all 0.13s",
+                }}
+              >
+                {n}×
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, textAlign: "center" }}>
+          {candidateCount * 8} cr total · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
+        </div>
       </section>
 
       {/* CTA pointer — creation is in the canvas dock button */}

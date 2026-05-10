@@ -60,16 +60,18 @@ export default function AIInfluencerBuilder() {
   const [libraryKey,  setLibraryKey]  = useState(0);
 
   // ── Lifted form state (shared between Controls → Canvas) ──────────────────
-  const [styleCategory, setStyleCategory] = useState<StyleCategory>("hyper-real");
-  const [gender,        setGender]        = useState("");
-  const [ageRange,      setAgeRange]      = useState("");
-  const [skinTone,      setSkinTone]      = useState("");
-  const [faceStruct,    setFaceStruct]    = useState("");
-  const [fashion,       setFashion]       = useState("");
-  const [realism,       setRealism]       = useState("photorealistic");
-  const [mood,          setMood]          = useState<string[]>([]);
-  const [platforms,     setPlatforms]     = useState<string[]>([]);
-  const [notes,         setNotes]         = useState("");
+  const [styleCategory,  setStyleCategory]  = useState<StyleCategory>("hyper-real");
+  const [gender,         setGender]         = useState("");
+  const [ageRange,       setAgeRange]       = useState("");
+  const [skinTone,       setSkinTone]       = useState("");
+  const [faceStruct,     setFaceStruct]     = useState("");
+  const [fashion,        setFashion]        = useState("");
+  const [realism,        setRealism]        = useState("photorealistic");
+  const [mood,           setMood]           = useState<string[]>([]);
+  const [platforms,      setPlatforms]      = useState<string[]>([]);
+  const [notes,          setNotes]          = useState("");
+  // Identity Options — how many candidates to generate (1–4, default 4)
+  const [candidateCount, setCandidateCount] = useState(4);
 
   // ── Auth token ref — kept current via onAuthStateChange ──────────────────
   // Used by startPolling so every poll tick reads a live JWT even if the
@@ -167,7 +169,7 @@ export default function AIInfluencerBuilder() {
       const generateRes = await fetch("/api/character/ai-influencers/generate", {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ influencer_id: influencer.id }),
+        body: JSON.stringify({ influencer_id: influencer.id, candidate_count: candidateCount }),
       });
 
       if (generateRes.ok) {
@@ -255,7 +257,7 @@ export default function AIInfluencerBuilder() {
     }
   }, [
     session, styleCategory, gender, ageRange, skinTone, faceStruct,
-    fashion, realism, mood, platforms, notes, handleCreated, handleCandidatesReady,
+    fashion, realism, mood, platforms, notes, candidateCount, handleCreated, handleCandidatesReady,
   ]);
 
   const handleSelected = useCallback(
@@ -326,6 +328,7 @@ export default function AIInfluencerBuilder() {
           isCreating={isCreating}
           createError={createError}
           selectedStyleCategory={styleCategory}
+          candidateCount={candidateCount}
         />
       </div>
 
@@ -349,6 +352,7 @@ export default function AIInfluencerBuilder() {
           mood={mood}                      setMood={setMood}
           platforms={platforms}            setPlatforms={setPlatforms}
           notes={notes}                    setNotes={setNotes}
+          candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
         />
       </div>
 

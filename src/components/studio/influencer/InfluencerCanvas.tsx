@@ -97,6 +97,7 @@ interface Props {
   isCreating:            boolean;      // true while API calls are in flight
   createError:           string | null;
   selectedStyleCategory: StyleCategory; // drives dock button color in empty phase
+  candidateCount:        number;        // 1–4; controls credit display in dock button
 }
 
 // ── Pack output state ─────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ function getPackUiState(packType: PackType, packOutputs: PackOutput[]): PackUiSt
 
 export default function InfluencerCanvas({
   canvasState, onCandidatesReady, onSelected,
-  onCreateClick, isCreating, createError, selectedStyleCategory,
+  onCreateClick, isCreating, createError, selectedStyleCategory, candidateCount,
 }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
@@ -469,6 +470,7 @@ export default function InfluencerCanvas({
         onCreateClick={onCreateClick}
         isCreating={isCreating}
         createError={createError}
+        candidateCount={candidateCount}
       />
     </div>
   );
@@ -1987,15 +1989,17 @@ function CanvasDock({
   onCreateClick,
   isCreating,
   createError,
+  candidateCount,
 }: {
-  phase:         CanvasState["phase"];
-  accent:        string;
-  hasSelected:   boolean;
-  onImageFlow:   () => void;
-  onVideoFlow:   () => void;
-  onCreateClick: () => void;
-  isCreating:    boolean;
-  createError:   string | null;
+  phase:          CanvasState["phase"];
+  accent:         string;
+  hasSelected:    boolean;
+  onImageFlow:    () => void;
+  onVideoFlow:    () => void;
+  onCreateClick:  () => void;
+  isCreating:     boolean;
+  createError:    string | null;
+  candidateCount: number;
 }) {
   const isGenerating = phase === "generating";
   // Dock button is locked when either the canvas is polling jobs OR a create call is in flight
@@ -2157,7 +2161,7 @@ function CanvasDock({
                   : "Create Influencer"}
           </span>
 
-          {/* Credit cost — only shown in idle state, matches Image Studio "X cr" span exactly */}
+          {/* Credit cost — updates live as candidateCount changes */}
           {!isCreating && !isGenerating && (
             <span style={{
               fontFamily: "var(--font-display)",        // Syne — matches Image Studio credit span
@@ -2166,7 +2170,7 @@ function CanvasDock({
               opacity: 0.7,
               letterSpacing: "-0.01em",
             }}>
-              8 cr
+              {candidateCount * 8} cr
             </span>
           )}
         </button>
