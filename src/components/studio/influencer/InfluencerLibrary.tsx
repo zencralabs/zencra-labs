@@ -8,6 +8,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
 // ── Style metadata ────────────────────────────────────────────────────────────
@@ -63,11 +64,31 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/character/ai-influencers", { credentials: "include" })
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setInfluencers(d.influencers ?? []); })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setLoading(false); });
+
+    (async () => {
+      // Resolve a live token — same pattern as AIInfluencerBuilder.
+      // Supabase auth is localStorage-backed so Authorization header is required;
+      // credentials:"include" sends no useful cookies.
+      let token: string | null = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token ?? null;
+      } catch { /* non-fatal — request will 401 if token missing */ }
+
+      if (cancelled) return;
+
+      try {
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch("/api/character/ai-influencers", { headers });
+        const d   = await res.json();
+        if (!cancelled) setInfluencers(d.data?.influencers ?? d.influencers ?? []);
+      } catch (err) {
+        console.error("[InfluencerLibrary] fetch failed:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
     return () => { cancelled = true; };
   }, []);
 
