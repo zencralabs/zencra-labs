@@ -121,8 +121,11 @@ export const FAL_MODEL_IDS = {
   // Black Forest Labs FLUX via fal.ai queue
   // FLUX.1 Kontext [pro] — production model (Image Studio + context editing)
   fluxKontext:   optional("FAL_MODEL_FLUX_KONTEXT",    "fal-ai/flux-pro/kontext") as string,
-  // FLUX.1 Pro — Character Studio identity creation
+  // FLUX.1 Pro — Character Studio identity creation (fallback)
   fluxCharacter: optional("FAL_MODEL_FLUX_CHARACTER",  "fal-ai/flux-pro") as string,
+  // Instant Character — primary influencer candidate generation engine
+  // Official fal.ai endpoint for consistent character identity from text prompts.
+  instantCharacter: optional("FAL_MODEL_INSTANT_CHARACTER", "fal-ai/instant-character") as string,
   // FLUX.2 — Phase 2 coming-soon. Endpoint is a placeholder; update when BFL publishes.
   // Do NOT route any live generation here until flux-2-image status === "active".
   flux2:         optional("FAL_MODEL_FLUX_2",          "fal-ai/flux-2/dev") as string,

@@ -880,7 +880,32 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   // ══════════════════════════════════════════════════════════════════════════
 
   {
-    // FLUX.1 Pro via fal.ai — primary identity creation engine
+    // fal.ai Instant Character — primary influencer candidate generation engine.
+    // User-facing label is NOT "Instant Character" — exposed only through Character Studio
+    // UI copy. This entry drives routing + Activity Center display only.
+    key:            "instant-character",
+    providerBrand:  "fal.ai",
+    displayName:    "Instant Character",
+    apiModelId:     "fal-ai/instant-character",
+    studio:         "character",
+    providerFamily: "fal",
+    description:    "fal.ai Instant Character — consistent identity portrait generation for AI Influencer Builder",
+    phase:          1,
+    status:         "active",
+    badge:          "IDENTITY",
+    badgeColor:     "#C6FF00",
+    capabilities:   ["identity_creation", "look_variation", "photoreal", "consistency"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "4:5", "2:3", "9:16"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "8 credits",
+    creditMultiplier:   1,
+  },
+
+  {
+    // FLUX.1 Pro via fal.ai — fallback identity creation engine
     // displayName is "FLUX.1 Pro" (official BFL name) but internally labeled "FLUX Character"
     // for Zencra UI context. The apiModelId is the real upstream endpoint.
     key:            "flux-character",

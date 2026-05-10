@@ -33,10 +33,9 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_CANDIDATE_COUNT = 4;
 const MAX_CANDIDATE_COUNT     = 6;
-// TODO: swap to the real character model key once the provider is live.
-// "flux-character" is the registered character studio provider.
-// "nb-standard" was a placeholder that is NOT registered in the character registry.
-const DEFAULT_MODEL_KEY       = "flux-character";
+// fal.ai Instant Character — primary influencer candidate generation engine.
+// "flux-character" remains registered as the polling fallback via the character registry.
+const DEFAULT_MODEL_KEY       = "instant-character";
 const DEFAULT_ASPECT_RATIO    = "2:3";
 
 // ── Mock candidate URLs ───────────────────────────────────────────────────────
@@ -123,7 +122,7 @@ export async function POST(req: Request): Promise<Response> {
 
   for (let i = 0; i < candidateCount; i++) {
     try {
-      const { job } = await studioDispatch({
+      const { job, assetId } = await studioDispatch({
         userId,
         studio:      "character",
         modelKey,
@@ -133,6 +132,8 @@ export async function POST(req: Request): Promise<Response> {
       });
 
       // Record job in influencer_generation_jobs
+      // asset_job_id links this row to the generations asset record so the
+      // polling route and Activity Center can look up the canonical asset.
       await supabaseAdmin.from("influencer_generation_jobs").insert({
         influencer_id,
         identity_lock_id:  null,  // no lock yet — this is candidate generation
@@ -145,7 +146,7 @@ export async function POST(req: Request): Promise<Response> {
         model_key:         modelKey,
         aspect_ratio:      aspectRatio,
         estimated_credits: job.estimatedCredits,
-        metadata:          { candidate_index: i },
+        metadata:          { candidate_index: i, asset_job_id: assetId ?? null },
       });
 
       jobs.push({

@@ -20,12 +20,14 @@
  */
 
 import { registerProvider } from "../core/orchestrator";
+import { instantCharacterProvider }   from "./instant-character";
 import { fluxCharacterProvider }      from "./flux";
 import { stabilityCharacterProvider } from "./stability";
 import { motionProvider }             from "./motion";
 
 export function registerCharacterProviders(): void {
-  registerProvider(fluxCharacterProvider);
+  registerProvider(instantCharacterProvider);   // primary — influencer candidate generation
+  registerProvider(fluxCharacterProvider);       // fallback — FLUX.1 Pro
   registerProvider(stabilityCharacterProvider);
   registerProvider(motionProvider);
 }

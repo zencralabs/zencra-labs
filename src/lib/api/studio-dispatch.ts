@@ -485,9 +485,16 @@ async function mirrorImageToStorage(
   externalUrl: string,
   assetId:     string,
 ): Promise<string> {
-  const TEMP_DOMAINS = ["tempfile.aiquickdraw.com", "aiquickdraw.com"];
+  // NB temp domains — ephemeral, must be mirrored immediately after completion.
+  const NB_DOMAINS  = ["tempfile.aiquickdraw.com", "aiquickdraw.com"];
+  // fal.ai CDN domains — not guaranteed permanent; mirror for gallery reliability.
+  const FAL_DOMAINS = ["fal.media", "v2.fal.media", "storage.googleapis.com/fal-"];
+  const TEMP_DOMAINS = [...NB_DOMAINS, ...FAL_DOMAINS];
+
   const isTempUrl = TEMP_DOMAINS.some((d) => externalUrl.includes(d));
   if (!isTempUrl) return externalUrl; // nothing to mirror
+
+  const isFalUrl  = FAL_DOMAINS.some((d) => externalUrl.includes(d));
 
   try {
     const imgRes = await fetch(externalUrl);
@@ -496,7 +503,10 @@ async function mirrorImageToStorage(
     const buffer      = Buffer.from(await imgRes.arrayBuffer());
     const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
     const ext         = contentType.includes("png") ? "png" : "jpg";
-    const storagePath = `nb-generations/${assetId}.${ext}`;
+    // fal.ai character images go to character-generations/; NB images to nb-generations/.
+    const storagePath = isFalUrl
+      ? `character-generations/${assetId}.${ext}`
+      : `nb-generations/${assetId}.${ext}`;
 
     const supabaseUrl      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceRoleKey   = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -511,7 +521,8 @@ async function mirrorImageToStorage(
     if (error) throw new Error(`Storage upload failed: ${error.message}`);
 
     const { data } = storageClient.storage.from("generations").getPublicUrl(storagePath);
-    console.log(`[pollAndUpdateJob] mirrored NB image → ${data.publicUrl}`);
+    const source = isFalUrl ? "fal.ai" : "NB";
+    console.log(`[pollAndUpdateJob] mirrored ${source} image → ${data.publicUrl}`);
     return data.publicUrl;
   } catch (err) {
     // Non-fatal: log the failure and fall back to the original temp URL
