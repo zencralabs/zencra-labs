@@ -380,10 +380,18 @@ export default function InfluencerCanvas({
   function goImageFlow() {
     if (canvasState.phase === "selected") {
       const { active } = canvasState;
-      const params = new URLSearchParams({
-        influencer_id:    active.influencer.id,
-        identity_lock_id: active.identity_lock_id ?? "",
-      });
+      // ── Identity Bridge — full context encoded in URL params ──────────────────
+      // Image Studio reads these to pre-fill @handle in prompt, show identity chip,
+      // and silently attach the canonical reference image via handle-resolver.
+      // mode=influencer signals the arrival context (distinct from creative-director).
+      const params = new URLSearchParams();
+      params.set("influencer_id",    active.influencer.id);
+      params.set("identity_lock_id", active.identity_lock_id ?? "");
+      params.set("mode",             "influencer");
+      if (active.influencer.handle)       params.set("handle",             active.influencer.handle);
+      if (active.influencer.display_name) params.set("display_name",       active.influencer.display_name);
+      if (active.canonical_asset_id)      params.set("canonical_asset_id", active.canonical_asset_id);
+      if (active.hero_url)                params.set("reference_url",       active.hero_url);
       router.push(`/studio/image?${params.toString()}`);
     } else {
       router.push("/studio/image");

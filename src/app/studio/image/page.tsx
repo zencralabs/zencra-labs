@@ -1163,6 +1163,28 @@ function ImageStudioInner() {
     searchParams.get("mode") === "creative-director" ? "creative-director" : "standard"
   );
 
+  // ── Influencer mode — arrival context from Locked Influencer → Image Flow ───
+  // When the user clicks "Image Flow" from a locked influencer, goImageFlow()
+  // encodes identity context in URL params. We read them once on mount so we can:
+  //   1. Show the "Creating with @handle 🔒" identity chip in the dock
+  //   2. The prompt is already pre-filled with @Handle via the ?handle= param above
+  //   3. The backend handle-resolver picks up @Handle, injects the identity anchor,
+  //      and silently attaches the canonical reference image — no extra body params needed.
+  const [influencerMode, setInfluencerMode] = useState<{
+    handle:      string;
+    displayName: string;
+    referenceUrl: string | null;
+  } | null>(() => {
+    if (searchParams.get("mode") !== "influencer") return null;
+    const h = searchParams.get("handle") ?? "";
+    if (!h) return null;
+    return {
+      handle:       h,
+      displayName:  searchParams.get("display_name") ?? h,
+      referenceUrl: searchParams.get("reference_url") ?? null,
+    };
+  });
+
   // ── URL ↔ State sync (model + mode) ─────────────────────────────────────────
   // Keeps React state in sync when the URL changes after mount (back/forward nav,
   // navbar link clicks). Uses the CATALOG_TO_STUDIO_MODEL map so internal model IDs
@@ -3960,6 +3982,64 @@ function ImageStudioInner() {
                   setPreEnhancePrompt(null);
                 }}
               />
+            </div>
+          )}
+
+          {/* ── Influencer mode arrival chip ─────────────────────────────────── */}
+          {/* Shown when Image Studio is launched via "Image Flow" from a locked */}
+          {/* influencer. Gives the user clear context — they're creating with    */}
+          {/* that identity — without exposing any technical detail.              */}
+          {influencerMode && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "6px 14px 2px",
+            }}>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: influencerMode.referenceUrl ? "4px 10px 4px 4px" : "4px 10px",
+                borderRadius: 20,
+                background: "rgba(245,158,11,0.10)",
+                border: "1px solid rgba(245,158,11,0.32)",
+                boxShadow: "inset 0 0 0 1px rgba(245,158,11,0.08), 0 0 16px rgba(245,158,11,0.06)",
+              }}>
+                {/* Thumbnail — canonical reference portrait */}
+                {influencerMode.referenceUrl && (
+                  <img
+                    src={influencerMode.referenceUrl}
+                    alt={`@${influencerMode.handle}`}
+                    style={{
+                      width: 22, height: 22,
+                      borderRadius: 0,
+                      objectFit: "cover",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <span style={{
+                  fontSize: 10, color: "rgba(255,255,255,0.40)",
+                  fontWeight: 500, letterSpacing: "0.02em",
+                }}>
+                  Creating with
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>
+                  @{influencerMode.handle}
+                </span>
+                <span style={{ fontSize: 8, opacity: 0.45, lineHeight: 1 }}>🔒</span>
+              </div>
+              {/* Dismiss — no state resets, just hides the chip */}
+              <button
+                onClick={() => setInfluencerMode(null)}
+                title="Dismiss"
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "rgba(255,255,255,0.22)", fontSize: 14, lineHeight: 1,
+                  padding: "2px 4px", borderRadius: 4,
+                  transition: "color 0.12s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.5)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.22)")}
+              >×</button>
             </div>
           )}
 
