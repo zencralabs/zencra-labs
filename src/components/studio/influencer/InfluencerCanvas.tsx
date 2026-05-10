@@ -1595,7 +1595,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
           width: 180, flexShrink: 0,
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
-          paddingTop: 80,
+          paddingTop: 360,
         }}>
 
           {/* @handle — Syne, left-aligned, luxury cast title */}
