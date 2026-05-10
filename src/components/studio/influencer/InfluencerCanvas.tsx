@@ -1596,6 +1596,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
           display: "flex", flexDirection: "column",
           justifyContent: "flex-start",
           paddingTop: 360,
+          position: "relative", zIndex: 2,
         }}>
 
           {/* @handle — Syne, left-aligned, luxury cast title */}
@@ -1698,6 +1699,9 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
             pointerEvents: "none",
           }} aria-hidden="true" />
         </div>
+
+        {/* Right spacer — mirrors left column width to center the portrait */}
+        <div style={{ width: 180, flexShrink: 0 }} />
 
       </div>
     </div>
