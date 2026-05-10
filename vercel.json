@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/workflows/recover-stale",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
