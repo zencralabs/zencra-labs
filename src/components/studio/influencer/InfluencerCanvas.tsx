@@ -788,6 +788,7 @@ function GeneratingState({
         </div>
         {/* Studio Title: 30px / 700 / -0.02em */}
         <div style={{
+          fontFamily: "'Syne', sans-serif",
           fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
           color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
         }}>
@@ -1163,6 +1164,7 @@ function CandidatesState({
                 </div>
                 {/* Studio Title */}
                 <div style={{
+                  fontFamily: "'Syne', sans-serif",
                   fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
                   color: "#ffffff", lineHeight: 1.1, marginBottom: 6,
                 }}>
@@ -1170,6 +1172,7 @@ function CandidatesState({
                 </div>
                 {/* Body */}
                 <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
                   fontSize: 16, fontWeight: 400, lineHeight: 1.65,
                   color: "rgba(255,255,255,0.50)", maxWidth: 560,
                 }}>
@@ -1557,6 +1560,7 @@ function RevealHeader({ accent }: { accent: string }) {
       {/* Sub-line */}
       <p style={{
         margin: 0,
+        fontFamily: "'Familjen Grotesk', sans-serif",
         fontSize: 14, fontWeight: 400, lineHeight: 1.6,
         color: "rgba(255,255,255,0.44)",
         maxWidth: 420, marginInline: "auto",
@@ -1646,6 +1650,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
 
         {/* Handle — below portrait */}
         <div style={{
+          fontFamily: "'Syne', sans-serif",
           fontSize: 20, fontWeight: 800,
           color: "#ffffff", letterSpacing: "-0.02em",
           textAlign: "center",
@@ -1667,6 +1672,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
           }} />
           {/* Chip: 11px / 700 / 0.10em */}
           <span style={{
+            fontFamily: "'Familjen Grotesk', sans-serif",
             fontSize: 11, fontWeight: 700,
             letterSpacing: "0.10em",
             color: accent,
@@ -1722,6 +1728,7 @@ function AssetPackGrid({
     <div style={{ padding: "8px 24px 24px" }}>
       {/* Section label */}
       <div style={{
+        fontFamily: "'Syne', sans-serif",
         fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
         color: T.muted, textTransform: "uppercase" as const,
         marginBottom: 14,

@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Influencer Library — Left panel
-// Premium cast gallery grouped by style category.
+// Cinematic cast roster — 9:16 portrait grid with atmospheric hover polish.
 // Props unchanged: onNew / onSelect / activeId
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -68,11 +68,11 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
   const [slotsLimit, setSlotsLimit] = useState(8);
 
   // Delete modal state
-  const [deleteTarget,   setDeleteTarget]   = useState<AIInfluencer | null>(null);
-  const [deleting,       setDeleting]       = useState(false);
-  const [deleteError,    setDeleteError]    = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AIInfluencer | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
+  const [deleteError,  setDeleteError]  = useState<string | null>(null);
 
-  // Auth token helper (avoids importing getAuthHeader from Canvas)
+  // Auth token helper
   const getToken = useCallback(async (): Promise<Record<string, string>> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -133,7 +133,6 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         return;
       }
       const d = await res.json();
-      // Remove from list and update slot count
       setInfluencers(prev => prev.filter(i => i.id !== deleteTarget.id));
       setSlotsUsed(s => Math.max(0, s - 1));
       if (d.data?.slots_remaining !== undefined) {
@@ -147,7 +146,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
     }
   }
 
-  // ── All unique tags across influencers (for filter chips) ────────────────
+  // ── All unique tags across influencers ───────────────────────────────────
   const allTags = useMemo(() => {
     const set = new Set<string>();
     for (const inf of influencers) {
@@ -156,7 +155,8 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
     return Array.from(set).sort();
   }, [influencers]);
 
-  // ── Client-side filter + style grouping ──────────────────────────────────
+  // ── Client-side filter + style grouping ─────────────────────────────────
+  // NOTE: activeTag intentionally included in deps (was missing before)
   const grouped = useMemo(() => {
     const q = query.toLowerCase().trim();
 
@@ -176,37 +176,39 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
       if (members.length > 0) map.set(cat, members);
     }
     return map;
-  }, [influencers, query, activeStyle]);
+  }, [influencers, query, activeStyle, activeTag]);
 
-  const totalCount = influencers.length;
+  // ── Slot fill ratio ──────────────────────────────────────────────────────
+  const slotRatio = slotsLimit > 0 ? slotsUsed / slotsLimit : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#07090f" }}>
 
       {/* ── Global styles ──────────────────────────────────────────────────── */}
       <style>{`
-        @keyframes castPulse { 0%,100%{opacity:0.3} 50%{opacity:0.65} }
+        @keyframes castPulse  { 0%,100%{opacity:0.22} 50%{opacity:0.50} }
+        @keyframes castReveal { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
         .inf-chip-scroll::-webkit-scrollbar { display: none; }
-        .inf-list::-webkit-scrollbar { width: 3px; }
+        .inf-list::-webkit-scrollbar { width: 2px; }
         .inf-list::-webkit-scrollbar-track { background: transparent; }
-        .inf-list::-webkit-scrollbar-thumb { background: #1a1f2e; border-radius: 2px; }
+        .inf-list::-webkit-scrollbar-thumb { background: #161b28; border-radius: 2px; }
       `}</style>
 
-      {/* ── Delete Confirm Modal ────────────────────────────────────────────── */}
+      {/* ── Delete / Archive Confirm Modal ──────────────────────────────────── */}
       {deleteTarget && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 9999,
           display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(0,0,0,0.72)",
-          backdropFilter: "blur(4px)",
+          background: "rgba(0,0,0,0.78)",
+          backdropFilter: "blur(6px)",
         }} onClick={() => !deleting && setDeleteTarget(null)}>
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: 340, background: "#0e1118",
-              border: "1px solid rgba(255,255,255,0.12)",
+              width: 340, background: "#0a0d15",
+              border: "1px solid rgba(255,255,255,0.10)",
               padding: "24px 24px 20px",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.65)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.70)",
             }}
           >
             {/* Icon */}
@@ -224,15 +226,18 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
               </svg>
             </div>
+
             {/* Title */}
             <div style={{
-              fontSize: 16, fontWeight: 700, color: "#e8eaf0",
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 15, fontWeight: 700, color: "#e8eaf0",
               letterSpacing: "-0.01em", marginBottom: 8,
             }}>
               Archive Influencer?
             </div>
             <div style={{
-              fontSize: 13, color: "rgba(255,255,255,0.52)",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 13, color: "rgba(255,255,255,0.48)",
               lineHeight: 1.6, marginBottom: 20,
             }}>
               This removes{" "}
@@ -241,24 +246,28 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               </strong>{" "}
               from your roster and frees 1 identity slot. Generated assets are preserved.
             </div>
+
             {deleteError && (
               <div style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
                 fontSize: 11, color: "#fca5a5", fontWeight: 600,
-                letterSpacing: "0.08em", textTransform: "uppercase" as const,
+                letterSpacing: "0.07em", textTransform: "uppercase" as const,
                 marginBottom: 12,
               }}>
                 {deleteError}
               </div>
             )}
+
             {/* Actions */}
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => !deleting && setDeleteTarget(null)}
                 style={{
                   flex: 1, height: 36,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "rgba(255,255,255,0.60)",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  color: "rgba(255,255,255,0.55)",
                   fontSize: 13, fontWeight: 600,
                   cursor: deleting ? "not-allowed" : "pointer",
                 }}
@@ -270,18 +279,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 disabled={deleting}
                 style={{
                   flex: 1, height: 36,
-                  background: deleting ? "rgba(239,68,68,0.20)" : "rgba(239,68,68,0.16)",
-                  border: "1px solid rgba(239,68,68,0.35)",
-                  color: deleting ? "rgba(252,165,165,0.50)" : "#fca5a5",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  background: deleting ? "rgba(239,68,68,0.18)" : "rgba(239,68,68,0.14)",
+                  border: "1px solid rgba(239,68,68,0.32)",
+                  color: deleting ? "rgba(252,165,165,0.45)" : "#fca5a5",
                   fontSize: 13, fontWeight: 700,
                   cursor: deleting ? "not-allowed" : "pointer",
                   transition: "all 0.15s",
                 }}
                 onMouseEnter={e => {
-                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.25)";
+                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.24)";
                 }}
                 onMouseLeave={e => {
-                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.16)";
+                  if (!deleting) (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.14)";
                 }}
               >
                 {deleting ? "Archiving…" : "Remove From Cast"}
@@ -294,7 +304,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
         padding: "16px 14px 12px",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
         flexShrink: 0,
       }}>
         <div style={{
@@ -303,89 +313,99 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         }}>
           <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 13, fontWeight: 700, color: "#e8eaf0",
-              letterSpacing: "0.01em",
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 13, fontWeight: 700, color: "#d8dbe8",
+              letterSpacing: "0.02em",
             }}>
               AI Talent Roster
             </div>
-            <div style={{ fontSize: 11, color: "#3d4560", marginTop: 2 }}>
+            <div style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 10, color: "#262c3e", marginTop: 3,
+              letterSpacing: "0.05em",
+            }}>
               Your locked digital cast
             </div>
           </div>
-          <button
-              onClick={onNew}
-              title="Create new influencer"
-              style={{
-                display: "flex", alignItems: "center", gap: 4,
-                padding: "5px 10px", borderRadius: 7,
-                background: "rgba(245,158,11,0.09)",
-                border: "1px solid rgba(245,158,11,0.22)",
-                color: "#f59e0b", fontSize: 12, fontWeight: 700,
-                cursor: "pointer", letterSpacing: "0.01em",
-                transition: "all 0.15s", flexShrink: 0,
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background  = "rgba(245,158,11,0.15)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.40)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.background  = "rgba(245,158,11,0.09)";
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.22)";
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              New
-            </button>
-          </div>
 
-          {/* ── Slot Meter ─────────────────────────────────────────────────── */}
-          <div style={{ marginTop: 10 }}>
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              alignItems: "center", marginBottom: 5,
+          <button
+            onClick={onNew}
+            title="Create new influencer"
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "5px 10px",
+              background: "rgba(245,158,11,0.08)",
+              border: "1px solid rgba(245,158,11,0.20)",
+              color: "#f59e0b",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 12, fontWeight: 700,
+              cursor: "pointer", letterSpacing: "0.02em",
+              transition: "all 0.18s", flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background  = "rgba(245,158,11,0.14)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.38)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background  = "rgba(245,158,11,0.08)";
+              (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.20)";
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New
+          </button>
+        </div>
+
+        {/* ── Slot Meter ───────────────────────────────────────────────────── */}
+        <div style={{ marginTop: 12 }}>
+          <div style={{
+            display: "flex", justifyContent: "space-between",
+            alignItems: "center", marginBottom: 5,
+          }}>
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 9, fontWeight: 600, color: "#252b3a",
+              letterSpacing: "0.10em", textTransform: "uppercase" as const,
             }}>
-              <span style={{
-                fontSize: 10, fontWeight: 600, color: "#3d4560",
-                letterSpacing: "0.08em", textTransform: "uppercase" as const,
-              }}>
-                Roster Slots
-              </span>
-              <span style={{
-                fontSize: 10, fontWeight: 700,
-                color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.80)",
-              }}>
-                {slotsUsed}/{slotsLimit} used
-              </span>
-            </div>
-            <div style={{
-              height: 4, borderRadius: 2, background: "rgba(255,255,255,0.07)",
-              overflow: "hidden",
+              Roster Slots
+            </span>
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 9, fontWeight: 700,
+              color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.72)",
             }}>
-              <div style={{
-                height: "100%",
-                width: `${Math.min(100, slotsLimit > 0 ? (slotsUsed / slotsLimit) * 100 : 0)}%`,
-                background: slotsUsed >= slotsLimit
-                  ? "linear-gradient(90deg,#ef4444,#dc2626)"
-                  : slotsUsed / slotsLimit >= 0.75
-                  ? "linear-gradient(90deg,#f59e0b,#ea8d00)"
-                  : "linear-gradient(90deg,#f59e0b,#fbbf24)",
-                borderRadius: 2,
-                transition: "width 0.4s ease",
-              }} />
-            </div>
+              {slotsUsed}/{slotsLimit}
+            </span>
+          </div>
+          <div style={{
+            height: 2, borderRadius: 1, background: "rgba(255,255,255,0.05)",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%",
+              width: `${Math.min(100, slotRatio * 100)}%`,
+              background: slotsUsed >= slotsLimit
+                ? "linear-gradient(90deg,#ef4444,#dc2626)"
+                : slotRatio >= 0.75
+                ? "linear-gradient(90deg,#f59e0b,#ea8d00)"
+                : "linear-gradient(90deg,#f59e0b,#fbbf24)",
+              borderRadius: 1,
+              transition: "width 0.45s ease",
+            }} />
           </div>
         </div>
+      </div>
 
       {/* ── Search ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: "10px 10px 0", flexShrink: 0 }}>
         <div style={{ position: "relative" }}>
           <svg
-            width="12" height="12" viewBox="0 0 24 24" fill="none"
-            stroke="#3d4560" strokeWidth="2.5" strokeLinecap="round"
+            width="11" height="11" viewBox="0 0 24 24" fill="none"
+            stroke="#2d3347" strokeWidth="2.5" strokeLinecap="round"
             style={{
               position: "absolute", left: 10, top: "50%",
               transform: "translateY(-50%)", pointerEvents: "none",
@@ -400,16 +420,18 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{
-              width: "100%", height: 38, boxSizing: "border-box",
-              paddingLeft: 30, paddingRight: 10,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 8, color: "#e8eaf0", fontSize: 12,
-              outline: "none", fontFamily: "inherit",
-              transition: "border-color 0.15s",
+              width: "100%", height: 34, boxSizing: "border-box",
+              paddingLeft: 28, paddingRight: 10,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              color: "#d8dbe8",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 12,
+              outline: "none",
+              transition: "border-color 0.18s",
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.30)"; }}
-            onBlur={e  => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)"; }}
+            onFocus={e => { e.currentTarget.style.borderColor = "rgba(245,158,11,0.28)"; }}
+            onBlur={e  => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}
           />
         </div>
       </div>
@@ -418,7 +440,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
       <div
         className="inf-chip-scroll"
         style={{
-          display: "flex", gap: 5, padding: "8px 10px 0",
+          display: "flex", gap: 4, padding: "7px 10px 0",
           overflowX: "auto", flexShrink: 0,
           scrollbarWidth: "none",
         }}
@@ -430,17 +452,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               key={chip.value}
               onClick={() => setActiveStyle(chip.value as StyleCategory | "all")}
               style={{
-                flexShrink: 0, padding: "3px 8px", borderRadius: 20,
-                fontSize: 11, fontWeight: on ? 700 : 500,
+                flexShrink: 0, padding: "3px 8px",
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 10, fontWeight: on ? 700 : 500,
                 border: on
-                  ? "1px solid rgba(245,158,11,0.40)"
-                  : "1px solid rgba(255,255,255,0.08)",
+                  ? "1px solid rgba(245,158,11,0.38)"
+                  : "1px solid rgba(255,255,255,0.07)",
                 background: on
-                  ? "rgba(245,158,11,0.10)"
-                  : "rgba(255,255,255,0.03)",
-                color:  on ? "#f59e0b" : "#4a5168",
+                  ? "rgba(245,158,11,0.09)"
+                  : "rgba(255,255,255,0.02)",
+                color: on ? "#f59e0b" : "#3a4058",
                 cursor: "pointer", transition: "all 0.15s",
                 whiteSpace: "nowrap",
+                letterSpacing: on ? "0.01em" : "0",
               }}
             >
               {chip.label}
@@ -449,12 +473,12 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         })}
       </div>
 
-      {/* ── Tag Filter Chips — shown only when tags exist ───────────────────── */}
+      {/* ── Tag Filter Chips ────────────────────────────────────────────────── */}
       {allTags.length > 0 && (
         <div
           className="inf-chip-scroll"
           style={{
-            display: "flex", gap: 5, padding: "5px 10px 0",
+            display: "flex", gap: 4, padding: "5px 10px 0",
             overflowX: "auto", flexShrink: 0,
             scrollbarWidth: "none",
           }}
@@ -466,15 +490,16 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 key={tag}
                 onClick={() => setActiveTag(tag)}
                 style={{
-                  flexShrink: 0, padding: "2px 7px", borderRadius: 20,
+                  flexShrink: 0, padding: "2px 7px",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
                   fontSize: 10, fontWeight: on ? 700 : 500,
                   border: on
-                    ? "1px solid rgba(167,139,250,0.45)"
-                    : "1px solid rgba(255,255,255,0.07)",
+                    ? "1px solid rgba(167,139,250,0.42)"
+                    : "1px solid rgba(255,255,255,0.06)",
                   background: on
-                    ? "rgba(167,139,250,0.10)"
+                    ? "rgba(167,139,250,0.09)"
                     : "rgba(255,255,255,0.02)",
-                  color: on ? "#a78bfa" : "#3d4560",
+                  color: on ? "#a78bfa" : "#2d3347",
                   cursor: "pointer", transition: "all 0.15s",
                   whiteSpace: "nowrap",
                 }}
@@ -486,53 +511,63 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         </div>
       )}
 
-      {/* ── Scrollable content ──────────────────────────────────────────────── */}
+      {/* ── Scrollable roster ───────────────────────────────────────────────── */}
       <div
         className="inf-list"
         style={{
           flex: 1, overflowY: "auto",
-          padding: "10px 8px 20px",
+          padding: "10px 8px 24px",
           scrollbarWidth: "thin",
-          scrollbarColor: "#1a1f2e transparent",
+          scrollbarColor: "#161b28 transparent",
         }}
       >
 
-        {/* Loading */}
+        {/* Loading — portrait skeleton grid */}
         {loading && (
-          <>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{
-                height: 96, borderRadius: 8, marginBottom: 6,
-                background: "rgba(255,255,255,0.03)",
-                animation: "castPulse 1.8s ease-in-out infinite",
-                animationDelay: `${(i - 1) * 0.15}s`,
-              }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            {[1, 2, 3, 4].map(i => (
+              <div
+                key={i}
+                style={{
+                  aspectRatio: "9 / 16",
+                  background: "rgba(255,255,255,0.03)",
+                  animation: "castPulse 1.8s ease-in-out infinite",
+                  animationDelay: `${(i - 1) * 0.14}s`,
+                }}
+              />
             ))}
-          </>
+          </div>
         )}
 
-        {/* Empty state — no influencers at all */}
+        {/* Empty state — no influencers */}
         {!loading && influencers.length === 0 && (
           <div style={{
             display: "flex", flexDirection: "column", alignItems: "center",
-            padding: "36px 16px 20px", textAlign: "center",
+            padding: "40px 16px 20px", textAlign: "center",
           }}>
             <div style={{
-              width: 52, height: 52, borderRadius: 14, marginBottom: 14,
-              background: "radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.10), transparent 70%)",
-              border: "1px solid rgba(245,158,11,0.14)",
+              width: 56, height: 56, marginBottom: 16,
+              background: "radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.08), transparent 70%)",
+              border: "1px solid rgba(245,158,11,0.12)",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(245,158,11,0.45)" strokeWidth="1.5" strokeLinecap="round">
+                stroke="rgba(245,158,11,0.38)" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>
                 <path d="M20 21a8 8 0 1 0-16 0"/>
               </svg>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#8b92a8", marginBottom: 6 }}>
-              No influencers yet
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 12, fontWeight: 700, color: "#6b7391", marginBottom: 7,
+              letterSpacing: "0.01em",
+            }}>
+              No cast members yet
             </div>
-            <div style={{ fontSize: 12, color: "#3d4560", lineHeight: 1.65 }}>
+            <div style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 11, color: "#2d3347", lineHeight: 1.7,
+            }}>
               Create your first AI Influencer to start building your digital cast.
             </div>
           </div>
@@ -540,45 +575,55 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 
         {/* Empty search result */}
         {!loading && influencers.length > 0 && grouped.size === 0 && (
-          <div style={{ padding: "28px 12px", textAlign: "center", fontSize: 12, color: "#3d4560" }}>
+          <div style={{
+            padding: "28px 12px", textAlign: "center",
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 12, color: "#2d3347",
+          }}>
             No cast members match &ldquo;{query}&rdquo;
           </div>
         )}
 
-        {/* Style-grouped cards */}
+        {/* Style-grouped portrait grids */}
         {!loading && [...grouped.entries()].map(([cat, members]) => (
-          <div key={cat} style={{ marginBottom: 18 }}>
+          <div key={cat} style={{ marginBottom: 22 }}>
 
-            {/* Section header */}
+            {/* Section header — Syne architectural label */}
             <div style={{
               display: "flex", alignItems: "center",
               justifyContent: "space-between",
-              padding: "0 4px 7px",
+              padding: "0 2px 8px",
             }}>
               <span style={{
-                fontSize: 10, fontWeight: 700, color: "#3d4560",
-                letterSpacing: "0.11em", textTransform: "uppercase",
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 9, fontWeight: 700, color: "#252b3a",
+                letterSpacing: "0.14em", textTransform: "uppercase" as const,
               }}>
                 {STYLE_LABELS[cat]}
               </span>
-              <span style={{ fontSize: 10, color: "#3d4560", fontWeight: 600 }}>
+              <span style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 9, color: "#252b3a", fontWeight: 600,
+              }}>
                 {members.length}
               </span>
             </div>
 
-            {/* Cards */}
-            {members.map(inf => (
-              <InfluencerCard
-                key={inf.id}
-                influencer={inf}
-                active={inf.id === activeId}
-                onOpen={() => onSelect(inf)}
-                onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
-                onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
-                onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
-                onDelete={() => setDeleteTarget(inf)}
-              />
-            ))}
+            {/* 2-column portrait grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+              {members.map(inf => (
+                <InfluencerCard
+                  key={inf.id}
+                  influencer={inf}
+                  active={inf.id === activeId}
+                  onOpen={() => onSelect(inf)}
+                  onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
+                  onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
+                  onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
+                  onDelete={() => setDeleteTarget(inf)}
+                />
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -586,7 +631,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
   );
 }
 
-// ── Card ──────────────────────────────────────────────────────────────────────
+// ── Portrait Card ─────────────────────────────────────────────────────────────
 
 function InfluencerCard({
   influencer, active, onOpen, onImage, onVideo, onLookPack, onDelete,
@@ -603,59 +648,58 @@ function InfluencerCard({
 
   const isLocked    = !!influencer.identity_lock_id;
   const isActive    = influencer.status === "active";
-  const handle      = influencer.handle      ? `@${influencer.handle}`  : null;
+  const handle      = influencer.handle      ? `@${influencer.handle}` : null;
   const displayName = influencer.display_name ?? null;
+  const label       = handle ?? displayName;
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onOpen}
       style={{
-        height: 96, marginBottom: 6,
-        borderRadius: 8, overflow: "hidden",
+        position: "relative",
+        aspectRatio: "9 / 16",
+        overflow: "hidden",
+        background: "#0a0d15",
         border: active
-          ? "1px solid rgba(245,158,11,0.45)"
+          ? "1.5px solid rgba(245,158,11,0.52)"
           : hovered
-          ? "1px solid rgba(255,255,255,0.18)"
-          : "1px solid rgba(255,255,255,0.10)",
-        background: active
-          ? "rgba(245,158,11,0.06)"
+          ? "1px solid rgba(255,255,255,0.20)"
+          : "1px solid rgba(255,255,255,0.07)",
+        boxShadow: active
+          ? "0 0 28px rgba(245,158,11,0.16), inset 0 0 18px rgba(245,158,11,0.04)"
           : hovered
-          ? "rgba(255,255,255,0.065)"
-          : "rgba(255,255,255,0.035)",
-        boxShadow: active ? "0 0 28px rgba(245,158,11,0.12)" : "none",
-        transform:  (!active && hovered) ? "translateY(-1px)" : "translateY(0)",
-        display: "flex",
-        transition: "all 0.15s",
+          ? "0 10px 36px rgba(0,0,0,0.60)"
+          : "0 2px 10px rgba(0,0,0,0.40)",
+        transform: hovered && !active ? "scale(1.025)" : "scale(1)",
+        transition: "all 270ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        cursor: "pointer",
       }}
     >
-      {/* Thumbnail — sharp corners, no radius on media */}
-      <div style={{
-        width: 64, height: 96, flexShrink: 0,
-        background: "rgba(255,255,255,0.04)",
-        overflow: "hidden", borderRadius: 0,
-      }}>
+      {/* Portrait image */}
+      <div style={{ position: "absolute", inset: 0 }}>
         {influencer.thumbnail_url ? (
           <img
             src={influencer.thumbnail_url}
-            alt={handle ?? "Influencer"}
+            alt={label ?? "Cast member"}
             style={{
               width: "100%", height: "100%",
-              objectFit: "cover", borderRadius: 0,
+              objectFit: "cover",
               display: "block",
-              transform: hovered ? "scale(1.06)" : "scale(1)",
-              transition: "transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)",
+              transform: hovered ? "scale(1.055)" : "scale(1)",
+              transition: "transform 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
             }}
             draggable={false}
           />
         ) : (
           <div style={{
             width: "100%", height: "100%",
-            background: "radial-gradient(ellipse at 50% 30%, rgba(245,158,11,0.09), transparent 70%)",
+            background: "radial-gradient(ellipse at 50% 35%, rgba(245,158,11,0.06), transparent 65%)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke="#3d4560" strokeWidth="1.5" strokeLinecap="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="#1e2435" strokeWidth="1.5" strokeLinecap="round">
               <path d="M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>
               <path d="M20 21a8 8 0 1 0-16 0"/>
             </svg>
@@ -663,155 +707,157 @@ function InfluencerCard({
         )}
       </div>
 
-      {/* Info + Actions */}
+      {/* Atmospheric vignette — always on, deepens on hover */}
       <div style={{
-        flex: 1, minWidth: 0,
-        padding: "9px 8px 8px",
-        display: "flex", flexDirection: "column", justifyContent: "space-between",
+        position: "absolute", inset: 0,
+        background: hovered
+          ? "linear-gradient(to top, rgba(5,7,12,0.96) 0%, rgba(5,7,12,0.50) 38%, transparent 66%)"
+          : "linear-gradient(to top, rgba(7,9,15,0.88) 0%, rgba(7,9,15,0.38) 38%, transparent 66%)",
+        transition: "background 270ms ease",
+        pointerEvents: "none",
+      }} />
+
+      {/* Bottom content stack */}
+      <div style={{
+        position: "absolute",
+        bottom: 0, left: 0, right: 0,
+        display: "flex", flexDirection: "column",
       }}>
 
-        {/* Top: identity info */}
-        <div style={{ minWidth: 0 }}>
-          {handle && (
-            <div style={{
-              fontSize: 12, fontWeight: 700,
-              color: active ? "#f59e0b" : "#e8eaf0",
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              letterSpacing: "0.01em", marginBottom: 1,
-            }}>
-              {handle}
-            </div>
-          )}
-          {displayName && (
-            <div style={{
-              fontSize: 11, color: "#4a5168",
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              marginBottom: 4,
-            }}>
-              {displayName}
-            </div>
-          )}
-          {/* Status badge — Active vs Draft */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{
-              width: 5, height: 5, borderRadius: "50%", flexShrink: 0,
-              background:  isActive ? "#10b981" : isLocked ? "#f59e0b" : "rgba(255,255,255,0.18)",
-              boxShadow:   isActive ? "0 0 5px rgba(16,185,129,0.55)" : isLocked ? "0 0 5px rgba(245,158,11,0.55)" : "none",
+        {/* Action strip — hover reveal */}
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            padding: "5px 5px 4px",
+            background: "rgba(4,6,11,0.90)",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+            display: "flex", gap: 3, alignItems: "center",
+            opacity: hovered ? 1 : 0,
+            transform: hovered ? "translateY(0)" : "translateY(4px)",
+            transition: "opacity 220ms ease, transform 240ms ease",
+          }}
+        >
+          <PortraitButton label="Open"  onClick={onOpen} />
+          <PortraitButton label="Img"   onClick={onImage}    disabled={!isLocked} />
+          <PortraitButton label="Vid"   onClick={onVideo}    disabled={!isLocked} />
+          <PortraitButton label="Looks" onClick={onLookPack} disabled={!isLocked} />
+
+          {/* Trash */}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            title="Remove from cast"
+            style={{
+              marginLeft: "auto",
+              width: 20, height: 20,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.18)",
+              cursor: "pointer", flexShrink: 0,
               transition: "all 0.15s",
-            }} />
-            <span style={{
-              fontSize: 10, fontWeight: 500,
-              color: isActive ? "rgba(16,185,129,0.85)" : isLocked ? "rgba(245,158,11,0.80)" : "#3d4560",
-            }}>
-              {isActive ? "Active" : isLocked ? "Draft" : "Needs Selection"}
-            </span>
-          </div>
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background   = "rgba(239,68,68,0.20)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor  = "rgba(239,68,68,0.42)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background   = "rgba(239,68,68,0.08)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor  = "rgba(239,68,68,0.18)";
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(239,68,68,0.72)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
 
-        {/* Bottom: action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-
-          {/* Open — always visible */}
-          <MicroButton label="Open" onClick={onOpen} />
-
-          {/* Image + Video + Look Pack — appear on hover */}
-          {hovered && (
-            <>
-              <MicroButton
-                label="Image"
-                onClick={onImage}
-                disabled={!isLocked}
-                tooltip={!isLocked ? "Finish identity selection first" : undefined}
-              />
-              <MicroButton
-                label="Video"
-                onClick={onVideo}
-                disabled={!isLocked}
-                tooltip={!isLocked ? "Finish identity selection first" : undefined}
-              />
-              <MicroButton
-                label="Looks"
-                onClick={onLookPack}
-                disabled={!isLocked}
-                tooltip={!isLocked ? "Lock identity first" : "Generate Look Pack"}
-              />
-              {/* Trash — delete this influencer */}
-              <button
-                onClick={e => { e.stopPropagation(); onDelete(); }}
-                title="Delete influencer"
-                style={{
-                  marginLeft: "auto",
-                  width: 24, height: 24,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "rgba(239,68,68,0.10)",
-                  border: "1px solid rgba(239,68,68,0.22)",
-                  borderRadius: 5,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.22)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.45)";
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.10)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.22)";
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke="rgba(239,68,68,0.80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                  <path d="M10 11v6M14 11v6"/>
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                </svg>
-              </button>
-            </>
+        {/* Identity info — always visible, lifts on hover */}
+        <div style={{
+          padding: "4px 7px 7px",
+          transform: hovered ? "translateY(-2px)" : "translateY(0)",
+          transition: "transform 270ms ease",
+        }}>
+          {label && (
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 10.5, fontWeight: 700,
+              color: active ? "#f59e0b" : "#cdd0de",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              letterSpacing: "0.01em", marginBottom: 3,
+              textShadow: "0 1px 5px rgba(0,0,0,0.90)",
+            }}>
+              {label}
+            </div>
           )}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{
+              width: 4, height: 4, borderRadius: "50%", flexShrink: 0,
+              background:  isActive ? "#10b981" : isLocked ? "#f59e0b" : "rgba(255,255,255,0.18)",
+              boxShadow:   isActive
+                ? "0 0 5px rgba(16,185,129,0.65)"
+                : isLocked
+                ? "0 0 5px rgba(245,158,11,0.65)"
+                : "none",
+            }} />
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 9, fontWeight: 500,
+              color: isActive
+                ? "rgba(16,185,129,0.80)"
+                : isLocked
+                ? "rgba(245,158,11,0.72)"
+                : "#252b3a",
+              textShadow: "0 1px 4px rgba(0,0,0,0.95)",
+            }}>
+              {isActive ? "Active" : isLocked ? "Draft" : "Pending"}
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Micro action button ───────────────────────────────────────────────────────
+// ── Portrait action button ────────────────────────────────────────────────────
 
-function MicroButton({
-  label, onClick, disabled, tooltip,
+function PortraitButton({
+  label, onClick, disabled,
 }: {
   label:    string;
   onClick:  () => void;
   disabled?: boolean;
-  tooltip?:  string;
 }) {
   return (
     <button
       onClick={disabled ? undefined : onClick}
-      title={tooltip}
       style={{
-        padding: "3px 7px", borderRadius: 5,
-        fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
-        border: "1px solid rgba(255,255,255,0.10)",
+        padding: "2px 5px",
+        fontSize: 9, fontWeight: 600,
+        fontFamily: "'Familjen Grotesk', sans-serif",
+        letterSpacing: "0.03em",
+        border: "1px solid rgba(255,255,255,0.08)",
         background: "rgba(255,255,255,0.05)",
-        color:   disabled ? "#2d3347" : "#8b92a8",
+        color:   disabled ? "#1e2435" : "#6a738f",
         cursor:  disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.45 : 1,
-        transition: "all 0.12s",
+        opacity: disabled ? 0.38 : 1,
         flexShrink: 0,
+        transition: "all 0.12s",
       }}
       onMouseEnter={e => {
         if (!disabled) {
-          (e.currentTarget as HTMLElement).style.background   = "rgba(255,255,255,0.10)";
-          (e.currentTarget as HTMLElement).style.color        = "#e8eaf0";
-          (e.currentTarget as HTMLElement).style.borderColor  = "rgba(255,255,255,0.20)";
+          (e.currentTarget as HTMLElement).style.background  = "rgba(255,255,255,0.12)";
+          (e.currentTarget as HTMLElement).style.color       = "#e8eaf0";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
         }
       }}
       onMouseLeave={e => {
         if (!disabled) {
-          (e.currentTarget as HTMLElement).style.background   = "rgba(255,255,255,0.05)";
-          (e.currentTarget as HTMLElement).style.color        = "#8b92a8";
-          (e.currentTarget as HTMLElement).style.borderColor  = "rgba(255,255,255,0.10)";
+          (e.currentTarget as HTMLElement).style.background  = "rgba(255,255,255,0.05)";
+          (e.currentTarget as HTMLElement).style.color       = "#6a738f";
+          (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
         }
       }}
     >

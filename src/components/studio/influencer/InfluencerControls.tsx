@@ -104,9 +104,11 @@ export default function InfluencerControls({
               borderBottom: activeTab === tab.id
                 ? `2px solid ${T.amber}`
                 : "2px solid transparent",
-              color: activeTab === tab.id ? T.amber : T.ghost,
-              fontSize: 12, fontWeight: 700,
-              cursor: "pointer", letterSpacing: "0.04em",
+              color: activeTab === tab.id ? T.amber : "#2d3347",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 11, fontWeight: 700,
+              cursor: "pointer", letterSpacing: "0.06em",
+              textTransform: "uppercase" as const,
               transition: "all 0.15s",
             }}
           >
@@ -203,13 +205,17 @@ function CategorySelector({
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: selected ? 700 : 500,
+                  fontFamily: "'Syne', sans-serif",
+                  fontSize: 12, fontWeight: selected ? 700 : 600,
                   color: selected ? cat.accent : T.text,
                   letterSpacing: "0.01em", transition: "color 0.14s",
                 }}>
                   {cat.label}
                 </div>
-                <div style={{ fontSize: 11, color: T.ghost, marginTop: 1 }}>
+                <div style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 10, color: "#2d3347", marginTop: 2,
+                }}>
                   {cat.desc}
                 </div>
               </div>
@@ -312,8 +318,9 @@ export function BuilderTab({
             Active Influencer
           </div>
           <div style={{
+            fontFamily: "'Syne', sans-serif",
             fontSize: 22, fontWeight: 800, color: T.text,
-            letterSpacing: "-0.01em", marginBottom: 6,
+            letterSpacing: "-0.02em", marginBottom: 6,
           }}>
             {handle}
           </div>
@@ -352,10 +359,11 @@ export function BuilderTab({
 
   const inputStyle: React.CSSProperties = {
     width: "100%", boxSizing: "border-box",
-    background: "#090c13", border: `1px solid ${T.border}`,
-    borderRadius: 8, padding: "10px 12px",
-    color: T.text, fontSize: 14, outline: "none",
-    fontFamily: "inherit", transition: "border-color 0.15s",
+    background: "#070a10", border: `1px solid rgba(255,255,255,0.08)`,
+    padding: "9px 12px",
+    color: T.text, fontSize: 13, outline: "none",
+    fontFamily: "'Familjen Grotesk', sans-serif",
+    transition: "border-color 0.18s",
   };
 
   return (
@@ -490,7 +498,7 @@ export function BuilderTab({
       {/* Identity Options — candidate count selector */}
       <section>
         <SectionLabel label="Identity Options" />
-        <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+        <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
           {([1, 2, 3, 4] as const).map(n => {
             const selected = candidateCount === n;
             return (
@@ -500,16 +508,16 @@ export function BuilderTab({
                 style={{
                   flex: 1,
                   padding: "7px 0",
-                  borderRadius: 7,
                   border: selected
-                    ? `1px solid ${T.amber}`
-                    : `1px solid ${T.ghost}`,
-                  background: selected ? T.amberBg : "transparent",
-                  color: selected ? T.amber : T.muted,
+                    ? `1px solid rgba(245,158,11,0.50)`
+                    : `1px solid rgba(255,255,255,0.07)`,
+                  background: selected ? "rgba(245,158,11,0.09)" : "rgba(255,255,255,0.02)",
+                  color: selected ? T.amber : "#3a4058",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
                   fontSize: 12, fontWeight: 700,
                   cursor: "pointer",
-                  letterSpacing: "0.03em",
-                  transition: "all 0.13s",
+                  letterSpacing: "0.04em",
+                  transition: "all 0.15s",
                 }}
               >
                 {n}×
@@ -517,7 +525,11 @@ export function BuilderTab({
             );
           })}
         </div>
-        <div style={{ fontSize: 11, color: T.muted, textAlign: "center" }}>
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 10, color: "#2d3347", textAlign: "center",
+          letterSpacing: "0.02em",
+        }}>
           {candidateCount * 8} cr total · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
         </div>
       </section>
@@ -640,8 +652,9 @@ function AdvancedTab() {
 function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 800, color: T.ghost,
-      letterSpacing: "0.10em", textTransform: "uppercase",
+      fontFamily: "'Syne', sans-serif",
+      fontSize: 9, fontWeight: 700, color: "#252b3a",
+      letterSpacing: "0.13em", textTransform: "uppercase",
       marginBottom: 8,
     }}>
       {label}
@@ -670,7 +683,7 @@ function ChipGroup({
   options: string[]; selected: string[]; onToggle: (v: string) => void; accent?: string;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
       {options.map(opt => {
         const active = selected.includes(opt);
         return (
@@ -678,12 +691,14 @@ function ChipGroup({
             key={opt}
             onClick={() => onToggle(opt)}
             style={{
-              padding: "6px 12px", borderRadius: 20,
-              border:     active ? `1px solid ${accent}55` : `1px solid ${T.border}`,
-              background: active ? `${accent}12` : "transparent",
-              color:      active ? accent : T.muted,
-              fontSize: 12, fontWeight: active ? 700 : 400,
+              padding: "4px 10px",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              border:     active ? `1px solid ${accent}50` : `1px solid rgba(255,255,255,0.07)`,
+              background: active ? `${accent}10` : "rgba(255,255,255,0.02)",
+              color:      active ? accent : "#3a4058",
+              fontSize: 11, fontWeight: active ? 700 : 500,
               cursor: "pointer", transition: "all 0.15s",
+              letterSpacing: active ? "0.01em" : "0",
             }}
           >
             {opt}
