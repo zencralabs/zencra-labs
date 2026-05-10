@@ -63,13 +63,14 @@ export async function getUserSlotUsage(userId: string): Promise<number> {
   return count ?? 0;
 }
 
-// ── Get plan tier for user (reads from subscriptions) ────────────────────────
-// Returns the plan_tier string or null if no active subscription.
+// ── Get plan tier for user (reads from subscriptions → plans) ────────────────
+// subscriptions.plan_id references plans.id; plans.slug is the tier name
+// (starter | creator | pro | business). Returns null if no active subscription.
 
 export async function getUserPlanTier(userId: string): Promise<string | null> {
   const { data, error } = await supabaseAdmin
     .from("subscriptions")
-    .select("plan_tier")
+    .select("plans!inner(slug)")
     .eq("user_id", userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -80,7 +81,10 @@ export async function getUserPlanTier(userId: string): Promise<string | null> {
     console.error("[identity-slots] getUserPlanTier failed:", error);
     return null;
   }
-  return data?.plan_tier ?? null;
+  // data.plans is the joined row — slug matches SLOT_LIMITS keys
+  // Cast through unknown: Supabase infers array type for joins, but maybeSingle ensures single row
+  const plans = data?.plans as unknown as { slug: string } | null;
+  return plans?.slug ?? null;
 }
 
 // ── Full slot info for a user ─────────────────────────────────────────────────
