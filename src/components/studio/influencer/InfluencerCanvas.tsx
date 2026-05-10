@@ -1950,7 +1950,7 @@ function CanvasDock({
         <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.08)" }} />
 
         {/* Create Influencer — center, primary CTA — single source of truth */}
-        {/* Typography locked: Familjen Grotesk 14px / 600 / h-10 / gap-1.5 — matches Image Studio Generate CTA */}
+        {/* Typography locked: var(--font-display) / Syne 16px / 700 / gap-8 / padding-11-26 — exact match Image Studio Generate CTA */}
         <button
           onClick={onCreateClick}
           disabled={locked}
@@ -1960,11 +1960,10 @@ function CanvasDock({
             overflow: "hidden",
             display: "flex",
             alignItems: "center",
-            gap: 6,                                      // gap-1.5 = 6px — matches Image Studio
+            gap: 8,                                      // gap-8 — matches Image Studio Generate CTA
             // Expand on creating — smooth padding growth
-            padding: isCreating ? "0 28px" : "0 24px",
-            height: 40,                                  // h-10 — matches Image Studio
-            borderRadius: 8,
+            padding: isCreating ? "11px 32px" : "11px 26px",   // height by padding — matches Image Studio
+            borderRadius: 13,                            // matches Image Studio
             border: "none",
             whiteSpace: "nowrap",
             // Color: full gradient when creating OR idle; dim ghost when generating-only
@@ -1988,11 +1987,11 @@ function CanvasDock({
               : (!locked ? `0 0 20px ${accent}30, 0 2px 8px rgba(0,0,0,0.4)` : "none"),
             // Animate glow pulse only when creating
             animation: isCreating ? "canvasDockGlow 1.2s ease-in-out infinite" : undefined,
-            // Type — locked to match Image Studio Generate CTA
-            fontSize: 14,                                // text-[14px]
-            fontWeight: 600,                             // font-semibold
-            letterSpacing: "0.01em",
-            fontFamily: "var(--font-familjen-grotesk, inherit)",
+            // Type — locked to exact Image Studio Generate CTA values
+            fontSize: 16,                                // matches Image Studio
+            fontWeight: 700,                             // matches Image Studio
+            letterSpacing: "-0.01em",                   // matches Image Studio
+            fontFamily: "var(--font-display)",           // Syne — matches Image Studio
             cursor: locked ? "not-allowed" : "pointer",
             // Smooth all non-keyframe transitions
             transition: [
@@ -2027,7 +2026,7 @@ function CanvasDock({
               animation: "spin 0.75s linear infinite",
             }} />
           ) : (
-            <Zap size={14} strokeWidth={2.2} style={{ flexShrink: 0 }} />
+            <Zap size={14} strokeWidth={2.5} style={{ color: "#fece01", flexShrink: 0 }} />
           )}
 
           {/* Label */}
@@ -2041,13 +2040,14 @@ function CanvasDock({
                   : "Create Influencer"}
           </span>
 
-          {/* Credit cost — only shown in idle state, matches Image Studio "15 cr" pattern */}
+          {/* Credit cost — only shown in idle state, matches Image Studio "X cr" span exactly */}
           {!isCreating && !isGenerating && (
             <span style={{
-              fontSize: 12,
-              fontWeight: 500,
+              fontFamily: "var(--font-display)",        // Syne — matches Image Studio credit span
+              fontSize: 16,
+              fontWeight: 700,
               opacity: 0.7,
-              letterSpacing: "0.01em",
+              letterSpacing: "-0.01em",
             }}>
               8 cr
             </span>
