@@ -13,6 +13,9 @@ import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
 import { formatHandle } from "@/lib/ai-influencer/format-handle";
 import { supabase }        from "@/lib/supabase";
+import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
+import { startPolling }    from "@/lib/jobs/job-polling";
+import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
 import CandidateCarousel      from "./candidate/CandidateCarousel";
 import CandidatePreviewModal  from "./candidate/CandidatePreviewModal";
 import CandidateCompareTray   from "./candidate/CandidateCompareTray";
@@ -146,6 +149,20 @@ export default function InfluencerCanvas({
   const packSectionRef = useRef<HTMLDivElement>(null);
   const canvasRef      = useRef<HTMLDivElement>(null);
 
+  // ── Auth token ref — kept current via onAuthStateChange ─────────────────────
+  // Used by startPolling so every poll tick reads a live JWT even if the token
+  // rotated while look-pack jobs are in progress (up to 10 min).
+  const authTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => { authTokenRef.current = session?.access_token ?? null; })
+      .catch(() => { /* ignore */ });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, sess) => {
+      authTokenRef.current = sess?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Reset packs when influencer changes
   useEffect(() => {
     setPackOutputs([]);
@@ -179,7 +196,107 @@ export default function InfluencerCanvas({
         packSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 320);
 
-      // Dispatch pack generation
+      // ── Step 6B: Look Pack uses universal polling via FLUX Kontext ────────────
+      // All other pack types continue to use the generic /packs route + pollJobForUrl
+      // until they are upgraded in a future phase.
+      if (packType === "look-pack") {
+        try {
+          const authHeader = await getAuthHeader();
+          const res = await fetch(
+            `/api/character/ai-influencers/${active.influencer.id}/look-pack`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...authHeader },
+              body: JSON.stringify({
+                identity_lock_id:   active.identity_lock_id,
+                canonical_asset_id: active.canonical_asset_id,
+              }),
+            },
+          );
+
+          if (!res.ok) {
+            setPackOutputs(prev =>
+              prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
+            );
+            return;
+          }
+
+          const data = await res.json();
+          const jobs: Array<{ jobId: string; label: string }> = data.data?.jobs ?? [];
+
+          if (jobs.length === 0) {
+            setPackOutputs(prev =>
+              prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
+            );
+            return;
+          }
+
+          // ── Activity Center integration (universal polling engine) ─────────────
+          // Each look-pack job is registered in the pending-job-store and polled via
+          // job-polling.ts — identical lifecycle to Video/Image/CDv2 jobs.
+          // When all jobs resolve, packOutputs transitions to "complete".
+          const store = getPendingJobStoreState();
+          let resolvedCount = 0;
+          const completedImages: Array<{ url: string; label: string }> = [];
+
+          const onJobResolved = (url?: string, label?: string) => {
+            if (url && label) completedImages.push({ url, label });
+            resolvedCount++;
+            if (resolvedCount === jobs.length) {
+              setPackOutputs(prev =>
+                prev.map(p =>
+                  p.type === "look-pack"
+                    ? { ...p, status: completedImages.length > 0 ? "complete" : "failed", images: completedImages }
+                    : p,
+                ),
+              );
+              // Keep look-pack as the active output panel
+              setActivePack("look-pack");
+            }
+          };
+
+          for (const { jobId, label } of jobs) {
+            store.registerJob({
+              jobId,
+              studio:     "image",          // FLUX Kontext dispatches as image studio
+              modelKey:   "flux-kontext",
+              modelLabel: "Look Pack",
+              prompt:     `Look variation — ${label} for @${active.influencer.handle ?? ""}`,
+              createdAt:  new Date().toISOString(),
+            });
+
+            startPolling({
+              jobId,
+              studio:   "image",
+              // getToken reads ref so JWT rotation during long polls is safe
+              getToken: () => authTokenRef.current,
+              onComplete: (update) => {
+                store.completeJob(jobId, update.url ?? "");
+                onJobResolved(update.url, label);
+              },
+              onError: (update) => {
+                store.failJob(
+                  jobId,
+                  update.status as Extract<GenerationStatus, "failed" | "refunded" | "stale" | "cancelled">,
+                  update.error,
+                );
+                onJobResolved(); // still count toward total so canvas unblocks
+              },
+              onUpdate: (update) => {
+                store.updateJob(jobId, { status: update.status });
+              },
+            });
+          }
+        } catch (err) {
+          console.error("[triggerPack/look-pack]", err);
+          setPackOutputs(prev =>
+            prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
+          );
+        }
+        return; // look-pack handled — exit early
+      }
+
+      // ── All other pack types: existing route + local polling ──────────────────
       try {
         const authHeader = await getAuthHeader();
         const res = await fetch(
@@ -230,7 +347,7 @@ export default function InfluencerCanvas({
         );
       }
     },
-    [canvasState],
+    [canvasState, authTokenRef],
   );
 
   // ── Derive accent from current category ─────────────────────────────────────
