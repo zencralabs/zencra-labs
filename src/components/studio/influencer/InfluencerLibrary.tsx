@@ -416,7 +416,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           </svg>
           <input
             type="text"
-            placeholder="Search cast…"
+            placeholder="Search by @handle or name…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{
@@ -524,7 +524,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
 
         {/* Loading — portrait skeleton grid */}
         {loading && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 5 }}>
             {[1, 2, 3, 4].map(i => (
               <div
                 key={i}
@@ -609,8 +609,8 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               </span>
             </div>
 
-            {/* 2-column portrait grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+            {/* Single-column full-width portrait grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 5 }}>
               {members.map(inf => (
                 <InfluencerCard
                   key={inf.id}

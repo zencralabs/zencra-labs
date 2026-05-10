@@ -1589,7 +1589,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
       {/* Card container */}
       <div style={{
         position: "relative",
-        maxWidth: 220, width: "100%",
+        maxWidth: 248, width: "100%",
         display: "flex", flexDirection: "column",
         alignItems: "center", gap: 14,
       }}>
@@ -1597,7 +1597,7 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
         {/* Portrait */}
         <div style={{
           width: "100%",
-          aspectRatio: "2/3",
+          aspectRatio: "9/16",
           overflow: "hidden",
           background: "rgba(255,255,255,0.03)",
           border: `1px solid ${accent}30`,
@@ -1639,67 +1639,26 @@ function IdentityRevealCard({ active, accent }: { active: ActiveInfluencer; acce
             </div>
           )}
 
-          {/* Subtle bottom vignette over portrait */}
+          {/* Subtle bottom vignette over portrait — ~22% opacity black gradient */}
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
-            height: "35%",
-            background: "linear-gradient(to top, rgba(7,9,15,0.80) 0%, transparent 100%)",
+            height: "40%",
+            background: "linear-gradient(to top, rgba(0,0,0,0.22) 0%, transparent 100%)",
             pointerEvents: "none",
           }} aria-hidden="true" />
         </div>
 
-        {/* Handle — below portrait */}
+        {/* Handle — cinematic title below portrait, 30px Syne, overflow allowed */}
         <div style={{
           fontFamily: "'Syne', sans-serif",
-          fontSize: 20, fontWeight: 800,
-          color: "#ffffff", letterSpacing: "-0.02em",
+          fontSize: 30, fontWeight: 800,
+          color: "#ffffff", letterSpacing: "-0.03em",
           textAlign: "center",
-          textShadow: `0 0 20px ${accent}40`,
+          textShadow: `0 0 28px ${accent}50, 0 2px 12px rgba(0,0,0,0.80)`,
+          whiteSpace: "nowrap",
+          lineHeight: 1.0,
         }}>
           {formatHandle(active.influencer.handle)}
-        </div>
-
-        {/* Style category chip */}
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 6,
-          padding: "5px 12px",
-          background: `${accent}12`,
-          border: `1px solid ${accent}35`,
-        }}>
-          <div style={{
-            width: 5, height: 5, borderRadius: "50%",
-            background: accent, flexShrink: 0,
-          }} />
-          {/* Chip: 11px / 700 / 0.10em */}
-          <span style={{
-            fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 11, fontWeight: 700,
-            letterSpacing: "0.10em",
-            color: accent,
-            textTransform: "uppercase" as const,
-          }}>
-            {categoryLabel}
-          </span>
-        </div>
-
-        {/* Identity lock badge */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "4px 12px",
-          background: "rgba(16,185,129,0.08)",
-          border: "1px solid rgba(16,185,129,0.20)",
-        }}>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-            stroke="#10b981" strokeWidth="2.5" strokeLinecap="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <span style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
-            color: "#10b981", textTransform: "uppercase" as const,
-          }}>
-            Identity Locked
-          </span>
         </div>
       </div>
     </div>
