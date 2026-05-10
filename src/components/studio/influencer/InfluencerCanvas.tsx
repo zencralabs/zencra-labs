@@ -20,11 +20,19 @@ import CandidateControls      from "./candidate/CandidateControls";
 // ── Auth header helper ────────────────────────────────────────────────────────
 // All character API routes use requireAuthUser which reads ONLY the
 // Authorization: Bearer header (not cookies). Resolve a fresh token every call.
+// Hard 4-second timeout guard: supabase.auth.getSession() can hang indefinitely
+// on stale BroadcastChannel sessions (Supabase mutex contention). If it doesn't
+// resolve in time we fall back to {} and let the server return 401, which is
+// caught by the caller's error handler — far better than an infinite UI hang.
 async function getAuthHeader(): Promise<Record<string, string>> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` };
+    const sessionPromise = supabase.auth.getSession();
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), 4000),
+    );
+    const result = await Promise.race([sessionPromise, timeoutPromise]);
+    if (result && "data" in result && result.data.session?.access_token) {
+      return { Authorization: `Bearer ${result.data.session.access_token}` };
     }
   } catch { /* ignore */ }
   return {};
