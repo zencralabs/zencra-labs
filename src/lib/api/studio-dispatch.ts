@@ -595,7 +595,7 @@ export async function pollAndUpdateJob(
       // extra credits, which is the safe direction), but we do log it prominently.
       try {
         const { data: assetRow } = await supabaseAdmin
-          .from("generations")
+          .from("assets")
           .select("user_id, credits_cost")
           .eq("id", assetId)
           .single();
