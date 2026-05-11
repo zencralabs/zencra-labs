@@ -386,19 +386,35 @@ export const instantCharacterProvider: ZProvider = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Map Zencra aspect ratio keys to fal.ai image_size strings.
- * fal.ai uses named presets; "portrait_4_3" (768×1024) is the closest to 2:3.
+ * Map Zencra aspect ratio keys to fal.ai image_size values.
+ *
+ * fal-ai/instant-character supports BOTH named string presets AND custom
+ * {width, height} objects. Custom dimensions unlock higher resolution than
+ * the named presets allow.
+ *
+ * Portrait resolution comparison:
+ *   portrait_4_3 (named preset) = 768×1024  —  786,432 px
+ *   {width:832, height:1216}   (custom 2:3) = 832×1216  — 1,011,712 px (+28%)
+ *
+ * The custom 2:3 object gives:
+ *   - More vertical face detail and skin resolution
+ *   - Better hair rendering (more pixel rows)
+ *   - Stronger portrait framing and social/mobile crop
+ *   - True 2:3 ratio (vs portrait_4_3 which is 3:4 = 0.75)
+ *
+ * Audit source: fal.ai live schema (Step 1B audit, 2026-05-11)
+ * Decision: Jai approved 832×1216 as new default for influencer portrait casting.
  */
-function aspectToFalSize(ratio: string): string {
-  const map: Record<string, string> = {
+function aspectToFalSize(ratio: string): string | { width: number; height: number } {
+  const map: Record<string, string | { width: number; height: number }> = {
     "1:1":  "square_hd",
     "4:5":  "portrait_4_3",
-    "2:3":  "portrait_4_3",    // closest available portrait preset
+    "2:3":  { width: 832, height: 1216 },   // true 2:3 — upgraded from portrait_4_3 (768×1024)
     "9:16": "portrait_16_9",
     "4:3":  "landscape_4_3",
     "16:9": "landscape_16_9",
   };
-  return map[ratio] ?? "portrait_4_3";
+  return map[ratio] ?? { width: 832, height: 1216 };
 }
 
 /**
