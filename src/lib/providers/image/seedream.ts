@@ -195,20 +195,22 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       const requestId = String(data.request_id ?? data.requestId ?? "");
       if (!requestId) throw new Error("Seedream returned no request ID.");
 
-      // ── v4-5: store fal.ai's own polling URLs in externalJobId ───────────────
+      // ── All variants: store fal.ai's own polling URLs in externalJobId ─────────
       // fal.ai returns status_url and response_url in the submit response.
       // These are the authoritative polling URLs — use them directly rather than
-      // constructing from modelId (which now includes the /text-to-image or /edit suffix
-      // and may not map cleanly to the status/result URL pattern).
+      // constructing from modelId (which may include path suffixes like /text-to-image
+      // or /edit that don't cleanly map to the status/result URL pattern).
       // Encoded as "{requestId}|{statusUrl}|{responseUrl}" for retrieval in getJobStatus.
+      // All three variants (v5, v5-lite, v4-5) now use this pattern for consistency.
       let externalJobId = requestId;
-      if (variant === "v4-5") {
+      {
+        const logPrefix      = variant === "v4-5" ? "[seedream-45]" : "[seedream-v5]";
         const falStatusUrl   = typeof data.status_url   === "string" ? data.status_url   : "";
         const falResponseUrl = typeof data.response_url === "string" ? data.response_url : "";
-        console.info(`[seedream-45] SUBMIT URLs status=${falStatusUrl || "(not-in-response)"} response=${falResponseUrl || "(not-in-response)"}`);
+        console.info(`${logPrefix} SUBMIT URLs status=${falStatusUrl || "(not-in-response)"} response=${falResponseUrl || "(not-in-response)"}`);
         if (falStatusUrl && falResponseUrl) {
           externalJobId = `${requestId}|${falStatusUrl}|${falResponseUrl}`;
-          console.info(`[seedream-45] SUBMIT encoded-job-id=${externalJobId.slice(0, 120)}`);
+          console.info(`${logPrefix} SUBMIT encoded-job-id=${externalJobId.slice(0, 120)}`);
         }
       }
 
@@ -246,6 +248,8 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
       if (variant === "v4-5") {
         console.info(`[seedream-45] POLL url=${statusUrl}`);
         console.info(`[seedream-45] POLL METHOD GET stored=${!!storedStatusUrl}`);
+      } else {
+        console.info(`[seedream-v5] POLL url=${statusUrl} stored=${!!storedStatusUrl}`);
       }
 
       const statusRes = await fetch(
@@ -257,6 +261,8 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         const allowHdr   = statusRes.headers.get("allow") ?? statusRes.headers.get("Allow") ?? "not-set";
         if (variant === "v4-5") {
           console.error(`[seedream-45] POLL FAILED status=${statusRes.status} allow=${allowHdr} body=${errBody.slice(0, 400)}`);
+        } else {
+          console.error(`[seedream-v5] POLL FAILED status=${statusRes.status} allow=${allowHdr} body=${errBody.slice(0, 400)}`);
         }
         return { jobId: externalJobId, status: "error", error: `HTTP ${statusRes.status}: ${errBody.slice(0, 200)}` };
       }
@@ -266,11 +272,15 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
 
       if (variant === "v4-5") {
         console.info(`[seedream-45] POLL RESPONSE status=${status} raw=${JSON.stringify(data).slice(0, 200)}`);
+      } else {
+        console.info(`[seedream-v5] POLL RESPONSE status=${status} raw=${JSON.stringify(data).slice(0, 200)}`);
       }
 
       if (status === "COMPLETED") {
         if (variant === "v4-5") {
           console.info(`[seedream-45] RESULT URL ${resultUrl}`);
+        } else {
+          console.info(`[seedream-v5] RESULT URL ${resultUrl}`);
         }
         const resultRes = await fetch(
           resultUrl,
@@ -280,14 +290,21 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
           const resErrBody = await resultRes.text().catch(() => "<unreadable>");
           if (variant === "v4-5") {
             console.error(`[seedream-45] RESULT FAILED status=${resultRes.status} body=${resErrBody.slice(0, 300)}`);
+          } else {
+            console.error(`[seedream-v5] RESULT FAILED status=${resultRes.status} body=${resErrBody.slice(0, 300)}`);
           }
           return { jobId: externalJobId, status: "error", error: "Failed to fetch result." };
         }
         const result = (await resultRes.json()) as Record<string, unknown>;
         if (variant === "v4-5") {
           console.info(`[seedream-45] RESULT OK keys=${Object.keys(result).join(",")}`);
+        } else {
+          console.info(`[seedream-v5] RESULT OK keys=${Object.keys(result).join(",")}`);
         }
         const images = result.images as Array<{ url: string }> | undefined;
+        if (variant !== "v4-5") {
+          console.info(`[seedream-v5] RESULT URL extracted=${images?.[0]?.url?.slice(0, 80) ?? "(none)"}`);
+        }
         return {
           jobId: externalJobId, status: "success",
           url: images?.[0]?.url,
@@ -299,6 +316,8 @@ function buildSeedreamProvider(modelKey: string, displayName: string): ZProvider
         const failReason = String((data as Record<string, unknown>).error ?? (data as Record<string, unknown>).detail ?? "Seedream generation failed.");
         if (variant === "v4-5") {
           console.error(`[seedream-45] JOB FAILED reason=${failReason}`);
+        } else {
+          console.error(`[seedream-v5] JOB FAILED reason=${failReason}`);
         }
         return { jobId: externalJobId, status: "error", error: `Seedream generation failed: ${failReason}` };
       }

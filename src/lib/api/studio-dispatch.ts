@@ -555,12 +555,15 @@ export async function pollAndUpdateJob(
         const mirrored = await mirrorVideoToStorage(jobStatus.url, assetId);
         persistentUrl  = mirrored.url;
         audioDetected  = mirrored.audioDetected;
-      } else if (modelKey === "instant-character") {
+      } else if (modelKey === "instant-character" || modelKey === "seedream-v5-identity") {
         // ── AI Influencer candidate images: always mirror unconditionally ─────────
         // fal.ai URLs expire regardless of subdomain (fal.media, fal.run, etc.).
         // Candidate cards + library thumbnails + hero_url must use permanent URLs.
         // Provider URLs are temporary. Supabase URLs are product truth.
+        // Both instant-character (post-lock packs) and seedream-v5-identity
+        // (initial casting) produce candidate assets — same mirroring path.
         persistentUrl = await mirrorCandidateToStorage(jobStatus.url, assetId);
+        console.info(`[pollAndUpdateJob] ${modelKey} mirrored candidate → ${persistentUrl.slice(0, 80)}`);
       } else {
         // Mirror temp provider images (e.g. NB's tempfile.aiquickdraw.com)
         persistentUrl = await mirrorImageToStorage(jobStatus.url, assetId);
