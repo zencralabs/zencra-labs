@@ -1541,9 +1541,9 @@ function RevealHeader({ accent }: { accent: string }) {
           0%, 100% { opacity: 0.5; transform: scale(0.98); }
           50%       { opacity: 1;   transform: scale(1.01); }
         }
-        @keyframes titleShimmerBeam {
-          0%   { left: 110%; }
-          100% { left: -60%; }
+        @keyframes titleShimmerText {
+          0%   { background-position: 200% center; }
+          100% { background-position: -20% center; }
         }
         @keyframes packGenerating {
           0%, 100% { opacity: 0.55; }
@@ -1582,8 +1582,8 @@ function RevealHeader({ accent }: { accent: string }) {
         </span>
       </div>
 
-      {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
-      {/* Shimmer beam travels right→left over white text via mix-blend-mode overlay — stripe-safe */}
+      {/* Main headline — cinematic metallic sweep INSIDE the glyphs via background-clip:text */}
+      {/* Gradient travels right→left inside the letterforms — no rectangular bar possible */}
       <h2
         className="font-display tracking-tight"
         style={{
@@ -1593,32 +1593,26 @@ function RevealHeader({ accent }: { accent: string }) {
           fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
+          // Fallback for browsers that don't support background-clip:text
           color: "rgba(255,255,255,0.92)",
-          position: "relative",
-          overflow: "hidden",
-          textShadow: `0 0 40px ${accent}40, 0 2px 12px rgba(0,0,0,0.6)`,
+          // Metallic sweep — base white with traveling accent-tinted reflection
+          background: `linear-gradient(90deg,
+            rgba(255,255,255,0.88)  0%,
+            rgba(255,255,255,0.88) 36%,
+            ${accent}99            44%,
+            rgba(255,255,255,0.97) 50%,
+            ${accent}99            56%,
+            rgba(255,255,255,0.88) 64%,
+            rgba(255,255,255,0.88) 100%
+          )`,
+          backgroundSize: "250% 100%",
+          backgroundClip: "text",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          animation: "titleShimmerText 7s ease-in-out infinite alternate",
         }}
       >
         Your Digital Human is Ready
-        {/* Travelling shimmer beam — mix-blend-mode:color tints the WHITE text with accent hue as beam sweeps */}
-        <span aria-hidden="true" style={{
-          position:   "absolute",
-          top:        "-10%",
-          width:      "40%",
-          height:     "120%",
-          background: `linear-gradient(90deg,
-            transparent            0%,
-            ${accent}00           15%,
-            ${accent}bb           40%,
-            ${accent}ff           50%,
-            ${accent}bb           60%,
-            ${accent}00           85%,
-            transparent           100%
-          )`,
-          mixBlendMode:   "color" as const,
-          pointerEvents:  "none",
-          animation:      "titleShimmerBeam 3.5s linear infinite",
-        }} />
       </h2>
 
       {/* Sub-line — whiteSpace nowrap keeps it on one line on desktop */}
