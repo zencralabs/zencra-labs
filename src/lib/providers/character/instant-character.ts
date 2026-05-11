@@ -221,20 +221,28 @@ export const instantCharacterProvider: ZProvider = {
     }
 
     if (status === "COMPLETED") {
-      // ── Step 1: Try to extract the image URL directly from statusData ───────────
-      // fal.ai often embeds the full result inside the status response payload.
-      // Instant Character specifically returns 422 on a second fetch of response_url,
-      // which means the output is already here — no second request needed.
+      // ── Extract image URL from statusData — NO secondary fetch ──────────────────
       //
-      // Check all known embedding locations:
-      //   statusData.images            — top-level (most common)
-      //   statusData.output.images     — wrapped in output object
-      //   statusData.data.images       — wrapped in data object
-      //   statusData.result.images     — wrapped in result object
+      // fal-ai/instant-character embeds the completed output directly inside
+      // the status response payload. Attempting a second fetch to response_url
+      // returns HTTP 422 ("Field required: image_url") because that endpoint
+      // re-invokes the model rather than retrieving stored output.
+      //
+      // This provider MUST read the result from statusData only.
+      // Never add a fallback fetch here for Instant Character.
+      //
+      // extractImages() checks all known fal.ai embedding shapes:
+      //   { images: [{ url }] }                     — top-level array (most common)
+      //   { output: { images: [{ url }] } }          — wrapped in output
+      //   { data:   { images: [{ url }] } }          — wrapped in data
+      //   { result: { images: [{ url }] } }          — wrapped in result
+      //   { image:  { url } }                        — single image object
+      //   { output_url: "https://..." }              — direct URL string
+      //   { url:        "https://..." }              — bare URL string
       const embedded = extractImages(statusData);
       if (embedded.url) {
         console.log(
-          `[instant-character] job completed (embedded): requestId=${externalJobId} url=${embedded.url.slice(0, 80)}`
+          `[instant-character] job completed: requestId=${externalJobId} url=${embedded.url.slice(0, 80)}`
         );
         return {
           jobId:    externalJobId,
@@ -244,59 +252,17 @@ export const instantCharacterProvider: ZProvider = {
         };
       }
 
-      // ── Step 2: Fall back to second fetch if result not embedded ────────────────
-      // Try response_url first (fal.ai recommended), then bare constructed URL.
-      const responseUrl =
-        typeof statusData.response_url === "string" && statusData.response_url
-          ? statusData.response_url
-          : `https://queue.fal.run/${modelId}/requests/${externalJobId}`;
-
-      const resultRes = await fetch(responseUrl, {
-        headers: { "Authorization": `Key ${apiKey}` },
-        signal:  AbortSignal.timeout(15_000),
-      });
-
-      if (!resultRes.ok) {
-        const body = await resultRes.text().catch(() => "");
-        console.error(
-          `[instant-character] result fetch failed: HTTP ${resultRes.status} url=${responseUrl} body=${body.slice(0, 300)}`
-        );
-        return {
-          jobId:  externalJobId,
-          status: "error",
-          error:  `Failed to fetch completed result (HTTP ${resultRes.status})`,
-        };
-      }
-
-      const result = (await resultRes.json()) as Record<string, unknown>;
-      console.log(
-        `[instant-character] result fetch keys=${Object.keys(result).join(",")}`,
-        process.env.NODE_ENV !== "production"
-          ? JSON.stringify(result).slice(0, 500)
-          : ""
-      );
-
-      // Try all known shapes from the fetched result too
-      const fetched = extractImages(result);
-      if (!fetched.url) {
-        console.error(
-          `[instant-character] no URL in result — statusData keys=${Object.keys(statusData).join(",")} result keys=${Object.keys(result).join(",")}`
-        );
-        return {
-          jobId:  externalJobId,
-          status: "error",
-          error:  "No image URL in completed result.",
-        };
-      }
-
-      console.log(
-        `[instant-character] job completed (fetched): requestId=${externalJobId} url=${fetched.url.slice(0, 80)}`
+      // Extraction failed — log full statusData shape for diagnosis.
+      // This must NOT fall back to a secondary HTTP request.
+      console.error(
+        `[instant-character] COMPLETED but no image URL found in statusData. ` +
+        `top-level keys=${Object.keys(statusData).join(",")} ` +
+        `statusData=${process.env.NODE_ENV !== "production" ? JSON.stringify(statusData).slice(0, 1000) : "(production)"}`
       );
       return {
-        jobId:    externalJobId,
-        status:   "success",
-        url:      fetched.url,
-        metadata: { seed: fetched.seed },
+        jobId:  externalJobId,
+        status: "error",
+        error:  "Generation completed but image URL was not found in the response payload. Check server logs.",
       };
     }
 
@@ -379,11 +345,17 @@ function aspectToFalSize(ratio: string): string {
 /**
  * Extract the image URL and seed from any known fal.ai result shape.
  *
- * fal.ai embeds completed results differently per model:
- *   - Top-level:   { images: [{ url }], seed }
- *   - output wrap: { output: { images: [{ url }], seed } }
- *   - data wrap:   { data:   { images: [{ url }], seed } }
- *   - result wrap: { result: { images: [{ url }], seed } }
+ * fal-ai/instant-character embeds the completed output directly in the
+ * status response (no secondary fetch needed or supported).
+ *
+ * Known shapes checked, in order:
+ *   { images: [{ url }], seed }                   — top-level array (most common)
+ *   { output: { images: [{ url }], seed } }        — wrapped in output object
+ *   { data:   { images: [{ url }], seed } }        — wrapped in data object
+ *   { result: { images: [{ url }], seed } }        — wrapped in result object
+ *   { image:  { url } }                            — single image object
+ *   { output_url: "https://..." }                  — direct URL string (some models)
+ *   { url:        "https://..." }                  — bare URL string (some models)
  *
  * Returns { url: undefined, seed: undefined } if nothing is found.
  */
@@ -398,15 +370,27 @@ function extractImages(data: Record<string, unknown>): { url: string | undefined
 
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== "object") continue;
+
+    // Shape 1: { images: [{ url }] }
     const images = candidate.images as Array<{ url: string }> | undefined;
-    const url    = images?.[0]?.url;
-    if (url) {
-      return { url, seed: candidate.seed as number | undefined };
+    const arrayUrl = images?.[0]?.url;
+    if (arrayUrl && typeof arrayUrl === "string") {
+      return { url: arrayUrl, seed: candidate.seed as number | undefined };
     }
-    // Some models return a single `image` object (not array)
+
+    // Shape 2: { image: { url } }
     const image = candidate.image as { url: string } | undefined;
-    if (image?.url) {
+    if (image?.url && typeof image.url === "string") {
       return { url: image.url, seed: candidate.seed as number | undefined };
+    }
+
+    // Shape 3: { output_url: "https://..." } or { url: "https://..." }
+    // Some fal.ai models return a bare string URL at the top level.
+    for (const key of ["output_url", "url", "image_url", "file_url"] as const) {
+      const directUrl = candidate[key];
+      if (typeof directUrl === "string" && directUrl.startsWith("http")) {
+        return { url: directUrl, seed: candidate.seed as number | undefined };
+      }
     }
   }
 
