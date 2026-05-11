@@ -119,6 +119,9 @@ export interface AIInfluencerProfile {
   mood: string[];
   platform_intent: string[];
   appearance_notes: string | null;
+  // Ethnicity/Region — drives culturally-matched naming + facial genetics in prompts
+  // e.g. "south-asian-indian", "east-asian", "middle-eastern", "european"
+  ethnicity_region: string | null;
   created_at: string;
   updated_at: string;
 }

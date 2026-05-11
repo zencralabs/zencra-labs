@@ -489,6 +489,33 @@ function resolvePlatformLanguage(platform_intent: string[]): string {
   return "";
 }
 
+// ── Ethnicity/Region → prompt descriptor ─────────────────────────────────────
+// Maps the structured region key to a natural-language facial genetics phrase.
+// Injected AFTER base identity traits, BEFORE fashion/mood (genetic first).
+// These are descriptive, not stereotyping — they guide facial bone structure,
+// skin tone behavior, and hair texture in the rendering model.
+const ETHNICITY_PROMPT_MAP: Record<string, string> = {
+  "south-asian-indian":  "South Asian Indian heritage, warm golden-brown complexion, dark expressive eyes",
+  "south-asian-other":   "South Asian heritage, warm olive complexion, expressive dark eyes",
+  "east-asian":          "East Asian heritage, smooth porcelain complexion, refined almond-shaped eyes",
+  "southeast-asian":     "Southeast Asian heritage, warm caramel complexion, bright almond eyes",
+  "african":             "African heritage, rich deep melanin complexion, strong defined features",
+  "african-american":    "African American heritage, rich melanin complexion, sculpted features",
+  "european":            "European heritage, light to medium complexion, varied eye color",
+  "scandinavian":        "Scandinavian heritage, fair porcelain complexion, light eyes, strong Nordic features",
+  "mediterranean":       "Mediterranean heritage, warm olive complexion, dark hair, expressive features",
+  "latin-american":      "Latin American heritage, warm mixed complexion, dark expressive eyes",
+  "brazilian":           "Brazilian heritage, warm sun-kissed complexion, rich dark hair",
+  "middle-eastern":      "Middle Eastern heritage, warm olive complexion, deep dark eyes, defined facial structure",
+  "mixed-ethnicity":     "mixed heritage, uniquely blended features, warm neutral complexion",
+};
+
+function resolveEthnicityDescriptor(ethnicity_region: string | null | undefined): string | null {
+  if (!ethnicity_region) return null;
+  const key = ethnicity_region.toLowerCase().trim();
+  return ETHNICITY_PROMPT_MAP[key] ?? null;
+}
+
 // ── Main composer ─────────────────────────────────────────────────────────────
 
 export function composeInfluencerPrompt({
@@ -512,6 +539,11 @@ export function composeInfluencerPrompt({
   // 2. Identity traits
   if (profile.gender)     parts.push(profile.gender);
   if (profile.age_range)  parts.push(`aged ${profile.age_range}`);
+
+  // 2a. Ethnicity/Region — facial genetics descriptor (after age, before skin override)
+  //     Only injected when selected; appearance_notes can still override specifics.
+  const ethnicityDesc = resolveEthnicityDescriptor(profile.ethnicity_region);
+  if (ethnicityDesc) parts.push(ethnicityDesc);
 
   // Skin tone + face structure — most meaningful for realism-adjacent styles,
   // harmless for stylized ones (anime/pixel artists can still apply these)

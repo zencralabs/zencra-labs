@@ -52,11 +52,17 @@ export async function POST(req: Request): Promise<Response> {
     ? (rawCategory as StyleCategory)
     : "hyper-real";
 
-  // Auto-generate a unique handle for this user (no user-facing name field)
+  // Ethnicity/Region — drives region-aware naming + prompt genetics
+  const ethnicity_region: string | null =
+    typeof body?.ethnicity_region === "string" && body.ethnicity_region.trim()
+      ? (body.ethnicity_region as string).trim()
+      : null;
+
+  // Auto-generate a unique handle for this user (region-aware)
   let handle: string;
   let display_name: string;
   try {
-    const generated = await generateUniqueHandle(userId);
+    const generated = await generateUniqueHandle(userId, ethnicity_region);
     handle       = generated.handle;
     display_name = generated.displayName;
   } catch (err) {
@@ -75,6 +81,7 @@ export async function POST(req: Request): Promise<Response> {
     mood:             Array.isArray(body?.mood)             ? (body.mood as string[])             : [],
     platform_intent:  Array.isArray(body?.platform_intent)  ? (body.platform_intent as string[])  : [],
     appearance_notes: typeof body?.appearance_notes  === "string" ? body.appearance_notes  : null,
+    ethnicity_region,
   };
 
   // Tags — user-defined library filter labels (e.g. ["Fashion", "Luxury"])

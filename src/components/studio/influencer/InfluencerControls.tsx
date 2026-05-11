@@ -54,6 +54,9 @@ interface Props {
   setPlatforms:     (v: string[]) => void;
   notes:            string;
   setNotes:         (v: string) => void;
+  // Ethnicity/Region — drives region-aware naming + facial genetics in prompts
+  ethnicityRegion:    string;
+  setEthnicityRegion: (v: string) => void;
   // Identity Options — candidate count (1–4, default 4)
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
@@ -74,6 +77,7 @@ export default function InfluencerControls({
   mood, setMood,
   platforms, setPlatforms,
   notes, setNotes,
+  ethnicityRegion, setEthnicityRegion,
   candidateCount, setCandidateCount,
   tags, setTags,
 }: Props) {
@@ -123,18 +127,19 @@ export default function InfluencerControls({
           <BuilderTab
             canvasState={canvasState}
             activeInfluencer={activeInfluencer}
-            styleCategory={styleCategory}    setStyleCategory={setStyleCategory}
-            gender={gender}                  setGender={setGender}
-            ageRange={ageRange}              setAgeRange={setAgeRange}
-            skinTone={skinTone}              setSkinTone={setSkinTone}
-            faceStruct={faceStruct}          setFaceStruct={setFaceStruct}
-            fashion={fashion}                setFashion={setFashion}
-            realism={realism}                setRealism={setRealism}
-            mood={mood}                      setMood={setMood}
-            platforms={platforms}            setPlatforms={setPlatforms}
-            notes={notes}                    setNotes={setNotes}
-            candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
-            tags={tags}                      setTags={setTags}
+            styleCategory={styleCategory}          setStyleCategory={setStyleCategory}
+            gender={gender}                        setGender={setGender}
+            ageRange={ageRange}                    setAgeRange={setAgeRange}
+            skinTone={skinTone}                    setSkinTone={setSkinTone}
+            faceStruct={faceStruct}                setFaceStruct={setFaceStruct}
+            fashion={fashion}                      setFashion={setFashion}
+            realism={realism}                      setRealism={setRealism}
+            mood={mood}                            setMood={setMood}
+            platforms={platforms}                  setPlatforms={setPlatforms}
+            notes={notes}                          setNotes={setNotes}
+            ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
+            candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
+            tags={tags}                            setTags={setTags}
           />
         )}
         {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
@@ -264,6 +269,9 @@ interface BuilderTabProps {
   setPlatforms:     (v: string[]) => void;
   notes:            string;
   setNotes:         (v: string) => void;
+  // Ethnicity/Region
+  ethnicityRegion:    string;
+  setEthnicityRegion: (v: string) => void;
   // Identity Options — candidate count
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
@@ -284,6 +292,7 @@ export function BuilderTab({
   mood, setMood,
   platforms, setPlatforms,
   notes, setNotes,
+  ethnicityRegion, setEthnicityRegion,
   candidateCount, setCandidateCount,
   tags, setTags,
 }: BuilderTabProps) {
@@ -409,6 +418,62 @@ export function BuilderTab({
             options={["", "Oval", "Heart", "Square jaw", "Angular", "Round", "Diamond"]}
             style={inputStyle}
           />
+        </div>
+      </section>
+
+      {/* ── Ethnicity / Region ───────────────────────────────────── */}
+      <section>
+        <SectionLabel label="Ethnicity / Region" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {([
+            { value: "",                    label: "Any / Not specified" },
+            { value: "south-asian-indian",  label: "South Asian — Indian" },
+            { value: "south-asian-other",   label: "South Asian — Other" },
+            { value: "east-asian",          label: "East Asian" },
+            { value: "southeast-asian",     label: "Southeast Asian" },
+            { value: "african",             label: "African" },
+            { value: "african-american",    label: "African American" },
+            { value: "european",            label: "European" },
+            { value: "scandinavian",        label: "Scandinavian" },
+            { value: "mediterranean",       label: "Mediterranean" },
+            { value: "latin-american",      label: "Latin American" },
+            { value: "brazilian",           label: "Brazilian" },
+            { value: "middle-eastern",      label: "Middle Eastern" },
+            { value: "mixed-ethnicity",     label: "Mixed / Blended" },
+          ] as const).map(opt => {
+            const sel = ethnicityRegion === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setEthnicityRegion(sel ? "" : opt.value)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "8px 11px", borderRadius: 8, textAlign: "left", width: "100%",
+                  border:     sel ? `1px solid ${selectedCat.accent}55` : `1px solid rgba(255,255,255,0.06)`,
+                  background: sel ? `${selectedCat.accent}0f` : "rgba(255,255,255,0.02)",
+                  cursor: "pointer",
+                  transition: "all 0.13s",
+                }}
+              >
+                <span style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 12, fontWeight: sel ? 700 : 400,
+                  color: sel ? selectedCat.accent : "rgba(255,255,255,0.58)",
+                }}>
+                  {opt.label}
+                </span>
+                {sel && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <polyline points="2,5 4.2,7.5 8,3" stroke={selectedCat.accent} strokeWidth="1.8"
+                      strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
+          Shapes facial genetics in the prompt and selects a region-matched name.
         </div>
       </section>
 

@@ -59,20 +59,22 @@ export default function AIInfluencerBuilder() {
   const [libraryKey,  setLibraryKey]  = useState(0);
 
   // ── Lifted form state (shared between Controls → Canvas) ──────────────────
-  const [styleCategory,  setStyleCategory]  = useState<StyleCategory>("hyper-real");
-  const [gender,         setGender]         = useState("");
-  const [ageRange,       setAgeRange]       = useState("");
-  const [skinTone,       setSkinTone]       = useState("");
-  const [faceStruct,     setFaceStruct]     = useState("");
-  const [fashion,        setFashion]        = useState("");
-  const [realism,        setRealism]        = useState("photorealistic");
-  const [mood,           setMood]           = useState<string[]>([]);
-  const [platforms,      setPlatforms]      = useState<string[]>([]);
-  const [notes,          setNotes]          = useState("");
+  const [styleCategory,   setStyleCategory]   = useState<StyleCategory>("hyper-real");
+  const [gender,          setGender]          = useState("");
+  const [ageRange,        setAgeRange]        = useState("");
+  const [skinTone,        setSkinTone]        = useState("");
+  const [faceStruct,      setFaceStruct]      = useState("");
+  const [fashion,         setFashion]         = useState("");
+  const [realism,         setRealism]         = useState("photorealistic");
+  const [mood,            setMood]            = useState<string[]>([]);
+  const [platforms,       setPlatforms]       = useState<string[]>([]);
+  const [notes,           setNotes]           = useState("");
+  // Ethnicity/Region — drives region-aware naming + facial genetics in prompts
+  const [ethnicityRegion, setEthnicityRegion] = useState("");
   // Identity Options — how many candidates to generate (1–4, default 4)
-  const [candidateCount, setCandidateCount] = useState(4);
+  const [candidateCount,  setCandidateCount]  = useState(4);
   // Library tags — user-defined labels for filtering in the AI Talent Roster
-  const [tags,           setTags]           = useState<string[]>([]);
+  const [tags,            setTags]            = useState<string[]>([]);
 
   // ── Auth token ref — kept current from the session provided by AuthContext ─
   // Used by startPolling so every poll tick reads a live JWT even if the
@@ -156,6 +158,7 @@ export default function AIInfluencerBuilder() {
           mood,
           platform_intent:   platforms,
           appearance_notes:  notes,
+          ethnicity_region:  ethnicityRegion || null,
           tags,
         }),
       });
@@ -263,7 +266,7 @@ export default function AIInfluencerBuilder() {
     }
   }, [
     session, styleCategory, gender, ageRange, skinTone, faceStruct,
-    fashion, realism, mood, platforms, notes, candidateCount, tags, handleCreated, handleCandidatesReady,
+    fashion, realism, mood, platforms, notes, ethnicityRegion, candidateCount, tags, handleCreated, handleCandidatesReady,
   ]);
 
   const handleSelected = useCallback(
@@ -357,18 +360,19 @@ export default function AIInfluencerBuilder() {
         <InfluencerControls
           canvasState={canvasState}
           activeInfluencer={activeInfluencer}
-          styleCategory={styleCategory}    setStyleCategory={setStyleCategory}
-          gender={gender}                  setGender={setGender}
-          ageRange={ageRange}              setAgeRange={setAgeRange}
-          skinTone={skinTone}              setSkinTone={setSkinTone}
-          faceStruct={faceStruct}          setFaceStruct={setFaceStruct}
-          fashion={fashion}                setFashion={setFashion}
-          realism={realism}                setRealism={setRealism}
-          mood={mood}                      setMood={setMood}
-          platforms={platforms}            setPlatforms={setPlatforms}
-          notes={notes}                    setNotes={setNotes}
-          candidateCount={candidateCount}  setCandidateCount={setCandidateCount}
-          tags={tags}                      setTags={setTags}
+          styleCategory={styleCategory}          setStyleCategory={setStyleCategory}
+          gender={gender}                        setGender={setGender}
+          ageRange={ageRange}                    setAgeRange={setAgeRange}
+          skinTone={skinTone}                    setSkinTone={setSkinTone}
+          faceStruct={faceStruct}                setFaceStruct={setFaceStruct}
+          fashion={fashion}                      setFashion={setFashion}
+          realism={realism}                      setRealism={setRealism}
+          mood={mood}                            setMood={setMood}
+          platforms={platforms}                  setPlatforms={setPlatforms}
+          notes={notes}                          setNotes={setNotes}
+          ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
+          candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
+          tags={tags}                            setTags={setTags}
         />
       </div>
 
