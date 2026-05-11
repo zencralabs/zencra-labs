@@ -475,6 +475,7 @@ export default function InfluencerCanvas({
             influencer_id={canvasState.influencer_id}
             jobIds={canvasState.jobs}
             accent={currentAccent}
+            candidateCount={candidateCount}
             onReady={onCandidatesReady}
           />
         )}
@@ -705,6 +706,7 @@ const GENERATING_LINES = [
 function GeneratingState({
   jobIds,
   accent,
+  candidateCount,
 }: {
   // influencer_id and onReady are no longer used here — the canvas transition is
   // driven by AIInfluencerBuilder via startPolling onComplete/onError callbacks.
@@ -712,11 +714,14 @@ function GeneratingState({
   influencer_id?: string;  // retained for compatibility, not used
   jobIds: string[];
   accent: string;
+  candidateCount: number;
   onReady?: (influencer_id: string, urls: string[]) => void;  // retained, not used
 }) {
   const [progress, setProgress] = useState(0);
   const [lineIdx,  setLineIdx]  = useState(0);
-  const total = jobIds.length || 4;
+  // Use candidateCount as the authoritative skeleton count — it's known the moment
+  // the user clicks Create (before the API responds and jobIds is populated).
+  const total = jobIds.length || candidateCount;
 
   // Ambient progress creep — cinematic feel while the universal engine polls
   useEffect(() => {
@@ -815,7 +820,7 @@ function GeneratingState({
         flex: 1, minHeight: 0,
         overflow: "hidden",
       }}>
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: total }).map((_, i) => (
           <div key={i} style={{
             flex: "1 1 0",
             minWidth: 0,
