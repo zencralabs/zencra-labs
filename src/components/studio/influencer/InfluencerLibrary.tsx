@@ -56,7 +56,7 @@ const CHIP_PALETTE: Record<StyleCategory | "all", {
   "anime-manga":      { r: 236, g: 72,  b: 153, text: "#f472b6" }, // pink
   "fine-art":         { r: 249, g: 115, b: 22,  text: "#fb923c" }, // warm orange
   "game-concept":     { r: 139, g: 92,  b: 246, text: "#c4b5fd" }, // violet
-  "physical-texture": { r: 100, g: 116, b: 139, text: "#94a3b8" }, // slate silver
+  "physical-texture": { r: 194, g: 120, b: 68,  text: "#e8a07a" }, // warm clay / terracotta
   "retro-pixel":      { r: 132, g: 204, b: 22,  text: "#a3e635" }, // lime
 };
 

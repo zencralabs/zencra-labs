@@ -58,14 +58,17 @@ const T = {
 
 // ── Category visual palette ───────────────────────────────────────────────────
 
+// Unified accent palette — exact match to InfluencerLibrary CHIP_PALETTE RGB values.
+// Drives: dock CTA gradient, canvas glow, ambient radial, identity reveal.
+// hyper-real stays amber (white looks washed-out as a button gradient on dark bg).
 const CATEGORY_ACCENT: Record<StyleCategory, string> = {
-  "hyper-real":       "#f59e0b",
-  "3d-animation":     "#38bdf8",
-  "anime-manga":      "#f472b6",
-  "fine-art":         "#d4a054",
-  "game-concept":     "#8b5cf6",
-  "physical-texture": "#c2715a",
-  "retro-pixel":      "#84cc16",
+  "hyper-real":       "#f59e0b", // amber
+  "3d-animation":     "#06b6d4", // cyan
+  "anime-manga":      "#f472b6", // pink
+  "fine-art":         "#fb923c", // warm orange
+  "game-concept":     "#8b5cf6", // violet
+  "physical-texture": "#c27844", // warm clay / terracotta
+  "retro-pixel":      "#84cc16", // lime
 };
 
 function getCategoryAccent(cat?: StyleCategory | null): string {
