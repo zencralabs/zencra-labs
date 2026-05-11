@@ -421,7 +421,14 @@ const NEGATIVE_PROMPT =
   "artificial face, stock photo, generic AI face, uncanny valley, harsh compression artifacts, " +
   "multiple people, crowd, collage, grid, split screen, out of focus eyes, " +
   "same person as reference, copied face from seed, derivative identity, clone of seed, " +
-  "traced from reference, identical to source image, exact copy of seed face";
+  "traced from reference, identical to source image, exact copy of seed face, " +
+  // ── Framing / composition exclusions ─────────────────────────────────────────
+  // Canonical identity images must never arrive as passport crops.
+  // These terms prevent the model from defaulting to tight face-fill framing.
+  "extreme close-up, cropped hair, cropped forehead, " +
+  "cropped ears, cropped chin, beauty close-up, " +
+  "passport framing, face-only composition, " +
+  "ultra-tight portrait framing";
 
 // ── Style-aware quality suffix ────────────────────────────────────────────────
 // Each category gets quality language that belongs to its visual world.
@@ -436,6 +443,35 @@ const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
   "physical-texture": "sharp material detail, professional craft photography, tactile surface quality, clean diffused light",
   "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing, crisp sprite edges",
 };
+
+// ── Canonical portrait framing block ─────────────────────────────────────────
+// Injected at position 2 in every casting prompt (after identity seed, before
+// rendering base). Establishes the compositional contract for the canonical
+// identity image before any style, demographic, or fashion signals arrive.
+//
+// This is the permanent visual language for Zencra AI Influencers:
+//   - editorial portrait (not passport crop)
+//   - full head + hair + shoulders visible
+//   - cinematic environmental background
+//   - body presence and natural posture
+//
+// Must appear early — composition instructions lose weight when buried later.
+// Applied to all style categories: cinematic framing is style-agnostic.
+const CANONICAL_FRAMING_BLOCK =
+  "medium portrait framing, full head fully visible inside frame, " +
+  "hair fully visible with breathing room around silhouette, " +
+  "shoulders and upper chest visible, " +
+  "natural posture and body presence, " +
+  "subject centered comfortably within frame, " +
+  "cinematic environmental background, " +
+  "editorial lifestyle photography composition, " +
+  "85mm portrait photography, " +
+  "natural depth and perspective, " +
+  "no cropped forehead, no cropped hair, no cropped jawline, " +
+  "no extreme close-up framing, " +
+  "comfortable headroom above hair, " +
+  "upper torso visible, " +
+  "natural human spacing within frame";
 
 // ── T2I diversity instruction ─────────────────────────────────────────────────
 // Injected after the candidate identity seed (position 2) in every casting prompt.
@@ -667,7 +703,14 @@ export function composeInfluencerPrompt({
     CANDIDATE_IDENTITY_SEEDS[candidateIndex % CANDIDATE_IDENTITY_SEEDS.length];
   parts.push(identitySeed);
 
-  // 2. Rendering base — visual world (follows identity so style serves the face, not the reverse)
+  // 2. Canonical framing block — compositional contract BEFORE style signals.
+  //    Must appear early: composition instructions lose token weight when buried.
+  //    Applied to all style categories — cinematic framing is style-agnostic.
+  //    This is what makes Zencra influencers feel like editorial portraits,
+  //    not passport crops or beauty close-ups.
+  parts.push(CANONICAL_FRAMING_BLOCK);
+
+  // 3. Rendering base — visual world (follows identity + framing so style serves the face, not the reverse)
   parts.push(style.renderingBase);
 
   // 2.5. Fine-art contamination guard — must follow renderingBase immediately.
