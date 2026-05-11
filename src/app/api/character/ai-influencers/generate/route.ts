@@ -34,9 +34,11 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_CANDIDATE_COUNT = 4;
 const MAX_CANDIDATE_COUNT     = 6;
-// fal.ai Instant Character — primary influencer candidate generation engine.
-// "flux-character" remains registered as the polling fallback via the character registry.
-const DEFAULT_MODEL_KEY       = "instant-character";
+// Seedream V5 (character studio alias) — initial casting engine.
+// True text-to-image: candidate faces are driven by the prompt, not seed image DNA.
+// To revert to Instant Character: change this to "instant-character".
+// "flux-character" remains the polling fallback in the character registry.
+const DEFAULT_MODEL_KEY       = "seedream-v5-identity";
 const DEFAULT_ASPECT_RATIO    = "2:3";
 
 // ── Mock candidate URLs ───────────────────────────────────────────────────────
@@ -185,7 +187,10 @@ export async function POST(req: Request): Promise<Response> {
         prompt:         candidatePrompt,
         negativePrompt: composed.negativePrompt,
         aspectRatio,
-        imageUrl:       demographicSeed,  // demographic seed — not the global fallback
+        // No imageUrl: seedream-v5-identity is pure text-to-image.
+        // Demographic seeds (seed-selector.ts) are still resolved for logging
+        // but not sent to the provider. They will be used post-lock when
+        // Instant Character handles reference-based pack generation.
         identity:       { character_id: influencer_id },
       });
 

@@ -880,6 +880,35 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   // ══════════════════════════════════════════════════════════════════════════
 
   {
+    // Seedream V5 re-registered as a character studio provider.
+    // Used for initial AI Influencer candidate casting — pure text-to-image,
+    // full creative latitude from language alone (no seed image DNA).
+    // Distinct key from "seedream-v5" (Image Studio) to satisfy studio guard.
+    // Delegates all fal.ai calls to the same fal-ai/seedream endpoint.
+    // Reversible: change DEFAULT_MODEL_KEY in generate/route.ts to revert.
+    key:            "seedream-v5-identity",
+    providerBrand:  "ByteDance / Dreamina",
+    displayName:    "Seedream Identity",
+    apiModelId:     "fal-ai/seedream",
+    studio:         "character",
+    providerFamily: "fal",
+    description:    "Seedream V5 in character casting mode — pure t2i, full creative latitude for influencer candidate generation",
+    phase:          1,
+    status:         "active",
+    uiHidden:       true,   // internal routing only — not shown in Character Studio model picker
+    badge:          "CASTING",
+    badgeColor:     "#A855F7",
+    capabilities:   ["text_to_image", "identity_creation", "photoreal", "cinematic"],
+    supportedInputModes:   ["text"],
+    supportedAspectRatios: ["1:1", "4:5", "2:3", "9:16"],
+    asyncMode:       "polling",
+    supportsWebhook: false,
+    supportsPolling: true,
+    estimatedCostRange: "13–17 credits",
+    creditMultiplier:   1.5,
+  },
+
+  {
     // fal.ai Instant Character — primary influencer candidate generation engine.
     // User-facing label is NOT "Instant Character" — exposed only through Character Studio
     // UI copy. This entry drives routing + Activity Center display only.

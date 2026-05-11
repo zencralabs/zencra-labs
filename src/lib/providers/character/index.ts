@@ -20,13 +20,20 @@
  */
 
 import { registerProvider } from "../core/orchestrator";
+import { seedreamIdentityProvider }   from "./seedream-identity";
 import { instantCharacterProvider }   from "./instant-character";
 import { fluxCharacterProvider }      from "./flux";
 import { stabilityCharacterProvider } from "./stability";
 import { motionProvider }             from "./motion";
 
 export function registerCharacterProviders(): void {
-  registerProvider(instantCharacterProvider);   // primary — influencer candidate generation
+  // ── Casting engine (initial candidate generation — text-to-image) ────────────
+  // Seedream V5 re-registered as a character studio provider.
+  // Routes initial casting through a true t2i model so each candidate's
+  // facial structure is driven by the prompt, not inherited from a seed image.
+  registerProvider(seedreamIdentityProvider);   // primary — influencer casting
+  // ── Identity engine (post-lock packs + refinement — image-to-image) ─────────
+  registerProvider(instantCharacterProvider);   // retained — post-lock pack generation
   registerProvider(fluxCharacterProvider);       // fallback — FLUX.1 Pro
   registerProvider(stabilityCharacterProvider);
   registerProvider(motionProvider);
