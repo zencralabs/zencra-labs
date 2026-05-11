@@ -1798,7 +1798,7 @@ function AssetPackGrid({
       {/* Section label */}
       <div style={{
         fontFamily: "'Syne', sans-serif",
-        fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+        fontSize: 14, fontWeight: 800, letterSpacing: "0.14em",
         color: T.muted, textTransform: "uppercase" as const,
         marginBottom: 14,
       }}>
@@ -1925,7 +1925,7 @@ function AssetPackCard({
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Pack name */}
         <div style={{
-          fontSize: isFoundation ? 14 : 12,
+          fontSize: isFoundation ? 17 : 15,
           fontWeight: 700,
           letterSpacing: "-0.01em",
           color: isLocked ? "rgba(255,255,255,0.38)" : stateColor,
@@ -1947,8 +1947,8 @@ function AssetPackCard({
 
         {/* Descriptor */}
         <div style={{
-          fontSize: 11, lineHeight: 1.45,
-          color: isLocked ? "rgba(255,255,255,0.36)" : "rgba(255,255,255,0.42)",
+          fontSize: 13, lineHeight: 1.45,
+          color: isLocked ? "rgba(255,255,255,0.40)" : "rgba(255,255,255,0.58)",
           marginTop: 3,
           whiteSpace: isFoundation ? undefined : "nowrap",
           overflow: isFoundation ? undefined : "hidden",
@@ -1961,7 +1961,7 @@ function AssetPackCard({
       {/* State indicator — right side */}
       <div style={{
         flexShrink: 0,
-        fontSize: 10, fontWeight: 700,
+        fontSize: 12, fontWeight: 700,
         letterSpacing: "0.04em",
         color: stateColor,
         textTransform: isLocked ? "none" as const : "uppercase" as const,
@@ -2002,7 +2002,8 @@ function IdentityActionRow({
     <div style={{ padding: "0 24px 32px" }}>
       {/* Section label */}
       <div style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+        fontFamily: "'Syne', sans-serif",
+        fontSize: 14, fontWeight: 800, letterSpacing: "0.14em",
         color: T.muted, textTransform: "uppercase" as const,
         marginBottom: 12,
       }}>
@@ -2029,7 +2030,7 @@ function IdentityActionRow({
           <path d="M9 8l3 3 3-3" />
         </svg>
         <span style={{
-          fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em",
+          fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em",
           color: "rgba(0,0,0,0.80)",
         }}>
           Create Content Pack
@@ -2096,7 +2097,7 @@ function IdentityActionRow({
           </svg>
         )}
         <span style={{
-          fontSize: 13, fontWeight: 600, letterSpacing: "0.01em",
+          fontSize: 15, fontWeight: 700, letterSpacing: "0.01em",
           color: savedId ? "#10b981" : "rgba(255,255,255,0.40)",
         }}>
           {savedId ? "Identity Saved" : savingId ? "Saving…" : "Save Identity"}
@@ -2127,7 +2128,7 @@ function ActionBtn({
       }}
     >
       {icon}
-      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.01em" }}>
+      <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.01em" }}>
         {label}
       </span>
     </button>
