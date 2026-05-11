@@ -164,19 +164,19 @@ export async function POST(req: Request): Promise<Response> {
       // Dev logging — prompt + seed visible in terminal, never in UI or DB
       if (process.env.NODE_ENV !== "production") {
         console.log(
-          `[instant-character] candidate ${i + 1}/${candidateCount} prompt:`,
+          `[character-casting] candidate ${i + 1}/${candidateCount} prompt:`,
           candidatePrompt,
         );
         console.log(
-          `[instant-character] candidate ${i + 1}/${candidateCount} style: ${styleCategory} | tags: [${rosterTags.join(", ")}]`,
+          `[character-casting] candidate ${i + 1}/${candidateCount} style: ${styleCategory} | tags: [${rosterTags.join(", ")}]`,
         );
         console.log(
-          `[instant-character] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
+          `[character-casting] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
         );
       } else {
         // Production: log seed resolution label only (not the URL)
         console.log(
-          `[instant-character] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
+          `[character-casting] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
         );
       }
 

@@ -437,20 +437,18 @@ const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
   "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing, crisp sprite edges",
 };
 
-// ── Unique identity instruction ───────────────────────────────────────────────
-// Injected near the FRONT of every candidate prompt (position 1.5 — after
-// rendering base, before identity traits). Signals that the seed image is
-// style/pose reference only — not a face to copy.
+// ── T2I diversity instruction ─────────────────────────────────────────────────
+// Injected after the candidate identity seed (position 2) in every casting prompt.
+// Casting uses Seedream V5 — pure text-to-image with NO reference image.
 //
-// This is critical for fal-ai/instant-character: the model must create a NEW
-// person's face, not a style variation of the seed portrait.
+// The old instruction ("the reference image sets STYLE and POSE only — do NOT copy
+// the face from the reference image") was written for fal-ai/instant-character,
+// which is image-to-image. Sending it to a T2I model is meaningless and wastes
+// ~72 tokens of prime prompt weight. This shorter instruction serves Seedream V5
+// correctly: it reinforces candidate uniqueness without referencing a non-existent seed.
 const UNIQUE_IDENTITY_INSTRUCTION =
-  "completely new and original human identity, " +
-  "never seen before, distinct from any reference image, " +
-  "unique facial bone structure, unique eye shape, unique nose bridge, " +
-  "unique lip shape, unique jawline, unique hairline, unique facial proportions, " +
-  "the reference image sets STYLE and POSE only — not identity, " +
-  "do NOT copy or trace the face from the reference image";
+  "original human identity, distinct from all other candidates, " +
+  "unique facial proportions and bone structure, never seen before";
 
 // ── Per-candidate face diversity seeds ───────────────────────────────────────
 // Each candidate gets a unique identity variation cue. This pushes the model
@@ -549,19 +547,24 @@ function resolvePlatformLanguage(platform_intent: string[]): string {
 // Injected AFTER base identity traits, BEFORE fashion/mood (genetic first).
 // These are descriptive, not stereotyping — they guide facial bone structure,
 // skin tone behavior, and hair texture in the rendering model.
+// Ethnicity descriptors set COMPLEXION and GENETICS only.
+// Bone structure is owned exclusively by CANDIDATE_IDENTITY_SEEDS (injected at position 1).
+// Removing structural terms ("strong defined features", "sculpted features", etc.)
+// prevents the ethnicity descriptor from contradicting the candidate identity seed —
+// which caused model averaging and face convergence across candidates.
 const ETHNICITY_PROMPT_MAP: Record<string, string> = {
   "south-asian-indian":  "South Asian Indian heritage, warm golden-brown complexion, dark expressive eyes",
   "south-asian-other":   "South Asian heritage, warm olive complexion, expressive dark eyes",
-  "east-asian":          "East Asian heritage, smooth porcelain complexion, refined almond-shaped eyes",
+  "east-asian":          "East Asian heritage, smooth porcelain complexion, almond-shaped eyes",
   "southeast-asian":     "Southeast Asian heritage, warm caramel complexion, bright almond eyes",
-  "african":             "African heritage, rich deep melanin complexion, strong defined features",
-  "african-american":    "African American heritage, rich melanin complexion, sculpted features",
+  "african":             "African heritage, rich deep melanin complexion, dark expressive eyes",
+  "african-american":    "African American heritage, rich melanin complexion, dark expressive eyes",
   "european":            "European heritage, light to medium complexion, varied eye color",
-  "scandinavian":        "Scandinavian heritage, fair porcelain complexion, light eyes, strong Nordic features",
-  "mediterranean":       "Mediterranean heritage, warm olive complexion, dark hair, expressive features",
+  "scandinavian":        "Scandinavian heritage, fair porcelain complexion, light eyes",
+  "mediterranean":       "Mediterranean heritage, warm olive complexion, dark hair",
   "latin-american":      "Latin American heritage, warm mixed complexion, dark expressive eyes",
   "brazilian":           "Brazilian heritage, warm sun-kissed complexion, rich dark hair",
-  "middle-eastern":      "Middle Eastern heritage, warm olive complexion, deep dark eyes, defined facial structure",
+  "middle-eastern":      "Middle Eastern heritage, warm olive complexion, deep dark eyes",
   "mixed-ethnicity":     "mixed heritage, uniquely blended features, warm neutral complexion",
 };
 
@@ -653,30 +656,33 @@ export function composeInfluencerPrompt({
 
   const parts: string[] = [];
 
-  // 1. Rendering base — establishes the entire visual world (style-aware)
-  //    This leads every prompt. The category decides the language — no contradictions.
-  parts.push(style.renderingBase);
-
-  // 1.5. Fine-art contamination guard — must follow renderingBase immediately.
-  //      Without this, fine-art drifts toward anime or 3D render aesthetics.
-  if (styleCategory === "fine-art") {
-    parts.push(FINE_ART_GUARD);
-  }
-
-  // 1.6. Unique identity instruction — signals to the model that the seed/reference
-  //      image provides STYLE and POSE guidance only, not the face to clone.
-  //      Placed early (high token weight) so it dominates the generation intent.
-  parts.push(UNIQUE_IDENTITY_INSTRUCTION);
-
-  // 1.7. Per-candidate face diversity seed — drives genuinely different bone structures
-  //      across the 4 candidates in a casting session. Candidate 0–3 each get a
-  //      distinct skeletal description; 4+ wraps around.
+  // 1. Candidate identity seed — LEADS every prompt (highest token weight).
+  //    Bone structure anchors generation before any shared demographic or style signals.
+  //    When this was injected at position 1.7 (after renderingBase, after UNIQUE_IDENTITY_INSTRUCTION,
+  //    after gender, after age), the shared token mass outweighed the identity seed and the model
+  //    converged toward one statistically probable face for the demographic. Moving it first
+  //    forces each candidate's unique skeletal description to be the model's first commitment.
   const identitySeed =
     CANDIDATE_IDENTITY_SEEDS[candidateIndex] ??
     CANDIDATE_IDENTITY_SEEDS[candidateIndex % CANDIDATE_IDENTITY_SEEDS.length];
   parts.push(identitySeed);
 
-  // 2. Identity traits — gender uses full structural anatomy descriptors.
+  // 2. Rendering base — visual world (follows identity so style serves the face, not the reverse)
+  parts.push(style.renderingBase);
+
+  // 2.5. Fine-art contamination guard — must follow renderingBase immediately.
+  //      Without this, fine-art drifts toward anime or 3D render aesthetics.
+  if (styleCategory === "fine-art") {
+    parts.push(FINE_ART_GUARD);
+  }
+
+  // 2.6. T2I diversity instruction — short, model-appropriate for Seedream V5 (text-to-image).
+  //      No reference image exists in casting mode. The old Instant Character version of this
+  //      instruction told the model "do NOT copy the reference image" — meaningless for T2I
+  //      and wasted ~72 tokens of prime prompt weight on a non-existent constraint.
+  parts.push(UNIQUE_IDENTITY_INSTRUCTION);
+
+  // 3. Identity traits — gender uses full structural anatomy descriptors.
   //    A bare "Male" token is too weak to override the model's female-face prior.
   //    Structural descriptors (jaw shape, brow ridge, bone structure) give the
   //    model explicit anatomical targets — gender reads correctly from first render.
@@ -686,8 +692,12 @@ export function composeInfluencerPrompt({
   }
   if (profile.age_range)  parts.push(`aged ${profile.age_range}`);
 
-  // 2a. Ethnicity/Region — facial genetics descriptor (after age, before skin override)
-  //     Only injected when selected; appearance_notes can still override specifics.
+  // 3a. Ethnicity/Region — complexion and genetics only (bone structure excluded).
+  //     Identity seed (position 1) owns all facial structure. Injecting bone-structure
+  //     language here (e.g. "strong defined features") contradicted candidate 4's seed
+  //     ("delicate refined features") and caused the model to average, producing
+  //     convergent faces. Ethnicity now sets complexion depth, skin warmth, and eye
+  //     characteristics only — structural variation comes entirely from the identity seed.
   const ethnicityDesc = resolveEthnicityDescriptor(profile.ethnicity_region, mixedBlendRegions);
   if (ethnicityDesc) parts.push(ethnicityDesc);
 
