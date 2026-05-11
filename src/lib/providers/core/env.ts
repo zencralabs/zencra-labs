@@ -95,11 +95,19 @@ export function getNanoBananaEnv(): NanoBananaEnv {
 
 export interface FalEnv {
   apiKey: string;
+  /**
+   * Default seed image URL for fal-ai/instant-character initial casting.
+   * fal-ai/instant-character requires image_url even on first generation (no text-only mode).
+   * Set INSTANT_CHARACTER_SEED_IMAGE_URL to a publicly accessible neutral portrait.
+   * For locked identity passes, the canonical portrait is passed via input.imageUrl instead.
+   */
+  instantCharacterSeedUrl: string | undefined;
 }
 
 export function getFalEnv(): FalEnv {
   return {
     apiKey: required("FAL_KEY"),
+    instantCharacterSeedUrl: optional("INSTANT_CHARACTER_SEED_IMAGE_URL"),
   };
 }
 

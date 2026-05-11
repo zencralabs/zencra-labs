@@ -91,28 +91,50 @@ export const instantCharacterProvider: ZProvider = {
 
   // ── Create Job ──────────────────────────────────────────────────────────────
   async createJob(input: ZProviderInput): Promise<ZJob> {
-    const { apiKey } = getFalEnv();
+    const falEnv     = getFalEnv();
+    const { apiKey } = falEnv;
     const modelId    = FAL_MODEL_IDS.instantCharacter;
     const jobId      = newJobId();
 
+    // ── Resolve image_url ──────────────────────────────────────────────────────
+    // fal-ai/instant-character REQUIRES image_url on every request.
+    // There is no text-only (prompt-only) mode for this model.
+    //
+    // Resolution order:
+    //   1. input.imageUrl — canonical locked portrait (identity pass, Look Pack)
+    //   2. falEnv.instantCharacterSeedUrl — neutral default for initial casting
+    //
+    // INSTANT_CHARACTER_SEED_IMAGE_URL must be set in .env.local / Vercel env.
+    // Point it to a publicly accessible neutral portrait in Supabase public storage
+    // (or any public CDN reachable from fal.ai servers — no auth headers allowed).
+    const resolvedImageUrl = input.imageUrl ?? falEnv.instantCharacterSeedUrl;
+    if (!resolvedImageUrl) {
+      throw new Error(
+        "[instant-character] image_url is required but neither input.imageUrl nor " +
+        "INSTANT_CHARACTER_SEED_IMAGE_URL is set. " +
+        "Add INSTANT_CHARACTER_SEED_IMAGE_URL to .env.local pointing to a public neutral portrait."
+      );
+    }
+
+    console.log(
+      `[instant-character] image_url resolved: ${input.imageUrl ? "input (identity)" : "seed (initial casting)"} → ${resolvedImageUrl.slice(0, 80)}`
+    );
+
     // Build fal.ai Instant Character request payload.
-    // The model accepts: prompt, image_size, guidance_scale, num_inference_steps,
-    //   num_images, seed, negative_prompt, and optionally reference_image_url.
+    // Required: prompt, image_url, image_size.
+    // Optional: guidance_scale, num_inference_steps, num_images, seed, negative_prompt.
     const payload: Record<string, unknown> = {
-      prompt:               input.prompt,
-      image_size:           aspectToFalSize(input.aspectRatio ?? "2:3"),
-      guidance_scale:       5.0,
-      num_inference_steps:  28,
-      num_images:           1,
+      prompt:                input.prompt,
+      image_url:             resolvedImageUrl,   // REQUIRED by fal-ai/instant-character
+      image_size:            aspectToFalSize(input.aspectRatio ?? "2:3"),
+      guidance_scale:        5.0,
+      num_inference_steps:   28,
+      num_images:            1,
       enable_safety_checker: true,
     };
 
     if (input.negativePrompt) {
       payload.negative_prompt = input.negativePrompt;
-    }
-    if (input.imageUrl) {
-      // Reference image for identity consistency on refined calls
-      payload.reference_image_url = input.imageUrl;
     }
     if (input.seed) {
       payload.seed = input.seed;
