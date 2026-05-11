@@ -122,11 +122,11 @@ export function getFalEnv(): FalEnv {
 // Default values are the exact upstream fal.ai endpoint strings — never Zencra aliases.
 export const FAL_MODEL_IDS = {
   // Seedream (ByteDance / Dreamina, via fal.ai queue)
-  // fal-ai/seedream     → Seedream v5 text-to-image (primary quality model)
-  // fal-ai/seedream/edit → Seedream v5 edit / image-to-image (Lite fast+edit tier)
-  // fal-ai/seedream/v4.5 → Seedream 4.5 legacy (disabled — kept for reference)
-  seedreamV5:      optional("FAL_MODEL_SEEDREAM_V5",      "fal-ai/seedream") as string,
-  seedreamV5Lite:  optional("FAL_MODEL_SEEDREAM_V5_LITE", "fal-ai/seedream/edit") as string,
+  // fal-ai/bytedance/seedream/v5/lite/text-to-image → Seedream 5.0 Lite t2i (only V5 on fal.ai)
+  // fal-ai/bytedance/seedream/v5/lite/edit          → Seedream 5.0 Lite edit (image-to-image)
+  // Note: No non-lite Seedream V5 exists on fal.ai (confirmed 2026-05-11).
+  seedreamV5:      optional("FAL_MODEL_SEEDREAM_V5",      "fal-ai/bytedance/seedream/v5/lite/text-to-image") as string,
+  seedreamV5Lite:  optional("FAL_MODEL_SEEDREAM_V5_LITE", "fal-ai/bytedance/seedream/v5/lite/text-to-image") as string,
   // Seedream 4.5 — text-to-image AND edit.
   // fal.ai requires the operation suffix — the base path /seedream/v4.5 returns 404.
   // Correct slugs: fal-ai/bytedance/seedream/v4.5/text-to-image and /edit.
