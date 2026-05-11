@@ -496,10 +496,14 @@ const CANDIDATE_IDENTITY_SEEDS: string[] = [
   "individual with strong defined cheekbones, deep-set expressive eyes, angular jaw",
   // Candidate 1 — softer bone structure, wider face
   "individual with softer rounded bone structure, wider set eyes, full rounded jaw",
-  // Candidate 2 — striking asymmetry, distinctive nose bridge
-  "individual with subtle facial asymmetry, prominent nose bridge, heavy brow, intense gaze",
-  // Candidate 3 — delicate features, high forehead
-  "individual with delicate refined features, high forehead, almond-shaped eyes, tapered chin",
+  // Candidate 2 — strong unconventional structure: wide bridge, heavy brow ridge, square jaw, close-set deep eyes
+  //   Sharpened to be a clear anatomical antonym of candidate 1 (soft/rounded/wide-set).
+  //   Wide nasal bridge + heavy supraorbital ridge + close-set eyes = three axes of contrast.
+  "individual with wide nasal bridge, heavy supraorbital brow ridge, square jaw, deep-set close-set eyes, prominent brow bones — striking unconventional structure",
+  // Candidate 3 — refined opposite of candidate 2: narrow oval face, high cheekbones, wide-set upturned eyes, pointed chin
+  //   Sharpened to be a clear anatomical antonym of candidate 2.
+  //   Narrow/sharp/wide-set vs. square/heavy/close-set = three axes of contrast.
+  "individual with narrow oval face, high sharp cheekbones, wide-set upturned eyes, pointed delicate chin, smooth low brow — classically refined structure",
   // Candidate 4+ — fallback alternating between 0 and 1
 ];
 
@@ -511,57 +515,138 @@ const FINE_ART_GUARD =
   "classical brushstroke, museum-quality oil painting, NOT digital art, " +
   "painterly not synthetic, master painter tradition, old master craft";
 
-// ── Candidate casting variants — 4 persona directions per style ───────────────
-// Creates CASTING DIVERSITY: same creative direction, different personality energy.
-// Candidates should feel like 4 options in a real casting session — not random strangers.
-const CANDIDATE_VARIANTS: Record<StyleCategory, string[]> = {
+// ── Candidate cinematic archetypes — 4 complete persona directions per style ─────
+//
+// Each archetype is a coherent cinematic identity block covering 7 dimensions:
+//   posture · camera angle · lens behavior · silhouette · emotional energy ·
+//   micro-expression · wardrobe tone
+//
+// INJECTION POINT: position 3 (after identity seed, after framing block, BEFORE
+//   rendering base). This gives the model its cinematic identity commitment early,
+//   before shared demographic and style context can dominate.
+//
+// This replaces the old CANDIDATE_VARIANTS which sat at position 15 (trailing),
+// meaning the model had already committed to face + rendering + demographic before
+// seeing any personality direction — too late to influence perceived identity.
+//
+// CONSTRAINT — archetypes must stay:
+//   ✓ grounded and realistic (real casting session, not social media caricature)
+//   ✓ subtle lens/camera language (50mm / 85mm / 3/4 turn — nothing extreme)
+//   ✓ human-first (persona energy serves the human, not a character trope)
+//   ✓ continuity-friendly (canonical anchor must support future chain generation)
+const CANDIDATE_ARCHETYPES: Record<StyleCategory, string[]> = {
   "hyper-real": [
-    // Casting direction A — editorial powerhouse: strong gaze, couture energy, the face you stop scrolling for
-    "direct commanding gaze into lens, editorial fashion energy, confident jaw set, high-fashion posture, natural brow definition, premium lifestyle context",
-    // Casting direction B — warm lifestyle creator: genuine smile lines, relatable human energy, candid warmth
-    "natural open expression, genuine smile reaching eyes, crow's feet and laugh lines present, authentic approachable creator warmth, off-duty lifestyle presence",
-    // Casting direction C — cinematic moody portrait: low-key light, artistic depth, film-quality atmosphere
-    "cinematic 3/4 angle, dramatic shadow falloff, contemplative inward expression, artistic moody atmosphere, film-quality atmospheric depth, subtle catch light in eyes",
-    // Casting direction D — high-energy creator: expressive personality, dynamic aliveness, platform-native energy
-    "expressive animated face, mid-laugh or candid animated expression, creator-native energy, vibrant personality, dynamic head angle, eyes alive with personality",
+    // ── Archetype A — Luxury Editorial ──────────────────────────────────────────
+    // Persona: restrained confidence. Real human, not styled character.
+    // Camera: direct front-facing. Lens: 85mm natural portrait compression.
+    // Posture: upright, shoulders square, composed stillness.
+    // Silhouette: clean vertical, structured and grounded.
+    // Micro-expression: controlled composure, lips neutral, steady direct gaze.
+    "upright composed posture, shoulders square, centered stable presence, " +
+    "direct gaze into lens with restrained confidence, " +
+    "85mm portrait framing, soft background separation, " +
+    "clean vertical silhouette, grounded stillness, " +
+    "controlled composure, lips neutral, eyes steady and focused, " +
+    "premium understated presence",
+
+    // ── Archetype B — Warm Approachable Creator ──────────────────────────────────
+    // Persona: approachable warmth. Genuine human energy, not performed friendliness.
+    // Camera: slight head tilt right, natural accessible framing.
+    // Lens: 50mm natural perspective, true-to-life compression.
+    // Posture: relaxed open posture, natural shoulder drop.
+    // Silhouette: soft and open, effortless ease.
+    // Micro-expression: genuine warmth in eyes, natural beginning of smile.
+    "relaxed open posture, natural shoulder drop, slight head tilt right, " +
+    "warm direct gaze, genuine approachable warmth, " +
+    "50mm natural perspective, true-to-life framing, " +
+    "soft open silhouette, effortless ease, " +
+    "genuine warmth in eyes, natural soft smile beginning, authentic human warmth",
+
+    // ── Archetype C — Cinematic Introspective ────────────────────────────────────
+    // Persona: introspective stillness. Artistic depth, not theatrical brooding.
+    // Camera: 3/4 left turn, low-key directional side light.
+    // Lens: 85mm with measured shadow depth, natural falloff.
+    // Posture: slight asymmetric lean, weight shifted, quiet inward presence.
+    // Silhouette: asymmetric, shadow-defined edge.
+    // Micro-expression: interior quiet gaze, lips relaxed, contemplative stillness.
+    "slight 3/4 left turn, low-key directional side lighting, " +
+    "introspective inward gaze, quiet contemplative presence, " +
+    "85mm with natural shadow falloff, measured depth, " +
+    "asymmetric silhouette defined by shadow, slight asymmetrical lean, " +
+    "interior stillness, lips gently relaxed, quiet emotional depth",
+
+    // ── Archetype D — High-Energy Social Creator ─────────────────────────────────
+    // Persona: energetic spontaneity. Alive and magnetic, not exaggerated.
+    // Camera: 3/4 right angle, natural head angle, spontaneous feel.
+    // Lens: open natural framing, candid portrait quality.
+    // Posture: animated forward-leaning, engaged physical presence.
+    // Silhouette: dynamic and open, implied forward energy.
+    // Micro-expression: eyes alive with genuine animation, mid-expression energy.
+    "slight 3/4 right turn, dynamic natural head angle, spontaneous portrait framing, " +
+    "forward-leaning engaged posture, animated open presence, " +
+    "natural wide portrait framing, candid spontaneous composition, " +
+    "dynamic open silhouette, implied forward energy, " +
+    "eyes alive with genuine animation, expressive mid-expression, vibrant authentic energy",
   ],
+
   "3d-animation": [
-    "bold expressive character design, confident hero pose, strong eye contact",
-    "friendly approachable character, warm inviting smile, gentle personality",
-    "mysterious dramatic lighting, artistic moody atmosphere, intense expression",
-    "energetic dynamic pose, playful expression, vibrant animated personality",
+    "confident upright hero stance, composed direct gaze, controlled character presence, restrained authority",
+    "warm open posture, gentle approachable expression, soft inviting smile, natural friendly energy",
+    "slight 3/4 turn, dramatic atmospheric shadow, quiet intense expression, inward contemplative mood",
+    "dynamic forward-leaning pose, animated expressive face, vibrant character energy, alive and engaging",
   ],
+
   "anime-manga": [
-    "cool composed expression, sharp editorial gaze, strong character presence",
-    "warm friendly expression, soft expressive eyes, approachable anime charm",
-    "dramatic emotional intensity, atmospheric lighting, artistic depth",
-    "energetic expressive pose, vibrant dynamic personality, bold character energy",
+    "composed upright posture, sharp focused gaze, cool editorial character presence, controlled stillness",
+    "warm open expression, soft inviting eyes, gentle approachable smile, natural friendly charm",
+    "3/4 angle, atmospheric dramatic lighting, quiet intense gaze, artistic introspective depth",
+    "energetic dynamic pose, expressive animated face, vibrant spontaneous character energy",
   ],
+
   "fine-art": [
-    "classical composed portrait, dignified presence, strong artistic gaze",
-    "soft contemplative expression, warm painterly mood, gentle inner light",
-    "dramatic chiaroscuro portrait, intense emotional expression, deep shadows",
-    "lively animated subject, rich color energy, expressive character vitality",
+    "classical dignified posture, composed direct gaze, quiet authority, restrained presence",
+    "soft contemplative expression, warm gentle mood, inward thoughtful gaze, gentle inner light",
+    "dramatic chiaroscuro composition, intense emotional expression, deep tonal shadow, quiet power",
+    "lively animated subject, warm expressive vitality, dynamic color energy, joyful character life",
   ],
+
   "game-concept": [
-    "heroic commanding stance, powerful presence, battle-ready energy",
-    "wise enigmatic expression, thoughtful depth, mysterious character gravity",
-    "intense dramatic pose, cinematic tension, high-stakes atmospheric energy",
-    "agile dynamic character, fluid movement energy, explosive presence",
+    "commanding upright stance, powerful composed presence, battle-ready restrained energy",
+    "wise enigmatic expression, thoughtful depth, quiet mysterious gravity, inward character intelligence",
+    "intense dramatic pose, cinematic tension, atmospheric high-stakes energy, focused stillness",
+    "agile dynamic pose, fluid forward movement energy, explosive aliveness, spontaneous character presence",
   ],
+
   "physical-texture": [
-    "posed with quiet confidence, clean craft composition, strong character presence",
-    "warm expressive character, charming handmade quality, gentle personality",
-    "artistically dramatic placement, material depth, moody craft atmosphere",
-    "playful dynamic arrangement, tactile energy, expressive character movement",
+    "quiet confident posture, clean grounded composition, composed character presence",
+    "warm expressive character, natural approachable energy, genuine gentle personality",
+    "artistically dramatic placement, material depth, moody atmospheric craft energy",
+    "playful dynamic arrangement, tactile forward energy, expressive character movement",
   ],
+
   "retro-pixel": [
-    "hero character sprite, confident pose, commanding pixel presence",
-    "friendly approachable design, warm pixel expression, inviting energy",
-    "mysterious rogue character, dramatic pixel lighting, cool atmospheric energy",
-    "energetic action sprite, dynamic pixel motion, vibrant explosive color",
+    "hero character sprite, confident upright pose, commanding pixel presence",
+    "friendly approachable design, warm inviting pixel expression, gentle energy",
+    "mysterious rogue character, atmospheric pixel lighting, cool inward energy",
+    "energetic action sprite, dynamic pixel motion, explosive vibrant presence",
   ],
 };
+
+// ── Per-candidate contrastive negative extensions ─────────────────────────────
+// Candidates 0 and 1 are anatomical poles (angular vs. rounded) — no exclusions needed.
+// Candidates 2 and 3 risk convergence because their seeds are more similar.
+// These extensions push the model away from the other candidates' dominant features.
+//
+// Applied per-candidate: appended to NEGATIVE_PROMPT when candidateIndex matches.
+// Empty string = use base NEGATIVE_PROMPT unchanged.
+const CANDIDATE_NEGATIVE_EXTENSIONS: string[] = [
+  "",    // Candidate 0 — no additional exclusions needed
+  "",    // Candidate 1 — no additional exclusions needed
+  // Candidate 2 — exclude soft/rounded (seed 1) and angular/deep-set (seed 0)
+  "soft rounded jaw, wide-set eyes, rounded bone structure, angular jaw, deep-set eyes, tapered chin, almond eyes",
+  // Candidate 3 — exclude angular/deep-set (seed 0), soft/rounded (seed 1), and heavy/close-set (seed 2)
+  "angular jaw, heavy brow ridge, wide nasal bridge, close-set eyes, rounded jaw, wide-set eyes, soft bone structure",
+];
 
 // ── Platform intent → composition language ────────────────────────────────────
 function resolvePlatformLanguage(platform_intent: string[]): string {
@@ -685,10 +770,12 @@ export function composeInfluencerPrompt({
   candidateCount: _candidateCount,
   mixedBlendRegions,
 }: ComposeInfluencerPromptInput): ComposedInfluencerPrompt {
-  const style    = STYLE_CATALOGUE[styleCategory];
-  const variants = CANDIDATE_VARIANTS[styleCategory];
+  const style     = STYLE_CATALOGUE[styleCategory];
+  const archetypes = CANDIDATE_ARCHETYPES[styleCategory];
   // Clamp index — safe for 1×, 2×, 3× candidate counts
-  const variant  = variants[candidateIndex % variants.length];
+  const archetype  = archetypes[candidateIndex % archetypes.length];
+  // Per-candidate contrastive negative extension (empty string for 0 and 1)
+  const negExt     = CANDIDATE_NEGATIVE_EXTENSIONS[candidateIndex] ?? "";
 
   const parts: string[] = [];
 
@@ -710,7 +797,14 @@ export function composeInfluencerPrompt({
   //    not passport crops or beauty close-ups.
   parts.push(CANONICAL_FRAMING_BLOCK);
 
-  // 3. Rendering base — visual world (follows identity + framing so style serves the face, not the reverse)
+  // 3. Cinematic archetype — persona identity direction (position 3: early commitment).
+  //    Posture · camera angle · lens · silhouette · emotional energy · micro-expression · wardrobe tone.
+  //    Must arrive BEFORE rendering base so the model commits to cinematic identity
+  //    before shared demographic + style context can dominate and produce convergent faces.
+  //    This replaces CANDIDATE_VARIANTS (old position 15 — too late to influence perceived identity).
+  parts.push(archetype);
+
+  // 4. Rendering base — visual world (follows identity + framing so style serves the face, not the reverse)
   parts.push(style.renderingBase);
 
   // 2.5. Fine-art contamination guard — must follow renderingBase immediately.
@@ -780,12 +874,11 @@ export function composeInfluencerPrompt({
   // 7. Style-aware quality suffix — no contradictory rendering terms
   parts.push(STYLE_QUALITY_SUFFIX[styleCategory]);
 
-  // 8. Candidate casting direction — subtle persona energy variation
-  //    Same style DNA, different personality. Casting options, not random strangers.
-  parts.push(variant);
-
   return {
     prompt:         parts.join(", "),
-    negativePrompt: NEGATIVE_PROMPT,
+    // Per-candidate contrastive negative extension: candidates 2 + 3 get morphological
+    // exclusions to prevent convergence toward the other candidates' dominant bone structure.
+    // Candidates 0 and 1 are already anatomical poles — base negative prompt is sufficient.
+    negativePrompt: negExt ? `${NEGATIVE_PROMPT}, ${negExt}` : NEGATIVE_PROMPT,
   };
 }
