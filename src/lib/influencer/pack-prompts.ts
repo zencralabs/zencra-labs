@@ -39,12 +39,12 @@ interface StyleDescriptor {
 
 const STYLE_CATALOGUE: Record<StyleCategory, StyleDescriptor> = {
   "hyper-real": {
-    renderingBase:       "photorealistic portrait, shot on Sony A7R V, 85mm f/1.4 lens, natural skin texture, shallow depth of field",
-    shading:             "realistic lighting, subsurface scattering, natural shadows, golden hour or soft studio light",
-    texture:             "real skin pores visible, hair strands detail, fabric weave, natural imperfections",
-    poseLanguage:        "natural human body language, real-world poses, candid or editorial stance",
-    environmentLanguage: "real-world locations, natural light or professional studio, authentic environments",
-    outfitLanguage:      "real-world fashion, contemporary garments, authentic fabric and material detail",
+    renderingBase:       "photorealistic portrait, Sony A7R V with 85mm f/1.4 prime lens, natural skin pores and microtexture, shallow depth of field, subtle natural facial asymmetry, genuine human presence",
+    shading:             "realistic three-point lighting, subsurface scattering on skin, natural shadow rolloff, golden hour or softbox studio light, catchlight in eyes",
+    texture:             "visible skin pores, individual hair strands, fabric weave detail, natural complexion variation, no artificial smoothing",
+    poseLanguage:        "natural human body language, real-world poses, candid or editorial stance, authentic creator energy",
+    environmentLanguage: "real-world locations, natural ambient light or professional studio, authentic environments, lived-in atmosphere",
+    outfitLanguage:      "contemporary real-world fashion, authentic fabric and material detail, luxury or streetwear aesthetic",
   },
   "3d-animation": {
     renderingBase:       "3D animation render, Pixar-quality CGI, smooth stylized textures, expressive proportions, large eyes",
@@ -408,22 +408,27 @@ export interface ComposedInfluencerPrompt {
 
 // ── Negative prompt — standard quality guard ──────────────────────────────────
 // Internal only. Never shown to user or stored in UI state.
+// v2: added oversmoothing, artificial symmetry, wax-figure, and stock-photo blockers
+// to help break out of the generic "AI face" aesthetic.
 const NEGATIVE_PROMPT =
   "blurry, low quality, distorted face, extra limbs, duplicate face, bad anatomy, " +
-  "deformed hands, watermark, text, logo, oversaturated, plastic skin, uncanny valley, " +
-  "harsh artifacts, multiple people, crowd, collage, grid, split screen";
+  "deformed hands, watermark, text, logo, oversaturated, plastic skin, waxy skin, " +
+  "airbrushed skin, oversmoothed skin, synthetic looking, wax figure, perfect symmetry, " +
+  "artificial face, stock photo, generic AI face, uncanny valley, harsh compression artifacts, " +
+  "multiple people, crowd, collage, grid, split screen, out of focus eyes";
 
 // ── Style-aware quality suffix ────────────────────────────────────────────────
 // Each category gets quality language that belongs to its visual world.
 // No photorealistic language on anime. No cel-shading on hyper-real.
+// v2 hyper-real: added eye catchlight, skin microtexture, and anti-plastic language
 const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
-  "hyper-real":       "sharp focus, natural bokeh, premium portrait photography quality, professional studio lighting",
-  "3d-animation":     "high-end 3D render quality, smooth surface detail, cinematic character lighting",
-  "anime-manga":      "clean crisp line art, vibrant flat color palette, high-quality anime illustration, sharp edges",
-  "fine-art":         "masterful painting technique, rich tonal depth, museum-quality composition, painterly brushwork",
-  "game-concept":     "high-detail character concept art, cinematic rim lighting, professional game art quality",
-  "physical-texture": "sharp material detail, professional craft photography, tactile surface quality, clean light",
-  "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing",
+  "hyper-real":       "tack-sharp focus on eyes, natural lens bokeh, catchlight in eyes, genuine skin microtexture, visible skin pores, premium editorial photography quality, no artificial skin smoothing, true-to-life color grading",
+  "3d-animation":     "high-end 3D render quality, smooth surface detail, cinematic character lighting, Pixar-quality surface shading",
+  "anime-manga":      "clean crisp line art, vibrant flat color palette, high-quality anime illustration, sharp edges, no blurring",
+  "fine-art":         "masterful painting technique, rich tonal depth, museum-quality composition, painterly brushwork, classical craft",
+  "game-concept":     "high-detail character concept art, cinematic rim lighting, professional game art quality, sharp material rendering",
+  "physical-texture": "sharp material detail, professional craft photography, tactile surface quality, clean diffused light",
+  "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing, crisp sprite edges",
 };
 
 // ── Candidate casting variants — 4 persona directions per style ───────────────
@@ -431,10 +436,14 @@ const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
 // Candidates should feel like 4 options in a real casting session — not random strangers.
 const CANDIDATE_VARIANTS: Record<StyleCategory, string[]> = {
   "hyper-real": [
-    "confident editorial presence, direct powerful gaze, strong fashion energy",
-    "natural approachable warmth, lifestyle authenticity, relaxed ease",
-    "cinematic moody portrait, artistic personality, dramatic atmospheric light",
-    "dynamic high-energy creator presence, playful expression, vibrant life",
+    // Casting direction A — editorial powerhouse: strong gaze, couture energy, the face you stop scrolling for
+    "direct commanding gaze into lens, editorial fashion energy, confident jaw set, high-fashion posture, natural brow definition, premium lifestyle context",
+    // Casting direction B — warm lifestyle creator: genuine smile lines, relatable human energy, candid warmth
+    "natural open expression, genuine smile reaching eyes, crow's feet and laugh lines present, authentic approachable creator warmth, off-duty lifestyle presence",
+    // Casting direction C — cinematic moody portrait: low-key light, artistic depth, film-quality atmosphere
+    "cinematic 3/4 angle, dramatic shadow falloff, contemplative inward expression, artistic moody atmosphere, film-quality atmospheric depth, subtle catch light in eyes",
+    // Casting direction D — high-energy creator: expressive personality, dynamic aliveness, platform-native energy
+    "expressive animated face, mid-laugh or candid animated expression, creator-native energy, vibrant personality, dynamic head angle, eyes alive with personality",
   ],
   "3d-animation": [
     "bold expressive character design, confident hero pose, strong eye contact",
@@ -544,6 +553,17 @@ export function composeInfluencerPrompt({
   //     Only injected when selected; appearance_notes can still override specifics.
   const ethnicityDesc = resolveEthnicityDescriptor(profile.ethnicity_region);
   if (ethnicityDesc) parts.push(ethnicityDesc);
+
+  // 2b. Hyper-real naturalness block — injected only for hyper-real style.
+  //     Pushes the model away from the "AI face" aesthetic toward genuine human imperfection.
+  //     Placed after ethnicity (which sets bone structure) and before skin/face overrides.
+  if (styleCategory === "hyper-real") {
+    parts.push(
+      "natural human imperfections, subtle facial asymmetry, genuine pore texture, " +
+      "authentic complexion variation, real skin depth, no artificial smoothing, " +
+      "true human face — not a render, not a composite"
+    );
+  }
 
   // Skin tone + face structure — most meaningful for realism-adjacent styles,
   // harmless for stylized ones (anime/pixel artists can still apply these)

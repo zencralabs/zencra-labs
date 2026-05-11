@@ -127,8 +127,8 @@ export const instantCharacterProvider: ZProvider = {
       prompt:                input.prompt,
       image_url:             resolvedImageUrl,   // REQUIRED by fal-ai/instant-character
       image_size:            aspectToFalSize(input.aspectRatio ?? "2:3"),
-      guidance_scale:        5.0,
-      num_inference_steps:   28,
+      guidance_scale:        7.0,   // v2: 5.0→7.0 — stronger prompt adherence, sharper identity resolution
+      num_inference_steps:   35,    // v2: 28→35 — more surface detail passes, better skin/hair fidelity
       num_images:            1,
       enable_safety_checker: true,
     };
