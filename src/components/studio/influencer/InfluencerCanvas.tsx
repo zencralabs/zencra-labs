@@ -469,11 +469,20 @@ export default function InfluencerCanvas({
           paddingBottom: 80, // room for the dock
         }}
       >
-        {canvasState.phase === "empty"      && <EmptyState accent={currentAccent} />}
-        {canvasState.phase === "generating" && (
+        {/* Empty: hide CTA immediately when isCreating fires — skeleton shows below */}
+        {canvasState.phase === "empty" && !isCreating && <EmptyState accent={currentAccent} />}
+
+        {/* ── Instant shimmer transition ──────────────────────────────────────
+            Render GeneratingState as soon as isCreating becomes true (the moment
+            the user clicks Create), BEFORE the API calls complete and canvasState
+            transitions to "generating".  GeneratingState derives skeleton count
+            from candidateCount (known at click time) so the cards appear instantly.
+            When handleCreated() fires with real job IDs, canvasState moves to
+            "generating" and this block continues rendering with no visual jump. */}
+        {(canvasState.phase === "generating" || (canvasState.phase === "empty" && isCreating)) && (
           <GeneratingState
-            influencer_id={canvasState.influencer_id}
-            jobIds={canvasState.jobs}
+            influencer_id={canvasState.phase === "generating" ? canvasState.influencer_id : ""}
+            jobIds={canvasState.phase === "generating" ? canvasState.jobs : []}
             accent={currentAccent}
             candidateCount={candidateCount}
             onReady={onCandidatesReady}
