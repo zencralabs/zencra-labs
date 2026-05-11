@@ -464,16 +464,16 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               key={chip.value}
               onClick={() => setActiveStyle(chip.value as StyleCategory | "all")}
               style={{
-                flexShrink: 0, padding: "3px 8px",
+                flexShrink: 0, padding: "5px 10px",
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 11, fontWeight: on ? 700 : 500,
+                fontSize: 12, fontWeight: on ? 700 : 500,
                 border: on
-                  ? "1px solid rgba(245,158,11,0.38)"
-                  : "1px solid rgba(255,255,255,0.07)",
+                  ? "1px solid rgba(245,158,11,0.55)"
+                  : "1px solid rgba(255,255,255,0.09)",
                 background: on
-                  ? "rgba(245,158,11,0.09)"
-                  : "rgba(255,255,255,0.02)",
-                color: on ? "#f59e0b" : "rgba(255,255,255,0.42)",
+                  ? "rgba(245,158,11,0.14)"
+                  : "rgba(255,255,255,0.03)",
+                color: on ? "#f59e0b" : "rgba(255,255,255,0.55)",
                 cursor: "pointer", transition: "all 0.15s",
                 whiteSpace: "nowrap",
                 letterSpacing: on ? "0.01em" : "0",
@@ -502,16 +502,16 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 key={tag}
                 onClick={() => setActiveTag(tag)}
                 style={{
-                  flexShrink: 0, padding: "2px 7px",
+                  flexShrink: 0, padding: "4px 9px",
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 10, fontWeight: on ? 700 : 500,
+                  fontSize: 11, fontWeight: on ? 700 : 500,
                   border: on
-                    ? "1px solid rgba(167,139,250,0.42)"
-                    : "1px solid rgba(255,255,255,0.06)",
+                    ? "1px solid rgba(167,139,250,0.55)"
+                    : "1px solid rgba(255,255,255,0.08)",
                   background: on
-                    ? "rgba(167,139,250,0.09)"
-                    : "rgba(255,255,255,0.02)",
-                  color: on ? "#a78bfa" : "rgba(255,255,255,0.38)",
+                    ? "rgba(167,139,250,0.14)"
+                    : "rgba(255,255,255,0.03)",
+                  color: on ? "#a78bfa" : "rgba(255,255,255,0.50)",
                   cursor: "pointer", transition: "all 0.15s",
                   whiteSpace: "nowrap",
                 }}
@@ -627,7 +627,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             }}>
               <span style={{
                 fontFamily: "'Syne', sans-serif",
-                fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)",
+                fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.55)",
                 letterSpacing: "0.14em", textTransform: "uppercase" as const,
               }}>
                 {STYLE_LABELS[cat]}
@@ -692,14 +692,19 @@ function InfluencerCard({
         position: "relative",
         aspectRatio: "9 / 16",
         overflow: "hidden",
-        background: "#0a0d15",
+        background: active ? "#0d0e0a" : "#0a0d15",
         border: active
-          ? "1.5px solid rgba(245,158,11,0.52)"
+          ? "1.5px solid rgba(245,158,11,0.72)"
           : hovered
-          ? "1px solid rgba(255,255,255,0.20)"
-          : "1px solid rgba(255,255,255,0.07)",
+          ? "1px solid rgba(255,255,255,0.22)"
+          : "1px solid rgba(255,255,255,0.08)",
         boxShadow: active
-          ? "0 0 28px rgba(245,158,11,0.16), inset 0 0 18px rgba(245,158,11,0.04)"
+          ? [
+              "0 0 36px rgba(245,158,11,0.24)",
+              "0 0 12px rgba(245,158,11,0.14)",
+              "inset 0 0 24px rgba(245,158,11,0.07)",
+              "inset 0 0 0 1px rgba(245,158,11,0.12)",
+            ].join(", ")
           : hovered
           ? "0 10px 36px rgba(0,0,0,0.60)"
           : "0 2px 10px rgba(0,0,0,0.40)",
@@ -708,6 +713,16 @@ function InfluencerCard({
         cursor: "pointer",
       }}
     >
+      {/* Active top-edge amber bar */}
+      {active && (
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0,
+          height: 2, zIndex: 10,
+          background: "linear-gradient(90deg, transparent 0%, #f59e0b 30%, #fbbf24 50%, #f59e0b 70%, transparent 100%)",
+          boxShadow: "0 0 10px rgba(245,158,11,0.70)",
+        }} />
+      )}
+
       {/* Portrait image */}
       <div style={{ position: "absolute", inset: 0 }}>
         {influencer.thumbnail_url ? (
@@ -815,7 +830,7 @@ function InfluencerCard({
             <div style={{
               fontFamily: "'Syne', sans-serif",
               fontSize: 12.5, fontWeight: 700,
-              color: active ? "#f59e0b" : "#cdd0de",
+              color: active ? "#fbbf24" : "#cdd0de",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
               letterSpacing: "0.01em", marginBottom: 3,
               textShadow: "0 1px 5px rgba(0,0,0,0.90)",

@@ -767,8 +767,8 @@ function GeneratingState({
           100% { transform: translateX(300%); }
         }
         @keyframes genShimmerPulse {
-          0%, 100% { opacity: 0.28; }
-          50%       { opacity: 0.50; }
+          0%, 100% { opacity: 0.55; }
+          50%       { opacity: 0.85; }
         }
         @keyframes genGlowBreath {
           0%, 100% { opacity: 0.20; }
@@ -834,19 +834,26 @@ function GeneratingState({
             flex: "1 1 0",
             minWidth: 0,
             borderRadius: 0,               // sharp — cinematic
-            border: "1px solid rgba(255,255,255,0.06)",
-            background: "rgba(255,255,255,0.025)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)",
             position: "relative",
             overflow: "hidden",
+            boxShadow: [
+              "inset 0 0 0 1px rgba(56,189,248,0.06)",
+              "0 0 24px rgba(56,189,248,0.06)",
+              "0 0 0 1px rgba(255,255,255,0.04)",
+            ].join(", "),
             animation: `genShimmerPulse 2.2s ease-in-out ${i * 0.3}s infinite`,
           }}>
-            {/* Shimmer sweep */}
+            {/* Shimmer sweep — bright silver/white diagonal */}
             <div style={{
               position: "absolute", top: 0, bottom: 0, width: "55%",
               background: `linear-gradient(
                 105deg,
                 transparent 0%,
-                ${accent}0d 50%,
+                rgba(255,255,255,0.06) 35%,
+                rgba(255,255,255,0.18) 50%,
+                rgba(255,255,255,0.06) 65%,
                 transparent 100%
               )`,
               animation: `genShimmerSweep 2.6s ease-in-out ${i * 0.3}s infinite`,
@@ -1253,56 +1260,79 @@ function CandidatesState({
             onClearAll={() => setCompareUrls([])}
           />
 
-          {/* ── Bottom action bar — shown after ≥1 locked ────────────── */}
+          {/* ── Floating post-lock glass pill — center-bottom ────────────── */}
           {hasLocked && (
             <div style={{
-              flexShrink: 0,
-              display: "flex", gap: 8, alignItems: "center",
-              padding: "12px 32px 20px",
-              background: "linear-gradient(to top, rgba(5,7,13,0.98) 0%, rgba(5,7,13,0.80) 100%)",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
+              position: "absolute", bottom: 88, left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 20,
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 8px 6px 12px",
+              background: "rgba(6,8,16,0.88)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              backdropFilter: "blur(20px) saturate(1.4)",
+              boxShadow: [
+                "0 8px 40px rgba(0,0,0,0.65)",
+                "0 0 0 1px rgba(255,255,255,0.06)",
+                "inset 0 1px 0 rgba(255,255,255,0.08)",
+              ].join(", "),
+              whiteSpace: "nowrap",
+              animation: "pillFloat 0.38s cubic-bezier(0.22,1,0.36,1) both",
             }}>
+              <style>{`
+                @keyframes pillFloat {
+                  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+                  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+              `}</style>
+
               {/* Locked count badge */}
               <div style={{
-                flexShrink: 0,
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "8px 12px",
-                background: "rgba(245,158,11,0.10)",
-                border: "1px solid rgba(245,158,11,0.25)",
-                fontSize: 12, fontWeight: 700,
-                letterSpacing: "0.08em",
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "4px 10px",
+                background: "rgba(245,158,11,0.12)",
+                border: "1px solid rgba(245,158,11,0.30)",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.09em",
                 color: "rgba(253,230,138,0.90)",
                 textTransform: "uppercase" as const,
+                flexShrink: 0,
               }}>
                 <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
+                  width: 5, height: 5, borderRadius: "50%",
                   background: "#f59e0b",
-                  boxShadow: "0 0 6px rgba(245,158,11,0.70)",
+                  boxShadow: "0 0 6px rgba(245,158,11,0.80)",
                 }} />
                 {lockedItems.length} locked
               </div>
 
-              <div style={{ flex: 1 }} />
+              {/* Divider */}
+              <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.10)", flexShrink: 0 }} />
 
               {/* View in Library */}
               <button
                 onClick={goToFirst}
                 style={{
-                  height: 36, padding: "0 16px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  color: "#ffffff",
-                  fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
-                  cursor: "pointer",
-                  transition: "background 0.15s ease",
+                  height: 32, padding: "0 13px",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.82)",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 12, fontWeight: 600, letterSpacing: "-0.005em",
+                  cursor: "pointer", transition: "all 0.15s ease",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.13)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.82)";
+                }}
               >
                 View in Library
               </button>
 
-              {/* Image Studio */}
+              {/* Image Studio — blue */}
               <button
                 onClick={() => {
                   const first = lockedItems[0];
@@ -1311,28 +1341,34 @@ function CandidatesState({
                   params.set("influencer_id",    first.influencer_id);
                   params.set("identity_lock_id", first.identity_lock_id ?? "");
                   params.set("mode",             "influencer");
-                  if (first.handle)       params.set("handle",             first.handle);
-                  if (first.display_name) params.set("display_name",       first.display_name);
-                  if (first.canonical_asset_id) params.set("canonical_asset_id", first.canonical_asset_id);
-                  if (first.hero_url)     params.set("reference_url",       first.hero_url);
+                  if (first.handle)             params.set("handle",             first.handle);
+                  if (first.display_name)        params.set("display_name",       first.display_name);
+                  if (first.canonical_asset_id)  params.set("canonical_asset_id", first.canonical_asset_id);
+                  if (first.hero_url)            params.set("reference_url",       first.hero_url);
                   router.push(`/studio/image?${params.toString()}`);
                 }}
                 style={{
-                  height: 36, padding: "0 16px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  color: "#ffffff",
-                  fontSize: 13, fontWeight: 600, letterSpacing: "-0.005em",
-                  cursor: "pointer",
-                  transition: "background 0.15s ease",
+                  height: 32, padding: "0 13px",
+                  background: "rgba(59,130,246,0.10)",
+                  border: "1px solid rgba(59,130,246,0.28)",
+                  color: "#93c5fd",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", transition: "all 0.15s ease",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.14)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(59,130,246,0.20)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#bfdbfe";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(59,130,246,0.10)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#93c5fd";
+                }}
               >
                 Image Studio
               </button>
 
-              {/* Video Studio */}
+              {/* Video Studio — amber primary CTA */}
               <button
                 onClick={() => {
                   const first = lockedItems[0];
@@ -1351,18 +1387,19 @@ function CandidatesState({
                   router.push(`/studio/video?${params.toString()}`);
                 }}
                 style={{
-                  height: 36, padding: "0 16px",
-                  background: `linear-gradient(135deg, #d97706, #f59e0b)`,
+                  height: 32, padding: "0 14px",
+                  background: "linear-gradient(135deg, #d97706, #f59e0b)",
                   border: "none",
                   color: "#000000",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.04em",
                   textTransform: "uppercase" as const,
                   cursor: "pointer",
-                  boxShadow: "0 4px 20px rgba(245,158,11,0.35)",
+                  boxShadow: "0 2px 14px rgba(245,158,11,0.38)",
                   transition: "all 0.15s ease",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 28px rgba(245,158,11,0.55)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 20px rgba(245,158,11,0.35)"; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 22px rgba(245,158,11,0.60)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 2px 14px rgba(245,158,11,0.38)"; }}
               >
                 Video Studio
               </button>
@@ -2540,10 +2577,15 @@ function CanvasDock({
         display: "flex", alignItems: "center", gap: 10,
         height: 80,
         padding: "12px 18px", borderRadius: 24,
-        background: "rgba(11,14,23,0.88)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)",
-        backdropFilter: "blur(12px)",
+        background: "rgba(6,8,16,0.92)",
+        border: "1px solid rgba(255,255,255,0.14)",
+        boxShadow: [
+          "0 4px 32px rgba(0,0,0,0.65)",
+          "0 0 0 1px rgba(255,255,255,0.06)",
+          "0 0 28px rgba(255,255,255,0.04)",
+          "inset 0 1px 0 rgba(255,255,255,0.08)",
+        ].join(", "),
+        backdropFilter: "blur(24px) saturate(1.5)",
       }}>
 
         {/* Image Flow — left */}
@@ -2559,7 +2601,7 @@ function CanvasDock({
           label="Image Flow"
           onClick={onImageFlow}
           active={hasSelected}
-          accent={hasSelected ? "#38bdf8" : undefined}
+          accent="#3b82f6"
           tip={hasSelected ? "Open in Image Studio with identity context" : "Go to Image Studio"}
         />
 
@@ -2686,7 +2728,7 @@ function CanvasDock({
           label="Video Flow"
           onClick={onVideoFlow}
           active={hasSelected}
-          accent={hasSelected ? "#a855f7" : undefined}
+          accent="#f59e0b"
           tip={hasSelected ? "Open in Video Studio as start frame" : "Go to Video Studio"}
         />
       </div>

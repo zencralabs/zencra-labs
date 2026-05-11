@@ -211,7 +211,7 @@ function CategorySelector({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontFamily: "'Syne', sans-serif",
-                  fontSize: 12, fontWeight: selected ? 700 : 600,
+                  fontSize: 13, fontWeight: selected ? 700 : 600,
                   color: selected ? cat.accent : T.text,
                   letterSpacing: "0.01em", transition: "color 0.14s",
                 }}>
@@ -219,7 +219,7 @@ function CategorySelector({
                 </div>
                 <div style={{
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 10, color: "rgba(255,255,255,0.38)", marginTop: 2,
+                  fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 2,
                 }}>
                   {cat.desc}
                 </div>
@@ -457,8 +457,8 @@ export function BuilderTab({
               >
                 <span style={{
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 12, fontWeight: sel ? 700 : 400,
-                  color: sel ? selectedCat.accent : "rgba(255,255,255,0.58)",
+                  fontSize: 13, fontWeight: sel ? 700 : 400,
+                  color: sel ? selectedCat.accent : "rgba(255,255,255,0.65)",
                 }}>
                   {opt.label}
                 </span>
@@ -572,14 +572,14 @@ export function BuilderTab({
                 onClick={() => setCandidateCount(n)}
                 style={{
                   flex: 1,
-                  padding: "7px 0",
+                  padding: "9px 0",
                   border: selected
-                    ? `1px solid rgba(245,158,11,0.50)`
-                    : `1px solid rgba(255,255,255,0.07)`,
-                  background: selected ? "rgba(245,158,11,0.09)" : "rgba(255,255,255,0.02)",
-                  color: selected ? T.amber : "#3a4058",
+                    ? `1px solid rgba(245,158,11,0.60)`
+                    : `1px solid rgba(255,255,255,0.09)`,
+                  background: selected ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)",
+                  color: selected ? T.amber : "#5a6280",
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: 13, fontWeight: 700,
                   cursor: "pointer",
                   letterSpacing: "0.04em",
                   transition: "all 0.15s",
@@ -718,9 +718,9 @@ function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
       fontFamily: "'Syne', sans-serif",
-      fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)",
-      letterSpacing: "0.13em", textTransform: "uppercase",
-      marginBottom: 8,
+      fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)",
+      letterSpacing: "0.12em", textTransform: "uppercase",
+      marginBottom: 9,
     }}>
       {label}
     </div>
@@ -756,12 +756,12 @@ function ChipGroup({
             key={opt}
             onClick={() => onToggle(opt)}
             style={{
-              padding: "4px 10px",
+              padding: "6px 12px",
               fontFamily: "'Familjen Grotesk', sans-serif",
-              border:     active ? `1px solid ${accent}50` : `1px solid rgba(255,255,255,0.07)`,
-              background: active ? `${accent}10` : "rgba(255,255,255,0.02)",
-              color:      active ? accent : "#3a4058",
-              fontSize: 11, fontWeight: active ? 700 : 500,
+              border:     active ? `1px solid ${accent}66` : `1px solid rgba(255,255,255,0.09)`,
+              background: active ? `${accent}18` : "rgba(255,255,255,0.03)",
+              color:      active ? accent : "#5a6280",
+              fontSize: 12, fontWeight: active ? 700 : 500,
               cursor: "pointer", transition: "all 0.15s",
               letterSpacing: active ? "0.01em" : "0",
             }}

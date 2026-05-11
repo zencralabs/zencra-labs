@@ -24,8 +24,18 @@ import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const T = {
-  bg:       "#07090f",
-  border:   "#111827",
+  // Page shell
+  pageBg:      "#05070d",
+  // Left roster — slightly warmer, elevated
+  leftBg:      "#080b14",
+  leftBorder:  "rgba(255,255,255,0.09)",
+  // Center canvas — deepest cinematic black
+  centerBg:    "#03050a",
+  // Right controls — slightly blue-tinted surface
+  rightBg:     "#07091a",
+  rightBorder: "rgba(255,255,255,0.09)",
+  // Shared
+  border:   "rgba(255,255,255,0.07)",
   surface:  "#0b0e17",
   text:     "#e8eaf0",
   muted:    "#8b92a8",
@@ -310,7 +320,7 @@ export default function AIInfluencerBuilder() {
     <div style={{
       height:      "100%",   // fills the page wrapper (100dvh - 76px)
       display:     "flex",
-      background:  T.bg,
+      background:  T.pageBg,
       overflow:    "hidden",
       fontFamily:  "var(--font-sans, system-ui, sans-serif)",
       color:       T.text,
@@ -318,10 +328,13 @@ export default function AIInfluencerBuilder() {
 
       {/* ── Left: Influencer Library ─────────────────────────────────────── */}
       <div style={{
-        width: 260, flexShrink: 0,
-        borderRight: `1px solid ${T.border}`,
+        width: 268, flexShrink: 0,
+        background: T.leftBg,
+        borderRight: `1px solid ${T.leftBorder}`,
         display: "flex", flexDirection: "column",
         overflow: "hidden",
+        // Subtle inner top highlight — makes the panel feel elevated
+        boxShadow: "inset -1px 0 0 rgba(255,255,255,0.04), 2px 0 16px rgba(0,0,0,0.25)",
       }}>
         <InfluencerLibrary
           key={libraryKey}
@@ -334,8 +347,11 @@ export default function AIInfluencerBuilder() {
       {/* ── Center: Canvas ───────────────────────────────────────────────── */}
       <div style={{
         flex: 1, minWidth: 0,
+        background: T.centerBg,
         display: "flex", flexDirection: "column",
         overflow: "hidden",
+        // Subtle radial glow to add depth to the deep canvas
+        backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.018) 0%, transparent 55%)",
       }}>
         <InfluencerCanvas
           canvasState={canvasState}
@@ -352,10 +368,12 @@ export default function AIInfluencerBuilder() {
 
       {/* ── Right: Controls ──────────────────────────────────────────────── */}
       <div style={{
-        width: 320, flexShrink: 0,
-        borderLeft: `1px solid ${T.border}`,
+        width: 332, flexShrink: 0,
+        background: T.rightBg,
+        borderLeft: `1px solid ${T.rightBorder}`,
         display: "flex", flexDirection: "column",
         overflow: "hidden",
+        boxShadow: "inset 1px 0 0 rgba(255,255,255,0.04), -2px 0 16px rgba(0,0,0,0.30)",
       }}>
         <InfluencerControls
           canvasState={canvasState}
