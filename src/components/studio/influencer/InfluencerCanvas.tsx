@@ -1541,6 +1541,16 @@ function RevealHeader({ accent }: { accent: string }) {
           0%, 100% { opacity: 0.5; transform: scale(0.98); }
           50%       { opacity: 1;   transform: scale(1.01); }
         }
+        @keyframes titleGlowPulse {
+          0%, 100% {
+            text-shadow: 0 0 24px ${accent}90, 0 0 60px ${accent}40, 0 0 120px ${accent}18, 0 2px 12px rgba(0,0,0,0.7);
+            color: rgba(255,255,255,0.88);
+          }
+          50% {
+            text-shadow: 0 0 40px ${accent}ff, 0 0 80px ${accent}70, 0 0 160px ${accent}30, 0 2px 12px rgba(0,0,0,0.7);
+            color: rgba(255,255,255,1);
+          }
+        }
         @keyframes packGenerating {
           0%, 100% { opacity: 0.55; }
           50%       { opacity: 1;   }
@@ -1579,7 +1589,7 @@ function RevealHeader({ accent }: { accent: string }) {
       </div>
 
       {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
-      {/* NOTE: plain color + textShadow only — NO background-clip gradient (causes white/yellow stripe) */}
+      {/* Animated glow uses textShadow keyframes (accent-matched) — stripe-safe, no background-clip needed */}
       <h2
         className="font-display tracking-tight"
         style={{
@@ -1590,7 +1600,7 @@ function RevealHeader({ accent }: { accent: string }) {
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
           color: "rgba(255,255,255,0.92)",
-          textShadow: `0 0 40px ${accent}50, 0 0 80px ${accent}20, 0 2px 12px rgba(0,0,0,0.6)`,
+          animation: "titleGlowPulse 3s ease-in-out infinite",
         }}
       >
         Your Digital Human is Ready
