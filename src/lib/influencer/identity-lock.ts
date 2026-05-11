@@ -100,7 +100,7 @@ export async function createIdentityLock(
       url:           candidate_url,
       thumbnail_url: candidate_url,
       is_hero:       true,
-      metadata:      { selected_at: new Date().toISOString(), style_category },
+      metadata:      { selected_at: new Date().toISOString(), style_category, casting_engine_version: "v2-archetype" },
     })
     .select()
     .single();
