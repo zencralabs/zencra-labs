@@ -1541,15 +1541,9 @@ function RevealHeader({ accent }: { accent: string }) {
           0%, 100% { opacity: 0.5; transform: scale(0.98); }
           50%       { opacity: 1;   transform: scale(1.01); }
         }
-        @keyframes titleGlowPulse {
-          0%, 100% {
-            text-shadow: 0 0 24px ${accent}90, 0 0 60px ${accent}40, 0 0 120px ${accent}18, 0 2px 12px rgba(0,0,0,0.7);
-            color: rgba(255,255,255,0.88);
-          }
-          50% {
-            text-shadow: 0 0 40px ${accent}ff, 0 0 80px ${accent}70, 0 0 160px ${accent}30, 0 2px 12px rgba(0,0,0,0.7);
-            color: rgba(255,255,255,1);
-          }
+        @keyframes titleShimmerBeam {
+          0%   { left: 110%; }
+          100% { left: -60%; }
         }
         @keyframes packGenerating {
           0%, 100% { opacity: 0.55; }
@@ -1589,7 +1583,7 @@ function RevealHeader({ accent }: { accent: string }) {
       </div>
 
       {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
-      {/* Animated glow uses textShadow keyframes (accent-matched) — stripe-safe, no background-clip needed */}
+      {/* Shimmer beam travels right→left over white text via mix-blend-mode overlay — stripe-safe */}
       <h2
         className="font-display tracking-tight"
         style={{
@@ -1600,10 +1594,31 @@ function RevealHeader({ accent }: { accent: string }) {
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
           color: "rgba(255,255,255,0.92)",
-          animation: "titleGlowPulse 3s ease-in-out infinite",
+          position: "relative",
+          overflow: "hidden",
+          textShadow: `0 0 40px ${accent}40, 0 2px 12px rgba(0,0,0,0.6)`,
         }}
       >
         Your Digital Human is Ready
+        {/* Travelling shimmer beam — overlay over white text, accent-tinted leading edge */}
+        <span aria-hidden="true" style={{
+          position:   "absolute",
+          top:        "-10%",
+          width:      "50%",
+          height:     "120%",
+          background: `linear-gradient(90deg,
+            transparent 0%,
+            ${accent}28 25%,
+            rgba(255,255,255,0.55) 48%,
+            rgba(255,255,255,0.80) 50%,
+            rgba(255,255,255,0.55) 52%,
+            ${accent}28 75%,
+            transparent 100%
+          )`,
+          mixBlendMode:   "overlay" as const,
+          pointerEvents:  "none",
+          animation:      "titleShimmerBeam 3.5s linear infinite",
+        }} />
       </h2>
 
       {/* Sub-line — whiteSpace nowrap keeps it on one line on desktop */}
