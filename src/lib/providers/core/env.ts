@@ -107,7 +107,14 @@ export interface FalEnv {
 export function getFalEnv(): FalEnv {
   return {
     apiKey: required("FAL_KEY"),
-    instantCharacterSeedUrl: optional("INSTANT_CHARACTER_SEED_IMAGE_URL"),
+    // Fallback: a real human portrait served from Zencra's public CDN.
+    // This is a temporary stand-in for initial casting tests while the production
+    // seed (a dedicated neutral portrait in Supabase Storage) is being set up.
+    // Override at any time via INSTANT_CHARACTER_SEED_IMAGE_URL in Vercel env.
+    instantCharacterSeedUrl: optional(
+      "INSTANT_CHARACTER_SEED_IMAGE_URL",
+      "https://www.zencralabs.com/showcase/login/gpt-image-2.webp"
+    ),
   };
 }
 
