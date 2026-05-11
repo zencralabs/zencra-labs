@@ -326,15 +326,15 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           <div style={{ minWidth: 0 }}>
             <div style={{
               fontFamily: "'Syne', sans-serif",
-              fontSize: 13, fontWeight: 700, color: "#d8dbe8",
-              letterSpacing: "0.02em",
+              fontSize: 16, fontWeight: 700, color: "#eceef5",
+              letterSpacing: "0.01em",
             }}>
               AI Talent Roster
             </div>
             <div style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 11, color: "rgba(255,255,255,0.40)", marginTop: 3,
-              letterSpacing: "0.05em",
+              fontSize: 13, color: "rgba(255,255,255,0.52)", marginTop: 3,
+              letterSpacing: "0.04em",
             }}>
               Your locked digital cast
             </div>
@@ -380,15 +380,16 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           }}>
             <span style={{
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)",
+              fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.58)",
               letterSpacing: "0.10em", textTransform: "uppercase" as const,
             }}>
               Roster Slots
             </span>
             <span style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 9, fontWeight: 700,
-              color: slotsUsed >= slotsLimit ? "#fca5a5" : "rgba(245,158,11,0.72)",
+              fontFamily: "'Syne', sans-serif",
+              fontSize: 13, fontWeight: 700,
+              color: slotsUsed >= slotsLimit ? "#fca5a5" : "#f59e0b",
+              letterSpacing: "-0.01em",
             }}>
               {slotsUsed}/{slotsLimit}
             </span>
@@ -432,13 +433,13 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
             value={query}
             onChange={e => setQuery(e.target.value)}
             style={{
-              width: "100%", height: 34, boxSizing: "border-box",
+              width: "100%", height: 36, boxSizing: "border-box",
               paddingLeft: 28, paddingRight: 10,
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.08)",
               color: "#d8dbe8",
               fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 12,
+              fontSize: 14,
               outline: "none",
               transition: "border-color 0.18s",
             }}
@@ -464,16 +465,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
               key={chip.value}
               onClick={() => setActiveStyle(chip.value as StyleCategory | "all")}
               style={{
-                flexShrink: 0, padding: "5px 10px",
+                flexShrink: 0, padding: "6px 11px",
                 fontFamily: "'Familjen Grotesk', sans-serif",
-                fontSize: 12, fontWeight: on ? 700 : 500,
+                fontSize: 14, fontWeight: on ? 800 : 500,
                 border: on
-                  ? "1px solid rgba(245,158,11,0.55)"
+                  ? "1.5px solid rgba(245,158,11,0.65)"
                   : "1px solid rgba(255,255,255,0.09)",
                 background: on
-                  ? "rgba(245,158,11,0.14)"
+                  ? "rgba(245,158,11,0.16)"
                   : "rgba(255,255,255,0.03)",
-                color: on ? "#f59e0b" : "rgba(255,255,255,0.55)",
+                color: on ? "#fbbf24" : "rgba(255,255,255,0.58)",
+                boxShadow: on
+                  ? "0 0 14px rgba(245,158,11,0.28), 0 0 4px rgba(245,158,11,0.16), inset 0 0 10px rgba(245,158,11,0.07)"
+                  : "none",
                 cursor: "pointer", transition: "all 0.15s",
                 whiteSpace: "nowrap",
                 letterSpacing: on ? "0.01em" : "0",
@@ -502,16 +506,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 key={tag}
                 onClick={() => setActiveTag(tag)}
                 style={{
-                  flexShrink: 0, padding: "4px 9px",
+                  flexShrink: 0, padding: "5px 10px",
                   fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 11, fontWeight: on ? 700 : 500,
+                  fontSize: 13, fontWeight: on ? 800 : 500,
                   border: on
-                    ? "1px solid rgba(167,139,250,0.55)"
+                    ? "1.5px solid rgba(167,139,250,0.65)"
                     : "1px solid rgba(255,255,255,0.08)",
                   background: on
-                    ? "rgba(167,139,250,0.14)"
+                    ? "rgba(167,139,250,0.16)"
                     : "rgba(255,255,255,0.03)",
-                  color: on ? "#a78bfa" : "rgba(255,255,255,0.50)",
+                  color: on ? "#c4b5fd" : "rgba(255,255,255,0.55)",
+                  boxShadow: on
+                    ? "0 0 12px rgba(167,139,250,0.22), inset 0 0 8px rgba(167,139,250,0.06)"
+                    : "none",
                   cursor: "pointer", transition: "all 0.15s",
                   whiteSpace: "nowrap",
                 }}
@@ -527,8 +534,8 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
       <div
         className="inf-list"
         style={{
-          flex: 1, overflowY: "auto",
-          padding: "10px 8px 24px",
+          flex: 1, minHeight: 0, overflowY: "auto",
+          padding: "10px 8px 96px",
           scrollbarWidth: "thin",
           scrollbarColor: "#161b28 transparent",
         }}

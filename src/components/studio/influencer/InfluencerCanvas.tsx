@@ -2728,7 +2728,7 @@ function CanvasDock({
           label="Video Flow"
           onClick={onVideoFlow}
           active={hasSelected}
-          accent="#f59e0b"
+          accent="#84cc16"
           tip={hasSelected ? "Open in Video Studio as start frame" : "Go to Video Studio"}
         />
       </div>
