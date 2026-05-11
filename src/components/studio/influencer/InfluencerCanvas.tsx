@@ -1579,7 +1579,7 @@ function RevealHeader({ accent }: { accent: string }) {
       </div>
 
       {/* Main headline — cinematic override: clamp + 800 intentional for hero reveal */}
-      {/* NOTE: gradient goes on inline <span>, NOT the block h2 — prevents white/yellow stripe bug */}
+      {/* NOTE: plain color + textShadow only — NO background-clip gradient (causes white/yellow stripe) */}
       <h2
         className="font-display tracking-tight"
         style={{
@@ -1589,27 +1589,11 @@ function RevealHeader({ accent }: { accent: string }) {
           fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
-          position: "relative",
+          color: "rgba(255,255,255,0.92)",
+          textShadow: `0 0 40px ${accent}50, 0 0 80px ${accent}20, 0 2px 12px rgba(0,0,0,0.6)`,
         }}
       >
-        <span style={{
-          display: "inline-block",
-          textShadow: "0 0 14px rgba(255,255,255,0.08)",
-          background: `linear-gradient(110deg,
-            rgba(255,255,255,0.70) 0%,
-            rgba(255,255,255,1.00) 40%,
-            ${accent} 55%,
-            rgba(255,255,255,0.80) 70%,
-            rgba(255,255,255,0.60) 100%
-          )`,
-          backgroundSize: "200% auto",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          backgroundClip: "text",
-          animation: "revealShimmer 3.5s linear infinite",
-        }}>
-          Your Digital Human is Ready
-        </span>
+        Your Digital Human is Ready
       </h2>
 
       {/* Sub-line — whiteSpace nowrap keeps it on one line on desktop */}
