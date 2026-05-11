@@ -1542,12 +1542,36 @@ function RevealHeader({ accent }: { accent: string }) {
           50%       { opacity: 1;   transform: scale(1.01); }
         }
         @keyframes titleShimmerText {
-          0%   { background-position: 200% center; }
-          100% { background-position: -20% center; }
+          0%   { background-position: 150% center; }
+          100% { background-position: -50% center; }
         }
         @keyframes packGenerating {
           0%, 100% { opacity: 0.55; }
           50%       { opacity: 1;   }
+        }
+        /* Cinematic metallic shimmer — MUST be a stylesheet class, not inline styles.
+           background-clip:text + vendor prefix only works reliably via CSS rules.
+           width:fit-content is the hard safety net: even if clip fails, the
+           background paints only behind the text — never as a full-width bar. */
+        .zencra-reveal-h2 {
+          display: block;
+          width: fit-content;
+          margin: 0 auto 10px;
+          color: rgba(255,255,255,0.92);
+          background: linear-gradient(90deg,
+            rgba(255,255,255,0.88)  0%,
+            rgba(255,255,255,0.88) 36%,
+            var(--h2-accent, #f59e0b) 44%,
+            rgba(255,255,255,0.97) 50%,
+            var(--h2-accent, #f59e0b) 56%,
+            rgba(255,255,255,0.88) 64%,
+            rgba(255,255,255,0.88) 100%
+          );
+          background-size: 250% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: titleShimmerText 7s ease-in-out infinite alternate;
         }
       `}</style>
 
@@ -1582,34 +1606,19 @@ function RevealHeader({ accent }: { accent: string }) {
         </span>
       </div>
 
-      {/* Main headline — cinematic metallic sweep INSIDE the glyphs via background-clip:text */}
-      {/* Gradient travels right→left inside the letterforms — no rectangular bar possible */}
+      {/* Main headline — cinematic metallic sweep.
+           Class .zencra-reveal-h2 handles background-clip:text via proper CSS rules.
+           CSS custom property --h2-accent feeds the dynamic per-category accent colour.
+           Typography-only inline style: no background, no clip, no animation. */}
       <h2
-        className="font-display tracking-tight"
+        className="font-display tracking-tight zencra-reveal-h2"
         style={{
-          margin: "0 0 10px",
           fontFamily: "var(--font-display), Syne, system-ui, sans-serif",
           fontSize: "clamp(2rem, 4vw, 3rem)",
           fontWeight: 800,
           lineHeight: 0.95,
           letterSpacing: "-0.04em",
-          // Fallback for browsers that don't support background-clip:text
-          color: "rgba(255,255,255,0.92)",
-          // Metallic sweep — base white with traveling accent-tinted reflection
-          background: `linear-gradient(90deg,
-            rgba(255,255,255,0.88)  0%,
-            rgba(255,255,255,0.88) 36%,
-            ${accent}99            44%,
-            rgba(255,255,255,0.97) 50%,
-            ${accent}99            56%,
-            rgba(255,255,255,0.88) 64%,
-            rgba(255,255,255,0.88) 100%
-          )`,
-          backgroundSize: "250% 100%",
-          backgroundClip: "text",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          animation: "titleShimmerText 7s ease-in-out infinite alternate",
+          ["--h2-accent" as string]: accent,
         }}
       >
         Your Digital Human is Ready
