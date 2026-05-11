@@ -1600,22 +1600,22 @@ function RevealHeader({ accent }: { accent: string }) {
         }}
       >
         Your Digital Human is Ready
-        {/* Travelling shimmer beam — overlay over white text, accent-tinted leading edge */}
+        {/* Travelling shimmer beam — mix-blend-mode:color tints the WHITE text with accent hue as beam sweeps */}
         <span aria-hidden="true" style={{
           position:   "absolute",
           top:        "-10%",
-          width:      "50%",
+          width:      "40%",
           height:     "120%",
           background: `linear-gradient(90deg,
-            transparent 0%,
-            ${accent}28 25%,
-            rgba(255,255,255,0.55) 48%,
-            rgba(255,255,255,0.80) 50%,
-            rgba(255,255,255,0.55) 52%,
-            ${accent}28 75%,
-            transparent 100%
+            transparent            0%,
+            ${accent}00           15%,
+            ${accent}bb           40%,
+            ${accent}ff           50%,
+            ${accent}bb           60%,
+            ${accent}00           85%,
+            transparent           100%
           )`,
-          mixBlendMode:   "overlay" as const,
+          mixBlendMode:   "color" as const,
           pointerEvents:  "none",
           animation:      "titleShimmerBeam 3.5s linear infinite",
         }} />
