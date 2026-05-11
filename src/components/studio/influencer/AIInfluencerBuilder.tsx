@@ -16,7 +16,6 @@ import InfluencerLibrary   from "./InfluencerLibrary";
 import InfluencerCanvas    from "./InfluencerCanvas";
 import InfluencerControls  from "./InfluencerControls";
 import { useAuth }         from "@/components/auth/AuthContext";
-import { supabase }        from "@/lib/supabase";
 import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
 import { startPolling }    from "@/lib/jobs/job-polling";
 import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
@@ -75,19 +74,20 @@ export default function AIInfluencerBuilder() {
   // Library tags — user-defined labels for filtering in the AI Talent Roster
   const [tags,           setTags]           = useState<string[]>([]);
 
-  // ── Auth token ref — kept current via onAuthStateChange ──────────────────
+  // ── Auth token ref — kept current from the session provided by AuthContext ─
   // Used by startPolling so every poll tick reads a live JWT even if the
   // token rotated while candidate generation was in progress (up to 10 min).
+  //
+  // We deliberately do NOT register a second onAuthStateChange listener or
+  // call supabase.auth.getSession() here.  Both operations compete for the
+  // Supabase auth lock ("lock:zencra-auth-token") with AuthContext's own
+  // listener, causing lock-contention errors and a 1–2 s UI freeze on mount.
+  // The session prop from AuthContext is already kept live by its listener, so
+  // syncing from it is sufficient and lock-free.
   const authTokenRef = useRef<string | null>(null);
   useEffect(() => {
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => { authTokenRef.current = session?.access_token ?? null; })
-      .catch(() => { /* ignore */ });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, sess) => {
-      authTokenRef.current = sess?.access_token ?? null;
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+    authTokenRef.current = session?.access_token ?? null;
+  }, [session]);
 
   // ── Creation state — driven by canvas dock button ─────────────────────────
   const [isCreating,  setIsCreating]  = useState(false);
@@ -118,18 +118,21 @@ export default function AIInfluencerBuilder() {
 
   // ── SINGLE SOURCE OF TRUTH: all creation logic lives here ─────────────────
   const handleCreateInfluencer = useCallback(async () => {
-    setCreateError(null);
+    // ── Activate generating state IMMEDIATELY ────────────────────────────────
+    // setIsCreating(true) must be the very first statement so the canvas
+    // transitions to its shimmer/generating phase before any async work begins.
+    // Previously this was preceded by await supabase.auth.getSession() which
+    // competed for the Supabase auth lock and caused a 2–3 s dead pause with
+    // no visible UI change while the lock resolved.
     setIsCreating(true);
+    setCreateError(null);
 
     try {
-      // Resolve a fresh access token — getSession() reads from localStorage
-      // and is always valid for the current session. Falls back to the context
-      // session if getSession() is unavailable (e.g. SSR edge case).
-      let token: string | null = session?.access_token ?? null;
-      try {
-        const { data: { session: fresh } } = await supabase.auth.getSession();
-        if (fresh?.access_token) token = fresh.access_token;
-      } catch { /* ignore — fall back to context token */ }
+      // Use the live token from authTokenRef — kept current by the useEffect
+      // that syncs from the session prop on every AuthContext update.
+      // This eliminates the supabase.auth.getSession() call that previously
+      // acquired the auth lock here and caused "lock:zencra-auth-token" errors.
+      const token = authTokenRef.current ?? session?.access_token ?? null;
 
       if (!token) {
         setCreateError("Session expired. Please refresh and try again.");

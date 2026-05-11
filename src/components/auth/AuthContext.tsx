@@ -191,6 +191,25 @@ function buildAuthUser(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MODULE-LEVEL PROFILE DEDUP
+//
+// React Strict Mode double-invokes effects (mount → unmount → remount) in dev.
+// React refs are recreated on remount, so a ref-based in-flight guard can be
+// defeated when the second INITIAL_SESSION fires after the ref resets.
+// Module-level vars survive remounts and reliably prevent:
+//   • Duplicate loadProfile DB calls (→ duplicate auth-lock acquisitions)
+//   • "lock:zencra-auth-token was released because another request stole it" spam
+//   • Rapid TOKEN_REFRESHED re-fetches stacking up concurrent queries
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _profileInFlight     = false;
+/** userId whose profile was last successfully loaded */
+let _profileLoadedForUser: string | null = null;
+let _profileLoadedAt     = 0;
+/** Skip re-fetch if the same user's profile was loaded within this window */
+const PROFILE_COOLDOWN_MS = 5_000;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PROVIDER
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -214,8 +233,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadInFlightRef = useRef(false);
 
   async function loadProfile(sess: Session) {
-    // Drop concurrent invocations — the first one wins.
-    if (loadInFlightRef.current) return;
+    const now = Date.now();
+
+    // ── Module-level dedup ────────────────────────────────────────────────────
+    // 1. Drop if another invocation is already running (Strict Mode re-fire,
+    //    simultaneous TOKEN_REFRESHED + INITIAL_SESSION, etc.).
+    // 2. Skip if we loaded this user's profile very recently — prevents rapid
+    //    re-fetches from TOKEN_REFRESHED events stacking DB queries.
+    if (_profileInFlight) return;
+    if (
+      _profileLoadedForUser === sess.user.id &&
+      now - _profileLoadedAt < PROFILE_COOLDOWN_MS
+    ) return;
+
+    _profileInFlight = true;
     loadInFlightRef.current = true;
 
     // Capture generation at call time. If logout fires before the query resolves,
@@ -246,9 +277,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fullUser = buildAuthUser(profile as Record<string, unknown> | null, sess);
       setUser(fullUser);
       saveAuthSnapshot(fullUser);
+      // Mark as successfully loaded so rapid re-fires are suppressed.
+      _profileLoadedForUser = sess.user.id;
+      _profileLoadedAt      = Date.now();
     } finally {
-      // Always release the in-flight guard so subsequent calls (e.g. after
-      // TOKEN_REFRESHED) can go through when they represent a real new session.
+      _profileInFlight        = false;
       loadInFlightRef.current = false;
     }
   }
@@ -275,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // cache (populated from localStorage when createClient ran) — no lock,
     // no async wait, works correctly across all tabs.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, sess) => {
+      (_event, sess) => {
         setSession(sess);
         if (sess) {
           // ── Immediately set a provisional user from the session object. ──
@@ -291,14 +324,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ? prev
               : buildAuthUser(null, sess)
           );
-          // loadProfile() enriches with real credits/role/plan and saves
-          // an updated snapshot when done.
-          await loadProfile(sess);
+          // ── Fire-and-forget profile enrichment ───────────────────────────
+          // loadProfile() fetches real credits/role/plan from the DB and
+          // updates user state when done.  We do NOT await it here — the
+          // callback must return quickly so the Supabase auth internals can
+          // release their lock.  Awaiting loadProfile() here caused
+          // "lock:zencra-auth-token was released because another request stole
+          // it" spam when multiple events (INITIAL_SESSION + TOKEN_REFRESHED +
+          // Strict Mode re-subscribe) fired while the DB query was in flight.
+          void loadProfile(sess);
         } else {
           // Session ended — clear everything immediately.
           setUser(null);
           clearAuthSnapshot();
         }
+        // ── Unlock loading immediately ───────────────────────────────────────
+        // The provisional user is already set above, so the UI can render
+        // right away.  The real profile data will arrive shortly via the
+        // fire-and-forget loadProfile() call and trigger a second render with
+        // the correct credits/plan values.
         setLoading(false);
       }
     );
@@ -430,8 +474,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Increment generation counter so any in-flight loadProfile call discards
     // its result and doesn't re-hydrate the user after we clear state.
     loadGenRef.current++;
-    // Reset in-flight guard so a fresh login attempt after logout can
-    // call loadProfile normally without being silently dropped.
+    // Reset all in-flight + cooldown guards so the next login triggers a fresh
+    // profile fetch unconditionally.
+    _profileInFlight      = false;
+    _profileLoadedForUser = null;
+    _profileLoadedAt      = 0;
     loadInFlightRef.current = false;
 
     // Clear auth state immediately — UI should reflect logged-out before
