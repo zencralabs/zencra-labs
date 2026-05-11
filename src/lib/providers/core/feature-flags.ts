@@ -79,7 +79,7 @@ const PHASE1_DEFAULTS: FeatureFlags = {
   imageStudioEnabled:       true,
   videoStudioEnabled:       true,
   audioStudioEnabled:       true,
-  characterStudioEnabled:   false,   // backend ready; UI to be built
+  characterStudioEnabled:   true,    // backend + UI complete — AI Influencer Studio live
   ugcStudioEnabled:         false,   // backend ready; UI to be built
   fcsEnabled:               false,   // controlled separately via profiles.fcs_enabled
   lipSyncStudioEnabled:     true,    // Studio Lip Sync — active Phase 1
