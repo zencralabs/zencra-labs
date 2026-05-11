@@ -50,8 +50,8 @@ const CHIP_PALETTE: Record<StyleCategory | "all", {
   r: number; g: number; b: number;   // RGB for rgba() composition
   text: string;                       // Active text color
 }> = {
-  "all":              { r: 245, g: 158, b: 11,  text: "#fbbf24" }, // amber
-  "hyper-real":       { r: 226, g: 232, b: 240, text: "#f1f5f9" }, // neutral white
+  "all":              { r: 226, g: 232, b: 240, text: "#f1f5f9" }, // neutral white
+  "hyper-real":       { r: 245, g: 158, b: 11,  text: "#fbbf24" }, // amber
   "3d-animation":     { r: 6,   g: 182, b: 212, text: "#22d3ee" }, // cyan
   "anime-manga":      { r: 236, g: 72,  b: 153, text: "#f472b6" }, // pink
   "fine-art":         { r: 249, g: 115, b: 22,  text: "#fb923c" }, // warm orange
