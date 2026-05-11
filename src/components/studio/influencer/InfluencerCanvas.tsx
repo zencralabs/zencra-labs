@@ -2601,7 +2601,7 @@ function CanvasDock({
           label="Image Flow"
           onClick={onImageFlow}
           active={hasSelected}
-          accent="#05a09b"
+          accent="#2361e2"
           tip={hasSelected ? "Open in Image Studio with identity context" : "Go to Image Studio"}
         />
 
