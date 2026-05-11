@@ -692,7 +692,7 @@ export function BuilderTab({
           fontSize: 10, color: "rgba(255,255,255,0.38)", textAlign: "center",
           letterSpacing: "0.02em",
         }}>
-          {candidateCount * 8} cr total · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
+          {candidateCount * 15} cr total · {candidateCount} candidate{candidateCount > 1 ? "s" : ""}
         </div>
       </section>
 

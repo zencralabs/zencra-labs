@@ -586,6 +586,46 @@ export async function pollAndUpdateJob(
       const errorMsg = (jobStatus.error ?? "Generation failed")
         .trim()
         .slice(0, 500);
+
+      // ── Credit refund — partial failure reconciliation ────────────────────────
+      // The credit was reserved (spend_credits) at dispatch time. If the async job
+      // fails, we must refund it now. Look up user_id + credits_cost from the asset
+      // record (both written by persistAsset) and call refund_credits atomically.
+      // Fire-and-forget with logging — a refund failure is non-fatal (user keeps
+      // extra credits, which is the safe direction), but we do log it prominently.
+      try {
+        const { data: assetRow } = await supabaseAdmin
+          .from("generations")
+          .select("user_id, credits_cost")
+          .eq("id", assetId)
+          .single();
+
+        const refundUserId = (assetRow as { user_id?: string; credits_cost?: number } | null)?.user_id;
+        const refundAmount = (assetRow as { user_id?: string; credits_cost?: number } | null)?.credits_cost ?? 0;
+
+        if (refundUserId && refundAmount > 0) {
+          const { error: refundErr } = await supabaseAdmin.rpc("refund_credits", {
+            p_user_id:     refundUserId,
+            p_amount:      refundAmount,
+            p_description: `Failed generation refund [${modelKey}] asset=${assetId} restored=${refundAmount}cr`,
+          });
+
+          if (refundErr) {
+            console.error(
+              `[pollAndUpdateJob] refund_credits FAILED for asset=${assetId} user=${refundUserId} amount=${refundAmount}:`,
+              refundErr.message,
+            );
+          } else {
+            console.info(
+              `[pollAndUpdateJob] refunded ${refundAmount}cr to user=${refundUserId} for failed asset=${assetId} model=${modelKey}`,
+            );
+          }
+        }
+      } catch (refundLookupErr) {
+        // Non-fatal — asset lookup failed. Log and continue to mark as failed.
+        console.error("[pollAndUpdateJob] credit refund lookup failed:", refundLookupErr);
+      }
+
       await updateAssetStatus(supabaseAdmin, assetId, "failed", undefined, errorMsg);
       // Shield: provider job failed — record outcome for circuit breaker
       void recordOutcome(modelKey, false).catch(() => {});
