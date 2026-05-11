@@ -447,7 +447,7 @@ export function BuilderTab({
               border: ethnicityRegion
                 ? `1px solid ${selectedCat.accent}55`
                 : `1px solid rgba(255,255,255,0.08)`,
-              borderRadius: 8,
+              borderRadius: 0,
               padding: "9px 32px 9px 12px",
               color: ethnicityRegion ? selectedCat.accent : "rgba(255,255,255,0.55)",
               fontFamily: "'Familjen Grotesk', sans-serif",
