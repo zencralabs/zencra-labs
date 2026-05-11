@@ -1541,9 +1541,15 @@ function RevealHeader({ accent }: { accent: string }) {
           0%, 100% { opacity: 0.5; transform: scale(0.98); }
           50%       { opacity: 1;   transform: scale(1.01); }
         }
+        /* ONE wide cinematic sweep — left-to-right, seamless loop.
+           Keyframe: glow starts off-screen left (-50%), exits off-screen right (150%).
+           At both endpoints the glow band is outside the element, so the loop
+           restart is invisible — text appears as plain white for a beat, then the
+           sweep fires again. Accent color spans 30%→70% of gradient width (40pts)
+           to produce a single broad reflective band, not two separated spots. */
         @keyframes titleShimmerText {
-          0%   { background-position: 150% center; }
-          100% { background-position: -50% center; }
+          0%   { background-position: -50% center; }
+          100% { background-position: 150% center; }
         }
         @keyframes packGenerating {
           0%, 100% { opacity: 0.55; }
@@ -1558,20 +1564,23 @@ function RevealHeader({ accent }: { accent: string }) {
           width: fit-content;
           margin: 0 auto 10px;
           color: rgba(255,255,255,0.92);
+          /* Single wide glow band: base white → accent → bright white peak → accent → base white.
+             The 30%–70% accent span (40pts wide) collapses the two separated spots
+             into one continuous reflective band. */
           background: linear-gradient(90deg,
-            rgba(255,255,255,0.88)  0%,
-            rgba(255,255,255,0.88) 36%,
-            var(--h2-accent, #f59e0b) 44%,
+            rgba(255,255,255,0.78)  0%,
+            rgba(255,255,255,0.78) 20%,
+            var(--h2-accent, #f59e0b) 30%,
             rgba(255,255,255,0.97) 50%,
-            var(--h2-accent, #f59e0b) 56%,
-            rgba(255,255,255,0.88) 64%,
-            rgba(255,255,255,0.88) 100%
+            var(--h2-accent, #f59e0b) 70%,
+            rgba(255,255,255,0.78) 80%,
+            rgba(255,255,255,0.78) 100%
           );
-          background-size: 250% 100%;
+          background-size: 260% 100%;
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
-          animation: titleShimmerText 7s ease-in-out infinite alternate;
+          animation: titleShimmerText 3.2s ease-in-out infinite;
         }
       `}</style>
 
