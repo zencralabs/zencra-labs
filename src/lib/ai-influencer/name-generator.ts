@@ -1,9 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Influencer Name Generator — Region-Aware
 //
-// Picks culturally-matched names from region-keyed pools based on the
-// ethnicity_region selected in the builder.  Falls back to an aesthetic
-// collision strategy (@heyzara, @realzara, @itszara) — NEVER random suffixes.
+// Rule: handles are ALWAYS a single clean name — @Zara, @Gabriela, @Maya.
+// NEVER: @heyzara, @realzara, @zara_mpoxu5rt, @zara2, @zara_abc123.
+//
+// Collision strategy (in priority order):
+//   1. Pick a different name from the same region pool (shuffled).
+//   2. Draw from the combined global pool (all regions merged, deduped).
+//   3. Try the overflow list — curated premium single-word names.
+//   4. Append a single digit 2–9 (clean, last resort only).
 //
 // Handle storage: lowercase in DB (e.g. "zara")
 // Display name:   title-case (e.g. "Zara")
@@ -155,18 +160,48 @@ const NAME_POOLS: Record<string, string[]> = {
   ],
 };
 
-// ── Collision-safe aesthetic prefixes ─────────────────────────────────────────
-// When a clean name is taken, we try these human-readable suffixes first.
-// Result: @heyzara, @realzara, @itszara, @byzara, @thezara
-// NEVER: @zara2, @zara_timestamp
-const AESTHETIC_PREFIXES = ["hey", "real", "its", "by", "the", "iam", "hi", "go"];
-const AESTHETIC_SUFFIXES_AS_PREFIX = ["ia", "ux", "oo", "ox"];
+// ── Overflow names — used when all region + global pool names are taken ───────
+// Extra curated single-word names, no prefixes, no suffixes. Always clean.
+const OVERFLOW_NAMES: string[] = [
+  "Zephyr", "Blaze", "Onyx", "Raven", "Indigo", "Slate", "Pearl",
+  "Onyx", "Coral", "Opal", "Flint", "Ashen", "Briar", "Cedar",
+  "Dusk", "Frost", "Gale", "Haze", "Isle", "Jet", "Knox", "Lake",
+  "Moss", "Night", "Oak", "Pine", "Reef", "Silt", "Teal", "Vale",
+  "Wave", "Yew", "Zeal", "Brine", "Cyan", "Dune", "Glen", "Hawk",
+  "Lark", "Mist", "Quill", "Rush", "Thorn", "Umber", "Volt", "West",
+];
+
+// ── Build the combined global pool (all names, deduped) ───────────────────────
+function buildGlobalPool(): string[] {
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const pool of Object.values(NAME_POOLS)) {
+    for (const name of pool) {
+      const key = name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push(name);
+      }
+    }
+  }
+  return all;
+}
+
+const GLOBAL_POOL = buildGlobalPool(); // built once at module load
+
+// ── Shuffle helper ────────────────────────────────────────────────────────────
+function shuffled<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
 
 // ── Generate a unique handle for a user ──────────────────────────────────────
 
 /**
  * Picks a region-appropriate name and ensures it's unique for this user.
- * Falls back to aesthetic prefixes (@heyzara) before numeric suffixes.
+ *
+ * Collision strategy: try more names from the same region pool, then the
+ * global pool, then the overflow list, then a single clean digit suffix (2–9).
+ * NEVER: prefixes (hey/real/its), underscores, random hashes, timestamps.
  *
  * Returns: { handle: "zara", displayName: "Zara" }
  */
@@ -185,63 +220,58 @@ export async function generateUniqueHandle(
     (existing ?? []).map(r => r.handle?.toLowerCase()).filter(Boolean),
   );
 
-  // Pick the region pool — fall back to "default" if region unknown or not found
+  // ── PASS 1: Region pool ───────────────────────────────────────────────────
   const regionKey  = ethnicityRegion?.toLowerCase().trim() ?? "default";
   const regionPool = NAME_POOLS[regionKey] ?? NAME_POOLS["default"];
 
-  // Also draw from default pool as a secondary fallback if region pool runs out
-  const fullPool = regionKey === "default"
-    ? regionPool
-    : [...regionPool, ...NAME_POOLS["default"]];
-
-  // De-duplicate (region pool may overlap with default)
-  const seen = new Set<string>();
-  const pool = fullPool.filter(n => {
-    const l = n.toLowerCase();
-    if (seen.has(l)) return false;
-    seen.add(l);
-    return true;
-  });
-
-  // Shuffle and try each name
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-
-  for (const name of shuffled) {
+  for (const name of shuffled(regionPool)) {
     const handle = name.toLowerCase();
     if (!usedHandles.has(handle)) {
       return { handle, displayName: name };
     }
   }
 
-  // All base names taken — try aesthetic prefixes before numeric fallback
-  // Prefer names at the TOP of the region pool (primary names for this region)
-  const priorityBase = shuffled[0]; // first shuffled = candidate for collision
-  const baseLower    = priorityBase.toLowerCase();
-
-  for (const prefix of AESTHETIC_PREFIXES) {
-    const candidate = `${prefix}${baseLower}`;
-    if (!usedHandles.has(candidate)) {
-      const displayName = `${prefix.charAt(0).toUpperCase()}${prefix.slice(1)}${priorityBase}`;
-      return { handle: candidate, displayName };
+  // ── PASS 2: Global pool (all regions merged) ──────────────────────────────
+  for (const name of shuffled(GLOBAL_POOL)) {
+    const handle = name.toLowerCase();
+    if (!usedHandles.has(handle)) {
+      return { handle, displayName: name };
     }
   }
 
-  for (const suf of AESTHETIC_SUFFIXES_AS_PREFIX) {
-    const candidate = `${baseLower}${suf}`;
-    if (!usedHandles.has(candidate)) {
-      return { handle: candidate, displayName: `${priorityBase}${suf.toUpperCase()}` };
+  // ── PASS 3: Overflow curated names ───────────────────────────────────────
+  for (const name of shuffled(OVERFLOW_NAMES)) {
+    const handle = name.toLowerCase();
+    if (!usedHandles.has(handle)) {
+      return { handle, displayName: name };
     }
   }
 
-  // Last resort: numeric, but keep it clean (2 digits max)
-  for (let i = 2; i <= 99; i++) {
+  // ── PASS 4: Single-digit suffix (2–9) — absolute last resort ─────────────
+  // Still a clean look: @Zara2 is readable; @zara_k8x3 is not.
+  // Pick the first available name from the region pool as the base.
+  const base = shuffled(regionPool)[0] ?? "Nova";
+  const baseLower = base.toLowerCase();
+  for (let i = 2; i <= 9; i++) {
     const candidate = `${baseLower}${i}`;
     if (!usedHandles.has(candidate)) {
-      return { handle: candidate, displayName: `${priorityBase}${i}` };
+      return { handle: candidate, displayName: `${base}${i}` };
     }
   }
 
-  // Absolute fallback — combine two region names
-  const combo = `${shuffled[0].toLowerCase()}${shuffled[1]?.toLowerCase().slice(0, 3) ?? "x"}`;
-  return { handle: combo, displayName: shuffled[0] + (shuffled[1]?.slice(0, 3) ?? "X") };
+  // ── PASS 5: Expand to two-digit suffix (10–99) ───────────────────────────
+  for (let i = 10; i <= 99; i++) {
+    const candidate = `${baseLower}${i}`;
+    if (!usedHandles.has(candidate)) {
+      return { handle: candidate, displayName: `${base}${i}` };
+    }
+  }
+
+  // This should be practically unreachable (200+ names + 98 numeric variants).
+  // Combine two region names as an extreme fallback — still no underscore/prefix.
+  const second = shuffled(GLOBAL_POOL).find(n => n.toLowerCase() !== baseLower) ?? "Lyra";
+  return {
+    handle:      `${baseLower}${second.toLowerCase().slice(0, 3)}`,
+    displayName: `${base}${second.slice(0, 3)}`,
+  };
 }
