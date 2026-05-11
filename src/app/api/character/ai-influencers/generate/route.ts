@@ -26,6 +26,7 @@ import { checkEntitlement, consumeTrialUsage }
                              from "@/lib/billing/entitlement";
 import { checkStudioRateLimit } from "@/lib/security/rate-limit";
 import { composeInfluencerPrompt } from "@/lib/influencer/pack-prompts";
+import { selectInfluencerSeed, seedResolutionLabel } from "@/lib/influencer/seed-selector";
 import type { AIInfluencerProfile, StyleCategory } from "@/lib/influencer/types";
 
 export const runtime = "nodejs";
@@ -152,7 +153,13 @@ export async function POST(req: Request): Promise<Response> {
         ? `${composed.prompt} [c:${i + 1}/${candidateCount}]`
         : composed.prompt;
 
-      // Dev logging — prompt visible in terminal, never in UI or DB UI layer
+      // ── Demographic seed selection ─────────────────────────────────────────
+      // Each candidate gets a seed matched to the profile's gender + ethnicity.
+      // This replaces the single global INSTANT_CHARACTER_SEED_IMAGE_URL seed
+      // which caused all candidates to inherit the same woman's facial DNA.
+      const demographicSeed = selectInfluencerSeed(safeProfile, i);
+
+      // Dev logging — prompt + seed visible in terminal, never in UI or DB
       if (process.env.NODE_ENV !== "production") {
         console.log(
           `[instant-character] candidate ${i + 1}/${candidateCount} prompt:`,
@@ -160,6 +167,14 @@ export async function POST(req: Request): Promise<Response> {
         );
         console.log(
           `[instant-character] candidate ${i + 1}/${candidateCount} style: ${styleCategory} | tags: [${rosterTags.join(", ")}]`,
+        );
+        console.log(
+          `[instant-character] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
+        );
+      } else {
+        // Production: log seed resolution label only (not the URL)
+        console.log(
+          `[instant-character] candidate ${i + 1}/${candidateCount} ${seedResolutionLabel(safeProfile, i, demographicSeed)}`,
         );
       }
 
@@ -170,6 +185,7 @@ export async function POST(req: Request): Promise<Response> {
         prompt:         candidatePrompt,
         negativePrompt: composed.negativePrompt,
         aspectRatio,
+        imageUrl:       demographicSeed,  // demographic seed — not the global fallback
         identity:       { character_id: influencer_id },
       });
 

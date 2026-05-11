@@ -412,14 +412,16 @@ export interface ComposedInfluencerPrompt {
 
 // ── Negative prompt — standard quality guard ──────────────────────────────────
 // Internal only. Never shown to user or stored in UI state.
-// v2: added oversmoothing, artificial symmetry, wax-figure, and stock-photo blockers
-// to help break out of the generic "AI face" aesthetic.
+// v3: added "same person", "copied face", "derived identity" blockers to prevent
+// the model from recycling the seed face instead of generating a new identity.
 const NEGATIVE_PROMPT =
   "blurry, low quality, distorted face, extra limbs, duplicate face, bad anatomy, " +
   "deformed hands, watermark, text, logo, oversaturated, plastic skin, waxy skin, " +
   "airbrushed skin, oversmoothed skin, synthetic looking, wax figure, perfect symmetry, " +
   "artificial face, stock photo, generic AI face, uncanny valley, harsh compression artifacts, " +
-  "multiple people, crowd, collage, grid, split screen, out of focus eyes";
+  "multiple people, crowd, collage, grid, split screen, out of focus eyes, " +
+  "same person as reference, copied face from seed, derivative identity, clone of seed, " +
+  "traced from reference, identical to source image, exact copy of seed face";
 
 // ── Style-aware quality suffix ────────────────────────────────────────────────
 // Each category gets quality language that belongs to its visual world.
@@ -434,6 +436,46 @@ const STYLE_QUALITY_SUFFIX: Record<StyleCategory, string> = {
   "physical-texture": "sharp material detail, professional craft photography, tactile surface quality, clean diffused light",
   "retro-pixel":      "clean pixel grid, sharp hard edges, consistent retro color palette, no anti-aliasing, crisp sprite edges",
 };
+
+// ── Unique identity instruction ───────────────────────────────────────────────
+// Injected near the FRONT of every candidate prompt (position 1.5 — after
+// rendering base, before identity traits). Signals that the seed image is
+// style/pose reference only — not a face to copy.
+//
+// This is critical for fal-ai/instant-character: the model must create a NEW
+// person's face, not a style variation of the seed portrait.
+const UNIQUE_IDENTITY_INSTRUCTION =
+  "completely new and original human identity, " +
+  "never seen before, distinct from any reference image, " +
+  "unique facial bone structure, unique eye shape, unique nose bridge, " +
+  "unique lip shape, unique jawline, unique hairline, unique facial proportions, " +
+  "the reference image sets STYLE and POSE only — not identity, " +
+  "do NOT copy or trace the face from the reference image";
+
+// ── Per-candidate face diversity seeds ───────────────────────────────────────
+// Each candidate gets a unique identity variation cue. This pushes the model
+// to generate 4 genuinely different faces — not 4 crops of the same person.
+// Kept abstract (no names/nationalities) so they combine cleanly with the
+// ethnicity descriptor injected separately.
+const CANDIDATE_IDENTITY_SEEDS: string[] = [
+  // Candidate 0 — primary casting option
+  "individual with strong defined cheekbones, deep-set expressive eyes, angular jaw",
+  // Candidate 1 — softer bone structure, wider face
+  "individual with softer rounded bone structure, wider set eyes, full rounded jaw",
+  // Candidate 2 — striking asymmetry, distinctive nose bridge
+  "individual with subtle facial asymmetry, prominent nose bridge, heavy brow, intense gaze",
+  // Candidate 3 — delicate features, high forehead
+  "individual with delicate refined features, high forehead, almond-shaped eyes, tapered chin",
+  // Candidate 4+ — fallback alternating between 0 and 1
+];
+
+// ── Fine-art style contamination guard ────────────────────────────────────────
+// Fine-art without these guards often drifts toward anime or 3D render.
+// Injected only for fine-art style — strengthens classical painting specificity.
+const FINE_ART_GUARD =
+  "oil painting technique, NOT anime, NOT 3D render, NOT photorealistic photograph, " +
+  "classical brushstroke, museum-quality oil painting, NOT digital art, " +
+  "painterly not synthetic, master painter tradition, old master craft";
 
 // ── Candidate casting variants — 4 persona directions per style ───────────────
 // Creates CASTING DIVERSITY: same creative direction, different personality energy.
@@ -614,6 +656,25 @@ export function composeInfluencerPrompt({
   // 1. Rendering base — establishes the entire visual world (style-aware)
   //    This leads every prompt. The category decides the language — no contradictions.
   parts.push(style.renderingBase);
+
+  // 1.5. Fine-art contamination guard — must follow renderingBase immediately.
+  //      Without this, fine-art drifts toward anime or 3D render aesthetics.
+  if (styleCategory === "fine-art") {
+    parts.push(FINE_ART_GUARD);
+  }
+
+  // 1.6. Unique identity instruction — signals to the model that the seed/reference
+  //      image provides STYLE and POSE guidance only, not the face to clone.
+  //      Placed early (high token weight) so it dominates the generation intent.
+  parts.push(UNIQUE_IDENTITY_INSTRUCTION);
+
+  // 1.7. Per-candidate face diversity seed — drives genuinely different bone structures
+  //      across the 4 candidates in a casting session. Candidate 0–3 each get a
+  //      distinct skeletal description; 4+ wraps around.
+  const identitySeed =
+    CANDIDATE_IDENTITY_SEEDS[candidateIndex] ??
+    CANDIDATE_IDENTITY_SEEDS[candidateIndex % CANDIDATE_IDENTITY_SEEDS.length];
+  parts.push(identitySeed);
 
   // 2. Identity traits — gender uses full structural anatomy descriptors.
   //    A bare "Male" token is too weak to override the model's female-face prior.
