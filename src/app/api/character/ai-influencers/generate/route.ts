@@ -75,6 +75,10 @@ export async function POST(req: Request): Promise<Response> {
   );
   const modelKey    = typeof body?.model_key    === "string" ? body.model_key    : DEFAULT_MODEL_KEY;
   const aspectRatio = typeof body?.aspect_ratio === "string" ? body.aspect_ratio : DEFAULT_ASPECT_RATIO;
+  // Mixed/Blended heritage regions — forwarded to prompt composer when ≥2 regions selected.
+  const mixedBlendRegions: string[] = Array.isArray(body?.mixed_blend_regions)
+    ? (body.mixed_blend_regions as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
 
   // ── Verify influencer ownership ─────────────────────────────────────────────
   const { data: influencer, error: infErr } = await supabaseAdmin
@@ -133,11 +137,12 @@ export async function POST(req: Request): Promise<Response> {
       // image_url is NOT sent for initial casting (Option A: pre-lock = diversity mode).
       // reference_image_url is only used post-lock in pack generation.
       const composed = composeInfluencerPrompt({
-        profile:        safeProfile,
+        profile:          safeProfile,
         styleCategory,
         rosterTags,
-        candidateIndex: i,
+        candidateIndex:   i,
         candidateCount,
+        mixedBlendRegions: mixedBlendRegions.length >= 2 ? mixedBlendRegions : undefined,
       });
 
       // Append [c:N/M] idempotency suffix so the dedup layer (keyed on

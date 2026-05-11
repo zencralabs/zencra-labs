@@ -2550,7 +2550,11 @@ function CanvasDock({
       position: "absolute", bottom: 0, left: 0, right: 0,
       display: "flex", flexDirection: "column", alignItems: "center",
       padding: "14px 24px 18px",
-      background: "linear-gradient(to top, rgba(7,9,15,0.98) 0%, rgba(7,9,15,0.82) 70%, transparent 100%)",
+      // Cyan/blue ambient radial layered over the dark scrim
+      backgroundImage: [
+        "radial-gradient(ellipse 480px 160px at 50% 100%, rgba(56,139,253,0.07) 0%, transparent 70%)",
+        "linear-gradient(to top, rgba(7,9,15,0.98) 0%, rgba(7,9,15,0.82) 70%, transparent 100%)",
+      ].join(", "),
       zIndex: 10,
     }}>
       {/* Keyframes — spin + glow pulse + shimmer sweep */}
@@ -2585,12 +2589,12 @@ function CanvasDock({
         height: 80,
         padding: "12px 18px", borderRadius: 24,
         background: "rgba(6,8,16,0.92)",
-        border: "1px solid rgba(255,255,255,0.14)",
+        border: "1px solid rgba(255,255,255,0.75)",
         boxShadow: [
-          "0 4px 32px rgba(0,0,0,0.65)",
-          "0 0 0 1px rgba(255,255,255,0.06)",
-          "0 0 28px rgba(255,255,255,0.04)",
-          "inset 0 1px 0 rgba(255,255,255,0.08)",
+          "0 0 0 1px rgba(255,255,255,0.12)",
+          "0 0 28px rgba(255,255,255,0.12)",
+          "0 18px 60px rgba(0,0,0,0.55)",
+          "inset 0 1px 0 rgba(255,255,255,0.10)",
         ].join(", "),
         backdropFilter: "blur(24px) saturate(1.5)",
       }}>

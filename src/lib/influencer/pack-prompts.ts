@@ -394,11 +394,15 @@ export type { StyleDescriptor };
 // ── Compose input / output ────────────────────────────────────────────────────
 
 export interface ComposeInfluencerPromptInput {
-  profile:        AIInfluencerProfile;
-  styleCategory:  StyleCategory;
-  rosterTags:     string[];
-  candidateIndex: number;   // 0-based
-  candidateCount: number;
+  profile:           AIInfluencerProfile;
+  styleCategory:     StyleCategory;
+  rosterTags:        string[];
+  candidateIndex:    number;   // 0-based
+  candidateCount:    number;
+  // Mixed/Blended heritage — 2–4 region keys from the UI blend chip selector.
+  // When present and length >= 2, overrides the simple "mixed-ethnicity" descriptor
+  // with an authentic blended-heritage instruction.
+  mixedBlendRegions?: string[];
 }
 
 export interface ComposedInfluencerPrompt {
@@ -519,9 +523,56 @@ const ETHNICITY_PROMPT_MAP: Record<string, string> = {
   "mixed-ethnicity":     "mixed heritage, uniquely blended features, warm neutral complexion",
 };
 
-function resolveEthnicityDescriptor(ethnicity_region: string | null | undefined): string | null {
+// Region label map used to build human-readable blend strings
+const REGION_LABELS: Record<string, string> = {
+  "south-asian-indian":  "South Asian Indian",
+  "south-asian-other":   "South Asian",
+  "east-asian":          "East Asian",
+  "southeast-asian":     "Southeast Asian",
+  "african":             "African",
+  "african-american":    "African American",
+  "european":            "European",
+  "scandinavian":        "Scandinavian",
+  "mediterranean":       "Mediterranean",
+  "latin-american":      "Latin American",
+  "brazilian":           "Brazilian",
+  "middle-eastern":      "Middle Eastern",
+};
+
+function resolveEthnicityDescriptor(
+  ethnicity_region: string | null | undefined,
+  mixedBlendRegions?: string[],
+): string | null {
   if (!ethnicity_region) return null;
   const key = ethnicity_region.toLowerCase().trim();
+
+  // ── Mixed/Blended with real region selection ──────────────────────────────
+  if (key === "mixed-ethnicity" && mixedBlendRegions && mixedBlendRegions.length >= 2) {
+    const labels = mixedBlendRegions
+      .map(r => REGION_LABELS[r] ?? r)
+      .slice(0, 4); // cap at 4
+
+    // Build the and-list: "A and B", "A, B, and C", "A, B, C, and D"
+    let regionList: string;
+    if (labels.length === 2) {
+      regionList = `${labels[0]} and ${labels[1]}`;
+    } else {
+      regionList = labels.slice(0, -1).join(", ") + `, and ${labels[labels.length - 1]}`;
+    }
+
+    return (
+      `mixed heritage facial genetics blending ${regionList} features naturally, ` +
+      `authentic human ancestry, no stereotype, subtle believable genetic blend, ` +
+      `warm neutral complexion that reflects diverse heritage`
+    );
+  }
+
+  // ── Single region or mixed with no selections (fallback to Auto) ──────────
+  if (key === "mixed-ethnicity") {
+    // Mixed selected but fewer than 2 blend regions chosen — fall back to Auto
+    return null;
+  }
+
   return ETHNICITY_PROMPT_MAP[key] ?? null;
 }
 
@@ -551,6 +602,7 @@ export function composeInfluencerPrompt({
   rosterTags,
   candidateIndex,
   candidateCount: _candidateCount,
+  mixedBlendRegions,
 }: ComposeInfluencerPromptInput): ComposedInfluencerPrompt {
   const style    = STYLE_CATALOGUE[styleCategory];
   const variants = CANDIDATE_VARIANTS[styleCategory];
@@ -575,7 +627,7 @@ export function composeInfluencerPrompt({
 
   // 2a. Ethnicity/Region — facial genetics descriptor (after age, before skin override)
   //     Only injected when selected; appearance_notes can still override specifics.
-  const ethnicityDesc = resolveEthnicityDescriptor(profile.ethnicity_region);
+  const ethnicityDesc = resolveEthnicityDescriptor(profile.ethnicity_region, mixedBlendRegions);
   if (ethnicityDesc) parts.push(ethnicityDesc);
 
   // 2b. Hyper-real naturalness block — injected only for hyper-real style.

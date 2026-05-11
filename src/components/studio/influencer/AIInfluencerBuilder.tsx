@@ -80,7 +80,9 @@ export default function AIInfluencerBuilder() {
   const [platforms,       setPlatforms]       = useState<string[]>([]);
   const [notes,           setNotes]           = useState("");
   // Ethnicity/Region — drives region-aware naming + facial genetics in prompts
-  const [ethnicityRegion, setEthnicityRegion] = useState("");
+  const [ethnicityRegion,    setEthnicityRegion]    = useState("");
+  // Mixed/Blended region selection — 2–4 regions injected as blended-heritage prompt
+  const [mixedBlendRegions,  setMixedBlendRegions]  = useState<string[]>([]);
   // Identity Options — how many candidates to generate (1–4, default 4)
   const [candidateCount,  setCandidateCount]  = useState(4);
   // Library tags — user-defined labels for filtering in the AI Talent Roster
@@ -188,7 +190,13 @@ export default function AIInfluencerBuilder() {
       const generateRes = await fetch("/api/character/ai-influencers/generate", {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ influencer_id: influencer.id, candidate_count: candidateCount }),
+        body: JSON.stringify({
+            influencer_id:       influencer.id,
+            candidate_count:     candidateCount,
+            // Only sent when user has chosen Mixed/Blended with ≥2 regions.
+            // Route ignores undefined — falls back to single-region or Auto.
+            mixed_blend_regions: mixedBlendRegions.length >= 2 ? mixedBlendRegions : undefined,
+          }),
       });
 
       if (generateRes.ok) {
@@ -388,8 +396,9 @@ export default function AIInfluencerBuilder() {
           mood={mood}                            setMood={setMood}
           platforms={platforms}                  setPlatforms={setPlatforms}
           notes={notes}                          setNotes={setNotes}
-          ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
-          candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
+          ethnicityRegion={ethnicityRegion}           setEthnicityRegion={setEthnicityRegion}
+          mixedBlendRegions={mixedBlendRegions}      setMixedBlendRegions={setMixedBlendRegions}
+          candidateCount={candidateCount}            setCandidateCount={setCandidateCount}
           tags={tags}                            setTags={setTags}
         />
       </div>

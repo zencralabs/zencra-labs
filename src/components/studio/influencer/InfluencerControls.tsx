@@ -55,8 +55,10 @@ interface Props {
   notes:            string;
   setNotes:         (v: string) => void;
   // Ethnicity/Region — drives region-aware naming + facial genetics in prompts
-  ethnicityRegion:    string;
-  setEthnicityRegion: (v: string) => void;
+  ethnicityRegion:      string;
+  setEthnicityRegion:   (v: string) => void;
+  mixedBlendRegions:    string[];
+  setMixedBlendRegions: (v: string[]) => void;
   // Identity Options — candidate count (1–4, default 4)
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
@@ -78,6 +80,7 @@ export default function InfluencerControls({
   platforms, setPlatforms,
   notes, setNotes,
   ethnicityRegion, setEthnicityRegion,
+  mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
   tags, setTags,
 }: Props) {
@@ -137,8 +140,9 @@ export default function InfluencerControls({
             mood={mood}                            setMood={setMood}
             platforms={platforms}                  setPlatforms={setPlatforms}
             notes={notes}                          setNotes={setNotes}
-            ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
-            candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
+            ethnicityRegion={ethnicityRegion}           setEthnicityRegion={setEthnicityRegion}
+            mixedBlendRegions={mixedBlendRegions}      setMixedBlendRegions={setMixedBlendRegions}
+            candidateCount={candidateCount}            setCandidateCount={setCandidateCount}
             tags={tags}                            setTags={setTags}
           />
         )}
@@ -270,8 +274,10 @@ interface BuilderTabProps {
   notes:            string;
   setNotes:         (v: string) => void;
   // Ethnicity/Region
-  ethnicityRegion:    string;
-  setEthnicityRegion: (v: string) => void;
+  ethnicityRegion:      string;
+  setEthnicityRegion:   (v: string) => void;
+  mixedBlendRegions:    string[];
+  setMixedBlendRegions: (v: string[]) => void;
   // Identity Options — candidate count
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
@@ -293,6 +299,7 @@ export function BuilderTab({
   platforms, setPlatforms,
   notes, setNotes,
   ethnicityRegion, setEthnicityRegion,
+  mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
   tags, setTags,
 }: BuilderTabProps) {
@@ -424,57 +431,147 @@ export function BuilderTab({
       {/* ── Ethnicity / Region ───────────────────────────────────── */}
       <section>
         <SectionLabel label="Ethnicity / Region" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {([
-            { value: "",                    label: "Any / Not specified" },
-            { value: "south-asian-indian",  label: "South Asian — Indian" },
-            { value: "south-asian-other",   label: "South Asian — Other" },
-            { value: "east-asian",          label: "East Asian" },
-            { value: "southeast-asian",     label: "Southeast Asian" },
-            { value: "african",             label: "African" },
-            { value: "african-american",    label: "African American" },
-            { value: "european",            label: "European" },
-            { value: "scandinavian",        label: "Scandinavian" },
-            { value: "mediterranean",       label: "Mediterranean" },
-            { value: "latin-american",      label: "Latin American" },
-            { value: "brazilian",           label: "Brazilian" },
-            { value: "middle-eastern",      label: "Middle Eastern" },
-            { value: "mixed-ethnicity",     label: "Mixed / Blended" },
-          ] as const).map(opt => {
-            const sel = ethnicityRegion === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setEthnicityRegion(sel ? "" : opt.value)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "8px 11px", borderRadius: 8, textAlign: "left", width: "100%",
-                  border:     sel ? `1px solid ${selectedCat.accent}55` : `1px solid rgba(255,255,255,0.06)`,
-                  background: sel ? `${selectedCat.accent}0f` : "rgba(255,255,255,0.02)",
-                  cursor: "pointer",
-                  transition: "all 0.13s",
-                }}
-              >
-                <span style={{
-                  fontFamily: "'Familjen Grotesk', sans-serif",
-                  fontSize: 13, fontWeight: sel ? 700 : 400,
-                  color: sel ? selectedCat.accent : "rgba(255,255,255,0.65)",
-                }}>
-                  {opt.label}
-                </span>
-                {sel && (
-                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                    <polyline points="2,5 4.2,7.5 8,3" stroke={selectedCat.accent} strokeWidth="1.8"
-                      strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
+
+        {/* Compact dropdown */}
+        <div style={{ position: "relative" }}>
+          <select
+            value={ethnicityRegion}
+            onChange={e => {
+              setEthnicityRegion(e.target.value);
+              // Reset blend when switching away from mixed
+              if (e.target.value !== "mixed-ethnicity") setMixedBlendRegions([]);
+            }}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: "#070a10",
+              border: ethnicityRegion
+                ? `1px solid ${selectedCat.accent}55`
+                : `1px solid rgba(255,255,255,0.08)`,
+              borderRadius: 8,
+              padding: "9px 32px 9px 12px",
+              color: ethnicityRegion ? selectedCat.accent : "rgba(255,255,255,0.55)",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 13,
+              fontWeight: ethnicityRegion ? 700 : 400,
+              cursor: "pointer",
+              outline: "none",
+              appearance: "none" as const,
+              WebkitAppearance: "none" as const,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+          >
+            <option value="">Auto</option>
+            <option value="south-asian-indian">South Asian — Indian</option>
+            <option value="south-asian-other">South Asian — Other</option>
+            <option value="east-asian">East Asian</option>
+            <option value="southeast-asian">Southeast Asian</option>
+            <option value="african">African</option>
+            <option value="african-american">African American</option>
+            <option value="european">European</option>
+            <option value="scandinavian">Scandinavian</option>
+            <option value="mediterranean">Mediterranean</option>
+            <option value="latin-american">Latin American</option>
+            <option value="brazilian">Brazilian</option>
+            <option value="middle-eastern">Middle Eastern</option>
+            <option value="mixed-ethnicity">Mixed / Blended ✦</option>
+          </select>
+          {/* Chevron icon */}
+          <svg
+            width="10" height="10" viewBox="0 0 10 10" fill="none"
+            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          >
+            <polyline points="2,3.5 5,6.5 8,3.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
-        <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-          Shapes facial genetics in the prompt and selects a region-matched name.
-        </div>
+
+        {/* Auto helper text */}
+        {!ethnicityRegion && (
+          <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
+            Auto lets Zencra choose a natural identity direction from your style and creative notes.
+          </div>
+        )}
+
+        {/* Mixed / Blended sub-panel */}
+        {ethnicityRegion === "mixed-ethnicity" && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700,
+              color: selectedCat.accent,
+              letterSpacing: "0.07em", textTransform: "uppercase" as const,
+              marginBottom: 8,
+            }}>
+              Blend Regions
+              <span style={{ fontWeight: 400, color: T.muted, marginLeft: 6, textTransform: "none" as const, letterSpacing: 0 }}>
+                — choose 2–4
+              </span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+              {([
+                { v: "south-asian-indian",  l: "South Asian" },
+                { v: "east-asian",          l: "East Asian" },
+                { v: "southeast-asian",     l: "SE Asian" },
+                { v: "african",             l: "African" },
+                { v: "african-american",    l: "African American" },
+                { v: "european",            l: "European" },
+                { v: "scandinavian",        l: "Scandinavian" },
+                { v: "mediterranean",       l: "Mediterranean" },
+                { v: "latin-american",      l: "Latin American" },
+                { v: "middle-eastern",      l: "Middle Eastern" },
+              ] as const).map(({ v, l }) => {
+                const on = mixedBlendRegions.includes(v);
+                const maxReached = mixedBlendRegions.length >= 4 && !on;
+                return (
+                  <button
+                    key={v}
+                    disabled={maxReached}
+                    onClick={() => {
+                      if (on) {
+                        setMixedBlendRegions(mixedBlendRegions.filter(r => r !== v));
+                      } else if (!maxReached) {
+                        setMixedBlendRegions([...mixedBlendRegions, v]);
+                      }
+                    }}
+                    style={{
+                      padding: "5px 10px", borderRadius: 20,
+                      border: on
+                        ? `1px solid ${selectedCat.accent}70`
+                        : `1px solid rgba(255,255,255,0.10)`,
+                      background: on
+                        ? `${selectedCat.accent}18`
+                        : "rgba(255,255,255,0.03)",
+                      color: on ? selectedCat.accent : "rgba(255,255,255,0.50)",
+                      fontFamily: "'Familjen Grotesk', sans-serif",
+                      fontSize: 11, fontWeight: on ? 700 : 400,
+                      cursor: maxReached ? "not-allowed" : "pointer",
+                      opacity: maxReached ? 0.38 : 1,
+                      transition: "all 0.13s",
+                    }}
+                  >
+                    {l}
+                  </button>
+                );
+              })}
+            </div>
+            {mixedBlendRegions.length < 2 && (
+              <div style={{ fontSize: 11, color: T.muted, marginTop: 7, lineHeight: 1.5 }}>
+                Select at least 2 regions to activate blended-heritage genetics.
+              </div>
+            )}
+            {mixedBlendRegions.length >= 2 && (
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.40)", marginTop: 7, lineHeight: 1.5 }}>
+                ✦ Blending {mixedBlendRegions.length} regions — authentic heritage, no stereotype.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Standard helper when a single region is selected */}
+        {ethnicityRegion && ethnicityRegion !== "mixed-ethnicity" && (
+          <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
+            Shapes facial genetics in the prompt and selects a region-matched name.
+          </div>
+        )}
       </section>
 
       {/* Rendering — only for hyper-real */}
