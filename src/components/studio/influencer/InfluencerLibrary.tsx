@@ -155,9 +155,14 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
     return Array.from(set).sort();
   }, [influencers]);
 
-  // ── Client-side filter + style grouping ─────────────────────────────────
-  // NOTE: activeTag intentionally included in deps (was missing before)
-  const grouped = useMemo(() => {
+  // ── Client-side filter + roster views ───────────────────────────────────
+  // `flat`  — preserves the API's DESC created_at order. Used for "All" tab:
+  //           newest globally appears first regardless of style category.
+  // `map`   — grouped by style (newest-first within each group). Used for
+  //           specific-style tabs so the section header still appears.
+  // This replaces the old STYLE_ORDER-indexed map that always put Hyper Real
+  // first and buried newly created 3D/Anime influencers at the bottom.
+  const roster = useMemo(() => {
     const q = query.toLowerCase().trim();
 
     const filtered = influencers.filter(inf => {
@@ -170,12 +175,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
       return handle.includes(q) || displayName.includes(q) || styleLabel.includes(q);
     });
 
+    // Flat list — order comes from the API (created_at DESC). Do not sort here.
+    const flat = filtered;
+
+    // Style-grouped map — used only when a specific style tab is active.
+    // Iterates STYLE_ORDER so section headers appear in canonical order,
+    // but members within each section are newest-first (preserved from `filtered`).
     const map = new Map<StyleCategory, AIInfluencer[]>();
     for (const cat of STYLE_ORDER) {
       const members = filtered.filter(i => i.style_category === cat);
       if (members.length > 0) map.set(cat, members);
     }
-    return map;
+
+    return { flat, map };
   }, [influencers, query, activeStyle, activeTag]);
 
   // ── Slot fill ratio ──────────────────────────────────────────────────────
@@ -574,7 +586,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         )}
 
         {/* Empty search result */}
-        {!loading && influencers.length > 0 && grouped.size === 0 && (
+        {!loading && influencers.length > 0 && roster.flat.length === 0 && (
           <div style={{
             padding: "28px 12px", textAlign: "center",
             fontFamily: "'Familjen Grotesk', sans-serif",
@@ -584,8 +596,27 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
           </div>
         )}
 
-        {/* Style-grouped portrait grids */}
-        {!loading && [...grouped.entries()].map(([cat, members]) => (
+        {/* ALL tab — flat list, newest globally first. No style grouping.
+            The API returns created_at DESC so roster.flat preserves that order. */}
+        {!loading && activeStyle === "all" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 5 }}>
+            {roster.flat.map(inf => (
+              <InfluencerCard
+                key={inf.id}
+                influencer={inf}
+                active={inf.id === activeId}
+                onOpen={() => onSelect(inf)}
+                onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
+                onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
+                onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
+                onDelete={() => setDeleteTarget(inf)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* STYLE tabs — grouped with section header, newest-first within style */}
+        {!loading && activeStyle !== "all" && [...roster.map.entries()].map(([cat, members]) => (
           <div key={cat} style={{ marginBottom: 22 }}>
 
             {/* Section header — Syne architectural label */}

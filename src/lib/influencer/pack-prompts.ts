@@ -47,7 +47,7 @@ const STYLE_CATALOGUE: Record<StyleCategory, StyleDescriptor> = {
     outfitLanguage:      "contemporary real-world fashion, authentic fabric and material detail, luxury or streetwear aesthetic",
   },
   "3d-animation": {
-    renderingBase:       "3D animation render, Pixar-quality CGI, smooth stylized textures, expressive proportions, large eyes",
+    renderingBase:       "3D animation render, Pixar-quality CGI, smooth stylized textures, expressive proportions",
     shading:             "soft ambient occlusion, rounded form lighting, warm stylized highlights, gentle rim light",
     texture:             "smooth polished surfaces, stylized material rendering, clean geometric forms",
     poseLanguage:        "exaggerated expressive poses, animation-friendly body language, dynamic character staging",
@@ -525,6 +525,24 @@ function resolveEthnicityDescriptor(ethnicity_region: string | null | undefined)
   return ETHNICITY_PROMPT_MAP[key] ?? null;
 }
 
+// ── Gender → structural anatomy descriptor ────────────────────────────────────
+// A single bare word ("Male") is too weak to override diffusion model priors.
+// These inject full anatomical structure so the model renders actual biological
+// sex differences — jaw shape, brow ridge, facial proportions — not just style.
+// Digital humans must read as the correct gender immediately.
+const GENDER_DESCRIPTOR: Record<string, string> = {
+  "Male":
+    "male, masculine facial structure, strong jawline, masculine brow ridge, " +
+    "male facial proportions, broad forehead, defined masculine bone structure",
+  "Female":
+    "female, feminine facial structure, soft rounded jawline, feminine brow arch, " +
+    "feminine facial proportions, delicate bone structure",
+  "Non-binary":
+    "androgynous facial features, gender-neutral face structure, balanced facial proportions",
+  "Androgynous":
+    "androgynous facial features, gender-neutral face structure, balanced facial proportions",
+};
+
 // ── Main composer ─────────────────────────────────────────────────────────────
 
 export function composeInfluencerPrompt({
@@ -545,8 +563,14 @@ export function composeInfluencerPrompt({
   //    This leads every prompt. The category decides the language — no contradictions.
   parts.push(style.renderingBase);
 
-  // 2. Identity traits
-  if (profile.gender)     parts.push(profile.gender);
+  // 2. Identity traits — gender uses full structural anatomy descriptors.
+  //    A bare "Male" token is too weak to override the model's female-face prior.
+  //    Structural descriptors (jaw shape, brow ridge, bone structure) give the
+  //    model explicit anatomical targets — gender reads correctly from first render.
+  if (profile.gender) {
+    const genderDescriptor = GENDER_DESCRIPTOR[profile.gender] ?? profile.gender;
+    parts.push(genderDescriptor);
+  }
   if (profile.age_range)  parts.push(`aged ${profile.age_range}`);
 
   // 2a. Ethnicity/Region — facial genetics descriptor (after age, before skin override)

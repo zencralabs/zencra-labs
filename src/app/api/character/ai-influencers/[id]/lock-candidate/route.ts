@@ -29,6 +29,7 @@ import { ok, invalidInput, serverErr, parseBody } from "@/lib/api/route-utils";
 import { supabaseAdmin }      from "@/lib/supabase/admin";
 import { createIdentityLock } from "@/lib/influencer/identity-lock";
 import { getUserSlotInfo }    from "@/lib/influencer/identity-slots";
+import { generateUniqueHandle } from "@/lib/ai-influencer/name-generator";
 import type { StyleCategory } from "@/lib/influencer/types";
 
 export const runtime = "nodejs";
@@ -86,9 +87,14 @@ export async function POST(
   };
 
   // ── Create sibling influencer record ──────────────────────────────────────
-  // Siblings inherit style settings from parent; handle stays unique via counter
-  const siblingHandle      = `${parent.handle ?? "influencer"}_${Date.now().toString(36)}`;
-  const siblingDisplayName = parent.display_name ?? "Influencer";
+  // Siblings inherit style settings from parent. Handle is generated via the
+  // same region-aware name generator used at creation time — clean names only.
+  // NEVER underscore+timestamp. Falls back to aesthetic prefixes (@heygabriela)
+  // then short numeric (@gabriela7). Never random hashes.
+  const ethnicityRegion = (parentProfile as { ethnicity_region?: string | null } | null)
+    ?.ethnicity_region ?? null;
+  const { handle: siblingHandle, displayName: siblingDisplayName } =
+    await generateUniqueHandle(userId, ethnicityRegion);
 
   const { data: sibling, error: sibErr } = await supabaseAdmin
     .from("ai_influencers")
