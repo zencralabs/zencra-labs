@@ -134,11 +134,18 @@ export async function GET(
     });
   }
 
+  // Read provider-specific metadata stored in studio_meta._pMeta at job creation.
+  // Providers that cannot embed results in the status response (e.g. fal-ai/instant-character)
+  // use this to carry the original payload to getJobStatus() so they can POST to response_url.
+  const studioMeta = (asset.studio_meta ?? {}) as Record<string, unknown>;
+  const providerMeta = studioMeta._pMeta as Record<string, unknown> | undefined;
+
   try {
     const polled = await pollAndUpdateJob(
       asset.model_key,
       asset.external_job_id,
       asset.id,
+      providerMeta,
     );
 
     // ── Provider cost logging ───────────────────────────────────────────────

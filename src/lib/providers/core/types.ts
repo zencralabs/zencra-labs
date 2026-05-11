@@ -434,7 +434,13 @@ export interface ZProvider {
 
   // ── Required ────────────────────────────────────────────────────────────────
   createJob(input: ZProviderInput): Promise<ZJob>;
-  getJobStatus(externalJobId: string): Promise<ZJobStatus>;
+  /**
+   * @param externalJobId  Provider-assigned job / request ID.
+   * @param providerMeta   Optional metadata stored at job-creation time.
+   *                       Providers that need the original payload at poll time
+   *                       (e.g. fal-ai/instant-character) receive it here.
+   */
+  getJobStatus(externalJobId: string, providerMeta?: Record<string, unknown>): Promise<ZJobStatus>;
   cancelJob(externalJobId: string): Promise<void>;
   normalizeOutput(raw: unknown): ZProviderResult;
   estimateCost(input: ZProviderInput): CreditEstimate;

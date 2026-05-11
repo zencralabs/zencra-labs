@@ -95,6 +95,13 @@ export interface AssetMetadata {
   ugc?:            UGCAssetMeta;
   fcs?:            FCSAssetMeta;
 
+  /**
+   * Provider-specific metadata persisted at job-creation time.
+   * Stored inside studio_meta._pMeta JSONB — no separate DB column required.
+   * Providers that need the original payload at poll time read it from here.
+   */
+  providerMeta?:   Record<string, unknown>;
+
   // ── Metadata Engine ───────────────────────────────────────────────────────
   /**
    * Raw generation provenance — written once at asset creation.

@@ -40,6 +40,13 @@ export interface BuildAssetMetadataInput {
    * If provided, saved to generation_metadata column and triggers async enrichment.
    */
   generationMetadata?: GenerationMetadata;
+  /**
+   * Arbitrary provider metadata to persist in studio_meta._pMeta JSONB.
+   * Used by providers that need the original payload at poll time
+   * (e.g. fal-ai/instant-character needs the originalPayload to POST to response_url).
+   * Stored without a dedicated DB column — lives inside the existing studio_meta JSONB.
+   */
+  providerMeta?: Record<string, unknown>;
   /** Studio-specific extension fields */
   studioMeta?: {
     image?:     ImageAssetMeta;
@@ -87,7 +94,7 @@ function inferMimeType(job: ZJob, provided?: AssetMimeType): AssetMimeType {
  * Call this after the provider returns a success URL.
  */
 export function buildAssetMetadata(input: BuildAssetMetadataInput): AssetMetadata {
-  const { job, userId, url, storagePath, bucket, prompt, sizeBytes, creditsCost, studioMeta, generationMetadata } = input;
+  const { job, userId, url, storagePath, bucket, prompt, sizeBytes, creditsCost, studioMeta, generationMetadata, providerMeta } = input;
   const now = new Date();
 
   return {
@@ -128,6 +135,9 @@ export function buildAssetMetadata(input: BuildAssetMetadataInput): AssetMetadat
     ugc:       studioMeta?.ugc,
     fcs:       studioMeta?.fcs,
 
+    // Provider-specific metadata — persisted in studio_meta._pMeta JSONB
+    providerMeta,
+
     createdAt: now,
     updatedAt: now,
   };
@@ -140,12 +150,15 @@ export function buildAssetMetadata(input: BuildAssetMetadataInput): AssetMetadat
 /** Serialize AssetMetadata → AssetRecord for Supabase insert */
 export function toAssetRecord(meta: AssetMetadata): AssetRecord {
   const studioMeta: Record<string, unknown> = {};
-  if (meta.image)     studioMeta.image     = meta.image;
-  if (meta.video)     studioMeta.video     = meta.video;
-  if (meta.audio)     studioMeta.audio     = meta.audio;
-  if (meta.character) studioMeta.character = meta.character;
-  if (meta.ugc)       studioMeta.ugc       = meta.ugc;
-  if (meta.fcs)       studioMeta.fcs       = meta.fcs;
+  if (meta.image)       studioMeta.image     = meta.image;
+  if (meta.video)       studioMeta.video     = meta.video;
+  if (meta.audio)       studioMeta.audio     = meta.audio;
+  if (meta.character)   studioMeta.character = meta.character;
+  if (meta.ugc)         studioMeta.ugc       = meta.ugc;
+  if (meta.fcs)         studioMeta.fcs       = meta.fcs;
+  // Provider-specific metadata stored in reserved _pMeta key.
+  // Enables providers to read their original job payload at poll time.
+  if (meta.providerMeta) studioMeta._pMeta  = meta.providerMeta;
 
   return {
     id:                  meta.assetId,

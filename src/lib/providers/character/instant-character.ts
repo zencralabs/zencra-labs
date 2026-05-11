@@ -180,13 +180,16 @@ export const instantCharacterProvider: ZProvider = {
       createdAt:     now,
       updatedAt:     now,
       identity:      input.identity,
-      providerMeta:  { modelId, requestId },
+      // originalPayload is persisted in studio_meta._pMeta via buildAssetMetadata.
+      // At poll time, getJobStatus() reads it back and POSTs to response_url to
+      // retrieve the result — fal-ai/instant-character does not embed URLs in status.
+      providerMeta:  { modelId, requestId, originalPayload: payload },
       estimatedCredits: input.estimatedCredits,
     };
   },
 
   // ── Get Job Status ──────────────────────────────────────────────────────────
-  async getJobStatus(externalJobId: string): Promise<ZJobStatus> {
+  async getJobStatus(externalJobId: string, providerMeta?: Record<string, unknown>): Promise<ZJobStatus> {
     const { apiKey } = getFalEnv();
     const modelId    = FAL_MODEL_IDS.instantCharacter;
 
@@ -242,7 +245,7 @@ export const instantCharacterProvider: ZProvider = {
       const embedded = extractImages(statusData);
       if (embedded.url) {
         console.log(
-          `[instant-character] job completed: requestId=${externalJobId} url=${embedded.url.slice(0, 80)}`
+          `[instant-character] job completed (embedded): requestId=${externalJobId} url=${embedded.url.slice(0, 80)}`
         );
         return {
           jobId:    externalJobId,
@@ -252,12 +255,77 @@ export const instantCharacterProvider: ZProvider = {
         };
       }
 
-      // Extraction failed — log full statusData shape for diagnosis.
-      // This must NOT fall back to a secondary HTTP request.
+      // ── Embedded extraction returned nothing — POST to response_url ────────────
+      //
+      // fal-ai/instant-character does NOT embed the image URL in the status payload.
+      // The completed output is only accessible by POSTing the original generation
+      // payload to the response_url included in the status response.
+      //
+      // This is different from other fal.ai models that support GET to response_url.
+      // For instant-character, a GET returns HTTP 422 ("Field required: image_url")
+      // because it re-invokes the model rather than retrieving stored output.
+      //
+      // The originalPayload was persisted in studio_meta._pMeta at job creation time
+      // and is passed here via providerMeta from the polling chain.
+      const responseUrl      = statusData.response_url as string | undefined;
+      const originalPayload  = providerMeta?.originalPayload as Record<string, unknown> | undefined;
+
+      console.log(
+        `[instant-character] embedded extraction failed — trying response_url POST. ` +
+        `responseUrl=${responseUrl ? "present" : "missing"} ` +
+        `originalPayload=${originalPayload ? "present" : "missing"} ` +
+        `statusData keys=${Object.keys(statusData).join(",")}`
+      );
+
+      if (responseUrl && originalPayload) {
+        try {
+          const resultRes = await fetch(responseUrl, {
+            method:  "POST",
+            headers: {
+              "Authorization": `Key ${apiKey}`,
+              "Content-Type":  "application/json",
+            },
+            body:   JSON.stringify(originalPayload),
+            signal: AbortSignal.timeout(30_000),
+          });
+
+          if (!resultRes.ok) {
+            const body = await resultRes.text();
+            console.error(
+              `[instant-character] response_url POST failed: HTTP ${resultRes.status} — ${body.slice(0, 300)}`
+            );
+          } else {
+            const resultData = (await resultRes.json()) as Record<string, unknown>;
+            console.log(
+              `[instant-character] response_url POST success — ` +
+              `top-level keys=${Object.keys(resultData).join(",")} ` +
+              (process.env.NODE_ENV !== "production" ? JSON.stringify(resultData).slice(0, 500) : "(production)")
+            );
+            const fromResult = extractImages(resultData);
+            if (fromResult.url) {
+              console.log(
+                `[instant-character] job completed (response_url): requestId=${externalJobId} url=${fromResult.url.slice(0, 80)}`
+              );
+              return {
+                jobId:    externalJobId,
+                status:   "success",
+                url:      fromResult.url,
+                metadata: { seed: fromResult.seed },
+              };
+            }
+            console.error(
+              `[instant-character] response_url POST returned no image URL. resultData keys=${Object.keys(resultData).join(",")}`
+            );
+          }
+        } catch (postErr) {
+          console.error(`[instant-character] response_url POST threw:`, postErr);
+        }
+      }
+
+      // All extraction paths exhausted.
       console.error(
-        `[instant-character] COMPLETED but no image URL found in statusData. ` +
-        `top-level keys=${Object.keys(statusData).join(",")} ` +
-        `statusData=${process.env.NODE_ENV !== "production" ? JSON.stringify(statusData).slice(0, 1000) : "(production)"}`
+        `[instant-character] COMPLETED but no image URL found via embedded or response_url POST. ` +
+        `requestId=${externalJobId} statusData keys=${Object.keys(statusData).join(",")}`
       );
       return {
         jobId:  externalJobId,

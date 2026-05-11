@@ -258,8 +258,9 @@ export async function dispatch(
  * Returns ZJobStatus. Caller should update their job record accordingly.
  */
 export async function pollJobStatus(
-  modelKey: string,
+  modelKey:      string,
   externalJobId: string,
+  providerMeta?: Record<string, unknown>,
 ): Promise<ZJobStatus> {
   const provider = getRegisteredProvider(modelKey);
   if (!provider) {
@@ -269,7 +270,7 @@ export async function pollJobStatus(
       error:  `No provider registered for model "${modelKey}"`,
     };
   }
-  return provider.getJobStatus(externalJobId);
+  return provider.getJobStatus(externalJobId, providerMeta);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -534,12 +534,14 @@ async function mirrorImageToStorage(
 export async function pollAndUpdateJob(
   modelKey:      string,
   externalJobId: string,
-  assetId:       string
+  assetId:       string,
+  /** Provider-specific metadata read from studio_meta._pMeta (written at job creation) */
+  providerMeta?: Record<string, unknown>,
 ): Promise<{ status: string; url?: string; error?: string; audioDetected?: boolean | null }> {
   ensureProvidersRegistered();
 
   try {
-    const jobStatus = await pollJobStatus(modelKey, externalJobId);
+    const jobStatus = await pollJobStatus(modelKey, externalJobId, providerMeta);
 
     if (jobStatus.status === "success" && jobStatus.url) {
       // ── Kling video: mirror to Supabase Storage (permanent URL) ──────────────
@@ -626,6 +628,9 @@ async function persistAsset(
     status:       isCompleted ? "ready" : "pending",
     prompt:       input.prompt,
     creditsCost:  job.actualCredits ?? job.reservedCredits,
+    // Persist provider-specific metadata (e.g. originalPayload for fal-ai models
+    // that require POST to response_url at poll time). Stored in studio_meta._pMeta.
+    providerMeta: job.providerMeta,
   });
 
   await saveAssetMetadata(supabaseAdmin, meta);
