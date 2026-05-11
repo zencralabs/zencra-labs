@@ -188,17 +188,30 @@ export const instantCharacterProvider: ZProvider = {
     const statusData = (await statusRes.json()) as Record<string, unknown>;
     const status     = String(statusData.status ?? "");
 
+    // ── Diagnostic: log every poll so we can see fal.ai's raw status shape ──────
+    console.log(
+      `[instant-character] poll status=${status} requestId=${externalJobId}`,
+      process.env.NODE_ENV !== "production" ? JSON.stringify(statusData).slice(0, 400) : ""
+    );
+
     if (status === "COMPLETED") {
-      // Fetch the actual result
-      const resultRes = await fetch(
-        `https://queue.fal.run/${modelId}/requests/${externalJobId}`,
-        {
-          headers: { "Authorization": `Key ${apiKey}` },
-          signal:  AbortSignal.timeout(15_000),
-        },
-      );
+      // Use response_url from status payload if present (fal.ai recommended path).
+      // Fall back to the manually-constructed URL if it's absent.
+      const responseUrl =
+        typeof statusData.response_url === "string" && statusData.response_url
+          ? statusData.response_url
+          : `https://queue.fal.run/${modelId}/requests/${externalJobId}`;
+
+      const resultRes = await fetch(responseUrl, {
+        headers: { "Authorization": `Key ${apiKey}` },
+        signal:  AbortSignal.timeout(15_000),
+      });
 
       if (!resultRes.ok) {
+        const body = await resultRes.text().catch(() => "");
+        console.error(
+          `[instant-character] result fetch failed: HTTP ${resultRes.status} url=${responseUrl} body=${body.slice(0, 200)}`
+        );
         return {
           jobId:  externalJobId,
           status: "error",
@@ -207,10 +220,23 @@ export const instantCharacterProvider: ZProvider = {
       }
 
       const result = (await resultRes.json()) as Record<string, unknown>;
+
+      // ── Diagnostic: log raw result shape so we can confirm the field name ──────
+      console.log(
+        `[instant-character] raw result keys=${Object.keys(result).join(",")}`,
+        process.env.NODE_ENV !== "production"
+          ? `images=${JSON.stringify((result.images as unknown[])?.slice(0, 1)).slice(0, 200)}`
+          : ""
+      );
+
+      // fal-ai/instant-character returns { images: [{ url, content_type, width, height }] }
       const images = result.images as Array<{ url: string }> | undefined;
       const url    = images?.[0]?.url;
 
       if (!url) {
+        console.error(
+          `[instant-character] no URL in result — keys=${Object.keys(result).join(",")}`
+        );
         return {
           jobId:  externalJobId,
           status: "error",
@@ -231,7 +257,15 @@ export const instantCharacterProvider: ZProvider = {
     }
 
     if (status === "FAILED" || status === "ERROR") {
-      const reason = (statusData.error as string | undefined) ?? "Instant Character generation failed.";
+      // fal.ai may put the reason in .error, .detail, or .error_message
+      const reason =
+        (statusData.error         as string | undefined) ??
+        (statusData.detail        as string | undefined) ??
+        (statusData.error_message as string | undefined) ??
+        "Instant Character generation failed.";
+      console.error(
+        `[instant-character] job failed: requestId=${externalJobId} reason=${reason}`
+      );
       return {
         jobId:  externalJobId,
         status: "error",
