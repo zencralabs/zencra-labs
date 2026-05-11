@@ -44,6 +44,22 @@ const STYLE_CHIPS: { value: StyleCategory | "all"; label: string }[] = [
   { value: "retro-pixel",      label: "Pixel"   },
 ];
 
+// Per-style color palette — matches the Builder card accent language on the right panel.
+// ALL stays amber. Hyper stays neutral white. Style-specific chips inherit their card's accent.
+const CHIP_PALETTE: Record<StyleCategory | "all", {
+  r: number; g: number; b: number;   // RGB for rgba() composition
+  text: string;                       // Active text color
+}> = {
+  "all":              { r: 245, g: 158, b: 11,  text: "#fbbf24" }, // amber
+  "hyper-real":       { r: 226, g: 232, b: 240, text: "#f1f5f9" }, // neutral white
+  "3d-animation":     { r: 6,   g: 182, b: 212, text: "#22d3ee" }, // cyan
+  "anime-manga":      { r: 236, g: 72,  b: 153, text: "#f472b6" }, // pink
+  "fine-art":         { r: 249, g: 115, b: 22,  text: "#fb923c" }, // warm orange
+  "game-concept":     { r: 139, g: 92,  b: 246, text: "#c4b5fd" }, // violet
+  "physical-texture": { r: 100, g: 116, b: 139, text: "#94a3b8" }, // slate silver
+  "retro-pixel":      { r: 132, g: 204, b: 22,  text: "#a3e635" }, // lime
+};
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -459,7 +475,9 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
         }}
       >
         {STYLE_CHIPS.map(chip => {
-          const on = activeStyle === chip.value;
+          const on  = activeStyle === chip.value;
+          const pal = CHIP_PALETTE[chip.value as StyleCategory | "all"] ?? CHIP_PALETTE["all"];
+          const { r, g, b } = pal;
           return (
             <button
               key={chip.value}
@@ -469,18 +487,19 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 fontFamily: "'Familjen Grotesk', sans-serif",
                 fontSize: 14, fontWeight: on ? 800 : 500,
                 border: on
-                  ? "1.5px solid rgba(245,158,11,0.65)"
-                  : "1px solid rgba(255,255,255,0.09)",
+                  ? `1.5px solid rgba(${r},${g},${b},0.65)`
+                  : `1px solid rgba(${r},${g},${b},0.12)`,
                 background: on
-                  ? "rgba(245,158,11,0.16)"
-                  : "rgba(255,255,255,0.03)",
-                color: on ? "#fbbf24" : "rgba(255,255,255,0.58)",
+                  ? `rgba(${r},${g},${b},0.16)`
+                  : `rgba(${r},${g},${b},0.04)`,
+                color: on ? pal.text : `rgba(${r},${g},${b},0.65)`,
                 boxShadow: on
-                  ? "0 0 14px rgba(245,158,11,0.28), 0 0 4px rgba(245,158,11,0.16), inset 0 0 10px rgba(245,158,11,0.07)"
+                  ? `0 0 14px rgba(${r},${g},${b},0.28), 0 0 4px rgba(${r},${g},${b},0.16), inset 0 0 10px rgba(${r},${g},${b},0.07)`
                   : "none",
                 cursor: "pointer", transition: "all 0.15s",
                 whiteSpace: "nowrap",
                 letterSpacing: on ? "0.01em" : "0",
+                borderRadius: 6,
               }}
             >
               {chip.label}
