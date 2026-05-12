@@ -183,6 +183,76 @@ export default function InfluencerCanvas({
     setActivePack(null);
   }, [canvasState.phase === "selected" ? canvasState.active?.influencer.id : null]);
 
+  // Hydrate Identity Sheet from persisted influencer_assets on influencer load.
+  // Fires when the selected influencer's identity_lock_id becomes available.
+  // If a chain is already in-flight (status="loading"), this is a no-op — the
+  // in-flight guard and the "loading" check inside setPackOutputs protect state.
+  useEffect(() => {
+    if (canvasState.phase !== "selected") return;
+    const { active } = canvasState;
+    if (!active.identity_lock_id) return;
+
+    const influencerId   = active.influencer.id;
+    const identityLockId = active.identity_lock_id;
+
+    (async () => {
+      const headers = await getAuthHeader();
+      try {
+        const res = await fetch(
+          `/api/character/ai-influencers/${influencerId}/packs` +
+          `?asset_type=identity-sheet&identity_lock_id=${encodeURIComponent(identityLockId)}`,
+          { headers },
+        );
+        if (!res.ok) return;  // silent — no assets yet, or auth issue
+
+        const json = await res.json();
+        const assets: Array<{ url: string; label: string }> = Array.isArray(json?.data?.assets)
+          ? json.data.assets
+          : [];
+        if (assets.length === 0) return;
+
+        const packDef = PACK_ACTIONS.find(p => p.type === "identity-sheet")!;
+
+        setPackOutputs(prev => {
+          const existing = prev.find(p => p.type === "identity-sheet");
+
+          // Don't disturb an in-flight or already-complete entry
+          if (existing?.status === "loading") return prev;
+
+          // If a freshly-completed chain just wrote "complete", merge without
+          // overwriting — DB images win for ordering, new chain images are appended
+          // as any that didn't yet make it into the DB response.
+          if (existing?.status === "complete") {
+            const existingUrls = new Set(existing.images.map(i => i.url));
+            const newImages = assets.filter(a => !existingUrls.has(a.url));
+            if (newImages.length === 0) return prev;  // already in sync
+            return prev.map(p =>
+              p.type === "identity-sheet"
+                ? { ...p, images: [...assets, ...existing.images.filter(i => !assets.some(a => a.url === i.url))], totalJobs: Math.max(existing.totalJobs ?? 0, assets.length) }
+                : p,
+            );
+          }
+
+          // Fresh hydration — no entry exists yet
+          return [...prev, {
+            type:       "identity-sheet",
+            label:      packDef.label,
+            accent:     packDef.accent,
+            descriptor: packDef.descriptor,
+            status:     "complete",
+            images:     assets,
+            totalJobs:  assets.length,
+          }];
+        });
+      } catch {
+        // Silent — hydration is best-effort; missing images don't break the page
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    canvasState.phase === "selected" ? canvasState.active?.identity_lock_id : null,
+  ]);
+
   const handleTriggerPack = useCallback(
     async (packType: PackType) => {
       if (canvasState.phase !== "selected") return;

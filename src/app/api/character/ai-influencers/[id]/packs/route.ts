@@ -1,4 +1,21 @@
 /**
+ * GET /api/character/ai-influencers/:id/packs
+ *
+ * Fetches persisted pack assets for a locked influencer from influencer_assets.
+ * Used to hydrate the Identity Sheet library on influencer selection — so previously
+ * generated sheets appear immediately without requiring a new generation.
+ *
+ * Query params:
+ *   asset_type       — required. e.g. "identity-sheet"
+ *   identity_lock_id — required. Scopes results to the active lock.
+ *
+ * Response:
+ *   200 { success: true, data: { assets: [{ url, thumbnail_url, shot_index, label }] } }
+ *
+ * Assets are ordered by shot_index ascending (shot_index extracted from metadata JSONB).
+ */
+
+/**
  * POST /api/character/ai-influencers/:id/packs
  *
  * Generates a content pack for a locked influencer.
@@ -69,6 +86,85 @@ const VALID_PACK_TYPES: PackType[] = [
 // To revert to single-reference instant-character (Identity Sheet v1):
 //   const DEFAULT_MODEL_KEY = "instant-character";
 const DEFAULT_MODEL_KEY = "nano-banana-pro-identity";
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  // ── Auth ────────────────────────────────────────────────────────────────────
+  const { user, authError } = await requireAuthUser(req);
+  if (authError) return authError;
+  const userId = user!.id;
+
+  const { id: influencer_id } = await params;
+
+  // ── Query params ─────────────────────────────────────────────────────────────
+  const url          = new URL(req.url);
+  const asset_type   = url.searchParams.get("asset_type");
+  const identity_lock_id = url.searchParams.get("identity_lock_id");
+
+  if (!asset_type || !identity_lock_id) {
+    return invalidInput("asset_type and identity_lock_id are required");
+  }
+
+  // ── Ownership check — confirm influencer belongs to this user ───────────────
+  const { data: influencer, error: influencerErr } = await supabaseAdmin
+    .from("ai_influencers")
+    .select("id, user_id")
+    .eq("id", influencer_id)
+    .single();
+
+  if (influencerErr || !influencer) {
+    return Response.json({ success: false, error: "Influencer not found" }, { status: 404 });
+  }
+  if (influencer.user_id !== userId) {
+    return Response.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  // ── Fetch from influencer_assets ─────────────────────────────────────────────
+  // metadata->shot_index is an integer stored as JSONB. Ordering by it numerically
+  // requires casting through text; this is safe because shot_index is always 0-4.
+  const { data: assets, error: assetsErr } = await supabaseAdmin
+    .from("influencer_assets")
+    .select("url, thumbnail_url, metadata")
+    .eq("influencer_id", influencer_id)
+    .eq("identity_lock_id", identity_lock_id)
+    .eq("asset_type", asset_type)
+    .order("created_at", { ascending: true });
+
+  if (assetsErr) {
+    console.error("[packs/GET] influencer_assets query failed:", assetsErr);
+    return serverErr("Failed to fetch pack assets");
+  }
+
+  // Map to client shape — derive shot_index + label from metadata
+  type AssetRow = {
+    url: string;
+    thumbnail_url: string;
+    metadata: Record<string, unknown> | null;
+  };
+  const mapped = (assets as AssetRow[]).map((a) => {
+    const meta       = a.metadata ?? {};
+    const shot_index = typeof meta.shot_index === "number" ? meta.shot_index : null;
+    const label      = shot_index !== null ? `Shot ${shot_index + 1}` : "Identity Shot";
+    return {
+      url:           a.url,
+      thumbnail_url: a.thumbnail_url ?? a.url,
+      shot_index,
+      label,
+    };
+  });
+
+  // Sort by shot_index ascending (nulls last)
+  mapped.sort((a, b) => {
+    if (a.shot_index === null && b.shot_index === null) return 0;
+    if (a.shot_index === null) return 1;
+    if (b.shot_index === null) return -1;
+    return a.shot_index - b.shot_index;
+  });
+
+  return ok({ assets: mapped });
+}
 
 export async function POST(
   req: Request,
