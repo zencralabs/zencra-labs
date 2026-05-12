@@ -2403,55 +2403,68 @@ function PackOutputPanel({
       </div>
 
       {/* Main image strip — mixed completed + skeleton */}
-      {(!isFailed) && (
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-          {/* Completed cards — revealed with stagger */}
-          {output?.images.map((img, i) => (
-            <PackAssetCard
-              key={img.url}
-              url={img.url}
-              label={img.label}
-              accentColor={packDef.accent}
-              revealIndex={i}
-              isComplete={isComplete}
-            />
-          ))}
+      {(!isFailed) && (() => {
+        const isIdentitySheet = packDef.type === "identity-sheet";
+        const stripStyle: React.CSSProperties = isIdentitySheet
+          ? { display: "flex", gap: 12, paddingBottom: 8, width: "100%" }
+          : { display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 };
 
-          {/* Remaining skeleton cards — shown while jobs still in-flight */}
-          {Array.from({ length: skeletonCount }).map((_, i) => (
-            <div key={`skel-${i}`} style={{
-              flexShrink: 0, width: 130,
-              aspectRatio: "2/3",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              animation: "packPulse 1.8s ease-in-out infinite",
-              animationDelay: `${i * 0.22}s`,
-              display: "flex", flexDirection: "column",
-              justifyContent: "flex-end", padding: 8,
-            }}>
-              <div style={{
-                height: 7, width: "60%",
-                background: "rgba(255,255,255,0.07)",
-                marginBottom: 4,
-              }} />
-              <div style={{
-                height: 5, width: "40%",
+        return (
+          <div style={stripStyle}>
+            {/* Completed cards — revealed with stagger */}
+            {output?.images.map((img, i) => (
+              <PackAssetCard
+                key={img.url}
+                url={img.url}
+                label={img.label}
+                accentColor={packDef.accent}
+                revealIndex={i}
+                isComplete={isComplete}
+                fluid={isIdentitySheet}
+              />
+            ))}
+
+            {/* Remaining skeleton cards — shown while jobs still in-flight */}
+            {Array.from({ length: skeletonCount }).map((_, i) => (
+              <div key={`skel-${i}`} style={{
+                ...(isIdentitySheet
+                  ? { flex: "1 1 0", minWidth: 140 }
+                  : { flexShrink: 0, width: 130 }),
+                aspectRatio: "2/3",
                 background: "rgba(255,255,255,0.04)",
-              }} />
-            </div>
-          ))}
+                border: "1px solid rgba(255,255,255,0.06)",
+                animation: "packPulse 1.8s ease-in-out infinite",
+                animationDelay: `${i * 0.22}s`,
+                display: "flex", flexDirection: "column",
+                justifyContent: "flex-end", padding: 8,
+              }}>
+                <div style={{
+                  height: 7, width: "60%",
+                  background: "rgba(255,255,255,0.07)",
+                  marginBottom: 4,
+                }} />
+                <div style={{
+                  height: 5, width: "40%",
+                  background: "rgba(255,255,255,0.04)",
+                }} />
+              </div>
+            ))}
 
-          {/* Pure loading state — no totalJobs known yet, no images yet */}
-          {!output && Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} style={{
-              flexShrink: 0, width: 130, aspectRatio: "2/3",
-              background: "rgba(255,255,255,0.04)",
-              animation: "packPulse 1.8s ease-in-out infinite",
-              animationDelay: `${i * 0.15}s`,
-            }} />
-          ))}
-        </div>
-      )}
+            {/* Pure loading state — no totalJobs known yet, no images yet */}
+            {!output && Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{
+                ...(isIdentitySheet
+                  ? { flex: "1 1 0", minWidth: 140 }
+                  : { flexShrink: 0, width: 130 }),
+                aspectRatio: "2/3",
+                background: "rgba(255,255,255,0.04)",
+                animation: "packPulse 1.8s ease-in-out infinite",
+                animationDelay: `${i * 0.15}s`,
+              }} />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Failed state — no images at all */}
       {isFailed && !hasImages && (
@@ -2466,20 +2479,27 @@ function PackOutputPanel({
       )}
 
       {/* Failed but some images did land — show what we got */}
-      {isFailed && hasImages && (
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
-          {output!.images.map((img, i) => (
-            <PackAssetCard
-              key={img.url}
-              url={img.url}
-              label={img.label}
-              accentColor={packDef.accent}
-              revealIndex={i}
-              isComplete={false}
-            />
-          ))}
-        </div>
-      )}
+      {isFailed && hasImages && (() => {
+        const isIdentitySheet = packDef.type === "identity-sheet";
+        const stripStyle: React.CSSProperties = isIdentitySheet
+          ? { display: "flex", gap: 12, paddingBottom: 8, width: "100%" }
+          : { display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 };
+        return (
+          <div style={stripStyle}>
+            {output!.images.map((img, i) => (
+              <PackAssetCard
+                key={img.url}
+                url={img.url}
+                label={img.label}
+                accentColor={packDef.accent}
+                revealIndex={i}
+                isComplete={false}
+                fluid={isIdentitySheet}
+              />
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -2488,13 +2508,14 @@ function PackOutputPanel({
 // Step 6D: staggered reveal animation, wired download, SVG icon actions.
 
 function PackAssetCard({
-  url, label, accentColor, revealIndex = 0, isComplete = true,
+  url, label, accentColor, revealIndex = 0, isComplete = true, fluid = false,
 }: {
   url:          string;
   label:        string;
   accentColor:  string;
   revealIndex?: number;
   isComplete?:  boolean;
+  fluid?:       boolean;
 }) {
   const [hovered,      setHovered]      = useState(false);
   const [downloading,  setDownloading]  = useState(false);
@@ -2519,7 +2540,8 @@ function PackAssetCard({
   return (
     <div
       style={{
-        flexShrink: 0, width: 130, aspectRatio: "2/3",
+        ...(fluid ? { flex: "1 1 0", minWidth: 140 } : { flexShrink: 0, width: 130 }),
+        aspectRatio: "2/3",
         overflow: "hidden", position: "relative",
         cursor: "pointer",
         opacity:   revealed ? 1 : 0,
