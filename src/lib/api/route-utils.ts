@@ -22,6 +22,12 @@ export type ApiErrorCode =
   | "MODEL_NOT_ACTIVE"
   | "FEATURE_DISABLED"
   | "INSUFFICIENT_CREDITS"
+  /**
+   * Provider account balance exhausted — platform-operational failure, not user's fault.
+   * Returns 503 (not 402) so the client shows "try again" rather than a payment prompt.
+   * User-facing message is always the sanitized generic string.
+   */
+  | "PROVIDER_CREDIT_EXHAUSTED"
   | "PROVIDER_ERROR"
   | "JOB_NOT_FOUND"
   | "NOT_OWNER"

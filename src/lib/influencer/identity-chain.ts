@@ -256,17 +256,25 @@ export async function buildIdentityChain(
       });
     } catch (err) {
       if (err instanceof StudioDispatchError) {
-        // Billing and account errors are fatal for the entire chain
-        // User must resolve them before retrying
+        // Billing and account errors are fatal for the entire chain.
+        // User must resolve them (or wait for provider recovery) before retrying.
+        //
+        // PROVIDER_CREDIT_EXHAUSTED: provider account wallet empty (not user's fault).
+        //   The chain must still stop — every subsequent shot will fail identically.
+        //   The StudioDispatchError already carries the sanitized user-facing message.
+        //
+        // INSUFFICIENT_CREDITS: user's own Zencra wallet empty.
+        //   User must top up before retrying.
         if (
-          err.code === "INSUFFICIENT_CREDITS"  ||
-          err.code === "SUBSCRIPTION_INACTIVE" ||
-          err.code === "TRIAL_EXHAUSTED"        ||
-          err.code === "TRIAL_EXPIRED"          ||
+          err.code === "PROVIDER_CREDIT_EXHAUSTED" ||
+          err.code === "INSUFFICIENT_CREDITS"       ||
+          err.code === "SUBSCRIPTION_INACTIVE"      ||
+          err.code === "TRIAL_EXHAUSTED"             ||
+          err.code === "TRIAL_EXPIRED"               ||
           err.code === "FREE_LIMIT_REACHED"
         ) {
           console.error(
-            `[identity-chain] Fatal billing error on shot ${shotIndex + 1}: ${err.code}`,
+            `[identity-chain] Fatal error on shot ${shotIndex + 1}: ${err.code}`,
           );
           throw err;
         }

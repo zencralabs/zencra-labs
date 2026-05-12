@@ -105,6 +105,14 @@ export type StudioDispatchErrorCode =
   | "FREE_LIMIT_REACHED"
   | "FCS_NOT_ALLOWED"
   | "SINGLE_USER_VIOLATION"
+  /**
+   * Provider-side account balance exhausted.
+   * DIFFERENT from INSUFFICIENT_CREDITS (user's own Zencra wallet empty).
+   * This is a platform-operational failure — not the user's fault.
+   * User sees a generic retry message. Logs carry full provider detail.
+   * Routes return 503 (service unavailable), not 402 (payment required).
+   */
+  | "PROVIDER_CREDIT_EXHAUSTED"
   | "PROVIDER_ERROR"
   | "SERVER_ERROR";
 
@@ -583,9 +591,16 @@ export async function pollAndUpdateJob(
     } else if (jobStatus.status === "error") {
       // Persist the error reason so it survives page refreshes.
       // errorMessage is trimmed to 500 chars to avoid oversized DB writes.
-      const errorMsg = (jobStatus.error ?? "Generation failed")
-        .trim()
-        .slice(0, 500);
+      //
+      // PROVIDER OPACITY: the raw provider error is logged to server logs first,
+      // then sanitized before writing to the DB. The Activity Center reads
+      // error_message directly — it must never surface provider names, balance
+      // status, or any operational detail that violates the opacity rule.
+      const rawErrorMsg = (jobStatus.error ?? "Generation failed").trim().slice(0, 500);
+      if (rawErrorMsg && rawErrorMsg !== "Generation failed") {
+        console.error(`[pollAndUpdateJob] provider error for asset=${assetId} model=${modelKey}:`, rawErrorMsg);
+      }
+      const errorMsg = sanitizeProviderErrorForUser(rawErrorMsg);
 
       // ── Credit refund — partial failure reconciliation ────────────────────────
       // The credit was reserved (spend_credits) at dispatch time. If the async job
@@ -634,7 +649,9 @@ export async function pollAndUpdateJob(
     return {
       status: jobStatus.status,
       url:    jobStatus.url,
-      error:  jobStatus.error,
+      // Sanitize before returning — callers (status route, Activity Center) may
+      // forward this string directly to HTTP responses or store it for UI display.
+      error:  jobStatus.error ? sanitizeProviderErrorForUser(jobStatus.error) : jobStatus.error,
     };
   } catch (err) {
     // Shield: polling threw — treat as provider failure for circuit breaker
@@ -681,6 +698,52 @@ async function persistAsset(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PROVIDER OPACITY — error message sanitization
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The sanitized user-facing string for any provider-side service failure.
+ *
+ * PLATFORM RULE: Users must never see provider names, balance status, "top up"
+ * language, or any operational infrastructure detail. This string is the only
+ * message users should ever see when a provider-side failure occurs.
+ */
+const PROVIDER_OPACITY_USER_MSG =
+  "Generation service is temporarily unavailable. Please try again in a few minutes.";
+
+/**
+ * Returns true if a provider error message contains a credit/balance exhaustion
+ * signal — i.e. the provider account (not the user's Zencra wallet) is empty.
+ *
+ * Checked case-insensitively. Extend this list as more providers are added.
+ * Currently covers the confirmed NB Pro 402-in-body path.
+ */
+function isProviderCreditExhaustion(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("insufficient credits")            ||
+    lower.includes("credits are insufficient")        ||
+    lower.includes("please top up")                   ||
+    (lower.includes("credit") && lower.includes("balance"))
+  );
+}
+
+/**
+ * Sanitize a provider error string before it reaches the user, the DB
+ * error_message column (which Activity Center reads), or any HTTP response body.
+ *
+ * IMPORTANT: The original message MUST be logged to server logs BEFORE calling
+ * this. Sanitization is a presentation filter only — it must not suppress logging.
+ *
+ * FUTURE: extend to cover broader provider opacity patterns (provider name leakage,
+ * API key error text, etc.) as the provider layer grows.
+ */
+export function sanitizeProviderErrorForUser(msg: string): string {
+  if (isProviderCreditExhaustion(msg)) return PROVIDER_OPACITY_USER_MSG;
+  return msg;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ERROR MAPPING
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -706,22 +769,26 @@ function mapOrchestratorError(err: unknown): StudioDispatchError {
         // Dry-run mode — treat as a non-fatal feature-disabled gate for test purposes
         return new StudioDispatchError(oe.message, "FEATURE_DISABLED", err);
       case "PROVIDER_ERROR": {
-        // Provider-side credit exhaustion must be treated as a billing failure,
-        // not a generic provider error. Providers like NB Pro return HTTP 200
-        // with a credit-shortage code in the body — nano-banana.ts converts this
-        // to a plain Error which the orchestrator wraps as PROVIDER_ERROR. Without
-        // this reclassification the identity chain's fatal billing check (which
-        // inspects StudioDispatchError.code) sees "PROVIDER_ERROR" and treats each
-        // shot as a non-fatal failure, spending credits on all 5 shots.
-        const lowerMsg = oe.message.toLowerCase();
-        const isProviderCreditExhaustion =
-          lowerMsg.includes("insufficient credits") ||
-          lowerMsg.includes("credits are insufficient") ||
-          lowerMsg.includes("please top up") ||
-          lowerMsg.includes("top up") ||
-          (lowerMsg.includes("credit") && lowerMsg.includes("balance"));
-        if (isProviderCreditExhaustion) {
-          return new StudioDispatchError(oe.message, "INSUFFICIENT_CREDITS", err);
+        // Detect provider-side credit/balance exhaustion — distinct from the user's
+        // own Zencra wallet being empty (INSUFFICIENT_CREDITS).
+        // Providers like NB Pro return HTTP 200 with {"code":402,"msg":"The current
+        // credits are insufficient. Please top up."} in the body. nano-banana.ts
+        // body-level check converts this to a plain Error; the orchestrator wraps it
+        // as OrchestratorError("PROVIDER_ERROR"). Without reclassification here the
+        // identity chain's fatal billing check never fires, causing all 5 shots to
+        // dispatch even though they will all fail identically.
+        if (isProviderCreditExhaustion(oe.message)) {
+          // ADMIN-ALERT: emit the full provider message to server logs.
+          // This is the only place where the raw provider detail is preserved.
+          // The user-facing StudioDispatchError carries only the sanitized string.
+          console.error(
+            `[ADMIN-ALERT] PROVIDER_CREDIT_EXHAUSTED — full provider message: ${oe.message}`,
+          );
+          return new StudioDispatchError(
+            PROVIDER_OPACITY_USER_MSG,
+            "PROVIDER_CREDIT_EXHAUSTED",
+            err,
+          );
         }
         return new StudioDispatchError(oe.message, "PROVIDER_ERROR", err);
       }
@@ -744,6 +811,13 @@ function mapOrchestratorError(err: unknown): StudioDispatchError {
       return new StudioDispatchError(msg, "VALIDATION_FAILED", err);
     }
     if (msg.includes("Insufficient credits") || msg.includes("credit")) {
+      // Distinguish provider-side credit exhaustion from user's own wallet being empty.
+      if (isProviderCreditExhaustion(msg)) {
+        console.error(
+          `[ADMIN-ALERT] PROVIDER_CREDIT_EXHAUSTED (heuristic path) — full message: ${msg}`,
+        );
+        return new StudioDispatchError(PROVIDER_OPACITY_USER_MSG, "PROVIDER_CREDIT_EXHAUSTED", err);
+      }
       return new StudioDispatchError(msg, "INSUFFICIENT_CREDITS", err);
     }
     if (msg.includes("HTTP") || msg.includes("provider") || msg.includes("upstream")) {
@@ -782,6 +856,9 @@ export function dispatchErrorStatus(code: StudioDispatchErrorCode): number {
     FREE_LIMIT_REACHED:     403,
     FCS_NOT_ALLOWED:        403,
     SINGLE_USER_VIOLATION:  403,
+    // 503: provider-side failure — user should retry, not upgrade.
+    // Never 402 (that implies the user owes money, which is wrong here).
+    PROVIDER_CREDIT_EXHAUSTED: 503,
     PROVIDER_ERROR:         502,
     SERVER_ERROR:           500,
   };
