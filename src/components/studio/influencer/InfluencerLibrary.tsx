@@ -634,7 +634,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                 onOpen={() => onSelect(inf)}
                 onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
                 onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
-                onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
+                onLookPack={() => router.push(`/studio/character/ai-influencer?tab=look-pack&influencer=${inf.id}`)}
                 onDelete={() => setDeleteTarget(inf)}
               />
             ))}
@@ -676,7 +676,7 @@ export default function InfluencerLibrary({ onNew, onSelect, activeId }: Props) 
                   onOpen={() => onSelect(inf)}
                   onImage={() => router.push(`/studio/image?handle=${inf.handle ?? ""}`)}
                   onVideo={() => router.push(`/studio/video?handle=${inf.handle ?? ""}&mode=start-frame`)}
-                  onLookPack={() => router.push(`/studio/character?tab=look-pack&influencer=${inf.id}`)}
+                  onLookPack={() => router.push(`/studio/character/ai-influencer?tab=look-pack&influencer=${inf.id}`)}
                   onDelete={() => setDeleteTarget(inf)}
                 />
               ))}
