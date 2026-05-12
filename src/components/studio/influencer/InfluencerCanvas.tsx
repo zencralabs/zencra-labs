@@ -244,6 +244,10 @@ export default function InfluencerCanvas({
             totalJobs:  assets.length,
           }];
         });
+        // Open the PackOutputPanel so the hydrated images are visible.
+        // activePack is null on fresh load (reset when influencer changes) so
+        // this is safe — it only reveals identity-sheet if nothing is already open.
+        setActivePack(prev => prev ?? "identity-sheet");
       } catch {
         // Silent — hydration is best-effort; missing images don't break the page
       }
