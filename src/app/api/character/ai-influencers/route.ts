@@ -70,6 +70,12 @@ export async function POST(req: Request): Promise<Response> {
     return serverErr("Failed to generate influencer handle");
   }
 
+  // Mixed/Blended heritage persistence fix — previously ephemeral (frontend-only).
+  // Now stored in DB so the generate route can read it via select("*") without changes.
+  const mixed_blend_regions: string[] = Array.isArray(body?.mixed_blend_regions)
+    ? (body.mixed_blend_regions as unknown[]).filter((r): r is string => typeof r === "string")
+    : [];
+
   // Profile fields (all optional at creation)
   const profile = {
     gender:           typeof body?.gender           === "string" ? body.gender           : null,
@@ -82,6 +88,17 @@ export async function POST(req: Request): Promise<Response> {
     platform_intent:  Array.isArray(body?.platform_intent)  ? (body.platform_intent as string[])  : [],
     appearance_notes: typeof body?.appearance_notes  === "string" ? body.appearance_notes  : null,
     ethnicity_region,
+    mixed_blend_regions,
+    // Phase A — Advanced Identity Traits (all optional; null/empty = not set)
+    species:       typeof body?.species       === "string" ? body.species       : null,
+    hair_identity: typeof body?.hair_identity === "string" ? body.hair_identity : null,
+    eye_color:     typeof body?.eye_color     === "string" ? body.eye_color     : null,
+    eye_type:      typeof body?.eye_type      === "string" ? body.eye_type      : null,
+    skin_marks:    Array.isArray(body?.skin_marks)
+      ? (body.skin_marks as unknown[]).filter((s): s is string => typeof s === "string")
+      : [],
+    ear_type:      typeof body?.ear_type      === "string" ? body.ear_type      : null,
+    horn_type:     typeof body?.horn_type     === "string" ? body.horn_type     : null,
   };
 
   // Tags — user-defined library filter labels (e.g. ["Fashion", "Luxury"])

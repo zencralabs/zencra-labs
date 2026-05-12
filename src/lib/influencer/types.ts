@@ -122,6 +122,16 @@ export interface AIInfluencerProfile {
   // Ethnicity/Region — drives culturally-matched naming + facial genetics in prompts
   // e.g. "south-asian-indian", "east-asian", "middle-eastern", "european"
   ethnicity_region: string | null;
+  // Mixed heritage blend regions — persisted fix (previously ephemeral frontend-only)
+  mixed_blend_regions: string[];
+  // Phase A — Advanced Identity Traits (all optional; null/empty = not set)
+  species:       string | null;   // SpeciesType
+  hair_identity: string | null;   // HairIdentityType
+  eye_color:     string | null;   // EyeColorType
+  eye_type:      string | null;   // EyeType
+  skin_marks:    string[];        // SkinMarkType[] — multi-select
+  ear_type:      string | null;   // EarType
+  horn_type:     string | null;   // HornType — null = no horns
   created_at: string;
   updated_at: string;
 }
@@ -174,6 +184,75 @@ export interface InfluencerGenerationJob {
   created_at: string;
   updated_at: string;
 }
+
+// ── Phase A — Advanced Identity Trait constants ───────────────────────────────
+// Single source of truth for all Phase A option values.
+// Used by: frontend dropdowns/chips, backend validation, prompt composer.
+
+export const SPECIES_OPTIONS = [
+  "human",
+  "elf",
+  "alien",
+  "animal-inspired",
+  "insect-inspired",
+] as const;
+export type SpeciesType = typeof SPECIES_OPTIONS[number];
+
+export const HAIR_IDENTITY_OPTIONS = [
+  "long-hair",
+  "short-hair",
+  "bald",
+  "punk-style",
+  "afro-style",
+  "fur",
+] as const;
+export type HairIdentityType = typeof HAIR_IDENTITY_OPTIONS[number];
+
+export const EYE_COLOR_OPTIONS = [
+  "black",
+  "grey",
+  "green",
+  "brown",
+  "blue",
+  "amber",
+  "honey-brown",
+  "dark-brown",
+] as const;
+export type EyeColorType = typeof EYE_COLOR_OPTIONS[number];
+
+export const EYE_TYPE_OPTIONS = [
+  "human-eyes",
+  "glowing-eyes",
+  "reptile-eyes",
+  "robotic-eyes",
+  "blind-eyes",
+  "mixed-eyes",
+] as const;
+export type EyeType = typeof EYE_TYPE_OPTIONS[number];
+
+export const SKIN_MARK_OPTIONS = [
+  "freckles",
+  "birthmarks",
+  "scars",
+  "pigmentation",
+  "wrinkled-skin",
+  "albinism",
+] as const;
+export type SkinMarkType = typeof SKIN_MARK_OPTIONS[number];
+
+export const EAR_TYPE_OPTIONS = [
+  "human-ears",
+  "elf-ears",
+  "winged-ears",
+  "alien-ears",
+] as const;
+export type EarType = typeof EAR_TYPE_OPTIONS[number];
+
+export const HORN_TYPE_OPTIONS = [
+  "small-horns",
+  "large-horns",
+] as const;
+export type HornType = typeof HORN_TYPE_OPTIONS[number];
 
 // ── Context type returned by getInfluencerContext() ───────────────────────────
 

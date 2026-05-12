@@ -65,6 +65,21 @@ interface Props {
   // Library tags — used for AI Talent Roster filtering
   tags:    string[];
   setTags: (v: string[]) => void;
+  // Phase A — Advanced Identity Traits
+  species:       string;
+  setSpecies:    (v: string) => void;
+  hairIdentity:  string;
+  setHairIdentity: (v: string) => void;
+  eyeColor:      string;
+  setEyeColor:   (v: string) => void;
+  eyeType:       string;
+  setEyeType:    (v: string) => void;
+  skinMarks:     string[];
+  setSkinMarks:  (v: string[]) => void;
+  earType:       string;
+  setEarType:    (v: string) => void;
+  hornType:      string;
+  setHornType:   (v: string) => void;
 }
 
 export default function InfluencerControls({
@@ -83,6 +98,13 @@ export default function InfluencerControls({
   mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
   tags, setTags,
+  species, setSpecies,
+  hairIdentity, setHairIdentity,
+  eyeColor, setEyeColor,
+  eyeType, setEyeType,
+  skinMarks, setSkinMarks,
+  earType, setEarType,
+  hornType, setHornType,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
@@ -148,7 +170,18 @@ export default function InfluencerControls({
         )}
         {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
         {activeTab === "refine"   && <RefineTab       active={activeInfluencer} />}
-        {activeTab === "advanced" && <AdvancedTab />}
+        {activeTab === "advanced" && (
+          <AdvancedTab
+            styleCategory={styleCategory}
+            species={species}         setSpecies={setSpecies}
+            hairIdentity={hairIdentity} setHairIdentity={setHairIdentity}
+            eyeColor={eyeColor}       setEyeColor={setEyeColor}
+            eyeType={eyeType}         setEyeType={setEyeType}
+            skinMarks={skinMarks}     setSkinMarks={setSkinMarks}
+            earType={earType}         setEarType={setEarType}
+            hornType={hornType}       setHornType={setHornType}
+          />
+        )}
       </div>
     </div>
   );
@@ -791,20 +824,349 @@ function RefineTab({ active }: { active: ActiveInfluencer | null }) {
   );
 }
 
-// ── Advanced tab ───────────────────────────────────────────────────────────────
+// ── Advanced tab — Phase A: Biological Identity Layer ─────────────────────────
 
-function AdvancedTab() {
+// ── Phase A option labels ─────────────────────────────────────────────────────
+// Display labels matching the locked option values.
+
+const SPECIES_LABELS: Record<string, string> = {
+  "human":          "Human",
+  "elf":            "Elf",
+  "alien":          "Alien",
+  "animal-inspired":"Animal",
+  "insect-inspired":"Insect",
+};
+const HAIR_LABELS: Record<string, string> = {
+  "long-hair":  "Long",
+  "short-hair": "Short",
+  "bald":       "Bald",
+  "punk-style": "Punk",
+  "afro-style": "Afro",
+  "fur":        "Fur",
+};
+const EYE_COLOR_LABELS: Record<string, string> = {
+  "black":      "Black",
+  "grey":       "Grey",
+  "green":      "Green",
+  "brown":      "Brown",
+  "blue":       "Blue",
+  "amber":      "Amber",
+  "honey-brown":"Honey",
+  "dark-brown": "Dark Brown",
+};
+const EYE_TYPE_LABELS: Record<string, string> = {
+  "human-eyes":   "Human",
+  "glowing-eyes": "Glowing",
+  "reptile-eyes": "Reptile",
+  "robotic-eyes": "Robotic",
+  "blind-eyes":   "Blind",
+  "mixed-eyes":   "Mixed",
+};
+const SKIN_MARK_LABELS: Record<string, string> = {
+  "freckles":      "Freckles",
+  "birthmarks":    "Birthmarks",
+  "scars":         "Scars",
+  "pigmentation":  "Pigmentation",
+  "wrinkled-skin": "Wrinkled",
+  "albinism":      "Albinism",
+};
+const EAR_LABELS: Record<string, string> = {
+  "human-ears":  "Human",
+  "elf-ears":    "Elf",
+  "winged-ears": "Winged",
+  "alien-ears":  "Alien",
+};
+const HORN_LABELS: Record<string, string> = {
+  "small-horns": "Small",
+  "large-horns": "Large",
+};
+
+// ── Collapsible section ────────────────────────────────────────────────────────
+
+function AdvSection({
+  label,
+  badge,
+  children,
+}: {
+  label:    string;
+  badge?:   string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
   return (
-    <div style={{ padding: "20px 18px" }}>
-      <div style={{
-        fontSize: 11, fontWeight: 900, color: "rgba(255,255,255,0.45)",
-        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 14,
-      }}>
-        Advanced
+    <div style={{ borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center",
+          justifyContent: "space-between",
+          padding: "11px 18px", background: "none", border: "none",
+          cursor: "pointer",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            fontFamily: "'Syne', sans-serif",
+            fontSize: 11, fontWeight: 700,
+            color: "rgba(255,255,255,0.55)",
+            letterSpacing: "0.1em", textTransform: "uppercase",
+          }}>
+            {label}
+          </span>
+          {badge && (
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 10, fontWeight: 700, color: T.amber,
+              background: "rgba(245,158,11,0.12)",
+              border: "1px solid rgba(245,158,11,0.22)",
+              padding: "1px 6px", borderRadius: 0, letterSpacing: "0.06em",
+            }}>
+              {badge}
+            </span>
+          )}
+        </div>
+        <svg
+          width="12" height="12" viewBox="0 0 12 12" fill="none"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.18s" }}
+        >
+          <polyline points="2,4 6,8 10,4" stroke="rgba(255,255,255,0.35)"
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{ padding: "2px 18px 14px" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Single-select chip group (0 border-radius, premium dark) ──────────────────
+
+function AdvSingleChips({
+  options,
+  labels,
+  value,
+  onChange,
+  accent,
+}: {
+  options:  string[];
+  labels:   Record<string, string>;
+  value:    string;
+  onChange: (v: string) => void;
+  accent:   string;
+}) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+      {options.map(opt => {
+        const active = value === opt;
+        return (
+          <button
+            key={opt}
+            onClick={() => onChange(active ? "" : opt)}
+            style={{
+              padding: "5px 11px", borderRadius: 0,
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 12, fontWeight: active ? 700 : 500,
+              border:     active ? `1px solid ${accent}66` : "1px solid rgba(255,255,255,0.09)",
+              background: active ? `${accent}18` : "rgba(255,255,255,0.025)",
+              color:      active ? accent : "rgba(255,255,255,0.42)",
+              cursor: "pointer", transition: "all 0.13s",
+              letterSpacing: "0.01em",
+            }}
+          >
+            {labels[opt] ?? opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Multi-select chip group (0 border-radius, same accent) ───────────────────
+
+function AdvMultiChips({
+  options,
+  labels,
+  selected,
+  onToggle,
+  accent,
+}: {
+  options:  string[];
+  labels:   Record<string, string>;
+  selected: string[];
+  onToggle: (v: string) => void;
+  accent:   string;
+}) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+      {options.map(opt => {
+        const active = selected.includes(opt);
+        return (
+          <button
+            key={opt}
+            onClick={() => onToggle(opt)}
+            style={{
+              padding: "5px 11px", borderRadius: 0,
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 12, fontWeight: active ? 700 : 500,
+              border:     active ? `1px solid ${accent}66` : "1px solid rgba(255,255,255,0.09)",
+              background: active ? `${accent}18` : "rgba(255,255,255,0.025)",
+              color:      active ? accent : "rgba(255,255,255,0.42)",
+              cursor: "pointer", transition: "all 0.13s",
+              letterSpacing: "0.01em",
+            }}
+          >
+            {labels[opt] ?? opt}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main Advanced tab component ────────────────────────────────────────────────
+
+interface AdvancedTabProps {
+  styleCategory:   StyleCategory;
+  species:         string;  setSpecies:      (v: string) => void;
+  hairIdentity:    string;  setHairIdentity: (v: string) => void;
+  eyeColor:        string;  setEyeColor:     (v: string) => void;
+  eyeType:         string;  setEyeType:      (v: string) => void;
+  skinMarks:       string[]; setSkinMarks:   (v: string[]) => void;
+  earType:         string;  setEarType:      (v: string) => void;
+  hornType:        string;  setHornType:     (v: string) => void;
+}
+
+function AdvancedTab({
+  styleCategory,
+  species,       setSpecies,
+  hairIdentity,  setHairIdentity,
+  eyeColor,      setEyeColor,
+  eyeType,       setEyeType,
+  skinMarks,     setSkinMarks,
+  earType,       setEarType,
+  hornType,      setHornType,
+}: AdvancedTabProps) {
+  // Accent follows the selected style category — same as the category cards
+  const catDef  = CATEGORIES.find(c => c.value === styleCategory);
+  const accent  = catDef?.accent ?? T.amber;
+
+  const toggleSkinMark = (v: string) => {
+    setSkinMarks(
+      skinMarks.includes(v)
+        ? skinMarks.filter(m => m !== v)
+        : [...skinMarks, v],
+    );
+  };
+
+  return (
+    <div style={{ paddingBottom: 24 }}>
+
+      {/* Header */}
+      <div style={{ padding: "16px 18px 10px" }}>
+        <div style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: 11, fontWeight: 900,
+          color: "rgba(255,255,255,0.35)",
+          letterSpacing: "0.14em", textTransform: "uppercase",
+          marginBottom: 4,
+        }}>
+          Biological Identity
+        </div>
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 12, color: "rgba(255,255,255,0.3)", lineHeight: 1.55,
+        }}>
+          Genetic-layer traits — injected before fashion and mood.
+        </div>
       </div>
-      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>
-        Advanced identity controls — custom prompt overrides, seed control, and generation fine-tuning — coming in a future update.
-      </div>
+
+      {/* Species / Origin */}
+      <AdvSection label="Species · Origin">
+        <AdvSingleChips
+          options={["human","elf","alien","animal-inspired","insect-inspired"]}
+          labels={SPECIES_LABELS}
+          value={species}
+          onChange={setSpecies}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Hair Identity */}
+      <AdvSection label="Hair Identity">
+        <AdvSingleChips
+          options={["long-hair","short-hair","bald","punk-style","afro-style","fur"]}
+          labels={HAIR_LABELS}
+          value={hairIdentity}
+          onChange={setHairIdentity}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Eye Color */}
+      <AdvSection label="Eye Color">
+        <AdvSingleChips
+          options={["black","grey","green","brown","blue","amber","honey-brown","dark-brown"]}
+          labels={EYE_COLOR_LABELS}
+          value={eyeColor}
+          onChange={setEyeColor}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Eye Type */}
+      <AdvSection label="Eye Type">
+        <AdvSingleChips
+          options={["human-eyes","glowing-eyes","reptile-eyes","robotic-eyes","blind-eyes","mixed-eyes"]}
+          labels={EYE_TYPE_LABELS}
+          value={eyeType}
+          onChange={setEyeType}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Skin Marks — multi-select */}
+      <AdvSection label="Skin Marks">
+        <AdvMultiChips
+          options={["freckles","birthmarks","scars","pigmentation","wrinkled-skin","albinism"]}
+          labels={SKIN_MARK_LABELS}
+          selected={skinMarks}
+          onToggle={toggleSkinMark}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Ears */}
+      <AdvSection label="Ears">
+        <AdvSingleChips
+          options={["human-ears","elf-ears","winged-ears","alien-ears"]}
+          labels={EAR_LABELS}
+          value={earType}
+          onChange={setEarType}
+          accent={accent}
+        />
+      </AdvSection>
+
+      {/* Horns — optional, null = no horns */}
+      <AdvSection label="Horns" badge="Optional">
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 11, color: "rgba(255,255,255,0.28)",
+          marginBottom: 8, lineHeight: 1.5,
+        }}>
+          Leave unselected for no horns.
+        </div>
+        <AdvSingleChips
+          options={["small-horns","large-horns"]}
+          labels={HORN_LABELS}
+          value={hornType}
+          onChange={setHornType}
+          accent={accent}
+        />
+      </AdvSection>
+
     </div>
   );
 }

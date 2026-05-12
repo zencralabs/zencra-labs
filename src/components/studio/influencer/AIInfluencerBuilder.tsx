@@ -88,6 +88,15 @@ export default function AIInfluencerBuilder() {
   // Library tags — user-defined labels for filtering in the AI Talent Roster
   const [tags,            setTags]            = useState<string[]>([]);
 
+  // ── Phase A — Advanced Identity Traits ────────────────────────────────────
+  const [species,       setSpecies]       = useState<string>("");
+  const [hairIdentity,  setHairIdentity]  = useState<string>("");
+  const [eyeColor,      setEyeColor]      = useState<string>("");
+  const [eyeType,       setEyeType]       = useState<string>("");
+  const [skinMarks,     setSkinMarks]     = useState<string[]>([]);
+  const [earType,       setEarType]       = useState<string>("");
+  const [hornType,      setHornType]      = useState<string>("");
+
   // ── Auth token ref — kept current from the session provided by AuthContext ─
   // Used by startPolling so every poll tick reads a live JWT even if the
   // token rotated while candidate generation was in progress (up to 10 min).
@@ -171,7 +180,17 @@ export default function AIInfluencerBuilder() {
           platform_intent:   platforms,
           appearance_notes:  notes,
           ethnicity_region:  ethnicityRegion || null,
+          // Mixed heritage persistence fix — now stored in profile, not just ephemeral
+          mixed_blend_regions: mixedBlendRegions.length >= 2 ? mixedBlendRegions : [],
           tags,
+          // Phase A — Advanced Identity Traits
+          species:       species       || null,
+          hair_identity: hairIdentity  || null,
+          eye_color:     eyeColor      || null,
+          eye_type:      eyeType       || null,
+          skin_marks:    skinMarks,
+          ear_type:      earType       || null,
+          horn_type:     hornType      || null,
         }),
       });
 
@@ -284,7 +303,10 @@ export default function AIInfluencerBuilder() {
     }
   }, [
     session, styleCategory, gender, ageRange, skinTone, faceStruct,
-    fashion, realism, mood, platforms, notes, ethnicityRegion, candidateCount, tags, handleCreated, handleCandidatesReady,
+    fashion, realism, mood, platforms, notes, ethnicityRegion, mixedBlendRegions,
+    candidateCount, tags,
+    species, hairIdentity, eyeColor, eyeType, skinMarks, earType, hornType,
+    handleCreated, handleCandidatesReady,
   ]);
 
   const handleSelected = useCallback(
@@ -399,7 +421,14 @@ export default function AIInfluencerBuilder() {
           ethnicityRegion={ethnicityRegion}           setEthnicityRegion={setEthnicityRegion}
           mixedBlendRegions={mixedBlendRegions}      setMixedBlendRegions={setMixedBlendRegions}
           candidateCount={candidateCount}            setCandidateCount={setCandidateCount}
-          tags={tags}                            setTags={setTags}
+          tags={tags}                                setTags={setTags}
+          species={species}                          setSpecies={setSpecies}
+          hairIdentity={hairIdentity}                setHairIdentity={setHairIdentity}
+          eyeColor={eyeColor}                        setEyeColor={setEyeColor}
+          eyeType={eyeType}                          setEyeType={setEyeType}
+          skinMarks={skinMarks}                      setSkinMarks={setSkinMarks}
+          earType={earType}                          setEarType={setEarType}
+          hornType={hornType}                        setHornType={setHornType}
         />
       </div>
 

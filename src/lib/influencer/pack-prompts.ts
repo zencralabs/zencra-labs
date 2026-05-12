@@ -778,6 +778,124 @@ const GENDER_DESCRIPTOR: Record<string, string> = {
     "androgynous facial features, gender-neutral face structure, balanced facial proportions",
 };
 
+// ── Phase A — Advanced Identity Trait descriptor maps ────────────────────────
+// Single source of truth for rendering language per trait value.
+// Used only in composeInfluencerPrompt (pre-lock candidate casting).
+// null = default / no injection needed (human-eyes, long/short hair, human-ears).
+// Injected AFTER the hyper-real naturalness block (position 5c),
+// BEFORE skin_tone + face_structure — this is the genetic/biological identity layer.
+
+const SPECIES_PROMPT_MAP: Record<string, string | null> = {
+  "human":            null,
+  "elf":              "elven character, slightly elongated pointed ears, ethereal otherworldly elegance, faint arcane quality",
+  "alien":            "alien being, otherworldly facial structure, non-human physiognomy, extraterrestrial appearance",
+  "animal-inspired":  "animal-inspired features, animalistic characteristics blended with human form, hybrid anthropomorphic",
+  "insect-inspired":  "insect-inspired features, subtle chitinous accents, compound visual quality, arthropod-influenced form",
+};
+
+const HAIR_IDENTITY_PROMPT_MAP: Record<string, string | null> = {
+  "long-hair":   null,
+  "short-hair":  null,
+  "bald":        "completely bald head, smooth shaved scalp, no hair, clean bare skull",
+  "punk-style":  "punk hairstyle, bold edgy spikes or mohawk, high-contrast hair statement",
+  "afro-style":  "natural afro hair, full voluminous coils, lush natural texture, crown of coils",
+  "fur":         "head and face covered in natural animal fur instead of hair, dense fur texture, mammalian fur quality",
+};
+
+const EYE_COLOR_PROMPT_MAP: Record<string, string | null> = {
+  "black":       "deep black irises, pure black eyes, light-absorbing dark eyes",
+  "grey":        "soft grey irises, silver-grey eyes",
+  "green":       "vivid green irises, emerald green eyes",
+  "brown":       null,   // generic brown — model handles this well without injection
+  "blue":        "clear blue irises, deep blue eyes",
+  "amber":       "warm amber irises, golden amber eyes",
+  "honey-brown": "honey-brown irises, warm golden-brown eyes",
+  "dark-brown":  "deep dark brown irises, rich chocolate-brown eyes",
+};
+
+const EYE_TYPE_PROMPT_MAP: Record<string, string | null> = {
+  "human-eyes":   null,
+  "glowing-eyes": "glowing luminous eyes, bioluminescent eye glow, eyes that emit light",
+  "reptile-eyes": "reptilian slit pupils, serpentine vertical pupils, cold predatory gaze",
+  "robotic-eyes": "mechanical robotic eyes, optical lens pupils, synthetic iris, technological eye",
+  "blind-eyes":   "clouded milky white irises, blind eyes, unseeing white pupils, cataracts",
+  "mixed-eyes":   "heterochromia, two completely different eye colors, one eye each color",
+};
+
+const SKIN_MARK_PROMPT_MAP: Record<string, string> = {
+  "freckles":       "natural freckles scattered across nose and cheeks",
+  "birthmarks":     "subtle birthmarks on skin, natural skin marks",
+  "scars":          "subtle character-defining facial scars, battle or life marks",
+  "pigmentation":   "natural skin pigmentation variation, vitiligo-like patches or tonal variation",
+  "wrinkled-skin":  "expressive aged skin texture, natural deep wrinkles, character-rich skin",
+  "albinism":       "albinism, pale white complexion, very light eyes, white or silver hair",
+};
+
+const EAR_TYPE_PROMPT_MAP: Record<string, string | null> = {
+  "human-ears":  null,
+  "elf-ears":    "slightly elongated pointed elf ears, subtle upswept ear tips",
+  "winged-ears": "winged ear tips, feathered ear edges, delicate wing-like ear extensions",
+  "alien-ears":  "alien ear structure, non-human ear shape, extraterrestrial ear form",
+};
+
+const HORN_TYPE_PROMPT_MAP: Record<string, string | null> = {
+  "small-horns": "small decorative horns on forehead, subtle horn nubs, compact paired horns",
+  "large-horns": "large prominent paired horns, dramatic curved horns growing from forehead",
+};
+
+// ── Phase A trait block builder ───────────────────────────────────────────────
+// Returns a single comma-joined string of all active Phase A descriptors,
+// or null if no traits are set (allows zero-injection for default human profiles).
+function resolvePhaseATraits(profile: AIInfluencerProfile): string | null {
+  const segments: string[] = [];
+
+  // Species — structural non-human override (highest priority)
+  if (profile.species && profile.species !== "human") {
+    const desc = SPECIES_PROMPT_MAP[profile.species];
+    if (desc) segments.push(desc);
+  }
+
+  // Horns — physical protrusion (inject before hair so hair renders around horns)
+  if (profile.horn_type) {
+    const desc = HORN_TYPE_PROMPT_MAP[profile.horn_type];
+    if (desc) segments.push(desc);
+  }
+
+  // Ears — non-human ear shape
+  if (profile.ear_type && profile.ear_type !== "human-ears") {
+    const desc = EAR_TYPE_PROMPT_MAP[profile.ear_type];
+    if (desc) segments.push(desc);
+  }
+
+  // Hair identity — overrides default (bald/punk/afro/fur only; long/short = null = no injection)
+  if (profile.hair_identity) {
+    const desc = HAIR_IDENTITY_PROMPT_MAP[profile.hair_identity];
+    if (desc) segments.push(desc);
+  }
+
+  // Eye color — explicit iris color descriptor
+  if (profile.eye_color) {
+    const desc = EYE_COLOR_PROMPT_MAP[profile.eye_color];
+    if (desc) segments.push(desc);
+  }
+
+  // Eye type — non-human eye structure override
+  if (profile.eye_type && profile.eye_type !== "human-eyes") {
+    const desc = EYE_TYPE_PROMPT_MAP[profile.eye_type];
+    if (desc) segments.push(desc);
+  }
+
+  // Skin marks — multi-select, all active marks injected
+  if (profile.skin_marks && profile.skin_marks.length > 0) {
+    for (const mark of profile.skin_marks) {
+      const desc = SKIN_MARK_PROMPT_MAP[mark];
+      if (desc) segments.push(desc);
+    }
+  }
+
+  return segments.length > 0 ? segments.join(", ") : null;
+}
+
 // ── Main composer ─────────────────────────────────────────────────────────────
 
 export function composeInfluencerPrompt({
@@ -866,6 +984,15 @@ export function composeInfluencerPrompt({
       "true human face — not a render, not a composite"
     );
   }
+
+  // 5c. Phase A — Advanced Identity Traits.
+  //     Injected AFTER the hyper-real naturalness block (above) and BEFORE skin_tone /
+  //     face_structure. This is the biological identity genetics layer:
+  //     species → horns → ears → hair → eye color → eye type → skin marks.
+  //     null return = all traits are defaults → zero injection, no performance cost.
+  //     Existing profiles (no Phase A fields set) generate identically to before.
+  const phaseABlock = resolvePhaseATraits(profile);
+  if (phaseABlock) parts.push(phaseABlock);
 
   // Skin tone + face structure — most meaningful for realism-adjacent styles,
   // harmless for stylized ones (anime/pixel artists can still apply these)
