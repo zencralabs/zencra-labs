@@ -153,8 +153,15 @@ export default function InfluencerCanvas({
 }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
-  const packSectionRef = useRef<HTMLDivElement>(null);
-  const canvasRef      = useRef<HTMLDivElement>(null);
+  const packSectionRef  = useRef<HTMLDivElement>(null);
+  const canvasRef       = useRef<HTMLDivElement>(null);
+  /**
+   * In-flight guard — prevents duplicate pack dispatches.
+   * Identity-sheet chain blocks server-side for ~5 min; look-pack polls for up to 10 min.
+   * Without this guard a second click re-dispatches the chain AND resets packOutputs,
+   * wiping completed images from the first chain (Bug 1 root cause).
+   */
+  const inFlightPacks = useRef<Set<PackType>>(new Set());
 
   // ── Auth token ref — kept current via onAuthStateChange ─────────────────────
   // Used by startPolling so every poll tick reads a live JWT even if the token
@@ -182,13 +189,24 @@ export default function InfluencerCanvas({
       const { active } = canvasState;
       if (!active.identity_lock_id || !active.canonical_asset_id) return;
 
+      // ── Duplicate dispatch guard ──────────────────────────────────────────────
+      // Identity-sheet blocks for ~5 min server-side. Without this guard, a second
+      // click re-dispatches the chain AND resets packOutputs — wiping completed
+      // images from the first chain before they can render (Bug 1 root cause).
+      if (inFlightPacks.current.has(packType)) return;
+      inFlightPacks.current.add(packType);
+
       const packDef = PACK_ACTIONS.find(p => p.type === packType)!;
 
-      // Add loading section immediately — then animate in
+      // Add loading section immediately — then animate in.
+      // Safety: if an entry already exists AND is currently "loading", keep it
+      // as-is (inFlightPacks guard above already prevents re-entry, but this
+      // protects against any unexpected concurrent state).
       setPackOutputs(prev => {
-        const exists = prev.some(p => p.type === packType);
-        if (exists) {
-          // Re-trigger: reset failed pack to loading so user can retry
+        const existing = prev.find(p => p.type === packType);
+        if (existing?.status === "loading") return prev; // already generating — no-op
+        if (existing) {
+          // Retry after failure or re-trigger from complete
           return prev.map(p =>
             p.type === packType ? { ...p, status: "loading", images: [], totalJobs: undefined } : p,
           );
@@ -323,6 +341,10 @@ export default function InfluencerCanvas({
           setPackOutputs(prev =>
             prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
           );
+        } finally {
+          // Release guard — look-pack jobs are handed off to startPolling callbacks
+          // at this point; the canvas is no longer "in flight" for dispatch purposes.
+          inFlightPacks.current.delete(packType);
         }
         return; // look-pack handled — exit early
       }
@@ -390,6 +412,9 @@ export default function InfluencerCanvas({
         setPackOutputs(prev =>
           prev.map(p => p.type === packType ? { ...p, status: "failed" } : p),
         );
+      } finally {
+        // Release guard — chain is complete (or failed/timed out).
+        inFlightPacks.current.delete(packType);
       }
     },
     [canvasState, authTokenRef],
@@ -1465,8 +1490,9 @@ function SelectedState({
   const [savingId,      setSavingId]      = useState(false);
   const [savedId,       setSavedId]       = useState(false);
 
-  const activeOutput = packOutputs.find(p => p.type === activePack) ?? null;
-  const activeDef    = activePack ? PACK_ACTIONS.find(p => p.type === activePack) ?? null : null;
+  const activeOutput           = packOutputs.find(p => p.type === activePack) ?? null;
+  const activeDef              = activePack ? PACK_ACTIONS.find(p => p.type === activePack) ?? null : null;
+  const isIdentitySheetLoading = packOutputs.some(p => p.type === "identity-sheet" && p.status === "loading");
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
@@ -1514,6 +1540,7 @@ function SelectedState({
         accent={accent}
         savingId={savingId}
         savedId={savedId}
+        isIdentitySheetLoading={isIdentitySheetLoading}
         onImageFlow={onImageFlow}
         onVideoFlow={onVideoFlow}
         onCreatePack={() => onTriggerPack("identity-sheet")}
@@ -2011,18 +2038,20 @@ function IdentityActionRow({
   accent,
   savingId,
   savedId,
+  isIdentitySheetLoading,
   onImageFlow,
   onVideoFlow,
   onCreatePack,
   onSaveIdentity,
 }: {
-  accent:         string;
-  savingId:       boolean;
-  savedId:        boolean;
-  onImageFlow:    () => void;
-  onVideoFlow:    () => void;
-  onCreatePack:   () => void;
-  onSaveIdentity: () => void;
+  accent:                  string;
+  savingId:                boolean;
+  savedId:                 boolean;
+  isIdentitySheetLoading:  boolean;
+  onImageFlow:             () => void;
+  onVideoFlow:             () => void;
+  onCreatePack:            () => void;
+  onSaveIdentity:          () => void;
 }) {
   return (
     <div style={{ padding: "0 24px 32px" }}>
@@ -2038,15 +2067,21 @@ function IdentityActionRow({
 
       {/* Primary — Create Content Pack */}
       <button
-        onClick={onCreatePack}
+        onClick={isIdentitySheetLoading ? undefined : onCreatePack}
+        disabled={isIdentitySheetLoading}
         style={{
           width: "100%", padding: "14px 20px",
-          background: `linear-gradient(135deg, ${accent}cc, ${accent})`,
-          border: "none", cursor: "pointer", marginBottom: 8,
+          background: isIdentitySheetLoading
+            ? `linear-gradient(135deg, ${accent}55, ${accent}66)`
+            : `linear-gradient(135deg, ${accent}cc, ${accent})`,
+          border: "none",
+          cursor: isIdentitySheetLoading ? "not-allowed" : "pointer",
+          marginBottom: 8,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-          boxShadow: `0 4px 24px ${accent}44`,
+          boxShadow: isIdentitySheetLoading ? "none" : `0 4px 24px ${accent}44`,
           transition: "all 0.2s ease",
           outline: "none",
+          opacity: isIdentitySheetLoading ? 0.6 : 1,
         }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
