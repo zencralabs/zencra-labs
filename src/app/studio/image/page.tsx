@@ -926,6 +926,8 @@ function ImageCard({
 
   if (img.status === "error") {
     const { icon, title, detail } = classifyError(img.error);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
     return (
       <div style={{
         position: "absolute", inset: 0, borderRadius: 0,
@@ -961,18 +963,48 @@ function ImageCard({
                 Retry
               </button>
             )}
-            <button
-              onClick={() => onDelete?.(img.id, img.assetId)}
-              style={{
-                fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
-                border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)",
-                color: "rgba(239,68,68,0.6)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(239,68,68,0.6)"; }}
-            >
-              Dismiss
-            </button>
+            {confirmingDelete ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "rgba(239,68,68,0.7)", letterSpacing: "0.02em" }}>Delete permanently?</span>
+                <button
+                  onClick={() => { onDelete?.(img.id, img.assetId); setConfirmingDelete(false); }}
+                  style={{
+                    fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
+                    border: "1px solid rgba(239,68,68,0.5)", background: "rgba(239,68,68,0.18)",
+                    color: "#F87171", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.3)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; }}
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  style={{
+                    fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)",
+                    color: "rgba(255,255,255,0.5)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; (e.currentTarget as HTMLElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                style={{
+                  fontSize: 12, fontWeight: 700, padding: "5px 11px", borderRadius: 6,
+                  border: "1px solid rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.08)",
+                  color: "rgba(239,68,68,0.6)", cursor: "pointer", letterSpacing: "0.03em", textTransform: "uppercase" as const,
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; (e.currentTarget as HTMLElement).style.color = "#F87171"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(239,68,68,0.6)"; }}
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1441,6 +1473,10 @@ function ImageStudioInner() {
   const imageCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [generateGlow, setGenerateGlow] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+
+  // ── Failed card multi-select + bulk delete ────────────────────────────────────
+  const [selectedFailedIds, setSelectedFailedIds] = useState<Set<string>>(new Set());
+  const [bulkFailedDeleteModal, setBulkFailedDeleteModal] = useState(false);
 
   // ── Character Consistency
   const [refFaceDetected,     setRefFaceDetected]     = useState(false);
@@ -2409,6 +2445,8 @@ function ImageStudioInner() {
   const handleDeleteCard = useCallback(async (localId: string, assetId?: string) => {
     // Optimistic UI — remove immediately
     setImages((prev) => prev.filter((img) => img.id !== localId));
+    // Clear from multi-select if it was selected
+    setSelectedFailedIds((prev) => { const n = new Set(prev); n.delete(localId); return n; });
 
     if (!assetId || !session?.access_token) return;
 
@@ -2422,6 +2460,31 @@ function ImageStudioInner() {
       console.warn("[ImageStudio] Failed to mark asset as deleted:", assetId);
     }
   }, [user]);
+
+  // ── Bulk delete failed cards ──────────────────────────────────────────────────
+  const handleBulkDeleteFailed = useCallback(async () => {
+    if (!session?.access_token) return;
+    const targets = images.filter(img => selectedFailedIds.has(img.id) && img.status === "error");
+    const idsToDelete = new Set(selectedFailedIds);
+
+    // Optimistic UI — remove all immediately
+    setImages(prev => prev.filter(img => !idsToDelete.has(img.id)));
+    setSelectedFailedIds(new Set());
+    setBulkFailedDeleteModal(false);
+
+    // Fire delete API for each asset that has a DB record
+    await Promise.all(targets.map(async (img) => {
+      if (!img.assetId) return;
+      try {
+        await fetch(`/api/studio/assets/${img.assetId}/delete`, {
+          method:  "POST",
+          headers: { Authorization: `Bearer ${session!.access_token}` },
+        });
+      } catch {
+        console.warn("[ImageStudio] Bulk delete failed for asset:", img.assetId);
+      }
+    }));
+  }, [session?.access_token, images, selectedFailedIds]);
 
   // ── Cancel flow — marks a generating placeholder as cancelled ────────────────
   // Sets the card to error state immediately; the polling loop checks cancelledRef
@@ -3154,7 +3217,7 @@ function ImageStudioInner() {
           // Hoist recentImages so both sticky section + rest of IIFE can reference it
           const recentImages = images
             .filter((img) => img.status === "done" && img.url)
-            .slice(0, 14);
+            .slice(0, 30);
 
           return (
             <>
@@ -3362,6 +3425,32 @@ function ImageStudioInner() {
                         }}
                         onClick={e => e.stopPropagation()}
                         style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#2563EB" }}
+                      />
+                    </div>
+                  )}
+
+                  {/* ── Checkbox — failed cards multi-select ── */}
+                  {img.status === "error" && (
+                    <div
+                      className="img-checkbox"
+                      style={{
+                        position: "absolute", top: 12, left: 12, zIndex: 10,
+                        opacity: selectedFailedIds.has(img.id) ? 1 : 0,
+                        transition: "opacity 0.15s",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFailedIds.has(img.id)}
+                        onChange={() => {
+                          setSelectedFailedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(img.id)) next.delete(img.id); else next.add(img.id);
+                            return next;
+                          });
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#EF4444" }}
                       />
                     </div>
                   )}
@@ -4789,6 +4878,93 @@ function ImageStudioInner() {
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >✕</button>
+        </div>
+      )}
+
+      {/* ── FAILED CARDS BULK DELETE BAR ─────────────────────────────────── */}
+      {selectedFailedIds.size > 0 && (
+        <div style={{
+          position: "fixed", top: selectedImageIds.size > 0 ? 136 : 80, right: 24, left: "auto", transform: "none",
+          zIndex: 200,
+          background: "rgba(6,10,24,0.97)", backdropFilter: "blur(16px)",
+          border: "1px solid rgba(239,68,68,0.3)",
+          borderRadius: 14, padding: "10px 16px",
+          display: "flex", alignItems: "center", gap: 10,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)",
+          animation: "fadeIn 0.18s ease",
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(239,68,68,0.7)", minWidth: 100 }}>
+            {selectedFailedIds.size} failed selected
+          </span>
+
+          {/* Bulk delete */}
+          <button
+            onClick={() => setBulkFailedDeleteModal(true)}
+            style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: "1px solid rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.12)",
+              color: "#FCA5A5", cursor: "pointer", transition: "all 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.22)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)"; }}
+          >Delete All</button>
+
+          {/* Clear */}
+          <button
+            onClick={() => setSelectedFailedIds(new Set())}
+            style={{
+              width: 26, height: 26, borderRadius: "50%", border: "none",
+              background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.4)",
+              cursor: "pointer", fontSize: 13,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >✕</button>
+        </div>
+      )}
+
+      {/* ── BULK FAILED DELETE CONFIRMATION MODAL ────────────────────────── */}
+      {bulkFailedDeleteModal && (
+        <div
+          onClick={() => setBulkFailedDeleteModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9200,
+            background: "rgba(0,0,0,0.65)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#0A1120", border: "1px solid rgba(239,68,68,0.25)",
+              borderRadius: 16, padding: "28px 32px", maxWidth: 400, width: "90%",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#fff" }}>
+              Delete {selectedFailedIds.size} failed {selectedFailedIds.size === 1 ? "card" : "cards"}?
+            </h3>
+            <p style={{ margin: "0 0 24px", fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+              These failed generations will be permanently removed from your history. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setBulkFailedDeleteModal(false)}
+                style={{
+                  padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.6)", cursor: "pointer",
+                }}
+              >Cancel</button>
+              <button
+                onClick={handleBulkDeleteFailed}
+                style={{
+                  padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  border: "1px solid rgba(239,68,68,0.5)", background: "rgba(239,68,68,0.2)",
+                  color: "#FCA5A5", cursor: "pointer",
+                }}
+              >Delete Permanently</button>
+            </div>
+          </div>
         </div>
       )}
 
