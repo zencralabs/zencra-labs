@@ -2,15 +2,19 @@
 -- Purpose: Register nano-banana-pro-casting as the new default Character Studio casting provider.
 --
 -- Context:
---   The casting engine is switching from Seedream V5 (15 cr) to Nano Banana Pro (12 cr).
+--   The casting engine is switching from Seedream V5 (15 cr) to Nano Banana Pro (8 cr).
 --   - Same async polling architecture (task-based via NB record-info endpoint)
 --   - Same output URL shape (successFlag + resultImageUrl)
---   - Lower cost per candidate: 15 cr → 12 cr
+--   - Lower cost per candidate: 15 cr → 8 cr (casting is exploratory; price should be repeatable)
 --   - seedream-v5-identity row is preserved for historical records + rollback
+--
+-- Pricing rationale:
+--   Stage 1 casting = exploration. 8 cr/candidate feels friendly and encourages iteration.
+--   Premium continuity (Identity Lock, Identity Chain) will price higher in later stages.
 --
 -- After this migration:
 --   DEFAULT_MODEL_KEY in generate/route.ts → "nano-banana-pro-casting"
---   UI credit displays in InfluencerControls.tsx and InfluencerCanvas.tsx → 12 cr/candidate
+--   UI credit displays in InfluencerControls.tsx and InfluencerCanvas.tsx → 8 cr/candidate
 
 -- ── Add nano-banana-pro-casting row ───────────────────────────────────────────
 INSERT INTO public.credit_model_costs (
@@ -25,14 +29,14 @@ VALUES (
   'nano-banana-pro-casting',
   'character',
   'Nano Banana Pro Casting',
-  12,
+  8,
   false,
   true
 )
 ON CONFLICT (model_key) DO UPDATE SET
   studio_type  = 'character',
   display_name = 'Nano Banana Pro Casting',
-  base_credits = 12,
+  base_credits = 8,
   is_premium   = false,
   active       = true,
   updated_at   = now();
