@@ -21,6 +21,7 @@
 
 import { registerProvider } from "../core/orchestrator";
 import { nanoBananaCastingProvider }  from "./nano-banana-casting";
+import { nanoBananaIdentityProvider } from "./nano-banana-identity";
 import { seedreamIdentityProvider }   from "./seedream-identity";
 import { instantCharacterProvider }   from "./instant-character";
 import { fluxCharacterProvider }      from "./flux";
@@ -33,12 +34,13 @@ export function registerCharacterProviders(): void {
   // Routes initial casting through a true t2i model so each candidate's facial
   // structure is driven by the prompt, not inherited from a seed image.
   // Lower cost than Seedream V5: 12 cr/candidate vs 15 cr/candidate.
-  registerProvider(nanoBananaCastingProvider);  // primary — influencer casting (NB Pro)
+  registerProvider(nanoBananaCastingProvider);  // primary — influencer casting (NB Pro t2i)
   // Seedream V5 kept registered for rollback: set DEFAULT_MODEL_KEY="seedream-v5-identity"
   // in generate/route.ts to revert without any provider registration changes.
   registerProvider(seedreamIdentityProvider);   // retained — rollback / fallback
   // ── Identity engine (post-lock packs + refinement — image-to-image) ─────────
-  registerProvider(instantCharacterProvider);   // retained — post-lock pack generation
+  registerProvider(nanoBananaIdentityProvider); // primary — post-lock identity sheets (NB Pro multi-ref)
+  registerProvider(instantCharacterProvider);   // retained — rollback / single-ref fallback
   registerProvider(fluxCharacterProvider);       // fallback — FLUX.1 Pro
   registerProvider(stabilityCharacterProvider);
   registerProvider(motionProvider);

@@ -62,10 +62,13 @@ const VALID_PACK_TYPES: PackType[] = [
   "identity-sheet", "look-pack", "scene-pack", "pose-pack", "social-pack",
 ];
 
-// "instant-character" is the only registered character studio provider that
-// accepts a reference image (reference_image_url) for identity consistency.
-// "nb-standard" was a placeholder key that never existed in the registry.
-const DEFAULT_MODEL_KEY = "instant-character";
+// "nano-banana-pro-identity" is the primary post-lock identity sheet provider.
+// It routes through Nano Banana Pro's multi-reference generative conditioning,
+// enabling the growing-memory chain to meaningfully accumulate across all 5 shots.
+//
+// To revert to single-reference instant-character (Identity Sheet v1):
+//   const DEFAULT_MODEL_KEY = "instant-character";
+const DEFAULT_MODEL_KEY = "nano-banana-pro-identity";
 
 export async function POST(
   req: Request,

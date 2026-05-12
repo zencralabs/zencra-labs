@@ -880,6 +880,63 @@ export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   // ══════════════════════════════════════════════════════════════════════════
 
   {
+    // Nano Banana Pro re-registered as a character studio casting provider.
+    // Text-to-image only — NO reference image in casting mode.
+    // Distinct key from "nano-banana-pro" (Image Studio) to satisfy studio guard.
+    // Lower cost than Seedream V5: 8 cr/candidate vs 15 cr/candidate.
+    // Reversible: change DEFAULT_MODEL_KEY in generate/route.ts to revert.
+    key:            "nano-banana-pro-casting",
+    providerBrand:  "Nano Banana",
+    displayName:    "Nano Banana Pro Casting",
+    apiModelId:     "/api/v1/nanobanana/generate-pro",
+    studio:         "character",
+    providerFamily: "nano-banana",
+    description:    "Nano Banana Pro in character casting mode — pure t2i, full creative latitude for influencer candidate generation",
+    phase:          1,
+    status:         "active",
+    uiHidden:       true,   // internal routing only — not shown in Character Studio model picker
+    badge:          "CASTING",
+    badgeColor:     "#F59E0B",
+    capabilities:   ["text_to_image", "identity_creation", "photoreal"],
+    supportedInputModes:   ["text"],
+    supportedAspectRatios: ["1:1", "4:5", "2:3", "9:16"],
+    asyncMode:       "polling",
+    supportsWebhook: true,
+    supportsPolling: true,
+    estimatedCostRange: "8 credits",
+    creditMultiplier:   1,
+  },
+
+  {
+    // Nano Banana Pro re-registered as a character studio identity provider.
+    // Image-to-image multi-reference conditioning — routes post-lock pack generation.
+    // Accepts up to 14 reference URLs (growing memory chain from identity-chain.ts).
+    // Each identity-sheet shot receives: [canonical, ...all prior confirmed outputs].
+    // Distinct key from "nano-banana-pro" (Image Studio) and "nano-banana-pro-casting".
+    // Reversible: change DEFAULT_MODEL_KEY in packs/route.ts to revert.
+    key:            "nano-banana-pro-identity",
+    providerBrand:  "Nano Banana",
+    displayName:    "Nano Banana Pro Identity",
+    apiModelId:     "/api/v1/nanobanana/generate-pro",
+    studio:         "character",
+    providerFamily: "nano-banana",
+    description:    "Nano Banana Pro in identity mode — multi-reference generative conditioning for identity-sheet growing-memory chain",
+    phase:          1,
+    status:         "active",
+    uiHidden:       true,   // internal routing only — not shown in Character Studio model picker
+    badge:          "IDENTITY",
+    badgeColor:     "#C6FF00",
+    capabilities:   ["identity_creation", "look_variation", "photoreal", "consistency"],
+    supportedInputModes:   ["text", "image"],
+    supportedAspectRatios: ["1:1", "4:5", "2:3", "9:16"],
+    asyncMode:       "polling",
+    supportsWebhook: true,
+    supportsPolling: true,
+    estimatedCostRange: "8 credits",
+    creditMultiplier:   1,
+  },
+
+  {
     // Seedream V5 re-registered as a character studio provider.
     // Used for initial AI Influencer candidate casting — pure text-to-image,
     // full creative latitude from language alone (no seed image DNA).
