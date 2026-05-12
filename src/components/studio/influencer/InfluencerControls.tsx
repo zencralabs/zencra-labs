@@ -393,6 +393,108 @@ const SKIN_ART_LABELS: Record<string, string> = {
   "Cyber Robotic Art": "Cyber Robotic",
 };
 
+// ── Color swatches for card grids ──────────────────────────────────────────────
+
+const SKIN_TONE_COLORS: Record<string, string> = {
+  "Fair":        "#f5d5b8",
+  "Light warm":  "#e8b88a",
+  "Medium warm": "#c89060",
+  "Tan olive":   "#a46840",
+  "Deep brown":  "#6e3820",
+  "Rich dark":   "#371508",
+};
+const EYE_COLOR_COLORS: Record<string, string> = {
+  "black":       "#18181b",
+  "grey":        "#7a8a9a",
+  "green":       "#2e7d52",
+  "brown":       "#7a4a20",
+  "blue":        "#2563a8",
+  "amber":       "#d08020",
+  "honey-brown": "#9a6830",
+  "dark-brown":  "#4a2010",
+};
+
+// ── Symbol icons for card grids ────────────────────────────────────────────────
+
+const FACE_ICONS: Record<string, string> = {
+  "Oval":       "○",
+  "Heart":      "♡",
+  "Square jaw": "□",
+  "Angular":    "◇",
+  "Round":      "●",
+  "Diamond":    "◆",
+};
+const SPECIES_ICONS: Record<string, string> = {
+  "human":           "⊙",
+  "elf":             "✦",
+  "alien":           "⊗",
+  "animal-inspired": "◉",
+  "insect-inspired": "⬡",
+};
+const HAIR_ICONS: Record<string, string> = {
+  "long-hair":  "↕",
+  "short-hair": "≡",
+  "bald":       "○",
+  "punk-style": "↑",
+  "afro-style": "●",
+  "fur":        "≈",
+};
+const EYE_TYPE_ICONS: Record<string, string> = {
+  "human-eyes":   "○",
+  "glowing-eyes": "◎",
+  "reptile-eyes": "◈",
+  "robotic-eyes": "⊡",
+  "blind-eyes":   "—",
+  "mixed-eyes":   "◐",
+};
+const SKIN_MARK_ICONS: Record<string, string> = {
+  "freckles":      "∴",
+  "birthmarks":    "◦",
+  "scars":         "╳",
+  "pigmentation":  "≋",
+  "wrinkled-skin": "≈",
+  "albinism":      "○",
+};
+const EAR_ICONS: Record<string, string> = {
+  "human-ears":  "⊏",
+  "elf-ears":    "∧",
+  "winged-ears": "∽",
+  "alien-ears":  "⊐",
+};
+const HORN_ICONS: Record<string, string> = {
+  "small-horns": "∧",
+  "large-horns": "⋀",
+};
+const BODY_TYPE_ICONS: Record<string, string> = {
+  "Athletic":  "◈",
+  "Slim":      "▎",
+  "Lean":      "▏",
+  "Muscular":  "◉",
+  "Curvy":     "∿",
+  "Healthy":   "○",
+  "Skinny":    "│",
+};
+const ARM_ICONS: Record<string, string> = {
+  "Normal":     "—",
+  "Robotic":    "⊡",
+  "Mechanical": "⚙",
+  "Prosthetic": "⊢",
+  "No Arm":     "╳",
+};
+const LEG_ICONS: Record<string, string> = {
+  "Normal":     "│",
+  "Robotic":    "⊡",
+  "Mechanical": "⚙",
+  "Prosthetic": "⊥",
+  "No Leg":     "╳",
+};
+const SKIN_ART_ICONS: Record<string, string> = {
+  "Tattoos":           "✦",
+  "Piercing":          "◎",
+  "Symbol Art":        "◈",
+  "Cyber Robotic Art": "⊗",
+};
+
 export function BuilderTab({
   canvasState, activeInfluencer,
   styleCategory, setStyleCategory,
@@ -534,7 +636,7 @@ export function BuilderTab({
           })}
         </div>
 
-        {/* Age Range chips */}
+        {/* Age Range */}
         <div style={{ marginTop: 14 }}>
           <div style={{
             fontFamily: "'Familjen Grotesk', sans-serif",
@@ -544,13 +646,30 @@ export function BuilderTab({
           }}>
             Age Range
           </div>
-          <AdvSingleChips
-            options={["18–24", "25–32", "33–40", "40+"]}
-            labels={{ "18–24": "18–24", "25–32": "25–32", "33–40": "33–40", "40+": "40+" }}
-            value={ageRange}
-            onChange={setAgeRange}
-            accent={selectedCat.accent}
-          />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 5 }}>
+            {(["18–24", "25–32", "33–40", "40+"] as const).map(age => {
+              const sel = ageRange === age;
+              return (
+                <button
+                  key={age}
+                  onClick={() => setAgeRange(sel ? "" : age)}
+                  style={{
+                    padding: "11px 0", borderRadius: 0,
+                    border: sel ? `1px solid ${selectedCat.accent}60` : "1px solid rgba(255,255,255,0.07)",
+                    background: sel ? `${selectedCat.accent}12` : "rgba(255,255,255,0.025)",
+                    color: sel ? selectedCat.accent : "rgba(255,255,255,0.40)",
+                    fontFamily: "'Familjen Grotesk', sans-serif",
+                    fontSize: 12, fontWeight: sel ? 700 : 500,
+                    cursor: "pointer", transition: "all 0.13s",
+                    boxShadow: sel ? `0 0 8px ${selectedCat.accent}18` : "none",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  {age}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -708,7 +827,7 @@ export function BuilderTab({
         <SectionLabel label="Biological Identity" />
         <div style={{
           fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 12, color: "rgba(255,255,255,0.3)",
+          fontSize: 12, color: "rgba(255,255,255,0.40)",
           marginBottom: 14, lineHeight: 1.55,
         }}>
           Genetic-layer traits — injected before body architecture.
@@ -716,109 +835,120 @@ export function BuilderTab({
 
         {/* Skin Tone */}
         <AdvSection label="Skin Tone">
-          <AdvSingleChips
+          <CardGrid
             options={["Fair", "Light warm", "Medium warm", "Tan olive", "Deep brown", "Rich dark"]}
             labels={SKIN_TONE_LABELS}
+            colorMap={SKIN_TONE_COLORS}
             value={skinTone}
             onChange={setSkinTone}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Face Structure */}
         <AdvSection label="Face Structure">
-          <AdvSingleChips
+          <CardGrid
             options={["Oval", "Heart", "Square jaw", "Angular", "Round", "Diamond"]}
             labels={FACE_STRUCT_LABELS}
+            icons={FACE_ICONS}
             value={faceStruct}
             onChange={setFaceStruct}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Species · Origin */}
         <AdvSection label="Species · Origin">
-          <AdvSingleChips
+          <CardGrid
             options={["human","elf","alien","animal-inspired","insect-inspired"]}
             labels={SPECIES_LABELS}
+            icons={SPECIES_ICONS}
             value={species}
             onChange={setSpecies}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Hair Identity */}
         <AdvSection label="Hair Identity">
-          <AdvSingleChips
+          <CardGrid
             options={["long-hair","short-hair","bald","punk-style","afro-style","fur"]}
             labels={HAIR_LABELS}
+            icons={HAIR_ICONS}
             value={hairIdentity}
             onChange={setHairIdentity}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Eye Color */}
         <AdvSection label="Eye Color">
-          <AdvSingleChips
+          <CardGrid
             options={["black","grey","green","brown","blue","amber","honey-brown","dark-brown"]}
             labels={EYE_COLOR_LABELS}
+            colorMap={EYE_COLOR_COLORS}
             value={eyeColor}
             onChange={setEyeColor}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Eye Type */}
         <AdvSection label="Eye Type">
-          <AdvSingleChips
+          <CardGrid
             options={["human-eyes","glowing-eyes","reptile-eyes","robotic-eyes","blind-eyes","mixed-eyes"]}
             labels={EYE_TYPE_LABELS}
+            icons={EYE_TYPE_ICONS}
             value={eyeType}
             onChange={setEyeType}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Skin Marks — multi-select */}
         <AdvSection label="Skin Marks">
-          <AdvMultiChips
+          <MultiCardGrid
             options={["freckles","birthmarks","scars","pigmentation","wrinkled-skin","albinism"]}
             labels={SKIN_MARK_LABELS}
+            icons={SKIN_MARK_ICONS}
             selected={skinMarks}
             onToggle={v => setSkinMarks(
               skinMarks.includes(v) ? skinMarks.filter(m => m !== v) : [...skinMarks, v]
             )}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Ears */}
         <AdvSection label="Ears">
-          <AdvSingleChips
+          <CardGrid
             options={["human-ears","elf-ears","winged-ears","alien-ears"]}
             labels={EAR_LABELS}
+            icons={EAR_ICONS}
             value={earType}
             onChange={setEarType}
             accent={selectedCat.accent}
+            cols={2}
           />
         </AdvSection>
 
         {/* Horns — optional */}
         <AdvSection label="Horns" badge="Optional">
-          <div style={{
-            fontFamily: "'Familjen Grotesk', sans-serif",
-            fontSize: 11, color: "rgba(255,255,255,0.28)",
-            marginBottom: 8, lineHeight: 1.5,
-          }}>
-            Leave unselected for no horns.
-          </div>
-          <AdvSingleChips
+          <CardGrid
             options={["small-horns","large-horns"]}
             labels={HORN_LABELS}
+            icons={HORN_ICONS}
             value={hornType}
             onChange={setHornType}
             accent={selectedCat.accent}
+            cols={2}
           />
         </AdvSection>
       </section>
@@ -837,56 +967,66 @@ export function BuilderTab({
 
         {/* Body Type */}
         <AdvSection label="Body Type">
-          <AdvSingleChips
+          <CardGrid
             options={[...BODY_TYPE_OPTIONS]}
             labels={BODY_TYPE_LABELS}
+            icons={BODY_TYPE_ICONS}
             value={bodyType}
             onChange={setBodyType}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Left Arm */}
         <AdvSection label="Left Arm">
-          <AdvSingleChips
+          <CardGrid
             options={[...ARM_TYPE_OPTIONS]}
             labels={ARM_TYPE_LABELS}
+            icons={ARM_ICONS}
             value={leftArm}
             onChange={setLeftArm}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Right Arm */}
         <AdvSection label="Right Arm">
-          <AdvSingleChips
+          <CardGrid
             options={[...ARM_TYPE_OPTIONS]}
             labels={ARM_TYPE_LABELS}
+            icons={ARM_ICONS}
             value={rightArm}
             onChange={setRightArm}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Left Leg */}
         <AdvSection label="Left Leg">
-          <AdvSingleChips
+          <CardGrid
             options={[...LEG_TYPE_OPTIONS]}
             labels={LEG_TYPE_LABELS}
+            icons={LEG_ICONS}
             value={leftLeg}
             onChange={setLeftLeg}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
 
         {/* Right Leg */}
         <AdvSection label="Right Leg">
-          <AdvSingleChips
+          <CardGrid
             options={[...LEG_TYPE_OPTIONS]}
             labels={LEG_TYPE_LABELS}
+            icons={LEG_ICONS}
             value={rightLeg}
             onChange={setRightLeg}
             accent={selectedCat.accent}
+            cols={3}
           />
         </AdvSection>
       </section>
@@ -902,12 +1042,14 @@ export function BuilderTab({
         }}>
           Optional body art — multi-select.
         </div>
-        <AdvMultiChips
+        <MultiCardGrid
           options={[...SKIN_ART_OPTIONS]}
           labels={SKIN_ART_LABELS}
+          icons={SKIN_ART_ICONS}
           selected={skinArt}
           onToggle={v => setSkinArt(skinArt.includes(v) ? skinArt.filter(s => s !== v) : [...skinArt, v])}
           accent={selectedCat.accent}
+          cols={2}
         />
       </section>
 
@@ -1130,8 +1272,8 @@ function AdvSection({
           <span style={{
             fontFamily: "'Syne', sans-serif",
             fontSize: 11, fontWeight: 700,
-            color: "rgba(255,255,255,0.55)",
-            letterSpacing: "0.1em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.65)",
+            letterSpacing: "0.08em", textTransform: "uppercase",
           }}>
             {label}
           </span>
@@ -1156,10 +1298,152 @@ function AdvSection({
         </svg>
       </button>
       {open && (
-        <div style={{ padding: "2px 18px 14px" }}>
+        <div style={{ padding: "4px 0 16px" }}>
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Single-select card grid (icon cell + label, zero border-radius) ───────────
+
+function CardGrid({
+  options, labels, icons, colorMap, value, onChange, accent, cols = 2,
+}: {
+  options:   string[];
+  labels:    Record<string, string>;
+  icons?:    Record<string, string>;
+  colorMap?: Record<string, string>;
+  value:     string;
+  onChange:  (v: string) => void;
+  accent:    string;
+  cols?:     number;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 5 }}>
+      {options.map(opt => {
+        const sel = value === opt;
+        const icon   = icons?.[opt];
+        const color  = colorMap?.[opt];
+        const hasVis = !!(icon || color);
+        return (
+          <button
+            key={opt}
+            onClick={() => onChange(sel ? "" : opt)}
+            style={{
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: 6, padding: hasVis ? "11px 6px" : "11px 8px",
+              borderRadius: 0,
+              border:     sel ? `1px solid ${accent}60` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${accent}12`           : "rgba(255,255,255,0.025)",
+              cursor: "pointer", transition: "all 0.14s",
+              boxShadow: sel ? `0 0 8px ${accent}18` : "none",
+            }}
+          >
+            {/* Color swatch icon cell */}
+            {color && (
+              <div style={{
+                width: 34, height: 34, flexShrink: 0,
+                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
+                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 0,
+              }}>
+                <div style={{
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: color,
+                  boxShadow: `0 0 0 2px rgba(255,255,255,${sel ? 0.22 : 0.08})`,
+                }} />
+              </div>
+            )}
+            {/* Unicode symbol icon cell */}
+            {icon && !color && (
+              <div style={{
+                width: 34, height: 34, flexShrink: 0,
+                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
+                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 0,
+                fontSize: 15, color: sel ? accent : "rgba(255,255,255,0.38)",
+              }}>
+                {icon}
+              </div>
+            )}
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 10, fontWeight: sel ? 700 : 500,
+              color:    sel ? accent : "rgba(255,255,255,0.42)",
+              textAlign: "center" as const, lineHeight: 1.25,
+              letterSpacing: "0.01em",
+            }}>
+              {labels[opt] ?? opt}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Multi-select card grid (icon cell + label, zero border-radius) ─────────────
+
+function MultiCardGrid({
+  options, labels, icons, selected, onToggle, accent, cols = 2,
+}: {
+  options:  string[];
+  labels:   Record<string, string>;
+  icons?:   Record<string, string>;
+  selected: string[];
+  onToggle: (v: string) => void;
+  accent:   string;
+  cols?:    number;
+}) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 5 }}>
+      {options.map(opt => {
+        const sel  = selected.includes(opt);
+        const icon = icons?.[opt];
+        return (
+          <button
+            key={opt}
+            onClick={() => onToggle(opt)}
+            style={{
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: 6, padding: icon ? "11px 6px" : "11px 8px",
+              borderRadius: 0,
+              border:     sel ? `1px solid ${accent}60` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${accent}12`           : "rgba(255,255,255,0.025)",
+              cursor: "pointer", transition: "all 0.14s",
+              boxShadow: sel ? `0 0 8px ${accent}18` : "none",
+            }}
+          >
+            {icon && (
+              <div style={{
+                width: 34, height: 34, flexShrink: 0,
+                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
+                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 0,
+                fontSize: 15, color: sel ? accent : "rgba(255,255,255,0.38)",
+              }}>
+                {icon}
+              </div>
+            )}
+            <span style={{
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 10, fontWeight: sel ? 700 : 500,
+              color:    sel ? accent : "rgba(255,255,255,0.42)",
+              textAlign: "center" as const, lineHeight: 1.25,
+              letterSpacing: "0.01em",
+            }}>
+              {labels[opt] ?? opt}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -1254,9 +1538,9 @@ function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
       fontFamily: "'Syne', sans-serif",
-      fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)",
-      letterSpacing: "0.12em", textTransform: "uppercase",
-      marginBottom: 9,
+      fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.70)",
+      letterSpacing: "0.10em", textTransform: "uppercase",
+      marginBottom: 12,
     }}>
       {label}
     </div>
