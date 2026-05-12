@@ -490,7 +490,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!isSupabaseConfigured) {
       localStorage.removeItem("zencra_user");
-      router.push("/");
+      router.push("/login");
       return;
     }
 
@@ -501,7 +501,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // logged out. The signOut may fail if the token was already expired.
     }
 
-    router.push("/");
+    router.push("/login");
   }
 
   // ── Refresh full profile ───────────────────────────────────────────────────

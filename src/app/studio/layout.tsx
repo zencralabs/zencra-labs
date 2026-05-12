@@ -16,9 +16,9 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (!loading && !user) {
-      // Redirect to home and open the login modal
+      // Redirect to /login with return destination
       const current = window.location.pathname + window.location.search;
-      router.push(`/?auth=login&next=${encodeURIComponent(current)}`);
+      router.push(`/login?next=${encodeURIComponent(current)}`);
     }
   }, [user, loading, router]);
 

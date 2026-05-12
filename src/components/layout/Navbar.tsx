@@ -1278,7 +1278,7 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
           {mobileOpen && (
             <MobileMenu
               onClose={() => setMobileOpen(false)}
-              onAuthModal={(mode) => { setMobileOpen(false); setAuthModal(mode); }}
+              onAuthModal={() => { setMobileOpen(false); router.push("/login"); }}
               onOpenPricing={onOpenPricing}
             />
           )}
