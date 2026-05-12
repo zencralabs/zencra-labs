@@ -17,13 +17,26 @@
  *
  * Response:
  *   202 { success: true, data: { jobs: [...], pack_type } }
+ *
+ * IDENTITY SHEET — special execution path:
+ *   Uses the sequential growing-memory chain (buildIdentityChain) rather than
+ *   parallel dispatch. Each shot awaits the previous shot's confirmed output
+ *   before dispatching, so every shot has visual memory of all prior outputs.
+ *
+ *   The chain is synchronous and server-side — this route stays open for the
+ *   full chain duration (up to ~300s for 5 shots). maxDuration = 300 covers
+ *   the Vercel Pro server timeout.
+ *
+ *   The response shape is identical to non-identity-sheet packs for UI
+ *   compatibility: jobs array with jobId/externalJobId/status/label.
+ *   Completed chain shots will have status="completed" when the response arrives.
  */
 
 import { requireAuthUser }    from "@/lib/supabase/server";
 import { supabaseAdmin }      from "@/lib/supabase/admin";
 import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                               from "@/lib/api/studio-dispatch";
-import { accepted, invalidInput, serverErr, parseBody }
+import { accepted, invalidInput, serverErr, parseBody, ok }
                               from "@/lib/api/route-utils";
 import { checkEntitlement, consumeTrialUsage }
                               from "@/lib/billing/entitlement";
@@ -31,10 +44,19 @@ import { checkStudioRateLimit } from "@/lib/security/rate-limit";
 import { getInfluencerContext, InfluencerContextError }
                               from "@/lib/influencer/context-service";
 import { buildPackPrompt }    from "@/lib/influencer/pack-prompts";
+import { buildIdentityChain, ChainError }
+                              from "@/lib/influencer/identity-chain";
 import type { PackType }      from "@/lib/influencer/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Extend Vercel server timeout for identity sheet chain.
+ * Sequential 5-shot chain with server-side polling can take 150–300 seconds.
+ * Requires Vercel Pro. Standard plan supports max 60s.
+ */
+export const maxDuration = 300;
 
 const VALID_PACK_TYPES: PackType[] = [
   "identity-sheet", "look-pack", "scene-pack", "pose-pack", "social-pack",
@@ -110,7 +132,86 @@ export async function POST(
   // ── Build pack prompts ────────────────────────────────────────────────────────
   const packItems = buildPackPrompt(pack_type, ctx);
 
-  // ── Dispatch all pack jobs ────────────────────────────────────────────────────
+  // ── Trial usage (fire-and-forget — same for both execution paths) ─────────────
+  const maybeConsumeTrialUsage = () => {
+    if (entitlement.path === "trial" && entitlement.trialEndsAt) {
+      void consumeTrialUsage(userId, "character", entitlement.trialEndsAt);
+    }
+  };
+
+  // ── IDENTITY SHEET — sequential growing-memory chain ─────────────────────────
+  // All other pack types use the parallel dispatch loop below.
+  // Identity sheet uses buildIdentityChain() which:
+  //   1. Resolves canonical URL to permanent Supabase Storage URL (or fails hard)
+  //   2. Dispatches shots sequentially, awaiting each before the next
+  //   3. Accumulates confirmed outputs as references: [c]→[c,s1]→[c,s1,s2]→…
+  //   4. Writes all 9 chain metadata fields to influencer_assets per shot
+  if (pack_type === "identity-sheet") {
+    try {
+      const chainResult = await buildIdentityChain({
+        userId,
+        influencer_id,
+        identity_lock_id,
+        canonical_asset_id,
+        canonical_url: ctx.canonical_asset.url,
+        shots:         packItems,
+        modelKey,
+      });
+
+      maybeConsumeTrialUsage();
+
+      // Map chain shots to the standard jobs response shape.
+      // Shots are already completed by the time the chain returns, so the client
+      // receives completed job IDs and can link assets without polling.
+      const jobs = chainResult.shots.map(s => ({
+        jobId:         s.jobId,
+        externalJobId: s.externalJobId,
+        status:        s.status,
+        label:         s.label,
+        // Confirmed permanent URL — only present on completed shots.
+        // UI should extract this directly instead of calling pollJobForUrl
+        // when chain_mode === true (avoids redundant polling for completed shots).
+        ...(s.url ? { url: s.url } : {}),
+      }));
+
+      return ok({
+        jobs,
+        pack_type,
+        influencer_id,
+        job_count:        jobs.length,
+        chain_session_id: chainResult.chain_session_id,
+        chain_mode:       true,
+      });
+
+    } catch (err) {
+      // ChainError — canonical unavailable or all shots failed
+      if (err instanceof ChainError) {
+        if (err.code === "CHAIN_CANONICAL_UNAVAILABLE") {
+          return Response.json(
+            {
+              success: false,
+              error:   err.message,
+              code:    "CHAIN_CANONICAL_UNAVAILABLE",
+              hint:    "The canonical image needs to be saved to Zencra Storage before generating an identity sheet. Please retry.",
+            },
+            { status: 409 },
+          );
+        }
+        return serverErr(err.message);
+      }
+      // StudioDispatchError from billing — surface the code to the client
+      if (err instanceof StudioDispatchError) {
+        return Response.json(
+          { success: false, error: err.message, code: err.code },
+          { status: dispatchErrorStatus(err.code) },
+        );
+      }
+      console.error("[packs] identity-sheet chain failed:", err);
+      return serverErr("Identity sheet generation failed");
+    }
+  }
+
+  // ── Parallel dispatch — all non-identity-sheet pack types ────────────────────
   const jobs: Array<{
     jobId: string; externalJobId: string | null; status: string; label: string;
   }> = [];
@@ -159,10 +260,7 @@ export async function POST(
 
   if (jobs.length === 0) return serverErr("All pack jobs failed to dispatch");
 
-  // ── Trial usage (fire-and-forget) ────────────────────────────────────────────
-  if (entitlement.path === "trial" && entitlement.trialEndsAt) {
-    void consumeTrialUsage(userId, "character", entitlement.trialEndsAt);
-  }
+  maybeConsumeTrialUsage();
 
   return accepted({ jobs, pack_type, influencer_id, job_count: jobs.length });
 }

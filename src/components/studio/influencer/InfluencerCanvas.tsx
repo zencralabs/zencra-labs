@@ -351,16 +351,30 @@ export default function InfluencerCanvas({
         }
 
         const data = await res.json();
-        const jobs: Array<{ jobId: string; label: string }> = data.data?.jobs ?? [];
+        const jobs: Array<{ jobId: string; label: string; status?: string; url?: string }> =
+          data.data?.jobs ?? [];
 
-        // Poll each job for its result URL
         const images: Array<{ url: string; label: string }> = [];
-        await Promise.all(
-          jobs.map(async ({ jobId, label }) => {
-            const url = await pollJobForUrl(jobId);
-            if (url) images.push({ url, label });
-          }),
-        );
+
+        if (data.data?.chain_mode === true) {
+          // ── Identity Sheet: chain already completed server-side ──────────────
+          // The packs route ran buildIdentityChain() synchronously and returned
+          // confirmed permanent URLs on each completed shot. Extract directly —
+          // no polling needed for shots that already have a URL.
+          for (const { label, status, url } of jobs) {
+            if (status === "completed" && url) {
+              images.push({ url, label });
+            }
+          }
+        } else {
+          // ── Non-chain pack types: poll each job for its result URL ───────────
+          await Promise.all(
+            jobs.map(async ({ jobId, label }) => {
+              const url = await pollJobForUrl(jobId);
+              if (url) images.push({ url, label });
+            }),
+          );
+        }
 
         setPackOutputs(prev =>
           prev.map(p =>
