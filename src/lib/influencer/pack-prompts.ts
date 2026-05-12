@@ -145,37 +145,55 @@ function buildIdentitySheetPrompts(
   style: StyleDescriptor,
   canonicalUrl: string,
 ): PackPromptItem[] {
-  // 5-angle reference sheet. Controlled environment. Identity only — no outfit variation.
+  // ── Continuity-first identity sheet — 5 shots in stabilization order ──────────
+  //
+  // Order is intentional and locked. Do not reorder without approval.
+  //
+  //   Shot 1 — Front Portrait  : biometric anchor — establishes face geometry first
+  //   Shot 2 — 3/4 Left        : expands geometry with left-side framing
+  //   Shot 3 — 3/4 Right       : mirrors left; confirms facial symmetry
+  //   Shot 4 — Medium Body     : introduces silhouette at mid-shot distance
+  //   Shot 5 — Full Body       : final stress test — geometry at maximum distance
+  //
+  // NOT a fashion sheet (pose variety is a separate pack type).
+  // This sheet is optimized for identity persistence, not visual diversity.
+  // Profile and back view are deferred — they weaken early identity stabilization
+  // by introducing hard-angle geometry before the face is anchored across shots.
+  //
+  // All shots reference the canonical portrait. Identity continuity depends on
+  // the provider's single-reference fidelity (Instant Character: strong).
+  // Growing memory chain accumulation is architecturally present but requires
+  // a multi-reference provider (FLUX Kontext, future upgrade) to fully activate.
   const sheetBase = `${base}, ${style.shading}, ${style.texture}`;
   return [
     {
-      label: "Front — Full Body",
-      prompt: prompt(sheetBase, "standing directly facing camera, full body, neutral expression, arms relaxed"),
-      aspectRatio: "2:3",
-      referenceUrl: canonicalUrl,
-    },
-    {
-      label: "3/4 Angle",
-      prompt: prompt(sheetBase, "three-quarter turn, upper body, slight shoulder angle, soft directional light"),
-      aspectRatio: "2:3",
-      referenceUrl: canonicalUrl,
-    },
-    {
-      label: "Profile",
-      prompt: prompt(sheetBase, "exact 90-degree side profile, full body, clean edge lighting"),
-      aspectRatio: "2:3",
-      referenceUrl: canonicalUrl,
-    },
-    {
-      label: "Back View",
-      prompt: prompt(sheetBase, "rear view, full body, over-shoulder glance optional"),
-      aspectRatio: "2:3",
-      referenceUrl: canonicalUrl,
-    },
-    {
-      label: "Close-Up Portrait",
-      prompt: prompt(sheetBase, "tight face portrait, sharp detail, no chin crop, expressive"),
+      label: "Front Portrait",
+      prompt: prompt(sheetBase, "tight face and upper chest, direct camera gaze, neutral expression, symmetrical lighting, biometric reference quality"),
       aspectRatio: "1:1",
+      referenceUrl: canonicalUrl,
+    },
+    {
+      label: "3/4 Left",
+      prompt: prompt(sheetBase, "three-quarter turn left, face angled left, soft directional light from right, upper body, confident posture"),
+      aspectRatio: "2:3",
+      referenceUrl: canonicalUrl,
+    },
+    {
+      label: "3/4 Right",
+      prompt: prompt(sheetBase, "three-quarter turn right, face angled right, soft directional light from left, upper body, same confident posture"),
+      aspectRatio: "2:3",
+      referenceUrl: canonicalUrl,
+    },
+    {
+      label: "Medium Body",
+      prompt: prompt(sheetBase, "medium shot from waist up, relaxed arms, natural posture, clean controlled environment"),
+      aspectRatio: "2:3",
+      referenceUrl: canonicalUrl,
+    },
+    {
+      label: "Full Body",
+      prompt: prompt(sheetBase, "full body standing, facing camera, complete silhouette visible, arms relaxed at sides, clean floor line"),
+      aspectRatio: "2:3",
       referenceUrl: canonicalUrl,
     },
   ];
