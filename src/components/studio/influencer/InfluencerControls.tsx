@@ -495,6 +495,129 @@ const SKIN_ART_ICONS: Record<string, string> = {
   "Cyber Robotic Art": "⊗",
 };
 
+// ── Visual card option type (image-ready, no icons) ────────────────────────────
+
+interface VisualCardOption {
+  value:    string;
+  label:    string;
+  bgColor?: string; // CSS background value — hex for fills, gradient string for iris/other
+}
+
+// ── Skin tone — luxury muted palette ──────────────────────────────────────────
+
+const SKIN_TONE_VC: VisualCardOption[] = [
+  { value: "Fair",        label: "Fair",   bgColor: "#e8ccb0" },
+  { value: "Light warm",  label: "Light",  bgColor: "#c99568" },
+  { value: "Medium warm", label: "Medium", bgColor: "#a57048" },
+  { value: "Tan olive",   label: "Tan",    bgColor: "#7a5035" },
+  { value: "Deep brown",  label: "Deep",   bgColor: "#4a2818" },
+  { value: "Rich dark",   label: "Dark",   bgColor: "#200e06" },
+];
+
+// ── Eye color — iris radial gradient ──────────────────────────────────────────
+
+const EYE_COLOR_VC: VisualCardOption[] = [
+  { value: "black",       label: "Black",      bgColor: "radial-gradient(ellipse at 50% 55%, #303038 30%, #080810 100%)" },
+  { value: "grey",        label: "Grey",       bgColor: "radial-gradient(ellipse at 50% 55%, #8a9aaa 28%, #1e2028 100%)" },
+  { value: "green",       label: "Green",      bgColor: "radial-gradient(ellipse at 50% 55%, #3a8a58 28%, #0c1810 100%)" },
+  { value: "brown",       label: "Brown",      bgColor: "radial-gradient(ellipse at 50% 55%, #8a5428 28%, #1a0e08 100%)" },
+  { value: "blue",        label: "Blue",       bgColor: "radial-gradient(ellipse at 50% 55%, #2a68b8 28%, #08101e 100%)" },
+  { value: "amber",       label: "Amber",      bgColor: "radial-gradient(ellipse at 50% 55%, #d89030 28%, #1e1208 100%)" },
+  { value: "honey-brown", label: "Honey",      bgColor: "radial-gradient(ellipse at 50% 55%, #a07838 28%, #1a1008 100%)" },
+  { value: "dark-brown",  label: "Dark Brn",   bgColor: "radial-gradient(ellipse at 50% 55%, #543020 28%, #140a06 100%)" },
+];
+
+// ── Non-color visual card option arrays ───────────────────────────────────────
+
+const FACE_VC: VisualCardOption[] = [
+  { value: "Oval",       label: "Oval"    },
+  { value: "Heart",      label: "Heart"   },
+  { value: "Square jaw", label: "Square"  },
+  { value: "Angular",    label: "Angular" },
+  { value: "Round",      label: "Round"   },
+  { value: "Diamond",    label: "Diamond" },
+];
+
+const SPECIES_VC: VisualCardOption[] = [
+  { value: "human",           label: "Human"  },
+  { value: "elf",             label: "Elf"    },
+  { value: "alien",           label: "Alien"  },
+  { value: "animal-inspired", label: "Animal" },
+  { value: "insect-inspired", label: "Insect" },
+];
+
+const HAIR_VC: VisualCardOption[] = [
+  { value: "long-hair",  label: "Long"  },
+  { value: "short-hair", label: "Short" },
+  { value: "bald",       label: "Bald"  },
+  { value: "punk-style", label: "Punk"  },
+  { value: "afro-style", label: "Afro"  },
+  { value: "fur",        label: "Fur"   },
+];
+
+const EYE_TYPE_VC: VisualCardOption[] = [
+  { value: "human-eyes",   label: "Human"   },
+  { value: "glowing-eyes", label: "Glowing" },
+  { value: "reptile-eyes", label: "Reptile" },
+  { value: "robotic-eyes", label: "Robotic" },
+  { value: "blind-eyes",   label: "Blind"   },
+  { value: "mixed-eyes",   label: "Mixed"   },
+];
+
+const SKIN_MARK_VC: VisualCardOption[] = [
+  { value: "freckles",      label: "Freckles"    },
+  { value: "birthmarks",    label: "Birthmarks"  },
+  { value: "scars",         label: "Scars"       },
+  { value: "pigmentation",  label: "Pigmentation"},
+  { value: "wrinkled-skin", label: "Wrinkled"    },
+  { value: "albinism",      label: "Albinism"    },
+];
+
+const EAR_VC: VisualCardOption[] = [
+  { value: "human-ears",  label: "Human"  },
+  { value: "elf-ears",    label: "Elf"    },
+  { value: "winged-ears", label: "Winged" },
+  { value: "alien-ears",  label: "Alien"  },
+];
+
+const HORN_VC: VisualCardOption[] = [
+  { value: "small-horns", label: "Small" },
+  { value: "large-horns", label: "Large" },
+];
+
+const BODY_TYPE_VC: VisualCardOption[] = [
+  { value: "Athletic",  label: "Athletic"  },
+  { value: "Slim",      label: "Slim"      },
+  { value: "Lean",      label: "Lean"      },
+  { value: "Muscular",  label: "Muscular"  },
+  { value: "Curvy",     label: "Curvy"     },
+  { value: "Healthy",   label: "Healthy"   },
+  { value: "Skinny",    label: "Skinny"    },
+];
+
+const ARM_VC: VisualCardOption[] = [
+  { value: "Normal",     label: "Normal"     },
+  { value: "Robotic",    label: "Robotic"    },
+  { value: "Mechanical", label: "Mechanical" },
+  { value: "Prosthetic", label: "Prosthetic" },
+  { value: "No Arm",     label: "No Arm"     },
+];
+
+const LEG_VC: VisualCardOption[] = [
+  { value: "Normal",     label: "Normal"     },
+  { value: "Robotic",    label: "Robotic"    },
+  { value: "Mechanical", label: "Mechanical" },
+  { value: "Prosthetic", label: "Prosthetic" },
+  { value: "No Leg",     label: "No Leg"     },
+];
+
+const SKIN_ART_VC: VisualCardOption[] = [
+  { value: "Tattoos",           label: "Tattoos"       },
+  { value: "Piercing",          label: "Piercing"      },
+  { value: "Symbol Art",        label: "Symbol Art"    },
+  { value: "Cyber Robotic Art", label: "Cyber Robotic" },
+];
+
 export function BuilderTab({
   canvasState, activeInfluencer,
   styleCategory, setStyleCategory,
@@ -835,10 +958,8 @@ export function BuilderTab({
 
         {/* Skin Tone */}
         <AdvSection label="Skin Tone">
-          <CardGrid
-            options={["Fair", "Light warm", "Medium warm", "Tan olive", "Deep brown", "Rich dark"]}
-            labels={SKIN_TONE_LABELS}
-            colorMap={SKIN_TONE_COLORS}
+          <VisualCardGrid
+            options={SKIN_TONE_VC}
             value={skinTone}
             onChange={setSkinTone}
             accent={selectedCat.accent}
@@ -848,90 +969,76 @@ export function BuilderTab({
 
         {/* Face Structure */}
         <AdvSection label="Face Structure">
-          <CardGrid
-            options={["Oval", "Heart", "Square jaw", "Angular", "Round", "Diamond"]}
-            labels={FACE_STRUCT_LABELS}
-            icons={FACE_ICONS}
+          <VisualCardGrid
+            options={FACE_VC}
             value={faceStruct}
             onChange={setFaceStruct}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Species · Origin */}
         <AdvSection label="Species · Origin">
-          <CardGrid
-            options={["human","elf","alien","animal-inspired","insect-inspired"]}
-            labels={SPECIES_LABELS}
-            icons={SPECIES_ICONS}
+          <VisualCardGrid
+            options={SPECIES_VC}
             value={species}
             onChange={setSpecies}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Hair Identity */}
         <AdvSection label="Hair Identity">
-          <CardGrid
-            options={["long-hair","short-hair","bald","punk-style","afro-style","fur"]}
-            labels={HAIR_LABELS}
-            icons={HAIR_ICONS}
+          <VisualCardGrid
+            options={HAIR_VC}
             value={hairIdentity}
             onChange={setHairIdentity}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Eye Color */}
         <AdvSection label="Eye Color">
-          <CardGrid
-            options={["black","grey","green","brown","blue","amber","honey-brown","dark-brown"]}
-            labels={EYE_COLOR_LABELS}
-            colorMap={EYE_COLOR_COLORS}
+          <VisualCardGrid
+            options={EYE_COLOR_VC}
             value={eyeColor}
             onChange={setEyeColor}
             accent={selectedCat.accent}
-            cols={3}
+            cols={4}
           />
         </AdvSection>
 
         {/* Eye Type */}
         <AdvSection label="Eye Type">
-          <CardGrid
-            options={["human-eyes","glowing-eyes","reptile-eyes","robotic-eyes","blind-eyes","mixed-eyes"]}
-            labels={EYE_TYPE_LABELS}
-            icons={EYE_TYPE_ICONS}
+          <VisualCardGrid
+            options={EYE_TYPE_VC}
             value={eyeType}
             onChange={setEyeType}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Skin Marks — multi-select */}
         <AdvSection label="Skin Marks">
-          <MultiCardGrid
-            options={["freckles","birthmarks","scars","pigmentation","wrinkled-skin","albinism"]}
-            labels={SKIN_MARK_LABELS}
-            icons={SKIN_MARK_ICONS}
+          <VisualMultiGrid
+            options={SKIN_MARK_VC}
             selected={skinMarks}
             onToggle={v => setSkinMarks(
               skinMarks.includes(v) ? skinMarks.filter(m => m !== v) : [...skinMarks, v]
             )}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Ears */}
         <AdvSection label="Ears">
-          <CardGrid
-            options={["human-ears","elf-ears","winged-ears","alien-ears"]}
-            labels={EAR_LABELS}
-            icons={EAR_ICONS}
+          <VisualCardGrid
+            options={EAR_VC}
             value={earType}
             onChange={setEarType}
             accent={selectedCat.accent}
@@ -941,10 +1048,8 @@ export function BuilderTab({
 
         {/* Horns — optional */}
         <AdvSection label="Horns" badge="Optional">
-          <CardGrid
-            options={["small-horns","large-horns"]}
-            labels={HORN_LABELS}
-            icons={HORN_ICONS}
+          <VisualCardGrid
+            options={HORN_VC}
             value={hornType}
             onChange={setHornType}
             accent={selectedCat.accent}
@@ -967,66 +1072,56 @@ export function BuilderTab({
 
         {/* Body Type */}
         <AdvSection label="Body Type">
-          <CardGrid
-            options={[...BODY_TYPE_OPTIONS]}
-            labels={BODY_TYPE_LABELS}
-            icons={BODY_TYPE_ICONS}
+          <VisualCardGrid
+            options={BODY_TYPE_VC}
             value={bodyType}
             onChange={setBodyType}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Left Arm */}
         <AdvSection label="Left Arm">
-          <CardGrid
-            options={[...ARM_TYPE_OPTIONS]}
-            labels={ARM_TYPE_LABELS}
-            icons={ARM_ICONS}
+          <VisualCardGrid
+            options={ARM_VC}
             value={leftArm}
             onChange={setLeftArm}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Right Arm */}
         <AdvSection label="Right Arm">
-          <CardGrid
-            options={[...ARM_TYPE_OPTIONS]}
-            labels={ARM_TYPE_LABELS}
-            icons={ARM_ICONS}
+          <VisualCardGrid
+            options={ARM_VC}
             value={rightArm}
             onChange={setRightArm}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Left Leg */}
         <AdvSection label="Left Leg">
-          <CardGrid
-            options={[...LEG_TYPE_OPTIONS]}
-            labels={LEG_TYPE_LABELS}
-            icons={LEG_ICONS}
+          <VisualCardGrid
+            options={LEG_VC}
             value={leftLeg}
             onChange={setLeftLeg}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
 
         {/* Right Leg */}
         <AdvSection label="Right Leg">
-          <CardGrid
-            options={[...LEG_TYPE_OPTIONS]}
-            labels={LEG_TYPE_LABELS}
-            icons={LEG_ICONS}
+          <VisualCardGrid
+            options={LEG_VC}
             value={rightLeg}
             onChange={setRightLeg}
             accent={selectedCat.accent}
-            cols={3}
+            cols={2}
           />
         </AdvSection>
       </section>
@@ -1042,10 +1137,8 @@ export function BuilderTab({
         }}>
           Optional body art — multi-select.
         </div>
-        <MultiCardGrid
-          options={[...SKIN_ART_OPTIONS]}
-          labels={SKIN_ART_LABELS}
-          icons={SKIN_ART_ICONS}
+        <VisualMultiGrid
+          options={SKIN_ART_VC}
           selected={skinArt}
           onToggle={v => setSkinArt(skinArt.includes(v) ? skinArt.filter(s => s !== v) : [...skinArt, v])}
           accent={selectedCat.accent}
@@ -1306,80 +1399,65 @@ function AdvSection({
   );
 }
 
-// ── Single-select card grid (icon cell + label, zero border-radius) ───────────
+// ── Visual single-select card grid (62px visual area + label, borderRadius: 9) ──
 
-function CardGrid({
-  options, labels, icons, colorMap, value, onChange, accent, cols = 2,
+function VisualCardGrid({
+  options, value, onChange, accent, cols = 2,
 }: {
-  options:   string[];
-  labels:    Record<string, string>;
-  icons?:    Record<string, string>;
-  colorMap?: Record<string, string>;
-  value:     string;
-  onChange:  (v: string) => void;
-  accent:    string;
-  cols?:     number;
+  options:  VisualCardOption[];
+  value:    string;
+  onChange: (v: string) => void;
+  accent:   string;
+  cols?:    number;
 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 5 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
       {options.map(opt => {
-        const sel = value === opt;
-        const icon   = icons?.[opt];
-        const color  = colorMap?.[opt];
-        const hasVis = !!(icon || color);
+        const sel = value === opt.value;
         return (
           <button
-            key={opt}
-            onClick={() => onChange(sel ? "" : opt)}
+            key={opt.value}
+            onClick={() => onChange(sel ? "" : opt.value)}
             style={{
               display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              gap: 6, padding: hasVis ? "11px 6px" : "11px 8px",
-              borderRadius: 0,
-              border:     sel ? `1px solid ${accent}60` : "1px solid rgba(255,255,255,0.07)",
-              background: sel ? `${accent}12`           : "rgba(255,255,255,0.025)",
-              cursor: "pointer", transition: "all 0.14s",
-              boxShadow: sel ? `0 0 8px ${accent}18` : "none",
+              borderRadius: 9, overflow: "hidden", padding: 0,
+              border:     sel ? `1px solid ${accent}55` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${accent}08`           : "rgba(255,255,255,0.02)",
+              cursor: "pointer", transition: "all 0.15s",
+              boxShadow: sel ? `0 0 12px ${accent}18` : "none",
             }}
           >
-            {/* Color swatch icon cell */}
-            {color && (
-              <div style={{
-                width: 34, height: 34, flexShrink: 0,
-                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
-                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 0,
-              }}>
-                <div style={{
-                  width: 16, height: 16, borderRadius: "50%",
-                  background: color,
-                  boxShadow: `0 0 0 2px rgba(255,255,255,${sel ? 0.22 : 0.08})`,
-                }} />
-              </div>
-            )}
-            {/* Unicode symbol icon cell */}
-            {icon && !color && (
-              <div style={{
-                width: 34, height: 34, flexShrink: 0,
-                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
-                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 0,
-                fontSize: 15, color: sel ? accent : "rgba(255,255,255,0.38)",
-              }}>
-                {icon}
-              </div>
-            )}
-            <span style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 10, fontWeight: sel ? 700 : 500,
-              color:    sel ? accent : "rgba(255,255,255,0.42)",
-              textAlign: "center" as const, lineHeight: 1.25,
-              letterSpacing: "0.01em",
+            {/* 62px visual area */}
+            <div style={{
+              height: 62, flexShrink: 0,
+              background: opt.bgColor
+                ? opt.bgColor
+                : "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)",
+              position: "relative",
             }}>
-              {labels[opt] ?? opt}
-            </span>
+              {/* Accent bleed on selected (non-color cards only) */}
+              {!opt.bgColor && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: sel
+                    ? `linear-gradient(to top, ${accent}28, transparent 70%)`
+                    : "linear-gradient(to top, rgba(0,0,0,0.35), transparent 70%)",
+                  transition: "all 0.15s",
+                }} />
+              )}
+            </div>
+            {/* Label band */}
+            <div style={{
+              padding: "7px 6px",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 11, fontWeight: sel ? 700 : 500,
+              color:    sel ? accent : "rgba(255,255,255,0.45)",
+              textAlign: "center", lineHeight: 1.2,
+              background: sel ? `${accent}06` : "rgba(0,0,0,0.18)",
+              transition: "all 0.15s",
+            }}>
+              {opt.label}
+            </div>
           </button>
         );
       })}
@@ -1387,60 +1465,64 @@ function CardGrid({
   );
 }
 
-// ── Multi-select card grid (icon cell + label, zero border-radius) ─────────────
+// ── Visual multi-select card grid (same design, multi-select) ─────────────────
 
-function MultiCardGrid({
-  options, labels, icons, selected, onToggle, accent, cols = 2,
+function VisualMultiGrid({
+  options, selected, onToggle, accent, cols = 2,
 }: {
-  options:  string[];
-  labels:   Record<string, string>;
-  icons?:   Record<string, string>;
+  options:  VisualCardOption[];
   selected: string[];
   onToggle: (v: string) => void;
   accent:   string;
   cols?:    number;
 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 5 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
       {options.map(opt => {
-        const sel  = selected.includes(opt);
-        const icon = icons?.[opt];
+        const sel = selected.includes(opt.value);
         return (
           <button
-            key={opt}
-            onClick={() => onToggle(opt)}
+            key={opt.value}
+            onClick={() => onToggle(opt.value)}
             style={{
               display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              gap: 6, padding: icon ? "11px 6px" : "11px 8px",
-              borderRadius: 0,
-              border:     sel ? `1px solid ${accent}60` : "1px solid rgba(255,255,255,0.07)",
-              background: sel ? `${accent}12`           : "rgba(255,255,255,0.025)",
-              cursor: "pointer", transition: "all 0.14s",
-              boxShadow: sel ? `0 0 8px ${accent}18` : "none",
+              borderRadius: 9, overflow: "hidden", padding: 0,
+              border:     sel ? `1px solid ${accent}55` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${accent}08`           : "rgba(255,255,255,0.02)",
+              cursor: "pointer", transition: "all 0.15s",
+              boxShadow: sel ? `0 0 12px ${accent}18` : "none",
             }}
           >
-            {icon && (
-              <div style={{
-                width: 34, height: 34, flexShrink: 0,
-                background: sel ? `${accent}18` : "rgba(255,255,255,0.05)",
-                border: sel ? `1px solid ${accent}30` : "1px solid rgba(255,255,255,0.07)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 0,
-                fontSize: 15, color: sel ? accent : "rgba(255,255,255,0.38)",
-              }}>
-                {icon}
-              </div>
-            )}
-            <span style={{
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 10, fontWeight: sel ? 700 : 500,
-              color:    sel ? accent : "rgba(255,255,255,0.42)",
-              textAlign: "center" as const, lineHeight: 1.25,
-              letterSpacing: "0.01em",
+            {/* 62px visual area */}
+            <div style={{
+              height: 62, flexShrink: 0,
+              background: opt.bgColor
+                ? opt.bgColor
+                : "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)",
+              position: "relative",
             }}>
-              {labels[opt] ?? opt}
-            </span>
+              {!opt.bgColor && (
+                <div style={{
+                  position: "absolute", inset: 0,
+                  background: sel
+                    ? `linear-gradient(to top, ${accent}28, transparent 70%)`
+                    : "linear-gradient(to top, rgba(0,0,0,0.35), transparent 70%)",
+                  transition: "all 0.15s",
+                }} />
+              )}
+            </div>
+            {/* Label band */}
+            <div style={{
+              padding: "7px 6px",
+              fontFamily: "'Familjen Grotesk', sans-serif",
+              fontSize: 11, fontWeight: sel ? 700 : 500,
+              color:    sel ? accent : "rgba(255,255,255,0.45)",
+              textAlign: "center", lineHeight: 1.2,
+              background: sel ? `${accent}06` : "rgba(0,0,0,0.18)",
+              transition: "all 0.15s",
+            }}>
+              {opt.label}
+            </div>
           </button>
         );
       })}
