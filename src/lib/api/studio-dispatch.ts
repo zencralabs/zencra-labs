@@ -705,8 +705,26 @@ function mapOrchestratorError(err: unknown): StudioDispatchError {
       case "DRY_RUN":
         // Dry-run mode — treat as a non-fatal feature-disabled gate for test purposes
         return new StudioDispatchError(oe.message, "FEATURE_DISABLED", err);
-      case "PROVIDER_ERROR":
+      case "PROVIDER_ERROR": {
+        // Provider-side credit exhaustion must be treated as a billing failure,
+        // not a generic provider error. Providers like NB Pro return HTTP 200
+        // with a credit-shortage code in the body — nano-banana.ts converts this
+        // to a plain Error which the orchestrator wraps as PROVIDER_ERROR. Without
+        // this reclassification the identity chain's fatal billing check (which
+        // inspects StudioDispatchError.code) sees "PROVIDER_ERROR" and treats each
+        // shot as a non-fatal failure, spending credits on all 5 shots.
+        const lowerMsg = oe.message.toLowerCase();
+        const isProviderCreditExhaustion =
+          lowerMsg.includes("insufficient credits") ||
+          lowerMsg.includes("credits are insufficient") ||
+          lowerMsg.includes("please top up") ||
+          lowerMsg.includes("top up") ||
+          (lowerMsg.includes("credit") && lowerMsg.includes("balance"));
+        if (isProviderCreditExhaustion) {
+          return new StudioDispatchError(oe.message, "INSUFFICIENT_CREDITS", err);
+        }
         return new StudioDispatchError(oe.message, "PROVIDER_ERROR", err);
+      }
     }
   }
 

@@ -271,6 +271,31 @@ export async function buildIdentityChain(
           throw err;
         }
       }
+      // Belt-and-suspenders: catch provider-side credit exhaustion that may arrive
+      // as PROVIDER_ERROR if mapOrchestratorError did not reclassify it.
+      // NB Pro signals balance exhaustion via HTTP 200 + body code 402.
+      // We never want to continue the chain when the provider account is empty —
+      // every subsequent shot will fail identically, burning user wait time.
+      if (err instanceof StudioDispatchError && err.code === "PROVIDER_ERROR") {
+        const lowerMsg = (err.message ?? "").toLowerCase();
+        if (
+          lowerMsg.includes("insufficient credits") ||
+          lowerMsg.includes("credits are insufficient") ||
+          lowerMsg.includes("please top up") ||
+          lowerMsg.includes("top up") ||
+          (lowerMsg.includes("credit") && lowerMsg.includes("balance"))
+        ) {
+          console.error(
+            `[identity-chain] Shot ${shotIndex + 1} — provider account balance exhausted ` +
+            `(detected in PROVIDER_ERROR message). Stopping chain.`,
+          );
+          throw new ChainError(
+            `Provider account has insufficient credits: ${err.message}. ` +
+            `Please top up the provider account balance and retry the identity sheet.`,
+            "CHAIN_PROVIDER_BALANCE_EXHAUSTED",
+          );
+        }
+      }
       // Non-billing dispatch errors — skip this shot, continue chain
       console.error(
         `[identity-chain] Shot ${shotIndex + 1} dispatch failed (non-fatal):`, err,
