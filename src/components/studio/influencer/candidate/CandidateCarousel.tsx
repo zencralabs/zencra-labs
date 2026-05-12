@@ -19,6 +19,7 @@ import CandidateCard from "./CandidateCard";
 
 interface CandidateCarouselProps {
   candidates:      string[];
+  failedSlots?:    number;         // how many jobs resolved with no URL (failed/cancelled)
   activeUrl:       string | null;
   compareUrls:     string[];
   accent:          string;
@@ -35,14 +36,15 @@ interface CandidateCarouselProps {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CandidateCarousel({
-  candidates, activeUrl, compareUrls, accent,
+  candidates, failedSlots = 0, activeUrl, compareUrls, accent,
   isLocking, lockedUrls, lockingUrl, slotsFull,
   onSetActive, onPreview, onToggleCompare, onSelect,
 }: CandidateCarouselProps) {
   const maxCompareReached = compareUrls.length >= 3;
 
-  // How many skeletons to show — fill to 4 minimum
-  const skeletonCount = Math.max(0, 4 - candidates.length);
+  // When failedSlots is provided, all generation is done — show failed cards not skeletons.
+  // When no failedSlots (undefined/0 with no failed jobs), show skeletons as before.
+  const skeletonCount = failedSlots > 0 ? 0 : Math.max(0, 4 - candidates.length);
 
   return (
     <div style={{ position: "relative" }}>
@@ -95,6 +97,11 @@ export default function CandidateCarousel({
           />
         ))}
 
+        {/* ── Failed job cards — shown when generation resolved with no URL ── */}
+        {failedSlots > 0 && Array.from({ length: failedSlots }).map((_, i) => (
+          <FailedCard key={`fail-${i}`} index={candidates.length + i + 1} />
+        ))}
+
         {/* ── Skeleton cards while remaining candidates load ────────── */}
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <SkeletonCard key={`sk-${i}`} accent={accent} delay={i * 0.28} />
@@ -119,6 +126,72 @@ export default function CandidateCarousel({
         background: "linear-gradient(to left, rgba(5,7,13,0.92), transparent)",
         zIndex: 10,
       }} aria-hidden="true" />
+    </div>
+  );
+}
+
+// ── Failed generation card ────────────────────────────────────────────────────
+
+function FailedCard({ index }: { index: number }) {
+  return (
+    <div style={{
+      flexShrink:   0,
+      width:        "clamp(220px, 70vw, 260px)",
+      height:       380,
+      borderRadius: 0,
+      border:       "1px solid rgba(239,68,68,0.18)",
+      background:   "rgba(239,68,68,0.04)",
+      scrollSnapAlign: "start",
+      position:     "relative",
+      overflow:     "hidden",
+      display:      "flex",
+      flexDirection: "column",
+      alignItems:   "center",
+      justifyContent: "center",
+      gap: 10,
+    }}>
+      {/* Candidate number badge */}
+      <div style={{
+        position:   "absolute", top: 10, left: 10,
+        padding:    "3px 8px",
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(8px)",
+        fontSize:   11, fontWeight: 600, letterSpacing: "0.12em",
+        color:      "rgba(255,255,255,0.40)",
+        textTransform: "uppercase" as const,
+      }}>
+        {String(index).padStart(2, "0")}
+      </div>
+
+      {/* Error icon */}
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+        stroke="rgba(239,68,68,0.55)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+
+      {/* Label */}
+      <div style={{ textAlign: "center", padding: "0 16px" }}>
+        <div style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: 11, fontWeight: 700,
+          letterSpacing: "0.10em", textTransform: "uppercase" as const,
+          color: "rgba(239,68,68,0.70)",
+          marginBottom: 4,
+        }}>
+          Generation Failed
+        </div>
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 10, fontWeight: 400,
+          color: "rgba(255,255,255,0.25)",
+          lineHeight: 1.5,
+        }}>
+          This candidate did not complete.
+          Start a new run to try again.
+        </div>
+      </div>
     </div>
   );
 }

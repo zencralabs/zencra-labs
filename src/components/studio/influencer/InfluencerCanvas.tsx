@@ -97,7 +97,7 @@ const PACK_ACTIONS: Array<{
 
 interface Props {
   canvasState:           CanvasState;
-  onCandidatesReady:     (influencer_id: string, candidateUrls: string[]) => void;
+  onCandidatesReady:     (influencer_id: string, candidateUrls: string[], expectedCount: number) => void;
   onSelected:            (active: ActiveInfluencer) => void;
   onCandidateLocked?:    (active: ActiveInfluencer) => void; // multi-lock: each locked candidate
   onCreateClick:         () => void;   // handleCreateInfluencer — single source of truth
@@ -631,6 +631,7 @@ export default function InfluencerCanvas({
           <CandidatesState
             influencer_id={canvasState.influencer_id}
             candidates={canvasState.candidates}
+            failedCount={Math.max(0, canvasState.expected_count - canvasState.candidates.length)}
             accent={currentAccent}
             onSelected={onSelected}
             onCandidateLocked={onCandidateLocked}
@@ -863,7 +864,7 @@ function GeneratingState({
   jobIds: string[];
   accent: string;
   candidateCount: number;
-  onReady?: (influencer_id: string, urls: string[]) => void;  // retained, not used
+  onReady?: (influencer_id: string, urls: string[], expectedCount: number) => void;  // retained, not used
 }) {
   const [progress, setProgress] = useState(0);
   const [lineIdx,  setLineIdx]  = useState(0);
@@ -1088,12 +1089,14 @@ interface LockedItem {
 function CandidatesState({
   influencer_id,
   candidates,
+  failedCount,
   accent,
   onSelected,
   onCandidateLocked,
 }: {
   influencer_id:      string;
   candidates:         string[];
+  failedCount:        number;
   accent:             string;
   onSelected:         (active: ActiveInfluencer) => void;
   onCandidateLocked?: (active: ActiveInfluencer) => void;
@@ -1372,6 +1375,7 @@ function CandidatesState({
           <div style={{ flexShrink: 0, paddingBottom: 4 }}>
             <CandidateCarousel
               candidates={candidates}
+              failedSlots={failedCount}
               activeUrl={activeUrl}
               compareUrls={compareUrls}
               accent={accent}

@@ -57,7 +57,7 @@ export interface ActiveInfluencer {
 export type CanvasState =
   | { phase: "empty" }
   | { phase: "generating"; influencer_id: string; jobs: string[]; style_category: StyleCategory }
-  | { phase: "candidates"; influencer_id: string; candidates: string[]; style_category: StyleCategory }
+  | { phase: "candidates"; influencer_id: string; candidates: string[]; style_category: StyleCategory; expected_count: number }
   | { phase: "selected"; active: ActiveInfluencer };
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -128,11 +128,12 @@ export default function AIInfluencerBuilder() {
 
   // ── Canvas state transitions ──────────────────────────────────────────────
   const handleCandidatesReady = useCallback(
-    (influencer_id: string, candidateUrls: string[]) => {
+    (influencer_id: string, candidateUrls: string[], expectedCount: number) => {
       setCanvasState(prev => ({
         phase:          "candidates",
         influencer_id,
         candidates:     candidateUrls,
+        expected_count: expectedCount,
         style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
       }));
     },
@@ -229,6 +230,7 @@ export default function AIInfluencerBuilder() {
             phase:          "candidates",
             influencer_id:  influencer.id,
             candidates:     mockCandidates,
+            expected_count: mockCandidates.length,
             style_category: (influencer.style_category ?? "hyper-real") as StyleCategory,
           });
           return;
@@ -252,7 +254,7 @@ export default function AIInfluencerBuilder() {
             if (url) completedUrls.push(url);
             resolvedCount++;
             if (resolvedCount === jobs.length) {
-              handleCandidatesReady(influencer.id, completedUrls);
+              handleCandidatesReady(influencer.id, completedUrls, jobs.length);
             }
           };
 
@@ -327,6 +329,29 @@ export default function AIInfluencerBuilder() {
 
   const handleNewInfluencer = useCallback(() => {
     setCanvasState({ phase: "empty" });
+    // Reset all form state so the next candidate run starts clean
+    setStyleCategory("hyper-real");
+    setGender("");
+    setAgeRange("");
+    setSkinTone("");
+    setFaceStruct("");
+    setFashion("");
+    setRealism("photorealistic");
+    setMood([]);
+    setPlatforms([]);
+    setNotes("");
+    setEthnicityRegion("");
+    setMixedBlendRegions([]);
+    setCandidateCount(4);
+    setTags([]);
+    // Phase A — Biological Identity
+    setSkinMarks([]);
+    setSpecies("");
+    setHairIdentity("");
+    setEyeColor("");
+    setEyeType("");
+    setEarType("");
+    setHornType("");
   }, []);
 
   const handleSelectFromLibrary = useCallback((influencer: AIInfluencer) => {
