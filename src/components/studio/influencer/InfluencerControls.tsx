@@ -2,11 +2,14 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Influencer Controls — Right panel
-// Tabs: Builder | Packs | Refine | Advanced
+// Tabs: Builder | Packs | Refine
 //
 // Builder tab is a PURE INPUT UI — no API calls, no loading, no error state.
 // All form state lives in AIInfluencerBuilder (lifted) and is passed in.
 // Creation is triggered by the canvas dock button → handleCreateInfluencer().
+//
+// Biological Identity (Phase A traits) lives INSIDE Builder tab, between
+// Ethnicity/Region and Rendering — it is part of core identity, not advanced.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
@@ -26,7 +29,7 @@ const T = {
   amberBorder: "rgba(245,158,11,0.22)",
 } as const;
 
-type ControlTab = "builder" | "packs" | "refine" | "advanced";
+type ControlTab = "builder" | "packs" | "refine";
 
 // ── Props — all form state lifted from parent ─────────────────────────────────
 
@@ -109,10 +112,9 @@ export default function InfluencerControls({
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
   const tabs: Array<{ id: ControlTab; label: string }> = [
-    { id: "builder",  label: "Builder"  },
-    { id: "packs",    label: "Packs"    },
-    { id: "refine",   label: "Refine"   },
-    { id: "advanced", label: "Advanced" },
+    { id: "builder", label: "Builder" },
+    { id: "packs",   label: "Packs"   },
+    { id: "refine",  label: "Refine"  },
   ];
 
   return (
@@ -148,7 +150,7 @@ export default function InfluencerControls({
 
       {/* Tab content */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {activeTab === "builder"  && (
+        {activeTab === "builder" && (
           <BuilderTab
             canvasState={canvasState}
             activeInfluencer={activeInfluencer}
@@ -162,26 +164,21 @@ export default function InfluencerControls({
             mood={mood}                            setMood={setMood}
             platforms={platforms}                  setPlatforms={setPlatforms}
             notes={notes}                          setNotes={setNotes}
-            ethnicityRegion={ethnicityRegion}           setEthnicityRegion={setEthnicityRegion}
-            mixedBlendRegions={mixedBlendRegions}      setMixedBlendRegions={setMixedBlendRegions}
-            candidateCount={candidateCount}            setCandidateCount={setCandidateCount}
+            ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
+            mixedBlendRegions={mixedBlendRegions}  setMixedBlendRegions={setMixedBlendRegions}
+            candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
             tags={tags}                            setTags={setTags}
+            species={species}                      setSpecies={setSpecies}
+            hairIdentity={hairIdentity}            setHairIdentity={setHairIdentity}
+            eyeColor={eyeColor}                    setEyeColor={setEyeColor}
+            eyeType={eyeType}                      setEyeType={setEyeType}
+            skinMarks={skinMarks}                  setSkinMarks={setSkinMarks}
+            earType={earType}                      setEarType={setEarType}
+            hornType={hornType}                    setHornType={setHornType}
           />
         )}
-        {activeTab === "packs"    && <PacksInfoTab    active={activeInfluencer} />}
-        {activeTab === "refine"   && <RefineTab       active={activeInfluencer} />}
-        {activeTab === "advanced" && (
-          <AdvancedTab
-            styleCategory={styleCategory}
-            species={species}         setSpecies={setSpecies}
-            hairIdentity={hairIdentity} setHairIdentity={setHairIdentity}
-            eyeColor={eyeColor}       setEyeColor={setEyeColor}
-            eyeType={eyeType}         setEyeType={setEyeType}
-            skinMarks={skinMarks}     setSkinMarks={setSkinMarks}
-            earType={earType}         setEarType={setEarType}
-            hornType={hornType}       setHornType={setHornType}
-          />
-        )}
+        {activeTab === "packs"  && <PacksInfoTab active={activeInfluencer} />}
+        {activeTab === "refine" && <RefineTab    active={activeInfluencer} />}
       </div>
     </div>
   );
@@ -317,6 +314,21 @@ interface BuilderTabProps {
   // Library tags
   tags:    string[];
   setTags: (v: string[]) => void;
+  // Phase A — Biological Identity (core layer, inline in Builder)
+  species:         string;
+  setSpecies:      (v: string) => void;
+  hairIdentity:    string;
+  setHairIdentity: (v: string) => void;
+  eyeColor:        string;
+  setEyeColor:     (v: string) => void;
+  eyeType:         string;
+  setEyeType:      (v: string) => void;
+  skinMarks:       string[];
+  setSkinMarks:    (v: string[]) => void;
+  earType:         string;
+  setEarType:      (v: string) => void;
+  hornType:        string;
+  setHornType:     (v: string) => void;
 }
 
 export function BuilderTab({
@@ -335,6 +347,13 @@ export function BuilderTab({
   mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
   tags, setTags,
+  species, setSpecies,
+  hairIdentity, setHairIdentity,
+  eyeColor, setEyeColor,
+  eyeType, setEyeType,
+  skinMarks, setSkinMarks,
+  earType, setEarType,
+  hornType, setHornType,
 }: BuilderTabProps) {
 
   // Accent for the currently selected style
@@ -606,6 +625,107 @@ export function BuilderTab({
           </div>
         )}
       </section>
+
+      {/* ── Biological Identity ─────────────────────────────────────────── */}
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
+      <section>
+        <SectionLabel label="Biological Identity" />
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 12, color: "rgba(255,255,255,0.3)",
+          marginBottom: 14, lineHeight: 1.55,
+        }}>
+          Genetic-layer traits — injected before fashion and mood.
+        </div>
+
+        {/* Species · Origin */}
+        <AdvSection label="Species · Origin">
+          <AdvSingleChips
+            options={["human","elf","alien","animal-inspired","insect-inspired"]}
+            labels={SPECIES_LABELS}
+            value={species}
+            onChange={setSpecies}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Hair Identity */}
+        <AdvSection label="Hair Identity">
+          <AdvSingleChips
+            options={["long-hair","short-hair","bald","punk-style","afro-style","fur"]}
+            labels={HAIR_LABELS}
+            value={hairIdentity}
+            onChange={setHairIdentity}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Eye Color */}
+        <AdvSection label="Eye Color">
+          <AdvSingleChips
+            options={["black","grey","green","brown","blue","amber","honey-brown","dark-brown"]}
+            labels={EYE_COLOR_LABELS}
+            value={eyeColor}
+            onChange={setEyeColor}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Eye Type */}
+        <AdvSection label="Eye Type">
+          <AdvSingleChips
+            options={["human-eyes","glowing-eyes","reptile-eyes","robotic-eyes","blind-eyes","mixed-eyes"]}
+            labels={EYE_TYPE_LABELS}
+            value={eyeType}
+            onChange={setEyeType}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Skin Marks — multi-select */}
+        <AdvSection label="Skin Marks">
+          <AdvMultiChips
+            options={["freckles","birthmarks","scars","pigmentation","wrinkled-skin","albinism"]}
+            labels={SKIN_MARK_LABELS}
+            selected={skinMarks}
+            onToggle={v => setSkinMarks(
+              skinMarks.includes(v) ? skinMarks.filter(m => m !== v) : [...skinMarks, v]
+            )}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Ears */}
+        <AdvSection label="Ears">
+          <AdvSingleChips
+            options={["human-ears","elf-ears","winged-ears","alien-ears"]}
+            labels={EAR_LABELS}
+            value={earType}
+            onChange={setEarType}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Horns — optional */}
+        <AdvSection label="Horns" badge="Optional">
+          <div style={{
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 11, color: "rgba(255,255,255,0.28)",
+            marginBottom: 8, lineHeight: 1.5,
+          }}>
+            Leave unselected for no horns.
+          </div>
+          <AdvSingleChips
+            options={["small-horns","large-horns"]}
+            labels={HORN_LABELS}
+            value={hornType}
+            onChange={setHornType}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+      </section>
+
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
 
       {/* Rendering — only for hyper-real */}
       {styleCategory === "hyper-real" && (
