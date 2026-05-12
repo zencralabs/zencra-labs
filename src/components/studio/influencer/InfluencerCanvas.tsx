@@ -155,6 +155,11 @@ export default function InfluencerCanvas({
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
   const packSectionRef  = useRef<HTMLDivElement>(null);
   const canvasRef       = useRef<HTMLDivElement>(null);
+  // Keeps a current snapshot of packOutputs accessible inside async callbacks
+  // without stale-closure issues. Updated in sync via the effect below.
+  const packOutputsRef  = useRef<PackOutput[]>([]);
+  useEffect(() => { packOutputsRef.current = packOutputs; }, [packOutputs]);
+
   /**
    * In-flight guard — prevents duplicate pack dispatches.
    * Identity-sheet chain blocks server-side for ~5 min; look-pack polls for up to 10 min.
@@ -162,6 +167,19 @@ export default function InfluencerCanvas({
    * wiping completed images from the first chain (Bug 1 root cause).
    */
   const inFlightPacks = useRef<Set<PackType>>(new Set());
+
+  /**
+   * Reverts activePack to "identity-sheet" when a pack fails AND identity-sheet
+   * has already-rendered images. This prevents the user from being stranded on
+   * an error panel — they drop back to their identity sheet automatically.
+   * Uses packOutputsRef (not state) so it's safe inside async callbacks.
+   */
+  const revertToIdentitySheet = useCallback(() => {
+    const idSheet = packOutputsRef.current.find(p => p.type === "identity-sheet");
+    if (idSheet?.status === "complete" && idSheet.images.length > 0) {
+      setActivePack("identity-sheet");
+    }
+  }, []);
 
   // ── Auth token ref — kept current via onAuthStateChange ─────────────────────
   // Used by startPolling so every poll tick reads a live JWT even if the token
@@ -323,6 +341,7 @@ export default function InfluencerCanvas({
             setPackOutputs(prev =>
               prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
             );
+            revertToIdentitySheet();
             return;
           }
 
@@ -333,6 +352,7 @@ export default function InfluencerCanvas({
             setPackOutputs(prev =>
               prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
             );
+            revertToIdentitySheet();
             return;
           }
 
@@ -415,6 +435,7 @@ export default function InfluencerCanvas({
           setPackOutputs(prev =>
             prev.map(p => p.type === "look-pack" ? { ...p, status: "failed" } : p),
           );
+          revertToIdentitySheet();
         } finally {
           // Release guard — look-pack jobs are handed off to startPolling callbacks
           // at this point; the canvas is no longer "in flight" for dispatch purposes.

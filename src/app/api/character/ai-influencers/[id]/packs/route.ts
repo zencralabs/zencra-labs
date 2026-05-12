@@ -201,6 +201,48 @@ export async function GET(
       );
     }
 
+    // ── Fix C: Final fallback — query assets directly by character_id ────────────
+    // Root cause: identity-chain shots complete in the assets table via the universal
+    // polling engine but are NOT linked through influencer_generation_jobs, so Fix B
+    // has nothing to bridge from. This happens when the chain write to
+    // influencer_assets fails silently (network blip, timeout, etc.) but the NB Pro
+    // polling loop in the Activity Center still confirms the image and writes to assets.
+    //
+    // Fix C recovers those assets by querying assets directly on character_id +
+    // model_key. It takes the 5 most recent ready shots (reversed to ascending order)
+    // so the identity sheet shows shots in generation order (shot-1 → shot-5).
+    // Only applies to identity-sheet — other pack types use influencer_generation_jobs.
+    if (asset_type === "identity-sheet") {
+      const { data: directAssets } = await supabaseAdmin
+        .from("assets")
+        .select("url, created_at")
+        .eq("character_id", influencer_id)
+        .eq("model_key", "nano-banana-pro-identity")
+        .eq("studio", "character")
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      type DirectRow = { url: string; created_at: string };
+      const fixCAssets = ((directAssets ?? []) as DirectRow[])
+        .filter(a => !!a.url)
+        .reverse(); // oldest→newest = shot-1→shot-5 for display order
+
+      if (fixCAssets.length > 0) {
+        console.log(
+          `[identity-sheet-hydration] fix-c assets count=${fixCAssets.length}` +
+          ` influencer=${influencer_id} lock=${identity_lock_id}`,
+        );
+        const fixCMapped = fixCAssets.map((a, idx) => ({
+          url:           a.url,
+          thumbnail_url: a.url,
+          shot_index:    idx,
+          label:         `Shot ${idx + 1}`,
+        }));
+        return ok({ assets: fixCMapped });
+      }
+    }
+
     return ok({ assets: [] });
   }
 
