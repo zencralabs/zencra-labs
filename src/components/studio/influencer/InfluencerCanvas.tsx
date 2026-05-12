@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
-import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
+import type { CanvasState, ActiveInfluencer, CandidateSnapshot } from "./AIInfluencerBuilder";
 import type { PackType, StyleCategory } from "@/lib/influencer/types";
 import { formatHandle }    from "@/lib/ai-influencer/format-handle";
 import { downloadAsset }   from "@/lib/client/downloadAsset";
@@ -97,7 +97,7 @@ const PACK_ACTIONS: Array<{
 
 interface Props {
   canvasState:           CanvasState;
-  onCandidatesReady:     (influencer_id: string, candidateUrls: string[], expectedCount: number) => void;
+  onCandidatesReady:     (influencer_id: string, candidateUrls: string[], expectedCount: number, snapshot: CandidateSnapshot) => void;
   onSelected:            (active: ActiveInfluencer) => void;
   onCandidateLocked?:    (active: ActiveInfluencer) => void; // multi-lock: each locked candidate
   onCreateClick:         () => void;   // handleCreateInfluencer — single source of truth
@@ -632,6 +632,7 @@ export default function InfluencerCanvas({
             influencer_id={canvasState.influencer_id}
             candidates={canvasState.candidates}
             failedCount={Math.max(0, canvasState.expected_count - canvasState.candidates.length)}
+            snapshot={canvasState.snapshot}
             accent={currentAccent}
             onSelected={onSelected}
             onCandidateLocked={onCandidateLocked}
@@ -864,7 +865,7 @@ function GeneratingState({
   jobIds: string[];
   accent: string;
   candidateCount: number;
-  onReady?: (influencer_id: string, urls: string[], expectedCount: number) => void;  // retained, not used
+  onReady?: (influencer_id: string, urls: string[], expectedCount: number, snapshot: CandidateSnapshot) => void;  // retained, not used
 }) {
   const [progress, setProgress] = useState(0);
   const [lineIdx,  setLineIdx]  = useState(0);
@@ -1090,6 +1091,7 @@ function CandidatesState({
   influencer_id,
   candidates,
   failedCount,
+  snapshot,
   accent,
   onSelected,
   onCandidateLocked,
@@ -1097,6 +1099,7 @@ function CandidatesState({
   influencer_id:      string;
   candidates:         string[];
   failedCount:        number;
+  snapshot:           CandidateSnapshot;
   accent:             string;
   onSelected:         (active: ActiveInfluencer) => void;
   onCandidateLocked?: (active: ActiveInfluencer) => void;
@@ -1274,7 +1277,8 @@ function CandidatesState({
             url={previewUrl}
             index={previewIndex}
             accent={accent}
-            styleCategory="hyper-real"
+            styleCategory={snapshot.styleCategory}
+            snapshot={snapshot}
             isInCompare={isInCompare}
             maxCompare={maxReached}
             isLocking={!!lockingUrl}

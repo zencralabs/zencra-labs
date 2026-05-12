@@ -43,6 +43,34 @@ const T = {
   amber:    "#f59e0b",
 } as const;
 
+// ── Candidate snapshot — frozen at dispatch time, shown in preview modal ──────
+// Captures every builder selection the user made for a given generation run.
+// Stored on CanvasState.candidates so the preview always shows what created
+// that specific batch, even if the user changes controls afterward.
+
+export interface CandidateSnapshot {
+  styleCategory:     StyleCategory;
+  gender:            string;
+  ageRange:          string;
+  skinTone:          string;
+  faceStruct:        string;
+  fashion:           string;
+  realism:           string;
+  ethnicityRegion:   string;
+  mixedBlendRegions: string[];
+  mood:              string[];
+  platforms:         string[];
+  tags:              string[];
+  // Phase A — Biological Identity
+  species:           string;
+  hairIdentity:      string;
+  eyeColor:          string;
+  eyeType:           string;
+  skinMarks:         string[];
+  earType:           string;
+  hornType:          string;
+}
+
 // ── Active influencer state ───────────────────────────────────────────────────
 
 export interface ActiveInfluencer {
@@ -57,7 +85,7 @@ export interface ActiveInfluencer {
 export type CanvasState =
   | { phase: "empty" }
   | { phase: "generating"; influencer_id: string; jobs: string[]; style_category: StyleCategory }
-  | { phase: "candidates"; influencer_id: string; candidates: string[]; style_category: StyleCategory; expected_count: number }
+  | { phase: "candidates"; influencer_id: string; candidates: string[]; style_category: StyleCategory; expected_count: number; snapshot: CandidateSnapshot }
   | { phase: "selected"; active: ActiveInfluencer };
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -128,12 +156,13 @@ export default function AIInfluencerBuilder() {
 
   // ── Canvas state transitions ──────────────────────────────────────────────
   const handleCandidatesReady = useCallback(
-    (influencer_id: string, candidateUrls: string[], expectedCount: number) => {
+    (influencer_id: string, candidateUrls: string[], expectedCount: number, snapshot: CandidateSnapshot) => {
       setCanvasState(prev => ({
         phase:          "candidates",
         influencer_id,
         candidates:     candidateUrls,
         expected_count: expectedCount,
+        snapshot,
         style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
       }));
     },
@@ -150,6 +179,17 @@ export default function AIInfluencerBuilder() {
     // no visible UI change while the lock resolved.
     setIsCreating(true);
     setCreateError(null);
+
+    // ── Freeze builder state at dispatch time ─────────────────────────────────
+    // All 4 candidates in this run share the same builder config, so snapshot
+    // once here and carry it through to CanvasState.candidates.snapshot.
+    // The preview modal reads this — NOT live builder state — so changing controls
+    // after generation never corrupts what a candidate actually shows.
+    const snapshot: CandidateSnapshot = {
+      styleCategory, gender, ageRange, skinTone, faceStruct, fashion, realism,
+      ethnicityRegion, mixedBlendRegions, mood, platforms, tags,
+      species, hairIdentity, eyeColor, eyeType, skinMarks, earType, hornType,
+    };
 
     try {
       // Use the live token from authTokenRef — kept current by the useEffect
@@ -231,6 +271,7 @@ export default function AIInfluencerBuilder() {
             influencer_id:  influencer.id,
             candidates:     mockCandidates,
             expected_count: mockCandidates.length,
+            snapshot,
             style_category: (influencer.style_category ?? "hyper-real") as StyleCategory,
           });
           return;
@@ -254,7 +295,7 @@ export default function AIInfluencerBuilder() {
             if (url) completedUrls.push(url);
             resolvedCount++;
             if (resolvedCount === jobs.length) {
-              handleCandidatesReady(influencer.id, completedUrls, jobs.length);
+              handleCandidatesReady(influencer.id, completedUrls, jobs.length, snapshot);
             }
           };
 

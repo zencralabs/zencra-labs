@@ -17,6 +17,7 @@
 
 import { useEffect, useRef } from "react";
 import type { StyleCategory } from "@/lib/influencer/types";
+import type { CandidateSnapshot } from "../AIInfluencerBuilder";
 
 // ── Video URL detection ───────────────────────────────────────────────────────
 
@@ -40,6 +41,102 @@ function styleLabel(cat: StyleCategory): string {
   return map[cat] ?? cat;
 }
 
+// ── AppliedTraits ─────────────────────────────────────────────────────────────
+// Renders the frozen snapshot as grouped amber chips.
+// Only non-empty / non-default fields are shown.
+
+const AMBER = "#f59e0b";
+
+interface TraitGroup {
+  label: string;
+  chips: string[];
+}
+
+function buildTraitGroups(s: CandidateSnapshot): TraitGroup[] {
+  const identity: string[] = [];
+  if (s.gender)          identity.push(s.gender);
+  if (s.ageRange)        identity.push(s.ageRange);
+  if (s.skinTone)        identity.push(s.skinTone);
+  if (s.faceStruct)      identity.push(s.faceStruct);
+  if (s.ethnicityRegion) identity.push(s.ethnicityRegion);
+  s.mixedBlendRegions?.forEach(r => identity.push(r));
+
+  const biological: string[] = [];
+  if (s.species && s.species !== "Human")           biological.push(s.species);
+  if (s.hairIdentity && s.hairIdentity !== "None")  biological.push(s.hairIdentity);
+  if (s.eyeColor && s.eyeColor !== "Brown")         biological.push(s.eyeColor);
+  if (s.eyeType && s.eyeType !== "Normal")          biological.push(s.eyeType);
+  s.skinMarks?.forEach(m => { if (m !== "None") biological.push(m); });
+  if (s.earType && s.earType !== "Human")           biological.push(s.earType);
+  if (s.hornType && s.hornType !== "None")          biological.push(s.hornType);
+
+  const rendering: string[] = [];
+  if (s.fashion)                          rendering.push(s.fashion);
+  if (s.realism)                          rendering.push(s.realism);
+  if (s.styleCategory)                    rendering.push(styleLabel(s.styleCategory));
+  s.mood?.forEach(m => rendering.push(m));
+  s.platforms?.forEach(p => rendering.push(p));
+  s.tags?.forEach(t => rendering.push(t));
+
+  const groups: TraitGroup[] = [];
+  if (identity.length)   groups.push({ label: "Identity",   chips: identity });
+  if (biological.length) groups.push({ label: "Biological", chips: biological });
+  if (rendering.length)  groups.push({ label: "Rendering",  chips: rendering });
+  return groups;
+}
+
+function AppliedTraits({ snapshot }: { snapshot: CandidateSnapshot }) {
+  const groups = buildTraitGroups(snapshot);
+  if (groups.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      {/* Section header */}
+      <div style={{
+        fontSize: 11, fontWeight: 600, letterSpacing: "0.14em",
+        color: `${AMBER}99`,
+        textTransform: "uppercase" as const,
+        marginBottom: 12,
+      }}>
+        Identity Recipe
+      </div>
+
+      {/* Groups */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {groups.map(group => (
+          <div key={group.label}>
+            {/* Group label */}
+            <div style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: "0.10em",
+              color: "rgba(255,255,255,0.28)",
+              textTransform: "uppercase" as const,
+              marginBottom: 6,
+            }}>
+              {group.label}
+            </div>
+            {/* Chips */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {group.chips.map((chip, i) => (
+                <span key={`${chip}-${i}`} style={{
+                  padding:    "3px 8px",
+                  background: "rgba(245,158,11,0.07)",
+                  border:     `1px solid ${AMBER}30`,
+                  borderRadius: 0,
+                  fontSize:   12, fontWeight: 500, letterSpacing: "-0.005em",
+                  color:      `${AMBER}cc`,
+                  whiteSpace: "nowrap" as const,
+                }}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface CandidatePreviewModalProps {
@@ -47,6 +144,7 @@ export interface CandidatePreviewModalProps {
   index:         number;          // 1-based
   accent:        string;
   styleCategory: StyleCategory;
+  snapshot?:     CandidateSnapshot;
   isInCompare:   boolean;
   maxCompare:    boolean;         // tray at capacity and this candidate NOT in it
   isLocking:     boolean;
@@ -59,6 +157,7 @@ export interface CandidatePreviewModalProps {
 
 export default function CandidatePreviewModal({
   url, index, accent, styleCategory,
+  snapshot,
   isInCompare, maxCompare, isLocking,
   onClose, onSelect, onCompare,
 }: CandidatePreviewModalProps) {
@@ -328,32 +427,35 @@ export default function CandidatePreviewModal({
               marginBottom: 24,
             }} />
 
-            {/* Traits */}
-            <div style={{ marginBottom: 24 }}>
-              {/* UI Label: 13px / semibold 600 / tracking 0.14em / uppercase */}
-              <div style={{
-                fontSize: 13, fontWeight: 600, letterSpacing: "0.14em",
-                color: "rgba(255,255,255,0.35)",
-                textTransform: "uppercase" as const,
-                marginBottom: 10,
-              }}>
-                Traits
+            {/* Applied Traits — snapshot frozen at generation time */}
+            {snapshot ? (
+              <AppliedTraits snapshot={snapshot} />
+            ) : (
+              /* Fallback: generic chips when no snapshot (edge case) */
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: "0.14em",
+                  color: "rgba(255,255,255,0.30)",
+                  textTransform: "uppercase" as const,
+                  marginBottom: 8,
+                }}>
+                  Traits
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {["AI Generated", "Unique Identity", styleLabel(styleCategory)].map(t => (
+                    <span key={t} style={{
+                      padding: "3px 8px",
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      fontSize: 12, fontWeight: 500,
+                      color: "rgba(255,255,255,0.50)",
+                    }}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {["AI Generated", "Unique Identity", styleLabel(styleCategory)].map(t => (
-                  <span key={t} style={{
-                    padding:    "4px 10px",
-                    background: "rgba(255,255,255,0.05)",
-                    border:     "1px solid rgba(255,255,255,0.09)",
-                    /* Chip: 13px / medium 500 / -0.005em */
-                    fontSize:   13, fontWeight: 500, letterSpacing: "-0.005em",
-                    color:      "rgba(255,255,255,0.60)",
-                  }}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Spacer — push actions to bottom */}
             <div style={{ flex: 1 }} />
