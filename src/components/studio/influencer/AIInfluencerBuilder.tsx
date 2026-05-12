@@ -69,6 +69,13 @@ export interface CandidateSnapshot {
   skinMarks:         string[];
   earType:           string;
   hornType:          string;
+  // Phase B — Body Architecture (transient casting params, not persisted to DB)
+  bodyType:          string;
+  leftArm:           string;
+  rightArm:          string;
+  leftLeg:           string;
+  rightLeg:          string;
+  skinArt:           string[];
 }
 
 // ── Active influencer state ───────────────────────────────────────────────────
@@ -124,6 +131,14 @@ export default function AIInfluencerBuilder() {
   const [skinMarks,     setSkinMarks]     = useState<string[]>([]);
   const [earType,       setEarType]       = useState<string>("");
   const [hornType,      setHornType]      = useState<string>("");
+
+  // ── Phase B — Body Architecture (transient casting params) ────────────────
+  const [bodyType,    setBodyType]    = useState<string>("");
+  const [leftArm,     setLeftArm]     = useState<string>("");
+  const [rightArm,    setRightArm]    = useState<string>("");
+  const [leftLeg,     setLeftLeg]     = useState<string>("");
+  const [rightLeg,    setRightLeg]    = useState<string>("");
+  const [skinArt,     setSkinArt]     = useState<string[]>([]);
 
   // ── Auth token ref — kept current from the session provided by AuthContext ─
   // Used by startPolling so every poll tick reads a live JWT even if the
@@ -189,6 +204,7 @@ export default function AIInfluencerBuilder() {
       styleCategory, gender, ageRange, skinTone, faceStruct, fashion, realism,
       ethnicityRegion, mixedBlendRegions, mood, platforms, tags,
       species, hairIdentity, eyeColor, eyeType, skinMarks, earType, hornType,
+      bodyType, leftArm, rightArm, leftLeg, rightLeg, skinArt,
     };
 
     try {
@@ -256,6 +272,13 @@ export default function AIInfluencerBuilder() {
             // Only sent when user has chosen Mixed/Blended with ≥2 regions.
             // Route ignores undefined — falls back to single-region or Auto.
             mixed_blend_regions: mixedBlendRegions.length >= 2 ? mixedBlendRegions : undefined,
+            // Body Architecture — transient casting params
+            body_type:  bodyType  || undefined,
+            left_arm:   leftArm   || undefined,
+            right_arm:  rightArm  || undefined,
+            left_leg:   leftLeg   || undefined,
+            right_leg:  rightLeg  || undefined,
+            skin_art:   skinArt.length > 0 ? skinArt : undefined,
           }),
       });
 
@@ -349,6 +372,7 @@ export default function AIInfluencerBuilder() {
     fashion, realism, mood, platforms, notes, ethnicityRegion, mixedBlendRegions,
     candidateCount, tags,
     species, hairIdentity, eyeColor, eyeType, skinMarks, earType, hornType,
+    bodyType, leftArm, rightArm, leftLeg, rightLeg, skinArt,
     handleCreated, handleCandidatesReady,
   ]);
 
@@ -393,6 +417,13 @@ export default function AIInfluencerBuilder() {
     setEyeType("");
     setEarType("");
     setHornType("");
+    // Phase B — Body Architecture
+    setBodyType("");
+    setLeftArm("");
+    setRightArm("");
+    setLeftLeg("");
+    setRightLeg("");
+    setSkinArt([]);
   }, []);
 
   const handleSelectFromLibrary = useCallback((influencer: AIInfluencer) => {
@@ -474,27 +505,27 @@ export default function AIInfluencerBuilder() {
         <InfluencerControls
           canvasState={canvasState}
           activeInfluencer={activeInfluencer}
-          styleCategory={styleCategory}          setStyleCategory={setStyleCategory}
-          gender={gender}                        setGender={setGender}
-          ageRange={ageRange}                    setAgeRange={setAgeRange}
-          skinTone={skinTone}                    setSkinTone={setSkinTone}
-          faceStruct={faceStruct}                setFaceStruct={setFaceStruct}
-          fashion={fashion}                      setFashion={setFashion}
-          realism={realism}                      setRealism={setRealism}
-          mood={mood}                            setMood={setMood}
-          platforms={platforms}                  setPlatforms={setPlatforms}
-          notes={notes}                          setNotes={setNotes}
-          ethnicityRegion={ethnicityRegion}           setEthnicityRegion={setEthnicityRegion}
-          mixedBlendRegions={mixedBlendRegions}      setMixedBlendRegions={setMixedBlendRegions}
-          candidateCount={candidateCount}            setCandidateCount={setCandidateCount}
-          tags={tags}                                setTags={setTags}
-          species={species}                          setSpecies={setSpecies}
-          hairIdentity={hairIdentity}                setHairIdentity={setHairIdentity}
-          eyeColor={eyeColor}                        setEyeColor={setEyeColor}
-          eyeType={eyeType}                          setEyeType={setEyeType}
-          skinMarks={skinMarks}                      setSkinMarks={setSkinMarks}
-          earType={earType}                          setEarType={setEarType}
-          hornType={hornType}                        setHornType={setHornType}
+          styleCategory={styleCategory}         setStyleCategory={setStyleCategory}
+          gender={gender}                       setGender={setGender}
+          ageRange={ageRange}                   setAgeRange={setAgeRange}
+          skinTone={skinTone}                   setSkinTone={setSkinTone}
+          faceStruct={faceStruct}               setFaceStruct={setFaceStruct}
+          ethnicityRegion={ethnicityRegion}     setEthnicityRegion={setEthnicityRegion}
+          mixedBlendRegions={mixedBlendRegions} setMixedBlendRegions={setMixedBlendRegions}
+          candidateCount={candidateCount}       setCandidateCount={setCandidateCount}
+          species={species}                     setSpecies={setSpecies}
+          hairIdentity={hairIdentity}           setHairIdentity={setHairIdentity}
+          eyeColor={eyeColor}                   setEyeColor={setEyeColor}
+          eyeType={eyeType}                     setEyeType={setEyeType}
+          skinMarks={skinMarks}                 setSkinMarks={setSkinMarks}
+          earType={earType}                     setEarType={setEarType}
+          hornType={hornType}                   setHornType={setHornType}
+          bodyType={bodyType}                   setBodyType={setBodyType}
+          leftArm={leftArm}                     setLeftArm={setLeftArm}
+          rightArm={rightArm}                   setRightArm={setRightArm}
+          leftLeg={leftLeg}                     setLeftLeg={setLeftLeg}
+          rightLeg={rightLeg}                   setRightLeg={setRightLeg}
+          skinArt={skinArt}                     setSkinArt={setSkinArt}
         />
       </div>
 

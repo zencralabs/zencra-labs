@@ -84,6 +84,16 @@ export async function POST(req: Request): Promise<Response> {
     ? (body.mixed_blend_regions as unknown[]).filter((r): r is string => typeof r === "string")
     : [];
 
+  // Body Architecture — transient casting params (not persisted to DB).
+  const bodyType  = typeof body?.body_type  === "string" ? body.body_type  : undefined;
+  const leftArm   = typeof body?.left_arm   === "string" ? body.left_arm   : undefined;
+  const rightArm  = typeof body?.right_arm  === "string" ? body.right_arm  : undefined;
+  const leftLeg   = typeof body?.left_leg   === "string" ? body.left_leg   : undefined;
+  const rightLeg  = typeof body?.right_leg  === "string" ? body.right_leg  : undefined;
+  const skinArt: string[] = Array.isArray(body?.skin_art)
+    ? (body.skin_art as unknown[]).filter((s): s is string => typeof s === "string")
+    : [];
+
   // ── Verify influencer ownership ─────────────────────────────────────────────
   const { data: influencer, error: infErr } = await supabaseAdmin
     .from("ai_influencers")
@@ -141,12 +151,18 @@ export async function POST(req: Request): Promise<Response> {
       // image_url is NOT sent for initial casting (Option A: pre-lock = diversity mode).
       // reference_image_url is only used post-lock in pack generation.
       const composed = composeInfluencerPrompt({
-        profile:          safeProfile,
+        profile:           safeProfile,
         styleCategory,
         rosterTags,
-        candidateIndex:   i,
+        candidateIndex:    i,
         candidateCount,
         mixedBlendRegions: mixedBlendRegions.length >= 2 ? mixedBlendRegions : undefined,
+        bodyType,
+        leftArm,
+        rightArm,
+        leftLeg,
+        rightLeg,
+        skinArt:           skinArt.length > 0 ? skinArt : undefined,
       });
 
       // Append [c:N/M] idempotency suffix so the dedup layer (keyed on

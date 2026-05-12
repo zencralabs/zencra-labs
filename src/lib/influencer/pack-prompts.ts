@@ -421,6 +421,15 @@ export interface ComposeInfluencerPromptInput {
   // When present and length >= 2, overrides the simple "mixed-ethnicity" descriptor
   // with an authentic blended-heritage instruction.
   mixedBlendRegions?: string[];
+  // Body Architecture — transient casting params, not persisted to DB.
+  // Injected as subtle anatomical cues AFTER Phase A, BEFORE color attributes.
+  // Must remain secondary to face structure, ethnicity, and biological identity.
+  bodyType?:  string;   // e.g. "athletic" | "slim" | "muscular" | "curvy" etc.
+  leftArm?:   string;   // e.g. "normal" | "robotic" | "prosthetic" | "no-arm"
+  rightArm?:  string;
+  leftLeg?:   string;   // e.g. "normal" | "robotic" | "prosthetic" | "no-leg"
+  rightLeg?:  string;
+  skinArt?:   string[]; // e.g. ["tattoos", "piercing", "cyber-robotic-art"]
 }
 
 export interface ComposedInfluencerPrompt {
@@ -705,6 +714,13 @@ const ETHNICITY_PROMPT_MAP: Record<string, string> = {
   "brazilian":           "Brazilian heritage, warm sun-kissed complexion, rich dark hair",
   "middle-eastern":      "Middle Eastern heritage, warm olive complexion, deep dark eyes",
   "mixed-ethnicity":     "mixed heritage, uniquely blended features, warm neutral complexion",
+  // New visual card system regions
+  "american":            "American heritage, natural mixed Western complexion, varied features",
+  "indian":              "Indian heritage, warm golden-brown complexion, dark expressive eyes",
+  "african-general":     "African heritage, rich deep melanin complexion, dark expressive eyes",
+  "asian":               "Asian heritage, smooth warm complexion, almond-shaped eyes",
+  "south-indian":        "South Indian heritage, rich warm dark complexion, dark expressive eyes",
+  "north-indian":        "North Indian heritage, warm golden complexion, striking defined eyes",
 };
 
 // Region label map used to build human-readable blend strings
@@ -772,6 +788,14 @@ const GENDER_DESCRIPTOR: Record<string, string> = {
   "Female":
     "female, feminine facial structure, soft rounded jawline, feminine brow arch, " +
     "feminine facial proportions, delicate bone structure",
+  "Trans Man":
+    "trans man, masculine facial structure, defined jaw, masculine bone structure, " +
+    "authentic male presence, strong natural features",
+  "Trans Female":
+    "trans woman, feminine facial structure, soft jawline, feminine brow arch, " +
+    "delicate feminine bone structure, authentic female presence",
+  "Non-Binary":
+    "non-binary, androgynous facial features, gender-neutral face structure, balanced facial proportions",
   "Non-binary":
     "androgynous facial features, gender-neutral face structure, balanced facial proportions",
   "Androgynous":
@@ -843,6 +867,86 @@ const HORN_TYPE_PROMPT_MAP: Record<string, string | null> = {
   "large-horns": "large prominent paired horns, dramatic curved horns growing from forehead",
 };
 
+// ── Body Architecture descriptor maps ────────────────────────────────────────
+// Subtle anatomical language only. These must remain secondary to face structure,
+// ethnicity, age, and Phase A biological identity — or the model will default to
+// generic cyberpunk archetypes instead of specific cinematic humans.
+
+const BODY_TYPE_MAP: Record<string, string> = {
+  "Athletic":  "athletic build, lean defined physique",
+  "Slim":      "slim slender frame, naturally lean silhouette",
+  "Lean":      "lean compact build, wiry physique",
+  "Muscular":  "muscular powerful build, broad strong frame",
+  "Curvy":     "curvy natural proportions, soft rounded silhouette",
+  "Healthy":   "healthy average build, natural proportionate frame",
+  "Skinny":    "very slim slender figure, thin delicate frame",
+};
+
+const ARM_TYPE_MAP: Record<string, string | null> = {
+  "Normal":      null,
+  "Robotic":     "robotic mechanical arm, synthetic limb with articulated joints",
+  "Mechanical":  "mechanical prosthetic arm, industrial metal plating",
+  "Prosthetic":  "prosthetic arm, adaptive limb, functional artificial arm",
+  "No Arm":      "one arm, single-armed, asymmetric silhouette",
+};
+
+const LEG_TYPE_MAP: Record<string, string | null> = {
+  "Normal":      null,
+  "Robotic":     "robotic mechanical leg, synthetic lower limb with articulated joints",
+  "Mechanical":  "mechanical prosthetic leg, industrial metal lower limb",
+  "Prosthetic":  "prosthetic leg, adaptive lower limb, functional artificial leg",
+  "No Leg":      "uses wheelchair, seated portrait, wheel-supported presence",
+};
+
+const SKIN_ART_MAP: Record<string, string> = {
+  "Tattoos":          "visible tattoo artwork on skin, inked body art, intentional tattoo markings",
+  "Piercing":         "facial or body piercings, metal piercing jewelry",
+  "Symbol Art":       "symbolic body art markings, spiritual or cultural body symbols",
+  "Cyber Robotic Art":"cybernetic skin engravings, circuit-pattern skin art, bioluminescent skin markings",
+};
+
+// ── Body Architecture block builder ──────────────────────────────────────────
+// Returns a single comma-joined string of active body arch descriptors,
+// or null if nothing non-default is set (zero injection for pure-face profiles).
+// Injection point: AFTER Phase A traits, BEFORE skin_tone / face_structure.
+function resolveBodyArchitectureBlock(
+  bodyType?: string,
+  leftArm?:  string,
+  rightArm?: string,
+  leftLeg?:  string,
+  rightLeg?: string,
+  skinArt?:  string[],
+): string | null {
+  const segments: string[] = [];
+
+  // Body type — anatomical build cue (lowest specificity — model fills detail)
+  if (bodyType && BODY_TYPE_MAP[bodyType]) {
+    segments.push(BODY_TYPE_MAP[bodyType]);
+  }
+
+  // Arms — only inject when non-default; avoid "left arm: Normal, right arm: Normal" noise
+  const leftArmDesc  = leftArm  ? ARM_TYPE_MAP[leftArm]  : null;
+  const rightArmDesc = rightArm ? ARM_TYPE_MAP[rightArm] : null;
+  if (leftArmDesc)  segments.push(`left ${leftArmDesc}`);
+  if (rightArmDesc) segments.push(`right ${rightArmDesc}`);
+
+  // Legs — same logic
+  const leftLegDesc  = leftLeg  ? LEG_TYPE_MAP[leftLeg]  : null;
+  const rightLegDesc = rightLeg ? LEG_TYPE_MAP[rightLeg] : null;
+  if (leftLegDesc)  segments.push(`left ${leftLegDesc}`);
+  if (rightLegDesc) segments.push(`right ${rightLegDesc}`);
+
+  // Skin art — multi-select, all active marks injected
+  if (skinArt && skinArt.length > 0) {
+    for (const art of skinArt) {
+      const desc = SKIN_ART_MAP[art];
+      if (desc) segments.push(desc);
+    }
+  }
+
+  return segments.length > 0 ? segments.join(", ") : null;
+}
+
 // ── Phase A trait block builder ───────────────────────────────────────────────
 // Returns a single comma-joined string of all active Phase A descriptors,
 // or null if no traits are set (allows zero-injection for default human profiles).
@@ -905,6 +1009,12 @@ export function composeInfluencerPrompt({
   candidateIndex,
   candidateCount: _candidateCount,
   mixedBlendRegions,
+  bodyType,
+  leftArm,
+  rightArm,
+  leftLeg,
+  rightLeg,
+  skinArt,
 }: ComposeInfluencerPromptInput): ComposedInfluencerPrompt {
   const style     = STYLE_CATALOGUE[styleCategory];
   const archetypes = CANDIDATE_ARCHETYPES[styleCategory];
@@ -993,6 +1103,14 @@ export function composeInfluencerPrompt({
   //     Existing profiles (no Phase A fields set) generate identically to before.
   const phaseABlock = resolvePhaseATraits(profile);
   if (phaseABlock) parts.push(phaseABlock);
+
+  // 5d. Body Architecture — transient casting params (not persisted to DB).
+  //     Injected AFTER Phase A (biological identity) and BEFORE skin_tone /
+  //     face_structure. Must remain anatomically subtle — build cues only.
+  //     If body arch is injected too strongly or too early, the model defaults
+  //     to generic cyberpunk archetypes instead of specific cinematic humans.
+  const bodyArchBlock = resolveBodyArchitectureBlock(bodyType, leftArm, rightArm, leftLeg, rightLeg, skinArt);
+  if (bodyArchBlock) parts.push(bodyArchBlock);
 
   // Skin tone + face structure — most meaningful for realism-adjacent styles,
   // harmless for stylized ones (anime/pixel artists can still apply these)

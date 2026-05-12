@@ -47,16 +47,6 @@ interface Props {
   setSkinTone:      (v: string) => void;
   faceStruct:       string;
   setFaceStruct:    (v: string) => void;
-  fashion:          string;
-  setFashion:       (v: string) => void;
-  realism:          string;
-  setRealism:       (v: string) => void;
-  mood:             string[];
-  setMood:          (v: string[]) => void;
-  platforms:        string[];
-  setPlatforms:     (v: string[]) => void;
-  notes:            string;
-  setNotes:         (v: string) => void;
   // Ethnicity/Region — drives region-aware naming + facial genetics in prompts
   ethnicityRegion:      string;
   setEthnicityRegion:   (v: string) => void;
@@ -65,24 +55,34 @@ interface Props {
   // Identity Options — candidate count (1–4, default 4)
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
-  // Library tags — used for AI Talent Roster filtering
-  tags:    string[];
-  setTags: (v: string[]) => void;
-  // Phase A — Advanced Identity Traits
-  species:       string;
-  setSpecies:    (v: string) => void;
-  hairIdentity:  string;
+  // Phase A — Biological Identity Traits
+  species:         string;
+  setSpecies:      (v: string) => void;
+  hairIdentity:    string;
   setHairIdentity: (v: string) => void;
-  eyeColor:      string;
-  setEyeColor:   (v: string) => void;
-  eyeType:       string;
-  setEyeType:    (v: string) => void;
-  skinMarks:     string[];
-  setSkinMarks:  (v: string[]) => void;
-  earType:       string;
-  setEarType:    (v: string) => void;
-  hornType:      string;
-  setHornType:   (v: string) => void;
+  eyeColor:        string;
+  setEyeColor:     (v: string) => void;
+  eyeType:         string;
+  setEyeType:      (v: string) => void;
+  skinMarks:       string[];
+  setSkinMarks:    (v: string[]) => void;
+  earType:         string;
+  setEarType:      (v: string) => void;
+  hornType:        string;
+  setHornType:     (v: string) => void;
+  // Phase B — Body Architecture (transient casting params)
+  bodyType:     string;
+  setBodyType:  (v: string) => void;
+  leftArm:      string;
+  setLeftArm:   (v: string) => void;
+  rightArm:     string;
+  setRightArm:  (v: string) => void;
+  leftLeg:      string;
+  setLeftLeg:   (v: string) => void;
+  rightLeg:     string;
+  setRightLeg:  (v: string) => void;
+  skinArt:      string[];
+  setSkinArt:   (v: string[]) => void;
 }
 
 export default function InfluencerControls({
@@ -92,15 +92,9 @@ export default function InfluencerControls({
   ageRange, setAgeRange,
   skinTone, setSkinTone,
   faceStruct, setFaceStruct,
-  fashion, setFashion,
-  realism, setRealism,
-  mood, setMood,
-  platforms, setPlatforms,
-  notes, setNotes,
   ethnicityRegion, setEthnicityRegion,
   mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
-  tags, setTags,
   species, setSpecies,
   hairIdentity, setHairIdentity,
   eyeColor, setEyeColor,
@@ -108,6 +102,12 @@ export default function InfluencerControls({
   skinMarks, setSkinMarks,
   earType, setEarType,
   hornType, setHornType,
+  bodyType, setBodyType,
+  leftArm, setLeftArm,
+  rightArm, setRightArm,
+  leftLeg, setLeftLeg,
+  rightLeg, setRightLeg,
+  skinArt, setSkinArt,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ControlTab>("builder");
 
@@ -159,15 +159,9 @@ export default function InfluencerControls({
             ageRange={ageRange}                    setAgeRange={setAgeRange}
             skinTone={skinTone}                    setSkinTone={setSkinTone}
             faceStruct={faceStruct}                setFaceStruct={setFaceStruct}
-            fashion={fashion}                      setFashion={setFashion}
-            realism={realism}                      setRealism={setRealism}
-            mood={mood}                            setMood={setMood}
-            platforms={platforms}                  setPlatforms={setPlatforms}
-            notes={notes}                          setNotes={setNotes}
             ethnicityRegion={ethnicityRegion}      setEthnicityRegion={setEthnicityRegion}
             mixedBlendRegions={mixedBlendRegions}  setMixedBlendRegions={setMixedBlendRegions}
             candidateCount={candidateCount}        setCandidateCount={setCandidateCount}
-            tags={tags}                            setTags={setTags}
             species={species}                      setSpecies={setSpecies}
             hairIdentity={hairIdentity}            setHairIdentity={setHairIdentity}
             eyeColor={eyeColor}                    setEyeColor={setEyeColor}
@@ -175,6 +169,12 @@ export default function InfluencerControls({
             skinMarks={skinMarks}                  setSkinMarks={setSkinMarks}
             earType={earType}                      setEarType={setEarType}
             hornType={hornType}                    setHornType={setHornType}
+            bodyType={bodyType}                    setBodyType={setBodyType}
+            leftArm={leftArm}                      setLeftArm={setLeftArm}
+            rightArm={rightArm}                    setRightArm={setRightArm}
+            leftLeg={leftLeg}                      setLeftLeg={setLeftLeg}
+            rightLeg={rightLeg}                    setRightLeg={setRightLeg}
+            skinArt={skinArt}                      setSkinArt={setSkinArt}
           />
         )}
         {activeTab === "packs"  && <PacksInfoTab active={activeInfluencer} />}
@@ -293,16 +293,6 @@ interface BuilderTabProps {
   setSkinTone:      (v: string) => void;
   faceStruct:       string;
   setFaceStruct:    (v: string) => void;
-  fashion:          string;
-  setFashion:       (v: string) => void;
-  realism:          string;
-  setRealism:       (v: string) => void;
-  mood:             string[];
-  setMood:          (v: string[]) => void;
-  platforms:        string[];
-  setPlatforms:     (v: string[]) => void;
-  notes:            string;
-  setNotes:         (v: string) => void;
   // Ethnicity/Region
   ethnicityRegion:      string;
   setEthnicityRegion:   (v: string) => void;
@@ -311,9 +301,6 @@ interface BuilderTabProps {
   // Identity Options — candidate count
   candidateCount:    number;
   setCandidateCount: (v: number) => void;
-  // Library tags
-  tags:    string[];
-  setTags: (v: string[]) => void;
   // Phase A — Biological Identity (core layer, inline in Builder)
   species:         string;
   setSpecies:      (v: string) => void;
@@ -329,7 +316,82 @@ interface BuilderTabProps {
   setEarType:      (v: string) => void;
   hornType:        string;
   setHornType:     (v: string) => void;
+  // Phase B — Body Architecture (transient casting params)
+  bodyType:     string;
+  setBodyType:  (v: string) => void;
+  leftArm:      string;
+  setLeftArm:   (v: string) => void;
+  rightArm:     string;
+  setRightArm:  (v: string) => void;
+  leftLeg:      string;
+  setLeftLeg:   (v: string) => void;
+  rightLeg:     string;
+  setRightLeg:  (v: string) => void;
+  skinArt:      string[];
+  setSkinArt:   (v: string[]) => void;
 }
+
+// ── Gender visual options ──────────────────────────────────────────────────────
+
+const GENDER_OPTIONS = [
+  { value: "Female",      label: "Female",      icon: "♀" },
+  { value: "Male",        label: "Male",        icon: "♂" },
+  { value: "Non-binary",  label: "Non-binary",  icon: "⊕" },
+  { value: "Androgynous", label: "Androgynous", icon: "⚥" },
+] as const;
+
+// ── Body Architecture option sets ──────────────────────────────────────────────
+
+const BODY_TYPE_OPTIONS = ["Athletic", "Slim", "Lean", "Muscular", "Curvy", "Healthy", "Skinny"] as const;
+const ARM_TYPE_OPTIONS  = ["Normal", "Robotic", "Mechanical", "Prosthetic", "No Arm"] as const;
+const LEG_TYPE_OPTIONS  = ["Normal", "Robotic", "Mechanical", "Prosthetic", "No Leg"] as const;
+const SKIN_ART_OPTIONS  = ["Tattoos", "Piercing", "Symbol Art", "Cyber Robotic Art"] as const;
+
+const SKIN_TONE_LABELS: Record<string, string> = {
+  "Fair":        "Fair",
+  "Light warm":  "Light",
+  "Medium warm": "Medium",
+  "Tan olive":   "Tan",
+  "Deep brown":  "Deep",
+  "Rich dark":   "Dark",
+};
+const FACE_STRUCT_LABELS: Record<string, string> = {
+  "Oval":       "Oval",
+  "Heart":      "Heart",
+  "Square jaw": "Square",
+  "Angular":    "Angular",
+  "Round":      "Round",
+  "Diamond":    "Diamond",
+};
+const BODY_TYPE_LABELS: Record<string, string> = {
+  "Athletic":  "Athletic",
+  "Slim":      "Slim",
+  "Lean":      "Lean",
+  "Muscular":  "Muscular",
+  "Curvy":     "Curvy",
+  "Healthy":   "Healthy",
+  "Skinny":    "Skinny",
+};
+const ARM_TYPE_LABELS: Record<string, string> = {
+  "Normal":     "Normal",
+  "Robotic":    "Robotic",
+  "Mechanical": "Mech",
+  "Prosthetic": "Prosthetic",
+  "No Arm":     "No Arm",
+};
+const LEG_TYPE_LABELS: Record<string, string> = {
+  "Normal":     "Normal",
+  "Robotic":    "Robotic",
+  "Mechanical": "Mech",
+  "Prosthetic": "Prosthetic",
+  "No Leg":     "No Leg",
+};
+const SKIN_ART_LABELS: Record<string, string> = {
+  "Tattoos":           "Tattoos",
+  "Piercing":          "Piercing",
+  "Symbol Art":        "Symbol Art",
+  "Cyber Robotic Art": "Cyber Robotic",
+};
 
 export function BuilderTab({
   canvasState, activeInfluencer,
@@ -338,15 +400,9 @@ export function BuilderTab({
   ageRange, setAgeRange,
   skinTone, setSkinTone,
   faceStruct, setFaceStruct,
-  fashion, setFashion,
-  realism, setRealism,
-  mood, setMood,
-  platforms, setPlatforms,
-  notes, setNotes,
   ethnicityRegion, setEthnicityRegion,
   mixedBlendRegions, setMixedBlendRegions,
   candidateCount, setCandidateCount,
-  tags, setTags,
   species, setSpecies,
   hairIdentity, setHairIdentity,
   eyeColor, setEyeColor,
@@ -354,6 +410,12 @@ export function BuilderTab({
   skinMarks, setSkinMarks,
   earType, setEarType,
   hornType, setHornType,
+  bodyType, setBodyType,
+  leftArm, setLeftArm,
+  rightArm, setRightArm,
+  leftLeg, setLeftLeg,
+  rightLeg, setRightLeg,
+  skinArt, setSkinArt,
 }: BuilderTabProps) {
 
   // Accent for the currently selected style
@@ -418,22 +480,6 @@ export function BuilderTab({
 
   // ── Creation form — inputs only, no CTA here ───────────────────────────────
 
-  function toggleMood(v: string) {
-    setMood(mood.includes(v) ? mood.filter(x => x !== v) : [...mood, v]);
-  }
-  function togglePlatform(v: string) {
-    setPlatforms(platforms.includes(v) ? platforms.filter(x => x !== v) : [...platforms, v]);
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", boxSizing: "border-box",
-    background: "#070a10", border: `1px solid rgba(255,255,255,0.08)`,
-    padding: "9px 12px",
-    color: T.text, fontSize: 13, outline: "none",
-    fontFamily: "'Familjen Grotesk', sans-serif",
-    transition: "border-color 0.18s",
-  };
-
   return (
     <div style={{ padding: "20px 18px", display: "flex", flexDirection: "column", gap: 22 }}>
 
@@ -453,34 +499,64 @@ export function BuilderTab({
 
       <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
 
-      {/* Identity */}
+      {/* ── 1. GENDER ──────────────────────────────────────────────── */}
       <section>
-        <SectionLabel label="Identity" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <SelectField
-            label="Gender" value={gender} onChange={setGender}
-            options={["", "Female", "Male", "Non-binary", "Androgynous"]}
-            style={inputStyle}
-          />
-          <SelectField
-            label="Age Range" value={ageRange} onChange={setAgeRange}
-            options={["", "18–24", "25–32", "33–40", "40+"]}
-            style={inputStyle}
-          />
-          <SelectField
-            label="Skin Tone" value={skinTone} onChange={setSkinTone}
-            options={["", "Fair", "Light warm", "Medium warm", "Tan olive", "Deep brown", "Rich dark"]}
-            style={inputStyle}
-          />
-          <SelectField
-            label="Face Structure" value={faceStruct} onChange={setFaceStruct}
-            options={["", "Oval", "Heart", "Square jaw", "Angular", "Round", "Diamond"]}
-            style={inputStyle}
+        <SectionLabel label="Gender" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          {GENDER_OPTIONS.map(g => {
+            const sel = gender === g.value;
+            return (
+              <button
+                key={g.value}
+                onClick={() => setGender(sel ? "" : g.value)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "10px 12px", borderRadius: 9,
+                  border: sel ? `1px solid ${selectedCat.accent}55` : `1px solid ${T.border}`,
+                  background: sel ? `${selectedCat.accent}10` : "rgba(255,255,255,0.02)",
+                  cursor: "pointer", transition: "all 0.14s",
+                  boxShadow: sel ? `0 0 10px ${selectedCat.accent}12` : "none",
+                }}
+              >
+                <span style={{ fontSize: 15, color: sel ? selectedCat.accent : "rgba(255,255,255,0.35)" }}>
+                  {g.icon}
+                </span>
+                <span style={{
+                  fontFamily: "'Familjen Grotesk', sans-serif",
+                  fontSize: 12, fontWeight: sel ? 700 : 500,
+                  color: sel ? selectedCat.accent : "rgba(255,255,255,0.50)",
+                  transition: "color 0.14s",
+                }}>
+                  {g.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Age Range chips */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{
+            fontFamily: "'Familjen Grotesk', sans-serif",
+            fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.38)",
+            letterSpacing: "0.08em", textTransform: "uppercase" as const,
+            marginBottom: 7,
+          }}>
+            Age Range
+          </div>
+          <AdvSingleChips
+            options={["18–24", "25–32", "33–40", "40+"]}
+            labels={{ "18–24": "18–24", "25–32": "25–32", "33–40": "33–40", "40+": "40+" }}
+            value={ageRange}
+            onChange={setAgeRange}
+            accent={selectedCat.accent}
           />
         </div>
       </section>
 
-      {/* ── Ethnicity / Region ───────────────────────────────────── */}
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
+
+      {/* ── 2. ETHNICITY / REGION ──────────────────────────────────── */}
       <section>
         <SectionLabel label="Ethnicity / Region" />
 
@@ -626,7 +702,7 @@ export function BuilderTab({
         )}
       </section>
 
-      {/* ── Biological Identity ─────────────────────────────────────────── */}
+      {/* ── 3. BIOLOGICAL IDENTITY ─────────────────────────────────────── */}
       <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
       <section>
         <SectionLabel label="Biological Identity" />
@@ -635,8 +711,30 @@ export function BuilderTab({
           fontSize: 12, color: "rgba(255,255,255,0.3)",
           marginBottom: 14, lineHeight: 1.55,
         }}>
-          Genetic-layer traits — injected before fashion and mood.
+          Genetic-layer traits — injected before body architecture.
         </div>
+
+        {/* Skin Tone */}
+        <AdvSection label="Skin Tone">
+          <AdvSingleChips
+            options={["Fair", "Light warm", "Medium warm", "Tan olive", "Deep brown", "Rich dark"]}
+            labels={SKIN_TONE_LABELS}
+            value={skinTone}
+            onChange={setSkinTone}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Face Structure */}
+        <AdvSection label="Face Structure">
+          <AdvSingleChips
+            options={["Oval", "Heart", "Square jaw", "Angular", "Round", "Diamond"]}
+            labels={FACE_STRUCT_LABELS}
+            value={faceStruct}
+            onChange={setFaceStruct}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
 
         {/* Species · Origin */}
         <AdvSection label="Species · Origin">
@@ -725,92 +823,96 @@ export function BuilderTab({
         </AdvSection>
       </section>
 
+      {/* ── 4. BODY ARCHITECTURE ───────────────────────────────────────── */}
       <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
-
-      {/* Rendering — only for hyper-real */}
-      {styleCategory === "hyper-real" && (
-        <section>
-          <SectionLabel label="Rendering" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <SelectField
-              label="Fashion Style" value={fashion} onChange={setFashion}
-              options={["", "Cinematic", "Editorial", "Streetwear", "Fashion", "Minimal", "Casual", "Formal"]}
-              style={inputStyle}
-            />
-            <SelectField
-              label="Realism Level" value={realism} onChange={setRealism}
-              options={["photorealistic", "cinematic", "stylized", "hyper-realistic"]}
-              style={inputStyle}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Fashion style for non-hyper-real */}
-      {styleCategory !== "hyper-real" && (
-        <section>
-          <SectionLabel label="Fashion Style" />
-          <SelectField
-            label="Fashion Style" value={fashion} onChange={setFashion}
-            options={["", "Cinematic", "Editorial", "Streetwear", "Fashion", "Minimal", "Casual", "Formal"]}
-            style={inputStyle}
-          />
-        </section>
-      )}
-
-      {/* Mood */}
       <section>
-        <SectionLabel label="Mood" />
-        <ChipGroup
-          options={["Confident", "Bold", "Cinematic", "Warm", "Edgy", "Minimal"]}
-          selected={mood}
-          onToggle={toggleMood}
-          accent={selectedCat.accent}
-        />
-      </section>
-
-      {/* Platform */}
-      <section>
-        <SectionLabel label="Platform Intent" />
-        <ChipGroup
-          options={["Instagram", "TikTok", "YouTube", "Brand"]}
-          selected={platforms}
-          onToggle={togglePlatform}
-          accent={selectedCat.accent}
-        />
-      </section>
-
-      {/* Notes */}
-      <section>
-        <SectionLabel label="Appearance Notes" />
-        <textarea
-          rows={2}
-          placeholder="Specific features, vibe, references…"
-          value={notes} onChange={e => setNotes(e.target.value)}
-          style={{ ...inputStyle, resize: "vertical", lineHeight: 1.55 }}
-          onFocus={e => (e.currentTarget.style.borderColor = selectedCat.accent + "55")}
-          onBlur={e => (e.currentTarget.style.borderColor = T.border)}
-        />
-      </section>
-
-      {/* Roster Tags — library filter labels */}
-      <section>
-        <SectionLabel label="Roster Tags" />
-        <ChipGroup
-          options={[
-            "Fashion", "Luxury", "Fitness", "Cyberpunk", "Anime",
-            "Music Video", "Lifestyle", "Gaming", "Sports", "Beauty",
-          ]}
-          selected={tags}
-          onToggle={v => setTags(tags.includes(v) ? tags.filter(t => t !== v) : [...tags, v])}
-          accent={selectedCat.accent}
-        />
-        <div style={{ fontSize: 11, color: T.muted, marginTop: 6 }}>
-          Tags appear as filter chips in your AI Talent Roster.
+        <SectionLabel label="Body Architecture" />
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 12, color: "rgba(255,255,255,0.3)",
+          marginBottom: 14, lineHeight: 1.55,
+        }}>
+          Build cues — subtle secondary layer, never overrides facial identity.
         </div>
+
+        {/* Body Type */}
+        <AdvSection label="Body Type">
+          <AdvSingleChips
+            options={[...BODY_TYPE_OPTIONS]}
+            labels={BODY_TYPE_LABELS}
+            value={bodyType}
+            onChange={setBodyType}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Left Arm */}
+        <AdvSection label="Left Arm">
+          <AdvSingleChips
+            options={[...ARM_TYPE_OPTIONS]}
+            labels={ARM_TYPE_LABELS}
+            value={leftArm}
+            onChange={setLeftArm}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Right Arm */}
+        <AdvSection label="Right Arm">
+          <AdvSingleChips
+            options={[...ARM_TYPE_OPTIONS]}
+            labels={ARM_TYPE_LABELS}
+            value={rightArm}
+            onChange={setRightArm}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Left Leg */}
+        <AdvSection label="Left Leg">
+          <AdvSingleChips
+            options={[...LEG_TYPE_OPTIONS]}
+            labels={LEG_TYPE_LABELS}
+            value={leftLeg}
+            onChange={setLeftLeg}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
+
+        {/* Right Leg */}
+        <AdvSection label="Right Leg">
+          <AdvSingleChips
+            options={[...LEG_TYPE_OPTIONS]}
+            labels={LEG_TYPE_LABELS}
+            value={rightLeg}
+            onChange={setRightLeg}
+            accent={selectedCat.accent}
+          />
+        </AdvSection>
       </section>
 
-      {/* Identity Options — candidate count selector */}
+      {/* ── 5. SKIN ART ────────────────────────────────────────────────── */}
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
+      <section>
+        <SectionLabel label="Skin Art" />
+        <div style={{
+          fontFamily: "'Familjen Grotesk', sans-serif",
+          fontSize: 12, color: "rgba(255,255,255,0.3)",
+          marginBottom: 12, lineHeight: 1.55,
+        }}>
+          Optional body art — multi-select.
+        </div>
+        <AdvMultiChips
+          options={[...SKIN_ART_OPTIONS]}
+          labels={SKIN_ART_LABELS}
+          selected={skinArt}
+          onToggle={v => setSkinArt(skinArt.includes(v) ? skinArt.filter(s => s !== v) : [...skinArt, v])}
+          accent={selectedCat.accent}
+        />
+      </section>
+
+      {/* ── Identity Options — candidate count selector ─────────────────── */}
+      <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
       <section>
         <SectionLabel label="Identity Options" />
         <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
@@ -1142,151 +1244,6 @@ function AdvMultiChips({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ── Main Advanced tab component ────────────────────────────────────────────────
-
-interface AdvancedTabProps {
-  styleCategory:   StyleCategory;
-  species:         string;  setSpecies:      (v: string) => void;
-  hairIdentity:    string;  setHairIdentity: (v: string) => void;
-  eyeColor:        string;  setEyeColor:     (v: string) => void;
-  eyeType:         string;  setEyeType:      (v: string) => void;
-  skinMarks:       string[]; setSkinMarks:   (v: string[]) => void;
-  earType:         string;  setEarType:      (v: string) => void;
-  hornType:        string;  setHornType:     (v: string) => void;
-}
-
-function AdvancedTab({
-  styleCategory,
-  species,       setSpecies,
-  hairIdentity,  setHairIdentity,
-  eyeColor,      setEyeColor,
-  eyeType,       setEyeType,
-  skinMarks,     setSkinMarks,
-  earType,       setEarType,
-  hornType,      setHornType,
-}: AdvancedTabProps) {
-  // Accent follows the selected style category — same as the category cards
-  const catDef  = CATEGORIES.find(c => c.value === styleCategory);
-  const accent  = catDef?.accent ?? T.amber;
-
-  const toggleSkinMark = (v: string) => {
-    setSkinMarks(
-      skinMarks.includes(v)
-        ? skinMarks.filter(m => m !== v)
-        : [...skinMarks, v],
-    );
-  };
-
-  return (
-    <div style={{ paddingBottom: 24 }}>
-
-      {/* Header */}
-      <div style={{ padding: "16px 18px 10px" }}>
-        <div style={{
-          fontFamily: "'Syne', sans-serif",
-          fontSize: 11, fontWeight: 900,
-          color: "rgba(255,255,255,0.35)",
-          letterSpacing: "0.14em", textTransform: "uppercase",
-          marginBottom: 4,
-        }}>
-          Biological Identity
-        </div>
-        <div style={{
-          fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 12, color: "rgba(255,255,255,0.3)", lineHeight: 1.55,
-        }}>
-          Genetic-layer traits — injected before fashion and mood.
-        </div>
-      </div>
-
-      {/* Species / Origin */}
-      <AdvSection label="Species · Origin">
-        <AdvSingleChips
-          options={["human","elf","alien","animal-inspired","insect-inspired"]}
-          labels={SPECIES_LABELS}
-          value={species}
-          onChange={setSpecies}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Hair Identity */}
-      <AdvSection label="Hair Identity">
-        <AdvSingleChips
-          options={["long-hair","short-hair","bald","punk-style","afro-style","fur"]}
-          labels={HAIR_LABELS}
-          value={hairIdentity}
-          onChange={setHairIdentity}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Eye Color */}
-      <AdvSection label="Eye Color">
-        <AdvSingleChips
-          options={["black","grey","green","brown","blue","amber","honey-brown","dark-brown"]}
-          labels={EYE_COLOR_LABELS}
-          value={eyeColor}
-          onChange={setEyeColor}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Eye Type */}
-      <AdvSection label="Eye Type">
-        <AdvSingleChips
-          options={["human-eyes","glowing-eyes","reptile-eyes","robotic-eyes","blind-eyes","mixed-eyes"]}
-          labels={EYE_TYPE_LABELS}
-          value={eyeType}
-          onChange={setEyeType}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Skin Marks — multi-select */}
-      <AdvSection label="Skin Marks">
-        <AdvMultiChips
-          options={["freckles","birthmarks","scars","pigmentation","wrinkled-skin","albinism"]}
-          labels={SKIN_MARK_LABELS}
-          selected={skinMarks}
-          onToggle={toggleSkinMark}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Ears */}
-      <AdvSection label="Ears">
-        <AdvSingleChips
-          options={["human-ears","elf-ears","winged-ears","alien-ears"]}
-          labels={EAR_LABELS}
-          value={earType}
-          onChange={setEarType}
-          accent={accent}
-        />
-      </AdvSection>
-
-      {/* Horns — optional, null = no horns */}
-      <AdvSection label="Horns" badge="Optional">
-        <div style={{
-          fontFamily: "'Familjen Grotesk', sans-serif",
-          fontSize: 11, color: "rgba(255,255,255,0.28)",
-          marginBottom: 8, lineHeight: 1.5,
-        }}>
-          Leave unselected for no horns.
-        </div>
-        <AdvSingleChips
-          options={["small-horns","large-horns"]}
-          labels={HORN_LABELS}
-          value={hornType}
-          onChange={setHornType}
-          accent={accent}
-        />
-      </AdvSection>
-
     </div>
   );
 }
