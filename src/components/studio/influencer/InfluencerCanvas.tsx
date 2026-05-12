@@ -2329,7 +2329,9 @@ function PackOutputPanel({
           padding: "20px 0 8px",
           fontSize: 13, color: "#ef4444", lineHeight: 1.5,
         }}>
-          This pack couldn't be generated. Hit Retry to try again.
+          {packDef.type === "identity-sheet"
+            ? "Identity Sheet generation timed out. Your jobs may still be completing — check Activity Center."
+            : "This pack couldn't be generated. Hit Retry to try again."}
         </div>
       )}
 

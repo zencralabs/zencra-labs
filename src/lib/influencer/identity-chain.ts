@@ -43,6 +43,20 @@ const MAX_REFERENCES = 5;
 /** Substring present in all Supabase Storage public URLs. */
 const SUPABASE_DOMAIN = "supabase.co";
 
+/**
+ * Server-side blocking poll constants for the identity chain.
+ *
+ * WHY THESE VALUES:
+ *   NB Pro images typically complete in 20–50 seconds.
+ *   5 shots × 55s timeout = 275s max chain duration.
+ *   maxDuration = 300s — this leaves a 25s safety margin.
+ *
+ *   A 5s interval gives ~11 polls per shot at max timeout.
+ *   Starting after 5s avoids hammering the provider on an empty queue.
+ */
+const POLL_INTERVAL_MS = 5_000;  // 5 seconds between each status check
+const SHOT_TIMEOUT_MS  = 55_000; // 55 seconds max wait per individual shot
+
 // ── Error class ───────────────────────────────────────────────────────────────
 
 export class ChainError extends Error {
@@ -159,6 +173,86 @@ async function resolveCanonicalUrl(
     `Please retry — the image will be mirrored to Zencra Storage on the next attempt.`,
     "CHAIN_CANONICAL_UNAVAILABLE",
   );
+}
+
+// ── Sleep helper ─────────────────────────────────────────────────────────────
+
+/** Resolves after `ms` milliseconds. Used between poll attempts. */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ── Blocking shot-completion poller ──────────────────────────────────────────
+
+/**
+ * Poll a dispatched identity-sheet shot until it reaches a terminal state.
+ *
+ * WHY THIS EXISTS:
+ *   pollAndUpdateJob() (and the underlying orchestrator.pollJobStatus()) performs
+ *   exactly ONE status check and returns immediately — by design, for client-
+ *   initiated polling. Its doc comment states: "Does not loop — caller is
+ *   responsible for polling intervals."
+ *
+ *   For the growing-memory chain this is fatal: a single check milliseconds
+ *   after dispatch always returns { status: "pending" }. The success branch
+ *   never fires, confirmedUrls never accumulates, and every shot receives only
+ *   the canonical reference — making the "growing memory" a no-op.
+ *
+ *   This function wraps pollAndUpdateJob in a sleep-and-retry loop so the
+ *   chain genuinely waits for each shot's confirmed output before dispatching
+ *   the next. When pollAndUpdateJob finally returns "success", it has already
+ *   mirrored the URL to Supabase Storage and written the asset to "ready" — so
+ *   the return value carries the permanent URL with no additional work needed.
+ *
+ * SAFETY:
+ *   pollAndUpdateJob performs no DB writes for pending/processing status —
+ *   DB update + URL mirroring + credit refund happen exactly once, when the
+ *   provider returns "success" or "error". Calling it in a loop is safe.
+ *
+ * @param modelKey      Provider model key (passed through to pollAndUpdateJob)
+ * @param externalJobId Provider-issued job ID
+ * @param assetId       Internal Supabase asset ID
+ * @returns             Same shape as pollAndUpdateJob — { status, url?, error? }
+ */
+async function pollUntilComplete(
+  modelKey:      string,
+  externalJobId: string,
+  assetId:       string,
+): Promise<{ status: string; url?: string; error?: string }> {
+  const deadline = Date.now() + SHOT_TIMEOUT_MS;
+  let attempt   = 0;
+
+  while (Date.now() < deadline) {
+    // Wait before polling — gives the provider time to start processing,
+    // and avoids a redundant immediate check right after dispatch.
+    await sleep(POLL_INTERVAL_MS);
+    attempt++;
+
+    const result = await pollAndUpdateJob(modelKey, externalJobId, assetId);
+
+    if (result.status === "success" || result.status === "error") {
+      console.info(
+        `[identity-chain] pollUntilComplete — externalJobId=${externalJobId} ` +
+        `resolved in attempt ${attempt} with status=${result.status}`,
+      );
+      return result;
+    }
+
+    // Still pending/processing — log progress and loop
+    console.info(
+      `[identity-chain] pollUntilComplete — attempt ${attempt}, ` +
+      `status=${result.status}, waiting ${POLL_INTERVAL_MS / 1000}s...`,
+    );
+  }
+
+  // Deadline exceeded without a terminal state
+  console.warn(
+    `[identity-chain] pollUntilComplete — timed out after ${SHOT_TIMEOUT_MS / 1000}s ` +
+    `(${attempt} attempts) for externalJobId=${externalJobId}. ` +
+    `Shot will not contribute to the reference chain. ` +
+    `Activity Center polling will continue independently.`,
+  );
+  return { status: "timeout", error: "Shot timed out waiting for completion" };
 }
 
 // ── Main chain builder ────────────────────────────────────────────────────────
@@ -352,10 +446,19 @@ export async function buildIdentityChain(
       shot_index:    shotIndex,
     });
 
-    // ── Server-side poll — CHAIN RULE 1 ──────────────────────────────────────
-    // Await the shot's completion before dispatching the next shot.
-    // This is the critical mechanism: without it, Shot 2 has no confirmed
-    // output URL to reference, and the growing memory chain cannot accumulate.
+    // ── Server-side blocking poll — CHAIN RULE 1 ─────────────────────────────
+    // Await the shot's confirmed completion before dispatching the next shot.
+    //
+    // CRITICAL: pollAndUpdateJob() performs exactly ONE status check (by design —
+    // its underlying pollJobStatus() "does not loop"). Calling it once milliseconds
+    // after dispatch always returns { status: "pending" }, so confirmedUrls never
+    // accumulates and every shot receives only [canonical].
+    //
+    // pollUntilComplete() wraps pollAndUpdateJob in a sleep-retry loop, polling
+    // every POLL_INTERVAL_MS (5s) until the provider returns "success" or "error",
+    // or until SHOT_TIMEOUT_MS (55s) elapses. This is what makes the growing
+    // memory chain semantically meaningful: Shot 2 genuinely waits for Shot 1's
+    // confirmed permanent URL before it dispatches.
     if (!job.externalJobId || !assetId) {
       console.warn(
         `[identity-chain] Shot ${shotIndex + 1} missing externalJobId or assetId — ` +
@@ -365,7 +468,7 @@ export async function buildIdentityChain(
     }
 
     try {
-      const pollResult = await pollAndUpdateJob(
+      const pollResult = await pollUntilComplete(
         modelKey,
         job.externalJobId,
         assetId,
