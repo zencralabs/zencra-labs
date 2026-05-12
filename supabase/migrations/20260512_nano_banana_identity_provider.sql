@@ -16,12 +16,27 @@
 --   This row stays active; it will simply not be billed if the model is not called.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Add nano-banana-pro-identity to credit_model_costs
-INSERT INTO credit_model_costs (model_key, studio, base_credits, is_active)
-VALUES ('nano-banana-pro-identity', 'character', 8, true)
-ON CONFLICT (model_key)
-DO UPDATE SET
-  studio       = EXCLUDED.studio,
-  base_credits = EXCLUDED.base_credits,
-  is_active    = EXCLUDED.is_active,
+-- ── Add nano-banana-pro-identity row ─────────────────────────────────────────
+INSERT INTO public.credit_model_costs (
+  model_key,
+  studio,
+  label,
+  base_credits,
+  is_addon,
+  active
+)
+VALUES (
+  'nano-banana-pro-identity',
+  'character',
+  'Nano Banana Pro Identity',
+  8,
+  false,
+  true
+)
+ON CONFLICT (model_key) DO UPDATE SET
+  studio       = 'character',
+  label        = 'Nano Banana Pro Identity',
+  base_credits = 8,
+  is_addon     = false,
+  active       = true,
   updated_at   = now();

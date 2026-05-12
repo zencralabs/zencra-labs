@@ -19,10 +19,10 @@
 -- ── Add nano-banana-pro-casting row ───────────────────────────────────────────
 INSERT INTO public.credit_model_costs (
   model_key,
-  studio_type,
-  display_name,
+  studio,
+  label,
   base_credits,
-  is_premium,
+  is_addon,
   active
 )
 VALUES (
@@ -34,10 +34,10 @@ VALUES (
   true
 )
 ON CONFLICT (model_key) DO UPDATE SET
-  studio_type  = 'character',
-  display_name = 'Nano Banana Pro Casting',
+  studio       = 'character',
+  label        = 'Nano Banana Pro Casting',
   base_credits = 8,
-  is_premium   = false,
+  is_addon     = false,
   active       = true,
   updated_at   = now();
 
