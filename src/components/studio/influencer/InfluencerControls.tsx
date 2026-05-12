@@ -500,8 +500,46 @@ const SKIN_ART_ICONS: Record<string, string> = {
 interface VisualCardOption {
   value:    string;
   label:    string;
-  bgColor?: string; // CSS background value — hex for fills, gradient string for iris/other
+  preview?: string;  // /character-traits/*.webp — loaded at runtime, missing = silent fallback
+  bgColor?: string;  // CSS background — hex fill, gradient, or fallback when preview absent
+  accent?:  string;  // per-option accent override (used for style cards with unique palette)
 }
+
+// ── Style categories — cinematic preview cards ────────────────────────────────
+
+const STYLE_VC: VisualCardOption[] = [
+  { value: "hyper-real",       label: "Hyper Real",   accent: "#f59e0b", preview: "/character-traits/style-hyper-real.webp",    bgColor: "linear-gradient(145deg, #2e1f0a 0%, #1a0c04 100%)" },
+  { value: "3d-animation",     label: "3D Animation", accent: "#38bdf8", preview: "/character-traits/style-3d-animation.webp",  bgColor: "linear-gradient(145deg, #081828 0%, #041018 100%)" },
+  { value: "anime-manga",      label: "Anime",        accent: "#f472b6", preview: "/character-traits/style-anime.webp",         bgColor: "linear-gradient(145deg, #280818 0%, #14040e 100%)" },
+  { value: "fine-art",         label: "Fine Art",     accent: "#d4a054", preview: "/character-traits/style-fine-art.webp",      bgColor: "linear-gradient(145deg, #201408 0%, #120c04 100%)" },
+  { value: "game-concept",     label: "Game Art",     accent: "#8b5cf6", preview: "/character-traits/style-game-art.webp",      bgColor: "linear-gradient(145deg, #180828 0%, #0c0418 100%)" },
+  { value: "physical-texture", label: "Texture",      accent: "#c2715a", preview: "/character-traits/style-texture.webp",       bgColor: "linear-gradient(145deg, #1e0e08 0%, #120806 100%)" },
+  { value: "retro-pixel",      label: "Pixel Art",    accent: "#84cc16", preview: "/character-traits/style-pixel-art.webp",     bgColor: "linear-gradient(145deg, #081808 0%, #040e04 100%)" },
+];
+
+// ── Age range — human-readable labels ─────────────────────────────────────────
+
+const AGE_RANGE_VC: VisualCardOption[] = [
+  { value: "18–24", label: "Teenage" },
+  { value: "25–32", label: "Young"   },
+  { value: "33–40", label: "Mature"  },
+  { value: "40+",   label: "Senior"  },
+];
+
+// ── Ethnicity / Region — 10 visual grid cards ─────────────────────────────────
+
+const ETHNICITY_VC: VisualCardOption[] = [
+  { value: "south-asian-indian", label: "Indian",       preview: "/character-traits/ethnicity-indian.webp",       bgColor: "linear-gradient(145deg, #2a1408 0%, #180c04 100%)" },
+  { value: "american",           label: "American",     preview: "/character-traits/ethnicity-american.webp",     bgColor: "linear-gradient(145deg, #081428 0%, #040c18 100%)" },
+  { value: "southeast-asian",    label: "Asian",        preview: "/character-traits/ethnicity-asian.webp",        bgColor: "linear-gradient(145deg, #081e10 0%, #041208 100%)" },
+  { value: "middle-eastern",     label: "Middle East",  preview: "/character-traits/ethnicity-middle-east.webp",  bgColor: "linear-gradient(145deg, #281e08 0%, #181204 100%)" },
+  { value: "european",           label: "European",     preview: "/character-traits/ethnicity-european.webp",     bgColor: "linear-gradient(145deg, #081828 0%, #041018 100%)" },
+  { value: "brazilian",          label: "Brazilian",    preview: "/character-traits/ethnicity-brazilian.webp",    bgColor: "linear-gradient(145deg, #0e2008 0%, #081404 100%)" },
+  { value: "african",            label: "African",      preview: "/character-traits/ethnicity-african.webp",      bgColor: "linear-gradient(145deg, #1e0e04 0%, #120804 100%)" },
+  { value: "african-american",   label: "Afro American",preview: "/character-traits/ethnicity-afro-american.webp",bgColor: "linear-gradient(145deg, #1a0e06 0%, #0e0804 100%)" },
+  { value: "east-asian",         label: "East Asian",   preview: "/character-traits/ethnicity-east-asian.webp",   bgColor: "linear-gradient(145deg, #200818 0%, #14040e 100%)" },
+  { value: "mixed-ethnicity",    label: "Mix-Blended",  preview: "/character-traits/ethnicity-mix-blended.webp",  bgColor: "linear-gradient(145deg, #181028 0%, #0c0818 100%)" },
+];
 
 // ── Skin tone — luxury muted palette ──────────────────────────────────────────
 
@@ -517,14 +555,14 @@ const SKIN_TONE_VC: VisualCardOption[] = [
 // ── Eye color — iris radial gradient ──────────────────────────────────────────
 
 const EYE_COLOR_VC: VisualCardOption[] = [
-  { value: "black",       label: "Black",      bgColor: "radial-gradient(ellipse at 50% 55%, #303038 30%, #080810 100%)" },
-  { value: "grey",        label: "Grey",       bgColor: "radial-gradient(ellipse at 50% 55%, #8a9aaa 28%, #1e2028 100%)" },
-  { value: "green",       label: "Green",      bgColor: "radial-gradient(ellipse at 50% 55%, #3a8a58 28%, #0c1810 100%)" },
-  { value: "brown",       label: "Brown",      bgColor: "radial-gradient(ellipse at 50% 55%, #8a5428 28%, #1a0e08 100%)" },
-  { value: "blue",        label: "Blue",       bgColor: "radial-gradient(ellipse at 50% 55%, #2a68b8 28%, #08101e 100%)" },
-  { value: "amber",       label: "Amber",      bgColor: "radial-gradient(ellipse at 50% 55%, #d89030 28%, #1e1208 100%)" },
-  { value: "honey-brown", label: "Honey",      bgColor: "radial-gradient(ellipse at 50% 55%, #a07838 28%, #1a1008 100%)" },
-  { value: "dark-brown",  label: "Dark Brn",   bgColor: "radial-gradient(ellipse at 50% 55%, #543020 28%, #140a06 100%)" },
+  { value: "black",       label: "Black",    preview: "/character-traits/eye-black.webp",      bgColor: "radial-gradient(ellipse at 50% 55%, #303038 30%, #080810 100%)" },
+  { value: "grey",        label: "Grey",     preview: "/character-traits/eye-grey.webp",       bgColor: "radial-gradient(ellipse at 50% 55%, #8a9aaa 28%, #1e2028 100%)" },
+  { value: "green",       label: "Green",    preview: "/character-traits/eye-green.webp",      bgColor: "radial-gradient(ellipse at 50% 55%, #3a8a58 28%, #0c1810 100%)" },
+  { value: "brown",       label: "Brown",    preview: "/character-traits/eye-brown.webp",      bgColor: "radial-gradient(ellipse at 50% 55%, #8a5428 28%, #1a0e08 100%)" },
+  { value: "blue",        label: "Blue",     preview: "/character-traits/eye-blue.webp",       bgColor: "radial-gradient(ellipse at 50% 55%, #2a68b8 28%, #08101e 100%)" },
+  { value: "amber",       label: "Amber",    preview: "/character-traits/eye-amber.webp",      bgColor: "radial-gradient(ellipse at 50% 55%, #d89030 28%, #1e1208 100%)" },
+  { value: "honey-brown", label: "Honey",    preview: "/character-traits/eye-honey-brown.webp",bgColor: "radial-gradient(ellipse at 50% 55%, #a07838 28%, #1a1008 100%)" },
+  { value: "dark-brown",  label: "Dark Brn", preview: "/character-traits/eye-dark-brown.webp", bgColor: "radial-gradient(ellipse at 50% 55%, #543020 28%, #140a06 100%)" },
 ];
 
 // ── Non-color visual card option arrays ───────────────────────────────────────
@@ -719,8 +757,17 @@ export function BuilderTab({
         {" "}Your influencer receives a unique name when created.
       </div>
 
-      {/* ── Style Category ─────────────────────────────────────────── */}
-      <CategorySelector value={styleCategory} onChange={setStyleCategory} />
+      {/* ── Style Category — cinematic 2-col grid ──────────────────── */}
+      <section>
+        <SectionLabel label="Style" />
+        <VisualCardGrid
+          options={STYLE_VC}
+          value={styleCategory}
+          onChange={v => setStyleCategory(v as typeof styleCategory)}
+          accent={selectedCat.accent}
+          cols={2}
+        />
+      </section>
 
       <div style={{ height: 1, background: T.border, margin: "0 -2px" }} />
 
@@ -769,30 +816,13 @@ export function BuilderTab({
           }}>
             Age Range
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 5 }}>
-            {(["18–24", "25–32", "33–40", "40+"] as const).map(age => {
-              const sel = ageRange === age;
-              return (
-                <button
-                  key={age}
-                  onClick={() => setAgeRange(sel ? "" : age)}
-                  style={{
-                    padding: "11px 0", borderRadius: 0,
-                    border: sel ? `1px solid ${selectedCat.accent}60` : "1px solid rgba(255,255,255,0.07)",
-                    background: sel ? `${selectedCat.accent}12` : "rgba(255,255,255,0.025)",
-                    color: sel ? selectedCat.accent : "rgba(255,255,255,0.40)",
-                    fontFamily: "'Familjen Grotesk', sans-serif",
-                    fontSize: 12, fontWeight: sel ? 700 : 500,
-                    cursor: "pointer", transition: "all 0.13s",
-                    boxShadow: sel ? `0 0 8px ${selectedCat.accent}18` : "none",
-                    letterSpacing: "0.01em",
-                  }}
-                >
-                  {age}
-                </button>
-              );
-            })}
-          </div>
+          <VisualCardGrid
+            options={AGE_RANGE_VC}
+            value={ageRange}
+            onChange={setAgeRange}
+            accent={selectedCat.accent}
+            cols={2}
+          />
         </div>
       </section>
 
@@ -802,67 +832,19 @@ export function BuilderTab({
       <section>
         <SectionLabel label="Ethnicity / Region" />
 
-        {/* Compact dropdown */}
-        <div style={{ position: "relative" }}>
-          <select
-            value={ethnicityRegion}
-            onChange={e => {
-              setEthnicityRegion(e.target.value);
-              // Reset blend when switching away from mixed
-              if (e.target.value !== "mixed-ethnicity") setMixedBlendRegions([]);
-            }}
-            style={{
-              width: "100%", boxSizing: "border-box",
-              background: "#070a10",
-              border: ethnicityRegion
-                ? `1px solid ${selectedCat.accent}55`
-                : `1px solid rgba(255,255,255,0.08)`,
-              borderRadius: 0,
-              padding: "9px 32px 9px 12px",
-              color: ethnicityRegion ? selectedCat.accent : "rgba(255,255,255,0.55)",
-              fontFamily: "'Familjen Grotesk', sans-serif",
-              fontSize: 13,
-              fontWeight: ethnicityRegion ? 700 : 400,
-              cursor: "pointer",
-              outline: "none",
-              appearance: "none" as const,
-              WebkitAppearance: "none" as const,
-              transition: "border-color 0.15s, color 0.15s",
-            }}
-          >
-            <option value="">Auto</option>
-            <option value="south-asian-indian">South Asian — Indian</option>
-            <option value="south-asian-other">South Asian — Other</option>
-            <option value="east-asian">East Asian</option>
-            <option value="southeast-asian">Southeast Asian</option>
-            <option value="african">African</option>
-            <option value="african-american">African American</option>
-            <option value="european">European</option>
-            <option value="scandinavian">Scandinavian</option>
-            <option value="mediterranean">Mediterranean</option>
-            <option value="latin-american">Latin American</option>
-            <option value="brazilian">Brazilian</option>
-            <option value="middle-eastern">Middle Eastern</option>
-            <option value="mixed-ethnicity">Mixed / Blended ✦</option>
-          </select>
-          {/* Chevron icon */}
-          <svg
-            width="10" height="10" viewBox="0 0 10 10" fill="none"
-            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
-          >
-            <polyline points="2,3.5 5,6.5 8,3.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"
-              strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
+        {/* 10-card 2-col visual grid */}
+        <VisualCardGrid
+          options={ETHNICITY_VC}
+          value={ethnicityRegion}
+          onChange={v => {
+            setEthnicityRegion(v === ethnicityRegion ? "" : v);
+            if (v !== "mixed-ethnicity") setMixedBlendRegions([]);
+          }}
+          accent={selectedCat.accent}
+          cols={2}
+        />
 
-        {/* Auto helper text */}
-        {!ethnicityRegion && (
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-            Auto lets Zencra choose a natural identity direction from your style and creative notes.
-          </div>
-        )}
-
-        {/* Mixed / Blended sub-panel */}
+        {/* Mix-Blended sub-panel */}
         {ethnicityRegion === "mixed-ethnicity" && (
           <div style={{ marginTop: 10 }}>
             <div style={{
@@ -936,12 +918,6 @@ export function BuilderTab({
           </div>
         )}
 
-        {/* Standard helper when a single region is selected */}
-        {ethnicityRegion && ethnicityRegion !== "mixed-ethnicity" && (
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
-            Shapes facial genetics in the prompt and selects a region-matched name.
-          </div>
-        )}
       </section>
 
       {/* ── 3. BIOLOGICAL IDENTITY ─────────────────────────────────────── */}
@@ -1400,6 +1376,7 @@ function AdvSection({
 }
 
 // ── Visual single-select card grid (62px visual area + label, borderRadius: 9) ──
+// Supports: preview image (with onError fallback), bgColor fill/gradient, per-option accent
 
 function VisualCardGrid({
   options, value, onChange, accent, cols = 2,
@@ -1414,6 +1391,7 @@ function VisualCardGrid({
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
       {options.map(opt => {
         const sel = value === opt.value;
+        const a   = opt.accent || accent; // per-card accent override
         return (
           <button
             key={opt.value}
@@ -1421,39 +1399,45 @@ function VisualCardGrid({
             style={{
               display: "flex", flexDirection: "column",
               borderRadius: 9, overflow: "hidden", padding: 0,
-              border:     sel ? `1px solid ${accent}55` : "1px solid rgba(255,255,255,0.07)",
-              background: sel ? `${accent}08`           : "rgba(255,255,255,0.02)",
+              border:     sel ? `1px solid ${a}55` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${a}08`           : "rgba(255,255,255,0.02)",
               cursor: "pointer", transition: "all 0.15s",
-              boxShadow: sel ? `0 0 12px ${accent}18` : "none",
+              boxShadow: sel ? `0 0 12px ${a}18` : "none",
             }}
           >
-            {/* 62px visual area */}
+            {/* Visual area — bgColor as base, preview img layers on top with onError fallback */}
             <div style={{
-              height: 62, flexShrink: 0,
+              height: 62, flexShrink: 0, position: "relative", overflow: "hidden",
               background: opt.bgColor
                 ? opt.bgColor
                 : "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)",
-              position: "relative",
             }}>
-              {/* Accent bleed on selected (non-color cards only) */}
-              {!opt.bgColor && (
-                <div style={{
-                  position: "absolute", inset: 0,
-                  background: sel
-                    ? `linear-gradient(to top, ${accent}28, transparent 70%)`
-                    : "linear-gradient(to top, rgba(0,0,0,0.35), transparent 70%)",
-                  transition: "all 0.15s",
-                }} />
+              {opt.preview && (
+                <img
+                  src={opt.preview}
+                  alt={opt.label}
+                  loading="lazy"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
               )}
+              {/* Accent bleed overlay — always on top of image/fill */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: sel
+                  ? `linear-gradient(to top, ${a}30, transparent 65%)`
+                  : "linear-gradient(to top, rgba(0,0,0,0.30), transparent 70%)",
+                transition: "all 0.15s",
+              }} />
             </div>
             {/* Label band */}
             <div style={{
               padding: "7px 6px",
               fontFamily: "'Familjen Grotesk', sans-serif",
               fontSize: 11, fontWeight: sel ? 700 : 500,
-              color:    sel ? accent : "rgba(255,255,255,0.45)",
+              color:    sel ? a : "rgba(255,255,255,0.45)",
               textAlign: "center", lineHeight: 1.2,
-              background: sel ? `${accent}06` : "rgba(0,0,0,0.18)",
+              background: sel ? `${a}06` : "rgba(0,0,0,0.18)",
               transition: "all 0.15s",
             }}>
               {opt.label}
@@ -1480,6 +1464,7 @@ function VisualMultiGrid({
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
       {options.map(opt => {
         const sel = selected.includes(opt.value);
+        const a   = opt.accent || accent;
         return (
           <button
             key={opt.value}
@@ -1487,38 +1472,42 @@ function VisualMultiGrid({
             style={{
               display: "flex", flexDirection: "column",
               borderRadius: 9, overflow: "hidden", padding: 0,
-              border:     sel ? `1px solid ${accent}55` : "1px solid rgba(255,255,255,0.07)",
-              background: sel ? `${accent}08`           : "rgba(255,255,255,0.02)",
+              border:     sel ? `1px solid ${a}55` : "1px solid rgba(255,255,255,0.07)",
+              background: sel ? `${a}08`           : "rgba(255,255,255,0.02)",
               cursor: "pointer", transition: "all 0.15s",
-              boxShadow: sel ? `0 0 12px ${accent}18` : "none",
+              boxShadow: sel ? `0 0 12px ${a}18` : "none",
             }}
           >
-            {/* 62px visual area */}
             <div style={{
-              height: 62, flexShrink: 0,
+              height: 62, flexShrink: 0, position: "relative", overflow: "hidden",
               background: opt.bgColor
                 ? opt.bgColor
                 : "linear-gradient(135deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 100%)",
-              position: "relative",
             }}>
-              {!opt.bgColor && (
-                <div style={{
-                  position: "absolute", inset: 0,
-                  background: sel
-                    ? `linear-gradient(to top, ${accent}28, transparent 70%)`
-                    : "linear-gradient(to top, rgba(0,0,0,0.35), transparent 70%)",
-                  transition: "all 0.15s",
-                }} />
+              {opt.preview && (
+                <img
+                  src={opt.preview}
+                  alt={opt.label}
+                  loading="lazy"
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
               )}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: sel
+                  ? `linear-gradient(to top, ${a}30, transparent 65%)`
+                  : "linear-gradient(to top, rgba(0,0,0,0.30), transparent 70%)",
+                transition: "all 0.15s",
+              }} />
             </div>
-            {/* Label band */}
             <div style={{
               padding: "7px 6px",
               fontFamily: "'Familjen Grotesk', sans-serif",
               fontSize: 11, fontWeight: sel ? 700 : 500,
-              color:    sel ? accent : "rgba(255,255,255,0.45)",
+              color:    sel ? a : "rgba(255,255,255,0.45)",
               textAlign: "center", lineHeight: 1.2,
-              background: sel ? `${accent}06` : "rgba(0,0,0,0.18)",
+              background: sel ? `${a}06` : "rgba(0,0,0,0.18)",
               transition: "all 0.15s",
             }}>
               {opt.label}
