@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
 import type { CanvasState, ActiveInfluencer } from "./AIInfluencerBuilder";
@@ -1651,6 +1652,8 @@ function SelectedState({
               output={activeOutput}
               packDef={activeDef}
               onRetry={() => onTriggerPack(activePack)}
+              onImageFlow={onImageFlow}
+              onVideoFlow={onVideoFlow}
             />
           </div>
         )}
@@ -2024,11 +2027,17 @@ function AssetPackCard({
   })();
 
   const cardBorder = (() => {
-    if (uiState === "completed")          return `1px solid ${pack.accent}45`;
+    if (uiState === "completed")          return `1px solid ${pack.accent}60`;
     if (uiState === "generating")         return `1px solid ${pack.accent}50`;
     if (uiState === "ready" && hovered)   return "1px solid rgba(255,255,255,0.14)";
     if (uiState === "ready")              return "1px solid rgba(255,255,255,0.08)";
     return "1px solid rgba(255,255,255,0.04)";
+  })();
+
+  const cardShadow = (() => {
+    if (uiState === "completed") return `0 0 18px ${pack.accent}28, 0 0 36px ${pack.accent}10`;
+    if (isActive && uiState !== "locked") return `0 0 18px ${pack.accent}22`;
+    return "none";
   })();
 
   return (
@@ -2054,9 +2063,7 @@ function AssetPackCard({
         animation: uiState === "generating"
           ? "packGenerating 1.6s ease-in-out infinite"
           : "none",
-        boxShadow: isActive && uiState !== "locked"
-          ? `0 0 18px ${pack.accent}22`
-          : "none",
+        boxShadow: cardShadow,
         marginBottom: isFoundation ? 0 : undefined,
       }}
     >
@@ -2108,20 +2115,33 @@ function AssetPackCard({
       </div>
 
       {/* State indicator — right side */}
-      <div style={{
-        flexShrink: 0,
-        fontSize: 12, fontWeight: 700,
-        letterSpacing: "0.04em",
-        color: stateColor,
-        textTransform: isLocked ? "none" as const : "uppercase" as const,
-        textAlign: "right",
-        whiteSpace: "nowrap",
-        lineHeight: 1.3,
-      }}>
-        {uiState === "locked"     && (prevPackLabel ? `After ${prevPackLabel}` : "Locked")}
-        {uiState === "ready"      && (isFoundation ? "Start here →" : "Build")}
-        {uiState === "generating" && "…"}
-        {uiState === "completed"  && "✓ Done"}
+      <div style={{ flexShrink: 0, textAlign: "right", whiteSpace: "nowrap" }}>
+        {uiState === "locked" && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.38)", lineHeight: 1.3 }}>
+            {prevPackLabel ? `After ${prevPackLabel}` : "Locked"}
+          </span>
+        )}
+        {uiState === "ready" && (
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: stateColor, textTransform: "uppercase" as const, lineHeight: 1.3 }}>
+            {isFoundation ? "Start here →" : "Build"}
+          </span>
+        )}
+        {uiState === "generating" && (
+          <span style={{ fontSize: 12, fontWeight: 600, color: stateColor }}>…</span>
+        )}
+        {uiState === "completed" && (
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 4,
+            padding: "3px 9px",
+            background: `${pack.accent}1a`,
+            border: `1px solid ${pack.accent}55`,
+            color: pack.accent,
+            fontSize: 10, fontWeight: 800, letterSpacing: "0.10em",
+            textTransform: "uppercase" as const,
+          }}>
+            ✓ DONE
+          </span>
+        )}
       </div>
     </button>
   );
@@ -2305,18 +2325,16 @@ function PackOutputPanel({
   output,
   packDef,
   onRetry,
+  onImageFlow,
+  onVideoFlow,
 }: {
-  output:  PackOutput | null;
-  packDef: typeof PACK_ACTIONS[0];
-  onRetry: () => void;
+  output:       PackOutput | null;
+  packDef:      typeof PACK_ACTIONS[0];
+  onRetry:      () => void;
+  onImageFlow?: () => void;
+  onVideoFlow?: () => void;
 }) {
-  const [visible,   setVisible]   = useState(false);
   const [lightbox,  setLightbox]  = useState<{ url: string; label: string } | null>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 60);
-    return () => clearTimeout(t);
-  }, []);
 
   const handlePreview = useCallback((url: string, label: string) => {
     setLightbox({ url, label });
@@ -2338,15 +2356,14 @@ function PackOutputPanel({
       padding: "0 24px",
       marginTop: 4,
       marginBottom: 32,
-      opacity: visible ? 1 : 0,
-      transform: visible ? "translateY(0)" : "translateY(12px)",
-      transition: "opacity 0.28s ease, transform 0.28s ease",
+      animation: "packPanelReveal 0.28s ease forwards",
     }}>
       {/* Keyframes */}
       <style>{`
         @keyframes packPulse{0%,100%{opacity:0.35}50%{opacity:0.65}}
         @keyframes packReveal{from{opacity:0;transform:translateY(10px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes packCompletePulse{0%{box-shadow:0 0 0 0 ${packDef.accent}44}70%{box-shadow:0 0 0 16px ${packDef.accent}00}100%{box-shadow:0 0 0 0 ${packDef.accent}00}}
+        @keyframes packPanelReveal{from{opacity:0}to{opacity:1}}
       `}</style>
 
       {/* Section header */}
@@ -2428,6 +2445,8 @@ function PackOutputPanel({
                 isComplete={isComplete}
                 fluid={isIdentitySheet}
                 onPreview={handlePreview}
+                onImageFlow={onImageFlow}
+                onVideoFlow={onVideoFlow}
               />
             ))}
 
@@ -2503,20 +2522,23 @@ function PackOutputPanel({
                 isComplete={false}
                 fluid={isIdentitySheet}
                 onPreview={handlePreview}
+                onImageFlow={onImageFlow}
+                onVideoFlow={onVideoFlow}
               />
             ))}
           </div>
         );
       })()}
 
-      {/* Fullscreen cinematic lightbox */}
-      {lightbox && (
+      {/* Fullscreen cinematic lightbox — portaled to document.body to escape CSS transform stacking context */}
+      {lightbox && typeof document !== "undefined" && createPortal(
         <FullscreenPreview
           type="image"
           url={lightbox.url}
           onClose={() => setLightbox(null)}
           zIndex={9900}
-        />
+        />,
+        document.body
       )}
     </div>
   );
@@ -2527,7 +2549,7 @@ function PackOutputPanel({
 
 function PackAssetCard({
   url, label, accentColor, revealIndex = 0, isComplete = true, fluid = false,
-  onPreview,
+  onPreview, onImageFlow, onVideoFlow,
 }: {
   url:          string;
   label:        string;
@@ -2536,6 +2558,8 @@ function PackAssetCard({
   isComplete?:  boolean;
   fluid?:       boolean;
   onPreview?:   (url: string, label: string) => void;
+  onImageFlow?: () => void;
+  onVideoFlow?: () => void;
 }) {
   const [hovered,      setHovered]      = useState(false);
   const [downloading,  setDownloading]  = useState(false);
@@ -2578,7 +2602,9 @@ function PackAssetCard({
       onMouseLeave={() => setHovered(false)}
       onClick={() => onPreview?.(url, label)}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={url} alt={label}
+        loading={revealIndex < 5 ? "eager" : "lazy"}
         style={{
           width: "100%", height: "100%", objectFit: "cover", display: "block",
           transform: hovered ? "scale(1.04)" : "scale(1)",
@@ -2589,40 +2615,48 @@ function PackAssetCard({
       {/* Hover action overlay */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.18) 52%, transparent 100%)",
+        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.22) 56%, transparent 100%)",
         opacity: hovered ? 1 : 0,
         transition: "opacity 0.18s ease",
         display: "flex", flexDirection: "column",
         justifyContent: "flex-end",
-        padding: "8px 7px 8px",
-        gap: 6,
+        padding: "10px 8px 10px",
+        gap: 7,
       }}>
-        {/* Label */}
+        {/* Shot label */}
         <div style={{
-          fontSize: 10, fontWeight: 700, color: accentColor,
-          letterSpacing: "0.06em", lineHeight: 1.2,
+          fontSize: 12, fontWeight: 800, color: accentColor,
+          letterSpacing: "0.07em", lineHeight: 1.2,
+          textTransform: "uppercase" as const,
+          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
         }}>
           {label}
         </div>
 
-        {/* Action row */}
-        <div style={{ display: "flex", gap: 5 }}>
+        {/* Action row — glass pill */}
+        <div style={{
+          display: "flex", gap: 4,
+          background: "rgba(0,0,0,0.38)",
+          backdropFilter: "blur(8px)",
+          padding: "5px 5px",
+          width: "fit-content",
+        }}>
           {/* Fullscreen preview */}
           <button
             title="View fullscreen"
             onClick={e => { e.stopPropagation(); onPreview?.(url, label); }}
             style={{
-              width: 26, height: 26,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.14)",
+              width: 28, height: 28,
+              background: "rgba(255,255,255,0.11)",
+              border: "1px solid rgba(255,255,255,0.16)",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.14s ease",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.11)"; }}
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 3 21 3 21 9"/>
               <polyline points="9 21 3 21 3 15"/>
               <line x1="21" y1="3" x2="14" y2="10"/>
@@ -2635,22 +2669,22 @@ function PackAssetCard({
             title="Download"
             onClick={handleDownload}
             style={{
-              width: 26, height: 26,
-              background: downloading ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.14)",
+              width: 28, height: 28,
+              background: downloading ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.11)",
+              border: "1px solid rgba(255,255,255,0.16)",
               cursor: downloading ? "wait" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.14s ease",
             }}
-            onMouseEnter={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
-            onMouseLeave={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+            onMouseEnter={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+            onMouseLeave={e => { if (!downloading) e.currentTarget.style.background = "rgba(255,255,255,0.11)"; }}
           >
             {downloading ? (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M12 2v20M2 12l10 10 10-10"/>
               </svg>
             ) : (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
@@ -2658,45 +2692,66 @@ function PackAssetCard({
             )}
           </button>
 
-          {/* Save as Hero — stub, coming in 6E */}
+          {/* Save as Hero */}
           <button
             title="Save as Hero"
             onClick={e => e.stopPropagation()}
             style={{
-              width: 26, height: 26,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.14)",
+              width: 28, height: 28,
+              background: "rgba(255,255,255,0.11)",
+              border: "1px solid rgba(255,255,255,0.16)",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.14s ease",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.11)"; }}
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
             </svg>
           </button>
 
-          {/* Use in Image Studio */}
+          {/* Image Flow */}
           <button
             title="Open in Image Studio"
-            onClick={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onImageFlow?.(); }}
             style={{
-              width: 26, height: 26,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.14)",
+              width: 28, height: 28,
+              background: "rgba(255,255,255,0.11)",
+              border: "1px solid rgba(255,255,255,0.16)",
               cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "background 0.14s ease",
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.11)"; }}
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </button>
+
+          {/* Video Flow */}
+          <button
+            title="Use in Video Studio"
+            onClick={e => { e.stopPropagation(); onVideoFlow?.(); }}
+            style={{
+              width: 28, height: 28,
+              background: "rgba(255,255,255,0.11)",
+              border: "1px solid rgba(255,255,255,0.16)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.14s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.11)"; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2"/>
             </svg>
           </button>
         </div>
