@@ -105,6 +105,7 @@ interface Props {
   createError:           string | null;
   selectedStyleCategory: StyleCategory; // drives dock button color in empty phase
   candidateCount:        number;        // 1–4; controls credit display in dock button
+  onDiscardCandidates?:  () => void;   // called when user confirms "Discard All" in candidates phase
 }
 
 // ── Pack output state ─────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ function getPackUiState(packType: PackType, packOutputs: PackOutput[]): PackUiSt
 export default function InfluencerCanvas({
   canvasState, onCandidatesReady, onSelected, onCandidateLocked,
   onCreateClick, isCreating, createError, selectedStyleCategory, candidateCount,
+  onDiscardCandidates,
 }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
@@ -636,6 +638,7 @@ export default function InfluencerCanvas({
             accent={currentAccent}
             onSelected={onSelected}
             onCandidateLocked={onCandidateLocked}
+            onDiscardCandidates={onDiscardCandidates}
           />
         )}
         {canvasState.phase === "selected" && (
@@ -1095,25 +1098,28 @@ function CandidatesState({
   accent,
   onSelected,
   onCandidateLocked,
+  onDiscardCandidates,
 }: {
-  influencer_id:      string;
-  candidates:         string[];
-  failedCount:        number;
-  snapshot:           CandidateSnapshot;
-  accent:             string;
-  onSelected:         (active: ActiveInfluencer) => void;
-  onCandidateLocked?: (active: ActiveInfluencer) => void;
+  influencer_id:        string;
+  candidates:           string[];
+  failedCount:          number;
+  snapshot:             CandidateSnapshot;
+  accent:               string;
+  onSelected:           (active: ActiveInfluencer) => void;
+  onCandidateLocked?:   (active: ActiveInfluencer) => void;
+  onDiscardCandidates?: () => void;
 }) {
-  const [activeUrl,    setActiveUrl]    = useState<string | null>(null);
-  const [compareUrls,  setCompareUrls]  = useState<string[]>([]);
-  const [previewUrl,   setPreviewUrl]   = useState<string | null>(null);
-  const [lockingUrl,   setLockingUrl]   = useState<string | null>(null);  // per-card spinner
-  const [lockedItems,  setLockedItems]  = useState<LockedItem[]>([]);
-  const [lockError,    setLockError]    = useState<string | null>(null);
-  const [slotsFull,    setSlotsFull]    = useState(false);
-  const [slotsUsed,    setSlotsUsed]    = useState(0);
-  const [slotsLimit,   setSlotsLimit]   = useState(8);
-  const [mounted,      setMounted]      = useState(false);
+  const [activeUrl,      setActiveUrl]      = useState<string | null>(null);
+  const [compareUrls,    setCompareUrls]    = useState<string[]>([]);
+  const [previewUrl,     setPreviewUrl]     = useState<string | null>(null);
+  const [lockingUrl,     setLockingUrl]     = useState<string | null>(null);  // per-card spinner
+  const [lockedItems,    setLockedItems]    = useState<LockedItem[]>([]);
+  const [lockError,      setLockError]      = useState<string | null>(null);
+  const [slotsFull,      setSlotsFull]      = useState(false);
+  const [slotsUsed,      setSlotsUsed]      = useState(0);
+  const [slotsLimit,     setSlotsLimit]     = useState(8);
+  const [mounted,        setMounted]        = useState(false);
+  const [discardConfirm, setDiscardConfirm] = useState(false);
 
   const router = useRouter();
 
@@ -1346,20 +1352,94 @@ function CandidatesState({
                 </div>
               </div>
 
-              {/* Slot counter chip */}
-              <div style={{
-                flexShrink: 0,
-                padding: "6px 12px",
-                background: slotsFull
-                  ? "rgba(239,68,68,0.12)"
-                  : "rgba(245,158,11,0.10)",
-                border: `1px solid ${slotsFull ? "rgba(239,68,68,0.30)" : "rgba(245,158,11,0.25)"}`,
-                fontSize: 12, fontWeight: 600, letterSpacing: "0.08em",
-                color: slotsFull ? "#fca5a5" : "rgba(253,230,138,0.88)",
-                textTransform: "uppercase" as const,
-                whiteSpace: "nowrap",
-              }}>
-                {slotsUsed}/{slotsLimit} slots
+              {/* Right-side controls: slot counter + discard */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                {/* Slot counter chip */}
+                <div style={{
+                  padding: "6px 12px",
+                  background: slotsFull
+                    ? "rgba(239,68,68,0.12)"
+                    : "rgba(245,158,11,0.10)",
+                  border: `1px solid ${slotsFull ? "rgba(239,68,68,0.30)" : "rgba(245,158,11,0.25)"}`,
+                  fontSize: 12, fontWeight: 600, letterSpacing: "0.08em",
+                  color: slotsFull ? "#fca5a5" : "rgba(253,230,138,0.88)",
+                  textTransform: "uppercase" as const,
+                  whiteSpace: "nowrap",
+                }}>
+                  {slotsUsed}/{slotsLimit} slots
+                </div>
+
+                {/* Discard All — inline confirm */}
+                {!discardConfirm ? (
+                  <button
+                    onClick={() => setDiscardConfirm(true)}
+                    style={{
+                      background: "none",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      padding: "5px 12px",
+                      fontSize: 11, fontWeight: 600, letterSpacing: "0.10em",
+                      color: "rgba(255,255,255,0.35)",
+                      textTransform: "uppercase" as const,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "color 0.18s, border-color 0.18s",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(239,68,68,0.80)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(239,68,68,0.35)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)";
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.12)";
+                    }}
+                  >
+                    Discard All
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500,
+                      color: "rgba(255,255,255,0.45)",
+                      letterSpacing: "0.04em",
+                      whiteSpace: "nowrap",
+                    }}>
+                      Discard this batch?
+                    </span>
+                    <button
+                      onClick={() => {
+                        setDiscardConfirm(false);
+                        onDiscardCandidates?.();
+                      }}
+                      style={{
+                        background: "rgba(239,68,68,0.14)",
+                        border: "1px solid rgba(239,68,68,0.35)",
+                        padding: "4px 10px",
+                        fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+                        color: "#fca5a5",
+                        textTransform: "uppercase" as const,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setDiscardConfirm(false)}
+                      style={{
+                        background: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.14)",
+                        padding: "4px 10px",
+                        fontSize: 11, fontWeight: 600, letterSpacing: "0.08em",
+                        color: "rgba(255,255,255,0.50)",
+                        textTransform: "uppercase" as const,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

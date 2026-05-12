@@ -21,6 +21,46 @@ import { startPolling }    from "@/lib/jobs/job-polling";
 import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
 import type { AIInfluencer, StyleCategory } from "@/lib/influencer/types";
 
+// ── Pending session hydration ─────────────────────────────────────────────────
+// Shape returned by GET /api/character/ai-influencers/pending-session
+
+interface PendingSessionProfile {
+  gender:              string | null;
+  age_range:           string | null;
+  skin_tone:           string | null;
+  face_structure:      string | null;
+  fashion_style:       string | null;
+  realism_level:       string | null;
+  mood:                string[];
+  platform_intent:     string[];
+  ethnicity_region:    string | null;
+  mixed_blend_regions: string[];
+  species:             string | null;
+  hair_identity:       string | null;
+  eye_color:           string | null;
+  eye_type:            string | null;
+  skin_marks:          string[];
+  ear_type:            string | null;
+  horn_type:           string | null;
+}
+
+interface PendingSession {
+  influencer_id:  string;
+  style_category: StyleCategory;
+  candidate_urls: string[];
+  expected_count: number;
+  snapshot_extra: {
+    bodyType: string;
+    leftArm:  string;
+    rightArm: string;
+    leftLeg:  string;
+    rightLeg: string;
+    skinArt:  string[];
+  };
+  tags:    string[];
+  profile: PendingSessionProfile;
+}
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const T = {
@@ -155,6 +195,82 @@ export default function AIInfluencerBuilder() {
     authTokenRef.current = session?.access_token ?? null;
   }, [session]);
 
+  // ── Pending "+ New" confirmation state ────────────────────────────────────
+  // When user clicks "+ New" while candidates are visible, we need to confirm
+  // they want to discard the pending session before resetting.
+  const [pendingNewConfirm, setPendingNewConfirm] = useState(false);
+
+  // ── Candidate session hydration on mount ──────────────────────────────────
+  // If the user refreshes after generation completes, restore the candidate
+  // selection state from the persisted session. Fire-and-forget — never blocks
+  // the UI. Runs once when the auth token is first available.
+  const sessionHydratedRef = useRef(false);
+  useEffect(() => {
+    const token = authTokenRef.current ?? session?.access_token;
+    if (!token || sessionHydratedRef.current) return;
+    sessionHydratedRef.current = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/character/ai-influencers/pending-session", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const ps: PendingSession | null = data?.data?.session ?? null;
+        if (!ps || !ps.candidate_urls.length) return;
+
+        // Reconstruct CandidateSnapshot from persisted profile + snapshot_extra
+        const prof = ps.profile;
+        const snapshot: CandidateSnapshot = {
+          styleCategory:     ps.style_category,
+          gender:            prof.gender            ?? "",
+          ageRange:          prof.age_range         ?? "",
+          skinTone:          prof.skin_tone         ?? "",
+          faceStruct:        prof.face_structure    ?? "",
+          fashion:           prof.fashion_style     ?? "",
+          realism:           prof.realism_level     ?? "photorealistic",
+          ethnicityRegion:   prof.ethnicity_region  ?? "",
+          mixedBlendRegions: prof.mixed_blend_regions ?? [],
+          mood:              prof.mood              ?? [],
+          platforms:         prof.platform_intent   ?? [],
+          tags:              ps.tags                ?? [],
+          species:           prof.species           ?? "",
+          hairIdentity:      prof.hair_identity     ?? "",
+          eyeColor:          prof.eye_color         ?? "",
+          eyeType:           prof.eye_type          ?? "",
+          skinMarks:         prof.skin_marks        ?? [],
+          earType:           prof.ear_type          ?? "",
+          hornType:          prof.horn_type         ?? "",
+          // Phase B — transient body arch params, stored in snapshot_extra
+          bodyType:          ps.snapshot_extra.bodyType,
+          leftArm:           ps.snapshot_extra.leftArm,
+          rightArm:          ps.snapshot_extra.rightArm,
+          leftLeg:           ps.snapshot_extra.leftLeg,
+          rightLeg:          ps.snapshot_extra.rightLeg,
+          skinArt:           ps.snapshot_extra.skinArt,
+        };
+
+        // Restore canvas to candidate selection phase
+        setCanvasState({
+          phase:          "candidates",
+          influencer_id:  ps.influencer_id,
+          candidates:     ps.candidate_urls,
+          expected_count: ps.expected_count,
+          snapshot,
+          style_category: ps.style_category,
+        });
+
+        console.info(
+          `[AIInfluencerBuilder] hydrated pending session: ${ps.candidate_urls.length} candidates for influencer ${ps.influencer_id}`,
+        );
+      } catch (err) {
+        // Non-fatal — user just sees empty builder
+        console.warn("[AIInfluencerBuilder] pending session hydration failed:", err);
+      }
+    })();
+  }, [session]); // re-run if session changes (e.g. login after render)
+
   // ── Creation state — driven by canvas dock button ─────────────────────────
   const [isCreating,  setIsCreating]  = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -180,6 +296,38 @@ export default function AIInfluencerBuilder() {
         snapshot,
         style_category: prev.phase === "generating" ? prev.style_category : "hyper-real",
       }));
+
+      // ── Persist candidate session so it survives a page refresh ─────────────
+      // Fire-and-forget — if this fails the user still sees candidates in the
+      // current session; the only loss is that refresh won't restore them.
+      const token = authTokenRef.current;
+      if (token && candidateUrls.length > 0) {
+        void fetch(`/api/character/ai-influencers/${influencer_id}`, {
+          method:  "PATCH",
+          headers: {
+            "Content-Type":  "application/json",
+            Authorization:   `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            candidate_session: {
+              status:         "ready",
+              candidate_urls: candidateUrls,
+              expected_count: expectedCount,
+              // Phase B body arch params are transient — not in profile, must be stored here
+              snapshot_extra: {
+                bodyType: snapshot.bodyType,
+                leftArm:  snapshot.leftArm,
+                rightArm: snapshot.rightArm,
+                leftLeg:  snapshot.leftLeg,
+                rightLeg: snapshot.rightLeg,
+                skinArt:  snapshot.skinArt,
+              },
+            },
+          }),
+        }).catch(err =>
+          console.warn("[AIInfluencerBuilder] failed to persist candidate session:", err),
+        );
+      }
     },
     [],
   );
@@ -392,9 +540,9 @@ export default function AIInfluencerBuilder() {
     [],
   );
 
-  const handleNewInfluencer = useCallback(() => {
+  // ── Internal reset — clears all form + canvas state ─────────────────────
+  const doResetBuilder = useCallback(() => {
     setCanvasState({ phase: "empty" });
-    // Reset all form state so the next candidate run starts clean
     setStyleCategory("hyper-real");
     setGender("");
     setAgeRange("");
@@ -425,6 +573,43 @@ export default function AIInfluencerBuilder() {
     setRightLeg("");
     setSkinArt([]);
   }, []);
+
+  // ── Discard the active candidate session ─────────────────────────────────
+  // Marks the session discarded in DB (keeps images in gallery) then resets UI.
+  const handleDiscardCandidates = useCallback(() => {
+    const state = canvasState;
+    if (state.phase === "candidates") {
+      const token = authTokenRef.current;
+      if (token) {
+        void fetch(`/api/character/ai-influencers/${state.influencer_id}`, {
+          method:  "PATCH",
+          headers: {
+            "Content-Type":  "application/json",
+            Authorization:   `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            candidate_session: { status: "discarded" },
+          }),
+        }).catch(err =>
+          console.warn("[AIInfluencerBuilder] discard session PATCH failed:", err),
+        );
+      }
+    }
+    doResetBuilder();
+    setPendingNewConfirm(false);
+    // Refresh library in case slot state changed
+    setLibraryKey(k => k + 1);
+  }, [canvasState, doResetBuilder]);
+
+  // ── "+ New" — guarded: shows confirmation if candidates are pending ───────
+  const handleNewInfluencer = useCallback(() => {
+    if (canvasState.phase === "candidates") {
+      // Don't reset immediately — ask the user to confirm discarding the batch
+      setPendingNewConfirm(true);
+      return;
+    }
+    doResetBuilder();
+  }, [canvasState.phase, doResetBuilder]);
 
   const handleSelectFromLibrary = useCallback((influencer: AIInfluencer) => {
     if (influencer.identity_lock_id && influencer.hero_asset_id) {
@@ -477,6 +662,7 @@ export default function AIInfluencerBuilder() {
         background: T.centerBg,
         display: "flex", flexDirection: "column",
         overflow: "hidden",
+        position: "relative", // needed for confirmation overlay absolute positioning
         // Subtle radial glow to add depth to the deep canvas
         backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.018) 0%, transparent 55%)",
       }}>
@@ -490,7 +676,73 @@ export default function AIInfluencerBuilder() {
           createError={createError}
           selectedStyleCategory={styleCategory}
           candidateCount={candidateCount}
+          onDiscardCandidates={handleDiscardCandidates}
         />
+
+        {/* ── Pending "+ New" confirmation overlay ────────────────────── */}
+        {pendingNewConfirm && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 900,
+            background: "rgba(3,5,10,0.88)",
+            backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{
+              background: "#0b0e1a",
+              border: "1px solid rgba(245,158,11,0.35)",
+              borderRadius: 14,
+              padding: "32px 36px",
+              maxWidth: 420, width: "100%",
+              display: "flex", flexDirection: "column", gap: 18,
+              boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,158,11,0.12)",
+            }}>
+              <div style={{
+                fontFamily: "'Syne', sans-serif",
+                fontSize: 15, fontWeight: 700,
+                color: "#e8eaf0", letterSpacing: "0.01em",
+              }}>
+                Discard candidate set?
+              </div>
+              <div style={{
+                fontFamily: "'Familjen Grotesk', sans-serif",
+                fontSize: 13, color: "rgba(232,234,240,0.65)", lineHeight: 1.6,
+              }}>
+                You have generated candidates that are not locked yet. Starting over will discard this candidate set.
+                Your generated images will remain in Image Studio gallery and credits are not refunded.
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setPendingNewConfirm(false)}
+                  style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif",
+                    fontSize: 13, fontWeight: 600,
+                    color: "rgba(232,234,240,0.6)",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 8, padding: "8px 20px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Keep candidates
+                </button>
+                <button
+                  onClick={handleDiscardCandidates}
+                  style={{
+                    fontFamily: "'Familjen Grotesk', sans-serif",
+                    fontSize: 13, fontWeight: 700,
+                    color: "#111",
+                    background: "#f59e0b",
+                    border: "none",
+                    borderRadius: 8, padding: "8px 20px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Discard & Start Over
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Right: Controls ──────────────────────────────────────────────── */}
