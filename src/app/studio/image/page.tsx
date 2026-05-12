@@ -1702,7 +1702,7 @@ function ImageStudioInner() {
       // ── Shared fetch helper — /api/assets cursor-paginated endpoint ─────────
       const doFetch = (token: string, cursor?: string) => {
         const params = new URLSearchParams({
-          studio:          "image",
+          studio:          "image,character",
           limit:           "50",
           include_failed:  "true",
         });
@@ -1875,7 +1875,7 @@ function ImageStudioInner() {
       if (!token) return;
 
       const params = new URLSearchParams({
-        studio:         "image",
+        studio:         "image,character",
         limit:          "50",
         include_failed: "true",
         cursor:         galleryNextCursor,

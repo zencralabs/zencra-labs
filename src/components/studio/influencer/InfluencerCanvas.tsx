@@ -21,6 +21,7 @@ import CandidateCarousel      from "./candidate/CandidateCarousel";
 import CandidatePreviewModal  from "./candidate/CandidatePreviewModal";
 import CandidateCompareTray   from "./candidate/CandidateCompareTray";
 import CandidateControls      from "./candidate/CandidateControls";
+import { FullscreenPreview }  from "@/components/ui/FullscreenPreview";
 
 // ── Auth header helper ────────────────────────────────────────────────────────
 // All character API routes use requireAuthUser which reads ONLY the
@@ -2309,11 +2310,16 @@ function PackOutputPanel({
   packDef: typeof PACK_ACTIONS[0];
   onRetry: () => void;
 }) {
-  const [visible, setVisible] = useState(false);
+  const [visible,   setVisible]   = useState(false);
+  const [lightbox,  setLightbox]  = useState<{ url: string; label: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 60);
     return () => clearTimeout(t);
+  }, []);
+
+  const handlePreview = useCallback((url: string, label: string) => {
+    setLightbox({ url, label });
   }, []);
 
   // How many skeleton cards to show while loading
@@ -2421,6 +2427,7 @@ function PackOutputPanel({
                 revealIndex={i}
                 isComplete={isComplete}
                 fluid={isIdentitySheet}
+                onPreview={handlePreview}
               />
             ))}
 
@@ -2495,11 +2502,22 @@ function PackOutputPanel({
                 revealIndex={i}
                 isComplete={false}
                 fluid={isIdentitySheet}
+                onPreview={handlePreview}
               />
             ))}
           </div>
         );
       })()}
+
+      {/* Fullscreen cinematic lightbox */}
+      {lightbox && (
+        <FullscreenPreview
+          type="image"
+          url={lightbox.url}
+          onClose={() => setLightbox(null)}
+          zIndex={9900}
+        />
+      )}
     </div>
   );
 }
@@ -2509,6 +2527,7 @@ function PackOutputPanel({
 
 function PackAssetCard({
   url, label, accentColor, revealIndex = 0, isComplete = true, fluid = false,
+  onPreview,
 }: {
   url:          string;
   label:        string;
@@ -2516,6 +2535,7 @@ function PackAssetCard({
   revealIndex?: number;
   isComplete?:  boolean;
   fluid?:       boolean;
+  onPreview?:   (url: string, label: string) => void;
 }) {
   const [hovered,      setHovered]      = useState(false);
   const [downloading,  setDownloading]  = useState(false);
@@ -2556,6 +2576,7 @@ function PackAssetCard({
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => onPreview?.(url, label)}
     >
       <img src={url} alt={label}
         style={{
@@ -2586,6 +2607,29 @@ function PackAssetCard({
 
         {/* Action row */}
         <div style={{ display: "flex", gap: 5 }}>
+          {/* Fullscreen preview */}
+          <button
+            title="View fullscreen"
+            onClick={e => { e.stopPropagation(); onPreview?.(url, label); }}
+            style={{
+              width: 26, height: 26,
+              background: "rgba(255,255,255,0.10)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "background 0.14s ease",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={T.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 3 21 3 21 9"/>
+              <polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/>
+              <line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+
           {/* Download — wired */}
           <button
             title="Download"

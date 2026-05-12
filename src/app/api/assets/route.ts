@@ -90,7 +90,13 @@ export async function GET(req: Request): Promise<Response> {
     query = query.eq("status", "ready");
   }
 
-  if (studio)        query = query.eq("studio", studio);
+  // studio may be a single value ("image") or comma-separated list ("image,character")
+  if (studio) {
+    const studioList = studio.split(",").map(s => s.trim()).filter(Boolean);
+    query = studioList.length === 1
+      ? query.eq("studio", studioList[0])
+      : query.in("studio", studioList);
+  }
   if (model_key)     query = query.eq("model_key", model_key);
   if (visibility)    query = query.eq("visibility", visibility);
   if (is_favorite !== undefined) query = query.eq("is_favorite", is_favorite);
@@ -132,7 +138,12 @@ export async function GET(req: Request): Promise<Response> {
     countQuery = countQuery.eq("status", "ready");
   }
 
-  if (studio)       countQuery = countQuery.eq("studio", studio);
+  if (studio) {
+    const studioList = studio.split(",").map(s => s.trim()).filter(Boolean);
+    countQuery = studioList.length === 1
+      ? countQuery.eq("studio", studioList[0])
+      : countQuery.in("studio", studioList);
+  }
   if (model_key)    countQuery = countQuery.eq("model_key", model_key);
   if (visibility)   countQuery = countQuery.eq("visibility", visibility);
   if (is_favorite !== undefined) countQuery = countQuery.eq("is_favorite", is_favorite);
