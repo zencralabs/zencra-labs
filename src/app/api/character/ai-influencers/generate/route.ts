@@ -34,11 +34,12 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_CANDIDATE_COUNT = 4;
 const MAX_CANDIDATE_COUNT     = 6;
-// Seedream V5 (character studio alias) — initial casting engine.
+// Nano Banana Pro (character studio alias) — initial casting engine.
 // True text-to-image: candidate faces are driven by the prompt, not seed image DNA.
-// To revert to Instant Character: change this to "instant-character".
-// "flux-character" remains the polling fallback in the character registry.
-const DEFAULT_MODEL_KEY       = "seedream-v5-identity";
+// Same async polling architecture as Seedream V5, lower cost: 12 cr vs 15 cr/candidate.
+// To roll back to Seedream V5: change this to "seedream-v5-identity".
+// To revert to Instant Character (i2i): change this to "instant-character".
+const DEFAULT_MODEL_KEY       = "nano-banana-pro-casting";
 const DEFAULT_ASPECT_RATIO    = "2:3";
 
 // ── Mock candidate URLs ───────────────────────────────────────────────────────

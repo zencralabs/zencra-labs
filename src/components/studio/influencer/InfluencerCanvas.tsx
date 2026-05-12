@@ -2741,7 +2741,7 @@ function CanvasDock({
               opacity: 0.7,
               letterSpacing: "-0.01em",
             }}>
-              {candidateCount * 15} cr
+              {candidateCount * 12} cr
             </span>
           )}
         </button>
