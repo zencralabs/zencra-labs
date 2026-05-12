@@ -7,7 +7,6 @@ import {
   Volume2, VolumeX, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
-import { AuthModal }   from "@/components/auth/AuthModal";
 import { useAuth }     from "@/components/auth/AuthContext";
 import type { PublicAsset } from "@/lib/types/generation";
 import { HeroSection } from "@/components/home/hero/HeroSection";
@@ -312,14 +311,6 @@ function SectionSub({ children }: { children: React.ReactNode }) {
 export function HomePageContent() {
   const router = useRouter();
   const { user } = useAuth();
-  const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
-
-  // Open auth modal from query param
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authParam = params.get("auth");
-    if (authParam === "login" || authParam === "signup") setAuthModal(authParam);
-  }, []);
 
   // Redirect after login
   useEffect(() => {
@@ -1336,12 +1327,6 @@ export function HomePageContent() {
       }
     `}</style>
 
-    {authModal && (
-      <AuthModal
-        defaultTab={authModal}
-        onClose={() => setAuthModal(null)}
-      />
-    )}
     </HomeVideoAudioProvider>
   );
 }

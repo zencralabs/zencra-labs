@@ -30,6 +30,7 @@ import { invalidInput, serverErr, parseBody, requireField }
                                                  from "@/lib/api/route-utils";
 import { checkEnhanceRateLimit }                 from "@/lib/security/rate-limit";
 import { NextResponse }                          from "next/server";
+import { logger }                                from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export const dynamic = "force-dynamic";
 if (!process.env.OPENAI_API_KEY) {
   console.error("[prompt-enhance] OPENAI_API_KEY is NOT set — prompt enhancement will fail");
 } else {
-  console.log("[prompt-enhance] OPENAI_API_KEY present ✓ (length:", process.env.OPENAI_API_KEY.length, ")");
+  logger.info("prompt-enhance", "OPENAI_API_KEY present");
 }
 
 // ── System prompts by studio type ────────────────────────────────────────────

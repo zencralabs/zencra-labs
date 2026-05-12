@@ -155,6 +155,27 @@ export async function POST(req: Request): Promise<Response> {
   // Separate cap for the imageUrls[] field used by gpt-image-2 Reference Stack.
   // Future providers (Flux Kontext, Seedream, NB) will also route through this check.
   if (imageUrls && imageUrls.length > 0) {
+    // ── Origin validation — reject external URLs ──────────────────────────────
+    // imageUrls[] must contain only Supabase Storage URLs for this project.
+    // This blocks SSRF-adjacent abuse where an authenticated user passes an
+    // arbitrary external URL to be forwarded to a provider payload.
+    // Allow:  https://<project>.supabase.co/storage/v1/object/...
+    // Reject: any external domain, localhost, or private IP range.
+    const storageBase = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/`
+      : null;
+
+    if (storageBase) {
+      const externalUrls = imageUrls.filter((url) => !url.startsWith(storageBase));
+      if (externalUrls.length > 0) {
+        return invalidInput(
+          "imageUrls must reference files uploaded to Zencra Storage. " +
+          "Upload your reference images first using the upload endpoint, then use the returned URL."
+        );
+      }
+    }
+
+    // ── Reference image cap ────────────────────────────────────────────────
     const cap = getModelCapabilities(modelKey!);
     if (imageUrls.length > cap.maxReferenceImages) {
       return apiErr(

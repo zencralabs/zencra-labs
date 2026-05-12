@@ -10,7 +10,6 @@ import {
   Compass, Images, Gem,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-import { AuthModal } from "@/components/auth/AuthModal";
 import { useAuth } from "@/components/auth/AuthContext";
 import { getNavModels, getToolsByCategory, type CatalogTool } from "@/lib/tools/catalog";
 import { hasFCSAccess } from "@/lib/fcs";
@@ -815,7 +814,6 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
   const [scrolled, setScrolled]             = useState(false);
   const [mobileOpen, setMobileOpen]         = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<DropdownKey | null>(null);
-  const [authModal, setAuthModal]           = useState<"login" | "signup" | null>(null);
   // mounted gates all client-only auth UI. On the server (and on the first
   // client render before hydration) this is false, so we always render the
   // skeleton. After hydration useEffect flips it true and the real credits
@@ -1285,14 +1283,6 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
         </div>
       </header>
 
-      {authModal && (
-        <Suspense fallback={null}>
-          <AuthModal
-            defaultTab={authModal}
-            onClose={() => setAuthModal(null)}
-          />
-        </Suspense>
-      )}
     </>
   );
 }

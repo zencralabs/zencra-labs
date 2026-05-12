@@ -25,6 +25,55 @@ import { createClient } from "@supabase/supabase-js";
 import { compressImage, isImageMime } from "@/lib/media/compress-image";
 import { requireAuthUser } from "@/lib/supabase/server";
 
+// ── Magic-byte video signature detection ──────────────────────────────────────
+// Validates that uploaded bytes match the declared MIME type's container format.
+// Rejects files where the declared video/* MIME does not match the actual bytes.
+
+type VideoFamily = "mp4" | "webm" | "avi";
+
+/**
+ * Reads the first 12 bytes of an ArrayBuffer and returns the detected video
+ * container family, or null if no known signature is found.
+ *
+ *   MP4 / MOV  → "ftyp" atom at bytes 4–7  (0x66 0x74 0x79 0x70)
+ *   WebM / MKV → EBML magic at bytes 0–3   (0x1A 0x45 0xDF 0xA3)
+ *   AVI        → RIFF at bytes 0–3 + "AVI " at bytes 8–11
+ */
+function detectVideoFamily(buffer: ArrayBuffer): VideoFamily | null {
+  const len   = buffer.byteLength;
+  const bytes = new Uint8Array(buffer, 0, Math.min(12, len));
+
+  // WebM / MKV — EBML magic header (both formats share the same container)
+  if (len >= 4 &&
+      bytes[0] === 0x1A && bytes[1] === 0x45 &&
+      bytes[2] === 0xDF && bytes[3] === 0xA3) {
+    return "webm";
+  }
+
+  // MP4 / MOV — ISO Base Media File Format: "ftyp" box at offset 4
+  if (len >= 8 &&
+      bytes[4] === 0x66 && bytes[5] === 0x74 &&
+      bytes[6] === 0x79 && bytes[7] === 0x70) {
+    return "mp4";
+  }
+
+  // AVI — RIFF container: "RIFF" at 0–3 and "AVI " at 8–11
+  if (len >= 12 &&
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x41 && bytes[9] === 0x56 && bytes[10] === 0x49 && bytes[11] === 0x20) {
+    return "avi";
+  }
+
+  return null;
+}
+
+/** MIME types accepted per detected container family */
+const VIDEO_FAMILY_MIMES: Record<VideoFamily, readonly string[]> = {
+  mp4:  ["video/mp4", "video/quicktime"],
+  webm: ["video/webm", "video/x-matroska"],
+  avi:  ["video/avi", "video/x-msvideo"],
+};
+
 // ── Supabase admin client (uses service role key — server only) ───────────────
 function getSupabaseAdmin() {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -73,6 +122,39 @@ export async function POST(req: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
+
+    // ── Magic-byte validation for video uploads ─────────────────────────────
+    // file.type is attacker-controlled (declared in multipart Content-Type).
+    // We verify the actual bytes match the claimed container format before
+    // any storage write occurs.
+    if (isVideo) {
+      const detectedFamily = detectVideoFamily(arrayBuffer);
+
+      if (detectedFamily === null) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:   "File content does not match a supported video format. " +
+                     "Supported containers: MP4, MOV, WebM, MKV, AVI.",
+          },
+          { status: 415 },
+        );
+      }
+
+      const acceptedMimes = VIDEO_FAMILY_MIMES[detectedFamily];
+      if (!acceptedMimes.includes(mime)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:   `Declared MIME type "${mime}" does not match the detected ` +
+                     `file format (${detectedFamily.toUpperCase()} container). ` +
+                     `Please upload a valid ${detectedFamily.toUpperCase()} file.`,
+          },
+          { status: 415 },
+        );
+      }
+    }
+
     const supabase    = getSupabaseAdmin();
 
     let uploadBuffer: Buffer;
