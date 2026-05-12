@@ -137,6 +137,74 @@ export async function GET(
     return serverErr("Failed to fetch pack assets");
   }
 
+  console.log(
+    `[identity-sheet-hydration] influencer_assets count=${assets?.length ?? 0}` +
+    ` influencer=${influencer_id} lock=${identity_lock_id}`,
+  );
+
+  // ── Fix B: Fallback — if influencer_assets is empty, recover from assets table ─
+  // Root cause: SHOT_TIMEOUT_MS was 55s but NB Pro Identity takes 60-180s per shot.
+  // The chain timed out before writing to influencer_assets. The universal polling
+  // engine (Activity Center) continued polling and confirmed the final URLs in the
+  // assets table. This fallback recovers those records for the identity sheet library.
+  if (!assets || assets.length === 0) {
+    // Step 1 — get external job IDs for this influencer's identity-sheet chain
+    const { data: genJobs } = await supabaseAdmin
+      .from("influencer_generation_jobs")
+      .select("external_job_id")
+      .eq("influencer_id", influencer_id)
+      .eq("identity_lock_id", identity_lock_id)
+      .eq("job_type", "identity-sheet")
+      .not("external_job_id", "is", null);
+
+    const externalIds = (genJobs ?? [])
+      .map((j: { external_job_id: string | null }) => j.external_job_id)
+      .filter(Boolean) as string[];
+
+    if (externalIds.length > 0) {
+      // Step 2 — fetch confirmed assets by those external job IDs
+      const { data: fallbackAssets } = await supabaseAdmin
+        .from("assets")
+        .select("url, created_at")
+        .in("external_job_id", externalIds)
+        .eq("status", "ready")
+        .order("created_at", { ascending: true });
+
+      type FallbackRow = { url: string; created_at: string };
+      // Deduplicate by URL (safe guard against double-writes)
+      const deduped = Array.from(
+        new Map(
+          ((fallbackAssets ?? []) as FallbackRow[])
+            .filter((a) => !!a.url)
+            .map((a) => [a.url, a]),
+        ).values(),
+      );
+
+      console.log(
+        `[identity-sheet-hydration] fallback assets count=${deduped.length}` +
+        ` influencer=${influencer_id} lock=${identity_lock_id}`,
+      );
+
+      if (deduped.length > 0) {
+        const fallbackMapped = deduped.map((a, idx) => ({
+          url:           a.url,
+          thumbnail_url: a.url, // assets table has no thumbnail_url — use full URL
+          shot_index:    idx,   // synthesised from creation order
+          label:         `Shot ${idx + 1}`,
+        }));
+        return ok({ assets: fallbackMapped });
+      }
+    } else {
+      console.log(
+        `[identity-sheet-hydration] fallback assets count=0` +
+        ` (no identity-sheet jobs found for lock=${identity_lock_id})`,
+      );
+    }
+
+    return ok({ assets: [] });
+  }
+
+  // ── Primary path — map influencer_assets records to client shape ─────────────
   // Map to client shape — derive shot_index + label from metadata
   type AssetRow = {
     url: string;

@@ -54,8 +54,10 @@ const SUPABASE_DOMAIN = "supabase.co";
  *   A 5s interval gives ~11 polls per shot at max timeout.
  *   Starting after 5s avoids hammering the provider on an empty queue.
  */
-const POLL_INTERVAL_MS = 5_000;  // 5 seconds between each status check
-const SHOT_TIMEOUT_MS  = 55_000; // 55 seconds max wait per individual shot
+const POLL_INTERVAL_MS = 5_000;   // 5 seconds between each status check
+const SHOT_TIMEOUT_MS  = 240_000; // 240 seconds max wait per individual shot
+                                  // NB Pro Identity takes 60-180s; 240s gives a 60s buffer
+                                  // within the route's maxDuration = 300s (Vercel Pro)
 
 // ── Error class ───────────────────────────────────────────────────────────────
 
