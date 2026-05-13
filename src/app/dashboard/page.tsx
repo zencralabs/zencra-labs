@@ -33,7 +33,7 @@ const QUICK_ACTIONS = [
   { label: "Creative Director",  icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.12)", href: "/studio/image?mode=creative-director" },
   { label: "Audio Studio",       icon: Music,     color: "#D97706", bg: "rgba(217,119,6,0.12)",  href: "/studio/audio" },
   { label: "My Projects",        icon: FolderOpen,color: "#10B981", bg: "rgba(16,185,129,0.12)", href: "/dashboard/projects" },
-  { label: "Assets Library",     icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/generated" },
+  { label: "Assets Library",     icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/library" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
