@@ -51,8 +51,8 @@ const PLANS = [
     yearlyPrice: 290,
     description: "For serious creators",
     icon: Zap,
-    color: "#2563EB",
-    glow: "rgba(37,99,235,0.2)",
+    color: "#6366F1",
+    glow: "rgba(99,102,241,0.2)",
     credits: 1600,
     features: [
       "All studios unlocked",
@@ -68,8 +68,8 @@ const PLANS = [
     yearlyPrice: 490,
     description: "For professional creators",
     icon: Crown,
-    color: "#A855F7",
-    glow: "rgba(168,85,247,0.2)",
+    color: "#14B8A6",
+    glow: "rgba(20,184,166,0.2)",
     credits: 3500,
     features: [
       "All studios unlocked",
@@ -86,8 +86,8 @@ const PLANS = [
     yearlyPrice: 890,
     description: "Team workspace for studios & agencies",
     icon: Building2,
-    color: "#F59E0B",
-    glow: "rgba(245,158,11,0.2)",
+    color: "#D4AF37",
+    glow: "rgba(212,175,55,0.2)",
     credits: 8000,
     features: [
       "Everything in Pro",
@@ -165,7 +165,7 @@ export default function SubscriptionPage() {
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
             >
               {plan.badge && !isCurrent && (
-                <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", backgroundColor: plan.badge === "Most Popular" ? "#2563EB" : "#F59E0B", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "3px 10px", borderRadius: "10px", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+                <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", backgroundColor: plan.badge === "Most Popular" ? "#2563EB" : "#D4AF37", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "3px 10px", borderRadius: "10px", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
                   {plan.badge}
                 </div>
               )}

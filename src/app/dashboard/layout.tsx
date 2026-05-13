@@ -28,9 +28,9 @@ const NAV = [
 
 const PLAN_COLORS: Record<string, string> = {
   free:     "#64748B",
-  starter:  "#2563EB",
-  pro:      "#0EA5A0",
-  creator:  "#A855F7",
+  starter:  "#64748B",
+  creator:  "#6366F1",
+  pro:      "#14B8A6",
   business: "#D4AF37",
 };
 
@@ -87,9 +87,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     pro:      3500,
     business: 8000,
   };
-  const creditLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 1000;
+  const creditLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 600;
   const creditsPercent = Math.min((user.credits / creditLimit) * 100, 100);
-  const initials = user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
     <div style={{ minHeight: "calc(100vh - 64px)", marginTop: "64px", backgroundColor: "var(--page-bg)", color: "var(--page-text)", display: "flex" }}>
@@ -103,15 +102,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }}>
         {/* User card */}
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "linear-gradient(135deg,#2563EB,#0EA5A0)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", color: "#fff", flexShrink: 0 }}>
-              {initials}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: "13px", color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, color: planColor, backgroundColor: `${planColor}20`, padding: "1px 7px", borderRadius: "10px", border: `1px solid ${planColor}40` }}>{user.plan}</span>
-              </div>
+          <div style={{ marginBottom: "2px" }}>
+            <div style={{ fontWeight: 600, fontSize: "13px", color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
+              <span style={{ fontSize: "10px", fontWeight: 700, color: planColor, backgroundColor: `${planColor}20`, padding: "1px 7px", borderRadius: "10px", border: `1px solid ${planColor}40` }}>{user.plan}</span>
             </div>
           </div>
 
