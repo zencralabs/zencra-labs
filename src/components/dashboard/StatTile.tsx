@@ -36,9 +36,12 @@ export default function StatTile({
           {icon}
         </div>
       )}
-      {/* Value uses Syne (font-display) for cinematic weight */}
-      <div className="font-display text-2xl font-bold text-white leading-none">
-        {value}
+      {/* Value uses Syne (font-display) — matches navbar credit pill: 14px/700/tracking-[-0.01em] */}
+      <div
+        className="font-display text-2xl leading-none"
+        style={{ fontWeight: 700, letterSpacing: "-0.01em", color: "#DBEAFE" }}
+      >
+        {typeof value === "number" ? value.toLocaleString() : value}
       </div>
       {/* Label uses Familjen Grotesk (font-sans) */}
       <div className="font-sans text-xs text-white/50 leading-snug">

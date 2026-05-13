@@ -192,7 +192,7 @@ export default function DashboardPage() {
               <Zap size={16} style={{ color: "#A855F7" }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</div>
           <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: 12 }}>
             <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 2, boxShadow: "0 0 8px rgba(168,85,247,0.5)" }} />
           </div>
@@ -242,7 +242,7 @@ export default function DashboardPage() {
               <Users size={16} style={{ color: "#F59E0B" }} />
             </div>
           </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: "var(--page-text)", lineHeight: 1 }}>0</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.01em" }}>0</div>
           <div style={{ fontSize: 11, color: "#475569", marginTop: 8 }}>
             Earn <span style={{ color: "#F59E0B", fontWeight: 700 }}>20 credits</span> per referral
           </div>
@@ -369,8 +369,8 @@ export default function DashboardPage() {
                   {tool && <div style={{ fontSize: 12, color: "#475569", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tool}</div>}
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: positive ? "#10B981" : "#F8FAFC" }}>
-                    {positive ? "+" : ""}{tx.amount} cr
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: positive ? "#10B981" : "#DBEAFE", letterSpacing: "-0.01em" }}>
+                    {positive ? "+" : ""}{tx.amount.toLocaleString()} cr
                   </div>
                   <div style={{ fontSize: 11, color: "#334155", display: "flex", alignItems: "center", gap: 3, marginTop: 2, justifyContent: "flex-end" }}>
                     <Clock size={10} /> {timeAgo(tx.created_at)}

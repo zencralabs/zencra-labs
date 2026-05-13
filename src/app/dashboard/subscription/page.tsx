@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
         <div>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Current Plan</div>
           <div style={{ fontSize: "20px", fontWeight: 800, color: "#60A5FA" }}>{user.plan} Plan</div>
-          <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>{user.credits} credits remaining</div>
+          <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}><span style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", color: "#DBEAFE" }}>{user.credits.toLocaleString()}</span> credits remaining</div>
         </div>
         {user.plan !== "creator" && (
           <div style={{ textAlign: "right" }}>
@@ -161,7 +161,7 @@ export default function SubscriptionPage() {
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "2px" }}>{plan.name}</div>
               <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "12px" }}>{plan.description}</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
-                <span style={{ fontSize: "22px", fontWeight: 800, color: plan.color }}>{displayPrice}</span>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 700, color: plan.color, letterSpacing: "-0.01em" }}>{displayPrice}</span>
               </div>
 
               <div style={{ marginBottom: "18px" }}>

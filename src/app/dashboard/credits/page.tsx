@@ -214,7 +214,7 @@ export default function CreditsPage() {
         <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "160px", height: "160px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
         <div style={label}>Current Balance</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-          <span style={{ fontSize: "52px", fontWeight: 900, color: "var(--page-text)", lineHeight: 1 }}>{user.credits}</span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: "52px", fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</span>
           <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>credits</span>
         </div>
         <div style={{ marginTop: "20px", height: "6px", background: "rgba(255,255,255,0.08)", borderRadius: "3px", overflow: "hidden" }}>
@@ -256,9 +256,9 @@ export default function CreditsPage() {
                       MOST POPULAR
                     </div>
                   )}
-                  <div style={{ fontSize: 24, fontWeight: 900, color: "var(--page-text)" }}>{pack.credits}</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{pack.credits.toLocaleString()}</div>
                   <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>credits</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color, marginTop: 4 }}>{price}</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color, marginTop: 4, letterSpacing: "-0.01em" }}>{price}</div>
                   <div style={{ fontSize: 11, color: "#64748b" }}>${((pack.price_cents / pack.credits) / 100).toFixed(3)} / credit</div>
                   <button
                     onClick={() => handleBuy(pack)}
@@ -314,10 +314,10 @@ export default function CreditsPage() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: isPositive ? "#10a37f" : "#6366f1" }}>
-                      {isPositive ? "+" : ""}{tx.amount}
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: isPositive ? "#10a37f" : "#DBEAFE", letterSpacing: "-0.01em" }}>
+                      {isPositive ? "+" : ""}{tx.amount.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>bal: {tx.balance_after}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>bal: <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", color: "#DBEAFE" }}>{tx.balance_after?.toLocaleString() ?? "—"}</span></div>
                   </div>
                 </div>
               );

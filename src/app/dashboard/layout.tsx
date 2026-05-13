@@ -116,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div style={{ marginTop: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
               <span style={{ fontSize: "10px", color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Credits</span>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: "#60A5FA" }}>{user.credits}</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</span>
             </div>
             <div style={{ height: "4px", borderRadius: "2px", backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${creditsPercent}%`, borderRadius: "2px", background: "linear-gradient(90deg,#2563EB,#0EA5A0)", transition: "width 0.5s ease" }} />
