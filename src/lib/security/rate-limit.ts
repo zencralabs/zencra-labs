@@ -79,7 +79,7 @@ export function getClientIp(req: Request): string {
  * Returns the first 16 hex chars of SHA-256 — enough for grouping/dedup
  * without storing PII. Consistent across calls for the same IP.
  */
-function hashIp(ip: string): string {
+export function hashIp(ip: string): string {
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
 

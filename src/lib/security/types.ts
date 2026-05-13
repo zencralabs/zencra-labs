@@ -74,6 +74,10 @@ export type SecurityRule =
   | "provider.circuit.recovering"       // circuit recovering — half-open probe succeeded
   | "provider.timeout.spike"            // provider timeout rate spike
 
+  // ── Auth / credential rules ────────────────────────────────────────────────
+  | "auth.login.failed"                 // Credential rejection from signInWithPassword
+  | "auth.otp.failed"                   // OTP send failure from phone auth
+
   // ── Webhook / inbound verification rules ───────────────────────────────────
   | "webhook.signature.invalid"         // HMAC signature mismatch on inbound webhook
   | "webhook.signature.missing"         // Inbound webhook has no signature header
@@ -146,6 +150,13 @@ interface SecurityEventBase {
   mode: ShieldMode;
   /** ISO timestamp — set by emitSecurityEvent() if not provided */
   timestamp?: string;
+  /**
+   * When true, Discord alerting is suppressed even in observe/enforce mode.
+   * Use for high-volume events (e.g. auth failures) that should persist to
+   * security_events_log and appear in /hub analytics but must not spam alerts
+   * until a threshold-based alerting layer is wired in a future phase.
+   */
+  noAlert?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,6 +251,22 @@ export interface EntitlementEvent extends SecurityEventBase {
   requiredPlan?: string;
 }
 
+export interface AuthEvent extends SecurityEventBase {
+  rule:
+    | "auth.login.failed"   // credential rejection — signInWithPassword returned error
+    | "auth.otp.failed";    // OTP send failure — Supabase/Twilio returned error
+  /**
+   * SHA-256 prefix (first 16 hex chars) of the client IP address.
+   * Never stores the raw IP — consistent per IP for grouping/dedup.
+   */
+  ipHash: string;
+  /**
+   * Running attempt count in the current rate-limit window, if available.
+   * Used for future threshold-based alerting without re-querying the DB.
+   */
+  attemptCount?: number;
+}
+
 /** Top-level discriminated union — narrow on `rule` or the variant type */
 export type SecurityEvent =
   | VelocityEvent
@@ -248,7 +275,8 @@ export type SecurityEvent =
   | WebhookEvent
   | AdminEvent
   | JobEvent
-  | EntitlementEvent;
+  | EntitlementEvent
+  | AuthEvent;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Audit Log entry (separate from SecurityEvent — lower noise)

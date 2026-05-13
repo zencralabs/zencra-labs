@@ -127,6 +127,11 @@ async function runDiscordAlert(event: SecurityEvent, mode: ShieldMode): Promise<
   // Discord alerts are sent in observe + enforce modes only
   if (mode === "dry-run") return;
 
+  // noAlert suppresses Discord for high-volume events (e.g. auth failures) that
+  // should persist to security_events_log but must not spam alert channels.
+  // These events are still visible in /hub and security-summary analytics.
+  if (event.noAlert) return;
+
   try {
     await sendDiscordAlert(event, mode);
   } catch (err) {

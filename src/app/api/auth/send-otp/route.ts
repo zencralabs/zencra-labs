@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { checkAuthRateLimit } from "@/lib/security/rate-limit";
+import { checkAuthRateLimit, hashIp }            from "@/lib/security/rate-limit";
+import { emitSecurityEvent, resolveShieldMode }  from "@/lib/security/events";
+import type { AuthEvent }                        from "@/lib/security/types";
 
 /**
  * POST /api/auth/send-otp
@@ -63,6 +65,28 @@ export async function POST(req: NextRequest) {
   const { error: otpError } = await anonClient.auth.signInWithOtp({ phone });
   if (otpError) {
     console.error("[send-otp]", otpError.message);
+
+    // Shield: emit auth.otp.failed — fire-and-forget, noAlert=true (no Discord spam).
+    // Persists to security_events_log in observe/enforce mode for /hub analytics.
+    const ipHash = hashIp(ip);
+    const mode   = resolveShieldMode();
+    const authEv: Omit<AuthEvent, "timestamp"> = {
+      rule:         "auth.otp.failed",
+      severity:     "warning",
+      threshold: {
+        metric:          "otp_failure_count",
+        configuredValue: 0,
+        observedValue:   1,
+        unit:            "attempt",
+      },
+      actionTaken:  mode !== "dry-run" ? "alerted" : "logged_only",
+      actionReason: `OTP send failure — IP hash ${ipHash}`,
+      mode,
+      noAlert:      true,
+      ipHash,
+    };
+    void emitSecurityEvent(authEv);
+
     return NextResponse.json({ success: false, error: otpError.message }, { status: 400 });
   }
 

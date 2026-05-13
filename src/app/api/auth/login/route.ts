@@ -25,7 +25,9 @@
 
 import type { NextRequest } from "next/server";
 import { createClient }     from "@supabase/supabase-js";
-import { checkLoginRateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { checkLoginRateLimit, getClientIp, hashIp } from "@/lib/security/rate-limit";
+import { emitSecurityEvent, resolveShieldMode }      from "@/lib/security/events";
+import type { AuthEvent }                            from "@/lib/security/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +74,29 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   if (error || !data.session) {
     // Never expose raw Supabase error — always generic invalid-credentials message
+
+    // Shield: emit auth.login.failed — fire-and-forget, noAlert=true (no Discord spam).
+    // Persists to security_events_log in observe/enforce mode for /hub analytics.
+    // Threshold-based alerting on repeated failures is deferred to a future phase.
+    const ipHash = hashIp(ip);
+    const mode   = resolveShieldMode();
+    const authEv: Omit<AuthEvent, "timestamp"> = {
+      rule:         "auth.login.failed",
+      severity:     "warning",
+      threshold: {
+        metric:          "login_failure_count",
+        configuredValue: 0,   // any failure is tracked; threshold alerting is future work
+        observedValue:   1,
+        unit:            "attempt",
+      },
+      actionTaken:  mode !== "dry-run" ? "alerted" : "logged_only",
+      actionReason: `Failed credential login attempt — IP hash ${ipHash}`,
+      mode,
+      noAlert:      true,   // persist + log only; Discord suppressed until thresholds wired
+      ipHash,
+    };
+    void emitSecurityEvent(authEv);
+
     return Response.json(
       { success: false, error: "Invalid email or password" },
       { status: 401 }

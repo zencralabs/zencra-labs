@@ -32,9 +32,11 @@
  * Vercel Cron is wired in vercel.json — see project root.
  */
 
-import { supabaseAdmin }  from "@/lib/supabase/admin";
-import { requireAdmin }   from "@/lib/auth/admin-gate";
-import { logger }         from "@/lib/logger";
+import { supabaseAdmin }                        from "@/lib/supabase/admin";
+import { requireAdmin }                         from "@/lib/auth/admin-gate";
+import { logger }                               from "@/lib/logger";
+import { emitSecurityEvent, resolveShieldMode } from "@/lib/security/events";
+import type { JobEvent }                        from "@/lib/security/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,7 +113,7 @@ export async function POST(req: Request): Promise<Response> {
 
   const { data: staleRuns, error: queryError } = await supabaseAdmin
     .from("workflow_runs")
-    .select("id, user_id, credit_reserved, credit_used, credit_released")
+    .select("id, user_id, credit_reserved, credit_used, credit_released, updated_at")
     .eq("status", "running")
     .is("completed_at", null)
     .lt("updated_at", thresholdIso)
@@ -173,6 +175,32 @@ export async function POST(req: Request): Promise<Response> {
       "recover-stale",
       `recovered run=${run.id} user=${run.user_id} refund=${refund}cr`,
     );
+
+    // Shield: emit job.stale.detected — fire-and-forget, non-blocking.
+    // Persists to security_events_log in observe/enforce mode.
+    // Appears in /hub Security Monitor → Abuse Signals and admin security-summary.
+    const staleAgeMs = run.updated_at
+      ? Date.now() - new Date(run.updated_at as string).getTime()
+      : STALE_THRESHOLD_MINUTES * 60 * 1000; // floor estimate if updated_at missing
+    const staleMinutes = Math.round(staleAgeMs / 60_000);
+    const mode = resolveShieldMode();
+    const ev: Omit<JobEvent, "timestamp"> = {
+      rule:         "job.stale.detected",
+      severity:     "warning",
+      threshold: {
+        metric:          "workflow_run_age_minutes",
+        configuredValue: STALE_THRESHOLD_MINUTES,
+        observedValue:   staleMinutes,
+        unit:            "minutes",
+      },
+      actionTaken:  mode !== "dry-run" ? "alerted" : "logged_only",
+      actionReason: `Stale workflow run recovered — run=${run.id} user=${run.user_id ?? "unknown"} age=${staleMinutes}min refund=${refund}cr`,
+      mode,
+      jobId:        run.id,
+      userId:       run.user_id ?? undefined,
+      staleAgeMs,
+    };
+    void emitSecurityEvent(ev);
   }
 
   return Response.json({
