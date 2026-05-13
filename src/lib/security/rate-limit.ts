@@ -349,8 +349,9 @@ export async function checkWebhookRateLimit(provider: string): Promise<Response 
 // S3-C: CONCURRENT JOB CAPS — per user, per studio
 // Caps: image=4, video=1, lipsync=1.
 // Queries the assets table (common record store for image/video/lipsync) for
-// jobs in pending or processing state. Valid AssetStatus values are:
-//   pending | processing | ready | failed | deleted
+// jobs in pending state. Lifecycle is pending → {ready|failed} — no
+// intermediate "processing" state is written. Valid AssetStatus values:
+//   pending | processing | ready | failed | deleted  (only "pending" is active)
 // DB errors degrade gracefully — a broken check must never block requests.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -364,7 +365,7 @@ async function checkConcurrentJobLimit(
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .eq("studio", studio)
-    .in("status", ["pending", "processing"]);
+    .eq("status", "pending");
 
   if (error) {
     console.error(`[rate-limit] concurrent-${studio} DB error:`, error.message);
