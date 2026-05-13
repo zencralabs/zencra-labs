@@ -75,6 +75,9 @@ export default function CreditsPage() {
 
   const credPct = Math.min((user.credits / 100) * 100, 100);
 
+  // Plan gate: booster packs require an active primary plan
+  const hasActivePlan = !!user.plan && user.plan !== "free";
+
   // ── Buy flow ───────────────────────────────────────────────────────────────
   // In demo mode (isDemo:true in order response): skips the Razorpay modal
   // entirely and auto-calls /api/billing/demo/webhook — same fulfillment path
@@ -225,6 +228,19 @@ export default function CreditsPage() {
       {/* ── Top-up packs ──────────────────────────────────────────────────── */}
       <div style={card}>
         <h2 style={sectionTitle}>Buy Credits</h2>
+
+        {/* Eligibility note */}
+        <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+          <span style={{ fontSize: "15px", flexShrink: 0, marginTop: "1px" }}>ℹ️</span>
+          <p style={{ fontSize: "12px", color: "#64748B", margin: 0, lineHeight: 1.6 }}>
+            <strong style={{ color: "#94A3B8", fontWeight: 600 }}>Booster Packs require an active primary plan.</strong>{" "}
+            Booster credits expire 90 days from purchase, whether used or not.
+            {!hasActivePlan && (
+              <>{" "}<a href="/dashboard/subscription" style={{ color: "#60A5FA", fontWeight: 600, textDecoration: "none" }}>Choose a plan →</a></>
+            )}
+          </p>
+        </div>
+
         {packsLoading ? (
           <div style={{ display: "flex", gap: 12 }}>
             {[1,2,3,4].map((i) => <div key={i} style={{ flex: 1, height: 120, borderRadius: 12, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />)}
@@ -237,41 +253,62 @@ export default function CreditsPage() {
               const popular = Boolean(meta?.popular);
               const isBuying = purchasing === pack.id;
               const price   = `$${(pack.price_cents / 100).toFixed(2)}`;
+              const locked  = !hasActivePlan;
 
               return (
                 <div
                   key={pack.id}
                   style={{
                     position: "relative", borderRadius: "14px",
-                    border: `1px solid ${popular ? color : "rgba(255,255,255,0.08)"}`,
+                    border: `1px solid ${popular && !locked ? color : "rgba(255,255,255,0.08)"}`,
                     padding: "20px 16px",
-                    background: popular ? `${color}15` : "rgba(255,255,255,0.03)",
+                    background: locked ? "rgba(255,255,255,0.01)" : popular ? `${color}15` : "rgba(255,255,255,0.03)",
                     display: "flex", flexDirection: "column", gap: "8px", transition: "border-color 0.15s, transform 0.15s",
+                    opacity: locked ? 0.6 : 1,
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = popular ? color : "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+                  onMouseEnter={(e) => { if (!locked) { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; } }}
+                  onMouseLeave={(e) => { if (!locked) { (e.currentTarget as HTMLElement).style.borderColor = popular ? color : "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; } }}
                 >
-                  {popular && (
+                  {popular && !locked && (
                     <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: color, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
                       MOST POPULAR
                     </div>
                   )}
+                  {locked && (
+                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "#334155", color: "#94A3B8", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                      🔒 PLAN REQUIRED
+                    </div>
+                  )}
                   <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{pack.credits.toLocaleString()}</div>
                   <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>credits</div>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color, marginTop: 4, letterSpacing: "-0.01em" }}>{price}</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: locked ? "#475569" : color, marginTop: 4, letterSpacing: "-0.01em" }}>{price}</div>
                   <div style={{ fontSize: 11, color: "#64748b" }}>${((pack.price_cents / pack.credits) / 100).toFixed(3)} / credit</div>
-                  <button
-                    onClick={() => handleBuy(pack)}
-                    disabled={!!purchasing}
-                    style={{
-                      marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 13, fontWeight: 700, border: "none",
-                      background: isBuying ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${color}, ${color}cc)`,
-                      color: isBuying ? "rgba(255,255,255,0.4)" : "#fff",
-                      cursor: purchasing ? "not-allowed" : "pointer", transition: "all 0.15s",
-                    }}
-                  >
-                    {isBuying ? "Opening…" : `Buy ${pack.name}`}
-                  </button>
+                  {locked ? (
+                    <a
+                      href="/dashboard/subscription"
+                      style={{
+                        marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 12, fontWeight: 700,
+                        border: "1px solid rgba(255,255,255,0.12)", background: "transparent",
+                        color: "#60A5FA", cursor: "pointer", transition: "all 0.15s",
+                        textAlign: "center", textDecoration: "none", display: "block",
+                      }}
+                    >
+                      Choose a primary plan first
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => handleBuy(pack)}
+                      disabled={!!purchasing}
+                      style={{
+                        marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 13, fontWeight: 700, border: "none",
+                        background: isBuying ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${color}, ${color}cc)`,
+                        color: isBuying ? "rgba(255,255,255,0.4)" : "#fff",
+                        cursor: purchasing ? "not-allowed" : "pointer", transition: "all 0.15s",
+                      }}
+                    >
+                      {isBuying ? "Opening…" : `Buy ${pack.name}`}
+                    </button>
+                  )}
                 </div>
               );
             })}
