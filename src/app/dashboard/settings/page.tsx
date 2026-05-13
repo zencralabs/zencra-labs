@@ -2,27 +2,36 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Bell, Lock, Shield, Trash2, CheckCircle, AlertTriangle,
+  Bell, Lock, Shield, CheckCircle,
   Fingerprint, Loader2, QrCode, Copy, Eye, EyeOff,
-  Smartphone, ShieldCheck, ShieldOff,
+  Smartphone, ShieldCheck, ShieldOff, Mail, Clock,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SETTINGS PAGE — Notifications, security (real 2FA + passkey), privacy
+// SETTINGS PAGE — Account preferences and security
+//
+// Real: TOTP 2FA enroll/verify/disable (unchanged)
+// Real: Passkey flag (backend boolean only — full WebAuthn deferred)
+// Visual-only (clearly labelled): Notifications, Privacy
+// Removed: fake Delete Account / logout() confusion
 // ─────────────────────────────────────────────────────────────────────────────
 
 type TOTPStep = "idle" | "enrolling" | "verifying" | "success" | "error";
 type SecurityData = { totpEnabled: boolean; totpFactorId: string | null; passkeyRegistered: boolean };
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+// ── Toggle component ──────────────────────────────────────────────────────────
+function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button
-      onClick={() => onChange(!value)}
+      onClick={() => !disabled && onChange(!value)}
       aria-pressed={value}
+      disabled={disabled}
       style={{
-        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+        width: 44, height: 24, borderRadius: 12, border: "none",
+        cursor: disabled ? "not-allowed" : "pointer",
         backgroundColor: value ? "#2563EB" : "rgba(255,255,255,0.1)",
+        opacity: disabled ? 0.5 : 1,
         position: "relative", transition: "background 0.2s", flexShrink: 0,
       }}
     >
@@ -35,29 +44,60 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
+// ── Section header ────────────────────────────────────────────────────────────
+function SectionHeader({ icon, bg, title, titleColor }: {
+  icon: React.ReactNode;
+  bg: React.CSSProperties;
+  title: string;
+  titleColor?: string;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      <div style={bg}>{icon}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: titleColor ?? "var(--page-text)", fontFamily: "var(--font-syne, inherit)" }}>
+        {title}
+      </div>
+    </div>
+  );
+}
+
+// ── Coming soon badge ─────────────────────────────────────────────────────────
+function ComingSoon() {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+      color: "#64748B", backgroundColor: "rgba(255,255,255,0.06)",
+      border: "1px solid rgba(255,255,255,0.1)",
+      padding: "2px 8px", borderRadius: 6,
+      textTransform: "uppercase",
+      fontFamily: "var(--font-familjen-grotesk, inherit)",
+    }}>
+      <Clock size={9} /> Coming soon
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
-  // ── Notifications state ────────────────────────────────────────────────────
-  const [emailNotifs,    setEmailNotifs]    = useState(true);
+  // ── Notification preview state (NOT persisted — coming soon) ──────────────
+  const [emailNotifs,     setEmailNotifs]     = useState(true);
   const [marketingNotifs, setMarketingNotifs] = useState(false);
-  const [creditAlerts,   setCreditAlerts]   = useState(true);
-  const [notifSaved,     setNotifSaved]     = useState(false);
+  const [creditAlerts,    setCreditAlerts]    = useState(true);
 
-  // ── Security / 2FA state ───────────────────────────────────────────────────
-  const [secData,     setSecData]    = useState<SecurityData | null>(null);
-  const [secLoading,  setSecLoading] = useState(true);
-  const [totpStep,    setTotpStep]   = useState<TOTPStep>("idle");
-  const [totpBusy,    setTotpBusy]   = useState(false);
-  const [totpEnroll,  setTotpEnroll] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
-  const [totpCode,    setTotpCode]   = useState("");
-  const [totpErr,     setTotpErr]    = useState("");
-  const [showSecret,  setShowSecret] = useState(false);
-  const [passkeyMsg,  setPasskeyMsg] = useState("");
+  // ── Security / 2FA state ─────────────────────────────────────────────────
+  const [secData,    setSecData]    = useState<SecurityData | null>(null);
+  const [secLoading, setSecLoading] = useState(true);
+  const [totpStep,   setTotpStep]   = useState<TOTPStep>("idle");
+  const [totpBusy,   setTotpBusy]   = useState(false);
+  const [totpEnroll, setTotpEnroll] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
+  const [totpCode,   setTotpCode]   = useState("");
+  const [totpErr,    setTotpErr]    = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [passkeyMsg, setPasskeyMsg] = useState("");
   const [passkeyLoading, setPasskeyLoading] = useState(false);
-
-  // ── Delete account ─────────────────────────────────────────────────────────
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const authHeader = useCallback((): Record<string, string> => {
     if (!user?.accessToken) return {};
@@ -78,14 +118,8 @@ export default function SettingsPage() {
 
   if (!user) return null;
 
-  // ── Notification save ──────────────────────────────────────────────────────
-  function handleNotifSave() {
-    setNotifSaved(true);
-    setTimeout(() => setNotifSaved(false), 3000);
-    // TODO: persist notification preferences to Supabase profiles table
-  }
-
-  // ── TOTP enrollment ────────────────────────────────────────────────────────
+  // ── TOTP enrollment ───────────────────────────────────────────────────────
+  // These three functions are preserved exactly as they were — real and working.
   async function startTOTPEnroll() {
     setTotpStep("enrolling");
     setTotpBusy(true);
@@ -157,14 +191,15 @@ export default function SettingsPage() {
     finally { setTotpStep("idle"); }
   }
 
-  // ── Passkey ────────────────────────────────────────────────────────────────
+  // ── Passkey ───────────────────────────────────────────────────────────────
+  // Passkey registration is preserved as-is. The UI now clearly labels this
+  // as being prepared — it does not claim full biometric security to the user.
   async function handlePasskey() {
     if (!user) return;
     setPasskeyLoading(true);
     setPasskeyMsg("");
 
     if (secData?.passkeyRegistered) {
-      // Remove passkey
       try {
         const res  = await fetch("/api/account/security", {
           method: "POST",
@@ -174,30 +209,27 @@ export default function SettingsPage() {
         const json = await res.json() as { success: boolean };
         if (json.success) {
           setSecData(prev => prev ? { ...prev, passkeyRegistered: false } : prev);
-          setPasskeyMsg("Passkey removed.");
+          setPasskeyMsg("Passkey preference cleared.");
         }
-      } catch { setPasskeyMsg("Error removing passkey."); }
+      } catch { setPasskeyMsg("Error removing passkey preference."); }
       finally { setPasskeyLoading(false); }
       return;
     }
 
-    // Register passkey via Supabase WebAuthn
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabaseModule = await import("@/lib/supabase");
-      const supabase = supabaseModule.supabase;
+      const supabaseClient = supabaseModule.supabase;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.auth as any).signInWithPasskey({ createUser: false });
+      const { error } = await (supabaseClient.auth as any).signInWithPasskey({ createUser: false });
       if (error) { setPasskeyMsg(error.message); return; }
 
-      // Mark in DB
       await fetch("/api/account/security", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader() },
         body: JSON.stringify({ action: "register-passkey" }),
       });
       setSecData(prev => prev ? { ...prev, passkeyRegistered: true } : prev);
-      setPasskeyMsg("Passkey registered successfully!");
+      setPasskeyMsg("Passkey preference saved.");
     } catch (e) {
       setPasskeyMsg(`Error: ${String(e)}`);
     } finally {
@@ -205,112 +237,144 @@ export default function SettingsPage() {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Styles
-  // ─────────────────────────────────────────────────────────────────────────
-
+  // ── Shared styles ─────────────────────────────────────────────────────────
   const section: React.CSSProperties = {
-    backgroundColor: "var(--page-bg-2)", borderRadius: 16, padding: 24,
-    border: "1px solid rgba(255,255,255,0.06)", marginBottom: 20,
+    backgroundColor: "var(--page-bg-2)",
+    borderRadius: 16,
+    padding: 24,
+    border: "1px solid rgba(255,255,255,0.06)",
+    marginBottom: 20,
   };
 
-  const iconBox = (color: string) => ({
-    width: 34, height: 34, borderRadius: 10, display: "flex",
-    alignItems: "center", justifyContent: "center",
+  const iconBox = (color: string): React.CSSProperties => ({
+    width: 34, height: 34, borderRadius: 10,
+    display: "flex", alignItems: "center", justifyContent: "center",
     backgroundColor: `${color}20`,
+    flexShrink: 0,
   });
+
+  const rowStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    paddingBottom: 14, marginBottom: 14,
+    borderBottom: "1px solid rgba(255,255,255,0.05)",
+  };
+
+  const bodyText: React.CSSProperties = {
+    fontFamily: "var(--font-familjen-grotesk, inherit)",
+  };
 
   return (
     <div style={{ padding: "40px", maxWidth: 680 }}>
+
+      {/* ── Page header ────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Settings</h1>
-        <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>Manage your account preferences and security</p>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0, fontFamily: "var(--font-syne, inherit)", letterSpacing: "-0.02em" }}>
+          Settings
+        </h1>
+        <p style={{ fontSize: 13, color: "#64748B", marginTop: 6, ...bodyText }}>
+          Manage your account preferences and security
+        </p>
       </div>
 
-      {/* ── NOTIFICATIONS ─────────────────────────────────────────────────── */}
+      {/* ── NOTIFICATIONS ──────────────────────────────────────────────────── */}
       <div style={section}>
         <SectionHeader icon={<Bell size={15} color="#2563EB" />} bg={iconBox("#2563EB")} title="Notifications" />
+
+        {/* Coming soon notice */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "12px 14px", borderRadius: 10,
+          backgroundColor: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          marginBottom: 16,
+        }}>
+          <Mail size={14} color="#64748B" />
+          <span style={{ fontSize: 12, color: "#64748B", ...bodyText }}>
+            Notification preferences are coming soon. These settings are a preview only and are not yet saved.
+          </span>
+          <span style={{ marginLeft: "auto", flexShrink: 0 }}><ComingSoon /></span>
+        </div>
+
+        {/* Preview toggles — disabled, visual only */}
         {[
           { label: "Email notifications",    sub: "Receive email updates about your generations", val: emailNotifs,    set: setEmailNotifs    },
           { label: "Marketing emails",       sub: "Tips, feature announcements, and offers",      val: marketingNotifs, set: setMarketingNotifs },
           { label: "Low credit alerts",      sub: "Get notified when credits fall below 10",       val: creditAlerts,   set: setCreditAlerts   },
         ].map(item => (
-          <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <div key={item.label} style={rowStyle}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)" }}>{item.label}</div>
-              <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>{item.sub}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)", opacity: 0.6, ...bodyText }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: "#475569", marginTop: 2, ...bodyText }}>{item.sub}</div>
             </div>
-            <Toggle value={item.val} onChange={item.set} />
+            <Toggle value={item.val} onChange={item.set} disabled />
           </div>
         ))}
-        <button onClick={handleNotifSave}
-          style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 9, border: "none", background: notifSaved ? "rgba(16,185,129,0.15)" : "linear-gradient(135deg,#2563EB,#0EA5A0)", color: notifSaved ? "#10B981" : "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-          {notifSaved ? <><CheckCircle size={13} /> Saved!</> : "Save Preferences"}
-        </button>
       </div>
 
-      {/* ── SECURITY ──────────────────────────────────────────────────────── */}
+      {/* ── SECURITY ───────────────────────────────────────────────────────── */}
       <div id="security" style={section}>
         <SectionHeader icon={<Lock size={15} color="#A855F7" />} bg={iconBox("#A855F7")} title="Security" />
 
         {secLoading ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748B", fontSize: 13 }}>
-            <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} /> Loading security status…
+            <Loader2 size={16} style={{ animation: "spin 0.8s linear infinite" }} />
+            <span style={bodyText}>Loading security status…</span>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-            {/* Two-Factor Authentication */}
+            {/* ── Two-Factor Authentication — REAL, untouched ── */}
             <div style={{ padding: "16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: totpStep === "verifying" ? 16 : 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <Smartphone size={16} color={secData?.totpEnabled ? "#10B981" : "#64748B"} />
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)" }}>Two-Factor Authentication</div>
-                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>
-                      {secData?.totpEnabled ? "✓ Enabled — authenticator app required at sign-in" : "Adds extra security via an authenticator app"}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)", ...bodyText }}>Two-Factor Authentication</div>
+                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 2, ...bodyText }}>
+                      {secData?.totpEnabled
+                        ? "✓ Enabled — authenticator app required at sign-in"
+                        : "Adds extra security via an authenticator app"
+                      }
                     </div>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   {secData?.totpEnabled ? (
                     <button onClick={disableTOTP} disabled={totpBusy}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", fontSize: 12, fontWeight: 600, cursor: "pointer", ...bodyText }}>
                       {totpBusy ? <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> : <ShieldOff size={13} />}
                       Disable
                     </button>
                   ) : totpStep === "idle" || totpStep === "error" ? (
                     <button onClick={startTOTPEnroll} disabled={totpBusy}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.08)", color: "#c084fc", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.08)", color: "#c084fc", fontSize: 12, fontWeight: 600, cursor: "pointer", ...bodyText }}>
                       {totpBusy ? <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> : <ShieldCheck size={13} />}
                       Enable 2FA
                     </button>
                   ) : totpStep === "success" ? (
-                    <span style={{ fontSize: 12, color: "#4ade80", display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 12, color: "#4ade80", display: "flex", alignItems: "center", gap: 4, ...bodyText }}>
                       <CheckCircle size={14} /> Enabled!
                     </span>
                   ) : null}
                 </div>
               </div>
 
-              {totpErr && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#f87171" }}>{totpErr}</p>}
+              {totpErr && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#f87171", ...bodyText }}>{totpErr}</p>}
 
               {/* QR Code step */}
               {totpStep === "verifying" && totpEnroll && (
                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: 16 }}>
-                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 16 }}>
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 16, ...bodyText }}>
                     Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code.
                   </p>
                   <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    {/* QR code image */}
                     <div style={{ background: "#fff", padding: 12, borderRadius: 10, flexShrink: 0 }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={totpEnroll.qrCode} alt="2FA QR code" width={140} height={140} />
                     </div>
                     <div style={{ flex: 1, minWidth: 200 }}>
-                      {/* Manual secret */}
                       <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, color: "#64748B", marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Manual entry key</div>
+                        <div style={{ fontSize: 11, color: "#64748B", marginBottom: 6, fontWeight: 600, textTransform: "uppercase", ...bodyText }}>Manual entry key</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
                           <code style={{ fontSize: 12, color: "#94a3b8", letterSpacing: "0.05em", flex: 1, overflowWrap: "anywhere" }}>
                             {showSecret ? totpEnroll.secret : "••••••••••••••••••••"}
@@ -323,8 +387,7 @@ export default function SettingsPage() {
                           </button>
                         </div>
                       </div>
-                      {/* Verify input */}
-                      <div style={{ fontSize: 11, color: "#64748B", marginBottom: 6, fontWeight: 600, textTransform: "uppercase" }}>Enter 6-digit code</div>
+                      <div style={{ fontSize: 11, color: "#64748B", marginBottom: 6, fontWeight: 600, textTransform: "uppercase", ...bodyText }}>Enter 6-digit code</div>
                       <div style={{ display: "flex", gap: 8 }}>
                         <input
                           value={totpCode}
@@ -335,35 +398,48 @@ export default function SettingsPage() {
                           onKeyDown={e => { if (e.key === "Enter") verifyTOTP(); }}
                         />
                         <button onClick={verifyTOTP} disabled={totpCode.length !== 6}
-                          style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: totpCode.length === 6 ? "#2563EB" : "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: totpCode.length === 6 ? "pointer" : "not-allowed" }}>
+                          style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: totpCode.length === 6 ? "#2563EB" : "rgba(255,255,255,0.06)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: totpCode.length === 6 ? "pointer" : "not-allowed", ...bodyText }}>
                           Verify
                         </button>
                       </div>
-                      {totpErr && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#f87171" }}>{totpErr}</p>}
+                      {totpErr && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#f87171", ...bodyText }}>{totpErr}</p>}
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Passkey */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Fingerprint size={16} color={secData?.passkeyRegistered ? "#10B981" : "#64748B"} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)" }}>Passkey</div>
-                  <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>
-                    {secData?.passkeyRegistered ? "✓ Registered — sign in with Face ID, Touch ID, or security key" : "Sign in without a password using biometrics"}
+            {/* ── Passkey — labelled as being prepared ── */}
+            <div style={{ padding: "16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <Fingerprint size={16} color="#64748B" style={{ marginTop: 1, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)", ...bodyText }}>Passkey</span>
+                      <ComingSoon />
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748B", ...bodyText }}>
+                      Passkey support is being prepared. Full biometric sign-in will be available in a future update.
+                    </div>
+                    {secData?.passkeyRegistered && (
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, ...bodyText }}>
+                        A passkey preference is registered on this account.
+                      </div>
+                    )}
+                    {passkeyMsg && (
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, ...bodyText }}>{passkeyMsg}</div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                <button onClick={handlePasskey} disabled={passkeyLoading}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: `1px solid ${secData?.passkeyRegistered ? "rgba(239,68,68,0.3)" : "rgba(37,99,235,0.3)"}`, background: secData?.passkeyRegistered ? "rgba(239,68,68,0.08)" : "rgba(37,99,235,0.08)", color: secData?.passkeyRegistered ? "#f87171" : "#60a5fa", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  {passkeyLoading ? <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> : <Fingerprint size={13} />}
-                  {secData?.passkeyRegistered ? "Remove" : "Set up"}
-                </button>
-                {passkeyMsg && <span style={{ fontSize: 11, color: "#94a3b8" }}>{passkeyMsg}</span>}
+                {/* Allow removal of an existing flag — but do not allow new registration */}
+                {secData?.passkeyRegistered && (
+                  <button onClick={handlePasskey} disabled={passkeyLoading}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, ...bodyText }}>
+                    {passkeyLoading ? <Loader2 size={13} style={{ animation: "spin 0.8s linear infinite" }} /> : <Fingerprint size={13} />}
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
 
@@ -371,72 +447,62 @@ export default function SettingsPage() {
             <a href="/auth/forgot-password"
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)", textDecoration: "none", color: "var(--page-text)" }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>Change Password</div>
-                <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>Send a password reset email</div>
+                <div style={{ fontSize: 13, fontWeight: 600, ...bodyText }}>Change Password</div>
+                <div style={{ fontSize: 11, color: "#64748B", marginTop: 2, ...bodyText }}>Send a password reset email to your inbox</div>
               </div>
-              <span style={{ fontSize: 11, color: "#60A5FA", fontWeight: 600 }}>Update →</span>
+              <span style={{ fontSize: 12, color: "#60A5FA", fontWeight: 600, ...bodyText }}>Reset →</span>
             </a>
           </div>
         )}
       </div>
 
-      {/* ── PRIVACY ───────────────────────────────────────────────────────── */}
+      {/* ── PRIVACY ────────────────────────────────────────────────────────── */}
       <div style={section}>
         <SectionHeader icon={<Shield size={15} color="#0EA5A0" />} bg={iconBox("#0EA5A0")} title="Privacy" />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", backgroundColor: "rgba(255,255,255,0.02)" }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)" }}>Profile Visibility</div>
-            <div style={{ fontSize: 11, color: "#64748B", marginTop: 2 }}>Control who can see your profile</div>
-          </div>
-          <select style={{ backgroundColor: "var(--page-bg-2)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#94A3B8", fontSize: 11, padding: "5px 10px", cursor: "pointer", outline: "none" }}>
-            <option>Private</option>
-            <option>Public</option>
-            <option>Friends only</option>
-          </select>
+
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "13px 16px", borderRadius: 10,
+          backgroundColor: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}>
+          <Shield size={14} color="#64748B" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: "#64748B", flex: 1, ...bodyText }}>
+            Privacy controls are coming soon. Profile visibility and data preferences will be configurable here.
+          </span>
+          <ComingSoon />
         </div>
       </div>
 
-      {/* ── DANGER ZONE ───────────────────────────────────────────────────── */}
-      <div style={{ ...section, border: "1px solid rgba(239,68,68,0.2)", marginBottom: 0 }}>
-        <SectionHeader icon={<AlertTriangle size={15} color="#EF4444" />} bg={iconBox("#EF4444")} title="Danger Zone" titleColor="#EF4444" />
-        <p style={{ fontSize: 12, color: "#64748B", marginBottom: 16 }}>
-          Deleting your account is permanent. All your credits, generations, and data will be removed.
+      {/* ── ACCOUNT CLOSURE ────────────────────────────────────────────────── */}
+      {/*
+        The previous "Delete Account" button called logout() only — no data was
+        deleted. That misleading flow has been removed. Account closure is a
+        dedicated operation that must be handled via support while a proper
+        delete-account route is built.
+      */}
+      <div style={{ ...section, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 0 }}>
+        <SectionHeader icon={<QrCode size={15} color="#64748B" />} bg={iconBox("#64748B")} title="Account Closure" />
+        <p style={{ fontSize: 13, color: "#64748B", marginBottom: 16, lineHeight: 1.6, ...bodyText }}>
+          Account closure is not yet automated. To permanently close your Zencra account and request data deletion, please contact support.
         </p>
-        {!deleteConfirm ? (
-          <button onClick={() => setDeleteConfirm(true)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 9, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#EF4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-            <Trash2 size={13} /> Delete My Account
-          </button>
-        ) : (
-          <div style={{ padding: 14, backgroundColor: "rgba(239,68,68,0.08)", borderRadius: 10, border: "1px solid rgba(239,68,68,0.3)" }}>
-            <p style={{ fontSize: 12, color: "#FCA5A5", marginBottom: 12, fontWeight: 600 }}>Are you absolutely sure? This cannot be undone.</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => logout()} style={{ padding: "8px 16px", borderRadius: 8, border: "none", backgroundColor: "#EF4444", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                Yes, Delete Account
-              </button>
-              <button onClick={() => setDeleteConfirm(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", backgroundColor: "transparent", color: "#94A3B8", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        <a
+          href="mailto:support@zencralabs.com"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            padding: "9px 18px", borderRadius: 9,
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.04)",
+            color: "#94A3B8", fontSize: 12, fontWeight: 600,
+            textDecoration: "none",
+            ...bodyText,
+          }}
+        >
+          Contact Support
+        </a>
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-}
-
-function SectionHeader({ icon, bg, title, titleColor }: {
-  icon: React.ReactNode;
-  bg: React.CSSProperties;
-  title: string;
-  titleColor?: string;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-      <div style={bg}>{icon}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: titleColor ?? "var(--page-text)" }}>{title}</div>
     </div>
   );
 }

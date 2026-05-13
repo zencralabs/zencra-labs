@@ -6,7 +6,9 @@ import { createClient } from "@supabase/supabase-js";
  *
  * Update the authenticated user's profile.
  * Body (all fields optional):
- *   { full_name?: string, avatar_color?: number }
+ *   { full_name?: string, avatar_color?: number, avatar_url?: string }
+ *
+ * avatar_url must be a Supabase Storage public URL for this project.
  *
  * Auth: Bearer <access_token>
  */
@@ -47,6 +49,23 @@ export async function PATCH(req: NextRequest) {
   }
   if (typeof body.avatar_color === "number") {
     allowed.avatar_color = Math.max(0, Math.min(7, Math.floor(body.avatar_color)));
+  }
+  if (typeof body.avatar_url === "string") {
+    const url = body.avatar_url.trim();
+    // Must be a non-empty Supabase Storage public URL for this project.
+    // Accepted prefixes:
+    //   https://<project>.supabase.co/storage/v1/object/public/
+    //   (dev) http://localhost:54321/storage/v1/object/public/
+    const supabaseStorageBase = supabaseUrl.replace(/\/$/, "") + "/storage/v1/object/public/";
+    const localhostBase       = "http://localhost:54321/storage/v1/object/public/";
+    const isValidStorageUrl   = url.startsWith(supabaseStorageBase) || url.startsWith(localhostBase);
+    if (!isValidStorageUrl) {
+      return NextResponse.json({ success: false, error: "avatar_url must be a Supabase Storage URL" }, { status: 400 });
+    }
+    if (url.length > 500) {
+      return NextResponse.json({ success: false, error: "avatar_url is too long" }, { status: 400 });
+    }
+    allowed.avatar_url = url;
   }
 
   if (Object.keys(allowed).length === 0) {
