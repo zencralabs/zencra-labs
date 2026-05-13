@@ -22,10 +22,27 @@
  *   1. x-forwarded-for header first value (Vercel edge sets this)
  *   2. request.ip (NextRequest only — not available on base Request)
  *   3. Random UUID fallback — no shared bucket for unknown IPs
+ *
+ * S4-B Shield emission:
+ *   Every rate-limit and concurrent-cap breach emits a fire-and-forget
+ *   SecurityEvent into the Zencra Shield event bus (emitSecurityEvent).
+ *   Emission is non-blocking — it never delays or changes the 429 response.
+ *   In dry-run mode: logged to structured logger only.
+ *   In observe mode: logged + Discord alert + Supabase persist.
+ *   In enforce mode: same as observe (enforcement is handled by the limiter itself).
+ *
+ *   Normalized context per event:
+ *   - limiterType  (logPrefix — e.g. "studio-user", "login", "video-user")
+ *   - userId       (user-keyed limits) OR ipHash (IP-keyed limits, SHA-256 prefix)
+ *   - studio       (when the limit is studio-specific)
+ *   - configuredMax + windowS (threshold)
+ *   - observedValue = configuredMax + 1 (RPC returns bool only — minimum overage)
  */
 
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { randomUUID } from "crypto";
+import { supabaseAdmin }                        from "@/lib/supabase/admin";
+import { randomUUID, createHash }               from "crypto";
+import { emitSecurityEvent, resolveShieldMode } from "@/lib/security/events";
+import type { VelocityEvent, JobEvent }         from "@/lib/security/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IP EXTRACTION
@@ -51,6 +68,100 @@ export function getClientIp(req: Request): string {
 
   // Fallback: unique UUID so unknown IPs never share a bucket
   return randomUUID();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// IP HASHING — never store raw IPs in security_events_log
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One-way hash of a raw IP address.
+ * Returns the first 16 hex chars of SHA-256 — enough for grouping/dedup
+ * without storing PII. Consistent across calls for the same IP.
+ */
+function hashIp(ip: string): string {
+  return createHash("sha256").update(ip).digest("hex").slice(0, 16);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S4-B: SHIELD EVENT EMISSION — rate-limit breach
+//
+// Fire-and-forget emission into the Shield event bus.
+// Called after a 429 response is confirmed but BEFORE returning — non-blocking.
+//
+// User-keyed limits → velocity.user.burst_60s (userId present)
+// IP-keyed limits   → velocity.global.burst   (ipHash used as identifier)
+// Provider-keyed    → skipped (webhook limits; circuit breaker covers providers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function emitRateLimitHit(params: {
+  /** Present for user-keyed limits — user UUID */
+  userId?: string;
+  /** Present for IP-keyed limits — SHA-256 prefix of raw IP; never raw IP */
+  ipHash?: string;
+  /** logPrefix describing the limiter location, e.g. "studio-user", "login" */
+  limiterType: string;
+  /** The configured max requests for this limiter */
+  configuredMax: number;
+  /** Window in seconds */
+  windowS: number;
+  /** Studio slug when limit is studio-specific */
+  studio?: string;
+}): void {
+  const { userId, ipHash, limiterType, configuredMax, windowS, studio } = params;
+  const identifier = userId ?? ipHash;
+  // Provider-keyed limits have no user/IP identifier — circuit breaker covers those
+  if (!identifier) return;
+
+  const mode = resolveShieldMode();
+  const threshold = {
+    metric:          studio ? `${limiterType}/${studio}` : limiterType,
+    configuredValue: configuredMax,
+    // RPC returns bool only — actual count not available; report minimum overage
+    observedValue:   configuredMax + 1,
+    unit:            `req/${windowS}s`,
+  };
+  const actionReason =
+    `Rate limit exceeded — ${limiterType}: ${configuredMax} req/${windowS}s` +
+    (studio ? ` [${studio}]` : "");
+
+  // Use explicitly typed locals so TypeScript can narrow the discriminated union correctly.
+  // Passing object literals directly to emitSecurityEvent() triggers excess property checking
+  // across all union members — typed locals avoid that by binding to a specific variant.
+  if (userId) {
+    const ev: Omit<VelocityEvent, "timestamp"> = {
+      rule:         "velocity.user.burst_60s",
+      severity:     "warning",
+      threshold,
+      actionTaken:  "request_blocked",
+      actionReason,
+      mode,
+      userId,
+      windowCounts: {
+        per60s:   windowS === 60   ? configuredMax + 1 : undefined,
+        per60min: windowS === 3600 ? configuredMax + 1 : undefined,
+      },
+      riskTier: "elevated",
+    };
+    void emitSecurityEvent(ev);
+  } else {
+    // IP-keyed: ipHash used as identifier — not a user UUID but a consistent IP fingerprint
+    const ev: Omit<VelocityEvent, "timestamp"> = {
+      rule:         "velocity.global.burst",
+      severity:     "warning",
+      threshold,
+      actionTaken:  "request_blocked",
+      actionReason,
+      mode,
+      userId:       identifier, // ipHash stands in as identifier
+      windowCounts: {
+        per60s:   windowS === 60   ? configuredMax + 1 : undefined,
+        per60min: windowS === 3600 ? configuredMax + 1 : undefined,
+      },
+      riskTier: "elevated",
+    };
+    void emitSecurityEvent(ev);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,13 +218,15 @@ const STUDIO_MAX_REQ  = 10;
  * Returns null if allowed, or a ready-made 429 Response if blocked.
  */
 export async function checkStudioRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `studio:${userId}`,
     STUDIO_WINDOW_S,
     STUDIO_MAX_REQ,
     `Rate limit exceeded. You can make ${STUDIO_MAX_REQ} generation requests per minute.`,
     "studio-user",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "studio-user", configuredMax: STUDIO_MAX_REQ, windowS: STUDIO_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,13 +244,15 @@ const STUDIO_IP_MAX_REQ  = 20;
  * Returns null if allowed, or a ready-made 429 Response if blocked.
  */
 export async function checkIpStudioRateLimit(ip: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `ip:${ip}:studio`,
     STUDIO_IP_WINDOW_S,
     STUDIO_IP_MAX_REQ,
     `Too many generation requests from your network. Try again in a minute.`,
     "studio-ip",
   );
+  if (res) emitRateLimitHit({ ipHash: hashIp(ip), limiterType: "studio-ip", configuredMax: STUDIO_IP_MAX_REQ, windowS: STUDIO_IP_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,13 +270,15 @@ const ENHANCE_MAX_REQ  = 20;
  * Returns null if allowed, or a ready-made 429 Response if blocked.
  */
 export async function checkEnhanceRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `enhance:${userId}`,
     ENHANCE_WINDOW_S,
     ENHANCE_MAX_REQ,
     `Rate limit exceeded. You can enhance ${ENHANCE_MAX_REQ} prompts per minute.`,
     "enhance",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "enhance", configuredMax: ENHANCE_MAX_REQ, windowS: ENHANCE_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,13 +295,15 @@ const AUTH_MAX_REQ  = 5;
  * Returns null if allowed, or a ready-made 429 Response if blocked.
  */
 export async function checkAuthRateLimit(ip: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `auth:${ip}`,
     AUTH_WINDOW_S,
     AUTH_MAX_REQ,
     "Too many requests. Try again in 10 minutes.",
     "auth",
   );
+  if (res) emitRateLimitHit({ ipHash: hashIp(ip), limiterType: "auth", configuredMax: AUTH_MAX_REQ, windowS: AUTH_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,13 +318,15 @@ const UPLOAD_REF_MAX_REQ  = 30;
  * 30 uploads per hour per user.
  */
 export async function checkUploadReferenceRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `upload_ref:${userId}`,
     UPLOAD_REF_WINDOW_S,
     UPLOAD_REF_MAX_REQ,
     `Upload limit reached. You can upload ${UPLOAD_REF_MAX_REQ} reference images per hour.`,
     "upload_ref",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "upload_ref", configuredMax: UPLOAD_REF_MAX_REQ, windowS: UPLOAD_REF_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,13 +341,15 @@ const BRIEF_IMPROVE_MAX_REQ  = 10;
  * 10 requests per hour per user (calls OpenAI).
  */
 export async function checkBriefImproveRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `brief_improve:${userId}`,
     BRIEF_IMPROVE_WINDOW_S,
     BRIEF_IMPROVE_MAX_REQ,
     `Brief improvement limit reached. You can improve ${BRIEF_IMPROVE_MAX_REQ} briefs per hour.`,
     "brief_improve",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "brief_improve", configuredMax: BRIEF_IMPROVE_MAX_REQ, windowS: BRIEF_IMPROVE_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,13 +367,15 @@ const VIDEO_MAX_REQ  = 3;
  * Call after requireAuthUser, before feature gate and dispatch.
  */
 export async function checkVideoRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `video:${userId}`,
     VIDEO_WINDOW_S,
     VIDEO_MAX_REQ,
     `Video generation rate limit exceeded. You can generate ${VIDEO_MAX_REQ} videos per minute. Video generation is resource-intensive — please wait before submitting another request.`,
     "video-user",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "video-user", configuredMax: VIDEO_MAX_REQ, windowS: VIDEO_WINDOW_S, studio: "video" });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -267,13 +392,15 @@ const LIPSYNC_GEN_MAX_REQ  = 2;
  * are long-running, async, and expensive per provider call.
  */
 export async function checkLipsyncGenerateRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `lipsync_gen:${userId}`,
     LIPSYNC_GEN_WINDOW_S,
     LIPSYNC_GEN_MAX_REQ,
     `Lip sync rate limit exceeded. You can submit ${LIPSYNC_GEN_MAX_REQ} lip sync jobs per minute.`,
     "lipsync-gen-user",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "lipsync-gen-user", configuredMax: LIPSYNC_GEN_MAX_REQ, windowS: LIPSYNC_GEN_WINDOW_S, studio: "lipsync" });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,13 +416,15 @@ const MEDIA_UPLOAD_MAX_REQ  = 20;
  * 20 uploads per hour per user. Covers both image (20 MB) and video (500 MB) uploads.
  */
 export async function checkMediaUploadRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `media_upload:${userId}`,
     MEDIA_UPLOAD_WINDOW_S,
     MEDIA_UPLOAD_MAX_REQ,
     `Upload limit reached. You can upload ${MEDIA_UPLOAD_MAX_REQ} files per hour.`,
     "media-upload",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "media-upload", configuredMax: MEDIA_UPLOAD_MAX_REQ, windowS: MEDIA_UPLOAD_WINDOW_S });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -311,19 +440,24 @@ const LIPSYNC_UPLOAD_MAX_REQ  = 10;
  * 10 uploads per hour per user (both video and audio lipsync files).
  */
 export async function checkLipsyncUploadRateLimit(userId: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `lipsync_upload:${userId}`,
     LIPSYNC_UPLOAD_WINDOW_S,
     LIPSYNC_UPLOAD_MAX_REQ,
     `Lip sync upload limit reached. You can upload ${LIPSYNC_UPLOAD_MAX_REQ} files per hour.`,
     "lipsync-upload",
   );
+  if (res) emitRateLimitHit({ userId, limiterType: "lipsync-upload", configuredMax: LIPSYNC_UPLOAD_MAX_REQ, windowS: LIPSYNC_UPLOAD_WINDOW_S, studio: "lipsync" });
+  return res;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S3-F-3: WEBHOOK — 120 requests per 60 seconds per provider (soft/generous)
 // Prevents webhook endpoint hammering while never blocking legitimate retries.
 // Providers typically send 1–5 events per job; this cap handles storm scenarios.
+//
+// NOTE: No Shield event emitted here — provider-keyed limits have no user/IP
+// identifier, and provider anomalies are covered by the circuit breaker.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const WEBHOOK_WINDOW_S = 60;
@@ -336,6 +470,7 @@ const WEBHOOK_MAX_REQ  = 120; // generous — provider retries are normal and ex
  * Only activates under extreme abuse (e.g. misconfigured provider loop or attack).
  */
 export async function checkWebhookRateLimit(provider: string): Promise<Response | null> {
+  // No emitRateLimitHit — provider-keyed; circuit breaker covers provider anomalies
   return checkLimit(
     `webhook:${provider}`,
     WEBHOOK_WINDOW_S,
@@ -373,6 +508,26 @@ async function checkConcurrentJobLimit(
   }
 
   if ((count ?? 0) >= maxConcurrent) {
+    // ── S4-B: Emit concurrent cap breach into Shield event bus ────────────────
+    const mode = resolveShieldMode();
+    const ev: Omit<JobEvent, "timestamp"> = {
+      rule:     "job.queue.depth_warning",
+      severity: "warning",
+      threshold: {
+        metric:          `concurrent_${studio}_jobs`,
+        configuredValue: maxConcurrent,
+        observedValue:   count ?? maxConcurrent,
+        unit:            "active_jobs",
+      },
+      actionTaken:  "request_blocked",
+      actionReason: `Concurrent ${studio} job cap hit — cap=${maxConcurrent} observed=${count ?? maxConcurrent}`,
+      mode,
+      userId,
+      studioType:  studio,
+      queueDepth:  count ?? maxConcurrent,
+    };
+    void emitSecurityEvent(ev);
+
     const plural = maxConcurrent !== 1;
     return Response.json(
       {
@@ -441,6 +596,26 @@ export async function checkConcurrentWorkflowLimit(userId: string): Promise<Resp
   }
 
   if ((count ?? 0) >= CD_CONCURRENT_CAP) {
+    // ── S4-B: Emit concurrent cap breach into Shield event bus ────────────────
+    const mode = resolveShieldMode();
+    const ev: Omit<JobEvent, "timestamp"> = {
+      rule:     "job.queue.depth_warning",
+      severity: "warning",
+      threshold: {
+        metric:          "concurrent_workflow_runs",
+        configuredValue: CD_CONCURRENT_CAP,
+        observedValue:   count ?? CD_CONCURRENT_CAP,
+        unit:            "active_runs",
+      },
+      actionTaken:  "request_blocked",
+      actionReason: `Creative Director concurrent cap hit — cap=${CD_CONCURRENT_CAP} observed=${count ?? CD_CONCURRENT_CAP}`,
+      mode,
+      userId,
+      studioType:  "creative-director",
+      queueDepth:  count ?? CD_CONCURRENT_CAP,
+    };
+    void emitSecurityEvent(ev);
+
     return Response.json(
       {
         success: false,
@@ -491,6 +666,26 @@ export async function checkConcurrentInfluencerJobsLimit(userId: string): Promis
   }
 
   if ((count ?? 0) >= CS_CONCURRENT_CAP) {
+    // ── S4-B: Emit concurrent cap breach into Shield event bus ────────────────
+    const mode = resolveShieldMode();
+    const ev: Omit<JobEvent, "timestamp"> = {
+      rule:     "job.queue.depth_warning",
+      severity: "warning",
+      threshold: {
+        metric:          "concurrent_character_studio_jobs",
+        configuredValue: CS_CONCURRENT_CAP,
+        observedValue:   count ?? CS_CONCURRENT_CAP,
+        unit:            "active_jobs",
+      },
+      actionTaken:  "request_blocked",
+      actionReason: `Character Studio concurrent cap hit — cap=${CS_CONCURRENT_CAP} observed=${count ?? CS_CONCURRENT_CAP}`,
+      mode,
+      userId,
+      studioType:  "character-studio",
+      queueDepth:  count ?? CS_CONCURRENT_CAP,
+    };
+    void emitSecurityEvent(ev);
+
     return Response.json(
       {
         success: false,
@@ -520,11 +715,13 @@ const LOGIN_MAX_REQ  = 10;
  * Call at the top of the login API route, before calling signInWithPassword.
  */
 export async function checkLoginRateLimit(ip: string): Promise<Response | null> {
-  return checkLimit(
+  const res = await checkLimit(
     `login:${ip}`,
     LOGIN_WINDOW_S,
     LOGIN_MAX_REQ,
     "Too many login attempts. Please try again in 10 minutes.",
     "login",
   );
+  if (res) emitRateLimitHit({ ipHash: hashIp(ip), limiterType: "login", configuredMax: LOGIN_MAX_REQ, windowS: LOGIN_WINDOW_S });
+  return res;
 }

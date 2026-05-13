@@ -5,6 +5,25 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// S4-D Security Monitor types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface RuleCount        { rule: string; count: number }
+interface TopUser          { userId: string; count: number }
+interface ProviderCircuit  { providerKey: string; rule: string; occurredAt: string }
+
+interface SecuritySummary {
+  windowHours:           number;
+  rateLimitHits:         number;
+  concurrentCapHits:     number;
+  webhookAnomalies:      number;
+  totalEvents:           number;
+  ruleBreakdown:         RuleCount[];
+  topUsers:              TopUser[];
+  providerCircuitEvents: ProviderCircuit[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -197,6 +216,10 @@ export default function HubPage() {
   const [actionTarget, setActionTarget] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // S4-D: Security Monitor state
+  const [security, setSecurity]           = useState<SecuritySummary | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(true);
+
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -217,7 +240,18 @@ export default function HubPage() {
     finally { setUsersLoading(false); }
   }, []);
 
-  useEffect(() => { fetchStats(); fetchUsers(); }, [fetchStats, fetchUsers]);
+  // S4-D: Fetch security summary
+  const fetchSecurity = useCallback(async () => {
+    setSecurityLoading(true);
+    try {
+      const res  = await fetch("/api/admin/security-summary");
+      const json = await res.json();
+      if (json.success) setSecurity(json.data);
+    } catch (e) { console.error("[hub] security-summary", e); }
+    finally { setSecurityLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchStats(); fetchUsers(); fetchSecurity(); }, [fetchStats, fetchUsers, fetchSecurity]);
 
   async function handleCreditAdj(userId: string, delta: number) {
     setActionLoading(true);
@@ -425,6 +459,115 @@ export default function HubPage() {
             </div>
           ))
         )}
+      </div>
+
+      {/* ── S4-D: Security Monitor ─────────────────────────────────────────── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>Security Monitor</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+              Shield events · Last 24 hours
+            </p>
+          </div>
+          {securityLoading && <Spinner size={16} />}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+
+          {/* Panel 1 — Security Overview */}
+          <div style={{ background: "#0A1628", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "20px 22px" }}>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>Security Overview</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Protection triggers in 24h</p>
+            </div>
+            {securityLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 88 }}><Spinner /></div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "Rate Limit Hits",   value: security?.rateLimitHits     ?? 0, color: "#F59E0B" },
+                  { label: "Concurrent Caps",   value: security?.concurrentCapHits ?? 0, color: "#8B5CF6" },
+                  { label: "Webhook Anomalies", value: security?.webhookAnomalies  ?? 0, color: "#EF4444" },
+                  { label: "Total Events",      value: security?.totalEvents       ?? 0, color: "#94A3B8" },
+                ].map((row) => (
+                  <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{row.label}</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: row.value > 0 ? row.color : "rgba(255,255,255,0.25)" }}>
+                      {row.value.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Panel 2 — Provider Health */}
+          <div style={{ background: "#0A1628", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "20px 22px" }}>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>Provider Health</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Latest circuit state per provider</p>
+            </div>
+            {securityLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 88 }}><Spinner /></div>
+            ) : (security?.providerCircuitEvents?.length ?? 0) === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 88, gap: 6 }}>
+                <span style={{ fontSize: 18 }}>✓</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>All circuits closed — no events</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {(security?.providerCircuitEvents ?? []).slice(0, 4).map((ev) => {
+                  const isOpen     = ev.rule === "provider.circuit.opened";
+                  const isHalfOpen = ev.rule === "provider.circuit.half_open";
+                  const isDegraded = ev.rule === "provider.circuit.degraded";
+                  const color      = isOpen ? "#EF4444" : isHalfOpen ? "#F59E0B" : isDegraded ? "#F97316" : "#10B981";
+                  const stateLabel = ev.rule.replace("provider.circuit.", "").replace(/_/g, "-");
+                  return (
+                    <div key={ev.providerKey} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "monospace" }}>{ev.providerKey}</span>
+                      <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: `${color}18`, color, fontWeight: 600 }}>{stateLabel}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Panel 3 — Abuse Signals */}
+          <div style={{ background: "#0A1628", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "20px 22px" }}>
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#F8FAFC" }}>Abuse Signals</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Top users by Shield event count</p>
+            </div>
+            {securityLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 88 }}><Spinner /></div>
+            ) : (security?.topUsers?.length ?? 0) === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 88, gap: 6 }}>
+                <span style={{ fontSize: 18 }}>✓</span>
+                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>No user-linked events</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {(security?.topUsers ?? []).slice(0, 5).map((u, i) => (
+                  <div key={u.userId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", width: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {u.userId.slice(0, 8)}…
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: u.count >= 10 ? "#EF4444" : u.count >= 5 ? "#F59E0B" : "#94A3B8", flexShrink: 0 }}>
+                      {u.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
 
       {/* Quick navigation */}
