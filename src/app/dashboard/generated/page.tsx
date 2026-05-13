@@ -1160,9 +1160,9 @@ export default function GeneratedPage() {
               </span>
             </div>
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Generated</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Assets</h1>
           <p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>
-            All your generated images and videos across every project.
+            All your assets across every project.
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>

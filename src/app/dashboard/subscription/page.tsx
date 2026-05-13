@@ -8,83 +8,74 @@ import { useAuth } from "@/components/auth/AuthContext";
 // SUBSCRIPTION PAGE — Current plan + upgrade options
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Locked plan data — Starter $12 / Creator $29 / Pro $49 / Business $89
+// Yearly prices are definitive (not computed from monthly × 12).
 const PLANS = [
   {
-    id: "Free",
-    label: "Free",
-    price: "$0",
-    period: "forever",
+    id: "starter",
+    name: "Starter",
+    monthlyPrice: 12,
+    yearlyPrice: 120,
+    description: "Perfect for exploring Zencra",
     icon: Sparkles,
     color: "#64748B",
     glow: "rgba(100,116,139,0.2)",
     features: [
-      "50 welcome credits",
-      "Basic image generation",
-      "720p video output",
-      "Watermarked exports",
+      "Access to Image & Video Studio",
+      "Basic generation capabilities",
       "Community support",
     ],
-    cta: "Current Plan",
-    popular: false,
+    badge: null,
   },
   {
-    id: "Creator",
-    label: "Creator",
-    price: "$19",
-    period: "/ month",
+    id: "creator",
+    name: "Creator",
+    monthlyPrice: 29,
+    yearlyPrice: 290,
+    description: "For serious creators",
     icon: Zap,
     color: "#2563EB",
     glow: "rgba(37,99,235,0.2)",
     features: [
-      "500 credits / month",
-      "HD image generation",
-      "1080p video output",
-      "No watermarks",
-      "Priority queue",
-      "Email support",
+      "All studios unlocked",
+      "Priority generation queue",
+      "Commercial license",
     ],
-    cta: "Upgrade to Creator",
-    popular: true,
+    badge: null,
   },
   {
-    id: "Studio",
-    label: "Studio",
-    price: "$59",
-    period: "/ month",
+    id: "pro",
+    name: "Pro",
+    monthlyPrice: 49,
+    yearlyPrice: 490,
+    description: "For professional creators",
     icon: Crown,
     color: "#A855F7",
     glow: "rgba(168,85,247,0.2)",
     features: [
-      "2,000 credits / month",
-      "4K image generation",
-      "4K video output",
-      "No watermarks",
-      "Priority queue",
-      "API access",
-      "Priority support",
+      "All studios unlocked",
+      "FCS add-on eligible",
+      "Priority generations",
+      "Commercial license",
     ],
-    cta: "Upgrade to Studio",
-    popular: false,
+    badge: "Most Popular",
   },
   {
-    id: "Agency",
-    label: "Agency",
-    price: "$199",
-    period: "/ month",
+    id: "business",
+    name: "Business",
+    monthlyPrice: 89,
+    yearlyPrice: 890,
+    description: "Team workspace for studios & agencies",
     icon: Building2,
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.2)",
     features: [
-      "Unlimited credits",
-      "All generation tools",
-      "White-label exports",
-      "Custom watermarks",
-      "Full API access",
-      "Dedicated account manager",
-      "SLA guarantee",
+      "Everything in Pro",
+      "Team workspace & seats",
+      "FCS add-on eligible",
+      "Priority support",
     ],
-    cta: "Upgrade to Agency",
-    popular: false,
+    badge: "Team",
   },
 ];
 
@@ -134,25 +125,27 @@ export default function SubscriptionPage() {
       {/* Plan cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "14px" }}>
         {PLANS.map(plan => {
-          const Icon     = plan.icon;
-          const isCurrent = user.plan === plan.id;
-          const price    = billing === "annual" && plan.id !== "Free"
-            ? `$${Math.round(parseInt(plan.price.slice(1)) * 0.8)}`
-            : plan.price;
+          const Icon = plan.icon;
+          // Normalize both sides to lowercase for case-insensitive comparison
+          const isCurrent = user.plan?.toLowerCase() === plan.id;
+          // Monthly price or yearly price (definitive value, not computed)
+          const displayPrice = billing === "annual"
+            ? `$${plan.yearlyPrice}/yr`
+            : `$${plan.monthlyPrice}/mo`;
 
           return (
             <div key={plan.id} style={{
               backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "22px",
-              border: isCurrent ? `1px solid ${plan.color}60` : plan.popular ? `1px solid rgba(37,99,235,0.3)` : "1px solid rgba(255,255,255,0.06)",
+              border: isCurrent ? `1px solid ${plan.color}60` : plan.badge === "Most Popular" ? `1px solid rgba(37,99,235,0.3)` : "1px solid rgba(255,255,255,0.06)",
               position: "relative", transition: "transform 0.15s",
               boxShadow: isCurrent ? `0 0 30px ${plan.glow}` : "none",
             }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
             >
-              {plan.popular && !isCurrent && (
-                <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", backgroundColor: "#2563EB", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "3px 10px", borderRadius: "10px", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
-                  Most Popular
+              {plan.badge && !isCurrent && (
+                <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", backgroundColor: plan.badge === "Most Popular" ? "#2563EB" : "#F59E0B", color: "#fff", fontSize: "10px", fontWeight: 700, padding: "3px 10px", borderRadius: "10px", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+                  {plan.badge}
                 </div>
               )}
               {isCurrent && (
@@ -165,10 +158,10 @@ export default function SubscriptionPage() {
                 <Icon size={16} style={{ color: plan.color }} />
               </div>
 
-              <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "4px" }}>{plan.label}</div>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "2px" }}>{plan.name}</div>
+              <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "12px" }}>{plan.description}</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
-                <span style={{ fontSize: "26px", fontWeight: 800, color: plan.color }}>{price}</span>
-                <span style={{ fontSize: "11px", color: "#475569" }}>{plan.period}</span>
+                <span style={{ fontSize: "22px", fontWeight: 800, color: plan.color }}>{displayPrice}</span>
               </div>
 
               <div style={{ marginBottom: "18px" }}>
@@ -186,7 +179,7 @@ export default function SubscriptionPage() {
                 onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
                 onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
               >
-                {isCurrent ? "Current Plan" : plan.cta}
+                {isCurrent ? "Current Plan" : `Upgrade to ${plan.name}`}
               </button>
             </div>
           );

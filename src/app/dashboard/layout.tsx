@@ -17,7 +17,7 @@ import AccountCompletionBanner from "@/components/auth/AccountCompletionBanner";
 const NAV = [
   { href: "/dashboard",              icon: LayoutDashboard, label: "Overview"     },
   { href: "/dashboard/projects",     icon: FolderOpen,      label: "Projects"     },
-  { href: "/dashboard/generated",    icon: ImageIcon,       label: "Generated"    },
+  { href: "/dashboard/generated",    icon: ImageIcon,       label: "Assets"       },
   { href: "/dashboard/profile",      icon: User,            label: "Profile"      },
   { href: "/dashboard/subscription", icon: CreditCard,      label: "Subscription" },
   { href: "/dashboard/credits",      icon: Zap,             label: "Credits"      },
@@ -75,7 +75,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const planColor = PLAN_COLORS[user.plan] ?? "#64748B";
-  const creditsPercent = Math.min((user.credits / 100) * 100, 100);
+
+  // Credits bar denominator — AuthUser has no creditsLimit field on it, so we
+  // derive the limit from a plan lookup map (plan lookup path taken).
+  const PLAN_CREDIT_LIMIT: Record<string, number> = {
+    starter:  250,
+    creator:  1000,
+    pro:      2500,
+    business: 5000,
+  };
+  const creditLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 1000;
+  const creditsPercent = Math.min((user.credits / creditLimit) * 100, 100);
   const initials = user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (

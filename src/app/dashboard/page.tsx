@@ -33,7 +33,7 @@ const QUICK_ACTIONS = [
   { label: "Creative Director",  icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.12)", href: "/studio/image?mode=creative-director" },
   { label: "Audio Studio",       icon: Music,     color: "#D97706", bg: "rgba(217,119,6,0.12)",  href: "/studio/audio" },
   { label: "My Projects",        icon: FolderOpen,color: "#10B981", bg: "rgba(16,185,129,0.12)", href: "/dashboard/projects" },
-  { label: "Generated Library",  icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/generated" },
+  { label: "Assets Library",     icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/generated" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,16 +104,14 @@ function txLabel(tx: CreditTransaction): { action: string; tool: string } {
 // Plan features config
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Plan features — lowercase keys only, matching locked plan IDs (starter/creator/pro/business).
+// Old uppercase keys (Free, Creator, Studio, Agency) removed — they referenced retired plan names.
 const PLAN_FEATURES: Record<string, string[]> = {
   free:     ["Trial credits", "Basic image generation", "720p video output"],
-  starter:  ["250 credits/month", "HD image generation", "1080p video output"],
-  creator:  ["500 credits/month", "HD image generation", "Priority queue"],
-  pro:      ["2 000 credits/month", "4K image generation", "4K video output", "API access"],
-  business: ["High-volume credits", "All tools", "White-label exports", "API access"],
-  Free:     ["Trial credits", "Basic image generation", "720p video output"],
-  Creator:  ["500 credits/month", "HD image generation", "Priority queue"],
-  Studio:   ["2 000 credits/month", "4K image generation", "4K video output", "API access"],
-  Agency:   ["High-volume credits", "All tools", "White-label exports", "API access"],
+  starter:  ["Image & Video Studio", "Basic generation capabilities"],
+  creator:  ["All studios unlocked", "Priority generation queue", "Commercial license"],
+  pro:      ["All studios unlocked", "FCS add-on eligible", "Priority generations", "Commercial license"],
+  business: ["Everything in Pro", "Team workspace & seats", "FCS add-on eligible", "Priority support"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

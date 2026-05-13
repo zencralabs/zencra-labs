@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ImageIcon, Video } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import type { CreditPack } from "@/lib/billing/types";
 
@@ -10,13 +9,10 @@ import type { CreditPack } from "@/lib/billing/types";
 // Packs and history loaded from live API. Top-up initiates billing flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const COST_GUIDE = [
-  { action: "Generate Image (Standard)",   cost: 2,  icon: ImageIcon, color: "#2563EB" },
-  { action: "Generate Image (HD)",         cost: 4,  icon: ImageIcon, color: "#2563EB" },
-  { action: "Generate Video (5s)",         cost: 11, icon: Video,     color: "#0EA5A0" },
-  { action: "Generate Video (10s)",        cost: 13, icon: Video,     color: "#0EA5A0" },
-  { action: "Generate Audio",              cost: 3,  icon: Video,     color: "#A855F7" },
-];
+// Cost guide: /api/credits/model-costs returns { baseCosts, qualityMultipliers, addonCosts }
+// keyed by internal model keys (e.g. "nano-banana-pro") — not suitable for direct display.
+// Static note shown instead. Estimates are surfaced per-generation in each studio.
+// No COST_GUIDE constant needed — see Cost Guide section below.
 
 // ── Razorpay checkout ─────────────────────────────────────────────────────────
 declare global {
@@ -286,14 +282,9 @@ export default function CreditsPage() {
       {/* ── Cost guide ────────────────────────────────────────────────────── */}
       <div style={card}>
         <h2 style={sectionTitle}>Credit Cost Guide</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {COST_GUIDE.map(({ action, cost, color }) => (
-            <div key={action} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.03)" }}>
-              <span style={{ fontSize: 13, color: "var(--page-text)" }}>{action}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color }}>{cost} credits</span>
-            </div>
-          ))}
-        </div>
+        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+          Credit costs vary by studio and model. Estimates are shown before each generation.
+        </p>
       </div>
 
       {/* ── Transaction history ───────────────────────────────────────────── */}
