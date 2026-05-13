@@ -45,8 +45,12 @@ import {
   ok,
   apiErr,
 } from "@/lib/api/route-utils";
-import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
-  from "@/lib/security/rate-limit";
+import {
+  checkStudioRateLimit,
+  checkIpStudioRateLimit,
+  checkConcurrentWorkflowLimit,
+  getClientIp,
+} from "@/lib/security/rate-limit";
 import { checkEntitlement }  from "@/lib/billing/entitlement";
 import { StudioDispatchError, dispatchErrorStatus }
   from "@/lib/api/studio-dispatch";
@@ -74,6 +78,10 @@ export async function POST(req: Request): Promise<Response> {
   const clientIp = getClientIp(req);
   const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
   if (ipRateLimitError) return ipRateLimitError;
+
+  // ── S3-D: Concurrent workflow cap ─────────────────────────────────────────────
+  const concurrentLimitError = await checkConcurrentWorkflowLimit(userId);
+  if (concurrentLimitError) return concurrentLimitError;
 
   // ── Billing entitlement ───────────────────────────────────────────────────────
   // Reuse the "image" entitlement gate — Reference Stack renders are image outputs.

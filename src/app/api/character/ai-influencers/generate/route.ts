@@ -24,7 +24,7 @@ import { ok, accepted, invalidInput, serverErr, parseBody }
                              from "@/lib/api/route-utils";
 import { checkEntitlement, consumeTrialUsage }
                              from "@/lib/billing/entitlement";
-import { checkStudioRateLimit } from "@/lib/security/rate-limit";
+import { checkStudioRateLimit, checkConcurrentInfluencerJobsLimit } from "@/lib/security/rate-limit";
 import { composeInfluencerPrompt } from "@/lib/influencer/pack-prompts";
 import { selectInfluencerSeed, seedResolutionLabel } from "@/lib/influencer/seed-selector";
 import type { AIInfluencerProfile, StyleCategory } from "@/lib/influencer/types";
@@ -65,6 +65,10 @@ export async function POST(req: Request): Promise<Response> {
   // ── Rate limit ──────────────────────────────────────────────────────────────
   const rateLimitError = await checkStudioRateLimit(userId);
   if (rateLimitError) return rateLimitError;
+
+  // ── S3-D: Concurrent job cap ──────────────────────────────────────────────
+  const concurrentLimitError = await checkConcurrentInfluencerJobsLimit(userId);
+  if (concurrentLimitError) return concurrentLimitError;
 
   // ── Parse body ──────────────────────────────────────────────────────────────
   const { body, parseError } = await parseBody(req);

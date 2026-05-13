@@ -413,6 +413,99 @@ export async function checkLipsyncConcurrentLimit(userId: string): Promise<Respo
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// S3-D-1: CREATIVE DIRECTOR — CONCURRENT WORKFLOW CAP — 3 per user
+// Queries workflow_runs (canonical record store for all Creative Director jobs).
+// Active statuses: pending | running
+// Lifecycle: pending → running → completed | failed | cancelled
+// A partial index (idx_workflow_runs_status) already covers these two values.
+// DB errors degrade gracefully — a broken check must never block requests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CD_CONCURRENT_CAP = 3;
+
+/**
+ * S3-D: Concurrent Creative Director cap — max 3 active workflow_runs per user.
+ * Active means status IN ('pending', 'running').
+ * Call after rate limit checks, before createWorkflowRun().
+ */
+export async function checkConcurrentWorkflowLimit(userId: string): Promise<Response | null> {
+  const { count, error } = await supabaseAdmin
+    .from("workflow_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("status", ["pending", "running"]);
+
+  if (error) {
+    console.error("[rate-limit] concurrent-workflow DB error:", error.message);
+    return null; // degrade gracefully — a broken check must never block requests
+  }
+
+  if ((count ?? 0) >= CD_CONCURRENT_CAP) {
+    return Response.json(
+      {
+        success: false,
+        code:    "CONCURRENT_LIMIT",
+        error:   `You already have ${CD_CONCURRENT_CAP} active Creative Director jobs in progress. ` +
+                 `Please wait for one to complete before submitting a new request.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-D-2: CHARACTER STUDIO — CONCURRENT JOB CAP — 12 per user
+// Queries influencer_generation_jobs (canonical record store for all Character
+// Studio jobs). Active statuses: pending | running
+// Lifecycle: pending → running → completed | failed | cancelled
+// influencer_generation_jobs has no user_id column — ownership is resolved
+// through ai_influencers (influencer_id → ai_influencers.user_id). The query
+// uses a PostgREST inner join to scope the count to the authenticated user.
+// Cap is 12 (not 6/10) to accommodate a full candidate batch (4–6 rows) +
+// an identity sheet chain (up to 5 rows) running simultaneously, without
+// false-positives on normal parallel usage.
+// DB errors degrade gracefully — a broken check must never block requests.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CS_CONCURRENT_CAP = 12;
+
+/**
+ * S3-D: Concurrent Character Studio cap — max 12 active influencer_generation_jobs
+ * per user. Active means status IN ('pending', 'running').
+ * Count is scoped to the user via ai_influencers.user_id (no direct user_id column).
+ * Call after auth check, before dispatch.
+ */
+export async function checkConcurrentInfluencerJobsLimit(userId: string): Promise<Response | null> {
+  // influencer_generation_jobs has no user_id — scope through ai_influencers join
+  const { count, error } = await supabaseAdmin
+    .from("influencer_generation_jobs")
+    .select("id, ai_influencers!inner(user_id)", { count: "exact", head: true })
+    .eq("ai_influencers.user_id", userId)
+    .in("status", ["pending", "running"]);
+
+  if (error) {
+    console.error("[rate-limit] concurrent-influencer-jobs DB error:", error.message);
+    return null; // degrade gracefully — a broken check must never block requests
+  }
+
+  if ((count ?? 0) >= CS_CONCURRENT_CAP) {
+    return Response.json(
+      {
+        success: false,
+        code:    "CONCURRENT_LIMIT",
+        error:   `You already have ${CS_CONCURRENT_CAP} active Character Studio jobs in progress. ` +
+                 `Please wait for some to complete before submitting a new request.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // S3-G: LOGIN — 10 attempts per 10 minutes per IP
 // Protects email/password sign-in from brute force.
 // OTP is already protected by checkAuthRateLimit (5/600s).
