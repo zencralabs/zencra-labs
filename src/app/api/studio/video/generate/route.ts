@@ -33,7 +33,7 @@ import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
 import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
-import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
+import { checkVideoRateLimit, checkIpStudioRateLimit, getClientIp, checkVideoConcurrentLimit }
                                      from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage, consumeFreeUsage }
                                      from "@/lib/billing/entitlement";
@@ -53,12 +53,17 @@ export async function POST(req: Request): Promise<Response> {
   const userId = user!.id;
 
   // ── Rate limit ──────────────────────────────────────────────────────────────
-  const rateLimitError = await checkStudioRateLimit(userId);
+  // S3-B-1: Stricter per-user limit for video (3/min) — providers are 10–60× more expensive than image.
+  const rateLimitError = await checkVideoRateLimit(userId);
   if (rateLimitError) return rateLimitError;
 
   const clientIp = getClientIp(req);
   const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
   if (ipRateLimitError) return ipRateLimitError;
+
+  // S3-C: Concurrent job cap — max 1 active video job per user.
+  const concurrentError = await checkVideoConcurrentLimit(userId);
+  if (concurrentError) return concurrentError;
 
   // ── Feature gate ────────────────────────────────────────────────────────────
   const gate = guardStudio("video");

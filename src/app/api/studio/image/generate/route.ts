@@ -32,7 +32,7 @@ import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
 import { accepted, invalidInput, serverErr, providerErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
-import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
+import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp, checkImageConcurrentLimit }
                                      from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage, consumeFreeUsage }
                                      from "@/lib/billing/entitlement";
@@ -66,6 +66,10 @@ export async function POST(req: Request): Promise<Response> {
   const clientIp = getClientIp(req);
   const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
   if (ipRateLimitError) return ipRateLimitError;
+
+  // S3-C: Concurrent job cap — max 4 active image jobs per user.
+  const concurrentError = await checkImageConcurrentLimit(userId);
+  if (concurrentError) return concurrentError;
 
   // ── Feature gate ────────────────────────────────────────────────────────────
   const gate = guardStudio("image");
@@ -182,6 +186,24 @@ export async function POST(req: Request): Promise<Response> {
         "TOO_MANY_REFERENCE_IMAGES",
         `Too many reference images: ${imageUrls.length} provided, maximum is ${cap.maxReferenceImages} for model "${modelKey}". ${cap.uploadCapLabel}.`,
         400
+      );
+    }
+  }
+
+  // ── S3-D: imageUrl scalar origin validation ──────────────────────────────────
+  // imageUrl (single reference, image-to-image) must originate from Zencra
+  // Storage — same rule as imageUrls[].  Blocks SSRF-adjacent abuse where an
+  // authenticated user passes an external URL to be forwarded to a provider.
+  // Allow:  https://<project>.supabase.co/storage/v1/object/...
+  // Reject: any external domain, localhost, or private IP ranges.
+  if (imageUrl) {
+    const storageBaseScalar = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/`
+      : null;
+    if (storageBaseScalar && !imageUrl.startsWith(storageBaseScalar)) {
+      return invalidInput(
+        "imageUrl must reference a file uploaded to Zencra Storage. " +
+        "Upload your reference image first using the upload endpoint, then use the returned URL."
       );
     }
   }

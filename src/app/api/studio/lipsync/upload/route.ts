@@ -20,6 +20,7 @@
 
 import type { NextRequest }   from "next/server";
 import { requireAuthUser }    from "@/lib/supabase/server";
+import { checkLipsyncUploadRateLimit } from "@/lib/security/rate-limit";
 import { supabaseAdmin }      from "@/lib/supabase/admin";
 
 export const runtime  = "nodejs";
@@ -79,6 +80,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const { user, authError } = await requireAuthUser(req);
   if (authError) return authError ?? Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
   const userId = user!.id;
+
+  // ── S3-E-2: Upload rate limit — 10 lipsync uploads/hr per user ────────────
+  const uploadRateLimitError = await checkLipsyncUploadRateLimit(userId);
+  if (uploadRateLimitError) return uploadRateLimitError;
 
   // ── Parse multipart ─────────────────────────────────────────────────────────
   let formData: FormData;

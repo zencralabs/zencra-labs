@@ -50,9 +50,44 @@ import { handleWebhook }               from "@/lib/providers/core/orchestrator";
 import { updateAssetStatus }           from "@/lib/storage/metadata";
 import { logger }                      from "@/lib/logger";
 import { verifyWebhookSignature }      from "@/lib/security/webhook-signatures";
+import { checkWebhookRateLimit }       from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-F-2: IN-MEMORY WEBHOOK IDEMPOTENCY DEDUP
+// ─────────────────────────────────────────────────────────────────────────────
+// Module-level Map — survives across requests in the same Node.js process.
+// Key: "<externalJobId>:<provider>", value: timestamp of first-seen.
+// TTL: 10 minutes — covers all realistic provider retry windows.
+// On cache hit within TTL, return 200 immediately (idempotent — safe for providers).
+// Periodic cleanup runs every 500 calls to prevent unbounded growth.
+
+const WEBHOOK_DEDUP_CACHE = new Map<string, number>();
+const DEDUP_TTL_MS        = 10 * 60 * 1000; // 10 minutes
+let   dedupCallCount      = 0;
+
+function checkAndRegisterDedup(externalJobId: string, provider: string): boolean {
+  const key     = `${externalJobId}:${provider}`;
+  const now     = Date.now();
+  const lastSeen = WEBHOOK_DEDUP_CACHE.get(key);
+
+  if (lastSeen !== undefined && now - lastSeen < DEDUP_TTL_MS) {
+    return true; // duplicate — caller should return 200 immediately
+  }
+
+  WEBHOOK_DEDUP_CACHE.set(key, now);
+
+  // Periodic cleanup — evict entries older than TTL
+  if (++dedupCallCount % 500 === 0) {
+    for (const [k, ts] of WEBHOOK_DEDUP_CACHE) {
+      if (now - ts >= DEDUP_TTL_MS) WEBHOOK_DEDUP_CACHE.delete(k);
+    }
+  }
+
+  return false; // first time — caller should proceed
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYLOAD NORMALIZATION
@@ -259,6 +294,11 @@ export async function POST(
 
   ensureProvidersRegistered();
 
+  // ── S3-F-3: Per-provider rate limit (generous — never block legitimate retries) ──
+  // 120 req/60s per provider slug. Degrades gracefully — RPC errors never block.
+  const webhookRateLimited = await checkWebhookRateLimit(provider);
+  if (webhookRateLimited) return webhookRateLimited;
+
   // ── 1. Read raw body (required for HMAC — must precede JSON parsing) ──────────
   const rawBody = await req.text();
 
@@ -279,6 +319,19 @@ export async function POST(
     webhookEventId:  verification.webhookEventId,
     timestampDeltaMs: verification.timestampDeltaMs,
   });
+
+  // ── S3-F-1: Block unsupported providers in enforce mode ──────────────────────
+  // outcome=unsupported means webhook-signatures.ts has no verifier for this
+  // provider slug. In permissive (dry-run / observe) mode shouldProceed is already
+  // true so this block is unreachable. In enforce mode we close the gap explicitly:
+  // an unknown slug should not be silently passed through — it may be a spoofed path.
+  {
+    const enforcementMode = process.env.WEBHOOK_ENFORCEMENT_MODE ?? "observe";
+    if (enforcementMode === "enforce" && verification.outcome === "unsupported") {
+      logger.warn(`webhook/studio/${provider}`, "Unsupported provider blocked in enforce mode", { provider });
+      return new Response("Unauthorized", { status: 401 });
+    }
+  }
 
   // ── 3. Mode gate ──────────────────────────────────────────────────────────────
   // In permissive (dry-run / observe) mode: shouldProceed is always true.
@@ -319,6 +372,19 @@ export async function POST(
   // ── 6. Still pending — nothing to do yet ──────────────────────────────────────
   if (normalized.status === "pending") {
     logger.info(`webhook/studio/${provider}`, "Webhook status pending — no action", {
+      externalJobId: normalized.externalJobId,
+    });
+    return new Response("ok", { status: 200 });
+  }
+
+  // ── S3-F-2: Idempotency dedup — ignore duplicate terminal webhooks ────────────
+  // Providers retry on non-2xx and occasionally send duplicate success/failure
+  // callbacks. We register the (externalJobId, provider) pair on first receipt;
+  // a second arrival within the 10-minute TTL window is a no-op (return 200).
+  // This guard runs after pending-status early-return so only terminal events are
+  // deduplicated — intermediate status pings fall through normally.
+  if (checkAndRegisterDedup(normalized.externalJobId, provider)) {
+    logger.info(`webhook/studio/${provider}`, "Duplicate webhook ignored (dedup cache hit)", {
       externalJobId: normalized.externalJobId,
     });
     return new Response("ok", { status: 200 });

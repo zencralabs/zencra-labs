@@ -228,3 +228,207 @@ export async function checkBriefImproveRateLimit(userId: string): Promise<Respon
     "brief_improve",
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-B-1: VIDEO GENERATE — 3 requests per 60 seconds per user
+// Stricter than image (10/60s) because video providers cost significantly more.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VIDEO_WINDOW_S = 60;
+const VIDEO_MAX_REQ  = 3;
+
+/**
+ * Per-user rate limit for video generation.
+ * Stricter than the general studio limit (10/60s) because video providers
+ * are 10–60× more expensive than image generation.
+ * Call after requireAuthUser, before feature gate and dispatch.
+ */
+export async function checkVideoRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `video:${userId}`,
+    VIDEO_WINDOW_S,
+    VIDEO_MAX_REQ,
+    `Video generation rate limit exceeded. You can generate ${VIDEO_MAX_REQ} videos per minute. Video generation is resource-intensive — please wait before submitting another request.`,
+    "video-user",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-B-2: LIPSYNC GENERATE — 2 requests per 60 seconds per user
+// Stricter than image; lipsync jobs are long-running and provider-expensive.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LIPSYNC_GEN_WINDOW_S = 60;
+const LIPSYNC_GEN_MAX_REQ  = 2;
+
+/**
+ * Per-user rate limit for lipsync generation.
+ * Stricter than both image (10/60s) and video (3/60s) because lipsync jobs
+ * are long-running, async, and expensive per provider call.
+ */
+export async function checkLipsyncGenerateRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `lipsync_gen:${userId}`,
+    LIPSYNC_GEN_WINDOW_S,
+    LIPSYNC_GEN_MAX_REQ,
+    `Lip sync rate limit exceeded. You can submit ${LIPSYNC_GEN_MAX_REQ} lip sync jobs per minute.`,
+    "lipsync-gen-user",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-E-1: MEDIA UPLOAD — 20 uploads per hour per user
+// /api/media/upload was previously unprotected. Covers image + video uploads.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MEDIA_UPLOAD_WINDOW_S = 3600; // 1 hour
+const MEDIA_UPLOAD_MAX_REQ  = 20;
+
+/**
+ * Rate-limits POST /api/media/upload.
+ * 20 uploads per hour per user. Covers both image (20 MB) and video (500 MB) uploads.
+ */
+export async function checkMediaUploadRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `media_upload:${userId}`,
+    MEDIA_UPLOAD_WINDOW_S,
+    MEDIA_UPLOAD_MAX_REQ,
+    `Upload limit reached. You can upload ${MEDIA_UPLOAD_MAX_REQ} files per hour.`,
+    "media-upload",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-E-2: LIPSYNC UPLOAD — 10 uploads per hour per user
+// /api/studio/lipsync/upload was previously unprotected. Files up to 500 MB.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LIPSYNC_UPLOAD_WINDOW_S = 3600; // 1 hour
+const LIPSYNC_UPLOAD_MAX_REQ  = 10;
+
+/**
+ * Rate-limits POST /api/studio/lipsync/upload.
+ * 10 uploads per hour per user (both video and audio lipsync files).
+ */
+export async function checkLipsyncUploadRateLimit(userId: string): Promise<Response | null> {
+  return checkLimit(
+    `lipsync_upload:${userId}`,
+    LIPSYNC_UPLOAD_WINDOW_S,
+    LIPSYNC_UPLOAD_MAX_REQ,
+    `Lip sync upload limit reached. You can upload ${LIPSYNC_UPLOAD_MAX_REQ} files per hour.`,
+    "lipsync-upload",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-F-3: WEBHOOK — 120 requests per 60 seconds per provider (soft/generous)
+// Prevents webhook endpoint hammering while never blocking legitimate retries.
+// Providers typically send 1–5 events per job; this cap handles storm scenarios.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WEBHOOK_WINDOW_S = 60;
+const WEBHOOK_MAX_REQ  = 120; // generous — provider retries are normal and expected
+
+/**
+ * Soft rate limit for incoming provider webhooks.
+ * 120 req/min per provider is intentionally generous — provider retry storms
+ * are normal behavior and must never be blocked by this limit.
+ * Only activates under extreme abuse (e.g. misconfigured provider loop or attack).
+ */
+export async function checkWebhookRateLimit(provider: string): Promise<Response | null> {
+  return checkLimit(
+    `webhook:${provider}`,
+    WEBHOOK_WINDOW_S,
+    WEBHOOK_MAX_REQ,
+    `Webhook rate limit exceeded for provider ${provider}. Too many events in a short window.`,
+    "webhook-provider",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-C: CONCURRENT JOB CAPS — per user, per studio
+// Caps: image=4, video=1, lipsync=1.
+// Queries the assets table (common record store for all studios) for jobs
+// in pending or running state. DB errors degrade gracefully (never block).
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkConcurrentJobLimit(
+  userId:        string,
+  studio:        string,
+  maxConcurrent: number,
+): Promise<Response | null> {
+  const { count, error } = await supabaseAdmin
+    .from("assets")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("studio", studio)
+    .in("status", ["pending", "running"]);
+
+  if (error) {
+    console.error(`[rate-limit] concurrent-${studio} DB error:`, error.message);
+    return null; // degrade gracefully — a broken check must never block requests
+  }
+
+  if ((count ?? 0) >= maxConcurrent) {
+    const plural = maxConcurrent !== 1;
+    return Response.json(
+      {
+        success: false,
+        code:    "CONCURRENT_LIMIT",
+        error:   `You already have ${maxConcurrent} active ${studio} job${plural ? "s" : ""} in progress. ` +
+                 `Please wait for ${plural ? "one" : "it"} to complete before submitting a new request.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  return null;
+}
+
+/**
+ * S3-C: Concurrent image job cap — max 4 per user.
+ * Call after rate limit checks, before feature gate and dispatch.
+ */
+export async function checkImageConcurrentLimit(userId: string): Promise<Response | null> {
+  return checkConcurrentJobLimit(userId, "image", 4);
+}
+
+/**
+ * S3-C: Concurrent video job cap — max 1 per user.
+ * Video jobs are long-running; 1 inflight is sufficient and controls cost.
+ */
+export async function checkVideoConcurrentLimit(userId: string): Promise<Response | null> {
+  return checkConcurrentJobLimit(userId, "video", 1);
+}
+
+/**
+ * S3-C: Concurrent lipsync job cap — max 1 per user.
+ * Lipsync jobs are async and expensive; 1 inflight enforces serialization.
+ */
+export async function checkLipsyncConcurrentLimit(userId: string): Promise<Response | null> {
+  return checkConcurrentJobLimit(userId, "lipsync", 1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-G: LOGIN — 10 attempts per 10 minutes per IP
+// Protects email/password sign-in from brute force.
+// OTP is already protected by checkAuthRateLimit (5/600s).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LOGIN_WINDOW_S = 600; // 10 minutes
+const LOGIN_MAX_REQ  = 10;
+
+/**
+ * Rate-limits email/password login attempts by IP.
+ * Separate from OTP rate limit (checkAuthRateLimit) which covers send-otp.
+ * Call at the top of the login API route, before calling signInWithPassword.
+ */
+export async function checkLoginRateLimit(ip: string): Promise<Response | null> {
+  return checkLimit(
+    `login:${ip}`,
+    LOGIN_WINDOW_S,
+    LOGIN_MAX_REQ,
+    "Too many login attempts. Please try again in 10 minutes.",
+    "login",
+  );
+}

@@ -35,7 +35,7 @@ import { requireAuthUser }           from "@/lib/supabase/server";
 import { supabaseAdmin }             from "@/lib/supabase/admin";
 import { guardStudio }               from "@/lib/api/feature-gate";
 import { checkEntitlement, consumeTrialUsage } from "@/lib/billing/entitlement";
-import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
+import { checkLipsyncGenerateRateLimit, checkIpStudioRateLimit, getClientIp, checkLipsyncConcurrentLimit }
                                      from "@/lib/security/rate-limit";
 import { proAdapter }                from "@/lib/providers/lipsync/pro";
 import { StudioDispatchError, dispatchErrorStatus }
@@ -71,12 +71,17 @@ export async function POST(req: NextRequest): Promise<Response> {
   const userId = user!.id;
 
   // ── Rate limit ──────────────────────────────────────────────────────────────
-  const rateLimitError = await checkStudioRateLimit(userId);
+  // S3-B-2: Stricter per-user limit for lipsync (2/min) — jobs are long-running and provider-expensive.
+  const rateLimitError = await checkLipsyncGenerateRateLimit(userId);
   if (rateLimitError) return rateLimitError;
 
   const clientIp = getClientIp(req);
   const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
   if (ipRateLimitError) return ipRateLimitError;
+
+  // S3-C: Concurrent job cap — max 1 active lipsync job per user.
+  const concurrentError = await checkLipsyncConcurrentLimit(userId);
+  if (concurrentError) return concurrentError;
 
   // ── Feature gate ────────────────────────────────────────────────────────────
   const gate = guardStudio("lipsync");

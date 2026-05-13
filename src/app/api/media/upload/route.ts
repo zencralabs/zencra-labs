@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { compressImage, isImageMime } from "@/lib/media/compress-image";
 import { requireAuthUser } from "@/lib/supabase/server";
+import { checkMediaUploadRateLimit } from "@/lib/security/rate-limit";
 
 // ── Magic-byte video signature detection ──────────────────────────────────────
 // Validates that uploaded bytes match the declared MIME type's container format.
@@ -91,8 +92,13 @@ const ALLOWED_BUCKETS = new Set(["media", "showcase"]);
 
 export async function POST(req: NextRequest) {
   // ── Auth guard ────────────────────────────────────────────────────────────
-  const { authError } = await requireAuthUser(req);
+  const { user, authError } = await requireAuthUser(req);
   if (authError) return authError;
+  const userId = user!.id;
+
+  // ── S3-E-1: Upload rate limit — 20 uploads/hr per user ──────────────────
+  const uploadRateLimitError = await checkMediaUploadRateLimit(userId);
+  if (uploadRateLimitError) return uploadRateLimitError;
 
   try {
     const form   = await req.formData();

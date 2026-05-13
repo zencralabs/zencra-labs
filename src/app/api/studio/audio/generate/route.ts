@@ -32,7 +32,8 @@ import { studioDispatch, StudioDispatchError, dispatchErrorStatus }
                                      from "@/lib/api/studio-dispatch";
 import { accepted, invalidInput, serverErr, parseBody, requireField }
                                      from "@/lib/api/route-utils";
-import { checkStudioRateLimit }      from "@/lib/security/rate-limit";
+import { checkStudioRateLimit, checkIpStudioRateLimit, getClientIp }
+                                     from "@/lib/security/rate-limit";
 import { checkEntitlement, consumeTrialUsage }
                                      from "@/lib/billing/entitlement";
 import { assertModelRouteIntegrity, ProviderMismatchError }
@@ -50,6 +51,11 @@ export async function POST(req: Request): Promise<Response> {
   // ── Rate limit ──────────────────────────────────────────────────────────────
   const rateLimitError = await checkStudioRateLimit(userId);
   if (rateLimitError) return rateLimitError;
+
+  // S3-B-3: IP-level rate limit for audio — prevents credential-sharing abuse.
+  const clientIp = getClientIp(req);
+  const ipRateLimitError = await checkIpStudioRateLimit(clientIp);
+  if (ipRateLimitError) return ipRateLimitError;
 
   // ── Feature gate ────────────────────────────────────────────────────────────
   const gate = guardStudio("audio");

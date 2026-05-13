@@ -367,12 +367,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("zencra_user", JSON.stringify(mock));
       return true;
     }
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: captchaToken ? { captchaToken } : undefined,
+    // ── S3-G: Route through server proxy to enforce IP-based login rate limit ──
+    // The /api/auth/login route applies checkLoginRateLimit before forwarding
+    // credentials to Supabase. On success it returns session tokens which we
+    // apply locally — auth state is identical to a direct signInWithPassword call.
+    // captchaToken is not forwarded (captcha handled at client layer if enabled).
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/login", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ email, password }),
+      });
+    } catch (fetchErr) {
+      console.warn("[login] network error:", fetchErr);
+      return false;
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      console.warn("[login]", res.status, body.error ?? "");
+      return false;
+    }
+
+    const data = await res.json() as {
+      access_token:  string;
+      refresh_token: string;
+      expires_in:    number;
+      token_type:    string;
+    };
+
+    // Apply server-issued session tokens to the local Supabase client.
+    // This triggers the onAuthStateChange listener which loads the user profile.
+    const { error: sessionErr } = await supabase.auth.setSession({
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token,
     });
-    if (error) { console.warn("[login]", error.message); return false; }
+    if (sessionErr) { console.warn("[login] setSession error:", sessionErr.message); return false; }
     return true;
   }
 
