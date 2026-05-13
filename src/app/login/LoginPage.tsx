@@ -385,19 +385,20 @@ const KEYFRAMES = `
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
-  const { login, loginWithPasskey, loginWithOAuth } = useAuth();
+  const { login, loginWithPasskey, loginWithOAuth, user, profileReady } = useAuth();
   const router       = useRouter();
   const searchParams = useSearchParams();
 
   // Auth view state
-  const [view,         setView]         = useState<AuthView>("default");
-  const [email,        setEmail]        = useState("");
-  const [password,     setPassword]     = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [otpCode,      setOtpCode]      = useState("");
-  const [otpSent,      setOtpSent]      = useState(false);
-  const [isLoading,    setIsLoading]    = useState(false);
-  const [authError,    setAuthError]    = useState<string | null>(null);
+  const [view,            setView]            = useState<AuthView>("default");
+  const [email,           setEmail]           = useState("");
+  const [password,        setPassword]        = useState("");
+  const [showPassword,    setShowPassword]    = useState(false);
+  const [otpCode,         setOtpCode]         = useState("");
+  const [otpSent,         setOtpSent]         = useState(false);
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [authError,       setAuthError]       = useState<string | null>(null);
+  const [pendingRedirect, setPendingRedirect] = useState(false);
 
   // Slider state
   const [slide,         setSlide]         = useState(0);
@@ -419,11 +420,22 @@ export default function LoginPage() {
 
   const resetToDefault = () => { setView("default"); setOtpSent(false); setOtpCode(""); setAuthError(null); };
 
-  // Redirect destination — ?next= param, or /studio as default
-  const redirectAfterLogin = () => {
+  // Role-aware redirect — waits for profileReady before routing.
+  // login() resolves before loadProfile() completes, so user.role is still
+  // provisional at the moment the success handler fires. We set pendingRedirect=true
+  // there and let this effect do the actual navigation once the real role is known.
+  useEffect(() => {
+    if (!pendingRedirect || !profileReady || !user) return;
     const next = searchParams?.get("next");
-    router.push(next && next.startsWith("/") ? next : "/studio");
-  };
+    if (next && next.startsWith("/")) {
+      router.push(next);
+    } else if (user.role === "admin") {
+      router.push("/hub");
+    } else {
+      router.push("/dashboard");
+    }
+    setPendingRedirect(false);
+  }, [pendingRedirect, profileReady, user, searchParams, router]);
 
   // ── Email / Password submit ─────────────────────────────────────────────────
   async function handleEmailSubmit(e: React.FormEvent) {
@@ -433,7 +445,7 @@ export default function LoginPage() {
     try {
       const ok = await login(email, password);
       if (ok) {
-        redirectAfterLogin();
+        setPendingRedirect(true);
       } else {
         setAuthError("Invalid email or password. Please try again.");
       }
@@ -451,7 +463,7 @@ export default function LoginPage() {
     try {
       const ok = await loginWithPasskey();
       if (ok) {
-        redirectAfterLogin();
+        setPendingRedirect(true);
       } else {
         setAuthError("Passkey authentication failed. Try a different method.");
       }
