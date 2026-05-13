@@ -9,6 +9,21 @@ import PricingOverlay from "@/components/pricing/PricingOverlay";
 // SUBSCRIPTION PAGE — Current plan + upgrade options
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PLAN_RANK: Record<string, number> = {
+  starter:  1,
+  creator:  2,
+  pro:      3,
+  business: 4,
+};
+
+function getPlanActionLabel(currentPlan: string, targetPlanId: string, targetPlanName: string): string {
+  const current = PLAN_RANK[currentPlan?.toLowerCase() ?? ""] ?? 0;
+  const target  = PLAN_RANK[targetPlanId] ?? 0;
+  if (current === target) return "Current Plan";
+  if (target > current)  return `Upgrade to ${targetPlanName}`;
+  return `Downgrade to ${targetPlanName}`;
+}
+
 // ── Locked plan data — Starter $12 / Creator $29 / Pro $49 / Business $89
 // Yearly prices are definitive (not computed from monthly × 12).
 const PLANS = [
@@ -191,7 +206,7 @@ export default function SubscriptionPage() {
                 onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
                 onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
               >
-                {isCurrent ? "Current Plan" : `Upgrade to ${plan.name}`}
+                {getPlanActionLabel(user.plan ?? "", plan.id, plan.name)}
               </button>
             </div>
           );
