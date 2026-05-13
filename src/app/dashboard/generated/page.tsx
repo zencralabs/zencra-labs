@@ -39,7 +39,7 @@ interface Project {
   name: string;
 }
 
-type StudioFilter    = "all" | "image" | "video" | "audio" | "character";
+type StudioFilter    = "all" | "image" | "video" | "audio" | "character" | "lipsync" | "cd";
 type VisFilter       = "all" | "private" | "public" | "project";
 
 interface Filters {
@@ -71,6 +71,8 @@ function studioIcon(studio: string, size = 14) {
     case "video":     return <Film      size={size} />;
     case "audio":     return <Music     size={size} />;
     case "character": return <User2     size={size} />;
+    case "lipsync":   return <Music     size={size} />;
+    case "cd":        return <Layers    size={size} />;
     default:          return <Wand2     size={size} />;
   }
 }
@@ -79,9 +81,23 @@ function studioColor(studio: string): string {
   switch (studio) {
     case "image":     return "#2563EB";
     case "video":     return "#7C3AED";
-    case "audio":     return "#0EA5A0";
-    case "character": return "#D97706";
+    case "audio":     return "#C6FF00";
+    case "character": return "#F59E0B";
+    case "lipsync":   return "#C6FF00";
+    case "cd":        return "#0EA5A0";
     default:          return "#64748B";
+  }
+}
+
+function studioLabel(studio: string): string {
+  switch (studio) {
+    case "image":     return "Image";
+    case "video":     return "Video";
+    case "audio":     return "Audio";
+    case "character": return "Character";
+    case "lipsync":   return "Lipsync";
+    case "cd":        return "Creative Director";
+    default:          return "Asset";
   }
 }
 
@@ -117,59 +133,22 @@ function downloadAsset(url: string, prompt: string | null) {
 // Filter bar
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STUDIO_OPTIONS: { value: StudioFilter; label: string }[] = [
-  { value: "all",       label: "All Studios" },
-  { value: "image",     label: "Image" },
-  { value: "video",     label: "Video" },
-  { value: "audio",     label: "Audio" },
-  { value: "character", label: "Character" },
+const STUDIO_TABS: { value: StudioFilter; label: string; icon: React.ReactNode }[] = [
+  { value: "all",       label: "All",              icon: <Layers   size={12} /> },
+  { value: "image",     label: "Images",            icon: <ImageIcon size={12} /> },
+  { value: "video",     label: "Videos",            icon: <Film     size={12} /> },
+  { value: "audio",     label: "Audio",             icon: <Music    size={12} /> },
+  { value: "character", label: "Characters",        icon: <User2    size={12} /> },
+  { value: "lipsync",   label: "Lipsync",           icon: <Music    size={12} /> },
+  { value: "cd",        label: "Creative Director", icon: <Wand2    size={12} /> },
 ];
 
 const VIS_OPTIONS: { value: VisFilter; label: string }[] = [
-  { value: "all",     label: "All" },
+  { value: "all",     label: "All visibility" },
   { value: "private", label: "Private" },
   { value: "public",  label: "Public" },
   { value: "project", label: "In Project" },
 ];
-
-function FilterSelect<T extends string>({
-  value, options, onChange,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        style={{
-          appearance: "none",
-          padding: "6px 28px 6px 12px",
-          borderRadius: 8,
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          color: value === "all" ? "#94A3B8" : "var(--page-text)",
-          fontSize: 13,
-          fontWeight: value === "all" ? 400 : 600,
-          cursor: "pointer",
-          outline: "none",
-        }}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} style={{ background: "#0F172A" }}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        size={13}
-        style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748B" }}
-      />
-    </div>
-  );
-}
 
 function FilterBar({
   filters, projects, total,
@@ -181,11 +160,9 @@ function FilterBar({
   onChange: (f: Partial<Filters>) => void;
   onReset: () => void;
 }) {
-  const hasActive =
-    filters.studio !== "all" ||
+  const hasSecondaryActive =
     filters.project_id !== "" ||
-    filters.visibility !== "all" ||
-    filters.is_favorite;
+    filters.visibility !== "all";
 
   const projectOptions: { value: string; label: string }[] = [
     { value: "",     label: "All Projects" },
@@ -194,80 +171,127 @@ function FilterBar({
   ];
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
-      padding: "12px 16px",
-      background: "rgba(255,255,255,0.025)",
-      borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)",
-      marginBottom: 20,
-    }}>
-      {/* Studio */}
-      <FilterSelect value={filters.studio} options={STUDIO_OPTIONS} onChange={(v) => onChange({ studio: v })} />
+    <div style={{ marginBottom: 24 }}>
+      {/* Primary tab row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap",
+        padding: "6px",
+        background: "rgba(255,255,255,0.025)",
+        borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)",
+      }}>
+        {STUDIO_TABS.map((tab) => {
+          const isActive = filters.studio === tab.value && !filters.is_favorite;
+          const accent   = tab.value === "all" ? "#60A5FA" : studioColor(tab.value);
+          return (
+            <button
+              key={tab.value}
+              onClick={() => onChange({ studio: tab.value, is_favorite: false })}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "6px 13px", borderRadius: 8,
+                background: isActive ? `${accent}18` : "transparent",
+                border: `1px solid ${isActive ? `${accent}44` : "transparent"}`,
+                color: isActive ? accent : "#64748B",
+                fontSize: 12, fontWeight: isActive ? 600 : 400,
+                cursor: "pointer", transition: "all 0.15s", whiteSpace: "nowrap",
+              }}
+            >
+              <span style={{ color: isActive ? accent : "#475569" }}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          );
+        })}
 
-      {/* Project */}
-      <div style={{ position: "relative", display: "inline-flex" }}>
-        <select
-          value={filters.project_id}
-          onChange={(e) => onChange({ project_id: e.target.value })}
-          style={{
-            appearance: "none",
-            padding: "6px 28px 6px 12px",
-            borderRadius: 8,
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: filters.project_id === "" ? "#94A3B8" : "var(--page-text)",
-            fontSize: 13,
-            fontWeight: filters.project_id === "" ? 400 : 600,
-            cursor: "pointer",
-            outline: "none",
-            maxWidth: 180,
-          }}
-        >
-          {projectOptions.map((o) => (
-            <option key={o.value} value={o.value} style={{ background: "#0F172A" }}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown size={13} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748B" }} />
-      </div>
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.08)", margin: "0 4px" }} />
 
-      {/* Visibility */}
-      <FilterSelect value={filters.visibility} options={VIS_OPTIONS} onChange={(v) => onChange({ visibility: v })} />
-
-      {/* Favorites toggle */}
-      <button
-        onClick={() => onChange({ is_favorite: !filters.is_favorite })}
-        style={{
-          display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 12px", borderRadius: 8,
-          background: filters.is_favorite ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.05)",
-          border: `1px solid ${filters.is_favorite ? "rgba(245,158,11,0.35)" : "rgba(255,255,255,0.1)"}`,
-          color: filters.is_favorite ? "#F59E0B" : "#64748B",
-          fontSize: 13, fontWeight: filters.is_favorite ? 600 : 400,
-          cursor: "pointer",
-        }}
-      >
-        <Star size={13} fill={filters.is_favorite ? "#F59E0B" : "none"} />
-        Favorites
-      </button>
-
-      {/* Spacer + result count + reset */}
-      <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 12, color: "#475569" }}>{total} outputs</span>
-      {hasActive && (
+        {/* Favorites tab */}
         <button
-          onClick={onReset}
+          onClick={() => onChange({ is_favorite: !filters.is_favorite })}
           style={{
             display: "flex", alignItems: "center", gap: 5,
-            padding: "5px 10px", borderRadius: 8,
-            background: "none", border: "1px solid rgba(255,255,255,0.08)",
-            color: "#64748B", fontSize: 12, cursor: "pointer",
+            padding: "6px 13px", borderRadius: 8,
+            background: filters.is_favorite ? "rgba(245,158,11,0.12)" : "transparent",
+            border: `1px solid ${filters.is_favorite ? "rgba(245,158,11,0.35)" : "transparent"}`,
+            color: filters.is_favorite ? "#F59E0B" : "#64748B",
+            fontSize: 12, fontWeight: filters.is_favorite ? 600 : 400,
+            cursor: "pointer", transition: "all 0.15s",
           }}
         >
-          <X size={11} /> Clear filters
+          <Star size={12} fill={filters.is_favorite ? "#F59E0B" : "none"} style={{ color: filters.is_favorite ? "#F59E0B" : "#475569" }} />
+          Favorites
         </button>
-      )}
+
+        {/* Spacer + count */}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 12, color: "#475569", paddingRight: 8, whiteSpace: "nowrap" }}>
+          {total} output{total !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Secondary filter row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        {/* Project */}
+        <div style={{ position: "relative", display: "inline-flex" }}>
+          <select
+            value={filters.project_id}
+            onChange={(e) => onChange({ project_id: e.target.value })}
+            style={{
+              appearance: "none",
+              padding: "5px 26px 5px 10px",
+              borderRadius: 7,
+              background: filters.project_id !== "" ? "rgba(37,99,235,0.1)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${filters.project_id !== "" ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.08)"}`,
+              color: filters.project_id !== "" ? "#60A5FA" : "#64748B",
+              fontSize: 12, fontWeight: filters.project_id !== "" ? 600 : 400,
+              cursor: "pointer", outline: "none", maxWidth: 180,
+            }}
+          >
+            {projectOptions.map((o) => (
+              <option key={o.value} value={o.value} style={{ background: "#0F172A" }}>{o.label}</option>
+            ))}
+          </select>
+          <ChevronDown size={11} style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748B" }} />
+        </div>
+
+        {/* Visibility */}
+        <div style={{ position: "relative", display: "inline-flex" }}>
+          <select
+            value={filters.visibility}
+            onChange={(e) => onChange({ visibility: e.target.value as VisFilter })}
+            style={{
+              appearance: "none",
+              padding: "5px 26px 5px 10px",
+              borderRadius: 7,
+              background: filters.visibility !== "all" ? "rgba(37,99,235,0.1)" : "rgba(255,255,255,0.04)",
+              border: `1px solid ${filters.visibility !== "all" ? "rgba(37,99,235,0.3)" : "rgba(255,255,255,0.08)"}`,
+              color: filters.visibility !== "all" ? "#60A5FA" : "#64748B",
+              fontSize: 12, fontWeight: filters.visibility !== "all" ? 600 : 400,
+              cursor: "pointer", outline: "none",
+            }}
+          >
+            {VIS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value} style={{ background: "#0F172A" }}>{o.label}</option>
+            ))}
+          </select>
+          <ChevronDown size={11} style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#64748B" }} />
+        </div>
+
+        {/* Clear filters */}
+        {(hasSecondaryActive || filters.studio !== "all" || filters.is_favorite) && (
+          <button
+            onClick={onReset}
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "5px 10px", borderRadius: 7,
+              background: "none", border: "1px solid rgba(255,255,255,0.07)",
+              color: "#475569", fontSize: 11, cursor: "pointer",
+            }}
+          >
+            <X size={10} /> Clear all
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -414,15 +438,24 @@ function AssetCard({
         )}
       </div>
 
-      {/* Studio dot */}
+      {/* Studio badge */}
       <div style={{
         position: "absolute", top: 8, left: 8,
-        width: 8, height: 8, borderRadius: "50%",
-        background: studioColor(asset.studio),
-        opacity: showCheck ? 0 : 0.85,
+        display: "flex", alignItems: "center", gap: 4,
+        padding: "3px 7px", borderRadius: 6,
+        background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)",
+        border: `1px solid ${studioColor(asset.studio)}33`,
+        opacity: showCheck ? 0 : 1,
         transition: "opacity 0.15s",
-        boxShadow: `0 0 6px ${studioColor(asset.studio)}`,
-      }} />
+        pointerEvents: "none",
+      }}>
+        <span style={{ color: studioColor(asset.studio), display: "flex" }}>
+          {studioIcon(asset.studio, 10)}
+        </span>
+        <span style={{ fontSize: 9, fontWeight: 600, color: studioColor(asset.studio), textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          {studioLabel(asset.studio)}
+        </span>
+      </div>
 
       {/* Checkbox */}
       {showCheck && (
@@ -840,33 +873,69 @@ function DeleteModal({
 
 function EmptyGenerated({ hasFilters, onGenerate, onReset }: { hasFilters: boolean; onGenerate: () => void; onReset: () => void; }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", textAlign: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "64px 24px", textAlign: "center" }}>
+      {/* Icon */}
       <div style={{
-        width: 64, height: 64, borderRadius: 18,
-        background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)",
+        width: 56, height: 56, borderRadius: 16,
+        background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.18)",
         display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20,
       }}>
-        <ImageIcon size={28} style={{ color: "#2563EB" }} />
+        <Layers size={24} style={{ color: "#2563EB" }} />
       </div>
-      <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--page-text)", margin: 0 }}>
-        {hasFilters ? "No matching outputs" : "Nothing generated yet"}
+
+      <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--page-text)", margin: 0, letterSpacing: "-0.02em" }}>
+        {hasFilters ? "No outputs match these filters" : "Your library is empty"}
       </h2>
-      <p style={{ fontSize: 13, color: "#64748B", marginTop: 8, maxWidth: 340, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: "#64748B", marginTop: 8, maxWidth: 380, lineHeight: 1.7 }}>
         {hasFilters
-          ? "Try clearing a filter or two — your outputs might be hiding behind the wrong criteria."
-          : "Every image, video, and audio output you create across all studios lands here — organised, searchable, and ready to share."
+          ? "Try adjusting or clearing your filters — your outputs might be hiding behind the wrong criteria."
+          : "Every image, video, audio, and lipsync output you create across all Zencra studios lands here — organized, searchable, and ready to share."
         }
       </p>
-      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 8, marginTop: 24, flexWrap: "wrap", justifyContent: "center" }}>
         {hasFilters && (
-          <button onClick={onReset} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "var(--page-text)", fontSize: 13, cursor: "pointer" }}>
-            <RefreshCw size={13} /> Clear filters
+          <button onClick={onReset} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", fontSize: 13, cursor: "pointer" }}>
+            <RefreshCw size={12} /> Clear filters
           </button>
         )}
-        <button onClick={onGenerate} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 18px", borderRadius: 9, background: "linear-gradient(135deg, #1d4ed8, #2563EB)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          <Layers size={13} /> Create in Studio
-        </button>
+        {!hasFilters && (
+          <>
+            <button onClick={onGenerate} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "linear-gradient(135deg, #1d4ed8, #2563EB)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <ImageIcon size={12} /> Create Image
+            </button>
+            <button onClick={() => { window.location.href = "/studio/video"; }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.28)", color: "#A78BFA", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+              <Film size={12} /> Create Video
+            </button>
+            <button onClick={() => { window.location.href = "/studio/audio"; }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "rgba(198,255,0,0.06)", border: "1px solid rgba(198,255,0,0.18)", color: "#C6FF00", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+              <Music size={12} /> Create Audio
+            </button>
+          </>
+        )}
+        {hasFilters && (
+          <button onClick={onGenerate} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 9, background: "linear-gradient(135deg, #1d4ed8, #2563EB)", border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <ImageIcon size={12} /> Create Image
+          </button>
+        )}
       </div>
+
+      {/* Studio divider hints */}
+      {!hasFilters && (
+        <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 36, opacity: 0.4 }}>
+          {[
+            { label: "Image Studio", color: "#2563EB" },
+            { label: "Video Studio", color: "#7C3AED" },
+            { label: "Audio Studio", color: "#C6FF00" },
+            { label: "Lipsync",      color: "#C6FF00" },
+          ].map((s) => (
+            <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.color }} />
+              <span style={{ fontSize: 11, color: "#475569" }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1147,46 +1216,54 @@ export default function GeneratedPage() {
     <div className="dashboard-content" style={{ maxWidth: "none" }}>
 
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28, gap: 16 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 6 }}>
-            <ImageIcon size={16} style={{ color: "#2563EB", marginTop: 2 }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Your Library
-              </span>
-              <span style={{ fontSize: 11, color: "#475569", letterSpacing: "0.01em", lineHeight: 1.3, marginTop: 4 }}>
-                Saved assets across your projects
-              </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Layers size={15} style={{ color: "#2563EB" }} />
             </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Assets Library
+            </span>
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Assets</h1>
-          <p style={{ fontSize: 14, color: "#64748B", marginTop: 4 }}>
-            All your assets across every project.
+          <h1 style={{
+            fontSize: 30, fontWeight: 800, color: "var(--page-text)", margin: 0,
+            fontFamily: "var(--font-display, inherit)", letterSpacing: "-0.02em", lineHeight: 1.1,
+          }}>
+            Your Outputs
+          </h1>
+          <p style={{ fontSize: 13, color: "#64748B", marginTop: 6, lineHeight: 1.5 }}>
+            {total > 0
+              ? `${total} output${total !== 1 ? "s" : ""} generated across all studios`
+              : "Every image, video, and audio output across all studios"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 4 }}>
           <button
             onClick={() => void loadAssets(filters, true)}
             style={{
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "9px 16px", borderRadius: 10,
-              background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-              color: "#64748B", fontSize: 13, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 14px", borderRadius: 9,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              color: "#64748B", fontSize: 12, cursor: "pointer",
             }}
           >
-            <RefreshCw size={13} /> Refresh
+            <RefreshCw size={12} /> Refresh
           </button>
           <button
             onClick={() => router.push("/studio/image")}
             style={{
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "9px 16px", borderRadius: 10,
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 16px", borderRadius: 9,
               background: "linear-gradient(135deg, #1d4ed8, #2563EB)",
               border: "none", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
             }}
           >
-            <Layers size={13} /> Create More
+            <ImageIcon size={12} /> Create New
           </button>
         </div>
       </div>
@@ -1216,9 +1293,9 @@ export default function GeneratedPage() {
 
       {/* ── Loading skeleton ── */}
       {loading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-          {Array.from({ length: 15 }).map((_, i) => (
-            <div key={i} style={{ aspectRatio: "1", borderRadius: 12, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease-in-out infinite" }} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ aspectRatio: "1", borderRadius: 14, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease-in-out infinite" }} />
           ))}
         </div>
       )}
@@ -1249,7 +1326,7 @@ export default function GeneratedPage() {
       {/* ── Grid ── */}
       {!loading && !error && assets.length > 0 && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
             {assets.map((asset) => (
               <AssetCard
                 key={asset.id}
