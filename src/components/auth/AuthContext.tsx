@@ -45,6 +45,13 @@ interface AuthContextValue {
   user: AuthUser | null;
   session: Session | null;
   loading: boolean;
+  /**
+   * True once the Supabase profiles row has been fetched (or confirmed absent).
+   * False during the provisional-user window between onAuthStateChange firing and
+   * loadProfile() completing.  Guards like the /hub admin layout must wait for
+   * this before trusting user.role.
+   */
+  profileReady: boolean;
   /** captchaToken is optional — omitting it works in mock/dev mode */
   login: (email: string, password: string, captchaToken?: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string, captchaToken?: string) => Promise<boolean>;
@@ -217,9 +224,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Seed from snapshot so the very first render already has display data.
   // The snapshot is a visual placeholder only — it is replaced with real data
   // as soon as onAuthStateChange + loadProfile() complete.
-  const [user, setUser]       = useState<AuthUser | null>(() => readAuthSnapshot());
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]             = useState<AuthUser | null>(() => readAuthSnapshot());
+  const [session, setSession]       = useState<Session | null>(null);
+  const [loading, setLoading]       = useState(true);
+  // False during the provisional-user window; true after loadProfile() settles.
+  // Set true in the no-session branch too so unauthenticated guards never hang.
+  const [profileReady, setProfileReady] = useState(false);
   const router = useRouter();
 
   // Incremented on every logout so any in-flight loadProfile call can detect
@@ -283,6 +293,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       _profileInFlight        = false;
       loadInFlightRef.current = false;
+      // Signal that role/plan/credits are now the real DB values, not the
+      // provisional defaults.  Fires on both success and error paths so guards
+      // waiting on profileReady always unblock.
+      setProfileReady(true);
     }
   }
 
@@ -337,6 +351,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Session ended — clear everything immediately.
           setUser(null);
           clearAuthSnapshot();
+          // No session means no profile to fetch.  Mark ready so guards waiting
+          // on profileReady (e.g. /hub layout) can redirect to login immediately
+          // rather than hanging in the spinner indefinitely.
+          setProfileReady(true);
         }
         // ── Unlock loading immediately ───────────────────────────────────────
         // The provisional user is already set above, so the UI can render
@@ -511,6 +529,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     _profileLoadedForUser = null;
     _profileLoadedAt      = 0;
     loadInFlightRef.current = false;
+    // Reset profileReady so any mounted route guard (e.g. /hub layout) shows
+    // its loading spinner rather than briefly rendering stale role-protected UI.
+    // The null-session branch of onAuthStateChange will set it true again after
+    // signOut() completes and the listener fires.
+    setProfileReady(false);
 
     // Clear auth state immediately — UI should reflect logged-out before
     // the network call completes.
@@ -560,7 +583,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, loading,
+      user, session, loading, profileReady,
       login, signup,
       loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey,
       logout, refreshUser, refreshCredits,

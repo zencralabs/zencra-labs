@@ -94,19 +94,25 @@ const SIDEBAR_W = 240;
 const TOPBAR_H  = 56;
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, profileReady } = useAuth();
   const router   = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed]   = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Auth guard
+  // Auth guard — wait for profileReady so we never redirect based on the
+  // provisional user (whose role defaults to "user" before loadProfile() runs).
   useEffect(() => {
-    if (loading) return;
-    if (!user) { router.replace("/?auth=login&next=/hub"); return; }
-    if (user.role !== "admin") { router.replace("/dashboard"); }
-  }, [user, loading, router]);
+    if (loading || !profileReady) return;
+    if (!user) {
+      router.replace("/login?next=/hub");
+      return;
+    }
+    if (user.role !== "admin") {
+      router.replace("/dashboard");
+    }
+  }, [user, loading, profileReady, router]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -119,7 +125,10 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  if (loading || !user || user.role !== "admin") {
+  // Keep spinner until loading is done, profile is DB-confirmed, user exists,
+  // and role is verified.  This prevents the non-admin redirect from firing on
+  // the provisional user (role: "user") before loadProfile() completes.
+  if (loading || !profileReady || !user || user.role !== "admin") {
     return (
       // Fixed overlay — covers the public navbar/footer from root layout
       <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "#060D1F" }}>
