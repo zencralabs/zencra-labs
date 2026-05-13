@@ -14,6 +14,14 @@ import type { CreditPack } from "@/lib/billing/types";
 // Static note shown instead. Estimates are surfaced per-generation in each studio.
 // No COST_GUIDE constant needed — see Cost Guide section below.
 
+// ── Plan credit limits — mirrors public pricing; DB values (200/800/1700/4000) are stale pending migration.
+const PLAN_CREDIT_LIMIT: Record<string, number> = {
+  starter:  600,
+  creator:  1600,
+  pro:      3500,
+  business: 8000,
+};
+
 // ── Razorpay checkout ─────────────────────────────────────────────────────────
 declare global {
   interface Window {
@@ -73,7 +81,8 @@ export default function CreditsPage() {
 
   if (!user) return null;
 
-  const credPct = Math.min((user.credits / 100) * 100, 100);
+  const planLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 600;
+  const credPct = Math.min((user.credits / planLimit) * 100, 100);
 
   // Plan gate: booster packs require an active primary plan
   const hasActivePlan = !!user.plan && user.plan !== "free";

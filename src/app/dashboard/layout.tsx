@@ -27,10 +27,11 @@ const NAV = [
 ];
 
 const PLAN_COLORS: Record<string, string> = {
-  free:    "#64748B",
-  starter: "#2563EB",
-  pro:     "#0EA5A0",
-  creator: "#A855F7",
+  free:     "#64748B",
+  starter:  "#2563EB",
+  pro:      "#0EA5A0",
+  creator:  "#A855F7",
+  business: "#D4AF37",
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -76,13 +77,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const planColor = PLAN_COLORS[user.plan] ?? "#64748B";
 
-  // Credits bar denominator — AuthUser has no creditsLimit field on it, so we
-  // derive the limit from a plan lookup map (plan lookup path taken).
+  // Mirrors the public pricing-page credit allowances — the product source of truth.
+  // NOTE: public.plans.credits_per_cycle in the DB currently holds stale values
+  // (200/800/1700/4000) — a DB correction migration is pending (billing consolidation).
+  // TODO: replace with an API-backed fetch once a /api/plan-limits route exists.
   const PLAN_CREDIT_LIMIT: Record<string, number> = {
-    starter:  250,
-    creator:  1000,
-    pro:      2500,
-    business: 5000,
+    starter:  600,
+    creator:  1600,
+    pro:      3500,
+    business: 8000,
   };
   const creditLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 1000;
   const creditsPercent = Math.min((user.credits / creditLimit) * 100, 100);

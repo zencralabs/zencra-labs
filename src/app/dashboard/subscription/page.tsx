@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, Zap, Crown, Building2, Sparkles, ArrowRight } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
+import PricingOverlay from "@/components/pricing/PricingOverlay";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBSCRIPTION PAGE — Current plan + upgrade options
@@ -20,6 +21,7 @@ const PLANS = [
     icon: Sparkles,
     color: "#64748B",
     glow: "rgba(100,116,139,0.2)",
+    credits: 600,
     features: [
       "Access to Image & Video Studio",
       "Basic generation capabilities",
@@ -36,6 +38,7 @@ const PLANS = [
     icon: Zap,
     color: "#2563EB",
     glow: "rgba(37,99,235,0.2)",
+    credits: 1600,
     features: [
       "All studios unlocked",
       "Priority generation queue",
@@ -52,6 +55,7 @@ const PLANS = [
     icon: Crown,
     color: "#A855F7",
     glow: "rgba(168,85,247,0.2)",
+    credits: 3500,
     features: [
       "All studios unlocked",
       "FCS add-on eligible",
@@ -69,6 +73,7 @@ const PLANS = [
     icon: Building2,
     color: "#F59E0B",
     glow: "rgba(245,158,11,0.2)",
+    credits: 8000,
     features: [
       "Everything in Pro",
       "Team workspace & seats",
@@ -82,6 +87,7 @@ const PLANS = [
 export default function SubscriptionPage() {
   const { user } = useAuth();
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
+  const [showPricing, setShowPricing] = useState(false);
 
   if (!user) return null;
 
@@ -99,7 +105,7 @@ export default function SubscriptionPage() {
           <div style={{ fontSize: "20px", fontWeight: 800, color: "#60A5FA" }}>{user.plan} Plan</div>
           <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}><span style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", color: "#DBEAFE" }}>{user.credits.toLocaleString()}</span> credits remaining</div>
         </div>
-        {user.plan !== "creator" && (
+        {user.plan?.toLowerCase() !== "business" && (
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "8px" }}>Upgrade for more power</div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#60A5FA", fontWeight: 600 }}>
@@ -118,7 +124,7 @@ export default function SubscriptionPage() {
         <button onClick={() => setBilling("annual")}
           style={{ padding: "7px 18px", borderRadius: "8px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer", backgroundColor: billing === "annual" ? "#2563EB" : "rgba(255,255,255,0.05)", color: billing === "annual" ? "#fff" : "#64748B", transition: "all 0.15s", display: "flex", alignItems: "center", gap: "6px" }}>
           Annual
-          <span style={{ fontSize: "10px", backgroundColor: "#10B981", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>-20%</span>
+          <span style={{ fontSize: "10px", backgroundColor: "#10B981", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>2 months free</span>
         </button>
       </div>
 
@@ -160,8 +166,13 @@ export default function SubscriptionPage() {
 
               <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "2px" }}>{plan.name}</div>
               <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "12px" }}>{plan.description}</div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "10px" }}>
                 <span style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 700, color: plan.color, letterSpacing: "-0.01em" }}>{displayPrice}</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{plan.credits.toLocaleString()}</span>
+                <span style={{ fontFamily: "var(--font-body)", fontSize: "11px", color: "#64748B" }}>credits / month</span>
               </div>
 
               <div style={{ marginBottom: "18px" }}>
@@ -175,6 +186,7 @@ export default function SubscriptionPage() {
 
               <button
                 disabled={isCurrent}
+                onClick={() => { if (!isCurrent) setShowPricing(true); }}
                 style={{ width: "100%", padding: "9px", borderRadius: "10px", border: "none", fontSize: "12px", fontWeight: 700, cursor: isCurrent ? "not-allowed" : "pointer", background: isCurrent ? "rgba(255,255,255,0.05)" : `linear-gradient(135deg, ${plan.color}, ${plan.color}bb)`, color: isCurrent ? "#64748B" : "#fff", transition: "opacity 0.15s" }}
                 onMouseEnter={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
                 onMouseLeave={e => { if (!isCurrent) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
@@ -189,6 +201,8 @@ export default function SubscriptionPage() {
       <p style={{ fontSize: "11px", color: "#334155", textAlign: "center", marginTop: "20px" }}>
         All plans include secure payments. Cancel anytime. No questions asked.
       </p>
+
+      {showPricing && <PricingOverlay onClose={() => setShowPricing(false)} />}
     </div>
   );
 }
