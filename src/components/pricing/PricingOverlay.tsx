@@ -1078,7 +1078,7 @@ function BoostSelector() {
   const [selected, setSelected] = useState<number | null>(null);
 
   const pack       = selected !== null ? BOOST_PACKS[selected] : null;
-  const packLabels = ["Starter Pack", "Creator Pack", "Studio Pack", "Pro Pack"];
+  const packLabels = ["Light Boost", "Creator Boost", "Pro Boost", "Studio Boost"];
   const packIcons  = ["⚡", "🚀", "🎬", "💎"];
 
   return (
