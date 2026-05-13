@@ -254,7 +254,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (
       _profileLoadedForUser === sess.user.id &&
       now - _profileLoadedAt < PROFILE_COOLDOWN_MS
-    ) return;
+    ) {
+      // Profile is still fresh for this user — skip the DB round-trip but ensure
+      // profileReady is true so any guard waiting on it (e.g. LoginPage
+      // pendingRedirect useEffect) can unblock.
+      setProfileReady(true);
+      return;
+    }
 
     _profileInFlight = true;
     loadInFlightRef.current = true;
@@ -414,6 +420,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       expires_in:    number;
       token_type:    string;
     };
+
+    // Reset profileReady before applying new session tokens.
+    //
+    // Why: the null-session branch of onAuthStateChange (fired when the previous
+    // session expired) sets profileReady=true so unauthenticated guards unblock.
+    // If we don't reset here, the LoginPage pendingRedirect useEffect fires
+    // immediately with the provisional user (role='user') instead of waiting for
+    // loadProfile() to finish — causing admins to land on /dashboard instead of /hub.
+    setProfileReady(false);
 
     // Apply server-issued session tokens to the local Supabase client.
     // This triggers the onAuthStateChange listener which loads the user profile.
