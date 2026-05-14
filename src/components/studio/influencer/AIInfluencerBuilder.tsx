@@ -16,6 +16,7 @@ import InfluencerLibrary   from "./InfluencerLibrary";
 import InfluencerCanvas    from "./InfluencerCanvas";
 import InfluencerControls  from "./InfluencerControls";
 import { useAuth }         from "@/components/auth/AuthContext";
+import { AuthModal }       from "@/components/auth/AuthModal";
 import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
 import { startPolling }    from "@/lib/jobs/job-polling";
 import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
@@ -138,7 +139,7 @@ export type CanvasState =
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AIInfluencerBuilder() {
-  const { session } = useAuth();
+  const { user, session } = useAuth();
 
   const [canvasState, setCanvasState] = useState<CanvasState>({ phase: "empty" });
   const [libraryKey,  setLibraryKey]  = useState(0);
@@ -271,6 +272,9 @@ export default function AIInfluencerBuilder() {
     })();
   }, [session]); // re-run if session changes (e.g. login after render)
 
+  // ── Auth modal — shown when guest clicks Create Influencer ───────────────
+  const [authModal, setAuthModal] = useState(false);
+
   // ── Creation state — driven by canvas dock button ─────────────────────────
   const [isCreating,  setIsCreating]  = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -334,6 +338,9 @@ export default function AIInfluencerBuilder() {
 
   // ── SINGLE SOURCE OF TRUTH: all creation logic lives here ─────────────────
   const handleCreateInfluencer = useCallback(async () => {
+    // ── Guest guard ──────────────────────────────────────────────────────────
+    if (!user) { setAuthModal(true); return; }
+
     // ── Activate generating state IMMEDIATELY ────────────────────────────────
     // setIsCreating(true) must be the very first statement so the canvas
     // transitions to its shimmer/generating phase before any async work begins.
@@ -521,7 +528,7 @@ export default function AIInfluencerBuilder() {
     candidateCount, tags,
     species, hairIdentity, eyeColor, eyeType, skinMarks, earType, hornType,
     bodyType, leftArm, rightArm, leftLeg, rightLeg, skinArt,
-    handleCreated, handleCandidatesReady,
+    handleCreated, handleCandidatesReady, user,
   ]);
 
   const handleSelected = useCallback(
@@ -744,6 +751,11 @@ export default function AIInfluencerBuilder() {
           </div>
         )}
       </div>
+
+      {/* ── Auth modal — shown when guest clicks Create Influencer ──────── */}
+      {authModal && (
+        <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+      )}
 
       {/* ── Right: Controls ──────────────────────────────────────────────── */}
       <div style={{
