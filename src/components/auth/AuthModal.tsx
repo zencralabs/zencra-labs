@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft } from "lucide-react";
+import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft, ArrowRight, ChevronLeft } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { AUTH_SLIDES } from "@/config/auth-modal-slides";
@@ -18,22 +18,110 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 // Supports: Email/Password, Phone OTP, Google, Apple, Facebook, Passkey
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── CSS Keyframes + class definitions (injected once into <head>) ────────────
+const MODAL_KEYFRAMES = `
+@keyframes amLeft  { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
+@keyframes amUp    { from{opacity:0;transform:translateY(12px)}  to{opacity:1;transform:translateY(0)} }
+@keyframes amFade  { from{opacity:0}                              to{opacity:1} }
+@keyframes amPing  { 0%{transform:scale(1);opacity:.65} 100%{transform:scale(2.4);opacity:0} }
+@keyframes amPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+/* Social auth button — matches login page .zl-btn */
+.am-btn {
+  display:flex; align-items:center; gap:10px;
+  width:100%; padding:11px 15px; border-radius:12px;
+  font-size:13.5px; font-weight:600; color:#D1D5DB;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  cursor:pointer; letter-spacing:-.01em;
+  transition:background .18s,border-color .18s,box-shadow .18s,transform .14s,color .14s;
+}
+.am-btn:hover {
+  background:rgba(37,99,235,0.1);
+  border-color:rgba(59,130,246,0.32);
+  box-shadow:0 0 20px rgba(37,99,235,0.14),inset 0 1px 0 rgba(255,255,255,0.06);
+  transform:translateY(-1px); color:#fff;
+}
+.am-btn:active { transform:translateY(0); }
+
+/* Primary CTA — matches login page .zl-cta */
+.am-cta {
+  display:flex; align-items:center; gap:10px;
+  width:100%; padding:13px 18px; border-radius:12px;
+  font-size:14px; font-weight:700; color:#ffffff; letter-spacing:-.015em;
+  background:linear-gradient(135deg,#1E3A8A 0%,#2563EB 45%,#0369A1 100%);
+  border:1px solid rgba(59,130,246,0.5);
+  box-shadow:0 0 32px rgba(37,99,235,0.32),inset 0 1px 0 rgba(255,255,255,0.12);
+  cursor:pointer;
+  transition:box-shadow .22s,transform .18s,filter .18s,opacity .18s;
+}
+.am-cta:hover {
+  box-shadow:0 0 60px rgba(37,99,235,0.55),0 0 110px rgba(14,165,160,0.14),inset 0 1px 0 rgba(255,255,255,0.15);
+  transform:translateY(-1px); filter:brightness(1.08);
+}
+.am-cta:active { transform:translateY(0); }
+.am-cta:disabled { opacity:0.65; transform:none; filter:none; cursor:not-allowed; }
+
+/* Form input — matches login page .zl-input */
+.am-input {
+  width:100%; padding:11px 14px; border-radius:10px;
+  font-size:14px; color:#F1F5F9; letter-spacing:-.01em;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.09);
+  outline:none;
+  transition:border-color .15s,box-shadow .15s,background .15s;
+  box-sizing:border-box;
+}
+.am-input::placeholder { color:rgba(203,213,225,0.50); }
+.am-input:focus {
+  border-color:rgba(37,99,235,0.55);
+  box-shadow:0 0 0 3px rgba(37,99,235,0.12),0 0 24px rgba(37,99,235,0.08);
+  background:rgba(37,99,235,0.045);
+}
+.am-input:focus::placeholder { color:rgba(226,232,240,0.72); }
+
+/* Gradient separator */
+.am-sep { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent); }
+
+/* Method tab pill */
+.am-tab-active {
+  flex:1; padding:8px 0; border-radius:9px; border:none;
+  background:rgba(37,99,235,0.18);
+  border:1px solid rgba(59,130,246,0.25);
+  color:#93C5FD;
+  font-size:13px; font-weight:700; cursor:pointer;
+  transition:all .15s;
+}
+.am-tab-inactive {
+  flex:1; padding:8px 0; border-radius:9px; border:none;
+  background:transparent; border:1px solid transparent;
+  color:rgba(255,255,255,0.35);
+  font-size:13px; font-weight:500; cursor:pointer;
+  transition:all .15s;
+}
+.am-tab-inactive:hover { color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.04); }
+
+/* Animation helpers */
+.am-up   { animation:amUp   0.4s cubic-bezier(.22,.68,0,1.2) both; }
+.am-fade { animation:amFade 0.4s ease both; }
+`;
+
 // ── SVG Brand Icons ───────────────────────────────────────────────────────────
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"/>
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
     </svg>
   );
 }
 
 function AppleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}>
       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
     </svg>
   );
@@ -41,8 +129,8 @@ function AppleIcon() {
 
 function FacebookIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" fill="#1877F2"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
     </svg>
   );
 }
@@ -87,86 +175,23 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
           value={d}
           onChange={e => handleChange(i, e)}
           onKeyDown={e => handleKey(i, e)}
-          onFocus={e => (e.currentTarget.style.borderColor = "rgba(37,99,235,0.7)")}
-          onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)")}
+          onFocus={e => {
+            e.currentTarget.style.borderColor = "rgba(37,99,235,0.6)";
+            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
+          }}
+          onBlur={e => {
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
           style={{
-            width: "44px", height: "52px", borderRadius: "10px", textAlign: "center",
-            fontSize: "20px", fontWeight: 700, color: "#F8FAFC",
-            background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.12)",
-            outline: "none", caretColor: "transparent", transition: "border-color 0.15s",
+            width: "46px", height: "54px", borderRadius: "10px", textAlign: "center",
+            fontSize: "20px", fontWeight: 700, color: "#F1F5F9",
+            background: "rgba(255,255,255,0.04)", border: "1.5px solid rgba(255,255,255,0.1)",
+            outline: "none", caretColor: "transparent",
+            transition: "border-color 0.15s, box-shadow 0.15s",
           }}
         />
       ))}
-    </div>
-  );
-}
-
-// ── Social button ─────────────────────────────────────────────────────────────
-function SocialBtn({
-  icon, label, onClick, disabled,
-}: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-        padding: "11px 16px", borderRadius: "10px", width: "100%",
-        border: "1px solid rgba(255,255,255,0.09)",
-        background: hover ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.04)",
-        color: "#F8FAFC", fontSize: "13px", fontWeight: 500, cursor: disabled ? "not-allowed" : "pointer",
-        transition: "background 0.15s", opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-// ── Input field ───────────────────────────────────────────────────────────────
-function InputField({
-  label, type = "text", value, onChange, placeholder, icon, rightEl, readOnly,
-}: {
-  label: string; type?: string; value: string; onChange?: (v: string) => void;
-  placeholder?: string; icon?: React.ReactNode; rightEl?: React.ReactNode; readOnly?: boolean;
-}) {
-  const [focus, setFocus] = useState(false);
-  return (
-    <div>
-      <label style={{ fontSize: "11px", fontWeight: 600, color: "#64748B", display: "block", marginBottom: "5px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-        {label}
-      </label>
-      <div style={{ position: "relative" }}>
-        {icon && (
-          <div style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}>
-            {icon}
-          </div>
-        )}
-        <input
-          type={type} value={value}
-          onChange={e => onChange?.(e.target.value)}
-          placeholder={placeholder}
-          readOnly={readOnly}
-          onFocus={() => setFocus(true)}
-          onBlur={() => setFocus(false)}
-          style={{
-            width: "100%", background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${focus ? "rgba(37,99,235,0.5)" : "rgba(255,255,255,0.08)"}`,
-            borderRadius: "10px", padding: `10px ${rightEl ? "40px" : "14px"} 10px ${icon ? "36px" : "14px"}`,
-            color: "#F8FAFC", fontSize: "13px", outline: "none", boxSizing: "border-box",
-            transition: "border-color 0.15s",
-          }}
-        />
-        {rightEl && (
-          <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)" }}>
-            {rightEl}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -188,7 +213,7 @@ const RightPanel = memo(function RightPanel({
           position: "absolute", inset: 0,
           backgroundImage: `url(${slide.imageSrc})`,
           backgroundSize: "cover", backgroundPosition: "center",
-          opacity: 0.7,
+          opacity: 0.75,
         }} />
       )}
       {slide.videoSrc && (
@@ -200,30 +225,69 @@ const RightPanel = memo(function RightPanel({
           <source src={slide.videoSrc} type="video/mp4" />
         </video>
       )}
-      {/* Bottom gradient for text readability — no dark overlay on the video */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "65%", background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)" }} />
-      {/* Accent glow */}
+      {/* Cinematic vignettes — multi-directional for depth */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to top, rgba(4,12,24,0.96) 0%, rgba(4,12,24,0.72) 18%, rgba(4,12,24,0.35) 42%, rgba(4,12,24,0.08) 68%, transparent 100%)",
+      }} />
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to right, rgba(4,12,24,0.55) 0%, rgba(4,12,24,0.18) 35%, transparent 65%)",
+      }} />
+      {/* Accent orb */}
       <div style={{
         position: "absolute", bottom: "32%", left: "50%", transform: "translateX(-50%)",
-        width: "220px", height: "220px", borderRadius: "50%",
-        background: `radial-gradient(circle, ${slide.accent}44 0%, transparent 70%)`,
-        filter: "blur(35px)",
+        width: "200px", height: "200px", borderRadius: "50%",
+        background: `radial-gradient(circle, ${slide.accent}40 0%, transparent 70%)`,
+        filter: "blur(40px)",
+        animation: "amPulse 4s ease-in-out infinite",
       }} />
       {/* Bottom content */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-          <div style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: slide.accent, boxShadow: `0 0 10px ${slide.accent}` }} />
-          <span style={{ fontSize: "10px", fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: "0.12em", textTransform: "uppercase", textShadow: "0 1px 8px rgba(0,0,0,0.9)" }}>{slide.tool}</span>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px 28px 32px" }}>
+        {/* Tool eyebrow */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+          <div style={{
+            width: "6px", height: "6px", borderRadius: "50%",
+            backgroundColor: slide.accent, boxShadow: `0 0 10px ${slide.accent}`,
+            animation: "amPulse 2.8s ease-in-out infinite",
+          }} />
+          <span style={{
+            fontSize: "9.5px", fontWeight: 700,
+            color: "rgba(255,255,255,0.65)", letterSpacing: "0.16em",
+            textTransform: "uppercase", textShadow: "0 1px 8px rgba(0,0,0,0.9)",
+          }}>
+            {slide.tool}
+          </span>
         </div>
-        <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#fff", margin: "0 0 8px", lineHeight: 1.15, textShadow: "0 2px 16px rgba(0,0,0,0.95)" }}>{slide.title}</h3>
-        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px", lineHeight: 1.6, textShadow: "0 1px 8px rgba(0,0,0,0.9)" }}>{slide.desc}</p>
-        <div style={{ display: "flex", gap: "6px" }}>
+        {/* Title */}
+        <h3 style={{
+          fontFamily: "var(--font-display, 'Syne', sans-serif)",
+          fontSize: "22px", fontWeight: 800, color: "#fff",
+          margin: "0 0 8px", lineHeight: 1.1,
+          letterSpacing: "-0.04em",
+          textShadow: "0 2px 18px rgba(0,0,0,0.95)",
+        }}>
+          {slide.title}
+        </h3>
+        {/* Description */}
+        <p style={{
+          fontSize: "12.5px", color: "rgba(226,232,240,0.7)",
+          margin: "0 0 20px", lineHeight: 1.6,
+          textShadow: "0 1px 8px rgba(0,0,0,0.9)",
+          letterSpacing: "-0.01em",
+        }}>
+          {slide.desc}
+        </p>
+        {/* Slide dots */}
+        <div style={{ display: "flex", gap: "5px" }}>
           {AUTH_SLIDES.map((_, i) => (
             <button key={i} onClick={() => setSlideIdx(i)} style={{
               width: i === slideIdx ? "22px" : "6px", height: "6px",
               borderRadius: "10px",
               background: i === slideIdx ? slide.accent : "rgba(255,255,255,0.2)",
-              border: "none", cursor: "pointer", transition: "all 0.3s ease", padding: 0,
+              boxShadow: i === slideIdx ? `0 0 10px ${slide.accent}80` : "none",
+              border: "none", cursor: "pointer",
+              transition: "all 0.35s cubic-bezier(.22,.68,0,1.2)", padding: 0,
             }} />
           ))}
         </div>
@@ -439,234 +503,388 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     else    setError("Passkey authentication failed or not set up.");
   }
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
-  const labelStyle: React.CSSProperties = {
-    fontSize: "12px", fontWeight: 700, color: "#64748B",
-    letterSpacing: "0.06em", textTransform: "uppercase",
-    display: "flex", alignItems: "center", gap: "6px",
+  // ── Shared label style — matches login page lbl() ─────────────────────────
+  const lblStyle: React.CSSProperties = {
+    display: "block", marginBottom: 6,
+    fontSize: 10.5, fontWeight: 700,
+    letterSpacing: "0.12em", textTransform: "uppercase",
+    color: "rgba(191,219,254,0.92)",
   };
-  const tabBtn = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: "8px 0", borderRadius: "8px", border: "none",
-    background: active ? "rgba(37,99,235,0.2)" : "transparent",
-    color: active ? "#60A5FA" : "rgba(255,255,255,0.35)",
-    fontSize: "13px", fontWeight: active ? 700 : 500, cursor: "pointer",
-    transition: "all 0.15s",
-  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 1000,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: isMobile ? "0" : "20px",
-        backgroundColor: "rgba(0,0,0,0.78)", backdropFilter: "blur(4px)",
-        willChange: "transform", // promote to own compositor layer — prevents bg video paint from lagging this
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        width: "100%",
-        maxWidth: isMobile ? "100%" : "1020px",
-        height: isMobile ? "100%" : "auto",
-        display: "flex",
-        borderRadius: isMobile ? "0" : "20px",
-        overflow: "hidden",
-        boxShadow: "0 40px 120px rgba(0,0,0,0.75)",
-        position: "relative",
-        willChange: "transform",
-      }}>
+    <>
+      {/* Inject keyframes once */}
+      <style dangerouslySetInnerHTML={{ __html: MODAL_KEYFRAMES }} />
 
-        {/* ── LEFT PANEL: Form ────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: isMobile ? "0" : "20px",
+          backgroundColor: "rgba(2,6,16,0.82)", backdropFilter: "blur(6px)",
+          willChange: "transform",
+        }}
+        onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      >
         <div style={{
-          flex: 1,
-          backgroundColor: "#080E1C",
-          padding: isMobile ? "32px 24px 40px" : "44px 48px",
+          width: "100%",
+          maxWidth: isMobile ? "100%" : "1020px",
+          height: isMobile ? "100%" : "auto",
           display: "flex",
-          flexDirection: "column",
-          minWidth: isMobile ? "100%" : "420px",
-          overflowY: "auto",
+          borderRadius: isMobile ? "0" : "20px",
+          overflow: "hidden",
+          boxShadow: "0 40px 120px rgba(0,0,0,0.80), 0 0 0 1px rgba(255,255,255,0.06)",
+          position: "relative",
+          willChange: "transform",
         }}>
 
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            style={{
-              position: "absolute", top: "16px", right: "16px",
-              background: "rgba(255,255,255,0.06)", border: "none",
-              borderRadius: "8px", padding: "6px", cursor: "pointer",
-              color: "#64748B", display: "flex", zIndex: 10,
-            }}
-          >
-            <X size={16} />
-          </button>
-
-          {/* Logo + headline */}
-          <div style={{ marginBottom: "28px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "18px" }}>
-              <div style={{
-                width: "32px", height: "32px", borderRadius: "8px",
-                background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 800, fontSize: "14px", color: "#fff",
-              }}>Z</div>
-              <span style={{ fontWeight: 700, fontSize: "14px", color: "#F8FAFC" }}>Zencra Labs</span>
-            </div>
-            <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#F8FAFC", margin: "0 0 5px" }}>
-              {authMode === "login" ? "Welcome back" : "Create your account"}
-            </h2>
-            <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
-              {authMode === "login" ? "Sign in to your account" : "Start generating for free — no card needed"}
-            </p>
-          </div>
-
-          {/* Method tabs: Email / Phone */}
+          {/* ── LEFT PANEL: Form ────────────────────────────────────────────── */}
           <div style={{
-            display: "flex", gap: "4px", background: "rgba(255,255,255,0.04)",
-            borderRadius: "10px", padding: "3px", marginBottom: "20px",
+            flex: 1,
+            backgroundColor: "#040C18",
+            padding: isMobile ? "32px 24px 40px" : "44px 48px",
+            display: "flex",
+            flexDirection: "column",
+            minWidth: isMobile ? "100%" : "420px",
+            overflowY: "auto",
+            position: "relative",
           }}>
-            <button style={tabBtn(method === "email")} onClick={() => { setMethod("email"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}>
-              <Mail size={13} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
-              Email
-            </button>
-            <button style={tabBtn(method === "phone")} onClick={() => { setMethod("phone"); setPhoneStep("phone"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}>
-              <Phone size={13} style={{ display: "inline", marginRight: 5, verticalAlign: "middle" }} />
-              Phone
-            </button>
-          </div>
 
-          {/* ── SOCIAL BUTTONS (shown on email tab only) ── */}
-          {method === "email" && (
-            <>
-              <div style={{ display: "flex", flexDirection: "column", gap: "9px", marginBottom: "18px" }}>
-                <SocialBtn icon={<GoogleIcon />} label="Continue with Google"
-                  onClick={() => loginWithOAuth("google")} disabled={loading} />
-                <SocialBtn icon={<AppleIcon />} label="Continue with Apple"
-                  onClick={() => loginWithOAuth("apple")} disabled={loading} />
-                <SocialBtn icon={<FacebookIcon />} label="Continue with Facebook"
-                  onClick={() => loginWithOAuth("facebook")} disabled={loading} />
+            {/* Subtle ambient glow */}
+            <div style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              background: "radial-gradient(ellipse 80% 60% at 20% 55%, rgba(29,78,216,0.07) 0%, transparent 60%)",
+            }} />
+
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              style={{
+                position: "absolute", top: "16px", right: "16px",
+                background: "rgba(8,15,28,0.72)", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "50%", padding: "7px", cursor: "pointer",
+                color: "#94A3B8", display: "flex", zIndex: 10,
+                backdropFilter: "blur(12px)",
+                transition: "background 0.2s, border-color 0.2s, color 0.2s",
+                width: "34px", height: "34px", alignItems: "center", justifyContent: "center",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,99,235,0.18)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(96,165,250,0.3)";
+                (e.currentTarget as HTMLButtonElement).style.color = "#E2E8F0";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(8,15,28,0.72)";
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)";
+                (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
+              }}
+            >
+              <X size={15} strokeWidth={2.5} />
+            </button>
+
+            {/* Logo + headline */}
+            <div style={{ marginBottom: "28px", position: "relative" }}>
+              {/* Logo */}
+              <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "22px" }}>
+                <div style={{
+                  width: "32px", height: "32px", borderRadius: "8px",
+                  background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                  fontWeight: 800, fontSize: "15px", color: "#fff",
+                  boxShadow: "0 0 18px rgba(37,99,235,0.35)",
+                }}>Z</div>
+                <span style={{
+                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                  fontWeight: 700, fontSize: "14px", color: "#F8FAFC",
+                  letterSpacing: "-0.02em",
+                }}>
+                  Zencra Labs
+                </span>
               </div>
 
-              {/* Divider */}
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px" }}>
-                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" }} />
-                <span style={{ fontSize: "11px", color: "#475569" }}>OR CONTINUE WITH EMAIL</span>
-                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.07)" }} />
+              {/* Auth mode toggle — Login / Sign Up tabs */}
+              <div style={{
+                display: "inline-flex", gap: "2px",
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: "12px", padding: "3px",
+                border: "1px solid rgba(255,255,255,0.07)",
+                marginBottom: "22px",
+              }}>
+                <button
+                  onClick={() => { setAuthMode("login"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
+                  style={{
+                    padding: "7px 20px", borderRadius: "9px", border: "none",
+                    background: authMode === "login" ? "rgba(37,99,235,0.2)" : "transparent",
+                    borderColor: authMode === "login" ? "rgba(59,130,246,0.28)" : "transparent",
+                    borderWidth: authMode === "login" ? "1px" : "1px",
+                    borderStyle: "solid",
+                    color: authMode === "login" ? "#93C5FD" : "rgba(255,255,255,0.38)",
+                    fontSize: "13px", fontWeight: authMode === "login" ? 700 : 500,
+                    cursor: "pointer", transition: "all 0.15s",
+                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => { setAuthMode("signup"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
+                  style={{
+                    padding: "7px 20px", borderRadius: "9px", border: "none",
+                    background: authMode === "signup" ? "rgba(37,99,235,0.2)" : "transparent",
+                    borderColor: authMode === "signup" ? "rgba(59,130,246,0.28)" : "transparent",
+                    borderWidth: authMode === "signup" ? "1px" : "1px",
+                    borderStyle: "solid",
+                    color: authMode === "signup" ? "#93C5FD" : "rgba(255,255,255,0.38)",
+                    fontSize: "13px", fontWeight: authMode === "signup" ? 700 : 500,
+                    cursor: "pointer", transition: "all 0.15s",
+                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Sign Up
+                </button>
               </div>
 
-              {/* Email/Password form */}
-              <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {authMode === "signup" && (
-                  <InputField label="Full Name" value={name} onChange={setName}
-                    placeholder="Jai Kumar Nair"
-                    icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>}
-                  />
+              {/* Heading */}
+              <h2 style={{
+                fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                fontSize: "26px", fontWeight: 800, color: "#fff",
+                margin: "0 0 6px", lineHeight: 1.1, letterSpacing: "-0.045em",
+                textShadow: "0 2px 18px rgba(15,23,42,0.45)",
+              }}>
+                {authMode === "login" ? (
+                  <>
+                    <span>Sign in to your </span>
+                    <span style={{
+                      background: "linear-gradient(90deg, #60A5FA 0%, #34D399 50%, #22D3EE 100%)",
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+                    }}>
+                      Zencra
+                    </span>
+                    <span> account</span>
+                  </>
+                ) : (
+                  "Create your account"
                 )}
-                <InputField label="Email" type="email" value={email} onChange={setEmail}
-                  placeholder="you@example.com"
-                  icon={<Mail size={14} />}
-                />
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
-                    <span style={labelStyle}>Password</span>
-                    {authMode === "login" && (
-                      <button type="button"
-                        onClick={() => { onClose(); router.push("/auth/reset-password"); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#60A5FA", fontSize: "11px", fontWeight: 600 }}>
-                        Forgot password?
-                      </button>
-                    )}
+              </h2>
+              <p style={{
+                fontSize: "13.5px", color: "rgba(226,232,240,0.82)",
+                margin: 0, letterSpacing: "-0.01em",
+                fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+              }}>
+                {authMode === "login"
+                  ? "Access the future of AI content creation."
+                  : "Start generating for free — no card needed"}
+              </p>
+            </div>
+
+            {/* Method tabs: Email / Phone */}
+            <div style={{
+              display: "flex", gap: "4px",
+              background: "rgba(255,255,255,0.035)",
+              borderRadius: "11px", padding: "3px",
+              marginBottom: "20px",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}>
+              <button
+                className={method === "email" ? "am-tab-active" : "am-tab-inactive"}
+                onClick={() => { setMethod("email"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              >
+                <Mail size={13} />
+                Email
+              </button>
+              <button
+                className={method === "phone" ? "am-tab-active" : "am-tab-inactive"}
+                onClick={() => { setMethod("phone"); setPhoneStep("phone"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              >
+                <Phone size={13} />
+                Phone
+              </button>
+            </div>
+
+            {/* ── SOCIAL BUTTONS (shown on email tab only) ── */}
+            {method === "email" && (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" }}>
+                  <button
+                    className="am-btn"
+                    onClick={() => loginWithOAuth("google")}
+                    disabled={loading}
+                    style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+                  >
+                    <GoogleIcon />
+                    Continue with Google
+                  </button>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <button
+                      className="am-btn"
+                      onClick={() => loginWithOAuth("apple")}
+                      disabled={loading}
+                      style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer", justifyContent: "center" }}
+                    >
+                      <AppleIcon />
+                      <span>Apple</span>
+                    </button>
+                    <button
+                      className="am-btn"
+                      onClick={() => loginWithOAuth("facebook")}
+                      disabled={loading}
+                      style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer", justifyContent: "center" }}
+                    >
+                      <FacebookIcon />
+                      <span>Facebook</span>
+                    </button>
                   </div>
-                  <InputField label="" type={showPass ? "text" : "password"} value={password} onChange={setPassword}
-                    placeholder="••••••••"
-                    rightEl={
-                      <button type="button" onClick={() => setShowPass(s => !s)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#475569" }}>
-                        {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    }
-                  />
-                  {authMode === "signup" && password.length > 0 && (
-                    <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                      {[
-                        { ok: password.length >= 8,          label: "Min 8 characters" },
-                        { ok: /[A-Z]/.test(password),        label: "One uppercase letter" },
-                        { ok: /[0-9]/.test(password),        label: "One number" },
-                        { ok: /[^A-Za-z0-9]/.test(password), label: "One special character" },
-                      ].map(r => (
-                        <div key={r.label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                          <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.ok ? "✓" : "○"}</span>
-                          <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
-                {error   && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
-                {success && <p style={{ fontSize: "12px", color: "#6EE7B7", margin: 0 }}>{success}</p>}
+                {/* Divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
+                  <div className="am-sep" />
+                  <span style={{
+                    fontSize: "10.5px", fontWeight: 600,
+                    color: "rgba(100,116,139,0.82)",
+                    letterSpacing: "0.07em", textTransform: "uppercase", whiteSpace: "nowrap",
+                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                  }}>
+                    or continue with email
+                  </span>
+                  <div className="am-sep" />
+                </div>
 
-                {/* ── Turnstile CAPTCHA — signup: always; login: after 3 failed attempts ── */}
-                {showCaptcha && (
-                  <TurnstileWidget
-                    siteKey={TURNSTILE_SITE_KEY}
-                    resetKey={captchaResetKey}
-                    onSuccess={(token) => setCaptchaToken(token)}
-                    onExpire={() => setCaptchaToken(null)}
-                  />
-                )}
+                {/* Email/Password form */}
+                <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: "13px" }}>
+                  {authMode === "signup" && (
+                    <div>
+                      <label style={lblStyle}>Full Name</label>
+                      <div style={{ position: "relative" }}>
+                        <svg
+                          width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="2"
+                          style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+                        >
+                          <circle cx="12" cy="8" r="4"/>
+                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                        </svg>
+                        <input
+                          className="am-input"
+                          type="text"
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          placeholder="Jai Kumar Nair"
+                          style={{ paddingLeft: "36px" }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                <button type="submit" disabled={loading || pendingRedirect} style={{
-                  marginTop: "4px", padding: "12px", borderRadius: "10px", border: "none",
-                  background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
-                  color: "#fff", fontSize: "14px", fontWeight: 700,
-                  cursor: (loading || pendingRedirect) ? "not-allowed" : "pointer",
-                  opacity: (loading || pendingRedirect) ? 0.7 : 1,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                  transition: "opacity 0.2s",
-                }}>
-                  <Zap size={15} />
-                  {(loading || pendingRedirect) ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
-                </button>
-              </form>
-            </>
-          )}
-
-          {/* ── PHONE OTP FLOW ── */}
-          {method === "phone" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-
-              {phoneStep === "phone" && (
-                <>
                   <div>
-                    <label style={labelStyle}>Mobile Number</label>
-                    <div style={{ marginTop: "5px", position: "relative" }}>
-                      <Phone size={14} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
+                    <label style={lblStyle}>Email Address</label>
+                    <div style={{ position: "relative" }}>
+                      <Mail size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
                       <input
-                        type="tel"
-                        value={phone}
-                        onChange={e => setPhone(e.target.value)}
-                        placeholder="+1 555 000 0000"
-                        onFocus={e => (e.currentTarget.style.borderColor = "rgba(37,99,235,0.5)")}
-                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
-                        style={{
-                          width: "100%", background: "rgba(255,255,255,0.04)",
-                          border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px",
-                          padding: "10px 14px 10px 36px", color: "#F8FAFC", fontSize: "13px",
-                          outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
-                        }}
+                        className="am-input"
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        style={{ paddingLeft: "36px" }}
                       />
                     </div>
-                    <p style={{ fontSize: "11px", color: "#475569", marginTop: "6px" }}>
-                      Include country code — e.g. +1 for US, +44 for UK, +91 for India
-                    </p>
                   </div>
 
-                  {error && <p style={{ fontSize: "12px", color: "#FCA5A5", margin: 0 }}>{error}</p>}
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                      <label style={{ ...lblStyle, marginBottom: 0 }}>Password</label>
+                      {authMode === "login" && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); router.push("/auth/reset-password"); }}
+                          style={{
+                            background: "none", border: "none", cursor: "pointer",
+                            color: "#3B82F6", fontSize: "12px", fontWeight: 600,
+                            fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                            transition: "color 0.14s",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        className="am-input"
+                        type={showPass ? "text" : "password"}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        style={{ paddingRight: "42px" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(s => !s)}
+                        style={{
+                          position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "#334155", transition: "color 0.14s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#334155"; }}
+                      >
+                        {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    {authMode === "signup" && password.length > 0 && (
+                      <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        {[
+                          { ok: password.length >= 8,          label: "Min 8 characters" },
+                          { ok: /[A-Z]/.test(password),        label: "One uppercase letter" },
+                          { ok: /[0-9]/.test(password),        label: "One number" },
+                          { ok: /[^A-Za-z0-9]/.test(password), label: "One special character" },
+                        ].map(r => (
+                          <div key={r.label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.ok ? "✓" : "○"}</span>
+                            <span style={{
+                              fontSize: "11.5px",
+                              color: r.ok ? "#4ade80" : "rgba(148,163,184,0.65)",
+                              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                            }}>
+                              {r.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                  {/* ── Turnstile CAPTCHA for phone OTP — after 3 failed send attempts ── */}
+                  {error && (
+                    <p style={{
+                      fontSize: "13px", color: "#F87171", margin: 0,
+                      letterSpacing: "-0.01em",
+                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    }}>
+                      {error}
+                    </p>
+                  )}
+                  {success && (
+                    <p style={{
+                      fontSize: "13px", color: "#6EE7B7", margin: 0,
+                      letterSpacing: "-0.01em",
+                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    }}>
+                      {success}
+                    </p>
+                  )}
+
+                  {/* ── Turnstile CAPTCHA — signup: always; login: after 3 failed attempts ── */}
                   {showCaptcha && (
                     <TurnstileWidget
                       siteKey={TURNSTILE_SITE_KEY}
@@ -676,120 +894,247 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                     />
                   )}
 
-                  <button onClick={handleSendOtp} disabled={loading} style={{
-                    padding: "12px", borderRadius: "10px", border: "none",
-                    background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
-                    color: "#fff", fontSize: "14px", fontWeight: 700,
-                    cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                  }}>
-                    <Zap size={15} />
-                    {loading ? "Sending…" : "Send OTP"}
-                  </button>
-                </>
-              )}
-
-              {phoneStep === "otp" && (
-                <>
                   <button
-                    onClick={() => { setPhoneStep("phone"); setOtp(""); resetErrors(); }}
-                    style={{ display: "flex", alignItems: "center", gap: "6px", background: "none", border: "none", color: "#64748B", fontSize: "12px", cursor: "pointer", padding: 0 }}
+                    type="submit"
+                    className="am-cta"
+                    disabled={loading || pendingRedirect}
+                    style={{ marginTop: "2px" }}
                   >
-                    <ArrowLeft size={13} /> Back
+                    <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                    {(loading || pendingRedirect) ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
+                    {!(loading || pendingRedirect) && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
                   </button>
+                </form>
+              </>
+            )}
 
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: "32px", marginBottom: "8px" }}>📱</div>
-                    <p style={{ fontSize: "14px", fontWeight: 700, color: "#F8FAFC", margin: "0 0 4px" }}>Check your phone</p>
-                    <p style={{ fontSize: "12px", color: "#64748B", margin: 0 }}>
-                      We sent a 6-digit code to <strong style={{ color: "#94A3B8" }}>{phone}</strong>
-                    </p>
-                  </div>
+            {/* ── PHONE OTP FLOW ── */}
+            {method === "phone" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
-                  <OtpInput value={otp} onChange={setOtp} />
-
-                  {error && <p style={{ fontSize: "12px", color: "#FCA5A5", textAlign: "center", margin: 0 }}>{error}</p>}
-
-                  <button onClick={handleVerifyOtp} disabled={loading || otp.replace(/\D/g, "").length < 6}
-                    style={{
-                      padding: "12px", borderRadius: "10px", border: "none",
-                      background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
-                      color: "#fff", fontSize: "14px", fontWeight: 700,
-                      cursor: (loading || otp.replace(/\D/g, "").length < 6) ? "not-allowed" : "pointer",
-                      opacity: (loading || otp.replace(/\D/g, "").length < 6) ? 0.6 : 1,
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-                    }}>
-                    <Zap size={15} />
-                    {loading ? "Verifying…" : "Verify & Sign In"}
-                  </button>
-
-                  <div style={{ textAlign: "center" }}>
-                    {countdown > 0 ? (
-                      <p style={{ fontSize: "12px", color: "#475569" }}>
-                        Resend code in <strong style={{ color: "#94A3B8" }}>{countdown}s</strong>
+                {phoneStep === "phone" && (
+                  <>
+                    <div>
+                      <label style={lblStyle}>Mobile Number</label>
+                      <div style={{ marginTop: "6px", position: "relative" }}>
+                        <Phone size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
+                        <input
+                          className="am-input"
+                          type="tel"
+                          value={phone}
+                          onChange={e => setPhone(e.target.value)}
+                          placeholder="+1 555 000 0000"
+                          style={{ paddingLeft: "36px" }}
+                        />
+                      </div>
+                      <p style={{
+                        fontSize: "11.5px", color: "rgba(100,116,139,0.82)", marginTop: "7px",
+                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                      }}>
+                        Include country code — e.g. +1 for US, +44 for UK, +91 for India
                       </p>
-                    ) : (
-                      <button onClick={handleSendOtp} disabled={loading}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#60A5FA", fontSize: "12px", fontWeight: 600 }}>
-                        Resend OTP
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+                    </div>
 
-          {/* ── PASSKEY option ── */}
-          <div style={{ marginTop: "18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
-              <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.06)" }} />
-              <span style={{ fontSize: "10px", color: "#334155", letterSpacing: "0.08em" }}>OR</span>
-              <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.06)" }} />
+                    {error && (
+                      <p style={{ fontSize: "13px", color: "#F87171", margin: 0 }}>{error}</p>
+                    )}
+
+                    {/* ── Turnstile CAPTCHA for phone OTP — after 3 failed send attempts ── */}
+                    {showCaptcha && (
+                      <TurnstileWidget
+                        siteKey={TURNSTILE_SITE_KEY}
+                        resetKey={captchaResetKey}
+                        onSuccess={(token) => setCaptchaToken(token)}
+                        onExpire={() => setCaptchaToken(null)}
+                      />
+                    )}
+
+                    <button
+                      className="am-cta"
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                    >
+                      <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                      {loading ? "Sending…" : "Send OTP"}
+                      {!loading && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
+                    </button>
+                  </>
+                )}
+
+                {phoneStep === "otp" && (
+                  <>
+                    <button
+                      onClick={() => { setPhoneStep("phone"); setOtp(""); resetErrors(); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "6px",
+                        background: "none", border: "none",
+                        color: "rgba(148,163,184,0.8)", fontSize: "12.5px",
+                        cursor: "pointer", padding: 0,
+                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                        transition: "color 0.15s",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#E2E8F0"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(148,163,184,0.8)"; }}
+                    >
+                      <ChevronLeft size={14} />
+                      Back
+                    </button>
+
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{
+                        width: "52px", height: "52px", borderRadius: "50%",
+                        margin: "0 auto 12px",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: "rgba(37,99,235,0.1)",
+                        border: "1px solid rgba(37,99,235,0.25)",
+                        boxShadow: "0 0 22px rgba(37,99,235,0.15)",
+                      }}>
+                        <Phone size={20} style={{ color: "#93C5FD" }} />
+                      </div>
+                      <p style={{
+                        fontSize: "15px", fontWeight: 700, color: "#F1F5F9", margin: "0 0 5px",
+                        fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                        letterSpacing: "-0.025em",
+                      }}>
+                        Check your phone
+                      </p>
+                      <p style={{
+                        fontSize: "12.5px", color: "rgba(148,163,184,0.82)", margin: 0,
+                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                      }}>
+                        We sent a 6-digit code to{" "}
+                        <strong style={{ color: "#CBD5E1" }}>{phone}</strong>
+                      </p>
+                    </div>
+
+                    <OtpInput value={otp} onChange={setOtp} />
+
+                    {error && (
+                      <p style={{
+                        fontSize: "13px", color: "#F87171", textAlign: "center", margin: 0,
+                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                      }}>
+                        {error}
+                      </p>
+                    )}
+
+                    <button
+                      className="am-cta"
+                      onClick={handleVerifyOtp}
+                      disabled={loading || otp.replace(/\D/g, "").length < 6}
+                    >
+                      <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                      {loading ? "Verifying…" : "Verify & Sign In"}
+                      {!loading && otp.replace(/\D/g, "").length === 6 && (
+                        <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />
+                      )}
+                    </button>
+
+                    <div style={{ textAlign: "center" }}>
+                      {countdown > 0 ? (
+                        <p style={{
+                          fontSize: "12.5px", color: "rgba(100,116,139,0.82)",
+                          fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                        }}>
+                          Resend code in{" "}
+                          <strong style={{ color: "#94A3B8" }}>{countdown}s</strong>
+                        </p>
+                      ) : (
+                        <button
+                          onClick={handleSendOtp}
+                          disabled={loading}
+                          style={{
+                            background: "none", border: "none", cursor: "pointer",
+                            color: "#3B82F6", fontSize: "12.5px", fontWeight: 600,
+                            fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                            transition: "color 0.14s",
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                        >
+                          Resend OTP
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── PASSKEY option ── */}
+            <div style={{ marginTop: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                <div className="am-sep" />
+                <span style={{
+                  fontSize: "10px", fontWeight: 600,
+                  color: "rgba(100,116,139,0.72)",
+                  letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                  fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                }}>
+                  OR
+                </span>
+                <div className="am-sep" />
+              </div>
+              <button
+                className="am-btn"
+                onClick={handlePasskey}
+                disabled={loading}
+                style={{
+                  justifyContent: "center", gap: "9px",
+                  padding: "10px 16px",
+                  color: "rgba(255,255,255,0.55)",
+                  opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >
+                <Fingerprint size={16} style={{ color: "#60A5FA" }} />
+                Sign in with Passkey
+              </button>
             </div>
-            <button
-              onClick={handlePasskey}
-              disabled={loading}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-              style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
-                gap: "9px", padding: "10px 16px", borderRadius: "10px",
-                border: "1px solid rgba(255,255,255,0.07)",
-                background: "rgba(255,255,255,0.03)",
-                color: "rgba(255,255,255,0.55)", fontSize: "12px", fontWeight: 500,
-                cursor: loading ? "not-allowed" : "pointer", transition: "background 0.15s",
-              }}
-            >
-              <Fingerprint size={16} style={{ color: "#60A5FA" }} />
-              Sign in with Passkey
-            </button>
+
+            {/* Switch login/signup */}
+            <p style={{
+              fontSize: "13px", color: "rgba(203,213,225,0.82)", marginTop: "20px", textAlign: "center",
+              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+            }}>
+              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+              <button
+                onClick={() => { setAuthMode(m => m === "login" ? "signup" : "login"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "#3B82F6", fontWeight: 600, fontSize: "13px",
+                  fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                  transition: "color 0.14s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+              >
+                {authMode === "login" ? "Sign up free →" : "Sign in →"}
+              </button>
+            </p>
+
+            {/* Legal footer */}
+            <p style={{
+              fontSize: "11px", color: "rgba(100,116,139,0.72)",
+              marginTop: "12px", textAlign: "center", lineHeight: 1.5,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(100,116,139,0.72)", flexShrink: 0 }} aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              By continuing you agree to our{" "}
+              <a href="/privacy" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Privacy Policy</a>
+              {" "}and{" "}
+              <a href="/terms" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Terms of Use</a>.
+            </p>
           </div>
 
-          {/* Switch login/signup */}
-          <p style={{ fontSize: "12px", color: "#64748B", marginTop: "18px", textAlign: "center" }}>
-            {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-            <button
-              onClick={() => { setAuthMode(m => m === "login" ? "signup" : "login"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#60A5FA", fontWeight: 700, fontSize: "12px" }}
-            >
-              {authMode === "login" ? "Sign up free →" : "Sign in"}
-            </button>
-          </p>
-
-          <p style={{ fontSize: "10px", color: "#334155", marginTop: "10px", textAlign: "center", lineHeight: 1.5 }}>
-            By continuing, you agree to our{" "}
-            <a href="/privacy" target="_blank" style={{ color: "#475569" }}>Privacy Policy</a>
-            {" "}and{" "}
-            <a href="/terms" target="_blank" style={{ color: "#475569" }}>Terms of Use</a>.
-          </p>
+          {/* ── RIGHT PANEL: memoized slide showcase — doesn't re-render on keystrokes */}
+          {!isMobile && (
+            <RightPanel slideIdx={slideIdx} setSlideIdx={handleSlideIdx} />
+          )}
         </div>
-
-        {/* ── RIGHT PANEL: memoized slide showcase — doesn't re-render on keystrokes */}
-        {!isMobile && (
-          <RightPanel slideIdx={slideIdx} setSlideIdx={handleSlideIdx} />
-        )}
       </div>
-    </div>
+    </>
   );
 }
