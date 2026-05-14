@@ -88,6 +88,29 @@ export async function POST(req: Request): Promise<Response> {
   const { value: modelKey, fieldError: mkErr } = requireField(body!, "modelKey");
   if (mkErr) return mkErr;
 
+  // ── Free-tier model allowlist ────────────────────────────────────────────────
+  // Free users may only generate with standard Kling models (3.0, 2.6, 2.5 Turbo).
+  // Kling Omni, all Seedance models, and any future premium providers require a paid plan.
+  // This check runs after modelKey is known but before any provider dispatch,
+  // credit reservation, storage upload, or workflow execution.
+  if (entitlement.path === "free") {
+    const FREE_TIER_VIDEO_MODELS = [
+      "kling-30",
+      "kling-26",
+      "kling-25",
+    ];
+    if (!FREE_TIER_VIDEO_MODELS.includes(modelKey!)) {
+      return Response.json(
+        {
+          success: false,
+          error: "This model is not available on the free trial. Please upgrade to use this model.",
+          code: "FREE_TIER_MODEL_NOT_ALLOWED",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   // ── Model integrity ──────────────────────────────────────────────────────────
   try {
     assertModelRouteIntegrity(modelKey!, "video");

@@ -94,6 +94,29 @@ export async function POST(req: Request): Promise<Response> {
   const { value: modelKey, fieldError: mkErr } = requireField(body!, "modelKey");
   if (mkErr) return mkErr;
 
+  // ── Free-tier model allowlist ────────────────────────────────────────────────
+  // Free users may only generate with Nano Banana models.
+  // All other image models (GPT Image, Seedream, FLUX Kontext, etc.) require a paid plan.
+  // This check runs after modelKey is known but before any provider dispatch,
+  // credit reservation, storage upload, or workflow execution.
+  if (entitlement.path === "free") {
+    const FREE_TIER_IMAGE_MODELS = [
+      "nano-banana-standard",
+      "nano-banana-pro",
+      "nano-banana-2",
+    ];
+    if (!FREE_TIER_IMAGE_MODELS.includes(modelKey!)) {
+      return Response.json(
+        {
+          success: false,
+          error: "This model is not available on the free trial. Please upgrade to use this model.",
+          code: "FREE_TIER_MODEL_NOT_ALLOWED",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   // ── Model integrity ──────────────────────────────────────────────────────────
   // Validates: exists in registry, active, belongs to image studio, has providerFamily.
   // Catches studio mismatch (e.g. video model sent to image route) before credits reserve.
