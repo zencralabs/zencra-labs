@@ -20,6 +20,9 @@ import {
   resolveProviderKey,
 } from "@/lib/providers/lipsync";
 import type { LipSyncQuality } from "@/lib/lipsync/status";
+import { checkEntitlement }               from "@/lib/billing/entitlement";
+import { StudioDispatchError, dispatchErrorStatus }
+                                           from "@/lib/api/studio-dispatch";
 
 export const maxDuration = 120;  // seconds — allows time for preprocessing + submit
 
@@ -31,6 +34,26 @@ export async function POST(req: Request) {
   // ── 1. Auth ──────────────────────────────────────────────────────────────────
   const { user, authError } = await requireAuthUser(req);
   if (authError) return authError;
+
+  // ── Billing entitlement ─────────────────────────────────────────────────────
+  // Must run before body parsing, asset loading, credit deduction, and provider
+  // submission. Blocks free-tier users (paid-only), trial-expired users,
+  // users with inactive subscriptions, and trial-exhausted users.
+  try {
+    await checkEntitlement(user!.id, "lipsync");
+  } catch (err) {
+    if (err instanceof StudioDispatchError) {
+      return NextResponse.json(
+        { success: false, error: err.message, code: err.code },
+        { status: dispatchErrorStatus(err.code) }
+      );
+    }
+    console.error("[lipsync/create] entitlement check failed:", err);
+    return NextResponse.json(
+      { success: false, error: "Server error" },
+      { status: 500 }
+    );
+  }
 
   try {
     // ── 2. Parse body ────────────────────────────────────────────────────────
@@ -149,6 +172,7 @@ export async function POST(req: Request) {
         {
           success: false,
           error:   "Insufficient credits",
+          code:    "INSUFFICIENT_CREDITS",
           data:    { available: profile.credits, required: creditsRequired },
         },
         { status: 402 }
