@@ -85,9 +85,13 @@ export async function POST(req: Request): Promise<Response> {
 
   // ── Billing entitlement ───────────────────────────────────────────────────────
   // Reuse the "image" entitlement gate — Reference Stack renders are image outputs.
-  // Phase 2C: replace with a workflow-specific entitlement path.
+  // Creative Director is paid-only: free users are blocked here, before any credit
+  // deduction, workflow_runs write, workflow_steps write, or provider execution.
+  // Free-tier image generation is available through the normal Image Studio route
+  // with Nano Banana models only.
+  let entitlement: import("@/lib/billing/entitlement").EntitlementResult | null = null;
   try {
-    await checkEntitlement(userId, "image");
+    entitlement = await checkEntitlement(userId, "image");
   } catch (err) {
     if (err instanceof StudioDispatchError) {
       return Response.json(
@@ -97,6 +101,18 @@ export async function POST(req: Request): Promise<Response> {
     }
     logger.error("workflow-route", "entitlement check failed", { userId, err });
     return serverErr();
+  }
+
+  // Creative Director is a paid workflow. Free users cannot generate here.
+  if (entitlement?.path === "free") {
+    return Response.json(
+      {
+        success: false,
+        error: "Creative Director generation requires a paid plan. Upgrade to continue.",
+        code: "SUBSCRIPTION_REQUIRED",
+      },
+      { status: 402 },
+    );
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────────
