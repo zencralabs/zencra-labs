@@ -1,153 +1,152 @@
 "use client";
 
-import { useState } from "react";
-import { Gift, Send, Zap, CheckCircle, Clock, Tag } from "lucide-react";
+import { Gift, Zap, Clock, Package, Heart } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GIFTS PAGE — Send & receive credit gifts / gift cards
+// GIFTS PAGE — Coming soon preview surface
+// Gift sending, gift card redemption, and checkout are not yet live.
+// No credits are sent, received, or granted from this page.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const GIFT_PACKS = [
-  { credits: 50,  price: "$2.49",  label: "Mini Gift",   color: "#2563EB" },
-  { credits: 100, price: "$4.99",  label: "Gift Pack",   color: "#A855F7" },
-  { credits: 300, price: "$12.99", label: "Big Gift",    color: "#0EA5A0" },
-  { credits: 500, price: "$19.99", label: "Pro Gift",    color: "#F59E0B" },
+const GIFT_PREVIEW = [
+  { credits: 500,  label: "Light Gift",   color: "#2563EB", note: "Quick creativity boost" },
+  { credits: 1000, label: "Creator Gift", color: "#6366F1", note: "For the serious creator"  },
+  { credits: 2500, label: "Pro Gift",     color: "#14B8A6", note: "Power-user level" },
+  { credits: 5000, label: "Studio Gift",  color: "#D4AF37", note: "The ultimate creative gift" },
 ];
 
-const RECEIVED_GIFTS = [
-  { from: "Zencra Labs", credits: 50, message: "Welcome bonus 🎉", date: "At signup", redeemed: true },
+const WHAT_GIFTS_WILL_DO = [
+  { icon: Zap,     color: "#2563EB", title: "Send credits directly",   desc: "Transfer a credit pack to any Zencra user by email. Credits arrive in their account instantly." },
+  { icon: Gift,    color: "#6366F1", title: "Gift card codes",         desc: "Purchase a gift card and share the code. Recipients redeem it anytime from this page." },
+  { icon: Heart,   color: "#14B8A6", title: "Give a plan upgrade",     desc: "Sponsor a month of Creator or Pro for someone whose work you want to support." },
+  { icon: Package, color: "#D4AF37", title: "Receive & track gifts",   desc: "All gifts received — credits, codes, plan upgrades — appear here for full visibility." },
 ];
 
 export default function GiftsPage() {
-  const { user }        = useAuth();
-  const [email, setEmail]       = useState("");
-  const [message, setMessage]   = useState("");
-  const [selected, setSelected] = useState<number | null>(null);
-  const [sent, setSent]         = useState(false);
+  const { user } = useAuth();
 
   if (!user) return null;
 
-  function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selected || !email) return;
-    setSent(true);
-    setTimeout(() => setSent(false), 4000);
-    setEmail(""); setMessage(""); setSelected(null);
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%", backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "10px", padding: "10px 14px", color: "var(--page-text)", fontSize: "13px",
-    outline: "none", boxSizing: "border-box",
-  };
-
   return (
-    <div style={{ padding: "40px", maxWidth: "820px" }}>
-      <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Gifts</h1>
-        <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>Send credits to friends or redeem gift cards</p>
+    <div style={{ padding: "40px 48px", width: "100%" }}>
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: "40px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "28px", fontWeight: 800, color: "var(--page-text)", margin: 0, letterSpacing: "-0.02em" }}>
+            Gifts
+          </h1>
+          <span style={{ fontSize: "10px", fontWeight: 700, color: "#D4AF37", backgroundColor: "rgba(212,175,55,0.12)", padding: "3px 10px", borderRadius: "20px", border: "1px solid rgba(212,175,55,0.25)", letterSpacing: "0.08em" }}>
+            COMING SOON
+          </span>
+        </div>
+        <p style={{ fontSize: "14px", color: "#64748B", margin: 0, lineHeight: 1.6 }}>
+          Send credits to friends or gift a plan upgrade. Gift cards and credit transfers are being built — nothing is purchasable yet.
+        </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      {/* ── What gifts will do ─────────────────────────────────────────── */}
+      <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "20px", padding: "36px 40px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: "28px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "28px" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 700, color: "var(--page-text)" }}>What you&apos;ll be able to do</div>
+          <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748B", backgroundColor: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.07)" }}>UPCOMING</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
+          {WHAT_GIFTS_WILL_DO.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <div key={i} style={{ display: "flex", gap: "16px", padding: "20px 22px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ width: "40px", height: "40px", borderRadius: "12px", backgroundColor: `${item.color}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `1px solid ${item.color}20` }}>
+                  <Icon size={18} style={{ color: item.color }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "5px" }}>{item.title}</div>
+                  <div style={{ fontSize: "12px", color: "#64748B", lineHeight: 1.6 }}>{item.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-        {/* ── SEND A GIFT ──────────────────────────────────────────────── */}
-        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "28px", border: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Gift size={16} style={{ color: "#A855F7" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "28px", alignItems: "start" }}>
+
+        {/* ── Gift pack preview ──────────────────────────────────────────── */}
+        <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "20px", padding: "32px", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "22px" }}>
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "rgba(212,175,55,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Gift size={16} style={{ color: "#D4AF37" }} />
             </div>
             <div>
-              <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)" }}>Send a Gift</div>
-              <div style={{ fontSize: "11px", color: "#64748B" }}>Give credits to a friend</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "15px", fontWeight: 700, color: "var(--page-text)" }}>Gift Packs</div>
+              <div style={{ fontSize: "11px", color: "#64748B" }}>Coming soon — preview only</div>
             </div>
           </div>
 
-          {/* Pack selection */}
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", display: "block", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Select Pack</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-              {GIFT_PACKS.map(pack => (
-                <button key={pack.credits} onClick={() => setSelected(pack.credits)}
-                  style={{ padding: "10px", borderRadius: "10px", border: selected === pack.credits ? `1px solid ${pack.color}80` : "1px solid rgba(255,255,255,0.06)", background: selected === pack.credits ? `${pack.color}15` : "rgba(255,255,255,0.02)", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
-                    <Zap size={12} style={{ color: pack.color }} />
-                    <span style={{ fontSize: "13px", fontWeight: 700, color: selected === pack.credits ? pack.color : "#F8FAFC" }}>{pack.credits} cr</span>
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#475569" }}>{pack.label} · {pack.price}</div>
-                </button>
-              ))}
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+            {GIFT_PREVIEW.map(pack => (
+              <div key={pack.credits} style={{ padding: "16px", borderRadius: "12px", border: `1px solid ${pack.color}20`, background: `${pack.color}08`, cursor: "not-allowed", opacity: 0.7 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "5px" }}>
+                  <Zap size={13} style={{ color: pack.color }} />
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 700, color: pack.color }}>{pack.credits.toLocaleString()}</span>
+                  <span style={{ fontSize: "11px", color: "#64748B" }}>cr</span>
+                </div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "#94A3B8", marginBottom: "2px" }}>{pack.label}</div>
+                <div style={{ fontSize: "10px", color: "#475569" }}>{pack.note}</div>
+              </div>
+            ))}
           </div>
 
-          <form onSubmit={handleSend} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div>
-              <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Recipient Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="friend@example.com" required
-                style={inputStyle}
-                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(168,85,247,0.5)"; }}
-                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }} />
-            </div>
-            <div>
-              <label style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Personal Message (optional)</label>
-              <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2} placeholder="Happy creating! 🎨"
-                style={{ ...inputStyle, resize: "none", lineHeight: 1.5 }}
-                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(168,85,247,0.5)"; }}
-                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }} />
-            </div>
-            <button type="submit"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "11px", borderRadius: "10px", border: "none", background: sent ? "rgba(16,185,129,0.15)" : "linear-gradient(135deg,#A855F7,#2563EB)", color: sent ? "#10B981" : "#fff", fontSize: "13px", fontWeight: 700, cursor: !selected || !email ? "not-allowed" : "pointer", opacity: !selected || !email ? 0.6 : 1, transition: "all 0.2s" }}>
-              {sent ? <><CheckCircle size={14} /> Gift Sent!</> : <><Send size={14} /> Send Gift</>}
-            </button>
-          </form>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 16px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <Clock size={13} style={{ color: "#475569", flexShrink: 0 }} />
+            <span style={{ fontSize: "12px", color: "#475569" }}>Gift purchasing and delivery is not yet available. Prices and credit amounts may change before launch.</span>
+          </div>
         </div>
 
-        {/* ── RIGHT COLUMN ─────────────────────────────────────────────── */}
+        {/* ── Right column ───────────────────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-          {/* Redeem gift card */}
-          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "24px", border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-              <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Tag size={16} style={{ color: "#F59E0B" }} />
+          {/* Redeem gift card — coming soon */}
+          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "28px", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
+              <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Package size={16} style={{ color: "#6366F1" }} />
               </div>
               <div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)" }}>Redeem Gift Card</div>
-                <div style={{ fontSize: "11px", color: "#64748B" }}>Enter your gift card code</div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "var(--page-text)" }}>Redeem Gift Card</div>
+                <div style={{ fontSize: "11px", color: "#64748B" }}>Secure redemption coming soon</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <input placeholder="GIFT-XXXX-XXXX-XXXX" style={{ ...inputStyle, flex: 1, letterSpacing: "0.05em" }}
-                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(245,158,11,0.5)"; }}
-                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)"; }} />
-              <button style={{ padding: "10px 16px", borderRadius: "10px", border: "none", background: "linear-gradient(135deg,#F59E0B,#EF4444)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                Redeem
+              <input
+                disabled
+                placeholder="GIFT-XXXX-XXXX-XXXX"
+                style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "10px", padding: "10px 14px", color: "#334155", fontSize: "13px", outline: "none", boxSizing: "border-box", letterSpacing: "0.05em", cursor: "not-allowed" }}
+              />
+              <button
+                disabled
+                style={{ padding: "10px 16px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.04)", color: "#334155", fontSize: "12px", fontWeight: 700, cursor: "not-allowed", whiteSpace: "nowrap" }}>
+                Coming Soon
               </button>
+            </div>
+            <div style={{ fontSize: "11px", color: "#334155", marginTop: "10px" }}>
+              Gift card redemption will be validated server-side before credits are applied.
             </div>
           </div>
 
-          {/* Received gifts */}
-          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "24px", border: "1px solid rgba(255,255,255,0.06)", flex: 1 }}>
-            <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "16px" }}>Received Gifts</div>
-            {RECEIVED_GIFTS.map((gift, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "linear-gradient(135deg,#2563EB,#A855F7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Gift size={15} style={{ color: "#fff" }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--page-text)" }}>+{gift.credits} credits from {gift.from}</div>
-                  <div style={{ fontSize: "11px", color: "#64748B" }}>{gift.message}</div>
-                  <div style={{ fontSize: "10px", color: "#334155", marginTop: "2px", display: "flex", alignItems: "center", gap: "3px" }}>
-                    <Clock size={9} /> {gift.date}
-                  </div>
-                </div>
-                {gift.redeemed && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "#10B981", fontWeight: 700 }}>
-                    <CheckCircle size={11} /> Redeemed
-                  </div>
-                )}
+          {/* Received gifts — honest empty state */}
+          <div style={{ backgroundColor: "var(--page-bg-2)", borderRadius: "16px", padding: "28px", border: "1px solid rgba(255,255,255,0.06)", flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "var(--page-text)", marginBottom: "18px" }}>Received Gifts</div>
+            <div style={{ textAlign: "center", padding: "32px 0" }}>
+              <div style={{ width: "48px", height: "48px", borderRadius: "14px", backgroundColor: "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <Gift size={20} style={{ color: "#334155" }} />
               </div>
-            ))}
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#475569", marginBottom: "6px" }}>No gifts received yet</div>
+              <div style={{ fontSize: "11px", color: "#334155", lineHeight: 1.6, maxWidth: "280px", margin: "0 auto" }}>
+                Gifts sent to your account will appear here once the gifting system is live.
+              </div>
+            </div>
           </div>
         </div>
       </div>
