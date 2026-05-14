@@ -273,12 +273,12 @@ export default function LibraryPage() {
         </p>
         <h1
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "36px",
-            fontWeight: 700,
-            color: "#F8FAFC",
-            letterSpacing: "-0.02em",
-            margin: "0 0 8px",
+            fontFamily: "var(--font-display, 'Syne', sans-serif)",
+            fontSize: 32,
+            fontWeight: 800,
+            color: "var(--page-text)",
+            margin: "0 0 6px",
+            lineHeight: 1.1,
           }}
         >
           Library

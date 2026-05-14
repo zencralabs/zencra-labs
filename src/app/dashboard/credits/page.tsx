@@ -205,7 +205,7 @@ export default function CreditsPage() {
         <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk)" }}>
           YOUR CREDITS
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "36px", fontWeight: 700, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 8px" }}>Credits</h1>
+        <h1 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 32, fontWeight: 800, color: "var(--page-text)", margin: "0 0 6px", lineHeight: 1.1 }}>Credits</h1>
         <p style={{ fontFamily: "var(--font-familjen-grotesk)", fontSize: "15px", color: "#64748B", margin: 0 }}>Your balance, top-ups, and usage history</p>
       </div>
 

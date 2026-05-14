@@ -187,7 +187,7 @@ export default function DashboardPage() {
               Member since {joinDate}
             </span>
           </div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, color: "var(--page-text)", margin: 0, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+          <h1 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 32, fontWeight: 800, color: "var(--page-text)", margin: 0, lineHeight: 1.1 }}>
             Welcome back, {firstName}
           </h1>
           <p style={{ fontSize: 14, color: "#475569", marginTop: 6, fontFamily: "var(--font-sans)" }}>
