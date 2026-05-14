@@ -15,6 +15,15 @@ import { supabase } from "@/lib/supabase";
 // but the color picker is no longer exposed to users in this UI.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Plan badge colors — mirrors layout.tsx sidebar PLAN_COLORS ───────────────
+const PLAN_COLORS: Record<string, string> = {
+  free:     "#64748B",
+  starter:  "#64748B",
+  creator:  "#6366F1",
+  pro:      "#14B8A6",
+  business: "#D4AF37",
+};
+
 // Fallback gradient palette — used for initials avatar only, not user-selectable
 const AVATAR_COLORS = [
   "linear-gradient(135deg,#2563EB,#0EA5A0)",
@@ -189,15 +198,20 @@ export default function ProfilePage() {
     border: "1px solid rgba(255,255,255,0.05)",
   };
 
+  const planColor = PLAN_COLORS[user.plan?.toLowerCase() ?? ""] ?? "#64748B";
+
   return (
-    <div style={{ padding: 40, maxWidth: 680 }}>
+    <div style={{ padding: "40px 48px", width: "100%" }}>
 
       {/* ── Page header ────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0, fontFamily: "var(--font-syne, inherit)", letterSpacing: "-0.02em" }}>
+      <div style={{ marginBottom: 36 }}>
+        <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk, inherit)" }}>
+          YOUR ACCOUNT
+        </p>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "36px", fontWeight: 700, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 8px" }}>
           Profile
         </h1>
-        <p style={{ fontSize: 13, color: "#64748B", marginTop: 6, fontFamily: "var(--font-familjen-grotesk, inherit)" }}>
+        <p style={{ fontFamily: "var(--font-familjen-grotesk, inherit)", fontSize: "15px", color: "#64748B", margin: 0 }}>
           Manage your personal information
         </p>
       </div>
@@ -400,10 +414,10 @@ export default function ProfilePage() {
         <div style={metaRow}>
           <span style={{ fontSize: 13, color: "#64748B", fontFamily: "var(--font-familjen-grotesk, inherit)" }}>Current plan</span>
           <span style={{
-            fontSize: 11, fontWeight: 700, color: "#2563EB",
-            backgroundColor: "rgba(37,99,235,0.12)",
+            fontSize: 11, fontWeight: 700, color: planColor,
+            backgroundColor: `${planColor}20`,
             padding: "2px 10px", borderRadius: 10,
-            border: "1px solid rgba(37,99,235,0.3)",
+            border: `1px solid ${planColor}40`,
             textTransform: "capitalize",
             fontFamily: "var(--font-familjen-grotesk, inherit)",
           }}>

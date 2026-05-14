@@ -264,14 +264,17 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ padding: "40px", maxWidth: 680 }}>
+    <div style={{ padding: "40px 48px", width: "100%" }}>
 
       {/* ── Page header ────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--page-text)", margin: 0, fontFamily: "var(--font-syne, inherit)", letterSpacing: "-0.02em" }}>
+      <div style={{ marginBottom: 36 }}>
+        <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk, inherit)" }}>
+          YOUR ACCOUNT
+        </p>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "36px", fontWeight: 700, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 8px" }}>
           Settings
         </h1>
-        <p style={{ fontSize: 13, color: "#64748B", marginTop: 6, ...bodyText }}>
+        <p style={{ fontSize: "15px", color: "#64748B", margin: 0, ...bodyText }}>
           Manage your account preferences and security
         </p>
       </div>

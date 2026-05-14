@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { CheckCircle, AlertTriangle, X } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import type { CreditPack } from "@/lib/billing/types";
 
@@ -199,25 +200,28 @@ export default function CreditsPage() {
   };
 
   return (
-    <div style={{ padding: "40px", maxWidth: "900px" }}>
-      <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--page-text)", margin: 0 }}>Credits</h1>
-        <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>Your balance, top-ups, and usage history</p>
+    <div style={{ padding: "40px 48px", width: "100%" }}>
+      <div style={{ marginBottom: "36px" }}>
+        <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk)" }}>
+          YOUR CREDITS
+        </p>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "36px", fontWeight: 700, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 8px" }}>Credits</h1>
+        <p style={{ fontFamily: "var(--font-familjen-grotesk)", fontSize: "15px", color: "#64748B", margin: 0 }}>Your balance, top-ups, and usage history</p>
       </div>
 
       {/* ── Feedback banners ─────────────────────────────────────────────── */}
       {purchaseSuccess && (
-        <div style={{ ...card, background: "rgba(16,163,127,0.1)", border: "1px solid rgba(16,163,127,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 20 }}>✅</span>
-          <span style={{ fontSize: 14, color: "#10a37f", fontWeight: 600 }}>{purchaseSuccess.credits} credits added to your account!</span>
-          <button onClick={() => setPurchaseSuccess(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#10a37f", cursor: "pointer", fontSize: 18 }}>×</button>
+        <div style={{ ...card, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", display: "flex", alignItems: "center", gap: 12, marginBottom: "20px" }}>
+          <CheckCircle size={18} style={{ color: "#10B981", flexShrink: 0 }} />
+          <span style={{ fontSize: "14px", color: "#10B981", fontWeight: 600, fontFamily: "var(--font-familjen-grotesk)" }}>{purchaseSuccess.credits.toLocaleString()} credits added to your account!</span>
+          <button onClick={() => setPurchaseSuccess(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#10B981", cursor: "pointer", padding: 0, display: "flex" }}><X size={16} /></button>
         </div>
       )}
       {purchaseError && (
-        <div style={{ ...card, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 20 }}>⚠️</span>
-          <span style={{ fontSize: 14, color: "#ef4444", fontWeight: 500 }}>{purchaseError}</span>
-          <button onClick={() => setPurchaseError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 18 }}>×</button>
+        <div style={{ ...card, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", gap: 12, marginBottom: "20px" }}>
+          <AlertTriangle size={18} style={{ color: "#EF4444", flexShrink: 0 }} />
+          <span style={{ fontSize: "14px", color: "#EF4444", fontWeight: 500, fontFamily: "var(--font-familjen-grotesk)" }}>{purchaseError}</span>
+          <button onClick={() => setPurchaseError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#EF4444", cursor: "pointer", padding: 0, display: "flex" }}><X size={16} /></button>
         </div>
       )}
 
@@ -328,9 +332,24 @@ export default function CreditsPage() {
       {/* ── Cost guide ────────────────────────────────────────────────────── */}
       <div style={card}>
         <h2 style={sectionTitle}>Credit Cost Guide</h2>
-        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-          Credit costs vary by studio and model. Estimates are shown before each generation.
+        <p style={{ fontSize: "13px", color: "#64748B", margin: "0 0 20px", lineHeight: 1.6, fontFamily: "var(--font-familjen-grotesk)" }}>
+          Credit costs vary by studio and model. Exact estimates are shown before each generation.
         </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
+          {[
+            { studio: "Image Studio",     range: "4–20 cr",   color: "#2563EB" },
+            { studio: "Video Studio",     range: "20–120 cr", color: "#6366F1" },
+            { studio: "Audio Studio",     range: "2–12 cr",   color: "#14B8A6" },
+            { studio: "Character Studio", range: "8–40 cr",   color: "#F59E0B" },
+            { studio: "Creative Director",range: "varies",    color: "#A855F7" },
+            { studio: "Lipsync Studio",   range: "10–60 cr",  color: "#EC4899" },
+          ].map(({ studio, range, color }) => (
+            <div key={studio} style={{ padding: "14px 16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-familjen-grotesk)" }}>{studio}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 700, color, letterSpacing: "-0.01em", lineHeight: 1 }}>{range}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Transaction history ───────────────────────────────────────────── */}

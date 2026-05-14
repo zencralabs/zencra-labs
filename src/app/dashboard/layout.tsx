@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!loading && !user) {
       // Brief delay so the "session expired" message is visible
-      const t = setTimeout(() => router.push("/?signin=session-expired"), 1800);
+      const t = setTimeout(() => router.push("/login"), 1800);
       return () => clearTimeout(t);
     }
   }, [user, loading, router]);

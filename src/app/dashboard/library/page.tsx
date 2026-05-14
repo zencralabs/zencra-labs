@@ -256,7 +256,7 @@ function LibrarySectionCard({ section }: { section: LibrarySection }) {
 
 export default function LibraryPage() {
   return (
-    <div style={{ padding: "40px 40px 80px", maxWidth: "900px" }}>
+    <div style={{ padding: "40px 48px 80px", width: "100%" }}>
       {/* Page header */}
       <div style={{ marginBottom: "36px" }}>
         <p
