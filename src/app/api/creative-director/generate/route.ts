@@ -49,6 +49,7 @@ import { computeTotalGenerationCost } from "@/lib/creative-director/credit-estim
 import { saveGeneration, updateGenerationStatus } from "@/lib/creative-director/save-history";
 import { studioDispatch }         from "@/lib/api/studio-dispatch";
 import { getClientIp }            from "@/lib/security/rate-limit";
+import { checkEntitlement }        from "@/lib/billing/entitlement";
 import { getModelCapabilities }   from "@/lib/studio/model-capabilities";
 import type {
   CreativeDirectionRow,
@@ -76,6 +77,19 @@ export async function POST(req: Request): Promise<Response> {
   const user = await getAuthUser(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── Entitlement gate (legacy route hardening) ──────────────────────────────
+  // CDv2Shell no longer calls this route — it routes through the workflow engine.
+  // This gate hardens the legacy path in case it is ever called directly.
+  try {
+    await checkEntitlement(user.id, "image");
+  } catch (err: unknown) {
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { error: e.message ?? "Subscription required", code: e.code },
+      { status: e.code === "FREE_LIMIT_REACHED" || e.code === "TRIAL_EXHAUSTED" ? 402 : 403 }
+    );
   }
 
   let body: unknown;

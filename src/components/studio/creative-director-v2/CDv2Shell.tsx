@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { createPortal }                              from "react-dom";
 import { useAuth }                                   from "@/components/auth/AuthContext";
 import { AuthModal }                                 from "@/components/auth/AuthModal";
+import PricingOverlay                                from "@/components/pricing/PricingOverlay";
 import { supabase }                                  from "@/lib/supabase";
 import {
   useDirectionStore,
@@ -105,6 +106,16 @@ function getCDv2CanvasHash(cs: CDv2CanvasStateV1): string {
 
 /** localStorage key for the pre-direction canvas draft buffer. */
 const CANVAS_BUFFER_KEY = "cdv2_canvas_buffer";
+
+// ── Entitlement codes that route to PricingOverlay ────────────────────────────
+const ENTITLEMENT_CODES = new Set([
+  "FREE_LIMIT_REACHED",
+  "SUBSCRIPTION_REQUIRED",
+  "SUBSCRIPTION_INACTIVE",
+  "TRIAL_EXPIRED",
+  "TRIAL_EXHAUSTED",
+  "INSUFFICIENT_CREDITS",
+]);
 
 // DirectorHandle — slim 36px strip above PromptDock that controls DirectorPanel
 function DirectorHandle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
@@ -306,6 +317,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   }, []);
   // ── Auth modal — shown when guest clicks Generate ─────────────────────────
   const [authModal, setAuthModal] = useState(false);
+  // ── Pricing overlay — shown when signed-in but ineligible user generates ──
+  const [showPricingOverlay, setShowPricingOverlay] = useState(false);
 
   // Guard: createPortal needs document.body — only available on client.
   const [mounted, setMounted] = useState(false);
@@ -583,6 +596,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
+            if (err.code && ENTITLEMENT_CODES.has(err.code)) {
+              finishGenerating([]);
+              setShowPricingOverlay(true);
+              return;
+            }
             finishGenerating([], err.error ?? `Generation failed (${res.status})`);
             return;
           }
@@ -713,6 +731,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const VARIATION_SUFFIX = "same subject and composition, subtle variation, refined cinematic detail";
 
   const handleRegenVariation = useCallback(async () => {
+    if (!user) { setAuthModal(true); return; }
     const dId = await ensureDirection();
     if (!dId) return;
     if (refinements && Object.keys(refinements).length > 0) {
@@ -742,6 +761,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (err.code && ENTITLEMENT_CODES.has(err.code)) {
+          finishGenerating([]);
+          setShowPricingOverlay(true);
+          return;
+        }
         finishGenerating([], err.error ?? `Variation failed (${res.status})`);
         return;
       }
@@ -798,6 +822,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // Returns null on any failure (onboarding continues gracefully).
   const handleAutoGenerate = useCallback(
     async (prompt: string, _modelKey: string, aspectRatio: string, textNodeInput?: string): Promise<string | null> => {
+      if (!user) { setAuthModal(true); return null; }
       const dId = await ensureDirection();
       if (!dId) return null;
       startGenerating();
@@ -816,6 +841,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
+          if (err.code && ENTITLEMENT_CODES.has(err.code)) {
+            finishGenerating([]);
+            setShowPricingOverlay(true);
+            return null;
+          }
           finishGenerating([], err.error ?? `Auto-generation failed (${res.status})`);
           return null;
         }
@@ -1397,6 +1427,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       {/* Auth modal — shown when guest clicks Generate */}
       {authModal && (
         <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+      )}
+
+      {/* Pricing overlay — shown when signed-in but ineligible user attempts generate */}
+      {showPricingOverlay && (
+        <PricingOverlay onClose={() => setShowPricingOverlay(false)} />
       )}
     </div>
   );
