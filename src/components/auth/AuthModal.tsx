@@ -521,7 +521,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
 
       <div
         style={{
-          position: "fixed", inset: 0, zIndex: 1000,
+          position: "fixed", inset: 0, zIndex: 1300,
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: isMobile ? "0" : "20px",
           backgroundColor: "rgba(2,6,16,0.82)", backdropFilter: "blur(6px)",
@@ -566,10 +566,11 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
                 position: "absolute", top: "16px", right: "16px",
                 background: "rgba(8,15,28,0.72)", border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: "50%", padding: "7px", cursor: "pointer",
-                color: "#94A3B8", display: "flex", zIndex: 10,
+                color: "#94A3B8", display: "flex", zIndex: 50,
                 backdropFilter: "blur(12px)",
                 transition: "background 0.2s, border-color 0.2s, color 0.2s",
                 width: "34px", height: "34px", alignItems: "center", justifyContent: "center",
+                pointerEvents: "all",
               }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,99,235,0.18)";
