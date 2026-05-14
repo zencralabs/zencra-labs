@@ -377,7 +377,7 @@ export default function CreditsPage() {
           {" of "}
           <span style={{ color: "#94A3B8", fontWeight: 600 }}>{planLimit.toLocaleString()} cr</span>
           {" · "}
-          <span style={{ color: "#A855F7", fontWeight: 600 }}>{credPctStr} used</span>
+          <span style={{ color: "#A855F7", fontWeight: 600 }}>{credPctStr} remaining</span>
         </div>
 
         {/* Progress bar */}
