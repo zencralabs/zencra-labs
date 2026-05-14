@@ -1,29 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 
 /**
- * Studio layout — client-side auth guard.
- * Uses AuthContext (localStorage-backed) so it works with the Supabase
- * browser client. Middleware cannot do this because the browser client
- * stores sessions in localStorage, not cookies.
+ * Studio layout — Phase A: public preview access.
+ * Guests (signed-out users) may open studio pages to browse the UI.
+ * Generation, upload, and dispatch remain server-hardened via API routes.
+ *
+ * Auth protection for generation actions is handled at the Generate button
+ * level (Phase B). Middleware does not guard /studio/* routes — auth is
+ * localStorage-backed via the Supabase browser client.
  */
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      // Redirect to /login with return destination
-      const current = window.location.pathname + window.location.search;
-      router.push(`/login?next=${encodeURIComponent(current)}`);
-    }
-  }, [user, loading, router]);
-
-  // Show spinner while auth state resolves
-  if (loading || !user) {
+  // Show spinner only while auth state resolves (brief flash on first load).
+  // Once resolved, render children regardless of whether user is signed in.
+  if (loading) {
     return (
       <div style={{
         minHeight: "100vh",
