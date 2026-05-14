@@ -30,9 +30,10 @@ interface CreditTransaction {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Matches the same lookup in layout.tsx sidebar. Pending billing consolidation (#1307). */
+/** Free users are governed by free_usage counters (images_max=10, videos_max=3), not credits.
+ *  Pending billing consolidation (#1307). */
 const PLAN_CREDIT_LIMIT: Record<string, number> = {
-  free: 100, starter: 600, creator: 1600, pro: 3500, business: 8000,
+  starter: 600, creator: 1600, pro: 3500, business: 8000,
 };
 
 /** Locked Dashboard v2 plan badge colors */
@@ -182,6 +183,7 @@ export default function DashboardPage() {
 
   const joinDate  = new Date(user.joinedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const planKey   = (user.plan ?? "free").toLowerCase();
+  const isFree    = planKey === "free";
   const credLimit = PLAN_CREDIT_LIMIT[planKey] ?? 600;
   const credPct   = Math.min((user.credits / credLimit) * 100, 100);
   const planColor = PLAN_BADGE_COLORS[planKey] ?? "#64748B";
@@ -240,7 +242,7 @@ export default function DashboardPage() {
             <div style={{ fontFamily: "var(--font-display)", fontSize: 34, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.02em", lineHeight: 1 }}>
               {user.credits.toLocaleString()}
             </div>
-            <div style={{ fontSize: 11, color: "#475569", fontWeight: 500, marginTop: 3, fontFamily: "var(--font-sans)" }}>credits remaining</div>
+            <div style={{ fontSize: 11, color: "#475569", fontWeight: 500, marginTop: 3, fontFamily: "var(--font-sans)" }}>{isFree ? "bonus credits" : "credits remaining"}</div>
           </div>
 
           {/* Separator */}
@@ -299,18 +301,32 @@ export default function DashboardPage() {
           <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.02em" }}>
             {user.credits.toLocaleString()}
           </div>
-          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: 12 }}>
-            <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 2 }} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-            <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-sans)" }}>{Math.round(credPct)}% of {credLimit.toLocaleString()} limit</span>
-            <button
-              onClick={() => router.push("/dashboard/credits")}
-              style={{ fontSize: 11, color: "#60A5FA", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, padding: 0 }}
-            >
-              Top up <ArrowRight size={10} />
-            </button>
-          </div>
+          {isFree ? (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: "#94A3B8", fontFamily: "var(--font-sans)", marginBottom: 4 }}>Free Trial · 10 images · 3 videos</div>
+              <button
+                onClick={() => router.push("/dashboard/subscription")}
+                style={{ fontSize: 11, color: "#60A5FA", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, padding: 0, fontFamily: "var(--font-sans)" }}
+              >
+                Upgrade plan <ArrowRight size={10} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden", marginTop: 12 }}>
+                <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 2 }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-sans)" }}>{Math.round(credPct)}% of {credLimit.toLocaleString()} limit</span>
+                <button
+                  onClick={() => router.push("/dashboard/credits")}
+                  style={{ fontSize: 11, color: "#60A5FA", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, padding: 0 }}
+                >
+                  Top up <ArrowRight size={10} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Plan */}
@@ -567,21 +583,33 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            {/* Credits bar */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
-                <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-sans)" }}>Credits</span>
-                <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>
-                  {user.credits.toLocaleString()} / {credLimit.toLocaleString()}
-                </span>
+            {/* Credits bar / Free Trial info */}
+            {isFree ? (
+              <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", marginBottom: 6, fontFamily: "var(--font-sans)" }}>Free Trial</div>
+                <div style={{ fontSize: 11, color: "#64748B", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
+                  10 image generations · 3 video generations
+                </div>
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 4, fontFamily: "var(--font-sans)" }}>
+                  50 bonus credits
+                </div>
               </div>
-              <div style={{ height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 3, transition: "width 0.4s ease" }} />
+            ) : (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                  <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-sans)" }}>Credits</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>
+                    {user.credits.toLocaleString()} / {credLimit.toLocaleString()}
+                  </span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #2563EB, #A855F7)", borderRadius: 3, transition: "width 0.4s ease" }} />
+                </div>
+                <div style={{ fontSize: 11, color: "#334155", marginTop: 5, fontFamily: "var(--font-sans)" }}>
+                  {Math.round(100 - credPct)}% available
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "#334155", marginTop: 5, fontFamily: "var(--font-sans)" }}>
-                {Math.round(100 - credPct)}% available
-              </div>
-            </div>
+            )}
 
             {/* CTAs */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

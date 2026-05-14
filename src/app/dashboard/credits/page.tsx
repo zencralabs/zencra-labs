@@ -14,9 +14,8 @@ import type { CreditPack } from "@/lib/billing/types";
 // Packs and history loaded from live API. Top-up initiates billing flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Plan credit limits — mirrors public pricing; DB values pending migration.
+// ── Plan credit limits — paid plans only; free users are governed by free_usage counters.
 const PLAN_CREDIT_LIMIT: Record<string, number> = {
-  free:     100,
   starter:  600,
   creator:  1600,
   pro:      3500,
@@ -371,39 +370,56 @@ export default function CreditsPage() {
           <span style={{ fontSize: "20px", color: "#A855F7", fontWeight: 700, fontFamily: "var(--font-display, 'Syne', sans-serif)" }}>cr</span>
         </div>
 
-        {/* X of Y label */}
-        <div style={{ fontSize: "13px", color: "#64748B", marginBottom: 14, fontFamily: "var(--font-familjen-grotesk)" }}>
-          <span style={{ color: "#94A3B8", fontWeight: 600 }}>{user.credits.toLocaleString()}</span>
-          {" of "}
-          <span style={{ color: "#94A3B8", fontWeight: 600 }}>{planLimit.toLocaleString()} cr</span>
-          {" · "}
-          <span style={{ color: "#A855F7", fontWeight: 600 }}>{credPctStr} remaining</span>
-        </div>
-
-        {/* Progress bar */}
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ height: "8px", background: "rgba(255,255,255,0.08)", borderRadius: "4px", overflow: "hidden" }}>
-            <div style={{
-              height: "100%", width: `${credPct}%`,
-              background: credPct > 85
-                ? "linear-gradient(90deg, #EF4444, #F97316)"
-                : "linear-gradient(90deg, #A855F7, #2563EB)",
-              borderRadius: "4px", transition: "width 0.5s ease",
-            }} />
+        {/* Allocation / usage info — free users see trial copy, paid users see credit bar */}
+        {planKey === "free" ? (
+          <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", marginBottom: 6 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", marginBottom: 8, fontFamily: "var(--font-familjen-grotesk)" }}>Free Trial</div>
+            <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.8, fontFamily: "var(--font-familjen-grotesk)" }}>
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>10</span> image generations<br />
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>3</span> video generations<br />
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>50</span> bonus credits
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "#475569", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.5 }}>
+              Usage is tracked automatically during generation.
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* X of Y label */}
+            <div style={{ fontSize: "13px", color: "#64748B", marginBottom: 14, fontFamily: "var(--font-familjen-grotesk)" }}>
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>{user.credits.toLocaleString()}</span>
+              {" of "}
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>{planLimit.toLocaleString()} cr</span>
+              {" · "}
+              <span style={{ color: "#A855F7", fontWeight: 600 }}>{credPctStr} remaining</span>
+            </div>
 
-        {/* Bar end labels */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
-          <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>0</span>
-          <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>{planLimit.toLocaleString()} cr monthly</span>
-        </div>
+            {/* Progress bar */}
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ height: "8px", background: "rgba(255,255,255,0.08)", borderRadius: "4px", overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", width: `${credPct}%`,
+                  background: credPct > 85
+                    ? "linear-gradient(90deg, #EF4444, #F97316)"
+                    : "linear-gradient(90deg, #A855F7, #2563EB)",
+                  borderRadius: "4px", transition: "width 0.5s ease",
+                }} />
+              </div>
+            </div>
 
-        {/* Reset note */}
-        <div style={{ fontSize: "12px", color: "#475569", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.6 }}>
-          Monthly plan credits reset each billing cycle.{" "}
-          <span style={{ color: "#64748B" }}>Booster credits expire 90 days from purchase.</span>
-        </div>
+            {/* Bar end labels */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
+              <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>0</span>
+              <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>{planLimit.toLocaleString()} cr monthly</span>
+            </div>
+
+            {/* Reset note */}
+            <div style={{ fontSize: "12px", color: "#475569", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.6 }}>
+              Monthly plan credits reset each billing cycle.{" "}
+              <span style={{ color: "#64748B" }}>Booster credits expire 90 days from purchase.</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Booster packs ─────────────────────────────────────────────────────── */}

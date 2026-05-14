@@ -76,8 +76,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const planColor = PLAN_COLORS[user.plan] ?? "#64748B";
+  const isFree    = (user.plan ?? "free").toLowerCase() === "free";
 
-  // Mirrors the public pricing-page credit allowances — the product source of truth.
+  // Free users are governed by free_usage counters (images_max=10, videos_max=3), not credits.
   // NOTE: public.plans.credits_per_cycle in the DB currently holds stale values
   // (200/800/1700/4000) — a DB correction migration is pending (billing consolidation).
   // TODO: replace with an API-backed fetch once a /api/plan-limits route exists.
@@ -87,8 +88,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     pro:      3500,
     business: 8000,
   };
-  const creditLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 600;
-  const creditsPercent = Math.min((user.credits / creditLimit) * 100, 100);
+  const creditLimit    = isFree ? 0 : (PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 600);
+  const creditsPercent = isFree ? 0 : Math.min((user.credits / creditLimit) * 100, 100);
 
   return (
     <div style={{ minHeight: "calc(100vh - 64px)", marginTop: "64px", backgroundColor: "var(--page-bg)", color: "var(--page-text)", display: "flex" }}>
@@ -111,16 +112,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          {/* Credits mini-bar */}
-          <div style={{ marginTop: "12px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
-              <span style={{ fontSize: "10px", color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Credits</span>
-              <span style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</span>
+          {/* Credits mini-bar / Free Trial */}
+          {isFree ? (
+            <div style={{ marginTop: "12px" }}>
+              <div style={{ fontSize: "10px", color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Free Trial</div>
+              <div style={{ fontSize: "11px", color: "#94A3B8", lineHeight: 1.5 }}>10 images · 3 videos</div>
+              <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px" }}>50 bonus credits</div>
             </div>
-            <div style={{ height: "4px", borderRadius: "2px", backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${creditsPercent}%`, borderRadius: "2px", background: "linear-gradient(90deg,#2563EB,#0EA5A0)", transition: "width 0.5s ease" }} />
+          ) : (
+            <div style={{ marginTop: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                <span style={{ fontSize: "10px", color: "#475569", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Credits</span>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</span>
+              </div>
+              <div style={{ height: "4px", borderRadius: "2px", backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${creditsPercent}%`, borderRadius: "2px", background: "linear-gradient(90deg,#2563EB,#0EA5A0)", transition: "width 0.5s ease" }} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Nav */}
