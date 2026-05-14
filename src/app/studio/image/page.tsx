@@ -88,6 +88,18 @@ function classifyError(raw: string | undefined): ErrorInfo {
     };
   }
 
+  // ── Free-trial model restriction ──────────────────────────────────────────────
+  if (
+    lower.includes("free_tier_model_not_allowed") ||
+    lower.includes("not available on the free trial")
+  ) {
+    return {
+      icon:   "🔒",
+      title:  "Model not included in free trial",
+      detail: "This model is available on paid plans. Free trial includes Nano Banana images and selected Kling video models.",
+    };
+  }
+
   // ── Subscription / billing gate ───────────────────────────────────────────────
   if (
     lower.includes("no active subscription") ||

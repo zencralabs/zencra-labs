@@ -2718,6 +2718,21 @@ export default function VideoStudioShell() {
           return;
         }
 
+        // ── Free-trial model restriction — premium upgrade prompt ─────────────
+        if (errCode === "FREE_TIER_MODEL_NOT_ALLOWED") {
+          showToast(
+            "This model is available on paid plans. Free trial includes Nano Banana images and selected Kling video models.",
+            "error"
+          );
+          setVideos(prev => prev.map(v =>
+            v.id === newVideo.id
+              ? { ...v, status: "error" as const, error: "Model not available on free trial" }
+              : v,
+          ));
+          setGenerating(false);
+          return;
+        }
+
         // ── Kling model account gate — friendly surface ───────────────────────
         // When Kling returns code 1201 ("model is not supported"), the provider
         // throws a specific message. Route converts this to PROVIDER_ERROR 502.
