@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, ArrowRight, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, CheckCircle, Mail } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/components/auth/AuthContext";
 
 export default function SignUpPage() {
-  const [show, setShow] = useState(false);
+  const { signup } = useAuth();
+  const [show,      setShow]      = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [success,   setSuccess]   = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
 
   const inputStyle = {
@@ -70,6 +75,36 @@ export default function SignUpPage() {
             </div>
 
             <div className="rounded-2xl p-8" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+
+              {/* ── Success state ── */}
+              {success ? (
+                <div className="flex flex-col items-center text-center py-6 gap-5">
+                  <div style={{
+                    width: 64, height: 64, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "rgba(14,165,160,0.12)",
+                    border: "1px solid rgba(14,165,160,0.3)",
+                    boxShadow: "0 0 28px rgba(14,165,160,0.2)",
+                  }}>
+                    <Mail size={26} style={{ color: "#2DD4BF" }} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
+                    <p className="text-sm" style={{ color: "#94A3B8", maxWidth: 300 }}>
+                      We sent a confirmation link to <strong style={{ color: "#CBD5E1" }}>{form.email}</strong>.
+                      Click it to activate your account.
+                    </p>
+                  </div>
+                  <Link
+                    href="/login"
+                    className="text-sm font-semibold"
+                    style={{ color: "#0EA5A0" }}
+                  >
+                    Back to sign in →
+                  </Link>
+                </div>
+              ) : (
+                <>
               <h1 className="mb-1 text-2xl font-bold text-white">Create your account</h1>
               <p className="mb-7 text-sm" style={{ color: "#64748B" }}>Free forever. Upgrade when you&apos;re ready.</p>
 
@@ -88,7 +123,27 @@ export default function SignUpPage() {
                 <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
               </div>
 
-              <form onSubmit={e => e.preventDefault()} className="flex flex-col gap-4">
+              <form
+                onSubmit={async e => {
+                  e.preventDefault();
+                  setAuthError(null);
+                  if (!form.name.trim() || !form.email.trim() || !form.password) return;
+                  setIsLoading(true);
+                  try {
+                    const ok = await signup(form.name.trim(), form.email.trim(), form.password);
+                    if (ok) {
+                      setSuccess(true);
+                    } else {
+                      setAuthError("Could not create account. The email may already be in use.");
+                    }
+                  } catch {
+                    setAuthError("Something went wrong. Please try again.");
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider" style={{ color: "#475569" }}>Full Name</label>
                   <input type="text" placeholder="Jai Kumar" required value={form.name}
@@ -129,14 +184,27 @@ export default function SignUpPage() {
                   <a href="#" className="underline" style={{ color: "#64748B" }}>Privacy Policy</a>.
                 </p>
 
-                <button type="submit"
+                {authError && (
+                  <p className="text-sm text-center" style={{ color: "#F87171" }}>{authError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
                   className="flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-semibold text-white transition-all duration-300"
-                  style={{ background: "linear-gradient(135deg, #0EA5A0 0%, #2563EB 100%)", boxShadow: "0 0 25px rgba(14,165,160,0.35)" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(14,165,160,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+                  style={{
+                    background: "linear-gradient(135deg, #0EA5A0 0%, #2563EB 100%)",
+                    boxShadow: "0 0 25px rgba(14,165,160,0.35)",
+                    opacity: isLoading ? 0.7 : 1,
+                    cursor: isLoading ? "not-allowed" : "pointer",
+                  }}
+                  onMouseEnter={e => { if (!isLoading) { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 40px rgba(14,165,160,0.6)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; } }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = "0 0 25px rgba(14,165,160,0.35)"; (e.currentTarget as HTMLElement).style.transform = "none"; }}>
-                  Create Free Account <ArrowRight size={15} />
+                  {isLoading ? "Creating account…" : <><span>Create Free Account</span><ArrowRight size={15} /></>}
                 </button>
               </form>
+                </>
+              )}
             </div>
 
             <p className="mt-6 text-center text-sm" style={{ color: "#475569" }}>
