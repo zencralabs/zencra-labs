@@ -116,7 +116,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {isFree ? (
             <div style={{ marginTop: "12px" }}>
               <div style={{ fontSize: "10px", color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "6px" }}>Free Trial</div>
-              <div style={{ fontSize: "11px", color: "#94A3B8", lineHeight: 1.5 }}>10 images · 3 videos</div>
+              <div style={{ fontSize: "11px", color: "#94A3B8", lineHeight: 1.5 }}>10 Nano Banana images</div>
+              <div style={{ fontSize: "11px", color: "#94A3B8", lineHeight: 1.5 }}>3 Kling video generations</div>
               <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px" }}>50 bonus credits</div>
             </div>
           ) : (

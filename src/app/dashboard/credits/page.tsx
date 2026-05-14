@@ -375,8 +375,8 @@ export default function CreditsPage() {
           <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", marginBottom: 6 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8", marginBottom: 8, fontFamily: "var(--font-familjen-grotesk)" }}>Free Trial</div>
             <div style={{ fontSize: 13, color: "#64748B", lineHeight: 1.8, fontFamily: "var(--font-familjen-grotesk)" }}>
-              <span style={{ color: "#94A3B8", fontWeight: 600 }}>10</span> image generations<br />
-              <span style={{ color: "#94A3B8", fontWeight: 600 }}>3</span> video generations<br />
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>10</span> image generations with Nano Banana models<br />
+              <span style={{ color: "#94A3B8", fontWeight: 600 }}>3</span> video generations with Kling 3.0, 2.6, or 2.5 Turbo<br />
               <span style={{ color: "#94A3B8", fontWeight: 600 }}>50</span> bonus credits
             </div>
             <div style={{ marginTop: 10, fontSize: 12, color: "#475569", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.5 }}>

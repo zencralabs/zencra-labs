@@ -303,7 +303,7 @@ export default function DashboardPage() {
           </div>
           {isFree ? (
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, color: "#94A3B8", fontFamily: "var(--font-sans)", marginBottom: 4 }}>Free Trial · 10 images · 3 videos</div>
+              <div style={{ fontSize: 11, color: "#94A3B8", fontFamily: "var(--font-sans)", marginBottom: 4 }}>Free Trial · 10 Nano Banana images · 3 Kling videos</div>
               <button
                 onClick={() => router.push("/dashboard/subscription")}
                 style={{ fontSize: 11, color: "#60A5FA", background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 3, padding: 0, fontFamily: "var(--font-sans)" }}
@@ -588,7 +588,8 @@ export default function DashboardPage() {
               <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", marginBottom: 6, fontFamily: "var(--font-sans)" }}>Free Trial</div>
                 <div style={{ fontSize: 11, color: "#64748B", lineHeight: 1.6, fontFamily: "var(--font-sans)" }}>
-                  10 image generations · 3 video generations
+                  10 Nano Banana image generations<br />
+                  3 Kling video generations
                 </div>
                 <div style={{ fontSize: 11, color: "#475569", marginTop: 4, fontFamily: "var(--font-sans)" }}>
                   50 bonus credits
