@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint, ArrowLeft, ArrowRight, ChevronLeft } from "lucide-react";
+import {
+  X, Mail, Eye, EyeOff, Zap, Phone, Fingerprint,
+  ArrowRight, ChevronLeft, ChevronRight, Key,
+} from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { AUTH_SLIDES } from "@/config/auth-modal-slides";
@@ -14,22 +17,37 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH MODAL — Login / Sign Up — Full auth system
-// Width: ~1020px (20% wider than original 860px)
-// Supports: Email/Password, Phone OTP, Google, Apple, Facebook, Passkey
+// Visual language: matches new /login page design (Cinematic Final v2).
+// Behavior: modal overlay — studio state preserved underneath.
+// Width: 1100px max (left 450px fixed / right flex:1)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── CSS Keyframes + class definitions (injected once into <head>) ────────────
+// ── Video model strip shown in right panel bottom ─────────────────────────────
+const VIDEO_STRIP = [
+  { name: "Kling 3.0",      color: "#818CF8" },
+  { name: "Runway Gen 4",   color: "#A78BFA" },
+  { name: "Seedance 2",     color: "#60A5FA" },
+  { name: "Veo 3",          color: "#34D399" },
+  { name: "LTX-2",          color: "#38BDF8" },
+] as const;
+
+// ── CSS Keyframes + class definitions ────────────────────────────────────────
 const MODAL_KEYFRAMES = `
 @keyframes amLeft  { from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:translateX(0)} }
 @keyframes amUp    { from{opacity:0;transform:translateY(12px)}  to{opacity:1;transform:translateY(0)} }
 @keyframes amFade  { from{opacity:0}                              to{opacity:1} }
 @keyframes amPing  { 0%{transform:scale(1);opacity:.65} 100%{transform:scale(2.4);opacity:0} }
 @keyframes amPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+@keyframes amBeam  { 0%,100%{opacity:.06} 50%{opacity:.16} }
+@keyframes amOrb   { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:.92;transform:scale(1.06)} }
 
-/* Social auth button — matches login page .zl-btn */
+.am-up   { animation:amUp   0.4s cubic-bezier(.22,.68,0,1.2) both }
+.am-fade { animation:amFade 0.4s ease both }
+
+/* Social auth button — matches .zl-btn */
 .am-btn {
   display:flex; align-items:center; gap:10px;
-  width:100%; padding:11px 15px; border-radius:12px;
+  width:100%; padding:12px 16px; border-radius:13px;
   font-size:13.5px; font-weight:600; color:#D1D5DB;
   background:rgba(255,255,255,0.04);
   border:1px solid rgba(255,255,255,0.08);
@@ -44,10 +62,10 @@ const MODAL_KEYFRAMES = `
 }
 .am-btn:active { transform:translateY(0); }
 
-/* Primary CTA — matches login page .zl-cta */
+/* Primary CTA — matches .zl-cta */
 .am-cta {
   display:flex; align-items:center; gap:10px;
-  width:100%; padding:13px 18px; border-radius:12px;
+  width:100%; padding:14px 18px; border-radius:13px;
   font-size:14px; font-weight:700; color:#ffffff; letter-spacing:-.015em;
   background:linear-gradient(135deg,#1E3A8A 0%,#2563EB 45%,#0369A1 100%);
   border:1px solid rgba(59,130,246,0.5);
@@ -62,9 +80,9 @@ const MODAL_KEYFRAMES = `
 .am-cta:active { transform:translateY(0); }
 .am-cta:disabled { opacity:0.65; transform:none; filter:none; cursor:not-allowed; }
 
-/* Form input — matches login page .zl-input */
+/* Form input — matches .zl-input */
 .am-input {
-  width:100%; padding:11px 14px; border-radius:10px;
+  width:100%; padding:12px 15px; border-radius:11px;
   font-size:14px; color:#F1F5F9; letter-spacing:-.01em;
   background:rgba(255,255,255,0.04);
   border:1px solid rgba(255,255,255,0.09);
@@ -83,27 +101,31 @@ const MODAL_KEYFRAMES = `
 /* Gradient separator */
 .am-sep { flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent); }
 
-/* Method tab pill */
-.am-tab-active {
-  flex:1; padding:8px 0; border-radius:9px; border:none;
-  background:rgba(37,99,235,0.18);
-  border:1px solid rgba(59,130,246,0.25);
-  color:#93C5FD;
-  font-size:13px; font-weight:700; cursor:pointer;
-  transition:all .15s;
+/* Slide arrow button — matches .zl-arrow */
+.am-arrow {
+  display:flex; align-items:center; justify-content:center;
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(255,255,255,0.09);
+  border:1px solid rgba(255,255,255,0.13);
+  cursor:pointer; color:#CBD5E1;
+  transition:background .18s,border-color .18s,box-shadow .18s,color .18s,transform .14s;
+  flex-shrink:0;
 }
-.am-tab-inactive {
-  flex:1; padding:8px 0; border-radius:9px; border:none;
-  background:transparent; border:1px solid transparent;
-  color:rgba(255,255,255,0.35);
-  font-size:13px; font-weight:500; cursor:pointer;
-  transition:all .15s;
+.am-arrow:hover {
+  background:rgba(37,99,235,0.2);
+  border-color:rgba(59,130,246,0.42);
+  box-shadow:0 0 20px rgba(37,99,235,0.32);
+  color:#fff; transform:scale(1.09);
 }
-.am-tab-inactive:hover { color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.04); }
+.am-arrow:active { transform:scale(1); }
 
-/* Animation helpers */
-.am-up   { animation:amUp   0.4s cubic-bezier(.22,.68,0,1.2) both; }
-.am-fade { animation:amFade 0.4s ease both; }
+/* Video model chip */
+.am-model-chip {
+  display:flex; align-items:center; gap:7px;
+  padding:6px 9px; border-radius:8px; cursor:default;
+  transition:background .18s; flex:1; justify-content:center;
+}
+.am-model-chip:hover { background:rgba(255,255,255,0.05); }
 `;
 
 // ── SVG Brand Icons ───────────────────────────────────────────────────────────
@@ -131,6 +153,17 @@ function FacebookIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
       <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path fill="#F25022" d="M0 0h11.4v11.4H0z"/>
+      <path fill="#7FBA00" d="M12.6 0H24v11.4H12.6z"/>
+      <path fill="#00A4EF" d="M0 12.6h11.4V24H0z"/>
+      <path fill="#FFB900" d="M12.6 12.6H24V24H12.6z"/>
     </svg>
   );
 }
@@ -197,17 +230,28 @@ function OtpInput({ value, onChange }: { value: string; onChange: (v: string) =>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RIGHT PANEL — memoized so form keystrokes don't re-render it
+// RIGHT PANEL — memoized, full cinematic visual richness matching /login page
 // ─────────────────────────────────────────────────────────────────────────────
 const RightPanel = memo(function RightPanel({
-  slideIdx, setSlideIdx,
-}: { slideIdx: number; setSlideIdx: (i: number) => void }) {
+  slideIdx, setSlideIdx, onClose,
+}: {
+  slideIdx: number;
+  setSlideIdx: (i: number) => void;
+  onClose: () => void;
+}) {
   const slide = AUTH_SLIDES[slideIdx];
+
   return (
     <div style={{
-      width: "420px", flexShrink: 0, position: "relative",
-      overflow: "hidden", background: slide.gradient, transition: "background 0.9s ease",
+      flex: 1,
+      minWidth: "460px",
+      position: "relative",
+      overflow: "hidden",
+      background: slide.gradient,
+      transition: "background 0.9s ease",
     }}>
+
+      {/* ── Slide image / video ── */}
       {slide.imageSrc && (
         <div style={{
           position: "absolute", inset: 0,
@@ -225,71 +269,273 @@ const RightPanel = memo(function RightPanel({
           <source src={slide.videoSrc} type="video/mp4" />
         </video>
       )}
-      {/* Cinematic vignettes — multi-directional for depth */}
+
+      {/* ── 4-directional cinematic vignettes ── */}
+      {/* Bottom */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(to top, rgba(4,12,24,0.96) 0%, rgba(4,12,24,0.72) 18%, rgba(4,12,24,0.35) 42%, rgba(4,12,24,0.08) 68%, transparent 100%)",
+        position: "absolute", bottom: 0, left: 0, right: 0, height: "65%",
+        background: "linear-gradient(to top, rgba(4,12,24,1.0) 0%, rgba(4,12,24,0.92) 14%, rgba(4,12,24,0.72) 32%, rgba(4,12,24,0.35) 54%, rgba(4,12,24,0.10) 75%, transparent 100%)",
+        pointerEvents: "none", zIndex: 2,
       }} />
+      {/* Left */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(to right, rgba(4,12,24,0.55) 0%, rgba(4,12,24,0.18) 35%, transparent 65%)",
+        position: "absolute", inset: 0, width: "25%",
+        background: "linear-gradient(to right, rgba(4,12,24,0.65) 0%, rgba(4,12,24,0.22) 60%, transparent 100%)",
+        pointerEvents: "none", zIndex: 2,
       }} />
-      {/* Accent orb */}
+      {/* Right */}
+      <div style={{
+        position: "absolute", inset: 0, left: "auto", width: "25%",
+        background: "linear-gradient(to left, rgba(4,12,24,0.65) 0%, rgba(4,12,24,0.22) 60%, transparent 100%)",
+        pointerEvents: "none", zIndex: 2,
+      }} />
+      {/* Top */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: "30%",
+        background: "linear-gradient(to bottom, rgba(4,12,24,0.75) 0%, rgba(4,12,24,0.28) 50%, transparent 100%)",
+        pointerEvents: "none", zIndex: 2,
+      }} />
+
+      {/* ── Accent orb ── */}
       <div style={{
         position: "absolute", bottom: "32%", left: "50%", transform: "translateX(-50%)",
-        width: "200px", height: "200px", borderRadius: "50%",
-        background: `radial-gradient(circle, ${slide.accent}40 0%, transparent 70%)`,
-        filter: "blur(40px)",
+        width: "220px", height: "220px", borderRadius: "50%",
+        background: `radial-gradient(circle, ${slide.accent}38 0%, transparent 70%)`,
+        filter: "blur(44px)",
         animation: "amPulse 4s ease-in-out infinite",
+        pointerEvents: "none", zIndex: 1,
       }} />
-      {/* Bottom content */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "28px 28px 32px" }}>
-        {/* Tool eyebrow */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-          <div style={{
-            width: "6px", height: "6px", borderRadius: "50%",
-            backgroundColor: slide.accent, boxShadow: `0 0 10px ${slide.accent}`,
-            animation: "amPulse 2.8s ease-in-out infinite",
-          }} />
+
+      {/* ── Atmospheric light beam ── */}
+      <div style={{
+        position: "absolute",
+        top: "-15%", left: "46%",
+        width: "1.5px", height: "145%",
+        background: "linear-gradient(180deg, transparent 0%, rgba(56,189,248,0.16) 30%, rgba(37,99,235,0.12) 60%, transparent 100%)",
+        transform: "rotate(-14deg)",
+        animation: "amBeam 5s ease-in-out infinite",
+        filter: "blur(8px)",
+        pointerEvents: "none", zIndex: 3,
+      }} />
+
+      {/* ── Noise grain ── */}
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.032,
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        pointerEvents: "none", zIndex: 3,
+      }} />
+
+      {/* ── Close button — top-right, 46px glass circle ── */}
+      <button
+        onClick={onClose}
+        className="am-fade"
+        style={{
+          position: "absolute", top: "20px", right: "22px", zIndex: 30,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: "46px", height: "46px", borderRadius: "50%",
+          background: "rgba(4,12,24,0.55)",
+          backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.45)",
+          cursor: "pointer",
+          transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.18s",
+          animationDelay: "0.3s",
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = "rgba(37,99,235,0.22)";
+          el.style.borderColor = "rgba(96,165,250,0.35)";
+          el.style.boxShadow = "0 0 0 1px rgba(96,165,250,0.12), 0 0 28px rgba(37,99,235,0.35), 0 4px 24px rgba(0,0,0,0.45)";
+          el.style.transform = "scale(1.06)";
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.background = "rgba(4,12,24,0.55)";
+          el.style.borderColor = "rgba(255,255,255,0.12)";
+          el.style.boxShadow = "0 0 0 1px rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.45)";
+          el.style.transform = "scale(1)";
+        }}
+        aria-label="Close"
+      >
+        <X size={16} style={{ color: "#E2E8F0", strokeWidth: 2.5 }} />
+      </button>
+
+      {/* ── TOP CONTENT — slide tool eyebrow + title + description ── */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0,
+        zIndex: 10, padding: "38px 44px 0",
+      }}>
+        {/* Eyebrow */}
+        <div
+          className="am-up"
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, marginBottom: 14, animationDelay: "0.2s" }}
+        >
           <span style={{
-            fontSize: "9.5px", fontWeight: 700,
-            color: "rgba(255,255,255,0.65)", letterSpacing: "0.16em",
-            textTransform: "uppercase", textShadow: "0 1px 8px rgba(0,0,0,0.9)",
-          }}>
+            width: 6, height: 6, borderRadius: "50%",
+            background: "#60A5FA", boxShadow: "0 0 8px #60A5FA",
+            display: "inline-block", flexShrink: 0,
+            animation: "amOrb 3s ease-in-out infinite",
+          }} />
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#60A5FA" }}>
             {slide.tool}
           </span>
         </div>
-        {/* Title */}
-        <h3 style={{
-          fontFamily: "var(--font-display, 'Syne', sans-serif)",
-          fontSize: "22px", fontWeight: 800, color: "#fff",
-          margin: "0 0 8px", lineHeight: 1.1,
-          letterSpacing: "-0.04em",
-          textShadow: "0 2px 18px rgba(0,0,0,0.95)",
+
+        {/* Slide title + description — re-keyed on change for entrance animation */}
+        <div key={`slide-${slideIdx}`} className="am-up" style={{ animationDelay: "0.05s" }}>
+          <h3 style={{
+            fontFamily: "var(--font-display, 'Syne', sans-serif)",
+            fontSize: "clamp(2rem, 3.5vw, 2.8rem)",
+            fontWeight: 800, lineHeight: 1.05,
+            letterSpacing: "-0.05em",
+            marginBottom: "0.65rem", margin: "0 0 10px",
+            textShadow: "0 2px 28px rgba(0,0,0,0.55)",
+          }}>
+            <span style={{ color: "#fff" }}>
+              {slide.title.split(" ").slice(0, -1).join(" ")}{slide.title.split(" ").length > 1 ? " " : ""}
+            </span>
+            <span style={{
+              background: `linear-gradient(90deg, ${slide.accent}, #60A5FA)`,
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+            }}>
+              {slide.title.split(" ").at(-1)}
+            </span>
+          </h3>
+          <p style={{
+            fontSize: 14.5, color: "rgba(226,232,240,0.88)",
+            letterSpacing: "-0.01em", lineHeight: 1.55,
+            maxWidth: 340,
+            textShadow: "0 1px 10px rgba(0,0,0,0.45)",
+            margin: 0,
+          }}>
+            {slide.desc}
+          </p>
+        </div>
+      </div>
+
+      {/* ── BOTTOM CONTENT — controls + video strip + metrics ── */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        zIndex: 10, padding: "0 44px 30px",
+      }}>
+
+        {/* Slide controls — [←]  pill dots  [→] */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginBottom: 22 }}>
+          <button
+            className="am-arrow"
+            onClick={() => setSlideIdx((slideIdx - 1 + AUTH_SLIDES.length) % AUTH_SLIDES.length)}
+            aria-label="Previous slide"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            {AUTH_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setSlideIdx(i)}
+                aria-label={`Slide ${i + 1}`}
+                style={{
+                  width: i === slideIdx ? 22 : 6, height: 6,
+                  borderRadius: 3, border: "none", cursor: "pointer", padding: 0,
+                  background: i === slideIdx ? "rgba(96,165,250,0.95)" : "rgba(255,255,255,0.22)",
+                  boxShadow: i === slideIdx ? "0 0 12px rgba(96,165,250,0.75)" : "none",
+                  transition: "all 0.35s cubic-bezier(.22,.68,0,1.2)",
+                }}
+              />
+            ))}
+          </div>
+          <button
+            className="am-arrow"
+            onClick={() => setSlideIdx((slideIdx + 1) % AUTH_SLIDES.length)}
+            aria-label="Next slide"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {/* Video model strip label */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 9 }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "#60A5FA", boxShadow: "0 0 6px #60A5FA",
+            display: "inline-block", flexShrink: 0,
+            animation: "amPulse 3s ease-in-out infinite",
+          }} />
+          <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#64748B" }}>
+            Video Models in Zencra
+          </span>
+        </div>
+
+        {/* Video model chips */}
+        <div style={{
+          display: "flex", alignItems: "center",
+          background: "rgba(4,12,24,0.58)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 11,
+          backdropFilter: "blur(14px)",
+          padding: "2px 4px",
+          marginBottom: 18,
         }}>
-          {slide.title}
-        </h3>
-        {/* Description */}
-        <p style={{
-          fontSize: "12.5px", color: "rgba(226,232,240,0.7)",
-          margin: "0 0 20px", lineHeight: 1.6,
-          textShadow: "0 1px 8px rgba(0,0,0,0.9)",
-          letterSpacing: "-0.01em",
-        }}>
-          {slide.desc}
-        </p>
-        {/* Slide dots */}
-        <div style={{ display: "flex", gap: "5px" }}>
-          {AUTH_SLIDES.map((_, i) => (
-            <button key={i} onClick={() => setSlideIdx(i)} style={{
-              width: i === slideIdx ? "22px" : "6px", height: "6px",
-              borderRadius: "10px",
-              background: i === slideIdx ? slide.accent : "rgba(255,255,255,0.2)",
-              boxShadow: i === slideIdx ? `0 0 10px ${slide.accent}80` : "none",
-              border: "none", cursor: "pointer",
-              transition: "all 0.35s cubic-bezier(.22,.68,0,1.2)", padding: 0,
-            }} />
+          {VIDEO_STRIP.map((m, i) => (
+            <div key={m.name} style={{ display: "flex", alignItems: "center", flex: 1 }}>
+              <div className="am-model-chip">
+                <span style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: m.color, boxShadow: `0 0 6px ${m.color}80`,
+                  display: "inline-block", flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#CBD5E1", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
+                  {m.name}
+                </span>
+              </div>
+              {i < VIDEO_STRIP.length - 1 && (
+                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.09)", flexShrink: 0 }} />
+              )}
+            </div>
           ))}
+        </div>
+
+        {/* Metrics row */}
+        <div style={{
+          display: "flex", gap: 28,
+          paddingTop: 13,
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          alignItems: "center",
+        }}>
+          <div>
+            <p style={{
+              fontFamily: "var(--font-display, 'Syne', sans-serif)",
+              fontSize: "1.3rem", fontWeight: 800, letterSpacing: "-0.04em", color: "#fff", lineHeight: 1,
+              textShadow: "0 0 22px rgba(96,165,250,0.45)", margin: 0,
+            }}>10+</p>
+            <p style={{ fontSize: 10, color: "#94A3B8", marginTop: 3, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>
+              AI Models
+            </p>
+          </div>
+          <div>
+            <p style={{
+              fontFamily: "var(--font-display, 'Syne', sans-serif)",
+              fontSize: "1.3rem", fontWeight: 800, letterSpacing: "-0.04em", color: "#fff", lineHeight: 1,
+              textShadow: "0 0 22px rgba(96,165,250,0.45)", margin: 0,
+            }}>4K</p>
+            <p style={{ fontSize: 10, color: "#94A3B8", marginTop: 3, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>
+              Max Quality
+            </p>
+          </div>
+          <div>
+            <span style={{
+              fontFamily: "var(--font-display, 'Syne', sans-serif)",
+              fontSize: "1.9rem", fontWeight: 900, letterSpacing: "-0.06em", lineHeight: 1,
+              background: "linear-gradient(135deg, #60A5FA 0%, #34D399 45%, #22D3EE 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              filter: "drop-shadow(0 0 14px rgba(96,165,250,0.55))",
+              display: "inline-block",
+              animation: "amPulse 3.5s ease-in-out infinite",
+            }}>∞</span>
+            <p style={{ fontSize: 10, color: "#94A3B8", marginTop: 3, letterSpacing: "0.04em", textTransform: "uppercase", fontWeight: 600 }}>
+              Creativity
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -305,12 +551,12 @@ export interface AuthModalProps {
   onClose: () => void;
 }
 
-type AuthMethod = "email" | "phone";
+type AuthView   = "default" | "email" | "phone" | "passkey";
 type PhoneStep  = "phone" | "otp";
 
 export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const [authMode, setAuthMode]     = useState<"login" | "signup">(defaultTab);
-  const [method, setMethod]         = useState<AuthMethod>("email");
+  const [view, setView]             = useState<AuthView>("default");
   const [phoneStep, setPhoneStep]   = useState<PhoneStep>("phone");
 
   // Email form
@@ -320,34 +566,28 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const [showPass, setShowPass] = useState(false);
 
   // Phone form
-  const [phone, setPhone]   = useState("");
-  const [otp, setOtp]       = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [phone, setPhone]       = useState("");
+  const [otp, setOtp]           = useState("");
+  const [otpSent, setOtpSent]   = useState(false);
   const [countdown, setCountdown] = useState(0);
 
-  // CAPTCHA — adaptive, risk-based
-  // failedAttempts: counts consecutive login / phone-OTP-send failures.
-  // Resets to 0 when authMode or method changes.
+  // CAPTCHA
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  // resetKey forces TurnstileWidget to tear down and re-render the iframe.
-  const captchaResetKey = `${authMode}-${method}`;
+  const captchaResetKey = `${authMode}-${view}`;
 
-  // When to show (and enforce) CAPTCHA:
-  //   Signup           → always
-  //   Email login      → after 3 consecutive failures (4th attempt onward)
-  //   Phone OTP send   → after 3 consecutive failures (4th attempt onward)
-  //   OAuth            → never (not in this modal)
   const showCaptcha = Boolean(TURNSTILE_SITE_KEY) && (
-    method === "email"
+    view === "email"
       ? (authMode === "signup" || failedAttempts >= 3)
-      : failedAttempts >= 3
+      : view === "phone"
+        ? failedAttempts >= 3
+        : false
   );
 
   // State
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [success, setSuccess] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [success, setSuccess]   = useState("");
   const [slideIdx, setSlideIdx] = useState(0);
   const handleSlideIdx = useCallback((i: number) => setSlideIdx(i), []);
   const [isMobile, setIsMobile] = useState(false);
@@ -357,14 +597,10 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   const searchParams = useSearchParams();
 
   // ── Event-driven post-login redirect ──────────────────────────────────────
-  // After login succeeds, wait for AuthContext to populate user with role,
-  // then redirect: ?next param takes priority, else role-based (admin→/hub).
   const [pendingRedirect, setPendingRedirect] = useState(false);
-
   useEffect(() => {
     if (!pendingRedirect || !user) return;
     setPendingRedirect(false);
-    // ?next param (set by middleware when unauthenticated user hits protected route)
     const next = searchParams.get("next");
     const dest = next || (user.role === "admin" ? "/hub" : "/dashboard");
     onClose();
@@ -403,6 +639,21 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   function resetCaptcha() { setCaptchaToken(null); }
   function resetFailedAttempts() { setFailedAttempts(0); }
 
+  function switchMode(mode: "login" | "signup") {
+    setAuthMode(mode);
+    setView("default");
+    resetErrors();
+    resetCaptcha();
+    resetFailedAttempts();
+  }
+
+  function goBack() {
+    setView("default");
+    setPhoneStep("phone");
+    resetErrors();
+    resetCaptcha();
+  }
+
   // ── Email/Password submit ──────────────────────────────────────────────────
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -414,7 +665,6 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       if (!/[0-9]/.test(password)) { setError("Password must contain at least one number."); return; }
       if (!/[^A-Za-z0-9]/.test(password)) { setError("Password must contain at least one special character (e.g. !@#$%)."); return; }
     }
-    // Enforce CAPTCHA only when this flow requires it
     if (showCaptcha && !captchaToken) {
       setError("Please complete the verification before continuing.");
       return;
@@ -438,14 +688,9 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
           return;
         }
       }
-      if (ok) {
-        // Signal the useEffect above to redirect once AuthContext has user+role
-        setPendingRedirect(true);
-      }
+      if (ok) setPendingRedirect(true);
     } finally {
       setLoading(false);
-      // Always reset the token after a submit attempt so a fresh challenge is
-      // required if the user corrects an error and tries again.
       resetCaptcha();
     }
   }
@@ -458,7 +703,6 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       setError("Enter a valid phone number with country code, e.g. +91 98765 43210");
       return;
     }
-    // Enforce CAPTCHA only when this flow requires it (after 3 failures)
     if (showCaptcha && !captchaToken) {
       setError("Please complete the verification before continuing.");
       return;
@@ -471,7 +715,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
       setCountdown(60);
       setOtpSent(true);
       setFailedAttempts(0);
-      resetCaptcha(); // fresh challenge required if user tries to resend
+      resetCaptcha();
     } else {
       setFailedAttempts(n => n + 1);
       setError(result.error ?? "Failed to send OTP. Please try again.");
@@ -503,7 +747,7 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
     else    setError("Passkey authentication failed or not set up.");
   }
 
-  // ── Shared label style — matches login page lbl() ─────────────────────────
+  // ── Shared label style ────────────────────────────────────────────────────
   const lblStyle: React.CSSProperties = {
     display: "block", marginBottom: 6,
     fontSize: 10.5, fontWeight: 700,
@@ -516,9 +760,9 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Inject keyframes once */}
       <style dangerouslySetInnerHTML={{ __html: MODAL_KEYFRAMES }} />
 
+      {/* Outer overlay */}
       <div
         style={{
           position: "fixed", inset: 0, zIndex: 1300,
@@ -529,9 +773,10 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
         }}
         onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       >
+        {/* Inner card */}
         <div style={{
           width: "100%",
-          maxWidth: isMobile ? "100%" : "1020px",
+          maxWidth: isMobile ? "100%" : "1100px",
           height: isMobile ? "100%" : "auto",
           display: "flex",
           borderRadius: isMobile ? "0" : "20px",
@@ -541,14 +786,14 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
           willChange: "transform",
         }}>
 
-          {/* ── LEFT PANEL: Form ────────────────────────────────────────────── */}
+          {/* ── LEFT PANEL: Form ──────────────────────────────────────────── */}
           <div style={{
-            flex: 1,
+            width: isMobile ? "100%" : "450px",
+            flexShrink: 0,
             backgroundColor: "#040C18",
-            padding: isMobile ? "32px 24px 40px" : "44px 48px",
+            padding: isMobile ? "32px 24px 40px" : "0",
             display: "flex",
             flexDirection: "column",
-            minWidth: isMobile ? "100%" : "420px",
             overflowY: "auto",
             position: "relative",
           }}>
@@ -559,580 +804,606 @@ export function AuthModal({ defaultTab, onClose }: AuthModalProps) {
               background: "radial-gradient(ellipse 80% 60% at 20% 55%, rgba(29,78,216,0.07) 0%, transparent 60%)",
             }} />
 
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              style={{
-                position: "absolute", top: "16px", right: "16px",
-                background: "rgba(8,15,28,0.72)", border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "50%", padding: "7px", cursor: "pointer",
-                color: "#94A3B8", display: "flex", zIndex: 50,
-                backdropFilter: "blur(12px)",
-                transition: "background 0.2s, border-color 0.2s, color 0.2s",
-                width: "34px", height: "34px", alignItems: "center", justifyContent: "center",
-                pointerEvents: "all",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(37,99,235,0.18)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(96,165,250,0.3)";
-                (e.currentTarget as HTMLButtonElement).style.color = "#E2E8F0";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(8,15,28,0.72)";
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)";
-                (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
-              }}
-            >
-              <X size={15} strokeWidth={2.5} />
-            </button>
-
-            {/* Logo + headline */}
-            <div style={{ marginBottom: "28px", position: "relative" }}>
-              {/* Logo */}
-              <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "22px" }}>
-                <div style={{
-                  width: "32px", height: "32px", borderRadius: "8px",
-                  background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
+            {/* Mobile-only close button */}
+            {isMobile && (
+              <button
+                onClick={onClose}
+                style={{
+                  position: "absolute", top: "16px", right: "16px",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                  fontWeight: 800, fontSize: "15px", color: "#fff",
-                  boxShadow: "0 0 18px rgba(37,99,235,0.35)",
-                }}>Z</div>
-                <span style={{
-                  fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                  fontWeight: 700, fontSize: "14px", color: "#F8FAFC",
-                  letterSpacing: "-0.02em",
-                }}>
-                  Zencra Labs
-                </span>
-              </div>
-
-              {/* Auth mode toggle — Login / Sign Up tabs */}
-              <div style={{
-                display: "inline-flex", gap: "2px",
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: "12px", padding: "3px",
-                border: "1px solid rgba(255,255,255,0.07)",
-                marginBottom: "22px",
-              }}>
-                <button
-                  onClick={() => { setAuthMode("login"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-                  style={{
-                    padding: "7px 20px", borderRadius: "9px", border: "none",
-                    background: authMode === "login" ? "rgba(37,99,235,0.2)" : "transparent",
-                    borderColor: authMode === "login" ? "rgba(59,130,246,0.28)" : "transparent",
-                    borderWidth: authMode === "login" ? "1px" : "1px",
-                    borderStyle: "solid",
-                    color: authMode === "login" ? "#93C5FD" : "rgba(255,255,255,0.38)",
-                    fontSize: "13px", fontWeight: authMode === "login" ? 700 : 500,
-                    cursor: "pointer", transition: "all 0.15s",
-                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => { setAuthMode("signup"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-                  style={{
-                    padding: "7px 20px", borderRadius: "9px", border: "none",
-                    background: authMode === "signup" ? "rgba(37,99,235,0.2)" : "transparent",
-                    borderColor: authMode === "signup" ? "rgba(59,130,246,0.28)" : "transparent",
-                    borderWidth: authMode === "signup" ? "1px" : "1px",
-                    borderStyle: "solid",
-                    color: authMode === "signup" ? "#93C5FD" : "rgba(255,255,255,0.38)",
-                    fontSize: "13px", fontWeight: authMode === "signup" ? 700 : 500,
-                    cursor: "pointer", transition: "all 0.15s",
-                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  Sign Up
-                </button>
-              </div>
-
-              {/* Heading */}
-              <h2 style={{
-                fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                fontSize: "26px", fontWeight: 800, color: "#fff",
-                margin: "0 0 6px", lineHeight: 1.1, letterSpacing: "-0.045em",
-                textShadow: "0 2px 18px rgba(15,23,42,0.45)",
-              }}>
-                {authMode === "login" ? (
-                  <>
-                    <span>Sign in to your </span>
-                    <span style={{
-                      background: "linear-gradient(90deg, #60A5FA 0%, #34D399 50%, #22D3EE 100%)",
-                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-                    }}>
-                      Zencra
-                    </span>
-                    <span> account</span>
-                  </>
-                ) : (
-                  "Create your account"
-                )}
-              </h2>
-              <p style={{
-                fontSize: "13.5px", color: "rgba(226,232,240,0.82)",
-                margin: 0, letterSpacing: "-0.01em",
-                fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-              }}>
-                {authMode === "login"
-                  ? "Access the future of AI content creation."
-                  : "Start generating for free — no card needed"}
-              </p>
-            </div>
-
-            {/* Method tabs: Email / Phone */}
-            <div style={{
-              display: "flex", gap: "4px",
-              background: "rgba(255,255,255,0.035)",
-              borderRadius: "11px", padding: "3px",
-              marginBottom: "20px",
-              border: "1px solid rgba(255,255,255,0.06)",
-            }}>
-              <button
-                className={method === "email" ? "am-tab-active" : "am-tab-inactive"}
-                onClick={() => { setMethod("email"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+                  width: "40px", height: "40px", borderRadius: "50%",
+                  background: "rgba(8,15,28,0.72)", border: "1px solid rgba(255,255,255,0.15)",
+                  backdropFilter: "blur(18px)",
+                  boxShadow: "0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5)",
+                  cursor: "pointer", zIndex: 10,
+                  transition: "background 0.2s, border-color 0.2s",
+                }}
               >
-                <Mail size={13} />
-                Email
+                <X size={15} style={{ color: "#E2E8F0", strokeWidth: 2.5 }} />
               </button>
-              <button
-                className={method === "phone" ? "am-tab-active" : "am-tab-inactive"}
-                onClick={() => { setMethod("phone"); setPhoneStep("phone"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
-              >
-                <Phone size={13} />
-                Phone
-              </button>
-            </div>
-
-            {/* ── SOCIAL BUTTONS (shown on email tab only) ── */}
-            {method === "email" && (
-              <>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "18px" }}>
-                  <button
-                    className="am-btn"
-                    onClick={() => loginWithOAuth("google")}
-                    disabled={loading}
-                    style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer" }}
-                  >
-                    <GoogleIcon />
-                    Continue with Google
-                  </button>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                    <button
-                      className="am-btn"
-                      onClick={() => loginWithOAuth("apple")}
-                      disabled={loading}
-                      style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer", justifyContent: "center" }}
-                    >
-                      <AppleIcon />
-                      <span>Apple</span>
-                    </button>
-                    <button
-                      className="am-btn"
-                      onClick={() => loginWithOAuth("facebook")}
-                      disabled={loading}
-                      style={{ opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer", justifyContent: "center" }}
-                    >
-                      <FacebookIcon />
-                      <span>Facebook</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px" }}>
-                  <div className="am-sep" />
-                  <span style={{
-                    fontSize: "10.5px", fontWeight: 600,
-                    color: "rgba(100,116,139,0.82)",
-                    letterSpacing: "0.07em", textTransform: "uppercase", whiteSpace: "nowrap",
-                    fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                  }}>
-                    or continue with email
-                  </span>
-                  <div className="am-sep" />
-                </div>
-
-                {/* Email/Password form */}
-                <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: "13px" }}>
-                  {authMode === "signup" && (
-                    <div>
-                      <label style={lblStyle}>Full Name</label>
-                      <div style={{ position: "relative" }}>
-                        <svg
-                          width="14" height="14" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2"
-                          style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
-                        >
-                          <circle cx="12" cy="8" r="4"/>
-                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                        </svg>
-                        <input
-                          className="am-input"
-                          type="text"
-                          value={name}
-                          onChange={e => setName(e.target.value)}
-                          placeholder="Jai Kumar Nair"
-                          style={{ paddingLeft: "36px" }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label style={lblStyle}>Email Address</label>
-                    <div style={{ position: "relative" }}>
-                      <Mail size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
-                      <input
-                        className="am-input"
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        style={{ paddingLeft: "36px" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                      <label style={{ ...lblStyle, marginBottom: 0 }}>Password</label>
-                      {authMode === "login" && (
-                        <button
-                          type="button"
-                          onClick={() => { onClose(); router.push("/auth/reset-password"); }}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer",
-                            color: "#3B82F6", fontSize: "12px", fontWeight: 600,
-                            fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                            transition: "color 0.14s",
-                          }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
-                        >
-                          Forgot password?
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        className="am-input"
-                        type={showPass ? "text" : "password"}
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        style={{ paddingRight: "42px" }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPass(s => !s)}
-                        style={{
-                          position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
-                          background: "none", border: "none", cursor: "pointer",
-                          color: "#334155", transition: "color 0.14s",
-                        }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#334155"; }}
-                      >
-                        {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    {authMode === "signup" && password.length > 0 && (
-                      <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                        {[
-                          { ok: password.length >= 8,          label: "Min 8 characters" },
-                          { ok: /[A-Z]/.test(password),        label: "One uppercase letter" },
-                          { ok: /[0-9]/.test(password),        label: "One number" },
-                          { ok: /[^A-Za-z0-9]/.test(password), label: "One special character" },
-                        ].map(r => (
-                          <div key={r.label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.ok ? "✓" : "○"}</span>
-                            <span style={{
-                              fontSize: "11.5px",
-                              color: r.ok ? "#4ade80" : "rgba(148,163,184,0.65)",
-                              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                            }}>
-                              {r.label}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {error && (
-                    <p style={{
-                      fontSize: "13px", color: "#F87171", margin: 0,
-                      letterSpacing: "-0.01em",
-                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                    }}>
-                      {error}
-                    </p>
-                  )}
-                  {success && (
-                    <p style={{
-                      fontSize: "13px", color: "#6EE7B7", margin: 0,
-                      letterSpacing: "-0.01em",
-                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                    }}>
-                      {success}
-                    </p>
-                  )}
-
-                  {/* ── Turnstile CAPTCHA — signup: always; login: after 3 failed attempts ── */}
-                  {showCaptcha && (
-                    <TurnstileWidget
-                      siteKey={TURNSTILE_SITE_KEY}
-                      resetKey={captchaResetKey}
-                      onSuccess={(token) => setCaptchaToken(token)}
-                      onExpire={() => setCaptchaToken(null)}
-                    />
-                  )}
-
-                  <button
-                    type="submit"
-                    className="am-cta"
-                    disabled={loading || pendingRedirect}
-                    style={{ marginTop: "2px" }}
-                  >
-                    <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
-                    {(loading || pendingRedirect) ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
-                    {!(loading || pendingRedirect) && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
-                  </button>
-                </form>
-              </>
             )}
 
-            {/* ── PHONE OTP FLOW ── */}
-            {method === "phone" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Auth content — vertically centered on desktop */}
+            <div style={{
+              display: "flex", flex: 1, alignItems: "center", justifyContent: "center",
+              padding: isMobile ? "0" : "40px 48px",
+            }}>
+              <div style={{ width: "100%", maxWidth: 360, position: "relative", zIndex: 1 }}>
 
-                {phoneStep === "phone" && (
-                  <>
-                    <div>
-                      <label style={lblStyle}>Mobile Number</label>
-                      <div style={{ marginTop: "6px", position: "relative" }}>
-                        <Phone size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
-                        <input
-                          className="am-input"
-                          type="tel"
-                          value={phone}
-                          onChange={e => setPhone(e.target.value)}
-                          placeholder="+1 555 000 0000"
-                          style={{ paddingLeft: "36px" }}
-                        />
-                      </div>
-                      <p style={{
-                        fontSize: "11.5px", color: "rgba(100,116,139,0.82)", marginTop: "7px",
-                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                      }}>
-                        Include country code — e.g. +1 for US, +44 for UK, +91 for India
-                      </p>
+                {/* Logo */}
+                <div style={{ display: "flex", alignItems: "center", gap: "9px", marginBottom: "22px" }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "8px",
+                    background: "linear-gradient(135deg,#2563EB,#0EA5A0)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                    fontWeight: 800, fontSize: "15px", color: "#fff",
+                    boxShadow: "0 0 18px rgba(37,99,235,0.35)",
+                  }}>Z</div>
+                  <span style={{
+                    fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                    fontWeight: 700, fontSize: "14px", color: "#F8FAFC",
+                    letterSpacing: "-0.02em",
+                  }}>
+                    Zencra Labs
+                  </span>
+                </div>
+
+                {/* ── DEFAULT VIEW ─────────────────────────────────────────── */}
+                {view === "default" && (
+                  <div className="am-up">
+                    {/* Login/Signup pill toggle */}
+                    <div style={{
+                      display: "inline-flex", gap: "2px",
+                      background: "rgba(255,255,255,0.04)",
+                      borderRadius: "12px", padding: "3px",
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      marginBottom: "18px",
+                    }}>
+                      {(["login", "signup"] as const).map(mode => (
+                        <button
+                          key={mode}
+                          onClick={() => switchMode(mode)}
+                          style={{
+                            padding: "7px 20px", borderRadius: "9px",
+                            border: authMode === mode ? "1px solid rgba(59,130,246,0.28)" : "1px solid transparent",
+                            background: authMode === mode ? "rgba(37,99,235,0.2)" : "transparent",
+                            color: authMode === mode ? "#93C5FD" : "rgba(255,255,255,0.38)",
+                            fontSize: "13px", fontWeight: authMode === mode ? 700 : 500,
+                            cursor: "pointer", transition: "all 0.15s",
+                            fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
+                          {mode === "login" ? "Log In" : "Sign Up"}
+                        </button>
+                      ))}
                     </div>
 
-                    {error && (
-                      <p style={{ fontSize: "13px", color: "#F87171", margin: 0 }}>{error}</p>
-                    )}
-
-                    {/* ── Turnstile CAPTCHA for phone OTP — after 3 failed send attempts ── */}
-                    {showCaptcha && (
-                      <TurnstileWidget
-                        siteKey={TURNSTILE_SITE_KEY}
-                        resetKey={captchaResetKey}
-                        onSuccess={(token) => setCaptchaToken(token)}
-                        onExpire={() => setCaptchaToken(null)}
-                      />
-                    )}
-
-                    <button
-                      className="am-cta"
-                      onClick={handleSendOtp}
-                      disabled={loading}
-                    >
-                      <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
-                      {loading ? "Sending…" : "Send OTP"}
-                      {!loading && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
-                    </button>
-                  </>
-                )}
-
-                {phoneStep === "otp" && (
-                  <>
-                    <button
-                      onClick={() => { setPhoneStep("phone"); setOtp(""); resetErrors(); }}
+                    {/* Eyebrow pill */}
+                    <div
+                      className="am-fade"
                       style={{
-                        display: "flex", alignItems: "center", gap: "6px",
-                        background: "none", border: "none",
-                        color: "rgba(148,163,184,0.8)", fontSize: "12.5px",
-                        cursor: "pointer", padding: 0,
-                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                        transition: "color 0.15s",
+                        display: "inline-flex", alignItems: "center", gap: 7,
+                        marginBottom: 14, padding: "4px 12px", borderRadius: 999,
+                        background: "rgba(37,99,235,0.09)",
+                        border: "1px solid rgba(37,99,235,0.2)",
+                        fontSize: 10.5, fontWeight: 700,
+                        letterSpacing: "0.07em", textTransform: "uppercase",
+                        color: "#93C5FD", animationDelay: "0.04s",
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#E2E8F0"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(148,163,184,0.8)"; }}
                     >
-                      <ChevronLeft size={14} />
-                      Back
-                    </button>
-
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{
-                        width: "52px", height: "52px", borderRadius: "50%",
-                        margin: "0 auto 12px",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: "rgba(37,99,235,0.1)",
-                        border: "1px solid rgba(37,99,235,0.25)",
-                        boxShadow: "0 0 22px rgba(37,99,235,0.15)",
-                      }}>
-                        <Phone size={20} style={{ color: "#93C5FD" }} />
-                      </div>
-                      <p style={{
-                        fontSize: "15px", fontWeight: 700, color: "#F1F5F9", margin: "0 0 5px",
-                        fontFamily: "var(--font-display, 'Syne', sans-serif)",
-                        letterSpacing: "-0.025em",
-                      }}>
-                        Check your phone
-                      </p>
-                      <p style={{
-                        fontSize: "12.5px", color: "rgba(148,163,184,0.82)", margin: 0,
-                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                      }}>
-                        We sent a 6-digit code to{" "}
-                        <strong style={{ color: "#CBD5E1" }}>{phone}</strong>
-                      </p>
+                      <span style={{
+                        width: 5, height: 5, borderRadius: "50%",
+                        background: "#60A5FA", boxShadow: "0 0 7px #60A5FA",
+                        display: "inline-block", flexShrink: 0,
+                      }} />
+                      {authMode === "login" ? "Welcome back to Zencra" : "Join Zencra"}
                     </div>
 
-                    <OtpInput value={otp} onChange={setOtp} />
-
-                    {error && (
-                      <p style={{
-                        fontSize: "13px", color: "#F87171", textAlign: "center", margin: 0,
-                        fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                      }}>
-                        {error}
-                      </p>
-                    )}
-
-                    <button
-                      className="am-cta"
-                      onClick={handleVerifyOtp}
-                      disabled={loading || otp.replace(/\D/g, "").length < 6}
-                    >
-                      <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
-                      {loading ? "Verifying…" : "Verify & Sign In"}
-                      {!loading && otp.replace(/\D/g, "").length === 6 && (
-                        <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />
+                    {/* Heading */}
+                    <h2 style={{
+                      fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                      fontSize: "clamp(1.65rem, 2.4vw, 2rem)",
+                      fontWeight: 800, color: "#fff",
+                      margin: "0 0 6px", lineHeight: 1.1, letterSpacing: "-0.045em",
+                      textShadow: "0 2px 18px rgba(15,23,42,0.45)",
+                    }}>
+                      {authMode === "login" ? (
+                        <>
+                          <span>Sign in to your </span>
+                          <span style={{
+                            background: "linear-gradient(90deg, #60A5FA 0%, #34D399 50%, #22D3EE 100%)",
+                            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+                          }}>Zencra</span>
+                          <span> account</span>
+                        </>
+                      ) : (
+                        "Create your account"
                       )}
-                    </button>
+                    </h2>
+                    <p style={{
+                      fontSize: "13.5px", color: "rgba(226,232,240,0.82)",
+                      margin: "0 0 22px", letterSpacing: "-0.01em",
+                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    }}>
+                      {authMode === "login"
+                        ? "Access the future of AI content creation."
+                        : "Start generating for free — no card needed"}
+                    </p>
 
-                    <div style={{ textAlign: "center" }}>
-                      {countdown > 0 ? (
-                        <p style={{
-                          fontSize: "12.5px", color: "rgba(100,116,139,0.82)",
+                    {/* Email CTA — primary */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      <button
+                        className="am-cta"
+                        onClick={() => { setView("email"); resetErrors(); }}
+                      >
+                        <Mail size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                        {authMode === "login" ? "Continue with Email" : "Sign up with Email"}
+                        <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.65 }} />
+                      </button>
+
+                      {/* Social 2×2 grid */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                        <button className="am-btn" onClick={() => loginWithOAuth("google")}>
+                          <GoogleIcon /><span>Google</span>
+                        </button>
+                        <button className="am-btn" onClick={() => loginWithOAuth("apple")}>
+                          <AppleIcon /><span>Apple</span>
+                        </button>
+                        <button className="am-btn" onClick={() => loginWithOAuth("facebook")}>
+                          <FacebookIcon /><span>Facebook</span>
+                        </button>
+                        <button className="am-btn">
+                          <MicrosoftIcon /><span>Microsoft</span>
+                        </button>
+                      </div>
+
+                      {/* Divider */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, margin: "2px 0" }}>
+                        <div className="am-sep" />
+                        <span style={{
+                          fontSize: 10.5, color: "rgba(100,116,139,0.82)", fontWeight: 600,
+                          letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap",
                           fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
                         }}>
-                          Resend code in{" "}
-                          <strong style={{ color: "#94A3B8" }}>{countdown}s</strong>
-                        </p>
-                      ) : (
+                          or continue with
+                        </span>
+                        <div className="am-sep" />
+                      </div>
+
+                      {/* OTP + Passkey row */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
                         <button
-                          onClick={handleSendOtp}
-                          disabled={loading}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer",
-                            color: "#3B82F6", fontSize: "12.5px", fontWeight: 600,
-                            fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                            transition: "color 0.14s",
-                          }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                          className="am-btn"
+                          style={{ justifyContent: "center" }}
+                          onClick={() => { setView("phone"); resetErrors(); }}
                         >
-                          Resend OTP
+                          <Key size={13} style={{ color: "#475569" }} />
+                          <span style={{ fontSize: 13 }}>Phone OTP</span>
                         </button>
+                        <button
+                          className="am-btn"
+                          style={{ justifyContent: "center" }}
+                          onClick={() => { setView("passkey"); resetErrors(); }}
+                        >
+                          <Fingerprint size={13} style={{ color: "#475569" }} />
+                          <span style={{ fontSize: 13 }}>Passkey</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── EMAIL VIEW ───────────────────────────────────────────── */}
+                {view === "email" && (
+                  <div className="am-up" style={{ animationDelay: "0.04s" }}>
+                    {/* Back + heading */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
+                      <button
+                        onClick={goBack}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                          background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                          cursor: "pointer",
+                        }}
+                        aria-label="Back"
+                      >
+                        <ChevronLeft size={14} style={{ color: "#94A3B8" }} />
+                      </button>
+                      <div>
+                        <h2 style={{
+                          fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                          fontSize: "1.55rem", fontWeight: 800,
+                          letterSpacing: "-0.04em", color: "#fff", lineHeight: 1.15, margin: 0,
+                        }}>
+                          {authMode === "login" ? "Sign in with email" : "Create your account"}
+                        </h2>
+                        <p style={{
+                          marginTop: 3, fontSize: 13,
+                          color: "rgba(226,232,240,0.78)",
+                          fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                        }}>
+                          {authMode === "login" ? "Enter your credentials below" : "Fill in your details to get started"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Email/Password form */}
+                    <form onSubmit={handleEmailSubmit} style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                      {authMode === "signup" && (
+                        <div>
+                          <label style={lblStyle}>Full Name</label>
+                          <div style={{ position: "relative" }}>
+                            <svg
+                              width="14" height="14" viewBox="0 0 24 24" fill="none"
+                              stroke="currentColor" strokeWidth="2"
+                              style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }}
+                            >
+                              <circle cx="12" cy="8" r="4"/>
+                              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                            </svg>
+                            <input
+                              className="am-input"
+                              type="text"
+                              value={name}
+                              onChange={e => setName(e.target.value)}
+                              placeholder="Jai Kumar Nair"
+                              style={{ paddingLeft: "36px" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label style={lblStyle}>Email Address</label>
+                        <div style={{ position: "relative" }}>
+                          <Mail size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
+                          <input
+                            className="am-input"
+                            type="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="you@example.com"
+                            style={{ paddingLeft: "36px" }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                          <label style={{ ...lblStyle, marginBottom: 0 }}>Password</label>
+                          {authMode === "login" && (
+                            <button
+                              type="button"
+                              onClick={() => { onClose(); router.push("/auth/reset-password"); }}
+                              style={{
+                                background: "none", border: "none", cursor: "pointer",
+                                color: "#3B82F6", fontSize: "12px", fontWeight: 600,
+                                fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                                transition: "color 0.14s",
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                            >
+                              Forgot password?
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ position: "relative" }}>
+                          <input
+                            className="am-input"
+                            type={showPass ? "text" : "password"}
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            style={{ paddingRight: "42px" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPass(s => !s)}
+                            style={{
+                              position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)",
+                              background: "none", border: "none", cursor: "pointer",
+                              color: "#334155", transition: "color 0.14s",
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#334155"; }}
+                          >
+                            {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                        {authMode === "signup" && password.length > 0 && (
+                          <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                            {[
+                              { ok: password.length >= 8,          label: "Min 8 characters" },
+                              { ok: /[A-Z]/.test(password),        label: "One uppercase letter" },
+                              { ok: /[0-9]/.test(password),        label: "One number" },
+                              { ok: /[^A-Za-z0-9]/.test(password), label: "One special character" },
+                            ].map(r => (
+                              <div key={r.label} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ fontSize: "11px", color: r.ok ? "#4ade80" : "#475569" }}>{r.ok ? "✓" : "○"}</span>
+                                <span style={{
+                                  fontSize: "11.5px",
+                                  color: r.ok ? "#4ade80" : "rgba(148,163,184,0.65)",
+                                  fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                                }}>{r.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {error && (
+                        <p style={{ fontSize: "13px", color: "#F87171", margin: 0, letterSpacing: "-0.01em" }}>
+                          {error}
+                        </p>
+                      )}
+                      {success && (
+                        <p style={{ fontSize: "13px", color: "#6EE7B7", margin: 0, letterSpacing: "-0.01em" }}>
+                          {success}
+                        </p>
+                      )}
+
+                      {showCaptcha && (
+                        <TurnstileWidget
+                          siteKey={TURNSTILE_SITE_KEY}
+                          resetKey={captchaResetKey}
+                          onSuccess={token => setCaptchaToken(token)}
+                          onExpire={() => setCaptchaToken(null)}
+                        />
+                      )}
+
+                      <button
+                        type="submit"
+                        className="am-cta"
+                        disabled={loading || pendingRedirect}
+                        style={{ marginTop: "2px" }}
+                      >
+                        <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                        {(loading || pendingRedirect) ? "Please wait…" : authMode === "login" ? "Sign In" : "Create Free Account"}
+                        {!(loading || pendingRedirect) && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
+                      </button>
+                    </form>
+
+                    {/* Switch mode link */}
+                    <p style={{
+                      fontSize: "13px", color: "rgba(203,213,225,0.82)", marginTop: "18px", textAlign: "center",
+                      fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                    }}>
+                      {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
+                      <button
+                        onClick={() => switchMode(authMode === "login" ? "signup" : "login")}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "#3B82F6", fontWeight: 600, fontSize: "13px",
+                          fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                          transition: "color 0.14s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                      >
+                        {authMode === "login" ? "Sign up free →" : "Sign in →"}
+                      </button>
+                    </p>
+                  </div>
+                )}
+
+                {/* ── PHONE VIEW ───────────────────────────────────────────── */}
+                {view === "phone" && (
+                  <div className="am-up" style={{ animationDelay: "0.04s" }}>
+                    {/* Back + heading */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
+                      <button
+                        onClick={goBack}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                          background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                          cursor: "pointer",
+                        }}
+                        aria-label="Back"
+                      >
+                        <ChevronLeft size={14} style={{ color: "#94A3B8" }} />
+                      </button>
+                      <div>
+                        <h2 style={{
+                          fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                          fontSize: "1.55rem", fontWeight: 800,
+                          letterSpacing: "-0.04em", color: "#fff", lineHeight: 1.15, margin: 0,
+                        }}>
+                          {phoneStep === "phone" ? "Mobile OTP sign-in" : "Check your phone"}
+                        </h2>
+                        <p style={{
+                          marginTop: 3, fontSize: 13,
+                          color: "rgba(226,232,240,0.78)",
+                          fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                        }}>
+                          {phoneStep === "phone"
+                            ? "We'll send a one-time code to your phone"
+                            : `Code sent to ${phone}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      {phoneStep === "phone" && (
+                        <>
+                          <div>
+                            <label style={lblStyle}>Mobile Number</label>
+                            <div style={{ marginTop: "6px", position: "relative" }}>
+                              <Phone size={14} style={{ position: "absolute", left: "13px", top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none" }} />
+                              <input
+                                className="am-input"
+                                type="tel"
+                                value={phone}
+                                onChange={e => setPhone(e.target.value)}
+                                placeholder="+1 555 000 0000"
+                                style={{ paddingLeft: "36px" }}
+                              />
+                            </div>
+                            <p style={{ fontSize: "11.5px", color: "rgba(100,116,139,0.82)", marginTop: "7px", fontFamily: "var(--font-body, var(--font-sans, sans-serif))" }}>
+                              Include country code — e.g. +1 for US, +44 for UK, +91 for India
+                            </p>
+                          </div>
+                          {error && <p style={{ fontSize: "13px", color: "#F87171", margin: 0 }}>{error}</p>}
+                          {showCaptcha && (
+                            <TurnstileWidget
+                              siteKey={TURNSTILE_SITE_KEY}
+                              resetKey={captchaResetKey}
+                              onSuccess={token => setCaptchaToken(token)}
+                              onExpire={() => setCaptchaToken(null)}
+                            />
+                          )}
+                          <button className="am-cta" onClick={handleSendOtp} disabled={loading}>
+                            <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                            {loading ? "Sending…" : "Send OTP"}
+                            {!loading && <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />}
+                          </button>
+                        </>
+                      )}
+
+                      {phoneStep === "otp" && (
+                        <>
+                          <OtpInput value={otp} onChange={setOtp} />
+                          {error && (
+                            <p style={{ fontSize: "13px", color: "#F87171", textAlign: "center", margin: 0 }}>{error}</p>
+                          )}
+                          <button
+                            className="am-cta"
+                            onClick={handleVerifyOtp}
+                            disabled={loading || otp.replace(/\D/g, "").length < 6}
+                          >
+                            <Zap size={15} style={{ color: "#93C5FD", flexShrink: 0 }} />
+                            {loading ? "Verifying…" : "Verify & Sign In"}
+                            {!loading && otp.replace(/\D/g, "").length === 6 && (
+                              <ArrowRight size={14} style={{ marginLeft: "auto", color: "#93C5FD", opacity: 0.7 }} />
+                            )}
+                          </button>
+                          <div style={{ textAlign: "center" }}>
+                            {countdown > 0 ? (
+                              <p style={{ fontSize: "12.5px", color: "rgba(100,116,139,0.82)" }}>
+                                Resend code in <strong style={{ color: "#94A3B8" }}>{countdown}s</strong>
+                              </p>
+                            ) : (
+                              <button
+                                onClick={handleSendOtp}
+                                disabled={loading}
+                                style={{
+                                  background: "none", border: "none", cursor: "pointer",
+                                  color: "#3B82F6", fontSize: "12.5px", fontWeight: 600,
+                                  fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
+                                  transition: "color 0.14s",
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
+                              >
+                                Resend OTP
+                              </button>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
-                  </>
+                  </div>
                 )}
-              </div>
-            )}
 
-            {/* ── PASSKEY option ── */}
-            <div style={{ marginTop: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-                <div className="am-sep" />
-                <span style={{
-                  fontSize: "10px", fontWeight: 600,
-                  color: "rgba(100,116,139,0.72)",
-                  letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+                {/* ── PASSKEY VIEW ─────────────────────────────────────────── */}
+                {view === "passkey" && (
+                  <div className="am-up" style={{ animationDelay: "0.04s" }}>
+                    {/* Back + heading */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
+                      <button
+                        onClick={goBack}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                          background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)",
+                          cursor: "pointer",
+                        }}
+                        aria-label="Back"
+                      >
+                        <ChevronLeft size={14} style={{ color: "#94A3B8" }} />
+                      </button>
+                      <div>
+                        <h2 style={{
+                          fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                          fontSize: "1.55rem", fontWeight: 800,
+                          letterSpacing: "-0.04em", color: "#fff", lineHeight: 1.15, margin: 0,
+                        }}>
+                          Passkey sign-in
+                        </h2>
+                        <p style={{ marginTop: 3, fontSize: 13, color: "rgba(226,232,240,0.78)" }}>
+                          Use your device authenticator
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      padding: "28px 0",
+                      textAlign: "center",
+                      borderRadius: 18,
+                      background: "rgba(255,255,255,0.018)",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      gap: 18,
+                    }}>
+                      <div style={{ position: "relative", width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{
+                          position: "absolute", inset: 0, borderRadius: "50%",
+                          background: "radial-gradient(circle,rgba(37,99,235,0.4),transparent)",
+                          animation: "amPing 2.3s cubic-bezier(0,0,0.2,1) infinite",
+                        }} />
+                        <div style={{
+                          width: 52, height: 52, borderRadius: "50%",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          background: "rgba(37,99,235,0.12)",
+                          border: "1px solid rgba(37,99,235,0.28)",
+                          boxShadow: "0 0 28px rgba(37,99,235,0.18)",
+                        }}>
+                          <Fingerprint size={24} style={{ color: "#93C5FD" }} />
+                        </div>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 14.5, fontWeight: 600, color: "#F1F5F9", letterSpacing: "-0.02em" }}>Ready to authenticate</p>
+                        <p style={{ marginTop: 3, fontSize: 12.5, color: "rgba(203,213,225,0.85)" }}>Use your device biometrics or security key</p>
+                      </div>
+                      {error && <p style={{ fontSize: "13px", color: "#F87171", textAlign: "center" }}>{error}</p>}
+                      <button
+                        className="am-cta"
+                        style={{ width: "auto", padding: "11px 26px", opacity: loading ? 0.7 : 1 }}
+                        disabled={loading}
+                        onClick={handlePasskey}
+                      >
+                        {loading ? "Authenticating…" : "Authenticate"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── FOOTER (all views) ───────────────────────────────────── */}
+                <p style={{
+                  fontSize: "11px", color: "rgba(100,116,139,0.72)",
+                  marginTop: "18px", textAlign: "center", lineHeight: 1.5,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
                   fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
                 }}>
-                  OR
-                </span>
-                <div className="am-sep" />
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(100,116,139,0.72)", flexShrink: 0 }} aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  By continuing you agree to our{" "}
+                  <a href="/privacy" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Privacy Policy</a>
+                  {" "}and{" "}
+                  <a href="/terms" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Terms of Use</a>.
+                </p>
               </div>
-              <button
-                className="am-btn"
-                onClick={handlePasskey}
-                disabled={loading}
-                style={{
-                  justifyContent: "center", gap: "9px",
-                  padding: "10px 16px",
-                  color: "rgba(255,255,255,0.55)",
-                  opacity: loading ? 0.5 : 1, cursor: loading ? "not-allowed" : "pointer",
-                }}
-              >
-                <Fingerprint size={16} style={{ color: "#60A5FA" }} />
-                Sign in with Passkey
-              </button>
             </div>
-
-            {/* Switch login/signup */}
-            <p style={{
-              fontSize: "13px", color: "rgba(203,213,225,0.82)", marginTop: "20px", textAlign: "center",
-              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-            }}>
-              {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-              <button
-                onClick={() => { setAuthMode(m => m === "login" ? "signup" : "login"); resetErrors(); resetCaptcha(); resetFailedAttempts(); }}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "#3B82F6", fontWeight: 600, fontSize: "13px",
-                  fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-                  transition: "color 0.14s",
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = "#93C5FD"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = "#3B82F6"; }}
-              >
-                {authMode === "login" ? "Sign up free →" : "Sign in →"}
-              </button>
-            </p>
-
-            {/* Legal footer */}
-            <p style={{
-              fontSize: "11px", color: "rgba(100,116,139,0.72)",
-              marginTop: "12px", textAlign: "center", lineHeight: 1.5,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-              fontFamily: "var(--font-body, var(--font-sans, sans-serif))",
-            }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(100,116,139,0.72)", flexShrink: 0 }} aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              By continuing you agree to our{" "}
-              <a href="/privacy" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Privacy Policy</a>
-              {" "}and{" "}
-              <a href="/terms" target="_blank" style={{ color: "#475569", transition: "color 0.14s" }}>Terms of Use</a>.
-            </p>
           </div>
 
-          {/* ── RIGHT PANEL: memoized slide showcase — doesn't re-render on keystrokes */}
+          {/* ── RIGHT PANEL: memoized cinematic showcase ── */}
           {!isMobile && (
-            <RightPanel slideIdx={slideIdx} setSlideIdx={handleSlideIdx} />
+            <RightPanel slideIdx={slideIdx} setSlideIdx={handleSlideIdx} onClose={onClose} />
           )}
         </div>
       </div>
