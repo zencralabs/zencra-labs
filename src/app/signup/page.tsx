@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthContext";
 
 export default function SignUpPage() {
-  const { signup } = useAuth();
+  const { signupFull } = useAuth();
   const [show,      setShow]      = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -130,11 +130,11 @@ export default function SignUpPage() {
                   if (!form.name.trim() || !form.email.trim() || !form.password) return;
                   setIsLoading(true);
                   try {
-                    const ok = await signup(form.name.trim(), form.email.trim(), form.password);
-                    if (ok) {
+                    const result = await signupFull(form.name.trim(), form.email.trim(), form.password);
+                    if (result.ok) {
                       setSuccess(true);
                     } else {
-                      setAuthError("Could not create account. The email may already be in use.");
+                      setAuthError(result.error ?? "Could not create account. Please try again.");
                     }
                   } catch {
                     setAuthError("Something went wrong. Please try again.");

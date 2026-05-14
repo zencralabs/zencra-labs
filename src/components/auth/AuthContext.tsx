@@ -55,6 +55,7 @@ interface AuthContextValue {
   /** captchaToken is optional — omitting it works in mock/dev mode */
   login: (email: string, password: string, captchaToken?: string) => Promise<boolean>;
   signup: (name: string, email: string, password: string, captchaToken?: string) => Promise<boolean>;
+  signupFull: (name: string, email: string, password: string, captchaToken?: string) => Promise<{ ok: boolean; error?: string }>;
   loginWithOAuth: (provider: "google" | "apple" | "facebook") => Promise<void>;
   sendPhoneOtp: (phone: string, captchaToken?: string) => Promise<{ success: boolean; error?: string }>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<boolean>;
@@ -441,9 +442,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Email / Password signup ────────────────────────────────────────────────
-  async function signup(name: string, email: string, password: string, captchaToken?: string): Promise<boolean> {
+  async function signupFull(name: string, email: string, password: string, captchaToken?: string): Promise<{ ok: boolean; error?: string }> {
     if (!isSupabaseConfigured) {
-      if (!email || !name) return false;
+      if (!email || !name) return { ok: false, error: "Name and email are required." };
       const mock: AuthUser = {
         id: "usr_" + Math.random().toString(36).slice(2, 10),
         name, email, phone: undefined,
@@ -454,7 +455,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setUser(mock);
       localStorage.setItem("zencra_user", JSON.stringify(mock));
-      return true;
+      return { ok: true };
     }
     const { error } = await supabase.auth.signUp({
       email,
@@ -465,8 +466,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...(captchaToken ? { captchaToken } : {}),
       },
     });
-    if (error) { console.error("[signup]", error.message); return false; }
-    return true;
+    if (error) { console.warn("[signup]", error.message); return { ok: false, error: error.message }; }
+    return { ok: true };
+  }
+
+  async function signup(name: string, email: string, password: string, captchaToken?: string): Promise<boolean> {
+    return (await signupFull(name, email, password, captchaToken)).ok;
   }
 
   // ── OAuth (Google / Apple / Facebook) ─────────────────────────────────────
@@ -599,7 +604,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, loading, profileReady,
-      login, signup,
+      login, signup, signupFull,
       loginWithOAuth, sendPhoneOtp, verifyPhoneOtp, loginWithPasskey,
       logout, refreshUser, refreshCredits,
     }}>
