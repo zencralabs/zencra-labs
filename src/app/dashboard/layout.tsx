@@ -103,9 +103,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* User card */}
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ marginBottom: "2px" }}>
-            <div style={{ fontWeight: 600, fontSize: "13px", color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: planColor, backgroundColor: `${planColor}20`, padding: "1px 7px", borderRadius: "10px", border: `1px solid ${planColor}40` }}>{user.plan}</span>
+            <div style={{ fontWeight: 500, fontSize: "12px", color: "#475569", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>@handle</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+              <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em", color: planColor, backgroundColor: `${planColor}14`, padding: "3px 10px", borderRadius: "20px", border: `1px solid ${planColor}35` }}>
+                {`${user.plan.charAt(0).toUpperCase()}${user.plan.slice(1)} Plan`}
+              </span>
             </div>
           </div>
 
