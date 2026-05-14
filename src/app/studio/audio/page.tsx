@@ -12,6 +12,7 @@ import { useFlowStore } from "@/lib/flow/store";
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
 import FlowBar from "@/components/studio/flow/FlowBar";
+import PricingOverlay from "@/components/pricing/PricingOverlay";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA AUDIO STUDIO
@@ -996,6 +997,7 @@ function AudioStudioInner() {
   const [outputs,          setOutputs]          = useState<GeneratedAudio[]>([]);
   const [generating,       setGenerating]       = useState(false);
   const [authModal,        setAuthModal]        = useState<"login" | "signup" | null>(null);
+  const [showPricingOverlay, setShowPricingOverlay] = useState(false);
   const [voiceOpen,        setVoiceOpen]        = useState(false);
   // Motion state
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
@@ -1043,6 +1045,15 @@ function AudioStudioInner() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  const ENTITLEMENT_CODES = new Set([
+    "FREE_LIMIT_REACHED",
+    "SUBSCRIPTION_REQUIRED",
+    "SUBSCRIPTION_INACTIVE",
+    "TRIAL_EXPIRED",
+    "TRIAL_EXHAUSTED",
+    "INSUFFICIENT_CREDITS",
+  ]);
 
   const handleGenerate = useCallback(async () => {
     if (!user) { setAuthModal("signup"); return; }
@@ -1116,9 +1127,14 @@ function AudioStudioInner() {
         }),
       });
 
-      const data = await res.json() as { success?: boolean; data?: { url?: string; status?: string }; error?: string };
+      const data = await res.json() as { success?: boolean; data?: { url?: string; status?: string }; error?: string; code?: string };
 
       if (!res.ok || !data.success) {
+        if (data.code && ENTITLEMENT_CODES.has(data.code)) {
+          setOutputs(prev => prev.filter(o => o.id !== id));
+          setShowPricingOverlay(true);
+          return;
+        }
         setOutputs(prev => prev.map(o => o.id === id ? { ...o, status: "error", error: data.error ?? "Generation failed." } : o));
       } else {
         const url = data.data?.url ?? null;
@@ -1723,6 +1739,9 @@ function AudioStudioInner() {
       </div>
 
       {authModal && <AuthModal defaultTab={authModal} onClose={() => setAuthModal(null)} />}
+      {showPricingOverlay && (
+        <PricingOverlay onClose={() => setShowPricingOverlay(false)} />
+      )}
 
       {/* ── Creative Flow overlays ────────────────────────────────────────── */}
       <FlowBar />

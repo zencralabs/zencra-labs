@@ -17,6 +17,7 @@ import InfluencerCanvas    from "./InfluencerCanvas";
 import InfluencerControls  from "./InfluencerControls";
 import { useAuth }         from "@/components/auth/AuthContext";
 import { AuthModal }       from "@/components/auth/AuthModal";
+import PricingOverlay      from "@/components/pricing/PricingOverlay";
 import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
 import { startPolling }    from "@/lib/jobs/job-polling";
 import type { GenerationStatus } from "@/lib/jobs/job-status-normalizer";
@@ -275,6 +276,18 @@ export default function AIInfluencerBuilder() {
   // ── Auth modal — shown when guest clicks Create Influencer ───────────────
   const [authModal, setAuthModal] = useState(false);
 
+  // ── Pricing overlay — shown when ineligible signed-in user tries to create ─
+  const [showPricingOverlay, setShowPricingOverlay] = useState(false);
+
+  const ENTITLEMENT_CODES = new Set([
+    "FREE_LIMIT_REACHED",
+    "SUBSCRIPTION_REQUIRED",
+    "SUBSCRIPTION_INACTIVE",
+    "TRIAL_EXPIRED",
+    "TRIAL_EXHAUSTED",
+    "INSUFFICIENT_CREDITS",
+  ]);
+
   // ── Creation state — driven by canvas dock button ─────────────────────────
   const [isCreating,  setIsCreating]  = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -513,7 +526,12 @@ export default function AIInfluencerBuilder() {
       } else {
         const errBody = await generateRes.json().catch(() => ({}));
         console.warn("[AIInfluencerBuilder] generate returned non-ok:", generateRes.status, errBody);
-        // Non-fatal — enter generating state with empty jobs (canvas stays in shimmer)
+        if (errBody.code && ENTITLEMENT_CODES.has(errBody.code)) {
+          setIsCreating(false);  // reset loading/shimmer state — no infinite shimmer
+          setShowPricingOverlay(true);
+          return;  // do NOT call handleCreated
+        }
+        // Non-fatal for other errors — enter generating state with empty jobs
         handleCreated(influencer, []);
       }
     } catch (err) {
@@ -755,6 +773,11 @@ export default function AIInfluencerBuilder() {
       {/* ── Auth modal — shown when guest clicks Create Influencer ──────── */}
       {authModal && (
         <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+      )}
+
+      {/* ── Pricing overlay — shown when ineligible signed-in user creates ─ */}
+      {showPricingOverlay && (
+        <PricingOverlay onClose={() => setShowPricingOverlay(false)} />
       )}
 
       {/* ── Right: Controls ──────────────────────────────────────────────── */}
