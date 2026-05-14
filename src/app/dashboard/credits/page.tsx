@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CheckCircle, AlertTriangle, X } from "lucide-react";
+import {
+  CheckCircle, AlertTriangle, X, Info, Zap, ImageIcon, Video,
+  Music, User2, Layers, RotateCcw, Star, TrendingUp, Gift,
+} from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
+import { getDisplayModelName } from "@/lib/studio/model-display-names";
 import type { CreditPack } from "@/lib/billing/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,17 +14,22 @@ import type { CreditPack } from "@/lib/billing/types";
 // Packs and history loaded from live API. Top-up initiates billing flow.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Cost guide: /api/credits/model-costs returns { baseCosts, qualityMultipliers, addonCosts }
-// keyed by internal model keys (e.g. "nano-banana-pro") — not suitable for direct display.
-// Static note shown instead. Estimates are surfaced per-generation in each studio.
-// No COST_GUIDE constant needed — see Cost Guide section below.
-
-// ── Plan credit limits — mirrors public pricing; DB values (200/800/1700/4000) are stale pending migration.
+// ── Plan credit limits — mirrors public pricing; DB values pending migration.
 const PLAN_CREDIT_LIMIT: Record<string, number> = {
+  free:     100,
   starter:  600,
   creator:  1600,
   pro:      3500,
   business: 8000,
+};
+
+/** Locked Dashboard v2 plan badge colors */
+const PLAN_COLORS: Record<string, string> = {
+  free:     "#64748B",
+  starter:  "#64748B",
+  creator:  "#6366F1",
+  pro:      "#14B8A6",
+  business: "#D4AF37",
 };
 
 // ── Razorpay checkout ─────────────────────────────────────────────────────────
@@ -42,6 +51,110 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Transaction display helpers — ported from dashboard/page.tsx (v2-K)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CreditTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  balance_after: number | null;
+  description: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+/** Parses "[studio/model-key]" bracket pattern from description strings.
+ *  Used as fallback when metadata is null (spend-type rows from spend_credits RPC). */
+function parseBracket(desc: string | null): { studio: string | null; modelKey: string | null } {
+  if (!desc) return { studio: null, modelKey: null };
+  const m = desc.match(/\[(\w[\w-]*)\/([^\]]+)\]/);
+  if (!m) return { studio: null, modelKey: null };
+  return { studio: m[1], modelKey: m[2] };
+}
+
+const STUDIO_ICON_MAP: Record<string, { color: string; bg: string; Icon: React.ElementType }> = {
+  image:     { Icon: ImageIcon, color: "#2563EB", bg: "rgba(37,99,235,0.14)" },
+  video:     { Icon: Video,     color: "#7C3AED", bg: "rgba(124,58,237,0.14)" },
+  audio:     { Icon: Music,     color: "#D97706", bg: "rgba(217,119,6,0.14)"  },
+  character: { Icon: User2,     color: "#F59E0B", bg: "rgba(245,158,11,0.14)" },
+  cd:        { Icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.14)" },
+  lipsync:   { Icon: Video,     color: "#EC4899", bg: "rgba(236,72,153,0.14)" },
+};
+
+const STUDIO_ACTION_LABEL: Record<string, string> = {
+  image:     "Image Generated",
+  video:     "Video Generated",
+  audio:     "Audio Generated",
+  character: "Character Generated",
+  cd:        "Concept Generated",
+  lipsync:   "Lipsync Generated",
+};
+
+function txIcon(
+  type: string,
+  metadata: Record<string, unknown> | null,
+  description: string | null,
+): { Icon: React.ElementType; color: string; bg: string } {
+  const studioMeta = typeof metadata?.studio === "string" ? metadata.studio : null;
+  const studio = studioMeta ?? parseBracket(description).studio;
+
+  if (type === "spend" || type === "finalize") {
+    return STUDIO_ICON_MAP[studio ?? ""] ?? { Icon: Zap, color: "#A855F7", bg: "rgba(168,85,247,0.14)" };
+  }
+  if (type === "refund" || type === "rollback") {
+    return { Icon: RotateCcw, color: "#10B981", bg: "rgba(16,185,129,0.14)" };
+  }
+  if (type === "topup" || type === "purchase") {
+    return { Icon: TrendingUp, color: "#10B981", bg: "rgba(16,185,129,0.14)" };
+  }
+  if (type === "grant" || type === "bonus") {
+    return { Icon: Gift, color: "#10B981", bg: "rgba(16,185,129,0.14)" };
+  }
+  if (type === "trial") {
+    return { Icon: Star, color: "#F59E0B", bg: "rgba(245,158,11,0.14)" };
+  }
+  return { Icon: Zap, color: "#64748B", bg: "rgba(255,255,255,0.06)" };
+}
+
+function txLabel(tx: CreditTransaction): { action: string; tool: string } {
+  const meta         = tx.metadata;
+  const studioMeta   = typeof meta?.studio    === "string" ? meta.studio    : null;
+  const modelKeyMeta = typeof meta?.model_key === "string" ? meta.model_key : null;
+  const parsed       = parseBracket(tx.description);
+  const studio       = studioMeta   ?? parsed.studio;
+  const modelKey     = modelKeyMeta ?? parsed.modelKey;
+  const modelName    = getDisplayModelName(modelKey);
+
+  if (tx.type === "spend") {
+    const action = STUDIO_ACTION_LABEL[studio ?? ""] ?? "Output Generated";
+    return { action, tool: modelName };
+  }
+  if (tx.type === "refund")   return { action: "Credits Refunded",  tool: modelName || tx.description || "Refund"        };
+  if (tx.type === "rollback") return { action: "Job Rolled Back",   tool: modelName || ""                                };
+  if (tx.type === "topup"  || tx.type === "purchase") return { action: "Credits Purchased", tool: tx.description || "Top-up" };
+  if (tx.type === "grant"  || tx.type === "bonus")    return { action: "Credits Added",     tool: tx.description || "Bonus"  };
+  if (tx.type === "trial")                            return { action: "Trial Credits",     tool: tx.description || "Welcome bonus" };
+  return { action: tx.description || "Transaction",  tool: tx.type };
+}
+
+function txTimeShort(iso: string): string {
+  const diff  = Date.now() - new Date(iso).getTime();
+  const mins  = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days  = Math.floor(diff / 86_400_000);
+  if (mins  < 1)  return "just now";
+  if (mins  < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days  < 7)  return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Page component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function CreditsPage() {
   const { user, refreshUser } = useAuth();
 
@@ -49,15 +162,12 @@ export default function CreditsPage() {
   const [packs, setPacks]               = useState<CreditPack[]>([]);
   const [packsLoading, setPacksLoading] = useState(true);
 
-  const [history, setHistory] = useState<{
-    id: string; type: string; amount: number; balance_after: number;
-    description: string; created_at: string;
-  }[]>([]);
+  const [history,        setHistory]        = useState<CreditTransaction[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  const [purchasing, setPurchasing]         = useState<string | null>(null);
+  const [purchasing, setPurchasing]           = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState<{ credits: number } | null>(null);
-  const [purchaseError, setPurchaseError]   = useState<string | null>(null);
+  const [purchaseError, setPurchaseError]     = useState<string | null>(null);
 
   // ── Load packs ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -71,9 +181,9 @@ export default function CreditsPage() {
   // ── Load history ───────────────────────────────────────────────────────────
   const loadHistory = useCallback(() => {
     setHistoryLoading(true);
-    fetch("/api/credits/history?limit=20")
+    fetch("/api/credits/history?limit=25")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setHistory(d.data); })
+      .then((d) => { if (d.success) setHistory(d.data ?? []); })
       .catch(console.error)
       .finally(() => setHistoryLoading(false));
   }, []);
@@ -82,11 +192,18 @@ export default function CreditsPage() {
 
   if (!user) return null;
 
-  const planLimit = PLAN_CREDIT_LIMIT[user.plan?.toLowerCase() ?? ""] ?? 600;
-  const credPct = Math.min((user.credits / planLimit) * 100, 100);
+  const planKey    = (user.plan ?? "free").toLowerCase();
+  const planColor  = PLAN_COLORS[planKey] ?? "#64748B";
+  const planLabel  = `${planKey.charAt(0).toUpperCase()}${planKey.slice(1)} Plan`;
+  const planLimit  = PLAN_CREDIT_LIMIT[planKey] ?? 600;
+  const credPct    = Math.min((user.credits / planLimit) * 100, 100);
+  const credPctStr = `${Math.round(credPct)}%`;
 
   // Plan gate: booster packs require an active primary plan
   const hasActivePlan = !!user.plan && user.plan !== "free";
+
+  // Hide zero-amount audit rows (reserve / finalize bookkeeping)
+  const visibleHistory = history.filter((tx) => tx.amount !== 0);
 
   // ── Buy flow ───────────────────────────────────────────────────────────────
   // In demo mode (isDemo:true in order response): skips the Razorpay modal
@@ -186,21 +303,19 @@ export default function CreditsPage() {
     }
   }
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
+
   const card: React.CSSProperties = {
     backgroundColor: "var(--page-bg-2)", borderRadius: "16px",
-    padding: "24px", border: "1px solid rgba(255,255,255,0.06)", marginBottom: "20px",
-  };
-  const sectionTitle: React.CSSProperties = {
-    fontSize: "15px", fontWeight: 700, color: "var(--page-text)", margin: "0 0 16px 0",
-  };
-  const label: React.CSSProperties = {
-    fontSize: "11px", fontWeight: 700, color: "#475569",
-    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px",
+    border: "1px solid rgba(255,255,255,0.06)", marginBottom: "20px",
   };
 
   return (
     <div style={{ padding: "40px 48px", width: "100%" }}>
+
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div style={{ marginBottom: "36px" }}>
         <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk)" }}>
           YOUR CREDITS
@@ -209,43 +324,103 @@ export default function CreditsPage() {
         <p style={{ fontFamily: "var(--font-familjen-grotesk)", fontSize: "15px", color: "#64748B", margin: 0 }}>Your balance, top-ups, and usage history</p>
       </div>
 
-      {/* ── Feedback banners ─────────────────────────────────────────────── */}
+      {/* ── Feedback banners ─────────────────────────────────────────────────── */}
       {purchaseSuccess && (
-        <div style={{ ...card, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", display: "flex", alignItems: "center", gap: 12, marginBottom: "20px" }}>
+        <div style={{ ...card, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", display: "flex", alignItems: "center", gap: 12 }}>
           <CheckCircle size={18} style={{ color: "#10B981", flexShrink: 0 }} />
           <span style={{ fontSize: "14px", color: "#10B981", fontWeight: 600, fontFamily: "var(--font-familjen-grotesk)" }}>{purchaseSuccess.credits.toLocaleString()} credits added to your account!</span>
           <button onClick={() => setPurchaseSuccess(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#10B981", cursor: "pointer", padding: 0, display: "flex" }}><X size={16} /></button>
         </div>
       )}
       {purchaseError && (
-        <div style={{ ...card, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", gap: 12, marginBottom: "20px" }}>
+        <div style={{ ...card, padding: "16px 20px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", gap: 12 }}>
           <AlertTriangle size={18} style={{ color: "#EF4444", flexShrink: 0 }} />
           <span style={{ fontSize: "14px", color: "#EF4444", fontWeight: 500, fontFamily: "var(--font-familjen-grotesk)" }}>{purchaseError}</span>
           <button onClick={() => setPurchaseError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#EF4444", cursor: "pointer", padding: 0, display: "flex" }}><X size={16} /></button>
         </div>
       )}
 
-      {/* ── Balance card ──────────────────────────────────────────────────── */}
-      <div style={{ ...card, background: "linear-gradient(135deg, #0A1122 0%, #130d22 100%)", border: "1px solid rgba(168,85,247,0.2)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "160px", height: "160px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%)", pointerEvents: "none" }} />
-        <div style={label}>Current Balance</div>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: "52px", fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.01em" }}>{user.credits.toLocaleString()}</span>
-          <span style={{ fontSize: "18px", color: "#A855F7", fontWeight: 700 }}>credits</span>
+      {/* ── Balance card ──────────────────────────────────────────────────────── */}
+      <div style={{
+        ...card,
+        padding: "28px 32px",
+        background: "linear-gradient(135deg, #0A1122 0%, #130d22 100%)",
+        border: "1px solid rgba(168,85,247,0.2)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Ambient glow */}
+        <div style={{ position: "absolute", top: "-40px", right: "-40px", width: "200px", height: "200px", borderRadius: "50%", background: "radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: "-20px", left: "30%", width: "140px", height: "140px", borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+        {/* Plan chip */}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
+          <div style={{
+            padding: "4px 12px", borderRadius: 20,
+            background: `${planColor}22`, border: `1px solid ${planColor}55`,
+            fontSize: 11, fontWeight: 700, color: planColor,
+            fontFamily: "var(--font-familjen-grotesk)", letterSpacing: "0.04em", textTransform: "uppercase",
+          }}>
+            {planLabel}
+          </div>
         </div>
-        <div style={{ marginTop: "20px", height: "6px", background: "rgba(255,255,255,0.08)", borderRadius: "3px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${credPct}%`, background: "linear-gradient(90deg, #A855F7, #2563EB)", borderRadius: "3px", transition: "width 0.4s ease" }} />
+
+        {/* Balance number */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "10px", marginBottom: 6 }}>
+          <span style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: "60px", fontWeight: 800, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.02em" }}>{user.credits.toLocaleString()}</span>
+          <span style={{ fontSize: "20px", color: "#A855F7", fontWeight: 700, fontFamily: "var(--font-display, 'Syne', sans-serif)" }}>cr</span>
+        </div>
+
+        {/* X of Y label */}
+        <div style={{ fontSize: "13px", color: "#64748B", marginBottom: 14, fontFamily: "var(--font-familjen-grotesk)" }}>
+          <span style={{ color: "#94A3B8", fontWeight: 600 }}>{user.credits.toLocaleString()}</span>
+          {" of "}
+          <span style={{ color: "#94A3B8", fontWeight: 600 }}>{planLimit.toLocaleString()} cr</span>
+          {" · "}
+          <span style={{ color: "#A855F7", fontWeight: 600 }}>{credPctStr} used</span>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ height: "8px", background: "rgba(255,255,255,0.08)", borderRadius: "4px", overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: `${credPct}%`,
+              background: credPct > 85
+                ? "linear-gradient(90deg, #EF4444, #F97316)"
+                : "linear-gradient(90deg, #A855F7, #2563EB)",
+              borderRadius: "4px", transition: "width 0.5s ease",
+            }} />
+          </div>
+        </div>
+
+        {/* Bar end labels */}
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
+          <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>0</span>
+          <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-familjen-grotesk)" }}>{planLimit.toLocaleString()} cr monthly</span>
+        </div>
+
+        {/* Reset note */}
+        <div style={{ fontSize: "12px", color: "#475569", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.6 }}>
+          Monthly plan credits reset each billing cycle.{" "}
+          <span style={{ color: "#64748B" }}>Booster credits expire 90 days from purchase.</span>
         </div>
       </div>
 
-      {/* ── Top-up packs ──────────────────────────────────────────────────── */}
-      <div style={card}>
-        <h2 style={sectionTitle}>Buy Credits</h2>
+      {/* ── Booster packs ─────────────────────────────────────────────────────── */}
+      <div style={{ ...card, padding: "28px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 20, fontWeight: 800, color: "var(--page-text)", margin: "0 0 4px", lineHeight: 1.2 }}>
+            Buy Credits
+          </h2>
+          <p style={{ fontSize: 13, color: "#64748B", margin: 0, fontFamily: "var(--font-familjen-grotesk)" }}>
+            Add extra credits to your account any time.
+          </p>
+        </div>
 
         {/* Eligibility note */}
-        <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", gap: "10px" }}>
-          <span style={{ fontSize: "15px", flexShrink: 0, marginTop: "1px" }}>ℹ️</span>
-          <p style={{ fontSize: "12px", color: "#64748B", margin: 0, lineHeight: 1.6 }}>
+        <div style={{ marginBottom: "20px", padding: "12px 16px", borderRadius: "12px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+          <Info size={15} style={{ color: "#64748B", flexShrink: 0, marginTop: 2 }} />
+          <p style={{ fontSize: "12px", color: "#64748B", margin: 0, lineHeight: 1.6, fontFamily: "var(--font-familjen-grotesk)" }}>
             <strong style={{ color: "#94A3B8", fontWeight: 600 }}>Booster Packs require an active primary plan.</strong>{" "}
             Booster credits expire 90 days from purchase, whether used or not.
             {!hasActivePlan && (
@@ -255,68 +430,113 @@ export default function CreditsPage() {
         </div>
 
         {packsLoading ? (
-          <div style={{ display: "flex", gap: 12 }}>
-            {[1,2,3,4].map((i) => <div key={i} style={{ flex: 1, height: 120, borderRadius: 12, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ height: 180, borderRadius: 14, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />
+            ))}
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "14px" }}>
             {packs.map((pack) => {
-              const meta    = pack.metadata;
-              const color   = (meta?.color as string) ?? "#2563EB";
-              const popular = Boolean(meta?.popular);
+              const meta     = pack.metadata;
+              const color    = (meta?.color as string) ?? "#2563EB";
+              const popular  = Boolean(meta?.popular);
               const isBuying = purchasing === pack.id;
-              const price   = `$${(pack.price_cents / 100).toFixed(2)}`;
-              const locked  = !hasActivePlan;
+              const price    = `$${(pack.price_cents / 100).toFixed(2)}`;
+              const locked   = !hasActivePlan;
+              const perCrStr = `$${((pack.price_cents / pack.credits) / 100).toFixed(3)}/cr`;
 
               return (
                 <div
                   key={pack.id}
                   style={{
-                    position: "relative", borderRadius: "14px",
-                    border: `1px solid ${popular && !locked ? color : "rgba(255,255,255,0.08)"}`,
-                    padding: "20px 16px",
-                    background: locked ? "rgba(255,255,255,0.01)" : popular ? `${color}15` : "rgba(255,255,255,0.03)",
-                    display: "flex", flexDirection: "column", gap: "8px", transition: "border-color 0.15s, transform 0.15s",
+                    position: "relative", borderRadius: "16px",
+                    border: `1px solid ${popular && !locked ? color + "55" : "rgba(255,255,255,0.08)"}`,
+                    padding: "20px",
+                    background: locked
+                      ? "rgba(255,255,255,0.01)"
+                      : popular
+                        ? `linear-gradient(145deg, ${color}18 0%, rgba(255,255,255,0.02) 100%)`
+                        : "rgba(255,255,255,0.03)",
+                    display: "flex", flexDirection: "column", gap: "0",
+                    transition: "border-color 0.15s, transform 0.15s",
                     opacity: locked ? 0.6 : 1,
                   }}
-                  onMouseEnter={(e) => { if (!locked) { (e.currentTarget as HTMLElement).style.borderColor = color; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; } }}
-                  onMouseLeave={(e) => { if (!locked) { (e.currentTarget as HTMLElement).style.borderColor = popular ? color : "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; } }}
+                  onMouseEnter={(e) => {
+                    if (!locked) {
+                      (e.currentTarget as HTMLElement).style.borderColor = color + "88";
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!locked) {
+                      (e.currentTarget as HTMLElement).style.borderColor = popular ? color + "55" : "rgba(255,255,255,0.08)";
+                      (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+                    }
+                  }}
                 >
-                  {popular && !locked && (
-                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: color, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  {/* Badge row */}
+                  {(popular && !locked) && (
+                    <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: color, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 12px", borderRadius: 20, whiteSpace: "nowrap", fontFamily: "var(--font-familjen-grotesk)" }}>
                       MOST POPULAR
                     </div>
                   )}
                   {locked && (
-                    <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "#334155", color: "#94A3B8", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
-                      🔒 PLAN REQUIRED
+                    <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: "#334155", color: "#94A3B8", fontSize: 10, fontWeight: 700, padding: "2px 12px", borderRadius: 20, whiteSpace: "nowrap", fontFamily: "var(--font-familjen-grotesk)" }}>
+                      PLAN REQUIRED
                     </div>
                   )}
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>{pack.credits.toLocaleString()}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>credits</div>
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: locked ? "#475569" : color, marginTop: 4, letterSpacing: "-0.01em" }}>{price}</div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>${((pack.price_cents / pack.credits) / 100).toFixed(3)} / credit</div>
+
+                  {/* Pack name */}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: locked ? "#475569" : color, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-familjen-grotesk)", marginBottom: 8 }}>
+                    {pack.name}
+                  </div>
+
+                  {/* Credit count */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2 }}>
+                    <span style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 28, fontWeight: 800, color: "#DBEAFE", letterSpacing: "-0.02em", lineHeight: 1 }}>{pack.credits.toLocaleString()}</span>
+                    <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>cr</span>
+                  </div>
+
+                  {/* Price row */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 22, fontWeight: 700, color: locked ? "#475569" : color, letterSpacing: "-0.01em" }}>{price}</span>
+                  </div>
+
+                  {/* Per-credit rate */}
+                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 10, fontFamily: "var(--font-familjen-grotesk)" }}>
+                    {perCrStr}
+                  </div>
+
+                  {/* Expiry chip */}
+                  <div style={{ marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 8, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", width: "fit-content" }}>
+                    <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600, fontFamily: "var(--font-familjen-grotesk)" }}>Expires 90 days</span>
+                  </div>
+
+                  {/* CTA */}
                   {locked ? (
                     <a
                       href="/dashboard/subscription"
                       style={{
-                        marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 12, fontWeight: 700,
+                        marginTop: "auto", padding: "10px 0", borderRadius: "10px", fontSize: 12, fontWeight: 700,
                         border: "1px solid rgba(255,255,255,0.12)", background: "transparent",
                         color: "#60A5FA", cursor: "pointer", transition: "all 0.15s",
                         textAlign: "center", textDecoration: "none", display: "block",
+                        fontFamily: "var(--font-familjen-grotesk)",
                       }}
                     >
-                      Choose a primary plan first
+                      Choose a plan first
                     </a>
                   ) : (
                     <button
                       onClick={() => handleBuy(pack)}
                       disabled={!!purchasing}
                       style={{
-                        marginTop: "12px", padding: "9px 0", borderRadius: "10px", fontSize: 13, fontWeight: 700, border: "none",
-                        background: isBuying ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${color}, ${color}cc)`,
+                        marginTop: "auto", padding: "10px 0", borderRadius: "10px", fontSize: 13, fontWeight: 700, border: "none",
+                        background: isBuying ? "rgba(255,255,255,0.1)" : `linear-gradient(135deg, ${color}, ${color}bb)`,
                         color: isBuying ? "rgba(255,255,255,0.4)" : "#fff",
                         cursor: purchasing ? "not-allowed" : "pointer", transition: "all 0.15s",
+                        width: "100%", fontFamily: "var(--font-familjen-grotesk)",
                       }}
                     >
                       {isBuying ? "Opening…" : `Buy ${pack.name}`}
@@ -329,60 +549,149 @@ export default function CreditsPage() {
         )}
       </div>
 
-      {/* ── Cost guide ────────────────────────────────────────────────────── */}
-      <div style={card}>
-        <h2 style={sectionTitle}>Credit Cost Guide</h2>
-        <p style={{ fontSize: "13px", color: "#64748B", margin: "0 0 20px", lineHeight: 1.6, fontFamily: "var(--font-familjen-grotesk)" }}>
-          Credit costs vary by studio and model. Exact estimates are shown before each generation.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
+      {/* ── Credit Cost Guide ─────────────────────────────────────────────────── */}
+      <div style={{ ...card, padding: "28px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 20, fontWeight: 800, color: "var(--page-text)", margin: "0 0 4px", lineHeight: 1.2 }}>
+            Credit Cost Guide
+          </h2>
+          <p style={{ fontSize: "13px", color: "#64748B", margin: 0, lineHeight: 1.6, fontFamily: "var(--font-familjen-grotesk)" }}>
+            Exact costs are shown before each generation. Ranges below are typical estimates.
+          </p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
           {[
-            { studio: "Image Studio",     range: "4–20 cr",   color: "#2563EB" },
-            { studio: "Video Studio",     range: "20–120 cr", color: "#6366F1" },
-            { studio: "Audio Studio",     range: "2–12 cr",   color: "#14B8A6" },
-            { studio: "Character Studio", range: "8–40 cr",   color: "#F59E0B" },
-            { studio: "Creative Director",range: "varies",    color: "#A855F7" },
-            { studio: "Lipsync Studio",   range: "10–60 cr",  color: "#EC4899" },
-          ].map(({ studio, range, color }) => (
-            <div key={studio} style={{ padding: "14px 16px", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column", gap: "6px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-familjen-grotesk)" }}>{studio}</div>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 700, color, letterSpacing: "-0.01em", lineHeight: 1 }}>{range}</div>
+            { studio: "Image Studio",      range: "4–20 cr",    color: "#2563EB", Icon: ImageIcon },
+            { studio: "Video Studio",      range: "20–120 cr",  color: "#7C3AED", Icon: Video     },
+            { studio: "Audio Studio",      range: "2–12 cr",    color: "#D97706", Icon: Music     },
+            { studio: "Character Studio",  range: "8–40 cr",    color: "#F59E0B", Icon: User2     },
+            { studio: "Creative Director", range: "4–80 cr",    color: "#0EA5A0", Icon: Layers    },
+            { studio: "Lipsync Studio",    range: "10–60 cr",   color: "#EC4899", Icon: Video     },
+          ].map(({ studio, range, color, Icon }) => (
+            <div
+              key={studio}
+              style={{
+                padding: "16px",
+                borderRadius: "12px",
+                border: `1px solid ${color}22`,
+                background: `${color}08`,
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icon size={14} style={{ color }} />
+                </div>
+                <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--font-familjen-grotesk)", lineHeight: 1.3 }}>
+                  {studio}
+                </div>
+              </div>
+              <div style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: "22px", fontWeight: 800, color, letterSpacing: "-0.01em", lineHeight: 1 }}>
+                {range}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Transaction history ───────────────────────────────────────────── */}
-      <div style={card}>
-        <h2 style={sectionTitle}>Transaction History</h2>
+      {/* ── Transaction History ───────────────────────────────────────────────── */}
+      <div style={{ ...card, padding: "28px 28px" }}>
+        <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h2 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 20, fontWeight: 800, color: "var(--page-text)", margin: "0 0 4px", lineHeight: 1.2 }}>
+              Transaction History
+            </h2>
+            <p style={{ fontSize: 13, color: "#64748B", margin: 0, fontFamily: "var(--font-familjen-grotesk)" }}>
+              {historyLoading ? "Loading…" : `${visibleHistory.length} transaction${visibleHistory.length !== 1 ? "s" : ""}`}
+            </p>
+          </div>
+        </div>
+
         {historyLoading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[1,2,3].map((i) => <div key={i} style={{ height: 44, borderRadius: 8, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />)}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ height: 62, borderRadius: 12, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease infinite" }} />
+            ))}
           </div>
-        ) : history.length === 0 ? (
-          <p style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: "20px 0" }}>
-            No transactions yet. Generate something or buy credits to get started.
-          </p>
+        ) : visibleHistory.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(168,85,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+              <Zap size={18} style={{ color: "#A855F7" }} />
+            </div>
+            <p style={{ fontSize: 14, color: "#94A3B8", margin: "0 0 4px", fontFamily: "var(--font-familjen-grotesk)", fontWeight: 600 }}>
+              No transactions yet
+            </p>
+            <p style={{ fontSize: 13, color: "#475569", margin: 0, fontFamily: "var(--font-familjen-grotesk)" }}>
+              Generate something or buy credits to see your history here.
+            </p>
+          </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {history.map((tx) => {
-              const isPositive = tx.amount > 0;
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {visibleHistory.map((tx, i) => {
+              const isPositive              = tx.amount > 0;
+              const { Icon, color, bg }     = txIcon(tx.type, tx.metadata, tx.description);
+              const { action, tool }        = txLabel(tx);
+
               return (
-                <div key={tx.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: tx.type === "purchase" ? "rgba(16,163,127,0.15)" : "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
-                      {tx.type === "purchase" ? "💳" : tx.type === "refund" ? "↩" : "⚡"}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--page-text)" }}>{tx.description}</div>
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{new Date(tx.created_at).toLocaleString()}</div>
-                    </div>
+                <div
+                  key={tx.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 14,
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.02)",
+                    borderBottom: i < visibleHistory.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                    margin: "0 -14px",
+                  }}
+                >
+                  {/* Icon box */}
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                    background: bg, border: `1px solid ${color}22`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon size={16} style={{ color }} />
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: isPositive ? "#10a37f" : "#DBEAFE", letterSpacing: "-0.01em" }}>
-                      {isPositive ? "+" : ""}{tx.amount.toLocaleString()}
+
+                  {/* Labels */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--page-text)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "var(--font-familjen-grotesk)" }}>
+                      {action}
                     </div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>bal: <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.01em", color: "#DBEAFE" }}>{tx.balance_after?.toLocaleString() ?? "—"}</span></div>
+                    {tool && (
+                      <div style={{ fontSize: 11, color: "#475569", marginTop: 2, fontFamily: "var(--font-familjen-grotesk)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {tool}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Time */}
+                  <div style={{ fontSize: 11, color: "#475569", flexShrink: 0, fontFamily: "var(--font-familjen-grotesk)" }}>
+                    {txTimeShort(tx.created_at)}
+                  </div>
+
+                  {/* Amount */}
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{
+                      fontFamily: "var(--font-display, 'Syne', sans-serif)",
+                      fontSize: 14, fontWeight: 700,
+                      color: isPositive ? "#10B981" : "#94A3B8",
+                      letterSpacing: "-0.01em",
+                    }}>
+                      {isPositive ? "+" : "−"}{Math.abs(tx.amount).toLocaleString()}
+                      <span style={{ fontSize: 10, fontWeight: 600, marginLeft: 3, color: isPositive ? "#10B981" : "#64748B" }}>cr</span>
+                    </div>
+                    {tx.balance_after != null && (
+                      <div style={{ fontSize: 10, color: "#475569", marginTop: 1, fontFamily: "var(--font-familjen-grotesk)" }}>
+                        bal{" "}
+                        <span style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontWeight: 700, color: "#64748B", letterSpacing: "-0.01em" }}>
+                          {tx.balance_after.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
