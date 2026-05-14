@@ -30,6 +30,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal }                              from "react-dom";
 import { useAuth }                                   from "@/components/auth/AuthContext";
+import { AuthModal }                                 from "@/components/auth/AuthModal";
 import { supabase }                                  from "@/lib/supabase";
 import {
   useDirectionStore,
@@ -303,6 +304,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const handleFrameSelect = useCallback((frameId: string | null) => {
     setSelectedFrameId(frameId);
   }, []);
+  // ── Auth modal — shown when guest clicks Generate ─────────────────────────
+  const [authModal, setAuthModal] = useState(false);
+
   // Guard: createPortal needs document.body — only available on client.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -336,7 +340,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // All CDv2 API routes require a Bearer token in the Authorization header.
   // We use supabase.auth.getSession() to get the freshest token (avoids
   // stale-closure issues where session from useAuth() may not yet be refreshed).
-  const { session } = useAuth();
+  const { user, session } = useAuth();
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     // Try live session first — covers auto-refresh scenarios
     const { data: { session: live } } = await supabase.auth.getSession();
@@ -462,6 +466,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   const handleGenerate = useCallback(
     async (count: number = 1, aspectRatio: string = "1:1", _quality?: string, sceneOverride?: string, frameIdOverride?: string) => {
       console.log("[CDv2] handleGenerate called", { count, aspectRatio, sceneOverride, frameIdOverride });
+      // ── Guest guard ──────────────────────────────────────────────────────────
+      if (!user) { setAuthModal(true); return; }
       // Reset cancel flag at the top of every new generate attempt
       pollCancelledRef.current = false;
       // ── Synchronous concurrency guard ────────────────────────────────────
@@ -1387,6 +1393,11 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           onCancel={handleCancel}
         />
       </div>
+
+      {/* Auth modal — shown when guest clicks Generate */}
+      {authModal && (
+        <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+      )}
     </div>
   );
 

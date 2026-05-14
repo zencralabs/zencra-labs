@@ -21,6 +21,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useAuth }  from "@/components/auth/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
 import { supabase } from "@/lib/supabase";
 import type { CharacterMode, Character, SoulId, CharacterVersion } from "@/lib/character";
 import type { CharacterAsset } from "@/lib/character";
@@ -226,7 +227,8 @@ export default function CharacterStudioShell() {
   const [assets,          setAssets]          = useState<CharacterAsset[]>([]);
 
   // ── Auth token — UNCHANGED ──────────────────────────────────────────────────
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authToken,  setAuthToken]  = useState<string | null>(null);
+  const [authModal,  setAuthModal]  = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthToken(data.session?.access_token ?? null);
@@ -240,7 +242,8 @@ export default function CharacterStudioShell() {
 
   // ── Generate handler — UNCHANGED ────────────────────────────────────────────
   const handleGenerate = useCallback(async (payload: BuildPayload) => {
-    if (!user || isGenerating) return;
+    if (!user) { setAuthModal(true); return; }
+    if (isGenerating) return;
     setIsGenerating(true);
     try {
       const res = await fetch("/api/studio/character/generate", {
@@ -452,6 +455,11 @@ export default function CharacterStudioShell() {
           activeMode={activeMode}
         />
       </div>
+
+      {/* Auth modal — shown when guest clicks Generate */}
+      {authModal && (
+        <AuthModal defaultTab="login" onClose={() => setAuthModal(false)} />
+      )}
 
     </div>
   );
