@@ -273,7 +273,7 @@ export default function SettingsPage() {
         <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", margin: "0 0 10px", fontFamily: "var(--font-familjen-grotesk, inherit)" }}>
           YOUR ACCOUNT
         </p>
-        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "36px", fontWeight: 700, color: "#F8FAFC", letterSpacing: "-0.02em", margin: "0 0 8px" }}>
+        <h1 style={{ fontFamily: "var(--font-display, 'Syne', sans-serif)", fontSize: 32, fontWeight: 800, color: "var(--page-text)", margin: 0, lineHeight: 1.1 }}>
           Settings
         </h1>
         <p style={{ fontSize: "15px", color: "#64748B", margin: "0 0 18px", ...bodyText }}>
