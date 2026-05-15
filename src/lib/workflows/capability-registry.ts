@@ -117,7 +117,10 @@ export async function estimateCapabilityCost(
         };
 
         const estimate = await hooks.estimate(zpInput);
-        return estimate.expected;
+        // Multiply by outputCount so the route pre-reserves the full cost for all
+        // requested outputs, not just one. Clamped 1–4 to match route-level cap.
+        const count = Math.max(1, Math.min(params.outputCount ?? 1, 4));
+        return estimate.expected * count;
       } catch (err) {
         console.error("[capability-registry] estimateCapabilityCost error:", err);
         return 0; // unknown — caller proceeds without pre-reservation guarantee
@@ -168,8 +171,14 @@ async function renderWithQuality(input: CapabilityInput): Promise<CapabilityResu
   //   tier ("fast" | "cinematic") → providerParams.quality
   //   gpt-image.ts translates "cinematic" → OpenAI "medium" internally.
   //   The engine never learns about "low" / "medium" / "high".
-  const zpInput: ZProviderInput = {
-    requestId:      `wf-cap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  //
+  // Multi-output strategy: loop strategy (n=1 per call) mirrors Image Studio's
+  // page.tsx approach. Native n= batching is Phase B — deferred until the
+  // frontend can consume urls[] from a single OpenAI response.
+  const outputCount = Math.max(1, Math.min(params.outputCount ?? 1, 4));
+
+  const zpInputBase: ZProviderInput = {
+    requestId:      "", // set per-call below
     userId,
     studioType:     "image",
     modelKey:       "gpt-image-2",
@@ -177,46 +186,63 @@ async function renderWithQuality(input: CapabilityInput): Promise<CapabilityResu
     imageUrls:      params.references,
     aspectRatio:    (params.aspectRatio ?? "1:1") as AspectRatio,
     providerParams: { quality: params.tier },
-    // outputCount is intentionally not forwarded — gpt-image-2 Phase 2A
-    // uses n=1 per dispatch call. Multi-output is a Phase 2B concern.
   };
 
-  try {
-    const job = await gptImage2Provider.createJob(zpInput);
+  const allUrls:    string[] = [];
+  let   totalCredits         = 0;
 
-    if (job.status !== "success") {
-      return {
-        ok:          false,
-        resultUrls:  [],
-        creditsUsed: 0,
-        error:       job.error ?? "Render step did not complete",
+  try {
+    for (let i = 0; i < outputCount; i++) {
+      const zpInput: ZProviderInput = {
+        ...zpInputBase,
+        requestId: `wf-cap-${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${i}`,
       };
+
+      const job = await gptImage2Provider.createJob(zpInput);
+
+      if (job.status !== "success") {
+        // If any individual call fails, return what we have so far (partial success
+        // is better than discarding already-generated outputs). The engine records
+        // creditsUsed = totalCredits so the refund logic returns the remainder.
+        if (allUrls.length > 0) break;
+        return {
+          ok:          false,
+          resultUrls:  [],
+          creditsUsed: totalCredits,
+          error:       job.error ?? "Render step did not complete",
+        };
+      }
+
+      // Extract result URLs — prefer urls[] (batch), fall back to url (single)
+      const urls: string[] = job.result?.urls?.length
+        ? job.result.urls
+        : job.result?.url
+          ? [job.result.url]
+          : [];
+
+      if (urls.length > 0) {
+        allUrls.push(...urls);
+      }
+      totalCredits += job.actualCredits ?? job.estimatedCredits?.expected ?? 0;
     }
 
-    // Extract result URLs — prefer urls[] (batch), fall back to url (single)
-    const urls: string[] = job.result?.urls?.length
-      ? job.result.urls
-      : job.result?.url
-        ? [job.result.url]
-        : [];
-
-    if (urls.length === 0) {
+    if (allUrls.length === 0) {
       return {
         ok:          false,
         resultUrls:  [],
-        creditsUsed: 0,
+        creditsUsed: totalCredits,
         error:       "Provider returned no image URLs",
       };
     }
 
     return {
       ok:          true,
-      resultUrls:  urls,
-      creditsUsed: job.actualCredits ?? job.estimatedCredits?.expected ?? 0,
+      resultUrls:  allUrls,
+      creditsUsed: totalCredits,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[capability-registry] renderWithQuality error:", message);
-    return { ok: false, resultUrls: [], creditsUsed: 0, error: message };
+    return { ok: false, resultUrls: allUrls, creditsUsed: totalCredits, error: message };
   }
 }

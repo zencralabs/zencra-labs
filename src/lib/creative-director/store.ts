@@ -203,18 +203,23 @@ export interface CDModelDef {
 }
 
 export const CD_MODELS: CDModelDef[] = [
+  // ── Phase 2A: only gpt-image-2 is routed by the capability registry. ─────
+  // All other models are locked to soon:true until dynamic multi-model routing
+  // is wired in capability-registry.ts (Phase 2B). Activating them without
+  // backend routing would cause display/billing/generation mismatches.
+  //
   // GPT Image
-  { key: "gpt-image-1",          label: "GPT Image 1.5",    active: true  },
+  { key: "gpt-image-1",          label: "GPT Image 1.5",    active: false, soon: true },
   { key: "gpt-image-2",          label: "GPT Image 2",      active: true  },
   // Nano Banana
-  { key: "nano-banana-standard", label: "Nano Banana",      active: true  },
-  { key: "nano-banana-pro",      label: "Nano Banana Pro",  active: true  },
-  { key: "nano-banana-2",        label: "Nano Banana 2",    active: true  },
+  { key: "nano-banana-standard", label: "Nano Banana",      active: false, soon: true },
+  { key: "nano-banana-pro",      label: "Nano Banana Pro",  active: false, soon: true },
+  { key: "nano-banana-2",        label: "Nano Banana 2",    active: false, soon: true },
   // Seedream
-  { key: "seedream-4-5",         label: "Seedream 4.5",     active: true  },
-  { key: "seedream-v5",          label: "Seedream v5 Lite",   active: true  },
+  { key: "seedream-4-5",         label: "Seedream 4.5",     active: false, soon: true },
+  { key: "seedream-v5",          label: "Seedream v5 Lite", active: false, soon: true },
   // Flux
-  { key: "flux-kontext",         label: "Flux.2 Flex",      active: true  },
+  { key: "flux-kontext",         label: "Flux.2 Flex",      active: false, soon: true },
   { key: "flux-2-image",         label: "Flux.2 Pro",       active: false, soon: true },
   { key: "flux-2-max",           label: "Flux.2 Max",       active: false, soon: true },
 ];
