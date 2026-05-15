@@ -55,7 +55,7 @@ export function HeroBackground() {
           opacity: 0.65,
         }}
       >
-        <source src="/hero/videos/hero-bg.mp4" type="video/mp4" />
+        <source src={`${process.env.NEXT_PUBLIC_SITE_MEDIA_BASE}/homepage/hero-bg.mp4`} type="video/mp4" />
         {/* No <track> — decorative background, no captions needed */}
       </video>
 
