@@ -49,6 +49,9 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "elevenlabs-premium":   "ElevenLabs v3 Premium",
   "sync-lipsync-v3":      "Studio Lip Sync",    // NOT "Sync Lip Sync v3"
 
+  // ── Creative Director (Workflow) ─────────────────────────────────────────
+  "reference-stack-render": "Creative Director",
+
   // ── Zencra FCS (LTX) ─────────────────────────────────────────────────────
   "fcs_ltx23_pro":        "Cine Pro",
   "fcs_ltx23_director":   "Cine Director",
