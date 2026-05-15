@@ -1186,8 +1186,8 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
               /* loading=false && user=null → genuinely signed out */
               <div className="hidden items-center gap-2 lg:flex">
                 {/* Login — premium glass pill */}
-                <button
-                  onClick={() => router.push("/login")}
+                <Link
+                  href="/login"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -1205,6 +1205,7 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
                     letterSpacing: "-0.01em",
                     transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
                     flexShrink: 0,
+                    textDecoration: "none",
                   }}
                   onMouseEnter={e => {
                     const b = e.currentTarget as HTMLElement;
@@ -1222,7 +1223,7 @@ export function Navbar({ onOpenPricing }: { onOpenPricing?: () => void } = {}) {
                   }}
                 >
                   Login
-                </button>
+                </Link>
 
                 {/* Try Free — Zencra blue/cyan gradient pill */}
                 <Link
