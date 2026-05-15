@@ -245,6 +245,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
     assignAssetToRole,
     addUploadedAsset,
     updateFrame,
+    appendOutputs,
   } = useDirectionStore();
 
   const [isFullscreen,        setIsFullscreen]        = useState(false);
@@ -270,6 +271,10 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
   // justRestored: set true when we hydrate from storage so the flush-on-
   // direction-created effect doesn't immediately re-write unchanged state.
   const justRestored    = useRef(false);
+  // Tracks the last directionId for which we ran output rehydration.
+  // Stored as a ref (not state) so it never triggers a re-render.
+  // Resets automatically when the user opens a different direction.
+  const lastHydratedDirectionIdRef = useRef<string | null>(null);
 
   // P4 — Live prompt preview: read TextNodes + connections reactively.
   // These selectors re-render CDv2Shell only when these slices change.
@@ -1054,6 +1059,120 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
 
     void restore();
   }, []); // mount only — intentional empty deps
+
+  // ── Rehydrate persisted outputs from DB when direction is known ───────────
+  //
+  // Fires when directionId + directionCreated both become truthy (i.e. after
+  // the canvas restore above calls markDirectionCreated).
+  //
+  // Strategy (Option C):
+  //   Keep assets.studio = "image" → Gallery compatibility unchanged.
+  //   Use creative_generations.direction_id to identify CD outputs for this
+  //   direction, then join to assets for the durable Supabase Storage URLs.
+  //
+  // Safety guarantees:
+  //   1. User-scoped: creative_generations filtered by user.id AND assets
+  //      filtered by user.id — no cross-user leakage even if direction_id
+  //      were somehow shared.
+  //   2. De-duplicated: any asset_id or URL already present in the current
+  //      in-memory outputs is skipped before calling appendOutputs.
+  //   3. Best-effort: any fetch/parse error is caught and logged; the shell
+  //      never crashes and the user sees a clean empty outputs panel.
+  //   4. Runs at most once per unique directionId (lastHydratedDirectionIdRef
+  //      guard), so repeated re-renders or direction re-opens are safe.
+  useEffect(() => {
+    // Guard 1: direction not yet resolved
+    if (!directionId || !directionCreated) return;
+    // Guard 2: user not authenticated
+    if (!user?.id) return;
+    // Guard 3: already hydrated this exact direction in this session
+    if (lastHydratedDirectionIdRef.current === directionId) return;
+
+    lastHydratedDirectionIdRef.current = directionId;
+
+    const userId = user.id;
+
+    async function hydrateOutputs() {
+      try {
+        // ── Step 1: fetch creative_generations rows for this direction ──────
+        // Scoped to direction_id AND user_id to prevent cross-user leakage.
+        const { data: genRows, error: genErr } = await supabase
+          .from("creative_generations")
+          .select("asset_id, provider, model, credit_cost, created_at")
+          .eq("direction_id", directionId!)
+          .eq("user_id", userId)
+          .not("asset_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        if (genErr) {
+          console.warn("[CDv2] output rehydration: creative_generations query failed", genErr.message);
+          return;
+        }
+        if (!genRows?.length) return; // fresh direction — nothing to restore
+
+        const assetIds = genRows.map((r) => r.asset_id as string).filter(Boolean);
+        if (!assetIds.length) return;
+
+        // ── Step 2: fetch the corresponding asset rows ────────────────────
+        // Also user-scoped so a corrupt direction_id can never reveal
+        // another user's assets.
+        const { data: assetRows, error: assetErr } = await supabase
+          .from("assets")
+          .select("id, url, status, created_at, model_key")
+          .in("id", assetIds)
+          .eq("user_id", userId)
+          .eq("status", "ready");
+
+        if (assetErr) {
+          console.warn("[CDv2] output rehydration: assets query failed", assetErr.message);
+          return;
+        }
+        if (!assetRows?.length) return;
+
+        // ── Step 3: de-duplicate against current in-memory outputs ────────
+        const existingOutputs = useDirectionStore.getState().outputs;
+        const existingIds  = new Set(existingOutputs.map((o) => o.id));
+        const existingUrls = new Set(existingOutputs.map((o) => o.url).filter(Boolean));
+
+        const assetMap = new Map(assetRows.map((a) => [a.id, a]));
+        const currentMode = useDirectionStore.getState().mode;
+
+        const hydratedOutputs: CDGenerationOutput[] = [];
+        for (const gen of genRows) {
+          const assetId = gen.asset_id as string;
+          const asset   = assetMap.get(assetId);
+          if (!asset) continue;
+
+          // Skip if this output is already in the panel (id or URL match)
+          if (existingIds.has(asset.id)) continue;
+          if (asset.url && existingUrls.has(asset.url)) continue;
+
+          hydratedOutputs.push({
+            id:          asset.id,
+            status:      "completed",
+            asset_id:    asset.id,
+            url:         asset.url ?? null,
+            mode:        currentMode,
+            credit_cost: Number(gen.credit_cost ?? 0),
+            provider:    (gen.provider as string) ?? "unknown",
+            model:       (gen.model as string) ?? (asset.model_key as string) ?? "unknown",
+            created_at:  (gen.created_at as string) ?? asset.created_at,
+          });
+        }
+
+        if (hydratedOutputs.length > 0) {
+          appendOutputs(hydratedOutputs);
+          console.log(`[CDv2] rehydrated ${hydratedOutputs.length} output(s) for direction ${directionId}`);
+        }
+      } catch (err) {
+        // Best-effort — never crash the shell over a rehydration failure
+        console.error("[CDv2] output rehydration: unexpected error", err);
+      }
+    }
+
+    void hydrateOutputs();
+  }, [directionId, directionCreated, user?.id, appendOutputs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Layout constants ──────────────────────────────────────────────────────
   // Collapsed widths: left 56px (icon rail), right 78px (thumbnail strip).
