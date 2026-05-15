@@ -607,7 +607,9 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           const data = await res.json();
           const resultUrls: string[] = data.data?.resultUrls ?? [];
           const runId: string | undefined = data.data?.runId;
-          console.log("[CDv2] workflow response:", { runId, count: resultUrls.length });
+          const returnedAssetIds: string[] = data.data?.assetIds ?? [];
+          const returnedAssets: Array<Record<string, unknown>> = data.data?.assets ?? [];
+          console.log("[CDv2] workflow response:", { runId, count: resultUrls.length, assetIds: returnedAssetIds });
 
           // ── Phase 3A: register job in pending-job-store ─────────────────────
           // Workflow is synchronous — register immediately then complete so the
@@ -617,7 +619,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             const now3A = new Date().toISOString();
             jobStore.registerJob({
               jobId:      runId,
-              assetId:    runId,
+              assetId:    returnedAssetIds[0] ?? runId,
               studio:     "workflow",
               modelKey:   "reference-stack-render",
               modelLabel: "Creative Director",
@@ -634,17 +636,18 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             updateFrame(targetFrameId, { generatedImageUrl: resultUrls[0] });
           }
           const now = new Date().toISOString();
-          finishGenerating(resultUrls.map((url) => ({
-            id:          crypto.randomUUID(),
+          finishGenerating(resultUrls.map((url, idx) => ({
+            id:          returnedAssetIds[idx] ?? crypto.randomUUID(),
             url,
             status:      "completed" as const,
             mode:        "explore" as const,
             credit_cost: 0,
             provider:    "workflow",
             model:       "reference-stack-render",
-            created_at:  now,
+            created_at:  (returnedAssets[idx]?.created_at as string | undefined) ?? now,
             completed_at: now,
           })));
+          void returnedAssets; // referenced above; suppress unused-var lint
         } catch (err) {
           finishGenerating([], err instanceof Error ? err.message : "Network error");
         }
@@ -772,6 +775,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       const data = await res.json();
       const resultUrls: string[] = data.data?.resultUrls ?? [];
       const varRunId: string | undefined = data.data?.runId;
+      const varAssetIds: string[] = data.data?.assetIds ?? [];
       const varNow = new Date().toISOString();
 
       // ── Phase 3A: register variation job ───────────────────────────────────
@@ -779,7 +783,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         const jobStore = getPendingJobStoreState();
         jobStore.registerJob({
           jobId:      varRunId,
-          assetId:    varRunId,
+          assetId:    varAssetIds[0] ?? varRunId,
           studio:     "workflow",
           modelKey:   "reference-stack-render",
           modelLabel: "Creative Director",
@@ -791,8 +795,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         }
       }
 
-      finishGenerating(resultUrls.map((url) => ({
-        id:           crypto.randomUUID(),
+      finishGenerating(resultUrls.map((url, idx) => ({
+        id:           varAssetIds[idx] ?? crypto.randomUUID(),
         url,
         status:       "completed" as const,
         mode:         "explore" as const,
@@ -852,6 +856,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         const data = await res.json();
         const resultUrls: string[] = data.data?.resultUrls ?? [];
         const autoRunId: string | undefined = data.data?.runId;
+        const autoAssetIds: string[] = data.data?.assetIds ?? [];
         const autoNow = new Date().toISOString();
 
         // ── Phase 3A: register auto-generate job ──────────────────────────────
@@ -859,7 +864,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           const jobStore = getPendingJobStoreState();
           jobStore.registerJob({
             jobId:      autoRunId,
-            assetId:    autoRunId,
+            assetId:    autoAssetIds[0] ?? autoRunId,
             studio:     "workflow",
             modelKey:   "reference-stack-render",
             modelLabel: "Creative Director",
@@ -871,8 +876,8 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           }
         }
 
-        finishGenerating(resultUrls.map((url) => ({
-          id:          crypto.randomUUID(),
+        finishGenerating(resultUrls.map((url, idx) => ({
+          id:          autoAssetIds[idx] ?? crypto.randomUUID(),
           url,
           status:      "completed" as const,
           mode:        "explore" as const,

@@ -243,9 +243,58 @@ export async function POST(req: Request): Promise<Response> {
     return apiErr("SERVER_ERROR", result.error ?? "Workflow execution failed", 500);
   }
 
+  // ── Persist outputs to assets table ──────────────────────────────────────────
+  // Non-fatal: failure is caught and logged; resultUrls are still returned.
+  const resultUrls = result.resultUrls ?? [];
+  let assetIds: string[] = [];
+  let assets: Array<Record<string, unknown>> = [];
+
+  try {
+    const now = new Date().toISOString();
+    const records = resultUrls.map((url) => {
+      const id = crypto.randomUUID();
+      return {
+        id,
+        job_id:       result.runId,   // workflow_run id acts as job reference
+        user_id:      userId,
+        studio:       "image" as const,
+        provider:     "workflow",
+        model_key:    "reference-stack-render",
+        status:       "ready" as const,
+        mime_type:    "image/png",
+        url,
+        storage_path: "",
+        bucket:       "",
+        prompt:       inputPayload.prompt,
+        aspect_ratio: inputPayload.aspectRatio,
+        studio_meta:  { workflow: { runId: result.runId, tier: inputPayload.tier } },
+        created_at:   now,
+        updated_at:   now,
+      };
+    });
+
+    if (records.length > 0) {
+      const { data: inserted, error: insertErr } = await supabaseAdmin
+        .from("assets")
+        .upsert(records, { onConflict: "id" })
+        .select("id, url, status, created_at");
+
+      if (insertErr) {
+        console.error("[workflow-route] asset persistence failed (non-fatal):", insertErr.message);
+      } else {
+        assetIds = (inserted ?? []).map((r) => r.id as string);
+        assets   = (inserted ?? []) as Array<Record<string, unknown>>;
+      }
+    }
+  } catch (persistErr) {
+    console.error("[workflow-route] asset persistence threw (non-fatal):", persistErr);
+  }
+
   // ── Return result ─────────────────────────────────────────────────────────────
   return ok({
-    runId:      result.runId,
-    resultUrls: result.resultUrls ?? [],
+    runId: result.runId,
+    resultUrls,
+    assetIds,
+    assets,
   });
 }

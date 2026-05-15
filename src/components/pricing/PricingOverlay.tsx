@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1587,6 +1588,9 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
   const [selected, setSelected]         = useState<string>("creator");
   const [closing, setClosing]           = useState(false);
   const [fcsEnabled, setFcsEnabled]     = useState(false);
+  // Portal guard — createPortal requires document.body (client-only)
+  const [mounted, setMounted]           = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [showFCSModal, setShowFCSModal] = useState(false);
   const [pendingPlan, setPendingPlan]   = useState<Plan | null>(null);
   const [businessSeats, setBusinessSeats] = useState<number>(2);
@@ -1637,7 +1641,9 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
     setPendingPlan(null);
   }, []);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       {/* FCS Upsell Modal — above the overlay */}
       {showFCSModal && pendingPlan && (
@@ -1652,7 +1658,7 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
       {/* ── Backdrop ── */}
       <div
         style={{
-          position: "fixed", inset: 0, zIndex: 1200,
+          position: "fixed", inset: 0, zIndex: 1300,
           overflowY: "auto",
           background: "rgba(0,0,0,0.72)",
           // Reduced from 18px — main perf win during scroll
@@ -2126,7 +2132,8 @@ export function PricingOverlay({ onClose }: PricingOverlayProps) {
           </div>{/* /glass panel */}
         </div>{/* /click-outside wrapper */}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
