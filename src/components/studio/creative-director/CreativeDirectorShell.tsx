@@ -379,7 +379,7 @@ function ToastBar({ toasts }: { toasts: Toast[] }) {
 
 // ── Main shell ─────────────────────────────────────────────────────────────────
 export default function CreativeDirectorShell() {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const router       = useRouter();
   // Live session ref — polling engine reads this on every request so JWT
   // rotation is handled transparently without capturing a stale token.
@@ -834,6 +834,7 @@ export default function CreativeDirectorShell() {
       // Register in global store so the job appears in the recovery drawer
       jobStore.registerJob({
         jobId:      assetId,     // CD uses assetId as the polling key
+        userId:     user?.id,
         studio:     "image",     // CD generates images
         modelKey:   "cd-generation",
         modelLabel: "Creative Director",

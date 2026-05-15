@@ -620,6 +620,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             jobStore.registerJob({
               jobId:      runId,
               assetId:    returnedAssetIds[0] ?? runId,
+              userId:     user.id,
               studio:     "workflow",
               modelKey:   "reference-stack-render",
               modelLabel: "Creative Director",
@@ -784,6 +785,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         jobStore.registerJob({
           jobId:      varRunId,
           assetId:    varAssetIds[0] ?? varRunId,
+          userId:     user.id,
           studio:     "workflow",
           modelKey:   "reference-stack-render",
           modelLabel: "Creative Director",
@@ -865,6 +867,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           jobStore.registerJob({
             jobId:      autoRunId,
             assetId:    autoAssetIds[0] ?? autoRunId,
+            userId:     user.id,
             studio:     "workflow",
             modelKey:   "reference-stack-render",
             modelLabel: "Creative Director",

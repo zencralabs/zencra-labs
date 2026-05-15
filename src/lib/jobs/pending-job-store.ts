@@ -57,6 +57,13 @@ export interface PendingJob {
   jobId:      string;
   /** Supabase assets.id (UUID) — available after dispatch, needed for recovery. */
   assetId?:   string;
+  /**
+   * Authenticated Supabase user ID of the user who submitted this job.
+   * Required on all new jobs (registerJob must pass user.id).
+   * Jobs without a userId are legacy records from before v2 and must be
+   * purged during migration — they must never be shown to any user.
+   */
+  userId?:    string;
   studio:     StudioType;
   modelKey:   string;
   /** Short display label — e.g. "Kling 3.0", "Nano Banana Pro" */
@@ -335,7 +342,7 @@ export const usePendingJobStore = create<PendingJobStore>()(
     // ── Persist config ─────────────────────────────────────────────────────
     {
       name:    "zencra_jobs_v1",
-      version: 1,
+      version: 2,
 
       // Only persist the jobs map — actions are recreated on store init.
       partialize: (state) => ({ jobs: state.jobs }),
@@ -343,9 +350,23 @@ export const usePendingJobStore = create<PendingJobStore>()(
       // Schema migration — increment version and add upgrade logic as needed.
       migrate: (persistedState, fromVersion) => {
         const base = (persistedState ?? {}) as { jobs?: Record<string, PendingJob> };
-        // Version 0 → 1: first release, no migration needed.
-        void fromVersion;
-        return { jobs: base.jobs ?? {} };
+        const raw  = base.jobs ?? {};
+
+        if (fromVersion < 2) {
+          // v1 → v2: purge ALL jobs that have no userId.
+          // These are unattributed legacy records that cannot be confidently
+          // tied to any authenticated user. Privacy requires they be dropped —
+          // never shown as a "safe fallback" to whichever user happens to log
+          // in next. Active generations survive server-side; only the drawer
+          // entry is lost.
+          const scoped: Record<string, PendingJob> = {};
+          for (const [id, job] of Object.entries(raw)) {
+            if (job.userId) scoped[id] = job;
+          }
+          return { jobs: scoped };
+        }
+
+        return { jobs: raw };
       },
 
       // On hydration, prune stale terminal jobs so localStorage stays bounded.

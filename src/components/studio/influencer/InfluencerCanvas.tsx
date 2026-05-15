@@ -106,6 +106,8 @@ interface Props {
   selectedStyleCategory: StyleCategory; // drives dock button color in empty phase
   candidateCount:        number;        // 1–4; controls credit display in dock button
   onDiscardCandidates?:  () => void;   // called when user confirms "Discard All" in candidates phase
+  /** Authenticated user ID — threaded from AIInfluencerBuilder for job attribution. */
+  userId?:               string;
 }
 
 // ── Pack output state ─────────────────────────────────────────────────────────
@@ -153,7 +155,7 @@ function getPackUiState(packType: PackType, packOutputs: PackOutput[]): PackUiSt
 export default function InfluencerCanvas({
   canvasState, onCandidatesReady, onSelected, onCandidateLocked,
   onCreateClick, isCreating, createError, selectedStyleCategory, candidateCount,
-  onDiscardCandidates,
+  onDiscardCandidates, userId,
 }: Props) {
   const [packOutputs, setPackOutputs]   = useState<PackOutput[]>([]);
   const [activePack,  setActivePack]    = useState<PackType | null>(null);
@@ -405,6 +407,7 @@ export default function InfluencerCanvas({
           for (const { jobId, label } of jobs) {
             store.registerJob({
               jobId,
+              userId,
               studio:     "image",          // BFL Kontext dispatches as image studio
               modelKey:   "bfl-kontext",    // direct BFL API — NOT fal-hosted flux-kontext
               modelLabel: "Look Pack",

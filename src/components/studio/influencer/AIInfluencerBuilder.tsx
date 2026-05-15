@@ -493,6 +493,7 @@ export default function AIInfluencerBuilder() {
           for (const { jobId } of jobs) {
             store.registerJob({
               jobId,
+              userId:     user.id,
               studio:     "character",
               modelKey:   "influencer-candidate",
               modelLabel: "AI Influencer",
@@ -702,6 +703,7 @@ export default function AIInfluencerBuilder() {
           selectedStyleCategory={styleCategory}
           candidateCount={candidateCount}
           onDiscardCandidates={handleDiscardCandidates}
+          userId={user?.id}
         />
 
         {/* ── Pending "+ New" confirmation overlay ────────────────────── */}

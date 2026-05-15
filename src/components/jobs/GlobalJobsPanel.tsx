@@ -39,8 +39,8 @@ import type { PendingJob }   from "@/lib/jobs/pending-job-store";
 import { PendingJobsDrawer } from "./PendingJobsDrawer";
 
 export function GlobalJobsPanel() {
-  const { session } = useAuth();
-  const retryJob    = useRetryJob(session?.access_token ?? null);
+  const { session, user } = useAuth();
+  const retryJob          = useRetryJob(session?.access_token ?? null);
 
   // ── Permanent delete handler ────────────────────────────────────────────────
   const handleDelete = useCallback(async (job: PendingJob): Promise<void> => {
@@ -68,6 +68,7 @@ export function GlobalJobsPanel() {
     <PendingJobsDrawer
       onRetry={retryJob}
       onDelete={handleDelete}
+      userId={user?.id}
     />
   );
 }

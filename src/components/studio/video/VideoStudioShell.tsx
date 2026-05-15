@@ -2807,6 +2807,7 @@ export default function VideoStudioShell() {
       jobStore.registerJob({
         jobId,
         assetId:    resData.data?.assetId ?? jobId,
+        userId:     user.id,
         studio:     "video",
         modelKey,
         modelLabel: model.displayName,
@@ -2968,6 +2969,7 @@ export default function VideoStudioShell() {
                 jobStore.registerJob({
                   jobId:      fbJobId,
                   assetId:    fbData.data?.assetId ?? fbJobId,
+                  userId:     user.id,
                   studio:     "video",
                   modelKey,
                   modelLabel: model.displayName,

@@ -36,7 +36,6 @@ import {
 import {
   usePendingJobStore,
   useAllJobs,
-  useActiveJobCount,
   type PendingJob,
 } from "@/lib/jobs/pending-job-store";
 import {
@@ -65,6 +64,14 @@ interface PendingJobsDrawerProps {
    * Returns a Promise that resolves on success or rejects on error.
    */
   onDelete?: (job: PendingJob) => Promise<void>;
+
+  /**
+   * Authenticated Supabase user ID of the currently signed-in user.
+   * Jobs are rendered ONLY when job.userId === userId (strict match).
+   * When undefined (guest / unauthenticated), no persisted jobs are shown.
+   * This is a hard privacy boundary — no legacy anonymous jobs ever render.
+   */
+  userId?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -696,12 +703,17 @@ function ActivityButton({
 const MAX_DISPLAYED_JOBS      = 12;
 const AUTO_DISMISS_DELAY_MS   = 8_000;
 
-export function PendingJobsDrawer({ onRetry, onDelete }: PendingJobsDrawerProps) {
+export function PendingJobsDrawer({ onRetry, onDelete, userId }: PendingJobsDrawerProps) {
   const [open, setOpen]                   = useState(false);
   const [confirmingDelete, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting]           = useState(false);
-  const allJobs                           = useAllJobs();
-  const activeCount                       = useActiveJobCount();
+  const allJobsRaw                        = useAllJobs();
+  // Privacy hard boundary: render ONLY jobs that belong to the current authenticated user.
+  // No userId → guest → show nothing. Legacy jobs without userId are treated as untrusted.
+  const allJobs                           = allJobsRaw.filter(
+    (job) => !!userId && job.userId === userId
+  );
+  const activeCount                       = allJobs.filter((j) => !isTerminal(j.status)).length;
   const { removeJob, clearTerminal }      = usePendingJobStore();
 
   // ── Auto-open on job completion, auto-close after delay ─────────────────────
