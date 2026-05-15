@@ -80,11 +80,13 @@ import type { GenerationStatus }       from "@/lib/jobs/job-status-normalizer";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AppBootstrap() {
-  const { session }      = useAuth();
+  const { session, user } = useAuth();
   const recoveredRef     = useRef<string | null>(null);
   // Live session ref — keeps a mutable pointer to the current session so the
   // polling engine's getToken callback always reads the freshest JWT.
   const sessionRef       = useRef(session);
+  // Track previous authenticated user ID to detect logout and account switches.
+  const prevUserIdRef    = useRef<string | null>(null);
 
   // ── 0. Keep sessionRef in sync with React session state ───────────────────
   useEffect(() => {
@@ -116,6 +118,25 @@ export function AppBootstrap() {
   useEffect(() => {
     if (!session) stopAllPolling();
   }, [session]);
+
+  // ── 3b. Privacy: clear local jobs on logout or account switch ─────────────
+  // Prevents User B from seeing User A's activity center jobs after
+  // a logout or same-browser account switch.  Uses a ref to track the
+  // previous user ID so we fire ONLY on a real identity change — not on
+  // every render.
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    const prevUserId    = prevUserIdRef.current;
+
+    if (prevUserId !== null && prevUserId !== currentUserId) {
+      // Identity changed (logout or account switch) — wipe the job store.
+      // Job recovery runs in effect 2 and will re-hydrate the new user's
+      // own jobs from the server once their session token is available.
+      usePendingJobStore.getState().clearAll();
+    }
+
+    prevUserIdRef.current = currentUserId;
+  }, [user?.id]);
 
   // ── 4. Transition-based job toasts ────────────────────────────────────────
   // Subscribe to the store. Fire a global toast only when a job moves to a

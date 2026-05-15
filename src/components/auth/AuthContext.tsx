@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, type ReactNode 
 import { useRouter } from "next/navigation";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
+import { usePendingJobStore } from "@/lib/jobs/pending-job-store";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH CONTEXT — Full production auth
@@ -561,6 +562,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     // Wipe the snapshot so a future cold load doesn't show the old user.
     clearAuthSnapshot();
+    // Clear activity center jobs so User B cannot see User A's jobs.
+    usePendingJobStore.getState().clearAll();
 
     if (!isSupabaseConfigured) {
       localStorage.removeItem("zencra_user");

@@ -95,7 +95,7 @@ function GateScreen({ onGranted }: { onGranted: () => void }) {
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 1000,
+        zIndex: 1200,
         backgroundColor: "#050509",
         color: "#fff",
       }}
