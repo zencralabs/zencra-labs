@@ -1099,6 +1099,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
       try {
         // ── Step 1: fetch creative_generations rows for this direction ──────
         // Scoped to direction_id AND user_id to prevent cross-user leakage.
+        // Requires the "authenticated_select_own_creative_generations" RLS policy.
         const { data: genRows, error: genErr } = await supabase
           .from("creative_generations")
           .select("asset_id, provider, model, credit_cost, created_at")
@@ -1112,18 +1113,61 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           console.warn("[CDv2] output rehydration: creative_generations query failed", genErr.message);
           return;
         }
-        if (!genRows?.length) return; // fresh direction — nothing to restore
 
-        const assetIds = genRows.map((r) => r.asset_id as string).filter(Boolean);
-        if (!assetIds.length) return;
+        // ── Step 1B: fallback — query assets directly by studio_meta directionId ──
+        // Catches assets whose creative_generations row failed to write (e.g. a
+        // transient persistence error). Uses JSONB containment so only assets
+        // explicitly tagged with this direction are included.
+        let allAssetIds: string[] = (genRows ?? []).map((r) => r.asset_id as string).filter(Boolean);
+
+        if (allAssetIds.length === 0) {
+          // No creative_generations rows → fall back to direct assets query.
+          // studio_meta->workflow->directionId is set by the workflow route on every
+          // successful generation.
+          const { data: fallbackAssets } = await supabase
+            .from("assets")
+            .select("id, url, status, created_at, model_key")
+            .eq("user_id", userId)
+            .eq("status", "ready")
+            .eq("model_key", "reference-stack-render")
+            .filter("studio_meta->workflow->>'directionId'", "eq", directionId!)
+            .order("created_at", { ascending: false })
+            .limit(50);
+
+          if (fallbackAssets && fallbackAssets.length > 0) {
+            const existingOutputs = useDirectionStore.getState().outputs;
+            const existingIds  = new Set(existingOutputs.map((o) => o.id));
+            const existingUrls = new Set(existingOutputs.map((o) => o.url).filter(Boolean));
+            const currentMode  = useDirectionStore.getState().mode;
+            const now          = new Date().toISOString();
+
+            const fallbackHydrated: CDGenerationOutput[] = fallbackAssets
+              .filter((a) => !existingIds.has(a.id) && !(a.url && existingUrls.has(a.url)))
+              .map((a) => ({
+                id:          a.id,
+                status:      "completed" as const,
+                asset_id:    a.id,
+                url:         (a.url as string | null) ?? null,
+                mode:        currentMode,
+                credit_cost: 0,
+                provider:    "workflow",
+                model:       (a.model_key as string) ?? "reference-stack-render",
+                created_at:  (a.created_at as string) ?? now,
+              }));
+
+            if (fallbackHydrated.length > 0) {
+              appendOutputs(fallbackHydrated);
+              console.log(`[CDv2] rehydrated ${fallbackHydrated.length} output(s) via fallback for direction ${directionId}`);
+            }
+          }
+          return;
+        }
 
         // ── Step 2: fetch the corresponding asset rows ────────────────────
-        // Also user-scoped so a corrupt direction_id can never reveal
-        // another user's assets.
         const { data: assetRows, error: assetErr } = await supabase
           .from("assets")
           .select("id, url, status, created_at, model_key")
-          .in("id", assetIds)
+          .in("id", allAssetIds)
           .eq("user_id", userId)
           .eq("status", "ready");
 
@@ -1138,16 +1182,15 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
         const existingIds  = new Set(existingOutputs.map((o) => o.id));
         const existingUrls = new Set(existingOutputs.map((o) => o.url).filter(Boolean));
 
-        const assetMap = new Map(assetRows.map((a) => [a.id, a]));
+        const assetMap    = new Map(assetRows.map((a) => [a.id, a]));
         const currentMode = useDirectionStore.getState().mode;
 
         const hydratedOutputs: CDGenerationOutput[] = [];
-        for (const gen of genRows) {
+        for (const gen of (genRows ?? [])) {
           const assetId = gen.asset_id as string;
           const asset   = assetMap.get(assetId);
           if (!asset) continue;
 
-          // Skip if this output is already in the panel (id or URL match)
           if (existingIds.has(asset.id)) continue;
           if (asset.url && existingUrls.has(asset.url)) continue;
 
