@@ -782,7 +782,7 @@ export function PendingJobsDrawer({ onRetry, onDelete, userId }: PendingJobsDraw
   const failedJobs  = displayed.filter(j => isTerminal(j.status) && j.status !== "completed");
   const hasTerminal = allJobs.some(j => isTerminal(j.status));
 
-  if (allJobs.length === 0 && !open) return null;
+  if (!userId) return null;
 
   return (
     <>
