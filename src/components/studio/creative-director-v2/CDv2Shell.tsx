@@ -597,6 +597,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
               aspectRatio,
               outputCount: count,
               model:       selectedModel, // forwarded for future capability routing
+              directionId: dId,           // links persisted asset to this direction for rehydration
             }),
           });
           if (!res.ok) {
@@ -766,6 +767,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
           aspectRatio: "1:1",
           outputCount: 1,
           model:       selectedModel, // forwarded for future capability routing
+          directionId: dId,           // links persisted asset to this direction for rehydration
         }),
       });
       if (!res.ok) {
@@ -848,6 +850,7 @@ export function CDv2Shell({ onExitDirectorMode }: CDv2ShellProps) {
             aspectRatio,
             outputCount: 1,
             model:       selectedModel, // forwarded for future capability routing
+            directionId: dId,           // links persisted asset to this direction for rehydration
           }),
         });
         if (!res.ok) {

@@ -143,6 +143,19 @@ export async function POST(req: Request): Promise<Response> {
       ? Math.min(body!.outputCount, 4)
       : 1;
 
+  // Direction ID — forwarded from CDv2Shell so the persisted asset rows can be
+  // linked back to the direction for output rehydration on refresh.
+  // Optional: if absent, assets are still saved but creative_generations rows
+  // cannot be linked to a direction (no rehydration possible).
+  const directionId: string | undefined =
+    typeof body!.directionId === "string" && body!.directionId.trim().length > 0
+      ? body!.directionId.trim()
+      : undefined;
+
+  if (!directionId) {
+    logger.warn("workflow-route", "directionId missing — creative_generations rows will not be linked to a direction", { userId });
+  }
+
   // ── Phase 2C: Workflow-level credit reservation ───────────────────────────────
   //
   // The reference_stack_render workflow uses "workflow_reserved" billing:
@@ -245,6 +258,12 @@ export async function POST(req: Request): Promise<Response> {
 
   // ── Persist outputs to assets table ──────────────────────────────────────────
   // Non-fatal: failure is caught and logged; resultUrls are still returned.
+  //
+  // Schema note: assets table does NOT have an `asset_type` column.
+  // It was previously included in error and caused the entire upsert to fail
+  // silently (Supabase rejects unknown columns). Removed here.
+  // studio = "image" is intentional — Gallery filters on studio = "image", so
+  // CD outputs appear in the Image Gallery alongside direct Image Studio outputs.
   const resultUrls = result.resultUrls ?? [];
   let assetIds: string[] = [];
   let assets: Array<Record<string, unknown>> = [];
@@ -255,12 +274,11 @@ export async function POST(req: Request): Promise<Response> {
       const id = crypto.randomUUID();
       return {
         id,
-        job_id:       result.runId,   // workflow_run id acts as job reference
+        job_id:       result.runId,        // workflow_run id acts as job reference
         user_id:      userId,
-        studio:       "image" as const,
+        studio:       "image" as const,    // kept as "image" for Gallery compatibility
         provider:     "workflow",
         model_key:    "reference-stack-render",
-        asset_type:   "image" as const,
         status:       "ready" as const,
         mime_type:    "image/png",
         url,
@@ -268,7 +286,7 @@ export async function POST(req: Request): Promise<Response> {
         bucket:       "",
         prompt:       inputPayload.prompt,
         aspect_ratio: inputPayload.aspectRatio,
-        studio_meta:  { workflow: { runId: result.runId, tier: inputPayload.tier } },
+        studio_meta:  { workflow: { runId: result.runId, tier: inputPayload.tier, directionId } },
         created_at:   now,
         updated_at:   now,
       };
@@ -281,14 +299,57 @@ export async function POST(req: Request): Promise<Response> {
         .select("id, url, status, created_at");
 
       if (insertErr) {
-        console.error("[workflow-route] asset persistence failed (non-fatal):", insertErr.message);
+        logger.error("workflow-route", "asset persistence failed (non-fatal)", { userId, error: insertErr.message });
       } else {
         assetIds = (inserted ?? []).map((r) => r.id as string);
         assets   = (inserted ?? []) as Array<Record<string, unknown>>;
       }
     }
   } catch (persistErr) {
-    console.error("[workflow-route] asset persistence threw (non-fatal):", persistErr);
+    logger.error("workflow-route", "asset persistence threw (non-fatal)", { userId, error: String(persistErr) });
+  }
+
+  // ── Persist to creative_generations (direction link) ──────────────────────────
+  // Writes one row per output asset so CDv2Shell's rehydration query can find
+  // these outputs on direction restore.  Non-fatal: resultUrls are still returned.
+  //
+  // Credit cost is split per-output (not the full creditReserved total on every
+  // row) so the per-row value stays accurate for margin tracking.
+  if (assetIds.length > 0) {
+    try {
+      const perOutputCost = Math.ceil(creditReserved / Math.max(resultUrls.length, 1));
+      const genNow = new Date().toISOString();
+      const genModel = typeof body!.model === "string" && body!.model.trim().length > 0
+        ? body!.model.trim()
+        : "reference-stack-render";
+
+      const genRecords = assetIds.map((assetId) => ({
+        id:                crypto.randomUUID(),
+        user_id:           userId,
+        direction_id:      directionId ?? null,
+        asset_id:          assetId,
+        generation_type:   "base",
+        provider:          "workflow",
+        model:             genModel,
+        status:            "completed",
+        credit_cost:       perOutputCost,
+        normalized_prompt: { text: inputPayload.prompt },
+        created_at:        genNow,
+        completed_at:      genNow,
+      }));
+
+      const { error: genErr } = await supabaseAdmin
+        .from("creative_generations")
+        .insert(genRecords);
+
+      if (genErr) {
+        logger.error("workflow-route", "creative_generations persistence failed (non-fatal)", { userId, directionId, error: genErr.message });
+      } else {
+        logger.info("workflow-route", "creative_generations rows written", { userId, directionId, count: genRecords.length });
+      }
+    } catch (genPersistErr) {
+      logger.error("workflow-route", "creative_generations persistence threw (non-fatal)", { userId, error: String(genPersistErr) });
+    }
   }
 
   // ── Return result ─────────────────────────────────────────────────────────────
