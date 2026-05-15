@@ -260,6 +260,7 @@ export async function POST(req: Request): Promise<Response> {
         studio:       "image" as const,
         provider:     "workflow",
         model_key:    "reference-stack-render",
+        asset_type:   "image" as const,
         status:       "ready" as const,
         mime_type:    "image/png",
         url,
