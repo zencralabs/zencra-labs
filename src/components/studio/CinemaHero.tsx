@@ -13,7 +13,7 @@ import { Clapperboard, ArrowRight } from "lucide-react";
 const STILLS = [
   { src: "/cinema-stills/still-1.svg", label: "Nebula · Deep Space" },
   { src: "/cinema-stills/still-2.svg", label: "Neon City · Midnight" },
-  { src: "/cinema-stills/still-3.svg", label: "Highland Ridge · Moonrise" },
+  { src: "/cinema-stills/still-3.jpg", label: "Highland Ridge · Moonrise" },
   { src: "/cinema-stills/still-4.svg", label: "Desert Dunes · Dusk" },
   { src: "/cinema-stills/still-5.svg", label: "Storm Coast · Midnight" },
 ];

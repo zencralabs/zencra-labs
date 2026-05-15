@@ -929,6 +929,8 @@ export default function LoginPage() {
                   src={s.img}
                   alt=""
                   aria-hidden="true"
+                  loading={i === 0 ? "eager" : "lazy"}
+                  fetchPriority={i === 0 ? "high" : "low"}
                   style={{
                     position: "absolute",
                     inset: 0,
