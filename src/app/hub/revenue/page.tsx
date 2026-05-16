@@ -17,7 +17,7 @@ export default function HubRevenuePage() {
         {cards.map(c => (
           <div key={c.label} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "20px 24px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>{c.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#F8FAFC", marginBottom: 4 }}>{c.value}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums", marginBottom: 4 }}>{c.value}</div>
             <div style={{ fontSize: 12, color: "#475569" }}>{c.sub}</div>
           </div>
         ))}

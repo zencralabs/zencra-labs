@@ -239,7 +239,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
           {/* Credits count */}
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 34, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.02em", lineHeight: 1 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 34, fontWeight: 800, color: "#DBEAFE", letterSpacing: "-0.03em", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
               {user.credits.toLocaleString()}
             </div>
             <div style={{ fontSize: 11, color: "#475569", fontWeight: 500, marginTop: 3, fontFamily: "var(--font-sans)" }}>{isFree ? "bonus credits" : "credits remaining"}</div>
@@ -298,7 +298,7 @@ export default function DashboardPage() {
               <Zap size={15} style={{ color: "#A855F7" }} />
             </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.02em" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 800, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
             {user.credits.toLocaleString()}
           </div>
           {isFree ? (
@@ -356,7 +356,7 @@ export default function DashboardPage() {
               <Clock size={15} style={{ color: "#10B981" }} />
             </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.02em" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 800, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
             {activityLoading ? "—" : visibleActivity.length}
           </div>
           <div style={{ fontSize: 11, color: "#475569", marginTop: 12, fontFamily: "var(--font-sans)" }}>
@@ -372,7 +372,7 @@ export default function DashboardPage() {
               <FolderOpen size={15} style={{ color: "#0EA5A0" }} />
             </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.02em" }}>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 800, color: "#DBEAFE", lineHeight: 1, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>
             —
           </div>
           <button
@@ -599,8 +599,9 @@ export default function DashboardPage() {
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
                   <span style={{ fontSize: 11, color: "#475569", fontFamily: "var(--font-sans)" }}>Credits</span>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#DBEAFE", letterSpacing: "-0.01em" }}>
-                    {user.credits.toLocaleString()} / {credLimit.toLocaleString()}
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 800, color: "#DBEAFE", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{user.credits.toLocaleString()}</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: "#475569", marginLeft: 3, fontVariantNumeric: "tabular-nums" }}> / {credLimit.toLocaleString()}</span>
                   </span>
                 </div>
                 <div style={{ height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.07)", overflow: "hidden" }}>

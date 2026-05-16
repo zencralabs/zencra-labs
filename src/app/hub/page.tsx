@@ -83,7 +83,7 @@ function SvgDonutChart({ data, colors, total, label }: {
         ))}
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#F8FAFC" }}>{total.toLocaleString()}</span>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>{total.toLocaleString()}</span>
         <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
       </div>
     </div>
@@ -193,7 +193,7 @@ function StatCard({ title, value, sub, color, sparkline }: {
     <div style={{ background: "#0A1628", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "20px 22px", display: "flex", flexDirection: "column", gap: 4, position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: `radial-gradient(circle, ${color}22 0%, transparent 70%)` }} />
       <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{title}</span>
-      <span style={{ fontSize: 28, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.02em" }}>{value}</span>
+      <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>{value}</span>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         {sub && <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{sub}</span>}
         {sparkline && <SvgMiniLine values={sparkline} color={color} />}
@@ -388,7 +388,7 @@ export default function HubPage() {
             <div style={{ width: 44, height: 44, borderRadius: 12, background: `${item.color}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{item.icon}</div>
             <div>
               <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{item.label}</p>
-              <p style={{ margin: "3px 0 0", fontSize: 22, fontWeight: 800, color: "#F8FAFC" }}>{statsLoading ? "—" : (item.value ?? "—")}</p>
+              <p style={{ margin: "3px 0 0", fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>{statsLoading ? "—" : (item.value ?? "—")}</p>
             </div>
           </div>
         ))}
