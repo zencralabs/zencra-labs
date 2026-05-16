@@ -114,6 +114,32 @@ export async function GET(req: NextRequest): Promise<Response> {
       .limit(20);
 
     if (!completedError && completedAssets) {
+      // Mark these assets recovered server-side so they don't re-appear on the
+      // next session boot. Scoped to userId as defense-in-depth — only this
+      // user's rows are updated even if IDs were somehow tampered with.
+      // Non-fatal: if the UPDATE fails we log + continue; recovery still works,
+      // the asset just re-appears on the next refresh (same as pre-fix behaviour).
+      if (completedAssets.length > 0) {
+        const recoveredIds = completedAssets
+          .map((a) => a.id)
+          .filter(Boolean) as string[];
+
+        if (recoveredIds.length > 0) {
+          const { error: markRecoveredError } = await supabaseAdmin
+            .from("assets")
+            .update({ recovered: true })
+            .eq("user_id", userId)
+            .in("id", recoveredIds);
+
+          if (markRecoveredError) {
+            console.warn(
+              "[jobs/pending] Failed to mark recovered assets:",
+              markRecoveredError.message,
+            );
+          }
+        }
+      }
+
       for (const asset of completedAssets) {
         const createdAt = String(asset.created_at ?? "");
         const studio    = (asset.studio ?? "image") as StudioType;
