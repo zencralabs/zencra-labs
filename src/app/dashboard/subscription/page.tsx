@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle, Zap, Crown, Building2, Sparkles, ArrowRight,
   Star, Clock, Users, ChevronRight, Package, Layers,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import PricingOverlay from "@/components/pricing/PricingOverlay";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Billing status — fetched from /api/billing/status on mount.
+// Drives the Active/Inactive badge. Fails safe to "inactive".
+// ─────────────────────────────────────────────────────────────────────────────
+
+type BillingStatus = "loading" | "active" | "trialing" | "past_due" | "inactive" | "free" | "unknown";
+
+const ACTIVE_BADGE_STATUSES = new Set<BillingStatus>(["active", "trialing", "past_due"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBSCRIPTION PAGE — Premium My Plan / Billing Command Center
@@ -120,9 +129,37 @@ const BOOSTERS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionPage() {
-  const { user } = useAuth();
-  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
-  const [showPricing, setShowPricing] = useState(false);
+  const { user, session } = useAuth();
+  const [billing, setBilling]           = useState<"monthly" | "annual">("monthly");
+  const [showPricing, setShowPricing]   = useState(false);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus>("loading");
+
+  // Fetch real subscription status once session is available.
+  // Drives the Active/Inactive badge — never hardcoded.
+  useEffect(() => {
+    const token = session?.access_token;
+    if (!token) return;
+
+    let cancelled = false;
+    fetch("/api/billing/status", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data: { status?: string; hasActiveSubscription?: boolean }) => {
+        if (cancelled) return;
+        if (data.status) {
+          setBillingStatus(data.status as BillingStatus);
+        } else {
+          // API returned an unexpected shape — fail safe to inactive
+          setBillingStatus("inactive");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBillingStatus("unknown");
+      });
+
+    return () => { cancelled = true; };
+  }, [session?.access_token]);
 
   if (!user) return null;
 
@@ -175,13 +212,32 @@ export default function SubscriptionPage() {
             }}>
               {user.plan} Plan
             </span>
-            <span style={{
-              fontSize: "10px", fontWeight: 700, color: "#10B981",
-              backgroundColor: "rgba(16,185,129,0.12)", padding: "3px 9px",
-              borderRadius: "10px", border: "1px solid rgba(16,185,129,0.25)",
-            }}>
-              Active
-            </span>
+            {/* Truthful subscription badge — never hardcoded */}
+            {billingStatus === "loading" ? (
+              <span style={{
+                fontSize: "10px", fontWeight: 700, color: "#64748B",
+                backgroundColor: "rgba(100,116,139,0.10)", padding: "3px 9px",
+                borderRadius: "10px", border: "1px solid rgba(100,116,139,0.20)",
+              }}>
+                …
+              </span>
+            ) : ACTIVE_BADGE_STATUSES.has(billingStatus) ? (
+              <span style={{
+                fontSize: "10px", fontWeight: 700, color: "#10B981",
+                backgroundColor: "rgba(16,185,129,0.12)", padding: "3px 9px",
+                borderRadius: "10px", border: "1px solid rgba(16,185,129,0.25)",
+              }}>
+                Active
+              </span>
+            ) : (
+              <span style={{
+                fontSize: "10px", fontWeight: 700, color: "#94A3B8",
+                backgroundColor: "rgba(148,163,184,0.10)", padding: "3px 9px",
+                borderRadius: "10px", border: "1px solid rgba(148,163,184,0.20)",
+              }}>
+                {billingStatus === "free" ? "Free Tier" : "No Active Plan"}
+              </span>
+            )}
           </div>
 
           {/* Credits bar */}
