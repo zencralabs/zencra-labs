@@ -84,7 +84,7 @@ function LipSyncShell() {
           fontFamily: "var(--font-syne, sans-serif)",
         }}
       >
-        Studio Lip Sync
+        LipSyncZ
       </h1>
 
       <p
@@ -97,7 +97,7 @@ function LipSyncShell() {
           lineHeight: 1.6,
         }}
       >
-        Lip Sync playground coming next.
+        LipSyncZ studio coming next.
         <br />
         Backend is live and ready.
       </p>

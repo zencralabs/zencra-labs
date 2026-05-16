@@ -86,8 +86,8 @@ const navCategories: Record<string, NavCategory> = {
         right: { type: "soon", title: "Enhance Video", badge: "COMING SOON", desc: "Upscale, denoise, and boost frame rate on any video. Turn 480p footage into cinematic 4K.", bullets: ["Up to 4K upscaling", "Frame interpolation (60fps+)", "AI noise removal", "Colour grade assist"] },
       },
       {
-        icon: Mic, label: "Lip Sync", desc: "Sync voice to video", badge: "NEW", href: "/studio/lipsync",
-        right: { type: "soon", title: "Studio Lip Sync", badge: "NEW", desc: "Sync any audio to any video with perfectly matched lip movement. Frame-accurate, multi-language, and built for creators.", bullets: ["Frame-accurate lip sync", "Any language supported", "16:9 · 9:16 · 1:1 aspect ratios", "Pro mode with 1.5× quality boost"] },
+        icon: Mic, label: "LipSyncZ", desc: "Sync voice to video", badge: "NEW", href: "/studio/lipsync",
+        right: { type: "soon", title: "LipSyncZ", badge: "NEW", desc: "Sync any audio to any video with perfectly matched lip movement. Frame-accurate, multi-language, and built for creators.", bullets: ["Frame-accurate lip sync", "Any language supported", "16:9 · 9:16 · 1:1 aspect ratios", "Pro mode with 1.5× quality boost"] },
       },
       {
         icon: Sparkles, label: "Video to Video", desc: "Style transfer & re-render", badge: "SOON", href: "#",
