@@ -1398,6 +1398,11 @@ function ImageStudioInner() {
   const [roleMenuIdx, setRoleMenuIdx] = useState<number | null>(null);
   // Add-button tooltip — managed manually so it reliably hides when file dialog opens.
   const [addBtnHovered, setAddBtnHovered] = useState(false);
+  // Add-button source menu (Upload vs Gallery picker).
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // Gallery picker modal state.
+  const [galleryPickerOpen, setGalleryPickerOpen] = useState(false);
+  const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
 
   // ── Dock collapse state ───────────────────────────────────────────────────────
   const [isDockCollapsed, setIsDockCollapsed] = useState(false);
@@ -1544,6 +1549,28 @@ function ImageStudioInner() {
       },
     ]);
   }, [referenceImages, maxRefs]);
+
+  // Confirms the gallery picker selection — atomically adds all chosen URLs in one state update.
+  const onPickerConfirm = useCallback(() => {
+    if (pickerSelected.size === 0) { setGalleryPickerOpen(false); return; }
+    const urls = [...pickerSelected];
+    setReferenceImages(prev => {
+      const existingUrls = new Set(prev.map(r => r.cdnUrl));
+      const toAdd = urls
+        .filter(url => !existingUrls.has(url))
+        .slice(0, maxRefs - prev.length);
+      const newEntries = toAdd.map((url, i) => ({
+        id:         crypto.randomUUID(),
+        previewUrl: url,
+        cdnUrl:     url,
+        uploading:  false,
+        role:       (prev.length + i === 0 ? "character" : "environment") as ImageRole,
+      }));
+      return [...prev, ...newEntries];
+    });
+    setPickerSelected(new Set());
+    setGalleryPickerOpen(false);
+  }, [pickerSelected, maxRefs]);
 
   // ── Shared dock config — single source of truth from image-model-config.ts ──
   const currentDockConfig  = getModelDockConfig(currentModelKey);
@@ -4218,8 +4245,9 @@ function ImageStudioInner() {
             >
               <button
                 onClick={() => {
-                  setAddBtnHovered(false); // immediately kill tooltip before dialog steals focus
-                  if (referenceImages.length < maxRefs) referenceInputRef.current?.click();
+                  if (referenceImages.length >= maxRefs) return;
+                  setAddBtnHovered(false);
+                  setAddMenuOpen(v => !v);
                 }}
                 style={{
                   width: 44, height: 44, borderRadius: 10,
@@ -4233,7 +4261,7 @@ function ImageStudioInner() {
                 onMouseLeave={e => { if (referenceImages.length < maxRefs) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(60,100,255,0.35)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; } }}
               >+</button>
               {/* Inline tooltip — only visible while hovering, reliably dismissed on click */}
-              {addBtnHovered && (
+              {addBtnHovered && !addMenuOpen && (
                 <div style={{
                   position: "absolute",
                   bottom: "calc(100% + 8px)",
@@ -4256,6 +4284,72 @@ function ImageStudioInner() {
                     ? `Max ${maxRefs} reference image${maxRefs === 1 ? "" : "s"} reached`
                     : `Add reference image (${referenceImages.length}/${maxRefs})`}
                 </div>
+              )}
+
+              {/* ── Source menu: Upload vs Gallery ─────────────────────────── */}
+              {addMenuOpen && referenceImages.length < maxRefs && (
+                <>
+                  {/* Invisible backdrop to dismiss menu on outside click */}
+                  <div
+                    style={{ position: "fixed", inset: 0, zIndex: 399 }}
+                    onClick={() => setAddMenuOpen(false)}
+                  />
+                  <div style={{
+                    position: "absolute",
+                    bottom: "calc(100% + 8px)",
+                    left: 0,
+                    zIndex: 400,
+                    background: "rgba(10,12,22,0.97)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    overflow: "hidden",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.75)",
+                    backdropFilter: "blur(16px)",
+                    WebkitBackdropFilter: "blur(16px)",
+                    minWidth: 200,
+                  }}>
+                    {/* Upload from computer */}
+                    <button
+                      onClick={() => {
+                        setAddMenuOpen(false);
+                        referenceInputRef.current?.click();
+                      }}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 14px", border: "none",
+                        background: "transparent", color: "#fff", cursor: "pointer",
+                        fontSize: 13, fontWeight: 500, textAlign: "left" as const,
+                        transition: "background 0.12s",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <span style={{ fontSize: 15, opacity: 0.75 }}>⬆</span>
+                      Upload from computer
+                    </button>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "0 10px" }} />
+                    {/* Select from Gallery */}
+                    <button
+                      onClick={() => {
+                        setAddMenuOpen(false);
+                        setPickerSelected(new Set());
+                        setGalleryPickerOpen(true);
+                      }}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 14px", border: "none",
+                        background: "transparent", color: "#fff", cursor: "pointer",
+                        fontSize: 13, fontWeight: 500, textAlign: "left" as const,
+                        transition: "background 0.12s",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <span style={{ fontSize: 15, opacity: 0.75 }}>🖼</span>
+                      Select from Gallery
+                    </button>
+                  </div>
+                </>
               )}
             </div>
 
@@ -5247,6 +5341,176 @@ function ImageStudioInner() {
           </div>
         </div>
       )}
+
+      {/* ── GALLERY PICKER MODAL ─────────────────────────────────────────── */}
+      {galleryPickerOpen && (() => {
+        const galleryImages = images.filter(img => img.status === "done" && img.url);
+        const remaining = maxRefs - referenceImages.length;
+        return (
+          <div
+            onClick={() => setGalleryPickerOpen(false)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 9300,
+              background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: "#0A0C16",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 18,
+                width: "min(820px, calc(100vw - 40px))",
+                maxHeight: "min(680px, calc(100vh - 80px))",
+                display: "flex", flexDirection: "column",
+                boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+                animation: "fadeIn 0.18s ease",
+                overflow: "hidden",
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "18px 22px 14px",
+                borderBottom: "1px solid rgba(255,255,255,0.07)",
+                flexShrink: 0,
+              }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FF" }}>
+                    Select from Gallery
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>
+                    {pickerSelected.size > 0
+                      ? `${pickerSelected.size} selected · ${remaining - pickerSelected.size} slot${remaining - pickerSelected.size === 1 ? "" : "s"} remaining`
+                      : `Choose up to ${remaining} image${remaining === 1 ? "" : "s"}`}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setGalleryPickerOpen(false)}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", border: "none",
+                    background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)",
+                    cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >✕</button>
+              </div>
+
+              {/* Image grid */}
+              <div style={{
+                flex: 1, overflowY: "auto", padding: 16,
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 8,
+                alignContent: "start",
+              }}>
+                {galleryImages.length === 0 ? (
+                  <div style={{
+                    gridColumn: "1 / -1",
+                    textAlign: "center", padding: "60px 20px",
+                    color: "rgba(255,255,255,0.25)", fontSize: 13,
+                  }}>
+                    No generated images yet. Create some first!
+                  </div>
+                ) : galleryImages.map(img => {
+                  const isSelected = pickerSelected.has(img.url!);
+                  const isAlreadyAdded = referenceImages.some(r => r.cdnUrl === img.url);
+                  const capReached = pickerSelected.size >= remaining;
+                  const isDisabled = isAlreadyAdded || (!isSelected && capReached);
+                  return (
+                    <div
+                      key={img.id}
+                      onClick={() => {
+                        if (isAlreadyAdded) return;
+                        if (isSelected) {
+                          setPickerSelected(prev => { const n = new Set(prev); n.delete(img.url!); return n; });
+                        } else if (!capReached) {
+                          setPickerSelected(prev => new Set([...prev, img.url!]));
+                        }
+                      }}
+                      style={{
+                        position: "relative",
+                        aspectRatio: "1",
+                        borderRadius: 0,
+                        overflow: "hidden",
+                        cursor: isDisabled ? "not-allowed" : "pointer",
+                        opacity: isDisabled && !isSelected ? 0.4 : 1,
+                        outline: isSelected ? "2.5px solid #60A5FA" : "2px solid transparent",
+                        outlineOffset: isSelected ? -2 : 0,
+                        transition: "outline 0.12s, opacity 0.12s",
+                        background: "#111",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url!}
+                        alt=""
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        draggable={false}
+                      />
+                      {/* Selected checkmark */}
+                      {isSelected && (
+                        <div style={{
+                          position: "absolute", top: 6, right: 6,
+                          width: 20, height: 20, borderRadius: "50%",
+                          background: "#2563EB",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 11, color: "#fff", fontWeight: 700,
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.6)",
+                        }}>✓</div>
+                      )}
+                      {/* Already-used badge */}
+                      {isAlreadyAdded && (
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: "rgba(0,0,0,0.55)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)",
+                          letterSpacing: "0.06em", textTransform: "uppercase",
+                        }}>Added</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10,
+                padding: "14px 22px",
+                borderTop: "1px solid rgba(255,255,255,0.07)",
+                flexShrink: 0,
+              }}>
+                <button
+                  onClick={() => setGalleryPickerOpen(false)}
+                  style={{
+                    padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.5)", cursor: "pointer",
+                  }}
+                >Cancel</button>
+                <button
+                  onClick={onPickerConfirm}
+                  disabled={pickerSelected.size === 0}
+                  style={{
+                    padding: "8px 22px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    border: "none",
+                    background: pickerSelected.size === 0
+                      ? "rgba(37,99,235,0.25)"
+                      : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                    color: pickerSelected.size === 0 ? "rgba(255,255,255,0.3)" : "#fff",
+                    cursor: pickerSelected.size === 0 ? "not-allowed" : "pointer",
+                    transition: "all 0.15s",
+                    boxShadow: pickerSelected.size > 0 ? "0 4px 16px rgba(37,99,235,0.4)" : "none",
+                  }}
+                >
+                  Add {pickerSelected.size > 0 ? `${pickerSelected.size} Image${pickerSelected.size === 1 ? "" : "s"}` : "Selected"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── MAKE PUBLIC CONFIRMATION MODAL ────────────────────────────────── */}
       {makePublicModal && (
