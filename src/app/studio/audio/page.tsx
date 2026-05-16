@@ -8,6 +8,8 @@ import { useAuth } from "@/components/auth/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { getGenerationCreditCost } from "@/lib/credits/model-costs";
 import { useFlowStore } from "@/lib/flow/store";
+import { getPendingJobStoreState } from "@/lib/jobs/pending-job-store";
+import { getDisplayModelName }     from "@/lib/studio/model-display-names";
 
 import { createWorkflow, addWorkflowStep } from "@/lib/flow/actions";
 import { GeneratingBorderTrace } from "@/components/ui/GeneratingBorderTrace";
@@ -1073,6 +1075,9 @@ function AudioStudioInner() {
     setOutputs(prev => [newItem, ...prev]);
     setGenerating(true);
     const t0 = Date.now();
+    // Declared outside try so catch block can reference it for failJob.
+    // Stays null until after the kits guard — no orphaned card for the kits early-return.
+    let tempJobId: string | null = null;
 
     try {
       // Kits / voice-convert is Phase 2 — not available in the new backend.
@@ -1089,6 +1094,26 @@ function AudioStudioInner() {
       // Avoids the stale user.accessToken race between INITIAL_SESSION and TOKEN_REFRESHED.
       const accessToken  = session?.access_token ?? "";
       const audioMdlKey  = quality === "studio" ? "elevenlabs-premium" : "elevenlabs";
+
+      // ── Activity Center — register optimistic job before dispatch ────────────
+      // Audio is always synchronous: job goes queued → completed in one request.
+      // No polling is started. The store comment in pending-job-store.ts documents
+      // this pattern explicitly.
+      tempJobId = `temp-audio-${id}`;
+      if (user?.id) {
+        const creditCost = getGenerationCreditCost(audioMdlKey);
+        getPendingJobStoreState().registerJob({
+          jobId:      tempJobId,
+          studio:     "audio",
+          modelKey:   audioMdlKey,
+          modelLabel: getDisplayModelName(audioMdlKey),
+          prompt:     prompt.trim(),
+          status:     "queued",
+          creditCost: creditCost !== null ? creditCost : undefined,
+          createdAt:  new Date().toISOString(),
+          userId:     user.id,
+        });
+      }
 
       // ── Pre-dispatch safety check: verify displayed cost matches live DB cost ──
       {
@@ -1132,19 +1157,55 @@ function AudioStudioInner() {
       if (!res.ok || !data.success) {
         if (data.code && ENTITLEMENT_CODES.has(data.code)) {
           setOutputs(prev => prev.filter(o => o.id !== id));
+          // Fail the Activity Center card rather than leaving it queued
+          if (user?.id && tempJobId) {
+            getPendingJobStoreState().failJob(tempJobId, "failed", data.error ?? "Insufficient credits or trial limit reached.");
+          }
           setShowPricingOverlay(true);
           return;
         }
-        setOutputs(prev => prev.map(o => o.id === id ? { ...o, status: "error", error: data.error ?? "Generation failed." } : o));
+        const errMsg = data.error ?? "Audio generation failed.";
+        setOutputs(prev => prev.map(o => o.id === id ? { ...o, status: "error", error: errMsg } : o));
+        // ── Activity Center — mark card failed ──────────────────────────────
+        if (user?.id && tempJobId) {
+          getPendingJobStoreState().failJob(tempJobId, "failed", errMsg);
+        }
       } else {
         const url = data.data?.url ?? null;
         setOutputs(prev => prev.map(o => o.id === id ? { ...o, status: "done", url, durationMs: Date.now() - t0 } : o));
         if (url) {
           void recordFlowStep({ modelKey: "elevenlabs", prompt: prompt.trim(), resultUrl: url });
+          // ── Activity Center — reconcile temp job with real sync result ─────
+          // replaceJob swaps the temp id for the server's real jobId, then
+          // completeJob marks it done. No polling — audio is always synchronous.
+          if (user?.id && tempJobId) {
+            const realData  = data.data as { jobId?: string; assetId?: string; estimatedCredits?: number } | undefined;
+            const realJobId = String(realData?.jobId ?? id);
+            const jobStore  = getPendingJobStoreState();
+            jobStore.replaceJob(tempJobId, realJobId, {
+              assetId:    String(realData?.assetId ?? realJobId),
+              status:     "completed",
+              creditCost: typeof realData?.estimatedCredits === "number" ? realData.estimatedCredits : undefined,
+            });
+            jobStore.completeJob(realJobId, url, null);
+          }
+        } else {
+          // Success response but no URL — fail cleanly rather than leaving card queued
+          if (user?.id && tempJobId) {
+            getPendingJobStoreState().failJob(
+              tempJobId,
+              "failed",
+              "Audio generation completed but no audio URL was returned.",
+            );
+          }
         }
       }
     } catch {
       setOutputs(prev => prev.map(o => o.id === id ? { ...o, status: "error", error: "Network error — please try again." } : o));
+      // ── Activity Center — fail card on network error ──────────────────────
+      if (user?.id && tempJobId) {
+        getPendingJobStoreState().failJob(tempJobId, "failed", "Network error — please try again.");
+      }
     } finally {
       setGenerating(false);
     }
