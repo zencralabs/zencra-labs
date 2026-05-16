@@ -755,7 +755,9 @@ export default function MediaCard({
                       if (rect) {
                         setMenuPos({
                           top:  rect.bottom + 8,
-                          left: rect.right - 220,   // right-align: right edge of menu = right edge of button
+                          // Clamp: never < 4px from left edge, never > viewport - menu width - 4px.
+                          // Fixes off-screen rendering on left-edge / wide 16:9 gallery cards.
+                          left: Math.max(4, Math.min(rect.right - 220, window.innerWidth - 224)),
                         });
                       }
                       setMoreOpen(true);

@@ -21,7 +21,10 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   "nano-banana-pro":      { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
   "nano-banana-standard": { maxReferenceImages: 1,  uploadCapLabel: "Single reference image" },
   "nano-banana-2":        { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
-  "seedream-v5":          { maxReferenceImages: 14, uploadCapLabel: "Up to 14 reference images" },
+  // seedream-v5 and v5-lite do NOT accept image input — adapter rejects it at validateInput().
+  // maxReferenceImages: 0 ensures the Add button is never shown for these models.
+  "seedream-v5":          { maxReferenceImages: 0,  uploadCapLabel: "Text-to-image only — no reference images" },
+  "seedream-v5-lite":     { maxReferenceImages: 0,  uploadCapLabel: "Text-to-image only — no reference images" },
   "seedream-4-5":         { maxReferenceImages: 1,  uploadCapLabel: "1 reference image for edit mode" },
   "flux-kontext":         { maxReferenceImages: 1,  uploadCapLabel: "Single reference image only" },
 };
