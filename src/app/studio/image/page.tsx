@@ -36,6 +36,8 @@ import { getHeroImagesForModel, getHeroModelLabel } from "@/config/heroImages";
 import WorkflowTransitionModal, { type WorkflowFlow, type WorkflowTransitionAsset } from "@/components/studio/workflow/WorkflowTransitionModal";
 import PromptEnhancerPanel from "@/components/studio/prompt/PromptEnhancerPanel";
 import { FullscreenPreview } from "@/components/ui/FullscreenPreview";
+import { getPendingJobStoreState }   from "@/lib/jobs/pending-job-store";
+import { startPolling, stopPolling } from "@/lib/jobs/job-polling";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ZENCRA STUDIO — Image Generation
@@ -2323,6 +2325,26 @@ function ImageStudioInner() {
             assetId:     syncAssetId,
             aspectRatio: apiAr,
           });
+
+          // ── Activity Center — sync completion ──────────────────────────────
+          if (user?.id) {
+            const syncJobId = String(data.data.jobId ?? syncAssetId ?? ph.id);
+            const syncStore = getPendingJobStoreState();
+            syncStore.registerJob({
+              jobId:      syncJobId,
+              assetId:    String(syncAssetId ?? syncJobId),
+              studio:     "image",
+              modelKey,
+              modelLabel: activeCurrentModel.name,
+              prompt:     activePrompt,
+              status:     "completed",
+              creditCost: typeof data.data.estimatedCredits === "number" ? data.data.estimatedCredits : undefined,
+              createdAt:  new Date().toISOString(),
+              userId:     user.id,
+            });
+            syncStore.completeJob(syncJobId, data.data.url as string, null);
+          }
+
           continue;
         }
 
@@ -2341,6 +2363,40 @@ function ImageStudioInner() {
               prev.map((img) => img.id === ph.id ? { ...img, assetId: pendingAssetId } : img)
             );
           }
+
+          // ── Activity Center — register async job + global polling ──────────
+          const imgJobCreatedAt = new Date().toISOString();
+          if (user?.id) {
+            const imgJobStore = getPendingJobStoreState();
+            imgJobStore.registerJob({
+              jobId:      jobId,
+              assetId:    String(pendingAssetId ?? jobId),
+              studio:     "image",
+              modelKey,
+              modelLabel: activeCurrentModel.name,
+              prompt:     activePrompt,
+              status:     "processing",
+              creditCost: typeof data.data.estimatedCredits === "number" ? data.data.estimatedCredits : undefined,
+              createdAt:  imgJobCreatedAt,
+              userId:     user.id,
+            });
+            startPolling({
+              jobId,
+              studio:    "image",
+              getToken:  () => session?.access_token ?? null,
+              createdAt: imgJobCreatedAt,
+              onUpdate:  (u) => imgJobStore.updateJob(jobId, { status: u.status }),
+              onComplete:(u) => imgJobStore.completeJob(jobId, u.url ?? "", null),
+              onError:   (u) => {
+                const termSt =
+                  u.status === "refunded"  ? "refunded"  as const :
+                  u.status === "cancelled" ? "cancelled" as const :
+                  "failed"                               as const;
+                imgJobStore.failJob(jobId, termSt, u.error);
+              },
+            });
+          }
+
           const authHeader = { Authorization: `Bearer ${session?.access_token ?? ""}` };
 
           const POLL_INTERVAL = 4_000;   // 4 s between polls
@@ -2369,12 +2425,20 @@ function ImageStudioInner() {
 
               // 404 = asset row was never written (persistAsset silent failure) — terminal
               if (statusRes.status === 404) {
+                if (user?.id) {
+                  getPendingJobStoreState().failJob(jobId, "failed", "Job record not found — the generation was lost.");
+                  stopPolling(jobId);
+                }
                 generationErr = new Error("Job record not found — the generation was lost. Please try again.");
                 break;
               }
 
               // Other non-transient errors — treat as terminal
               if (!statusRes.ok && statusRes.status !== 502 && statusRes.status !== 503) {
+                if (user?.id) {
+                  getPendingJobStoreState().failJob(jobId, "failed", statusData.error ?? `Status check failed (${statusRes.status})`);
+                  stopPolling(jobId);
+                }
                 generationErr = new Error(statusData.error ?? `Status check failed (${statusRes.status})`);
                 break;
               }
@@ -2398,6 +2462,13 @@ function ImageStudioInner() {
                     assetId:     pollAssetId,
                     aspectRatio: apiAr,
                   });
+
+                  // ── Activity Center — async job completed ────────────────
+                  if (user?.id) {
+                    getPendingJobStoreState().completeJob(jobId, statusData.data.url as string, null);
+                    stopPolling(jobId);
+                  }
+
                   resolved = true;
                   break;
                 }
@@ -2407,6 +2478,10 @@ function ImageStudioInner() {
 
               if (statusData.data?.status === "error") {
                 // Terminal failure from provider — stop polling immediately
+                if (user?.id) {
+                  getPendingJobStoreState().failJob(jobId, "failed", statusData.data?.error ?? "Generation failed");
+                  stopPolling(jobId);
+                }
                 generationErr = new Error(statusData.data?.error ?? "Generation failed");
                 break;
               }
@@ -2414,6 +2489,18 @@ function ImageStudioInner() {
             } catch {
               // Transient network/parse error — silently retry until deadline
             }
+          }
+
+          // ── Activity Center — deadline reached without terminal result ────────
+          if (!resolved && !generationErr && user?.id) {
+            getPendingJobStoreState().failJob(
+              jobId,
+              "stale",
+              providerDone
+                ? "Provider completed but no image URL was returned."
+                : "Generation timed out.",
+            );
+            stopPolling(jobId);
           }
 
           if (generationErr) throw generationErr;
