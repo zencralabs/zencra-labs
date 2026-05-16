@@ -2336,8 +2336,8 @@ function ImageStudioInner() {
               "Free image limit reached — upgrade to continue generating.",
             );
           }
-          // Free-tier limit hit — send to pricing/upgrade, not waitlist
-          router.push("/pricing");
+          // Free-tier limit hit — /pricing does not exist; send to subscription page
+          router.push("/dashboard/subscription");
           return;
         }
 

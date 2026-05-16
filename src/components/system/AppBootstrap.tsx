@@ -119,23 +119,38 @@ export function AppBootstrap() {
     if (!session) stopAllPolling();
   }, [session]);
 
-  // ── 3b. Privacy: clear local jobs on logout or account switch ─────────────
-  // Prevents User B from seeing User A's activity center jobs after
-  // a logout or same-browser account switch.  Uses a ref to track the
-  // previous user ID so we fire ONLY on a real identity change — not on
-  // every render.
+  // ── 3b. Privacy: clear local jobs on real account switch ──────────────────
+  // Fires ONLY when switching between two confirmed non-null user identities
+  // (User A → User B in the same browser session).
+  //
+  // Intentionally does NOT clear on userId → null transitions:
+  //   • Supabase token refresh during navigation briefly sets user to undefined.
+  //   • Treating that transient null as a logout would destroy any Activity
+  //     Center jobs (including failed optimistic cards) the user just created.
+  //   • Per-job privacy is already enforced by PendingJobsDrawer's filter:
+  //       job.userId === currentUserId
+  //   • Explicit logout clearAll is handled by AuthContext — not here.
+  //
+  // prevUserIdRef is only advanced when currentUserId is non-null so that a
+  // transient null cannot break the account-switch detection on the next
+  // re-auth cycle.
   useEffect(() => {
     const currentUserId = user?.id ?? null;
     const prevUserId    = prevUserIdRef.current;
 
-    if (prevUserId !== null && prevUserId !== currentUserId) {
-      // Identity changed (logout or account switch) — wipe the job store.
-      // Job recovery runs in effect 2 and will re-hydrate the new user's
-      // own jobs from the server once their session token is available.
+    if (prevUserId !== null && currentUserId !== null && prevUserId !== currentUserId) {
+      // Real identity switch — wipe the job store so stale jobs from the
+      // previous user are not visible to the incoming user.
+      // Job recovery (effect 2) re-hydrates the new user's own jobs from the
+      // server once their session token is available.
       usePendingJobStore.getState().clearAll();
     }
 
-    prevUserIdRef.current = currentUserId;
+    // Only advance the ref on a confirmed identity — transient null must not
+    // overwrite a real user ID or the next account-switch comparison breaks.
+    if (currentUserId !== null) {
+      prevUserIdRef.current = currentUserId;
+    }
   }, [user?.id]);
 
   // ── 4. Transition-based job toasts ────────────────────────────────────────
