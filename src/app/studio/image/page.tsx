@@ -5344,165 +5344,228 @@ function ImageStudioInner() {
 
       {/* ── GALLERY PICKER MODAL ─────────────────────────────────────────── */}
       {galleryPickerOpen && (() => {
-        const galleryImages = images.filter(img => img.status === "done" && img.url);
-        const remaining = maxRefs - referenceImages.length;
+        const allSelectable = images.filter(img => img.status === "done" && img.url);
+        const isTruncated   = allSelectable.length > 200;
+        const galleryImages = isTruncated ? allSelectable.slice(0, 200) : allSelectable;
+        const remaining     = maxRefs - referenceImages.length;
         return (
           <div
             onClick={() => setGalleryPickerOpen(false)}
             style={{
               position: "fixed", inset: 0, zIndex: 9300,
-              background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)",
+              background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
               display: "flex", alignItems: "center", justifyContent: "center",
+              padding: "20px 32px",
             }}
           >
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                background: "#0A0C16",
+                background: "#0A0C18",
                 border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 18,
-                width: "min(820px, calc(100vw - 40px))",
-                maxHeight: "min(680px, calc(100vh - 80px))",
+                borderRadius: 20,
+                width: "min(1120px, calc(100vw - 64px))",
+                maxHeight: "min(820px, calc(100vh - 80px))",
                 display: "flex", flexDirection: "column",
-                boxShadow: "0 32px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06)",
+                boxShadow: "0 40px 100px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.07)",
                 animation: "fadeIn 0.18s ease",
                 overflow: "hidden",
               }}
             >
-              {/* Header */}
+              {/* ── Header ─────────────────────────────────────────────────── */}
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "18px 22px 14px",
+                padding: "20px 24px 16px",
                 borderBottom: "1px solid rgba(255,255,255,0.07)",
                 flexShrink: 0,
+                gap: 16,
               }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FF" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#F5F7FF", letterSpacing: "-0.01em" }}>
                     Select from Gallery
                   </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>
-                    {pickerSelected.size > 0
-                      ? `${pickerSelected.size} selected · ${remaining - pickerSelected.size} slot${remaining - pickerSelected.size === 1 ? "" : "s"} remaining`
-                      : `Choose up to ${remaining} image${remaining === 1 ? "" : "s"}`}
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>Choose up to {remaining} image{remaining === 1 ? "" : "s"}</span>
+                    {pickerSelected.size > 0 && (
+                      <>
+                        <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                        <span style={{ color: "#60A5FA", fontWeight: 600 }}>{pickerSelected.size} selected</span>
+                        <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                        <span>{remaining - pickerSelected.size} slot{remaining - pickerSelected.size === 1 ? "" : "s"} left</span>
+                      </>
+                    )}
+                    {isTruncated && (
+                      <>
+                        <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                        <span style={{ color: "rgba(255,200,80,0.7)" }}>Showing latest 200 images</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <button
                   onClick={() => setGalleryPickerOpen(false)}
                   style={{
-                    width: 28, height: 28, borderRadius: "50%", border: "none",
-                    background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)",
-                    cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                    width: 30, height: 30, borderRadius: "50%", border: "none",
+                    background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.45)",
+                    cursor: "pointer", fontSize: 14,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.12s",
                   }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.13)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)"; }}
                 >✕</button>
               </div>
 
-              {/* Image grid */}
+              {/* ── Scrollable image grid ───────────────────────────────────── */}
               <div style={{
-                flex: 1, overflowY: "auto", padding: 16,
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                gap: 8,
-                alignContent: "start",
+                flex: 1,
+                overflowY: "auto",
+                padding: 16,
+                // Custom scrollbar
+                scrollbarWidth: "thin",
+                scrollbarColor: "rgba(255,255,255,0.12) transparent",
               }}>
                 {galleryImages.length === 0 ? (
+                  /* Empty state */
                   <div style={{
-                    gridColumn: "1 / -1",
-                    textAlign: "center", padding: "60px 20px",
-                    color: "rgba(255,255,255,0.25)", fontSize: 13,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    minHeight: 320, gap: 12,
                   }}>
-                    No generated images yet. Create some first!
-                  </div>
-                ) : galleryImages.map(img => {
-                  const isSelected = pickerSelected.has(img.url!);
-                  const isAlreadyAdded = referenceImages.some(r => r.cdnUrl === img.url);
-                  const capReached = pickerSelected.size >= remaining;
-                  const isDisabled = isAlreadyAdded || (!isSelected && capReached);
-                  return (
-                    <div
-                      key={img.id}
-                      onClick={() => {
-                        if (isAlreadyAdded) return;
-                        if (isSelected) {
-                          setPickerSelected(prev => { const n = new Set(prev); n.delete(img.url!); return n; });
-                        } else if (!capReached) {
-                          setPickerSelected(prev => new Set([...prev, img.url!]));
-                        }
-                      }}
-                      style={{
-                        position: "relative",
-                        aspectRatio: "1",
-                        borderRadius: 0,
-                        overflow: "hidden",
-                        cursor: isDisabled ? "not-allowed" : "pointer",
-                        opacity: isDisabled && !isSelected ? 0.4 : 1,
-                        outline: isSelected ? "2.5px solid #60A5FA" : "2px solid transparent",
-                        outlineOffset: isSelected ? -2 : 0,
-                        transition: "outline 0.12s, opacity 0.12s",
-                        background: "#111",
-                      }}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.url!}
-                        alt=""
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        draggable={false}
-                      />
-                      {/* Selected checkmark */}
-                      {isSelected && (
-                        <div style={{
-                          position: "absolute", top: 6, right: 6,
-                          width: 20, height: 20, borderRadius: "50%",
-                          background: "#2563EB",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 11, color: "#fff", fontWeight: 700,
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.6)",
-                        }}>✓</div>
-                      )}
-                      {/* Already-used badge */}
-                      {isAlreadyAdded && (
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          background: "rgba(0,0,0,0.55)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)",
-                          letterSpacing: "0.06em", textTransform: "uppercase",
-                        }}>Added</div>
-                      )}
+                    <div style={{ fontSize: 36, opacity: 0.25 }}>🖼</div>
+                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.3)", fontWeight: 500 }}>
+                      No generated images yet
                     </div>
-                  );
-                })}
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
+                      Create some images first, then come back to select them as references
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))",
+                    gap: 10,
+                    alignContent: "start",
+                  }}>
+                    {galleryImages.map(img => {
+                      const isSelected     = pickerSelected.has(img.url!);
+                      const isAlreadyAdded = referenceImages.some(r => r.cdnUrl === img.url);
+                      const capReached     = pickerSelected.size >= remaining;
+                      const isDisabled     = isAlreadyAdded || (!isSelected && capReached);
+                      return (
+                        <div
+                          key={img.id}
+                          onClick={() => {
+                            if (isAlreadyAdded) return;
+                            if (isSelected) {
+                              setPickerSelected(prev => { const n = new Set(prev); n.delete(img.url!); return n; });
+                            } else if (!capReached) {
+                              setPickerSelected(prev => new Set([...prev, img.url!]));
+                            }
+                          }}
+                          style={{
+                            position: "relative",
+                            aspectRatio: "1",
+                            borderRadius: 0,
+                            overflow: "hidden",
+                            cursor: isDisabled ? "not-allowed" : "pointer",
+                            opacity: isDisabled && !isSelected ? 0.35 : 1,
+                            outline: isSelected
+                              ? "2.5px solid #60A5FA"
+                              : "1.5px solid transparent",
+                            outlineOffset: isSelected ? -2.5 : 0,
+                            transition: "outline 0.1s, opacity 0.12s, transform 0.1s",
+                            background: "#0D0F1A",
+                            transform: isSelected ? "scale(0.975)" : "scale(1)",
+                          }}
+                          onMouseEnter={e => {
+                            if (!isDisabled && !isSelected)
+                              (e.currentTarget as HTMLElement).style.outline = "1.5px solid rgba(96,165,250,0.35)";
+                          }}
+                          onMouseLeave={e => {
+                            if (!isSelected)
+                              (e.currentTarget as HTMLElement).style.outline = "1.5px solid transparent";
+                          }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img.url!}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            draggable={false}
+                            loading="lazy"
+                          />
+                          {/* Selected checkmark */}
+                          {isSelected && (
+                            <div style={{
+                              position: "absolute", top: 6, right: 6,
+                              width: 22, height: 22, borderRadius: "50%",
+                              background: "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 12, color: "#fff", fontWeight: 800,
+                              boxShadow: "0 2px 10px rgba(37,99,235,0.6)",
+                            }}>✓</div>
+                          )}
+                          {/* Already-added overlay */}
+                          {isAlreadyAdded && (
+                            <div style={{
+                              position: "absolute", inset: 0,
+                              background: "rgba(0,0,0,0.6)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)",
+                              letterSpacing: "0.08em", textTransform: "uppercase",
+                            }}>Added</div>
+                          )}
+                          {/* Cap-reached dimmer on unselected clickable tiles */}
+                          {!isAlreadyAdded && !isSelected && capReached && (
+                            <div style={{
+                              position: "absolute", inset: 0,
+                              background: "rgba(0,0,0,0.45)",
+                            }} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Footer */}
+              {/* ── Footer ─────────────────────────────────────────────────── */}
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10,
-                padding: "14px 22px",
+                padding: "14px 24px",
                 borderTop: "1px solid rgba(255,255,255,0.07)",
                 flexShrink: 0,
+                background: "rgba(0,0,0,0.2)",
               }}>
                 <button
                   onClick={() => setGalleryPickerOpen(false)}
                   style={{
-                    padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    padding: "9px 20px", borderRadius: 9, fontSize: 13, fontWeight: 600,
                     border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)",
-                    color: "rgba(255,255,255,0.5)", cursor: "pointer",
+                    color: "rgba(255,255,255,0.5)", cursor: "pointer", transition: "all 0.12s",
                   }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.1)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
                 >Cancel</button>
                 <button
                   onClick={onPickerConfirm}
                   disabled={pickerSelected.size === 0}
                   style={{
-                    padding: "8px 22px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                    padding: "9px 24px", borderRadius: 9, fontSize: 13, fontWeight: 700,
                     border: "none",
                     background: pickerSelected.size === 0
-                      ? "rgba(37,99,235,0.25)"
+                      ? "rgba(37,99,235,0.2)"
                       : "linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)",
-                    color: pickerSelected.size === 0 ? "rgba(255,255,255,0.3)" : "#fff",
+                    color: pickerSelected.size === 0 ? "rgba(255,255,255,0.25)" : "#fff",
                     cursor: pickerSelected.size === 0 ? "not-allowed" : "pointer",
                     transition: "all 0.15s",
-                    boxShadow: pickerSelected.size > 0 ? "0 4px 16px rgba(37,99,235,0.4)" : "none",
+                    boxShadow: pickerSelected.size > 0 ? "0 4px 20px rgba(37,99,235,0.45)" : "none",
+                    letterSpacing: "-0.01em",
                   }}
+                  onMouseEnter={e => { if (pickerSelected.size > 0) (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 28px rgba(37,99,235,0.65)"; }}
+                  onMouseLeave={e => { if (pickerSelected.size > 0) (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(37,99,235,0.45)"; }}
                 >
                   Add {pickerSelected.size > 0 ? `${pickerSelected.size} Image${pickerSelected.size === 1 ? "" : "s"}` : "Selected"}
                 </button>
