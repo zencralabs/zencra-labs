@@ -723,6 +723,7 @@ export default function MediaCard({
                     : "Use as reference"
                 }
                 onClick={e => {
+                  e.preventDefault();
                   e.stopPropagation();
                   const url = asset.url ?? asset.result_url ?? asset.result_urls?.[0];
                   if (url && currentRefCount < maxRefs) onUseAsReference(url);
