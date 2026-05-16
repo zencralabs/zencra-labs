@@ -68,6 +68,8 @@ export interface PendingJobDescriptor {
   status:      GenerationStatus;
   creditCost?: number;
   createdAt:   string;
+  /** Authenticated owner of this job. Required for the privacy filter in PendingJobsDrawer. */
+  userId:      string;
   /** Output URL — populated when status is "completed" (job already done server-side). */
   url?:        string;
 }
@@ -176,6 +178,7 @@ export async function recoverPendingJobs(getToken: () => string | null): Promise
             status:     "completed",
             creditCost: descriptor.creditCost,
             createdAt:  descriptor.createdAt,
+            userId:     descriptor.userId,
           });
         }
         store.completeJob(descriptor.jobId, descriptor.url, null);
@@ -205,6 +208,7 @@ export async function recoverPendingJobs(getToken: () => string | null): Promise
         status:     descriptor.status,
         creditCost: descriptor.creditCost,
         createdAt:  descriptor.createdAt,
+        userId:     descriptor.userId,
       });
     }
 

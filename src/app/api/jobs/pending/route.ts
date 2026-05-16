@@ -84,6 +84,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           status:     normalizeAssetDbStatus("pending", ageMs),
           creditCost: typeof asset.credits_cost === "number" ? asset.credits_cost : undefined,
           createdAt,
+          userId,
         });
       }
     }
@@ -133,6 +134,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           creditCost: typeof asset.credits_cost === "number" ? asset.credits_cost : undefined,
           createdAt,
           url,                      // URL is provided so client skips polling
+          userId,
         });
       }
     }
@@ -183,6 +185,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           status:     "processing",  // still in "running" DB state
           creditCost: typeof run.credit_reserved === "number" ? run.credit_reserved : undefined,
           createdAt,
+          userId,
         });
       }
     }
@@ -227,6 +230,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           status,
           creditCost: typeof gen.credits_used === "number" ? gen.credits_used : undefined,
           createdAt,
+          userId,
         });
       }
     }
