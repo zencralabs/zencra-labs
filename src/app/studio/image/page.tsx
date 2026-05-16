@@ -1529,7 +1529,7 @@ function ImageStudioInner() {
         previewUrl: url,    // CDN URL doubles as preview — no blob needed
         cdnUrl:     url,
         uploading:  false,
-        role:       "reference" as ImageRole,
+        role:       prev.length === 0 ? "character" : "environment",
       },
     ]);
   }, [referenceImages, maxRefs]);
@@ -3849,7 +3849,7 @@ function ImageStudioInner() {
             }}>
               {referenceImages.map((ref, idx) => {
                 const isActive = activeRefIndices.has(idx);
-                const rc = ROLE_CONFIG[ref.role];
+                const rc = ROLE_CONFIG[ref.role] ?? ROLE_CONFIG["character"];
                 return (
                 <div
                   key={ref.id}
