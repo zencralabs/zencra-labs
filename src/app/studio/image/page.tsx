@@ -1875,6 +1875,16 @@ function ImageStudioInner() {
           if (!loaded || loaded.length === 0) return prev; // never wipe
           const map = new Map(prev.map((a) => [a.id, a]));
           loaded.forEach((a) => map.set(a.id, a));
+          // Change 3 — self-healing merge guard: evict stale failed/error entries that are
+          // present in cache but absent from the API response. The API excludes status="deleted"
+          // rows, so any error item not returned has been deleted server-side.
+          // Only targets status="error" — never removes "generating" or "done" items.
+          const loadedIds = new Set(loaded.map(a => a.id));
+          for (const [id, img] of map) {
+            if (img.status === "error" && !loadedIds.has(id)) {
+              map.delete(id);
+            }
+          }
           const merged = Array.from(map.values()).sort((a, b) => {
             const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -2618,6 +2628,20 @@ function ImageStudioInner() {
     // Clear from multi-select if it was selected
     setSelectedFailedIds((prev) => { const n = new Set(prev); n.delete(localId); return n; });
 
+    // Change 1 — purge from localStorage cache so the card cannot reappear on refresh.
+    // The API correctly excludes status="deleted" rows, but the cache is hydrated before
+    // the API fetch completes and the additive merge never removes cache-only stale entries.
+    if (user?.id && typeof window !== "undefined") {
+      try {
+        const cacheKey = `zencra_gallery_cache_image_${user.id}`;
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) {
+          const cached = JSON.parse(raw) as GeneratedImage[];
+          localStorage.setItem(cacheKey, JSON.stringify(cached.filter(img => img.id !== localId)));
+        }
+      } catch { /* quota or SSR — safe to ignore */ }
+    }
+
     if (!assetId || !session?.access_token) return;
 
     try {
@@ -2641,6 +2665,18 @@ function ImageStudioInner() {
     setImages(prev => prev.filter(img => !idsToDelete.has(img.id)));
     setSelectedFailedIds(new Set());
     setBulkFailedDeleteModal(false);
+
+    // Change 2 — purge all deleted ids from localStorage cache (same key as single delete).
+    if (user?.id && typeof window !== "undefined") {
+      try {
+        const cacheKey = `zencra_gallery_cache_image_${user.id}`;
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) {
+          const cached = JSON.parse(raw) as GeneratedImage[];
+          localStorage.setItem(cacheKey, JSON.stringify(cached.filter(img => !idsToDelete.has(img.id))));
+        }
+      } catch { /* quota or SSR — safe to ignore */ }
+    }
 
     // Fire delete API for each asset that has a DB record
     await Promise.all(targets.map(async (img) => {
