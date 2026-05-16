@@ -110,7 +110,7 @@ export async function GET(
     const { data: steps } = await supabaseAdmin
       .from("workflow_steps")
       .select("output_payload")
-      .eq("run_id", runId)
+      .eq("workflow_run_id", runId)
       .eq("status", "completed")
       .order("step_index", { ascending: true });
 

@@ -382,3 +382,105 @@ async function failRun(
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STALE-RUN RECOVERY (Phase 2D)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Result returned by recoverStaleWorkflowRun().
+ *
+ * recovered      — true if the run was actually transitioned pending/running → failed.
+ *                  false if the run was already terminal (no-op, no refund).
+ * refundedCredits — credits returned to the user's balance (0 if recovered=false).
+ * error          — set when a DB or refund operation failed mid-recovery.
+ */
+export interface StaleRecoveryResult {
+  recovered:       boolean;
+  refundedCredits: number;
+  error?:          string;
+}
+
+/**
+ * Safely recover a single stale workflow run.
+ *
+ * ── Idempotency contract ──────────────────────────────────────────────────────
+ *   The DB UPDATE is conditioned on `status IN ('pending', 'running')`.
+ *   If the run is already at a terminal state (completed / failed / cancelled),
+ *   the UPDATE touches zero rows and this function returns { recovered: false }.
+ *   No refund is issued. Re-running the cron against the same run is always safe.
+ *
+ * ── Refund logic ─────────────────────────────────────────────────────────────
+ *   Refund = max(0, credit_reserved - credit_used).
+ *   credit_used is NULL for runs that never reached a terminal state — treat as 0.
+ *   This returns the full reserved amount for crashes before any step completed.
+ *
+ * ── Error handling ────────────────────────────────────────────────────────────
+ *   A DB error on the UPDATE surfaces in result.error but does NOT throw.
+ *   The cron handler must continue processing remaining stale runs on error.
+ *
+ * @param workflowRunId  ID of the stale workflow_run row
+ * @param userId         Owner — used for credit refund
+ * @param creditReserved Credits reserved at run creation (from credit_reserved column)
+ * @param creditUsedSoFar Credits consumed by completed steps (from credit_used column; null → 0)
+ */
+export async function recoverStaleWorkflowRun(
+  workflowRunId:   string,
+  userId:          string,
+  creditReserved:  number,
+  creditUsedSoFar: number,
+): Promise<StaleRecoveryResult> {
+  const safeUsed     = Math.max(0, creditUsedSoFar);
+  const refundAmount = Math.max(0, creditReserved - safeUsed);
+  const now          = new Date().toISOString();
+
+  // ── Atomic transition: pending/running → failed ───────────────────────────
+  // The .in("status", [...]) condition is the idempotency guard.
+  // If status is already completed/failed/cancelled, zero rows are updated
+  // and `updated` will be an empty array — skip refund entirely.
+  const { data: updated, error: updateErr } = await supabaseAdmin
+    .from("workflow_runs")
+    .update({
+      status:          "failed",
+      error_message:   "Workflow recovered as stale after exceeding timeout.",
+      credit_used:     safeUsed,
+      credit_released: refundAmount,
+      completed_at:    now,
+    })
+    .eq("id", workflowRunId)
+    .in("status", ["pending", "running"])   // ← idempotency guard
+    .select("id");
+
+  if (updateErr) {
+    console.error(
+      `[workflow-engine] recoverStaleWorkflowRun DB error (run=${workflowRunId}):`,
+      updateErr.message,
+    );
+    return { recovered: false, refundedCredits: 0, error: updateErr.message };
+  }
+
+  // No rows updated — run was already terminal. No refund, no error.
+  if (!updated || updated.length === 0) {
+    console.info(
+      `[workflow-engine] recoverStaleWorkflowRun: run=${workflowRunId} already terminal — skipped`,
+    );
+    return { recovered: false, refundedCredits: 0 };
+  }
+
+  // Row transitioned. Now issue the credit refund if applicable.
+  console.info(
+    `[workflow-engine] recoverStaleWorkflowRun: run=${workflowRunId} marked failed ` +
+    `(reserved=${creditReserved} used=${safeUsed} refund=${refundAmount})`,
+  );
+
+  if (refundAmount > 0) {
+    await releaseCredits(
+      userId,
+      refundAmount,
+      `Stale workflow recovery — ${refundAmount} cr returned (reserved=${creditReserved} used=${safeUsed})`,
+      workflowRunId,
+    );
+  }
+
+  return { recovered: true, refundedCredits: refundAmount };
+}
