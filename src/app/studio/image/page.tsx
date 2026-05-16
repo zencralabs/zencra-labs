@@ -4808,22 +4808,15 @@ function ImageStudioInner() {
 
             {/* Generate button — disabled while reference image is uploading or model is gated */}
             {(() => {
-              // GPT Image 2 generate gate: model is visible and selectable but generation is
-              // blocked until token pricing is finalised. No API request fires, no credits charged.
-              const isGpt2 = model === "gpt-image-2";
-              const isDisabled = isGpt2 || !prompt.trim() || !currentModel.available
+              const isDisabled = !prompt.trim() || !currentModel.available
                 || (currentModel.requiresImg && !editImageUrl)
                 || referenceUploading;
-              const isUploadWait = referenceUploading && !isGpt2;
+              const isUploadWait = referenceUploading;
               return (
                 <button
-                  onClick={() => { if (!isGpt2) generate(); }}
+                  onClick={() => generate()}
                   disabled={isDisabled}
-                  title={
-                    isGpt2       ? "GPT Image 2 pricing is being calibrated" :
-                    isUploadWait ? "Waiting for reference image to finish uploading…" :
-                    undefined
-                  }
+                  title={isUploadWait ? "Waiting for reference image to finish uploading…" : undefined}
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
                     padding: "11px 26px", borderRadius: 13, fontSize: 16, fontWeight: 700,
