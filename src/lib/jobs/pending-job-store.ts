@@ -134,6 +134,24 @@ export interface PendingJobStore {
   retryJob: (originalJobId: string, newJobId: string) => string | null;
 
   /**
+   * Atomically replace a temporary optimistic job entry with the real server job.
+   *
+   * Used by Image Studio (and future studios) to reconcile the pre-registration
+   * card (created before the POST fires) with the real jobId/assetId the server
+   * returns. The temp entry is removed and the real entry inherits all preserved
+   * fields (userId, createdAt, modelKey, modelLabel, prompt) from the temp job.
+   * Only fields in `updates` are overridden (status, assetId, creditCost, etc.).
+   *
+   * No-op if `tempId` is not found in the store — handles race conditions and
+   * cases where the user is not authenticated (tempId was never registered).
+   */
+  replaceJob: (
+    tempId:    string,
+    realJobId: string,
+    updates?:  Partial<Omit<PendingJob, "jobId" | "updatedAt">>,
+  ) => void;
+
+  /**
    * Remove a single job from the store.
    */
   removeJob: (jobId: string) => void;
@@ -265,6 +283,27 @@ export const usePendingJobStore = create<PendingJobStore>()(
       // ── cancelJob ─────────────────────────────────────────────────────────
       cancelJob: (jobId) => {
         get().failJob(jobId, "cancelled", "Cancelled by user.");
+      },
+
+      // ── replaceJob ────────────────────────────────────────────────────────
+      replaceJob: (tempId, realJobId, updates) => {
+        set((s) => {
+          const temp = s.jobs[tempId];
+          if (!temp) return s; // temp not found — no-op (unauthenticated or already replaced)
+          const { [tempId]: _removed, ...rest } = s.jobs;
+          const now = new Date().toISOString();
+          return {
+            jobs: {
+              ...rest,
+              [realJobId]: {
+                ...temp,            // preserve userId, createdAt, modelKey, modelLabel, prompt
+                ...(updates ?? {}), // override status, assetId, creditCost, etc.
+                jobId:     realJobId,
+                updatedAt: now,
+              },
+            },
+          };
+        });
       },
 
       // ── retryJob ──────────────────────────────────────────────────────────

@@ -2193,6 +2193,10 @@ function ImageStudioInner() {
 
     for (let i = 0; i < count; i++) {
       const ph = placeholders[i];
+      // Optimistic Activity Center job ID — set just before the POST so the card
+      // appears immediately. Null when user is unauthenticated (generation still works).
+      // Accessible in both the try block and the catch block.
+      let tempId: string | null = null;
       try {
         const body: Record<string, unknown> = {
           modelKey,
@@ -2275,6 +2279,31 @@ function ImageStudioInner() {
           }
         }
 
+        // ── Activity Center — optimistic pre-registration ──────────────────────
+        // Register a "queued" card BEFORE the POST fires so Activity Center opens
+        // immediately. The temp entry is reconciled with the real jobId on success,
+        // or failed with a readable message on any error/redirect.
+        const optCreatedAt = new Date().toISOString();
+        if (user?.id) {
+          tempId = `temp-${crypto.randomUUID()}`;
+          const optStore = getPendingJobStoreState();
+          const optCost  = getGenerationCreditCost(modelKey, isTransformMode ? {} : { quality });
+          optStore.registerJob({
+            jobId:      tempId,
+            studio:     "image",
+            modelKey,
+            modelLabel: activeCurrentModel.name,
+            prompt:     activePrompt,
+            status:     "queued",
+            creditCost: optCost !== null ? optCost : undefined,
+            createdAt:  optCreatedAt,
+            userId:     user.id,
+          });
+          window.dispatchEvent(
+            new CustomEvent("zencra:job:registered", { detail: { jobId: tempId, studio: "image" } })
+          );
+        }
+
         const res = await fetch("/api/studio/image/generate", {
           method: "POST",
           headers: {
@@ -2298,8 +2327,17 @@ function ImageStudioInner() {
         }
 
         if (res.status === 403 && data.code === "FREE_LIMIT_REACHED") {
-          // Free-tier limit hit — redirect to upgrade page, do not show error toast
-          router.push("/waitlist");
+          // Fail the optimistic card so the drawer shows a readable trace
+          // of why this generation was blocked, before the redirect fires.
+          if (tempId && user?.id) {
+            getPendingJobStoreState().failJob(
+              tempId,
+              "failed",
+              "Free image limit reached — upgrade to continue generating.",
+            );
+          }
+          // Free-tier limit hit — send to pricing/upgrade, not waitlist
+          router.push("/pricing");
           return;
         }
 
@@ -2326,21 +2364,16 @@ function ImageStudioInner() {
             aspectRatio: apiAr,
           });
 
-          // ── Activity Center — sync completion ──────────────────────────────
-          if (user?.id) {
+          // ── Activity Center — reconcile temp job with real sync result ─────
+          // Replace the optimistic temp card with the server's real jobId,
+          // then immediately mark it completed so the drawer shows a thumbnail.
+          if (tempId && user?.id) {
             const syncJobId = String(data.data.jobId ?? syncAssetId ?? ph.id);
             const syncStore = getPendingJobStoreState();
-            syncStore.registerJob({
-              jobId:      syncJobId,
+            syncStore.replaceJob(tempId, syncJobId, {
               assetId:    String(syncAssetId ?? syncJobId),
-              studio:     "image",
-              modelKey,
-              modelLabel: activeCurrentModel.name,
-              prompt:     activePrompt,
               status:     "completed",
               creditCost: typeof data.data.estimatedCredits === "number" ? data.data.estimatedCredits : undefined,
-              createdAt:  new Date().toISOString(),
-              userId:     user.id,
             });
             syncStore.completeJob(syncJobId, data.data.url as string, null);
           }
@@ -2364,27 +2397,23 @@ function ImageStudioInner() {
             );
           }
 
-          // ── Activity Center — register async job + global polling ──────────
-          const imgJobCreatedAt = new Date().toISOString();
-          if (user?.id) {
+          // ── Activity Center — reconcile temp job with real async job ──────
+          // Move the optimistic temp card to the real jobId returned by the server,
+          // update status to "processing", then attach the global polling loop.
+          // optCreatedAt is reused so the stale threshold is measured from when
+          // the user clicked Generate (not when the server responded).
+          if (tempId && user?.id) {
             const imgJobStore = getPendingJobStoreState();
-            imgJobStore.registerJob({
-              jobId:      jobId,
+            imgJobStore.replaceJob(tempId, jobId, {
               assetId:    String(pendingAssetId ?? jobId),
-              studio:     "image",
-              modelKey,
-              modelLabel: activeCurrentModel.name,
-              prompt:     activePrompt,
               status:     "processing",
               creditCost: typeof data.data.estimatedCredits === "number" ? data.data.estimatedCredits : undefined,
-              createdAt:  imgJobCreatedAt,
-              userId:     user.id,
             });
             startPolling({
               jobId,
               studio:    "image",
               getToken:  () => session?.access_token ?? null,
-              createdAt: imgJobCreatedAt,
+              createdAt: optCreatedAt,
               onUpdate:  (u) => imgJobStore.updateJob(jobId, { status: u.status }),
               onComplete:(u) => imgJobStore.completeJob(jobId, u.url ?? "", null),
               onError:   (u) => {
@@ -2522,6 +2551,16 @@ function ImageStudioInner() {
         // ── Unexpected: no url and not pending ─────────────────────────────
         throw new Error(data.data?.error ?? data.error ?? "Generation failed — no image returned");
       } catch (err) {
+        // Fail the optimistic Activity Center card if it hasn't been reconciled yet.
+        // failJob is a no-op if tempId was already replaced via replaceJob, so this
+        // is always safe regardless of how far through the generation flow we got.
+        if (tempId && user?.id) {
+          getPendingJobStoreState().failJob(
+            tempId,
+            "failed",
+            err instanceof Error ? err.message : "Generation failed",
+          );
+        }
         setImages((prev) =>
           prev.map((img) =>
             img.id === ph.id

@@ -739,6 +739,21 @@ export function PendingJobsDrawer({ onRetry, onDelete, userId }: PendingJobsDraw
     if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
   }, []);
 
+  // ── Auto-open on optimistic job registration ─────────────────────────────
+  // Studios dispatch "zencra:job:registered" immediately after registerJob()
+  // so the drawer opens before the backend responds — giving the user instant
+  // visual feedback that their generation is in progress.
+  // Privacy filter (job.userId === userId) is unaffected — this only opens the
+  // drawer; the job card itself is still filtered before render.
+  useEffect(() => {
+    function handleJobRegistered() {
+      userInteractedRef.current = false;
+      setOpen(true);
+    }
+    window.addEventListener("zencra:job:registered", handleJobRegistered);
+    return () => window.removeEventListener("zencra:job:registered", handleJobRegistered);
+  }, []);
+
   const handleToggle = useCallback(() => {
     userInteractedRef.current = true;
     if (autoCloseTimerRef.current) {
