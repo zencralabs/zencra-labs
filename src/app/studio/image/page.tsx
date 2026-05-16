@@ -1514,6 +1514,17 @@ function ImageStudioInner() {
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
 
+  // ── Multi-reference local upload — model allowlist ────────────────────────────
+  // Only models verified end-to-end for multiple imageUrls are enabled here.
+  // All other models keep single-file picker behavior.
+  const MULTI_REFERENCE_UPLOAD_MODELS = new Set([
+    "gpt-image-2",
+    "nano-banana-pro",
+    "nano-banana-2",
+  ]);
+  const isMultiReferenceUploadEnabled =
+    MULTI_REFERENCE_UPLOAD_MODELS.has(currentModelKey) && maxRefs > 1;
+
   // ── Gallery → reference: add an already-generated image as a reference input ──
   // No upload step — the Supabase CDN URL is used directly.
   // Guards: model must support refs (maxRefs > 0), cap must not be reached,
@@ -3833,10 +3844,73 @@ function ImageStudioInner() {
             ref={referenceInputRef}
             type="file"
             accept="image/*"
+            multiple={isMultiReferenceUploadEnabled}
             style={{ display: "none" }}
             onChange={async (e) => {
+              if (!user) return;
+
+              // ── Multi-reference upload (gpt-image-2, nano-banana-pro, nano-banana-2) ──
+              if (isMultiReferenceUploadEnabled) {
+                const allFiles = Array.from(e.target.files ?? []);
+                e.target.value = ""; // clear so same files can be picked again
+                if (allFiles.length === 0) return;
+
+                // Cap: only accept up to remaining available slots.
+                const remaining = maxRefs - referenceImages.length;
+                if (remaining <= 0) {
+                  showToast(`This model supports up to ${maxRefs} reference image${maxRefs === 1 ? "" : "s"}`);
+                  return;
+                }
+                const files = allFiles.slice(0, remaining);
+                if (allFiles.length > remaining) {
+                  showToast(`Only ${remaining} more reference image${remaining === 1 ? "" : "s"} can be added for this model.`);
+                }
+
+                // Upload each file sequentially, preserving role pattern.
+                // Role: first reference slot = character, all subsequent = environment.
+                // We track the running total of reference slots used (including any
+                // already-present refs) to assign roles correctly.
+                for (const file of files) {
+                  const id = `ref-${Date.now()}-${Math.random()}`;
+                  const blobPreview = URL.createObjectURL(file);
+
+                  // Add placeholder with uploading=true.
+                  // Use functional updater so role reads real prev.length.
+                  setReferenceImages(prev => [
+                    ...prev,
+                    { id, previewUrl: blobPreview, cdnUrl: "", uploading: true, role: prev.length === 0 ? "character" : "environment" },
+                  ]);
+
+                  try {
+                    const form = new FormData();
+                    form.append("file", file);
+                    const res = await fetch("/api/studio/upload-reference", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+                      body: form,
+                    });
+                    const json = await res.json();
+                    if (res.ok && json.url) {
+                      setReferenceImages(prev => prev.map(r => r.id === id ? { ...r, cdnUrl: json.url as string, uploading: false } : r));
+                    } else {
+                      URL.revokeObjectURL(blobPreview);
+                      setReferenceImages(prev => prev.filter(r => r.id !== id));
+                      showToast("Upload failed — please try again", "error");
+                      // Continue to next file — other uploads are independent
+                    }
+                  } catch {
+                    URL.revokeObjectURL(blobPreview);
+                    setReferenceImages(prev => prev.filter(r => r.id !== id));
+                    showToast("Upload failed — network error", "error");
+                    // Continue to next file — other uploads are independent
+                  }
+                }
+                return;
+              }
+
+              // ── Single-file upload (all other models — unchanged behavior) ──
               const file = e.target.files?.[0];
-              if (!file || !user) return;
+              if (!file) return;
               e.target.value = "";
 
               if (referenceImages.length >= maxRefs) {
