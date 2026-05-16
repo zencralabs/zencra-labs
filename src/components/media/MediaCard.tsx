@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Repeat2,
   Sparkles,
+  ImagePlus,
   Play,
   Clapperboard,
   Globe,
@@ -74,6 +75,19 @@ export interface MediaCardProps {
   onVisibilityChange?: (id: string, visibility: AssetVisibility) => void;
   /** Called after delete */
   onDelete?: (id: string) => void;
+  /**
+   * Called when the user clicks "Use as reference" on a gallery image.
+   * Receives the Supabase CDN URL — no re-upload needed.
+   * Only rendered when maxRefs > 0.
+   */
+  onUseAsReference?: (url: string) => void;
+  /**
+   * Maximum number of reference images the active model supports.
+   * 0 = model does not support references — icon is hidden entirely.
+   */
+  maxRefs?: number;
+  /** Current reference image count — used to detect cap-reached state. */
+  currentRefCount?: number;
   /**
    * Gallery wall mode — fills the parent justified-row cell edge-to-edge.
    * Card chrome (border, background, box-shadow, border-radius) is removed.
@@ -382,6 +396,9 @@ export default function MediaCard({
   onAnimate,
   onVisibilityChange,
   onDelete,
+  onUseAsReference,
+  maxRefs = 0,
+  currentRefCount = 0,
   galleryMode = false,
   onImageLoad,
   seqNumber,
@@ -691,6 +708,26 @@ export default function MediaCard({
             {isImage && (
               <AnimateChip
                 onAnimate={(frame) => { onAnimate?.(asset, frame); }}
+              />
+            )}
+            {/* 5 — Use as reference (images only, model must support refs: maxRefs > 0).
+                 Hidden entirely when model has no reference support (maxRefs === 0).
+                 Disabled — not hidden — when the reference cap is already reached,
+                 so the user understands why it is unavailable. */}
+            {isImage && onUseAsReference && maxRefs > 0 && (
+              <ActionChip
+                icon={<ImagePlus style={{ width: CHIP_ICON, height: CHIP_ICON }} />}
+                label={
+                  currentRefCount >= maxRefs
+                    ? `Reference limit reached (${currentRefCount}/${maxRefs})`
+                    : "Use as reference"
+                }
+                onClick={e => {
+                  e.stopPropagation();
+                  const url = asset.url ?? asset.result_url ?? asset.result_urls?.[0];
+                  if (url && currentRefCount < maxRefs) onUseAsReference(url);
+                }}
+                disabled={currentRefCount >= maxRefs}
               />
             )}
           </div>

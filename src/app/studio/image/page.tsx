@@ -920,6 +920,9 @@ function ImageCard({
   hideHoverActions = false,
   seqNumber,
   onImageLoad,
+  onUseAsReference,
+  maxRefs = 0,
+  currentRefCount = 0,
 }: {
   img: GeneratedImage;
   onRegenerate?: (prompt: string, model: string, ar: string) => void;
@@ -933,6 +936,12 @@ function ImageCard({
   seqNumber?: number;
   /** Fired when the underlying <img> loads — caller reads naturalWidth/naturalHeight for justified layout. */
   onImageLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  /** Called when user clicks "Use as reference" — passes the Supabase CDN URL to dock state. */
+  onUseAsReference?: (url: string) => void;
+  /** Max reference images the active model supports. 0 = hide icon. */
+  maxRefs?: number;
+  /** Current reference count — used to disable icon when cap is reached. */
+  currentRefCount?: number;
 }) {
   if (img.status === "generating") {
     return <GeneratingPlaceholder ar={img.aspectRatio as AspectRatio} onCancel={onCancel} />;
@@ -1050,6 +1059,9 @@ function ImageCard({
         onEnhance={onEnhance ? () => onEnhance() : undefined}
         onAnimate={(_asset, frame) => onOpenWorkflow?.(frame === "start" ? "start-frame" : "end-frame")}
         onImageLoad={onImageLoad}
+        onUseAsReference={onUseAsReference}
+        maxRefs={maxRefs}
+        currentRefCount={currentRefCount}
       />
     </div>
   );
@@ -1501,6 +1513,26 @@ function ImageStudioInner() {
   // ── Upload cap for current model ──────────────────────────────────────────────
   const currentModelKey = MODEL_TO_KEY[model] ?? "gpt-image-1";
   const maxRefs = MODEL_CAPABILITIES[currentModelKey]?.maxReferenceImages ?? 1;
+
+  // ── Gallery → reference: add an already-generated image as a reference input ──
+  // No upload step — the Supabase CDN URL is used directly.
+  // Guards: model must support refs (maxRefs > 0), cap must not be reached,
+  //         and the same URL must not already be in the reference list.
+  const addReferenceFromGallery = useCallback((url: string) => {
+    if (!url) return;
+    if (referenceImages.some(r => r.cdnUrl === url)) return;   // duplicate guard
+    if (referenceImages.length >= maxRefs) return;              // cap guard (belt-and-suspenders)
+    setReferenceImages(prev => [
+      ...prev,
+      {
+        id:         crypto.randomUUID(),
+        previewUrl: url,    // CDN URL doubles as preview — no blob needed
+        cdnUrl:     url,
+        uploading:  false,
+        role:       "reference" as ImageRole,
+      },
+    ]);
+  }, [referenceImages, maxRefs]);
 
   // ── Shared dock config — single source of truth from image-model-config.ts ──
   const currentDockConfig  = getModelDockConfig(currentModelKey);
@@ -3648,6 +3680,13 @@ function ImageStudioInner() {
                         }));
                       }
                     }}
+                    onUseAsReference={
+                      img.status === "done" && img.url
+                        ? addReferenceFromGallery
+                        : undefined
+                    }
+                    maxRefs={maxRefs}
+                    currentRefCount={referenceImages.length}
                   />
                   {/* Sequence number now rendered inside MediaCard below the action strip */}
                 </div>
