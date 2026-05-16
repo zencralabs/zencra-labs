@@ -12,8 +12,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { LipSyncQuality, LipSyncStatus } from "@/lib/lipsync/status";
-import { getLipSyncCredits }     from "@/lib/lipsync/credits";
-import { validateAudioDuration } from "@/lib/lipsync/validation";
+import { getLipSyncCredits }        from "@/lib/lipsync/credits";
+import { validateAudioDuration }    from "@/lib/lipsync/validation";
+import { getPendingJobStoreState }  from "@/lib/jobs/pending-job-store";
+import { useAuth }                  from "@/components/auth/AuthContext";
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLLS        = 90; // 6 minutes max
@@ -76,6 +78,7 @@ const EMPTY_ASSET: LipSyncAssetState = {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useLipSync(authToken: string | null) {
+  const { user }         = useAuth();
   const [standardReady, setStandardReady] = useState(false);
   const [proReady,       setProReady]     = useState(false);
   const [face,           setFace]         = useState<LipSyncAssetState>(EMPTY_ASSET);
@@ -232,6 +235,7 @@ export function useLipSync(authToken: string | null) {
         stopPoll();
         setGenStatus("failed");
         setErrorMessage("Generation timed out");
+        getPendingJobStoreState().failJob(id, "stale", "Generation timed out.");
         return;
       }
 
@@ -253,11 +257,14 @@ export function useLipSync(authToken: string | null) {
           stopPoll();
           setOutputUrl(data.output_url ?? null);
           setThumbnailUrl(data.thumbnail_url ?? null);
+          getPendingJobStoreState().completeJob(id, data.output_url ?? "", null);
         } else if (data.status === "failed") {
           stopPoll();
           setErrorMessage(data.failure_reason ?? "Generation failed");
+          getPendingJobStoreState().failJob(id, "failed", data.failure_reason ?? "Generation failed");
         } else if (data.status === "cancelled") {
           stopPoll();
+          getPendingJobStoreState().failJob(id, "cancelled", "Generation cancelled.");
         }
       } catch { /* ignore transient errors */ }
     }, POLL_INTERVAL_MS);
@@ -296,12 +303,30 @@ export function useLipSync(authToken: string | null) {
 
       setGenerationId(data.generation_id);
       setGenStatus("processing");
+
+      // Register with Activity Center — generation_id is already the canonical job id.
+      // Only called after a successful create response so no orphan cards are created.
+      getPendingJobStoreState().registerJob({
+        jobId:      data.generation_id,
+        assetId:    data.generation_id,
+        studio:     "lipsync",
+        modelKey:   `lipsync_${effectiveQuality}`,
+        modelLabel: effectiveQuality === "standard" ? "Lip Sync Standard" : "Lip Sync Pro",
+        prompt:     "",
+        status:     "processing",
+        creditCost: audioDuration
+          ? getLipSyncCredits({ qualityMode: effectiveQuality, durationSeconds: audioDuration })
+          : undefined,
+        createdAt:  new Date().toISOString(),
+        userId:     user?.id,
+      });
+
       attachLipSyncPolling(data.generation_id);
     } catch (err) {
       setGenStatus("failed");
       setErrorMessage(err instanceof Error ? err.message : "Network error");
     }
-  }, [canGenerate, face.assetId, audio.assetId, effectiveQuality, audioDuration, authHeaders, attachLipSyncPolling]);
+  }, [canGenerate, face.assetId, audio.assetId, effectiveQuality, audioDuration, authHeaders, attachLipSyncPolling, user]);
 
   // ── Retry failed generation ──────────────────────────────────────────────────
   const retry = useCallback(async () => {
@@ -322,8 +347,23 @@ export function useLipSync(authToken: string | null) {
     }
 
     setGenStatus("processing");
+
+    // Re-register with same jobId to overwrite the terminal "failed" card.
+    // updateJob() is terminal-guarded and would be a no-op on "failed" status.
+    getPendingJobStoreState().registerJob({
+      jobId:      generationId,
+      assetId:    generationId,
+      studio:     "lipsync",
+      modelKey:   `lipsync_${effectiveQuality}`,
+      modelLabel: effectiveQuality === "standard" ? "Lip Sync Standard" : "Lip Sync Pro",
+      prompt:     "",
+      status:     "processing",
+      createdAt:  new Date().toISOString(),
+      userId:     user?.id,
+    });
+
     attachLipSyncPolling(generationId);
-  }, [generationId, genStatus, authHeaders, attachLipSyncPolling]);
+  }, [generationId, genStatus, authHeaders, attachLipSyncPolling, effectiveQuality, user]);
 
   // ── Reset for a new generation ────────────────────────────────────────────────
   const reset = useCallback(() => {
