@@ -26,6 +26,17 @@ interface CreditTransaction {
   created_at: string;
 }
 
+interface QuickCreateMedia {
+  image:    { url: string | null };
+  cd:       { url: string | null };
+  video:    { url: string | null };
+  fcs:      { url: string | null };
+  lipsync:  { url: string | null };
+  audio:    null;
+  projects: { cover_url: string | null };
+  library:  { url: string | null };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,16 +55,6 @@ const PLAN_BADGE_COLORS: Record<string, string> = {
   pro:      "#14B8A6",
   business: "#D4AF37",
 };
-
-const QUICK_ACTIONS = [
-  { label: "Image Studio",      icon: ImageIcon, color: "#2563EB", bg: "rgba(37,99,235,0.12)",  href: "/studio/image",                          desc: "Generate images" },
-  { label: "Video Studio",      icon: Video,     color: "#7C3AED", bg: "rgba(124,58,237,0.12)", href: "/studio/video",                          desc: "Create videos"   },
-  { label: "Creative Director", icon: Layers,    color: "#0EA5A0", bg: "rgba(14,165,160,0.12)", href: "/studio/image?mode=creative-director",   desc: "Direct concepts" },
-  { label: "Audio Studio",      icon: Music,     color: "#D97706", bg: "rgba(217,119,6,0.12)",  href: "/studio/audio",                          desc: "Generate audio"  },
-  { label: "My Projects",       icon: FolderOpen,color: "#10B981", bg: "rgba(16,185,129,0.12)", href: "/dashboard/projects",                   desc: "View projects"   },
-  { label: "Library",           icon: Star,      color: "#F59E0B", bg: "rgba(245,158,11,0.12)", href: "/dashboard/library",                    desc: "Your assets"     },
-  { label: "Buy Credits",       icon: Zap,       color: "#A855F7", bg: "rgba(168,85,247,0.12)", href: "/dashboard/credits",                    desc: "Top up credits"  },
-];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -154,6 +155,7 @@ export default function DashboardPage() {
   const [activity,        setActivity]        = useState<CreditTransaction[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError,   setActivityError]   = useState(false);
+  const [qcMedia,         setQcMedia]         = useState<QuickCreateMedia | null>(null);
 
   // ── Load recent credit transactions ─────────────────────────────────────────
   const loadActivity = useCallback(async () => {
@@ -178,6 +180,28 @@ export default function DashboardPage() {
   }, [session]);
 
   useEffect(() => { void loadActivity(); }, [loadActivity]);
+
+  // ── Load Quick Create media covers ──────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data: { session: live } } = await supabase.auth.getSession();
+      const token = live?.access_token;
+      if (!token) return;
+      try {
+        const res = await fetch("/api/dashboard/quick-create-media", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled && res.ok) {
+          const body = await res.json() as { success?: boolean; data?: QuickCreateMedia };
+          if (body?.data) setQcMedia(body.data);
+        }
+      } catch {
+        // Non-fatal — cards fall back to gradient placeholders
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   if (!user) return null;
 
@@ -384,51 +408,158 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 3. Quick Create ────────────────────────────────────────────────── */}
+      {/* ── 3. Quick Create — premium 8-card media grid ────────────────────── */}
+      <style>{`
+        .qc-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+        @media (max-width: 900px) {
+          .qc-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+          .qc-grid { grid-template-columns: 1fr; }
+        }
+        .qc-card {
+          position: relative;
+          border-radius: 14px;
+          overflow: hidden;
+          cursor: pointer;
+          min-height: 190px;
+          border: 1px solid rgba(255,255,255,0.07);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+          background: var(--page-bg-2);
+        }
+        .qc-card:hover {
+          transform: translateY(-3px);
+        }
+        .qc-card video { object-fit: cover; width: 100%; height: 100%; position: absolute; inset: 0; }
+        .qc-card img   { object-fit: cover; width: 100%; height: 100%; position: absolute; inset: 0; }
+        /* Animated audio equalizer */
+        @keyframes qc-eq {
+          0%, 100% { height: 4px;  }
+          50%       { height: 22px; }
+        }
+        .qc-eq-bar {
+          width: 3px;
+          border-radius: 2px;
+          background: currentColor;
+          animation: qc-eq 0.9s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        .qc-eq-bar:nth-child(1) { animation-delay: 0s;     height: 10px; }
+        .qc-eq-bar:nth-child(2) { animation-delay: 0.15s;  height: 18px; }
+        .qc-eq-bar:nth-child(3) { animation-delay: 0.3s;   height: 8px;  }
+        .qc-eq-bar:nth-child(4) { animation-delay: 0.45s;  height: 22px; }
+        .qc-eq-bar:nth-child(5) { animation-delay: 0.6s;   height: 12px; }
+        .qc-eq-bar:nth-child(6) { animation-delay: 0.75s;  height: 6px;  }
+      `}</style>
       <div style={{ marginBottom: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 700, color: "var(--page-text)", margin: 0, letterSpacing: "-0.01em" }}>
-              Quick Create
-            </h2>
-            <p style={{ fontSize: 12, color: "#475569", margin: "3px 0 0", fontFamily: "var(--font-sans)" }}>Jump into any studio</p>
-          </div>
+        <div style={{ marginBottom: 14 }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 17, fontWeight: 700, color: "var(--page-text)", margin: 0, letterSpacing: "-0.01em" }}>
+            Quick Create
+          </h2>
+          <p style={{ fontSize: 12, color: "#475569", margin: "3px 0 0", fontFamily: "var(--font-sans)" }}>Jump into any studio</p>
         </div>
-        {/* 7-column grid — all actions fit without wrapping */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
-          {QUICK_ACTIONS.map(({ label, icon: Icon, color, bg, href, desc }) => (
-            <button
-              key={label}
-              onClick={() => router.push(href)}
-              style={{
-                backgroundColor: "var(--page-bg-2)",
-                borderRadius: 13,
-                padding: "16px 12px",
-                border: "1px solid rgba(255,255,255,0.06)",
-                cursor: "pointer",
-                textAlign: "left",
-                transition: "border-color 0.15s, box-shadow 0.15s, transform 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = `${color}55`;
-                el.style.boxShadow   = `0 0 18px ${color}18`;
-                el.style.transform   = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.borderColor = "rgba(255,255,255,0.06)";
-                el.style.boxShadow   = "none";
-                el.style.transform   = "translateY(0)";
-              }}
-            >
-              <div style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-                <Icon size={16} style={{ color }} />
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--page-text)", lineHeight: 1.3, fontFamily: "var(--font-sans)" }}>{label}</div>
-              <div style={{ fontSize: 11, color: "#334155", marginTop: 3, fontFamily: "var(--font-sans)" }}>{desc}</div>
-            </button>
-          ))}
+
+        <div className="qc-grid">
+          <QCCard
+            label="Image Studio"
+            desc="Generate images"
+            cta="Open studio →"
+            href="/studio/image"
+            accentColor="#2563EB"
+            placeholder="linear-gradient(135deg, #0a1a4a 0%, #0d2060 50%, #1a3a8a 100%)"
+            mediaUrl={qcMedia?.image?.url ?? null}
+            mediaType="image"
+            icon={<ImageIcon size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="Creative Director"
+            desc="AI-guided concept flow"
+            cta="Direct a concept →"
+            href="/studio/image?mode=creative-director"
+            accentColor="#0EA5A0"
+            placeholder="linear-gradient(135deg, #041a1a 0%, #063030 50%, #0a5050 100%)"
+            mediaUrl={qcMedia?.cd?.url ?? null}
+            mediaType="image"
+            icon={<Layers size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="Video Studio"
+            desc="Generate AI videos"
+            cta="Create a video →"
+            href="/studio/video"
+            accentColor="#7C3AED"
+            placeholder="linear-gradient(135deg, #120a2a 0%, #250d50 50%, #3d1580 100%)"
+            mediaUrl={qcMedia?.video?.url ?? null}
+            mediaType="video"
+            icon={<Video size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="Future Cinema Studio"
+            desc="Cinematic AI filmmaking"
+            cta="Enter studio →"
+            href="/studio/cinema"
+            accentColor="#D4AF37"
+            placeholder="linear-gradient(135deg, #1a1200 0%, #2e1f00 50%, #4a3200 100%)"
+            mediaUrl={qcMedia?.fcs?.url ?? null}
+            mediaType="video"
+            icon={<Star size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="LipSyncZ"
+            desc="Sync any audio to video"
+            cta="Sync now →"
+            href="/studio/lipsync"
+            accentColor="#C6FF00"
+            placeholder="linear-gradient(135deg, #0d1a00 0%, #1a3000 50%, #263d00 100%)"
+            mediaUrl={qcMedia?.lipsync?.url ?? null}
+            mediaType="video"
+            icon={<Music size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="Audio Studio"
+            desc="Generate AI voiceover"
+            cta="Generate audio →"
+            href="/studio/audio"
+            accentColor="#D97706"
+            placeholder="linear-gradient(135deg, #1a0e00 0%, #2e1800 50%, #4a2800 100%)"
+            mediaUrl={null}
+            mediaType="audio"
+            icon={<Music size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="My Projects"
+            desc="Organise your work"
+            cta="View projects →"
+            href="/dashboard/projects"
+            accentColor="#10B981"
+            placeholder="linear-gradient(135deg, #001a10 0%, #003020 50%, #004a30 100%)"
+            mediaUrl={qcMedia?.projects?.cover_url ?? null}
+            mediaType="image"
+            icon={<FolderOpen size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
+          <QCCard
+            label="Library"
+            desc="All your creative assets"
+            cta="Browse library →"
+            href="/dashboard/library"
+            accentColor="#F59E0B"
+            placeholder="linear-gradient(135deg, #1a1000 0%, #2e1c00 50%, #4a2e00 100%)"
+            mediaUrl={qcMedia?.library?.url ?? null}
+            mediaType="image"
+            icon={<Star size={14} />}
+            onNavigate={(href) => router.push(href)}
+          />
         </div>
       </div>
 
@@ -661,6 +792,147 @@ export default function DashboardPage() {
               Contact support <ChevronRight size={12} />
             </a>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QCCard — Premium cinematic Quick Create card
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface QCCardProps {
+  label:       string;
+  desc:        string;
+  cta:         string;
+  href:        string;
+  accentColor: string;
+  placeholder: string;          // CSS gradient string used when no media is available
+  mediaUrl:    string | null;
+  mediaType:   "image" | "video" | "audio";
+  icon:        React.ReactNode;
+  onNavigate:  (href: string) => void;
+}
+
+function QCCard({
+  label, desc, cta, href, accentColor, placeholder, mediaUrl, mediaType, icon, onNavigate,
+}: QCCardProps) {
+  const hasMedia = !!mediaUrl;
+
+  function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>) {
+    const el = e.currentTarget as HTMLElement;
+    el.style.transform   = "translateY(-3px)";
+    el.style.boxShadow   = `0 8px 32px ${accentColor}28`;
+    el.style.borderColor = `${accentColor}40`;
+    // Hover-autoplay for video cards
+    const vid = el.querySelector("video") as HTMLVideoElement | null;
+    if (vid) void vid.play();
+  }
+
+  function handleMouseLeave(e: React.MouseEvent<HTMLDivElement>) {
+    const el = e.currentTarget as HTMLElement;
+    el.style.transform   = "translateY(0)";
+    el.style.boxShadow   = "none";
+    el.style.borderColor = "rgba(255,255,255,0.07)";
+    const vid = el.querySelector("video") as HTMLVideoElement | null;
+    if (vid) { vid.pause(); vid.currentTime = 0; }
+  }
+
+  return (
+    <div
+      className="qc-card"
+      onClick={() => onNavigate(href)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* ── Background media ──────────────────────────────────────────── */}
+      {mediaType === "image" && hasMedia && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={mediaUrl!} alt="" draggable={false} />
+      )}
+      {mediaType === "video" && hasMedia && (
+        <video
+          src={mediaUrl!}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          autoPlay={false}
+        />
+      )}
+
+      {/* ── Audio animated equalizer (no visual asset) ────────────────── */}
+      {mediaType === "audio" && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: placeholder,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            display: "flex", alignItems: "flex-end", gap: 4,
+            color: accentColor, height: 32,
+          }}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="qc-eq-bar" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Gradient placeholder (no media loaded yet) ────────────────── */}
+      {(mediaType !== "audio") && !hasMedia && (
+        <div style={{ position: "absolute", inset: 0, background: placeholder }} />
+      )}
+
+      {/* ── Dark cinematic overlay ────────────────────────────────────── */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.12) 100%)",
+        pointerEvents: "none",
+      }} />
+
+      {/* ── Accent top-left glow dot ─────────────────────────────────── */}
+      <div style={{
+        position: "absolute", top: 14, left: 14,
+        width: 30, height: 30, borderRadius: 8,
+        backgroundColor: `${accentColor}22`,
+        border: `1px solid ${accentColor}44`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: accentColor,
+      }}>
+        {icon}
+      </div>
+
+      {/* ── Card content — pinned to bottom ───────────────────────────── */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        padding: "16px 16px 15px",
+      }}>
+        <div style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 14, fontWeight: 700,
+          color: "#F8FAFC",
+          letterSpacing: "-0.01em",
+          lineHeight: 1.2,
+          marginBottom: 3,
+        }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: 11, color: "rgba(248,250,252,0.55)",
+          fontFamily: "var(--font-sans)", lineHeight: 1.4, marginBottom: 8,
+        }}>
+          {desc}
+        </div>
+        <div style={{
+          fontSize: 10, fontWeight: 700,
+          color: accentColor,
+          fontFamily: "var(--font-sans)",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+        }}>
+          {cta}
         </div>
       </div>
     </div>
