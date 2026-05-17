@@ -2902,6 +2902,10 @@ function ImageStudioInner() {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes refPreviewIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         @keyframes modelSelectPulse {
           0%   { background: rgba(99,102,241,0.18); }
           50%  { background: rgba(99,102,241,0.32); }
@@ -4009,7 +4013,7 @@ function ImageStudioInner() {
                       transform: "translateX(-50%)",
                       zIndex: 200,
                       pointerEvents: "none",
-                      animation: "refSlideIn 0.12s ease",
+                      animation: "refPreviewIn 0.12s ease",
                       width: 132,
                       background: "rgba(8,10,20,0.92)",
                       backdropFilter: "blur(18px)",
