@@ -2060,6 +2060,11 @@ function ImageStudioInner() {
   // IntersectionObserver — watches the sentinel div at the bottom of the gallery.
   // root: galleryScrollRef (the scroll container, not the viewport) so rootMargin
   // applies to the container's visible area. "800px" prefetches one screen ahead.
+  //
+  // Dep: [historyLoaded] — the effect must re-run after the initial gallery fetch
+  // completes because the sentinel <div> lives inside {images.length > 0 && ...}
+  // and is not in the DOM on first mount. Once historyLoaded flips to true the
+  // sentinel exists; the cleanup disconnects any prior observer before reattaching.
   useEffect(() => {
     const sentinel = infiniteScrollSentinelRef.current;
     const root     = galleryScrollRef.current;
@@ -2075,9 +2080,10 @@ function ImageStudioInner() {
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  // galleryScrollRef and infiniteScrollSentinelRef are stable refs — no deps needed.
+  // historyLoaded transitions false→true exactly once after the first API page
+  // returns; that is the earliest point the sentinel is guaranteed to be in the DOM.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [historyLoaded]);
 
   // When model changes: reset quality to the new model's default, clear edit image
   // if not needed, and hard-reset aspect ratio if the current AR is not supported.
